@@ -563,24 +563,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####      api/test_sensor.py     #####
 #######################################
-platform_tests/api/test_sensor.py::TestVoltageSensorApi::test_get_model:
-  # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
-  # Due to this Cisco currently does not expose serial and model number under sysfs path
-  skip:
-    reason: "test_get_model is not supported on cisco platforms"
-    conditions_logical_operator: or
-    conditions:
-       - "asic_type in ['cisco-8000']"
-
-platform_tests/api/test_sensor.py::TestVoltageSensorApi::test_get_serial:
-  # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
-  # Due to this Cisco currently does not expose serial and model number under sysfs path
-  skip:
-    reason: "test_get_serial is not supported on cisco platforms"
-    conditions_logical_operator: or
-    conditions:
-       - "asic_type in ['cisco-8000']"
-
 platform_tests/api/test_sensor.py::TestCurrentSensorApi::test_get_model:
   # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
   # Due to this Cisco currently does not expose serial and model number under sysfs path
@@ -591,6 +573,24 @@ platform_tests/api/test_sensor.py::TestCurrentSensorApi::test_get_model:
        - "asic_type in ['cisco-8000']"
 
 platform_tests/api/test_sensor.py::TestCurrentSensorApi::test_get_serial:
+  # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
+  # Due to this Cisco currently does not expose serial and model number under sysfs path
+  skip:
+    reason: "test_get_serial is not supported on cisco platforms"
+    conditions_logical_operator: or
+    conditions:
+       - "asic_type in ['cisco-8000']"
+
+platform_tests/api/test_sensor.py::TestVoltageSensorApi::test_get_model:
+  # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
+  # Due to this Cisco currently does not expose serial and model number under sysfs path
+  skip:
+    reason: "test_get_model is not supported on cisco platforms"
+    conditions_logical_operator: or
+    conditions:
+       - "asic_type in ['cisco-8000']"
+
+platform_tests/api/test_sensor.py::TestVoltageSensorApi::test_get_serial:
   # Hardware components used for Cisco sensors do not have IDPROMs to store model and serial number details
   # Due to this Cisco currently does not expose serial and model number under sysfs path
   skip:

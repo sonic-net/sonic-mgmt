@@ -27,7 +27,11 @@ class SensorApiTestBase(PlatformApiTestBase):
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
+    def setup(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            platform_api_conn):
         """
         Setup up requirements for voltage sensor test cases
 
@@ -39,10 +43,11 @@ class SensorApiTestBase(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         daemon_en_status = check_pmon_daemon_enable_status(duthost, self.daemon_name)
         if daemon_en_status is False:
-            pytest.skip("{} is not enabled in {} {}".format(self.daemon_name, duthost.facts['platform'], duthost.os_version))
+            pytest.skip(f"{self.daemon_name} is not enabled in {duthost.facts['platform']} {duthost.os_version}")
         if self.num_sensors is None:
             try:
-                self.num_sensors = int(getattr(chassis, f"get_num_{self.sensor_class.sensor_type}_sensors")(platform_api_conn))
+                self.num_sensors = int(getattr(chassis,
+                                               f"get_num_{self.sensor_class.sensor_type}_sensors")(platform_api_conn))
             except Exception as exc:
                 pytest.fail(f"Failed to get number of sensors: {exc}")
         if self.num_sensors == 0:
@@ -52,7 +57,11 @@ class SensorApiTestBase(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, duthost, key, value):
+    def compare_value_with_platform_facts(
+            self,
+            duthost,
+            key,
+            value):
         """
         Compare a specified key and value again DUT defined facts
 
@@ -61,14 +70,23 @@ class SensorApiTestBase(PlatformApiTestBase):
             key: Key for lookup in DUT facts
             value: Value to compare against within key in DUT facts
         """
-        expected_values = {s[key] for s in duthost.facts.get("chassis", {}).get(f"{self.sensor_class.sensor_type}_sensors", []) if key in s}
+        expected_values = {
+            s[key] for s in duthost.facts.get(
+                "chassis", {}).get(
+                    f"{self.sensor_class.sensor_type}_sensors", [])
+            if key in s}
 
         if self.expect(len(expected_values) > 0,
                        f"Unable to get sensor name list containing sensor '{value}' from platform.json file"):
             self.expect(value in expected_values,
                         f"Sensor name '{value}' is not included in {expected_values}")
 
-    def get_sensor_facts(self, duthost, sensor_idx, def_value, key):
+    def get_sensor_facts(
+            self,
+            duthost,
+            sensor_idx,
+            def_value,
+            key):
         """
         Retrieve expected value for specified key from DUT facts for a given sensor
 
@@ -82,7 +100,9 @@ class SensorApiTestBase(PlatformApiTestBase):
             Value of specified key from DUT facts, def_value if no value found in DUT facts
         """
         try:
-            return duthost.facts.get("chassis", {}).get(f"{self.sensor_class.sensor_type}_sensors", [])[sensor_idx].get(key, def_value)
+            return duthost.facts.get(
+                "chassis", {}).get(
+                    f"{self.sensor_class.sensor_type}_sensors", [])[sensor_idx].get(key, def_value)
         except IndexError:
             return def_value
 
@@ -90,7 +110,12 @@ class SensorApiTestBase(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_name(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_name API to verify it returns data of the expected type and value
 
@@ -111,7 +136,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_presence(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_presence API to verify all sensors report presence as True
 
@@ -131,7 +161,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_model(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_model API to verify all sensors report models as str type
 
@@ -148,7 +183,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_serial(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_serial API to verify all sensors report serial numbers as str type
 
@@ -165,7 +205,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_status(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_status API to verify all sensors report status as bool type
 
@@ -182,7 +227,9 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):
+    def test_get_position_in_parent(
+            self,
+            platform_api_conn):
         """
         Test get_position_in_parent API to verify all sensors report position in parent as int type
 
@@ -196,7 +243,9 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):
+    def test_is_replaceable(
+            self,
+            platform_api_conn):
         """
         Test is_replaceable API to verify all sensors report replaceability state as bool type
 
@@ -214,7 +263,12 @@ class SensorApiTestBase(PlatformApiTestBase):
     # Functions to test methods defined in SensorBase class
     #
 
-    def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_type(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Specifies the type of the sensor such as current/voltage etc.
 
@@ -232,7 +286,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_value(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_value(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_value API to verify all sensors report values as float or int type
 
@@ -249,7 +308,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_unit(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_unit(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Retrieves unit of measurement reported by sensor
 
@@ -269,9 +333,15 @@ class SensorApiTestBase(PlatformApiTestBase):
                         f"Sensor {i} unit '{unit}' does not match base unit '{self.sensor_unit_suffix}'")
         self.assert_expectations()
 
-    def test_get_minimum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_minimum_recorded(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test get_minimum_recorded API to verify all sensors report minimum recorded value as float or int and within range
+        Test get_minimum_recorded API to verify all sensors report minimum recorded
+        value as float or int and within range
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -308,9 +378,15 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_maximum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_maximum_recorded(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test get_maximum_recorded API to verify all sensors report maximum recorded value as float or int and within range
+        Test get_maximum_recorded API to verify all sensors report maximum recorded
+        value as float or int and within range
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -347,7 +423,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_low_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_low_threshold API to verify all sensors report low thresholds as float or int type
 
@@ -376,7 +457,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_high_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_high_threshold API to verify all sensors report high thresholds as float or int type
 
@@ -405,7 +491,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_low_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_low_critical_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_low_critical_threshold API to verify all sensors report low critical thresholds as float or int type
 
@@ -434,7 +525,12 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_high_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_high_critical_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
         Test get_high_critical_threshold API to verify all sensors report high critical thresholds as float or int type
 
@@ -463,9 +559,15 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_set_low_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test set_low_threshold API to verify all sensors can have their low threshold set to a specified value successfully
+        Test set_low_threshold API to verify all sensors can have their low threshold
+        set to a specified value successfully
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -488,7 +590,8 @@ class SensorApiTestBase(PlatformApiTestBase):
                 continue
 
             low_value = self.sensor_class.get_low_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(low_value, (float, int)), f"Sensor {i} low threshold '{low_value}' appears incorrect"):
+            if not self.expect(isinstance(low_value, (float, int)),
+                               f"Sensor {i} low threshold '{low_value}' appears incorrect"):
                 continue
             low_value += 1
 
@@ -497,7 +600,8 @@ class SensorApiTestBase(PlatformApiTestBase):
                 continue
 
             value = self.sensor_class.get_low_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(value, (float, int)), f"Sensor {i} low threshold '{value}' appears incorrect"):
+            if not self.expect(isinstance(value, (float, int)),
+                               f"Sensor {i} low threshold '{value}' appears incorrect"):
                 continue
 
             self.expect(value == low_value,
@@ -508,9 +612,15 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_set_high_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test set_high_threshold API to verify all sensors can have their high threshold set to a specified value successfully
+        Test set_high_threshold API to verify all sensors can have their high threshold
+        set to a specified value successfully
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -533,7 +643,8 @@ class SensorApiTestBase(PlatformApiTestBase):
                 continue
 
             high_value = self.sensor_class.get_high_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(high_value, (float, int)), f"Sensor {i} high threshold '{high_value}' appears incorrect"):
+            if not self.expect(isinstance(high_value, (float, int)),
+                               f"Sensor {i} high threshold '{high_value}' appears incorrect"):
                 continue
             high_value -= 1
 
@@ -553,9 +664,15 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_low_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_set_low_critical_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test set_low_critical_threshold API to verify all sensors can have their low critical threshold set to a specified value successfully
+        Test set_low_critical_threshold API to verify all sensors can have their low critical
+        threshold set to a specified value successfully
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -578,16 +695,19 @@ class SensorApiTestBase(PlatformApiTestBase):
                 continue
 
             low_value = self.sensor_class.get_low_critical_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(low_value, (float, int)), f"Sensor {i} low critical threshold '{low_value}' appears incorrect"):
+            if not self.expect(isinstance(low_value, (float, int)),
+                               f"Sensor {i} low critical threshold '{low_value}' appears incorrect"):
                 continue
             low_value += 1
 
             result = self.sensor_class.set_low_critical_threshold(platform_api_conn, i, low_value)
-            if not self.expect(result is True, f"Failed to set set_low_critical_threshold for sensor {i} to {low_value}"):
+            if not self.expect(result is True,
+                               f"Failed to set set_low_critical_threshold for sensor {i} to {low_value}"):
                 continue
 
             value = self.sensor_class.get_low_critical_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(value, (float, int)), f"Sensor {i} low critical threshold '{value}' appears incorrect"):
+            if not self.expect(isinstance(value, (float, int)),
+                               f"Sensor {i} low critical threshold '{value}' appears incorrect"):
                 continue
 
             self.expect(value == low_value,
@@ -598,9 +718,15 @@ class SensorApiTestBase(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_high_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_set_high_critical_threshold(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn):
         """
-        Test set_high_critical_threshold API to verify all sensors can have their high critical threshold set to a specified value successfully
+        Test set_high_critical_threshold API to verify all sensors can have their high critical
+        threshold set to a specified value successfully
 
         Args:
             duthosts: DUT hosts where test can operate
@@ -618,21 +744,26 @@ class SensorApiTestBase(PlatformApiTestBase):
                 sensors_skipped += 1
                 continue
             if not self.get_sensor_facts(duthost, i, True, "controllable"):
-                self.logger.info("test_set_high_critical_threshold: Skipping sensor %s (threshold not controllable)", i)
+                self.logger.info(
+                    "test_set_high_critical_threshold: Skipping sensor %s (threshold not controllable)",
+                    i)
                 sensors_skipped += 1
                 continue
 
             high_value = self.sensor_class.get_high_critical_threshold(platform_api_conn, i)
-            if not self.expect(isinstance(high_value, (float, int)), f"Sensor {i} high critical threshold '{high_value}' appears incorrect"):
+            if not self.expect(isinstance(high_value, (float, int)),
+                               f"Sensor {i} high critical threshold '{high_value}' appears incorrect"):
                 continue
             high_value -= 1
 
             result = self.sensor_class.set_high_critical_threshold(platform_api_conn, i, high_value)
-            if not self.expect(result is True, f"Failed to set set_high_critical_threshold for sensor {i} to {high_value}"):
+            if not self.expect(result is True,
+                               f"Failed to set set_high_critical_threshold for sensor {i} to {high_value}"):
                 continue
 
             value = self.sensor_class.get_high_critical_threshold(platform_api_conn, i)
-            if self.expect(isinstance(value, (float, int)), f"Sensor {i} high critical threshold '{value}' appears incorrect"):
+            if self.expect(isinstance(value, (float, int)),
+                           f"Sensor {i} high critical threshold '{value}' appears incorrect"):
                 continue
 
             self.expect(value == high_value,

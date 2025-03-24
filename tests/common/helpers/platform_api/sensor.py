@@ -5,6 +5,7 @@ Interface to interact with the sensors of the DUT via platform APIs remotely
 import json
 import logging
 
+
 class Sensor():
     """
     Base sensor API interface
@@ -361,12 +362,14 @@ class Sensor():
         """
         return cls.sensor_api(conn, index, "get_maximum_recorded")
 
+
 class VoltageSensor(Sensor):
     """
     Voltage sensor API interface
     """
 
     sensor_type = "voltage"
+
 
 class CurrentSensor(Sensor):
     """

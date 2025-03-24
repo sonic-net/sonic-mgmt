@@ -16,6 +16,7 @@ pytestmark = [
     pytest.mark.device_type("physical")
 ]
 
+
 class TestVoltageSensorApi(SensorApiTestBase):
     """
     Test voltage sensor APIs
@@ -24,6 +25,7 @@ class TestVoltageSensorApi(SensorApiTestBase):
     sensor_class = VoltageSensor
     sensor_unit_suffix = "V"
     logger = logging.getLogger(__name__)
+
 
 class TestCurrentSensorApi(SensorApiTestBase):
     """
