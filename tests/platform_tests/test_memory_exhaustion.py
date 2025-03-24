@@ -81,12 +81,12 @@ class TestMemoryExhaustion:
         # Waiting for SSH connection startup
         pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
                       'DUT {} did not startup'.format(hostname))
+        # Verify DUT is really rebooted: uptime should be later than the time when the test case started.
+        dut_uptime = duthost.get_up_time()
+        pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
         self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
-        # Verify DUT uptime is later than the time when the test case started running.
-        dut_uptime = duthost.get_up_time()
-        pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
 
     def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
         """
