@@ -9,15 +9,17 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: {{ dut.asn }}
+    dut_asn: {{ dut.asn_v6 }}
     dut_type: LeafRouter
-    nhipv4: 10.10.246.254
-    nhipv6: FC0A::FF
     podset_number: 200
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
+    nhipv6: FC0A::FF
+    ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
   spine:
     swrole: spine
   tor:
@@ -35,19 +37,16 @@ configuration:
     - spine
     {%- endif %}
     bgp:
-      asn: {{vm.asn}}
+      router-id: {{ vm.loopback_ipv4 }}
+      asn: {{vm.asn_v6}}
       peers:
-        {{vm.peer_asn}}:
-          - {{vm.dut_intf_ipv4}}
+        {{vm.peer_asn_v6}}:
           - {{vm.dut_intf_ipv6}}
     interfaces:
       Loopback0:
-        ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
       Ethernet1:
-        ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
     bp_interface:
-      ipv4: {{vm.bp_ipv4}}/24
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}
