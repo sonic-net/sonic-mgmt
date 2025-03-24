@@ -140,7 +140,7 @@
   when: pip_executable=="pip3" and host_distribution_version.stdout < "24.04"
 
 - name: Install requests package
-  pip: name=requests version=2.32.3 state=present virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+  pip: name=requests version=2.32.3 state=present virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="{{ ansible_python_interpreter }} -m venv"
   become: yes
   environment: "{{ proxy_env | default({}) }}"
   when: host_distribution_version.stdout >= "24.04"

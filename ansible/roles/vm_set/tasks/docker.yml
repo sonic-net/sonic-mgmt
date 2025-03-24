@@ -106,7 +106,7 @@
 - name: Update python3 packages
   block:
   - name: Install python packages
-    pip: name=docker version=7.1.0 state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+    pip: name=docker version=7.1.0 state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="{{ ansible_python_interpreter }} -m venv"
     become: yes
     environment: "{{ proxy_env | default({}) }}"
   when: host_distribution_version.stdout >= "24.04"
