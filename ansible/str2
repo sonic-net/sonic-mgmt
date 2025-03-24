@@ -2239,8 +2239,8 @@ sonic_nokia_7215:
     iface_speed: 1000
     plt_reboot_dict:
       cold:
-        wait: 360
-        timeout: 360
+        wait: 600
+        timeout: 600
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
