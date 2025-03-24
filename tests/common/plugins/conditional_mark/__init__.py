@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+CONSTANTS_YAML_FILE = "common/plugins/conditional_mark/constants.yaml"
 
 
 def pytest_addoption(parser):
@@ -170,12 +171,34 @@ def get_dut_name(session):
     return dut_name
 
 
+def update_declared_constants(session, out_basic_facts, filename=CONSTANTS_YAML_FILE):
+    '''
+    Find more facts (variable definitions) declared in the CONSTANTS_YAML_KEY yaml definition, if any.
+    Update the out_basic_facts dict in-place so that each new condition can potentially use the previous one.
+    '''
+    with open(filename) as f:
+        logger.debug('Loaded test constants file: {}'.format(filename))
+        constants = yaml.safe_load(f)
+    assert isinstance(constants, list), \
+        "Expected list in {} file of name/value records".format(CONSTANTS_YAML_FILE)
+    for name_val_dct in constants:
+        assert "name" in name_val_dct, "Test mark condition constant requires a 'name' field"
+        assert "value" in name_val_dct, "Test mark condition constant requires a 'value' field"
+        name = str(name_val_dct["name"])
+        value = str(name_val_dct["value"])
+        # Use 'locals' instead of 'globals' parameter for eval since the 'globals' parameter becomes
+        # side-effected with a __builtins__ field that corrupts the basic facts.
+        evaluated = eval(value, None, out_basic_facts)
+        out_basic_facts[name] = evaluated
+
+
 def get_basic_facts(session):
     dut_name = get_dut_name(session)
     cached_facts_name = f'BASIC_FACTS_{dut_name}'
     basic_facts_cached = session.config.cache.get(cached_facts_name, None)
     if not basic_facts_cached:
         basic_facts = load_basic_facts(dut_name, session)
+        update_declared_constants(session, basic_facts)
         session.config.cache.set(cached_facts_name, basic_facts)
 
 
