@@ -500,11 +500,12 @@ def post_test_dpu_check(duthost, dpuhosts,
     return
 
 
-def dpu_shutdown_and_check(dpu_list):
+def dpu_shutdown_and_check(duthost, dpu_list):
     """
     Parallely Execute DPU shutdown for given DPU list
     Waits and checks parallely whether DPU is actually down
     Args:
+       duthost: Host handle
        dpu_list: List of DPUs to be shutdown
     Returns:
        Returns Nothing
@@ -535,11 +536,12 @@ def dpu_shutdown_and_check(dpu_list):
             )
 
 
-def dpu_startup_and_check(dpu_list):
+def dpu_startup_and_check(duthost, dpu_list):
     """
     Parallely Execute DPU startup for given DPU list
     Waits and checks parallely whether DPU is actually up
     Args:
+       duthost: Host handle
        dpu_list: List of DPUs to be startup
     Returns:
        Returns Nothing
@@ -551,7 +553,7 @@ def dpu_startup_and_check(dpu_list):
             executor.submit(
                 duthost.shell,
                 f"sudo config chassis modules startup {dpu_name}"
-            ): dpu_name for dpu_name in dpu_on_list
+            ): dpu_name for dpu_name in dpu_list
         }
         for future in concurrent.futures.as_completed(futures_startup):
             future.result()  # Ensure execution completes
@@ -561,7 +563,7 @@ def dpu_startup_and_check(dpu_list):
             executor.submit(
                 wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
-            ): dpu_name for dpu_name in dpu_on_list
+            ): dpu_name for dpu_name in dpu_list
         }
         for future in concurrent.futures.as_completed(futures_up):
             pytest_assert(

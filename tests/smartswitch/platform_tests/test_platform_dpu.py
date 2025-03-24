@@ -13,6 +13,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpu_check,\
+    dpu_shutdown_and_check, dpu_startup_and_check,\
     check_dpu_health_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
 
@@ -61,9 +62,11 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         for index in range(num_dpu_modules)
     ]
 
-    dpu_shutdown_and_check(dpu_names)
+    logging.info("Shutting down the dpus in parallel")
+    dpu_shutdown_and_check(duthost, dpu_names)
 
-    dpu_startup_and_check(dpu_names)
+    logging.info("Starting up the dpus in parallel")
+    dpu_startup_and_check(duthost, dpu_names)
 
     # Verify reboot cause in parallel
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -104,7 +107,8 @@ def test_pcie_link(duthosts, dpuhosts,
                   'PCIe Device Checking All Test ----------->>> PASSED',
                   "PCIe Link test failed'{}'".format(duthost.hostname))
 
-    dpu_shutdown_and_check(dpu_on_list)
+    logging.info("Shutting down the dpus in parallel")
+    dpu_shutdown_and_check(duthost, dpu_on_list)
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
     pytest_assert(output_pcie_info[-1] ==
@@ -171,16 +175,19 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
         duthost, platform_api_conn, num_dpu_modules)
 
-    dpu_shutdown_and_check(dpu_on_list)
+    logging.info("Shutting down the dpus in parallel")
+    dpu_shutdown_and_check(duthost, dpu_on_list)
 
     for index in range(len(dpu_on_list)):
-            check_dpu_health_status(duthost, dpu_on_list[index],
-                                    'Offline', 'down')
-    dpu_startup_and_check(dpu_on_list)
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Offline', 'down')
+
+    logging.info("Starting up the dpus in parallel")
+    dpu_startup_and_check(duthost, dpu_on_list)
 
     for index in range(len(dpu_on_list)):
-            check_dpu_health_status(duthost, dpu_on_list[index],
-                                    'Online', 'up')
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Online', 'up')
 
 
 def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
