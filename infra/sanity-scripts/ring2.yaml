@@ -101,9 +101,7 @@ PLT: #Mridul Bajpai
     - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
     - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
     - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
-    - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
     - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-
 
 INFRA: #Anand Mehra
   all_topo:
