@@ -20,7 +20,7 @@ from ansible.module_utils.multi_servers_utils import MultiServersUtils
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 DOCUMENTATION = '''
 module:  announce_routes
@@ -1170,7 +1170,7 @@ def main():
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
     if dut_interfaces:
         topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
-        for vm_name in topo['configuration'].keys():
+        for vm_name in list(topo['configuration'].keys()):
             if vm_name not in topo['topology']['VMs']:
                 topo['configuration'].pop(vm_name)
 

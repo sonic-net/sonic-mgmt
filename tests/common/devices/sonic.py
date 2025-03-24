@@ -203,7 +203,7 @@ class SonicHost(AnsibleHostBase):
             [
                 lambda: self._get_asic_count(facts["platform"]),
                 self._get_router_mac,
-                self._get_modular_chassis,
+                lambda: self._get_modular_chassis(facts["asic_type"]),
                 self._get_mgmt_interface,
                 self._get_switch_type,
                 self._get_router_type,
@@ -249,7 +249,15 @@ class SonicHost(AnsibleHostBase):
                 mgmt_addrs.append(addr.group(1))
         return mgmt_addrs
 
-    def _get_modular_chassis(self):
+    def _get_modular_chassis(self, asic_type):
+        if asic_type == 'vs':
+            out = self.shell(
+                "python3 -c \"import sonic_py_common.device_info as P; \
+                             print(P.is_chassis()); exit()\"",
+                module_ignore_errors=True)
+            res = "False" if out["failed"] else out["stdout"]
+            return res
+
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
@@ -488,7 +496,15 @@ class SonicHost(AnsibleHostBase):
         @param service: Service name
         @return: True if specified service is running, else False
         """
-        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        try:
+            service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        except RunAnsibleModuleFail as e:
+            # If the services does not exist, systemd will output
+            # "Unit <service> could not be found." with a nonzero return code
+            # We want to catch the error here.
+            if 'could not be found' in e.results['stderr']:
+                return False
+            raise
         return "active (running)" in service_status['stdout']
 
     def critical_services_status(self):

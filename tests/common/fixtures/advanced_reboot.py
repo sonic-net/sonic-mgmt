@@ -91,6 +91,8 @@ class AdvancedReboot:
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer"\
                                                                             in kwargs else None
+        self.consistency_checker_provider = kwargs["consistency_checker_provider"] if "consistency_checker_provider"\
+                                                                                      in kwargs else None
         self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -557,6 +559,50 @@ class AdvancedReboot:
         if int(acl_proc_count) != 1:
             error_list.append("Expected one ACL manager process running. Actual: {}".format(acl_proc_count))
 
+    def check_asic_and_db_consistency(self):
+        """
+        Check ASIC_DB and ASIC consistency, logging out any inconsistencies that are found.
+        """
+        if not self.consistency_checker_provider.is_consistency_check_supported(self.duthost):
+            os_version = self.duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+            platform = self.duthost.facts['platform']
+            logger.info((f"Consistency check is not supported on this platform ({platform}) and "
+                        f"version ({os_version})"))
+            return
+
+        with self.consistency_checker_provider.get_consistency_checker(self.duthost) as consistency_checker:
+            inconsistencies = consistency_checker.check_consistency()
+            not_implemented_attributes = set()
+            mismatched_attributes = {}
+            failed_to_query_asic_attributes = {}
+
+            for sai_object, summary in inconsistencies.items():
+                # Not implemented attributes
+                object_name = sai_object.split(":")[1]
+                for attr in summary["attributeNotImplemented"]:
+                    not_implemented_attributes.add(f"{object_name}.{attr}")
+
+                # Mismatched attributes
+                mismatched_attributes = {
+                    attr: summary["attributes"][attr] for attr
+                    in summary["mismatchedAttributes"]
+                }
+                if mismatched_attributes:
+                    mismatched_attributes[sai_object] = mismatched_attributes
+
+                # Failed to query ASIC attributes
+                if summary["failedToQueryAsic"]:
+                    failed_to_query_asic_attributes[sai_object] = summary["failedToQueryAsic"]
+
+            if not_implemented_attributes:
+                logger.warning(f"Not implemented attributes: {not_implemented_attributes}")
+
+            if mismatched_attributes:
+                logger.error(f"Mismatched attributes found: {mismatched_attributes}")
+
+            if failed_to_query_asic_attributes:
+                logger.error(f"Failed to query ASIC attributes: {failed_to_query_asic_attributes}")
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -566,6 +612,7 @@ class AdvancedReboot:
             count += 1
             test_case_name = str(self.request.node.name) + str(rebootOper)
             test_results[test_case_name] = list()
+            post_reboot_analysis = None
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
@@ -597,6 +644,8 @@ class AdvancedReboot:
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
+                if self.consistency_checker_provider:
+                    self.check_asic_and_db_consistency()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
                 self.print_test_logs_summary(log_dir)
@@ -632,36 +681,34 @@ class AdvancedReboot:
         self.imageInstall(prebootList, inbootList, prebootFiles)
         return self.runRebootTest()
 
-    def runMultiHopRebootTestcase(self, upgrade_path_urls, prebootFiles='peer_dev_info,neigh_port_info',
-                                  base_image_setup=None, pre_hop_setup=None,
-                                  post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
-        """
-        This method validates and prepares test bed for multi-hop reboot test case. It runs the reboot test case using
-        provided test arguments.
-        @param prebootList: list of operation to run before reboot process
-        @param prebootFiles: preboot files
-        """
-        # Install image A (base image)
-        self.imageInstall(None, None, prebootFiles)
+    def runMultiHopRebootTest(self, upgrade_path_urls, rebootOper=None, base_image_setup=None, pre_hop_setup=None,
+                              post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
+
         if base_image_setup:
             base_image_setup()
 
-        test_results = dict()
-        test_case_name = str(self.request.node.name)
-        test_results[test_case_name] = list()
+        test_results = []
+
         for hop_index, _ in enumerate(upgrade_path_urls[1:], start=1):
+            upgrade_path_str = "{from_image} -> {to_image} (hop {hop_index})".format(
+                hop_index=hop_index, from_image=upgrade_path_urls[hop_index-1], to_image=upgrade_path_urls[hop_index])
             try:
                 if pre_hop_setup:
                     pre_hop_setup(hop_index)
                 if multihop_advanceboot_loganalyzer_factory:
                     pre_reboot_analysis, post_reboot_analysis = multihop_advanceboot_loganalyzer_factory(hop_index)
                     marker = pre_reboot_analysis()
-                event_counters = self.__setupRebootOper(None)
+
+                event_counters = self.__setupRebootOper(rebootOper)
 
                 # Run the upgrade
                 thread = InterruptableThread(
                     target=self.__runPtfRunner,
-                    kwargs={"ptf_collect_dir": "./logs/ptf_collect/hop{}/".format(hop_index)})
+                    kwargs={
+                        "ptf_collect_dir": "./logs/ptf_collect/hop{}/".format(hop_index),
+                        "rebootOper": rebootOper
+                    }
+                )
                 thread.daemon = True
                 thread.start()
                 # give the test REBOOT_CASE_TIMEOUT (1800s) to complete the reboot with IO,
@@ -672,46 +719,87 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
 
-                self.__verifyRebootOper(None)
+                self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
-                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
-                                                        self.duthost.hostname)
+                    test_results.append(
+                        "Failed to verify BGP router identifier is Loopback0 on {} during upgrade {}".format(
+                            self.duthost.hostname, upgrade_path_str))
                 if post_hop_teardown:
                     post_hop_teardown(hop_index)
+
+                if self.consistency_checker_provider:
+                    self.check_asic_and_db_consistency()
             except Exception:
                 traceback_msg = traceback.format_exc()
-                err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
+                err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
+                    upgrade_path_str, traceback_msg)
                 logger.error(err_msg)
-                test_results[test_case_name].append(err_msg)
+                test_results.append(err_msg)
+                break  # Don't perfrom any further upgrade hops
             finally:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
-                log_dir = self.__fetchTestLogs(log_dst_suffix="hop{}".format(hop_index))
+                log_dst_suffix = "{0}-hop{1}".format(rebootOper, hop_index) if rebootOper else "hop{}".format(hop_index)
+                log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=log_dst_suffix)
                 self.print_test_logs_summary(log_dir)
                 if multihop_advanceboot_loganalyzer_factory and post_reboot_analysis:
-                    verification_errors = post_reboot_analysis(marker, event_counters=event_counters, log_dir=log_dir)
+                    verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
+                                                               reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
-                        logger.error("Post reboot verification failed. List of failures: {}"
-                                     .format('\n'.join(verification_errors)))
-                        test_results[test_case_name].extend(verification_errors)
+                        logger.error("Post reboot verification failed during upgrade {}. List of failures: {}"
+                                     .format(upgrade_path_str, '\n'.join(verification_errors)))
+                        test_results.extend(verification_errors)
                     # Set the post_reboot_analysis to None to avoid using it again after post_hop_teardown
                     # on the subsequent iteration in the event that we land in the finally block before
                     # the new one is initialised
                     post_reboot_analysis = None
-                self.acl_manager_checker(test_results[test_case_name])
+                self.acl_manager_checker(test_results)
                 self.__clearArpAndFdbTables()
-                self.__revertRebootOper(None)
+                self.__revertRebootOper(rebootOper)
 
-            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
-                           if len(failures) != 0]
-            pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed multi-hop test {testname} "
-                                                 "on update {hop_index} from {from_image} to {to_image}, "
-                                                 "failure summary:\n{fail_summary}".format(
-                                                    testname=self.request.node.name,
-                                                    hop_index=hop_index,
-                                                    from_image=upgrade_path_urls[hop_index-1],
-                                                    to_image=upgrade_path_urls[hop_index],
-                                                    fail_summary=failed_list
-                                                ))
+        return test_results
+
+    def runMultiHopRebootTestcase(self, upgrade_path_urls, prebootList=None, inbootList=None,
+                                  prebootFiles='peer_dev_info,neigh_port_info',
+                                  base_image_setup=None, pre_hop_setup=None,
+                                  post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None):
+        """
+        This method validates and prepares test bed for multi-hop reboot test case. It runs the reboot test case using
+        provided test arguments.
+        @param prebootList: list of operation to run before reboot process
+        @param prebootFiles: preboot files
+        """
+
+        # Validating contents of preboot and inboot list and building sadList
+        self.prebootList = prebootList
+        self.inbootList = inbootList
+        self.prebootFiles = prebootFiles
+        self.__validateAndBuildSadList()
+
+        # Update next hop IP based on Inboot list
+        self.__updateNextHopIps()
+
+        # Collect test data and set up testbed with required files/services
+        self.__setupTestbed()
+
+        # Handle mellanox platform
+        self.__handleMellanoxDut()
+
+        test_results = dict()
+
+        for reboot_oper in self.rebootData['sadList']:
+            test_case_name = str(self.request.node.name) + str(reboot_oper)
+            test_results[test_case_name] = self.runMultiHopRebootTest(upgrade_path_urls, reboot_oper, base_image_setup,
+                                                                      pre_hop_setup, post_hop_teardown,
+                                                                      multihop_advanceboot_loganalyzer_factory)
+
+        failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
+                       if len(failures) != 0]
+        pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed multi-hop test {testname}, "
+                                             "failure summary:\n{fail_summary}".format(
+                                                testname=self.request.node.name,
+                                                fail_summary=failed_list
+                                            ))
+
         return True  # Success
 
     def __setupRebootOper(self, rebootOper):
