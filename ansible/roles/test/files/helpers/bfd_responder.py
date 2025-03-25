@@ -16,6 +16,7 @@ IPv4 = '4'
 IPv6 = '6'
 BFD_FLAG_P_BIT = 5
 BFD_FLAG_F_BIT = 4
+UDP_BFD_PKT_LEN = 32
 
 
 def get_if(iff, cmd):
@@ -94,6 +95,10 @@ class BFDResponder(object):
             return
         session = self.sessions[ip_dst]
         if bfd_state == 3:
+            # If packet is not initialized yet, ignore the received UP packet per RFC5880 FSM
+            # wait for DUT timeout and DUT will send DOWN BFD packet
+            if len(session["pkt"]) == 0:
+                return
             # Respond with F bit if P bit is set
             if (bfd_flags & (1 << BFD_FLAG_P_BIT)):
                 session["pkt"].payload.payload.payload.load.flags = (1 << BFD_FLAG_F_BIT)
@@ -121,6 +126,9 @@ class BFDResponder(object):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
+        # ignore the packet not for me or incomplete BFD packet
+        if ip_dst not in self.sessions or len(ether.payload.payload) < UDP_BFD_PKT_LEN:
+            return mac_src, mac_dst, ip_src, ip_dst, None, None, None
         ip_version = str(ether.payload.version)
         ip_priority_field = 'tos' if ip_version == IPv4 else 'tc'
         ip_priority = getattr(ether.payload, ip_priority_field)
