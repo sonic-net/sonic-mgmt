@@ -190,6 +190,8 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
+                if attrs[val].get('secondary') == 'true':
+                    continue
                 ip = ip_interface(val)
                 if ip.version == 4:
                     ipv4_base = ip
@@ -242,7 +244,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base
+    yield vlan, ipv4_base, ipv6_base, ip_offset
 
     ptfhost.command('supervisorctl stop arp_responder')
 
