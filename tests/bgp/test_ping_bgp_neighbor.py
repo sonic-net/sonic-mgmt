@@ -2,8 +2,7 @@ import pytest
 import logging
 
 pytestmark = [
-    pytest.mark.topology('any', 't0-sonic', 't1-multi-asic'),
-    pytest.mark.device_type('vs')
+    pytest.mark.topology('any')
 ]
 
 
@@ -11,6 +10,9 @@ def test_ping_bgp_neighbor(duthosts, enum_frontend_dut_hostname, enum_asic_index
     """Check ping connectivity to all BGP neighbors across all ASICs of the given DUT"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
+    if enum_asic_index is None:
+        pytest.skip(f"Skipping test since {duthost.hostname} is not a multi-ASIC device.")
+
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     asic_info = f"(namespace: {namespace})" if namespace else ""
