@@ -1,0 +1,126 @@
+trigger: none
+pr: none
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)-multi-hop
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    # Production artifacts e.g. acl_remover.tar.gz don't exist in our test environment and attempting to download will cause an error and fail the test then and there.
+    # As a temporary workaround, use a dev branch that doesn't download these artifacts. Refer to https://msazure.visualstudio.com/One/_workitems/edit/31816278  for long-term fix.
+    ref: rgarthwaite/workaround-dont-download-in-preload-firmware
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+schedules:
+  - cron: "0 0,12 * * *"
+    displayName: Multi Hop Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  default: vms28-t0-7050-12
+  displayName: "Testbed Name"
+
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
+
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: ceos
+  values:
+    - vsonic
+    - ceos
+
+- name: SKIP_POSTUPGRADE_ACTIONS
+  default: false
+  type: boolean
+  displayName: "Skip post upgrade actions"
+
+- name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
+  default: true
+  type: boolean
+  displayName: "Run ASIC DB and ASIC SAI consistency checker after upgrade"
+
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
+
+- name: RUN_REBOOT_CASE
+  default: "test_multi_hop_upgrade_path"
+  type: string
+  displayName: "Case to run"
+  values:
+  - test_multi_hop_upgrade_path
+  - test_multi_hop_warm_upgrade_sad_path
+
+- name: SELECT_SAD_CASES
+  default: "sad_lag"
+  type: string
+
+- name: MULTI_HOP_BASE_UPGRADE_PATH
+  type: string
+  displayName: Base Upgrade Path - (if empty, no base hops are used)
+  default: SONiC-Arista-7050CX3-ToRRouter
+  values:
+  - SONiC-Arista-7060-ToRRouter
+  - SONiC-Arista-7260CX364-ToRRouter
+  - SONiC-Mellanox-2700-ToRRouter
+  - SONiC-Arista-7050CX3-ToRRouter
+  - " "
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
+  type: string
+  displayName: Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)
+  default: IMAGE_BRCM_ABOOT_202411
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
+  type: string
+  displayName: Additional Upgrade Hop Image Numbers - (comma separated values zipped with image locations e.g. 23,latest)
+  default: "latest"
+
+- name: VSONIC_NEIGHBOR_IMAGE_URL
+  displayName: "SONiC image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
+
+- name: SKIP_TEST_RESULTS_UPLOADING
+  displayName: "Upload timing data report to Kusto"
+  type: boolean
+  default: false
+
+stages:
+- template: metadata_upgrade_template.yml
+  parameters:
+    UPGRADE_TEST_TYPE: multi-hop
+    TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+    POOL: ${{ parameters.POOL }}
+    UPGRADE_TYPE: warm
+    VM_TYPE: ${{ parameters.VM_TYPE }}
+    SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+    RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
+    # TODO: Make FROM_IMAGE_LIST and TO_IMAGE_LIST optional
+    FROM_IMAGE_LIST: ""
+    TO_IMAGE_LIST: ""
+    RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
+    SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
+    MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}
+    MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
+    MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
+    VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
+    SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+    SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
