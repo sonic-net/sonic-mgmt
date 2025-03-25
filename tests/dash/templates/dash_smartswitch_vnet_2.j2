@@ -1,0 +1,21 @@
+[
+        {
+                "DASH_ENI_TABLE:{{ eni }}" : {
+                        "eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+                        "mac_address":"{{ local_eni_mac }}",
+                        "underlay_ip":"{{ local_pa_ip }}",
+                        "admin_state":"enabled",
+                        "vnet":"{{ vnet1_name }}",
+                        "qos":"qos100"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ROUTE_TABLE:group_id_1:{{ remote_ca_prefix }}" : {
+                        "action_type":"vnet",
+                        "vnet":"{{ vnet1_name }}"
+                },
+                "OP": "{{ op }}"
+        }
+
+]
