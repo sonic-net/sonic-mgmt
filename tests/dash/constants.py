@@ -4,6 +4,7 @@ TEMPLATE_DIR = path.abspath(_TEMPLATE_DIR)
 # Constants used for generating dash configs
 ENI = "eni"
 LOOPBACK_IP = "loopback_ip"
+LOCAL_REGION_ID = "local_region_id"
 VM_VNI = "vm_vni"
 VNET1_VNI = "vnet1_vni"
 VNET1_NAME = "vnet1_name"
