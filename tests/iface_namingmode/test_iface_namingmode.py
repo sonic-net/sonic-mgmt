@@ -911,6 +911,7 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, interface)
         speeds_to_test = ['100000', '40000']
 
         if native_speed not in speeds_to_test:
@@ -918,12 +919,17 @@ class TestConfigInterface():
 
         target_speed = speeds_to_test[0] if native_speed == speeds_to_test[1] else speeds_to_test[1]
         # Get supported speeds for interface
-        supported_speeds = duthost.get_supported_speeds(interface)
-        if supported_speeds is None:
-            pytest.skip("Supported speeds for {} are None".format(interface))
+        supported_speeds_dut = duthost.get_supported_speeds(interface)
+        if not supported_speeds_dut:
+            pytest.skip(f"Supported speeds for {interface} are None on DUT")
+        if (native_speed not in supported_speeds_dut or target_speed not in supported_speeds_dut):
+            pytest.skip(f"Native speed {native_speed} or target speed {target_speed} is not supported on DUT")
 
-        if native_speed not in supported_speeds or target_speed not in supported_speeds:
-            pytest.skip("Native speed {} or target speed {} is not supported".format(native_speed, target_speed))
+        supported_speeds_fanout = fanout.get_supported_speeds(fanout_port)
+        if not supported_speeds_fanout:
+            pytest.skip(f"Supported speeds for {interface} are None on fanout")
+        if (native_speed not in supported_speeds_fanout or target_speed not in supported_speeds_fanout):
+            pytest.skip(f"Native speed {native_speed} or target speed {target_speed} is not supported on fanout")
 
         def _set_speed(speed):
             # Configure speed on the DUT and Fanout
@@ -944,7 +950,6 @@ class TestConfigInterface():
                           .format(target_speed, fanout_speed))
 
         # Change the speed
-        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, interface)
         _set_speed(target_speed)
 
         # Verify speed and link status
