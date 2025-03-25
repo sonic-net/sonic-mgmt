@@ -252,7 +252,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    if psu_num:
+    if psu_num is not None:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 

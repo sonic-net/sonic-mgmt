@@ -205,7 +205,7 @@ class TestFdbMacLearning:
         """
         Make sure interfaces are ready for sending traffic.
         """
-        if "dualtor" in tbinfo['topo']['name']:
+        if "dualtor-aa" in tbinfo['topo']['name']:
             pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, ports))
         else:
             time.sleep(30)
