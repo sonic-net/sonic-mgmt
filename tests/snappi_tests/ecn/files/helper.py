@@ -53,9 +53,9 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 # Step 1: Clear all counters  on egress, fabric, and ingress DUT
 # Step 2: Send traffic for the test.
 # Step 3: Verify egress port queue counter at possible congestion points.
-# Step 4: If no marking, verify no backpressure#
-# - If PFC Tx is zero, fail the test and log the result.
-# - Pass the otherwise
+# Step 4: If no marking,
+# - check and log  backpressure
+# - Fail the testcase
 
 
 def clear_bp_fabric_queue_counters(ingress_fabric_mapping_dict, egress_fabric_mapping, supervisor_dut, test_prio_list):
@@ -669,12 +669,13 @@ def run_ecn_marking_port_toggle_test(
         if not ecn_marking_verified_on_egress:
             if not check_bp_fabric_ecn_marking(ingress_fabric_mapping_dict, egress_fabric_mapping,
                                                supervisor_dut, test_prio_list):
-                total_ingress_pfc_tx_count = sum(
-                    get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
-                    for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]
-                    for priority in test_prio_list
-                )
-                pytest_assert(total_ingress_pfc_tx_count, "No ECN marking in the data path")
+                # Log PFC frame counts
+                for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+                    for priority in test_prio_list:
+                        pfc_count = get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
+                        logging.info("PFC Tx frame count for DUT {}, Port {}, Priority {}: {}".format(
+                            dut.hostname, tx_port['peer_port'], priority, pfc_count))
+                pytest_assert(False, "No ECN marking in the data path")
 
     # Initial ECN verification
     check_ecn_marking()
@@ -1064,9 +1065,11 @@ def run_ecn_marking_ect_marked_pkts(
     if not ecn_marking_verified_on_egress:
         if not check_bp_fabric_ecn_marking(ingress_fabric_mapping_dict, egress_fabric_mapping,
                                            supervisor_dut, test_prio_list):
-            total_ingress_pfc_tx_count = sum(
-                get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
-                for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]
-                for priority in test_prio_list
-            )
-            pytest_assert(total_ingress_pfc_tx_count, "No ECN marking in the data path")
+            # Log PFC frame counts
+            for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+                for priority in test_prio_list:
+                    pfc_count = get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
+                    logging.info("PFC Tx frame count for DUT {}, Port {}, Priority {}: {}".format(
+                        dut.hostname, tx_port['peer_port'], priority, pfc_count))
+
+            pytest_assert(False, "No ECN marking in the data path")

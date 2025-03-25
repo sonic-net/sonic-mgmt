@@ -100,7 +100,6 @@ def validate_snappi_ports(snappi_ports):
 
     # Retrieve ASIC namespace
     rx_asic = get_asic(rx_dut, rx_peer_port)
-    # print(rx_asic, rx_peer_port)
     tx_asic_1 = get_asic(tx_dut_1, tx_peer_port_1)
     tx_asic_2 = get_asic(tx_dut_2, tx_peer_port_2)
 
@@ -210,7 +209,8 @@ def test_ecn_marking_lossless_prio(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    input_port_same_asic, input_port_same_dut, single_dut, egress_port_short_link = snappi_port_dut_info(snappi_ports)
+    input_port_same_asic, input_port_same_dut, single_dut, _, \
+        egress_port_short_link = snappi_port_dut_info(snappi_ports)
     pytest_require(egress_port_short_link, "Egress port must be on short link")
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
