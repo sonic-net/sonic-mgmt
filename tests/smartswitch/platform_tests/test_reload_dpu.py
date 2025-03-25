@@ -11,7 +11,7 @@ from tests.smartswitch.common.device_utils_dpu import get_dpu_link_status,\
     check_dpu_ping_status, check_dpu_link_and_status, check_dpu_module_status,\
     pre_test_check, post_test_switch_check, post_test_dpu_check,\
     check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
-from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 
 pytestmark = [
     pytest.mark.topology('smartswitch')

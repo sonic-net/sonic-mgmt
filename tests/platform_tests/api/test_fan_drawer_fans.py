@@ -6,7 +6,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
 from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
