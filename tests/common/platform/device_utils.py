@@ -355,6 +355,7 @@ def verify_yang(duthost):
     Verify yang over running config
     """
     logging.info("Verify yang over running config")
+
     def __verify_yang_over_running_config(duthost):
         output = duthost.shell("echo '[]' | sudo config apply-patch /dev/stdin")
         return output['rc'] == 0
