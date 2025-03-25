@@ -140,7 +140,7 @@ def compare_routes(running_routes, expected_routes):
 def caculate_downtime(ptf_dp, end_time, start_time):
     rx_total = sum(list(ptf_dp.rx_counters.values())[:-1])  # Exclude the backplane
     tx_total = sum(ptf_dp.tx_counters.values()) + 1
-    missing_pkt_cnt = tx_total - rx_total
+    missing_pkt_cnt = rx_total - tx_total
     pps = tx_total / (end_time - start_time).total_seconds()
     downtime = missing_pkt_cnt / pps
     logger.info(
