@@ -1,7 +1,15 @@
 import ast
 import argparse
 import os
+import sys
 import pathlib
+import logging
+import json
+
+logger = logging.getLogger()
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
 
 
 def find_python_files(directory):
@@ -54,16 +62,16 @@ def find_function_calls(filepath):
         try:
             tree = ast.parse(file.read())
         except SyntaxError as e:
-            print(f'Error parsing file {filepath}: {e}')
+            logger.error(f'Error parsing file {filepath}: {e}')
             return function_calls
 
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
-            # print(f'Analyzing function {node.name}')
+            # logger.debug(f'Analyzing function {node.name}')
             called_functions = get_called_functions(node)
             function_calls[node.name] = called_functions
 
-    # print(f'{filepath} function calls: {function_calls}')
+    # logger.debug(f'{filepath} function calls: {function_calls}')
     return function_calls
 
 
@@ -104,7 +112,7 @@ def find_tests_using_fixture(fixture_name, python_files):
             try:
                 tree = ast.parse(file.read())
             except SyntaxError as e:
-                print(f'Error parsing file {py_file}: {e}')
+                logger.error(f'Error parsing file {py_file}: {e}')
                 continue
 
             for node in tree.body:
@@ -128,14 +136,20 @@ find all functions that directly or indirectly call the given function or use th
                         type=str,
                         required=True,
                         help='The path to the directory containing python files.')
+    parser.add_argument('--trace', action='store_true', help='Enable trace logging.')
 
     args = parser.parse_args()
-    print('Function Name:', args.function_name)
-    print('Directory:', args.directory)
+    if args.trace:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+    logger.debug('Function Name:', args.function_name)
+    logger.debug('Directory:', args.directory)
 
     # find all python files
     python_files = find_python_files(args.directory)
-    print(f'Scanning {len(python_files)} python files in {args.directory}')
+    logger.debug(f'Scanning {len(python_files)} python files in {args.directory}')
 
     # CAVEAT
     # this holds the function name and all the functions it calls
@@ -179,4 +193,9 @@ find all functions that directly or indirectly call the given function or use th
             if args.function_name in functions:
                 affected_test_files.add(file)
 
-    print(f'Impacted tests: {affected_test_files}')
+    impacted_files = {
+        'total_scanned': len(python_files),
+        'number_of_impacted_tests': len(affected_test_files),
+        'tests': list(affected_test_files)
+    }
+    print(json.dumps(impacted_files, indent=4))
