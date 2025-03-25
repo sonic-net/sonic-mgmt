@@ -98,7 +98,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
         image_version (str): The version of the image to tag.
     """
     vendor_id = _get_vendor_id(duthost)
-    if vendor_id in ['invm']:
+    if vendor_id in ['mrvl-teralynx']:
         image_name = "docker-syncd-{}-rpc".format(vendor_id)
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
@@ -245,7 +245,7 @@ def _get_vendor_id(duthost):
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
     elif is_marvell_teralynx_device(duthost):
-        vendor_id = "invm"
+        vendor_id = "mrvl-teralynx"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)
