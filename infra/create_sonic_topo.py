@@ -61,95 +61,32 @@ wa_file_map = { "sfd": "sfd_wa_cmd_list",
                 "churchill-mono": "cmono_wa_cmd_list"
               }
 
-def _get_container_ssh_channel(hostname, username, password, container_name, ssh_port=22):
+def _run_cmd_in_ssh(ssh, cmd, timeout=180):
     """
-    SSH into the  VM and exec into container
-    return: ssh, ssh_channel
-    """
-
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname=hostname, port=ssh_port, username=username, password=password, timeout=120, banner_timeout=120)
-    ssh_channel = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = ssh_channel.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    # Get into the docker-sonic-mgmt container
-    ssh_channel.send('docker exec -it {} /bin/bash \n'.format(container_name))
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = ssh_channel.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    return ssh, ssh_channel
-
-def _run_cmd_in_channel(ssh_channel, cmd, timeout=180):
-    """
-    Run a command in the container shell
+    Run a command in remote host
     """
 
-    stdout_buff = ''
-    stderr_buff = ''
-    status_code_buff = ''
-    
-    rcv_timeout = 60
-    interval_length = 5
+    # run command inside the container
+    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
 
-    ssh_channel.send(f'{cmd}\n') 
-    ssh_channel.settimeout(timeout)
-    try:
-        while not ssh_channel.exit_status_ready():
-            if ssh_channel.recv_ready():
-                resp = ssh_channel.recv(9999)
-                stdout_buff += resp.decode("ascii")
-            else:
-                rcv_timeout -= interval_length
+    # to prevent buffer blockage
+    cmd_output = stdout.read().decode()
+    cmd_error = stderr.read().decode()
 
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
+    # get the exit status
+    exit_status = stdout.channel.recv_exit_status()
 
-            if ssh_channel.recv_stderr_ready():
-                error_buff = ssh_channel.recv_stderr(9999)
-                while error_buff:
-                    stderr_buff += error_buff.decode("ascii")
-                    error_buff = ssh_channel.recv_stderr(9999)
-    except Exception as e:
-        raise Exception("exception occurred while running command in ssh_channel '{}': {}".format(cmd, e))
-    
-    rcv_timeout = 60
-    status_code_cmd = "echo $?"
-    ssh_channel.send('{}\n'.format(status_code_cmd)) 
-    try:
-        while not ssh_channel.exit_status_ready():
-            if ssh_channel.recv_ready():
-                resp = ssh_channel.recv(9999)
-                status_code_buff += resp.decode("ascii")
-            else:
-                rcv_timeout -= interval_length
+    print(f"Output for command '{cmd}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
+    return cmd_output, cmd_error, exit_status
 
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
-    except Exception as e:
-        raise Exception("exception occurred while getting status code of command in ssh_channel '{}': {}".format(cmd, e))
-    
-    # Extract status codes that appear immediately after "echo $?"
-    # The output will look something like 'echo $?\r\n0\r\n\x1b]0;vxr@vxr-vm: /tmp\x07vxr@vxr-vm:/tmp$'. 
-    # From this, we are only interested in 'echo $?\r\n0' part. Upon splitting by '\r\n', we get ['echo $?', '0'].
-    outputs = status_code_buff.strip().split("\r\n") 
-    status_code = int(outputs[outputs.index(status_code_cmd) + 1])
+def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
+    """
+    Run a command in container
+    """
 
-    print(f"ssh_channel command output '{cmd}': stdout: {stdout_buff}, stderr: {stderr_buff}, status_code: {status_code}")
-    return stdout_buff, stderr_buff, status_code
+    # run command inside the container
+    docker_exec_cmd = f'docker exec {container_name} sh -c "{cmd}"'
+    return _run_cmd_in_ssh(ssh, docker_exec_cmd, timeout)
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -980,46 +917,45 @@ def install_allure(data):
     """
     Install the allure package in the sonic-mgmt container
     """
+    start_time = time.time()
 
-    # Get the ssh connection to the sonic-mgmt container
-    ssh, container_channel = _get_container_ssh_channel(hostname=data['sonic_mgmt']['HostAgent'], username="vxr", password="cisco123", container_name='docker-sonic-mgmt', ssh_port=data['sonic_mgmt']['xr_redir22'])
+    # ssh into the VM
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname=data['sonic_mgmt']['HostAgent'], port=data['sonic_mgmt']['xr_redir22'], username="vxr", password="cisco123", timeout=120, banner_timeout=120)
 
-    # Change to the tmp directory
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'cd /tmp')
-    if status_code != 0:
-        raise Exception(f'Failed to change directory to /tmp: stdout: {stdout}, stderr: {stderr}')
-
-    # Unset the proxy variables
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy')
-    if status_code != 0:
-        raise Exception(f'Failed to unset the proxy variables: stdout: {stdout}, stderr: {stderr}')
+    sonic_mgmt_container_name='docker-sonic-mgmt'
+    sonic_mgmt_dir = '/home/vxr/golden-code/sonic-test/sonic-mgmt/'
 
     # Fetch the allure package details from config
     allure_package_url = allure_config['allure']['debian-url']
     alure_package_name = os.path.basename(urllib.parse.urlparse(allure_package_url).path)
 
-    # Download the allure package
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'wget {allure_package_url} -P /tmp')
+    # Download the allure package on the VM
+    stdout, stderr, status_code = _run_cmd_in_ssh(ssh, f'wget {allure_package_url} -P {sonic_mgmt_dir}')
     if status_code != 0:
         raise Exception(f'Failed to download the allure package: stdout: {stdout}, stderr: {stderr}')
 
-    # Install the allure package
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'sudo dpkg -i /tmp/{alure_package_name}')
+    # Install the allure package in the sonic-mgmt container
+    stdout, stderr, status_code = _run_cmd_in_ssh_container(ssh, sonic_mgmt_container_name, f'sudo dpkg -i /data/{alure_package_name}')
     if status_code != 0:
         raise Exception(f'Failed to install the allure package: stdout: {stdout}, stderr: {stderr}')
 
-    # Verify the installation
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, 'allure --version')
+    # Verify the allure installation in the sonic-mgmt container
+    stdout, stderr, status_code = _run_cmd_in_ssh_container(ssh, sonic_mgmt_container_name, 'allure --version')
     if status_code != 0:
         raise Exception(f'Failed to verify the allure installation: stdout: {stdout}, stderr: {stderr}')
 
-    # Cleanup the downloaded package
-    stdout, stderr, status_code = _run_cmd_in_channel(container_channel, f'rm /tmp/{alure_package_name}')
+    # Cleanup the downloaded package from the sonic-mgmt container (and the VM)
+    stdout, stderr, status_code = _run_cmd_in_ssh_container(ssh, sonic_mgmt_container_name, f'rm /data/{alure_package_name}')
     if status_code != 0:
         raise Exception(f'Failed to cleanup the downloaded package: stdout: {stdout}, stderr: {stderr}')
 
-    container_channel.close()
     ssh.close()
+
+    end_time = time.time()
+    print(f'Allure installation took {end_time - start_time} seconds')
+
     return 0
 
 # The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
