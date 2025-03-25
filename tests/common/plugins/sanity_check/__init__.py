@@ -202,7 +202,7 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -215,6 +215,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    nbr_hosts = None
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -320,7 +321,8 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -346,8 +348,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
+                if not nbr_hosts:
+                    nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
-                                                nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                nbr_hosts, post_check_items, recover_method, request, tbinfo,
                                                 STAGE_POST_TEST)
 
             logger.info("Done post-test sanity check")
