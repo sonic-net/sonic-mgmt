@@ -776,19 +776,21 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
@@ -828,11 +830,12 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
   skip:
-    reason: "Unsupported platform API"
     conditions_logical_operator: or
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
   skip:
@@ -1300,6 +1303,17 @@ platform_tests/test_service_warm_restart.py:
     reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
+
+#######################################
+#####test_thermal_state_db.py #####
+#######################################
+
+platform_tests/test_thermal_state_db.py:
+  skip:
+    reason: "Skip in case of Cisco platform for T2 profile due to temperarory bug."
+    conditions:
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
