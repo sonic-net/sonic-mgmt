@@ -5,9 +5,9 @@ import os
 import pytest
 
 from tests.common.helpers.platform_api import chassis, psu, psu_fan
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
 from tests.platform_tests.cli.util import get_skip_mod_list
 from tests.platform_tests.api.conftest import skip_absent_psu
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
