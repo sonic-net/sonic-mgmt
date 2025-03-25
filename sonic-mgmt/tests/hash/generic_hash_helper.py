@@ -39,10 +39,10 @@ MELLANOX_LAG_HASH_FIELDS = [
     'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
 ]
 CISCO_ECMP_HASH_FIELDS = [
-    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+    'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 CISCO_LAG_HASH_FIELDS = [
-    'SRC_MAC', 'DST_MAC', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+    'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 DEFAULT_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
@@ -142,7 +142,7 @@ def restore_configuration(duthost):
         # Re-config ip interface
         for ip_interface in ip_interface_to_restore:
             formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
-            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr}")
+            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr.upper()}")
         # Re-config vlan interface
         if vlan_member_to_restore:
             duthost.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
@@ -609,7 +609,7 @@ def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_inte
         for ip_interface in mg_facts['minigraph_interfaces']:
             if ip_interface['attachto'] == downlink_interface:
                 formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
-                duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
+                duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr.upper()}")
                 ip_interface_to_restore.append(ip_interface)
                 l2_ports.add(downlink_interface)
         for portchannel in mg_facts['minigraph_portchannels'].values():
@@ -619,14 +619,15 @@ def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_inte
                         formatted_ip_addr = format_ip_mask(
                             f"{portchannel_ip_interface['addr']}/{portchannel_ip_interface['mask']}")
                         duthost.shell(
-                            f"config interface ip remove {portchannel_ip_interface['attachto']} {formatted_ip_addr}")
+                            f"config interface ip remove {portchannel_ip_interface['attachto']} "
+                            f"{formatted_ip_addr.upper()}")
                         ip_interface_to_restore.append(portchannel_ip_interface)
                         l2_ports.add(portchannel_ip_interface['attachto'])
     # re-config the uplink interfaces, remove the ip address on the egress portchannel interfaces
     for ip_interface in mg_facts['minigraph_portchannel_interfaces']:
         if ip_interface['attachto'] in uplink_interfaces:
             formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
-            duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
+            duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr.upper()}")
             ip_interface_to_restore.append(ip_interface)
             l2_ports.add(ip_interface['attachto'])
     # Configure VLANs for VLAN_ID test

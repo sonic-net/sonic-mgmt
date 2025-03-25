@@ -188,15 +188,16 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
 
 
 def get_memory_usage(process_name):
-    process_list = []
-    for proc in psutil.process_iter(['name', 'memory_info']):
-        if proc.info['name'] == process_name:
-            process_list.append(proc)
+    total_memory_usage = 0
+    for proc in psutil.process_iter():
+        try:
+            if proc.name().lower() == process_name.lower():
+                mem_info = proc.memory_info()
+                total_memory_usage += mem_info.rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
 
-    # Calculate the total memory usage of the process
-    total_memory_usage = sum(proc.info['memory_info'].rss for proc in process_list)
-    logging.debug("get_memory_usage for process {} returns {}".format(process_name, total_memory_usage))
-
+    logging.debug(f"get_memory_usage for process {process_name} returns {total_memory_usage} bytes")
     return total_memory_usage
 
 

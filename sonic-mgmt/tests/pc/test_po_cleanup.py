@@ -5,6 +5,7 @@ from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology('any'),
 ]
 

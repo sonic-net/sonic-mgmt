@@ -9,7 +9,7 @@ from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
     ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
-    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
@@ -17,6 +17,31 @@ from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclR
 logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
+
+
+def get_dpu_dataplane_port(duthost, dpu_index):
+    platform = duthost.facts["platform"]
+    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
+    try:
+        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
+    except KeyError:
+        interface = f"Ethernet-BP{dpu_index}"
+
+    logger.info(f"DPU dataplane interface: {interface}")
+    return interface
+
+
+def get_interface_ip(duthost, interface):
+    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
+    output = duthost.shell(cmd)["stdout"].strip()
+    return ip_interface(output)
+
+
+@pytest.fixture(scope="module")
+def dpu_ip(duthost, dpu_index):
+    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
+    npu_interface_ip = get_interface_ip(duthost, dpu_port)
+    return npu_interface_ip.ip + 1
 
 
 def pytest_addoption(parser):
@@ -220,6 +245,50 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
     return dash_info
 
 
+@pytest.fixture(scope="module")
+def dash_smartswitch_vnet_config(duthost, config_facts, minigraph_facts, tbinfo):
+    dash_info = {
+        DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
+        LOOPBACK_IP: "10.1.0.5",
+        LOCAL_REGION_ID: "100",
+        ENI: "F4939FEFC47E",
+        VM_VNI: 4321,
+        VNET1_VNI: 1000,
+        VNET1_NAME: "Vnet1",
+        LOCAL_CA_IP: "20.2.2.11",
+        REMOTE_CA_IP: "20.2.2.2",
+        REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
+        LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
+        REMOTE_CA_PREFIX: "20.2.2.0/24",
+    }
+
+    neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
+        if ip_interface(neigh_ip).version == 4:
+            if config["name"].endswith("T0"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                dash_info[LOCAL_PA_IP] = neigh_ip
+                break
+            if REMOTE_PTF_SEND_INTF not in dash_info and config["name"].endswith("T2"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
+                dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
+                dash_info[REMOTE_PTF_RECV_INTF] = [minigraph_facts["minigraph_ptf_indices"][i] for i in intfs]
+                dash_info[REMOTE_DUT_INTF] = intf
+                dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+
+    fake_neighbor_2_ip = '10.0.2.2'
+    fake_neighbor_2_prefix = "10.0.2.0/24"
+    dash_info[REMOTE_PA_IP] = fake_neighbor_2_ip
+    dash_info[REMOTE_PA_PREFIX] = fake_neighbor_2_prefix
+
+    dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
+
+    return dash_info
+
+
 @pytest.fixture(scope="function")
 def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
@@ -398,4 +467,4 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
 
 @pytest.fixture(scope="module")
 def dpu_index():
-    return 0
+    return 2
