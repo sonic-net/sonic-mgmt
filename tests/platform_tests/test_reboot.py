@@ -298,3 +298,21 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     pytest_assert(ls_ending_out == ls_starting_out,
                   "Console devices have changed: expected console devices: {}, got: {}"
                   .format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
+
+
+def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
+    """
+    @summary: This test case is checking syslog to verify fsck script has run for
+    checking and repairing the file system when boot in initramfs stage.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Call reboot to run fsck for repair file system.
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
+
+    # Check fsck ran by syslog entry.
+    cmd = "sudo journalctl --since '5 minutes ago' | grep 'fsck'"
+    result = duthost.shell(cmd, module_ignore_errors=True, verbose=True)['stdout']
+    pytest_assert("fsck" in result, "The file system should be repaired by fsck script.")
