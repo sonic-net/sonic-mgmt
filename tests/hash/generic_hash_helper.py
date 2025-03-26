@@ -413,9 +413,12 @@ def get_interfaces_for_test(duthost, mg_facts, hash_field):
     # Find the uplink interfaces which are the nexthop interfaces of the default route
     for interface in get_ip_route_nexthops(duthost, "0.0.0.0/0"):
         uplink_interfaces[interface] = []
-        # All uplink interfaces are portchannels, need to find the members
-        portchannel_members = mg_facts['minigraph_portchannels'][interface]['members']
-        uplink_interfaces[interface].extend(portchannel_members)
+        if interface in mg_facts['minigraph_portchannels']:
+            # All uplink interfaces are portchannels, need to find the members
+            portchannel_members = mg_facts['minigraph_portchannels'][interface]['members']
+            uplink_interfaces[interface].extend(portchannel_members)
+        else:
+            uplink_interfaces[interface].append(interface)
     # Randomly choose a downlink interface
     downlink_interfaces = []
     if mg_facts['minigraph_vlan_interfaces']:
@@ -429,6 +432,7 @@ def get_interfaces_for_test(duthost, mg_facts, hash_field):
         for portchannel in portchannels.keys():
             if portchannel not in uplink_interfaces.keys():
                 downlink_interfaces.extend(portchannels[portchannel]['members'])
+    downlink_interfaces = [interface for interface in downlink_interfaces if interface not in uplink_interfaces]
     if hash_field != 'IN_PORT':
         downlink_interfaces = [random.choice(downlink_interfaces)]
     logger.info(
