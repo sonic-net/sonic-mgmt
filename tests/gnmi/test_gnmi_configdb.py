@@ -39,8 +39,10 @@ def get_first_interface(duthost):
     return None
 
 
-def get_interface_status(duthost, field, interface='Ethernet0'):
+def get_interface_status(duthost, field, interface='Ethernet0', namespace=None):
     cmds = 'sonic-db-cli CONFIG_DB hget "PORT|{}" {}'.format(interface, field)
+    if namespace:
+        cmds = 'sonic-db-cli CONFIG_DB -n {} hget "PORT|{}" {}'.format(namespace, interface, field)
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
     return output["stdout"]
@@ -58,6 +60,22 @@ def get_sonic_cfggen_output(duthost, namespace=None):
     return (json.loads(output["stdout"]))
 
 
+def find_namespace(duthost, interface):
+    '''
+    Find namespace for multi-asic device
+    '''
+    namespace, dic = None, None
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            dic = get_sonic_cfggen_output(duthost, asic.namespace)
+            if interface in dic["PORT"]:
+                namespace = asic.namespace
+                break
+    else:
+        dic = get_sonic_cfggen_output(duthost)
+    return (namespace, dic)
+
+
 def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     Verify GNMI native write, incremental config for configDB
@@ -69,8 +87,13 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     file_name = "port.txt"
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
-    update_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status:@/root/%s" % (interface, file_name)]
-    path_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status" % (interface)]
+
+    # Get ASIC namespace
+    namespace, dic = find_namespace(duthost, interface)
+
+    base_path = f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORT/{interface}/admin_status"
+    update_list = [f"{base_path}:@/root/{file_name}"]
+    path_list = [base_path]
 
     # Shutdown interface
     text = "\"down\""
@@ -79,7 +102,7 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     ptfhost.copy(src=file_name, dest='/root')
     gnmi_set(duthost, ptfhost, [], update_list, [])
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "admin_status", interface)
+    status = get_interface_status(duthost, "admin_status", interface, namespace)
     assert status == "down", "Incremental config failed to toggle interface %s status" % interface
     msg_list = gnmi_get(duthost, ptfhost, path_list)
     assert msg_list[0] == "\"down\"", msg_list[0]
@@ -91,7 +114,7 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     ptfhost.copy(src=file_name, dest='/root')
     gnmi_set(duthost, ptfhost, [], update_list, [])
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "admin_status", interface)
+    status = get_interface_status(duthost, "admin_status", interface, namespace)
     assert status == "up", "Incremental config failed to toggle interface %s status" % interface
     msg_list = gnmi_get(duthost, ptfhost, path_list)
     assert msg_list[0] == "\"up\"", msg_list[0]
@@ -103,9 +126,18 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    file_name = "port.txt"
-    update_list = ["/sonic-db:CONFIG_DB/localhost/PORTABC/Ethernet100/admin_status:@/root/%s" % (file_name)]
+    interface = "Ethernet100"
 
+    # Get ASIC namespace
+    namespace, dic = find_namespace(duthost, interface)
+
+    file_name = "port.txt"
+    update_list = [
+        (
+            f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/PORTABC/{interface}/admin_status:"
+            f"@/root/{file_name}"
+        )
+    ]
     # GNMI set request with invalid path
     text = "\"down\""
     with open(file_name, 'w') as file:
@@ -130,14 +162,8 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
 
-    # Get ASIC namespace and check interface
-    if duthost.sonichost.is_multi_asic:
-        for asic in duthost.frontend_asics:
-            dic = get_sonic_cfggen_output(duthost, asic.namespace)
-            if interface in dic["PORT"]:
-                break
-    else:
-        dic = get_sonic_cfggen_output(duthost)
+    # Get ASIC namespace
+    namespace, dic = find_namespace(duthost, interface)
 
     assert "PORT" in dic, "Failed to read running config"
     assert interface in dic["PORT"], "Failed to get interface %s" % interface
@@ -149,11 +175,11 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     with open(filename, 'w') as file:
         json.dump(dic, file)
     ptfhost.copy(src=filename, dest='/root')
-    delete_list = ["/sonic-db:CONFIG_DB/localhost/"]
-    update_list = ["/sonic-db:CONFIG_DB/localhost/:@/root/%s" % filename]
+    delete_list = [f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/"]
+    update_list = [f"/sonic-db:CONFIG_DB/{namespace or 'localhost'}/:@/root/{filename}"]
     gnmi_set(duthost, ptfhost, delete_list, update_list, [])
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "admin_status", interface)
+    status = get_interface_status(duthost, "admin_status", interface, namespace)
     assert status == "up", "Port status is changed"
     # GNOI reboot
     gnoi_reboot(duthost, 0, 0, "abc")
@@ -165,7 +191,7 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
         wait_until(300, 10, 0, check_interface_status_of_up_ports, duthost),
         "Not all ports that are admin up on are operationally up")
     # Check interface status
-    status = get_interface_status(duthost, "admin_status", interface)
+    status = get_interface_status(duthost, "admin_status", interface, namespace)
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
