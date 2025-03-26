@@ -138,7 +138,6 @@ MGMT: #Anukul Verma / Bidipta Das
       - generic_config_updater/test_aaa.py
       - generic_config_updater/test_ntp.py
       - gnmi/test_gnmi.py
-      - gnmi/test_gnmi_configdb.py
       - snmp/test_snmp_interfaces.py
       - snmp/test_snmp_lldp.py
       - snmp/test_snmp_link_local.py
