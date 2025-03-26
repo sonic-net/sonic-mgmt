@@ -7,7 +7,7 @@ included in this file.
 import pytest
 from ipaddress import ip_address, IPv4Address
 from ixnetwork_restpy import SessionAssistant
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet, get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
@@ -197,7 +197,7 @@ def ixia_api(ixia_api_serv_ip,
 
 
 @pytest.fixture(scope="function")
-def ixia_testbed(conn_graph_facts, fanout_graph_facts,  # noqa F811
+def ixia_testbed(conn_graph_facts, fanout_graph_facts,  # noqa: F811
                  duthosts, rand_one_dut_hostname):
 
     """
@@ -583,7 +583,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
 
 
 @pytest.fixture(scope="function")
-def ixia_testbed_config(conn_graph_facts, fanout_graph_facts,   # noqa F811
+def ixia_testbed_config(conn_graph_facts, fanout_graph_facts,   # noqa: F811
                         duthosts, rand_one_dut_hostname):
     """
     Geenrate Tgen API config and port config information for the testbed

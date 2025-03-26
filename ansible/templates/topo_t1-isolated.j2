@@ -30,6 +30,7 @@ configuration:
     - common
     {%- if vm.role == 't0' %}
     - tor
+    tornum: {{vm.tornum}}
     {%- elif vm.role == 't2' %}
     - spine
     {%- endif %}
