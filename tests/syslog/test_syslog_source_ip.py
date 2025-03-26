@@ -76,6 +76,7 @@ TEST_FORWARD_FLAGS_AND_MSGS = {
     "bgp0#staticd": ("-t bgp0#staticd", "bgp0#staticd"),
     "bgp0#watchfrr": ("-t bgp0#watchfrr", "bgp0#watchfrr"),
     "bgp0#bgpd": ("-t bgp0#bgpd", "bgp0#bgpd"),
+    "bgp#bgpd": ("-t bgp#bgpd", "bgp#bgpd"),
     "gnmi-native": ("-t gnmi-native", "gnmi-native"),
     "telemetry": ("-t telemetry", "telemetry"),
     "dialout": ("-t dialout", "dialout")}
