@@ -624,7 +624,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_frwd_with_bkg_trf(self,
                                         setup_info,  # noqa F811
                                         setup_mirror_session,
-                                        dest_port_type, ptfadapter, tbinfo
+                                        dest_port_type, ptfadapter, tbinfo,
+                                        toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+                                        setup_standby_ports_on_rand_unselected_tor_unconditionally    # noqa F811
                                         ):
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
