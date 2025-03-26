@@ -374,7 +374,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     time_margin = ClockConsts.TIME_MARGIN_MODULAR if is_modular_chassis else ClockConsts.TIME_MARGIN
     with allure.step('Select valid date and time to set'):
-        new_date = dt.now() + dt.timedelta(days=1)
+        new_date = dt.datetime.today() + dt.timedelta(days=1)
         new_time = ClockUtils.select_random_time()
         new_datetime = new_date.strftime('%Y-%m-%d') + ' ' + new_time
 
