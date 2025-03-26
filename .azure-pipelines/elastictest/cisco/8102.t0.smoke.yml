@@ -61,7 +61,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "dualtor/test_orchagent_active_tor_downstream.py
+    default: "dualtor/test_orchagent_active_tor_downstream.py, \
               clock/test_clock.py"
     displayName: "Scripts to be excluded"
 
