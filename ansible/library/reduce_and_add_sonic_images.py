@@ -180,6 +180,73 @@ def download_new_sonic_image(module, new_image_url, save_as):
         exec_command(module, cmd="sudo echo {} > /tmp/downloaded-sonic-image-version".format(
             results["downloaded_image_version"]))
 
+        # get image size
+        try:
+            _, out, _ = exec_command(module, cmd="ls -al {}".format(save_as), msg="get new image size")
+            lines = out.split('\n')
+            for line in lines:
+                if save_as in line:
+                    fields = line.split()
+                    if len(fields) < 3:
+                        return
+                    else:
+                        image_size = int(fields[4])
+                        results['image_size'] = image_size
+                        log("image size: {}".format(image_size))
+                        break
+        except Exception as e:
+            log("Failed to get image file size: {}".format(e))
+
+
+def get_sonic_image_size(module):
+    global results
+
+    if "Unknown" == results["downloaded_image_version"]:
+        return
+
+    image_path = "/host/image-{}".format(results["downloaded_image_version"].split("SONiC-OS-")[1])
+    log("image_path: {}".format(image_path))
+    squashfs_file_name = "fs.squashfs"
+    docker_file_name = "dockerfs.tar.gz"
+
+    # get docker and squashfs file size
+    _, out, _ = exec_command(module, cmd="ls -al {}".format(image_path), msg="ls image_dir")
+    lines = out.split('\n')
+    for line in lines:
+        if docker_file_name in line:
+            fields = line.split()
+            if len(fields) < 3:
+                return
+            else:
+                docker_file_size = int(fields[4])
+                results['dockerfs'] = docker_file_size
+                log("dockerfs size: {}".format(docker_file_size))
+        elif squashfs_file_name in line:
+            fields = line.split()
+            if len(fields) < 3:
+                return
+            else:
+                squashfs_file_size = int(fields[4])
+                results['squashfs'] = squashfs_file_size
+                log("squashfs size: {}".format(squashfs_file_size))
+
+    # get docker folder size
+    docker_dir = image_path + "/docker"
+    if path.exists(docker_dir):
+        log("docker_dir: {}".format(docker_dir))
+        _, out, _ = exec_command(module, cmd="sudo du -sb {}".format(docker_dir), msg="get docker_dir")
+        lines = out.split('\n')
+        for line in lines:
+            if docker_dir in line:
+                fields = line.split()
+                if len(fields) < 2:
+                    return
+                else:
+                    docker_dir_size = int(fields[0])
+                    results['docker_dir'] = docker_dir_size
+                    log("docker dir size: {}".format(docker_dir_size))
+                    break
+
 
 def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
     log("install new sonic image")
@@ -264,6 +331,11 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
             cmd="rm -f /host/old_config/config_db.json",
             msg="Remove config_db.json in preference of minigraph.xml"
         )
+
+    try:
+        get_sonic_image_size(module)
+    except Exception as e:
+        log("Failed to get image size: {}".format(e))
 
 
 def work_around_for_slow_disks(module):
