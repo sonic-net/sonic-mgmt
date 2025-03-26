@@ -849,6 +849,36 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-default]:
+  skip:
+    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_l3_scenario]:
+  skip:
+    reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['marvell']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vlan_scenario]:
+  skip:
+    reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['marvell']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
