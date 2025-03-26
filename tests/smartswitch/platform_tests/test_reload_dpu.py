@@ -10,8 +10,8 @@ from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpu_check,\
-    num_dpu_modules  # noqa: F401
-from tests.common.platform.device_utils import platform_api_conn  # noqa: F401,F403
+    check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
