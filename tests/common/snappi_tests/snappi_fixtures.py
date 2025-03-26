@@ -355,7 +355,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
 
 @pytest.fixture(scope="function")
-def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
+def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                           duthosts, rand_one_dut_hostname, snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
@@ -461,7 +461,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
 
 
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
 
     """
     Populate tgen ports info of T0 testbed and returns as a list

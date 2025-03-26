@@ -1,14 +1,14 @@
 import json
 import pytest
 
-from tests.common.dualtor.dual_tor_common import mux_config    # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config    # noqa: F401
 
 
 ICMP_RESPONDER_PIPE = "/tmp/icmp_responder.pipe"
 
 
 @pytest.fixture
-def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):     # noqa F811
+def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):     # noqa: F811
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_port_index = mg_facts['minigraph_ptf_indices']
@@ -56,7 +56,7 @@ def set_supervisorctl_status_icmp_responder(ptfhost, cmd, status):
 
 
 @pytest.fixture
-def shutdown_icmp_responder(ptfhost):    # noqa F811
+def shutdown_icmp_responder(ptfhost):    # noqa: F811
 
     def _shutdown_icmp_responder():
         cmd = 'stop'
@@ -67,7 +67,7 @@ def shutdown_icmp_responder(ptfhost):    # noqa F811
 
 
 @pytest.fixture
-def start_icmp_responder(ptfhost):    # noqa F811
+def start_icmp_responder(ptfhost):    # noqa: F811
 
     def _start_icmp_responder():
         cmd = 'start'
