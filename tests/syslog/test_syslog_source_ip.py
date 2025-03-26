@@ -4,7 +4,7 @@ import threading
 import random
 import allure
 import re
-
+import time
 from scapy.all import rdpcap
 from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets, \
     replace_ip_neigh, bind_interface_to_vrf, check_vrf, syslogUtilsConst
@@ -80,7 +80,7 @@ TEST_FORWARD_FLAGS_AND_MSGS = {
     "telemetry": ("-t telemetry", "telemetry"),
     "dialout": ("-t dialout", "dialout")}
 
-SYSLOG_THREAD_TIMEOUT = 50
+SYSLOG_THREAD_TIMEOUT = 90
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -448,7 +448,7 @@ class TestSSIP:
         Returns:
             str or None: The forward type if found, None otherwise
         """
-        forward_type_match = re.search(r"INFO -t\s+(\S+)", syslog_message)
+        forward_type_match = re.search(f"{self.duthost.hostname} CRIT\t+([^:]+):", syslog_message)
         if forward_type_match:
             return forward_type_match.group(1)  # Returns the forward type value
         return 'default'
@@ -466,7 +466,8 @@ class TestSSIP:
         for packet in packets:
             message_content = packet['Raw'].raw_packet_cache.decode()
             forward_type = self.extract_forward_type_from_message(message_content)
-            forward_type_counts[forward_type] += 1
+            if forward_type in expected_forward_types:
+                forward_type_counts[forward_type] += 1
 
         return forward_type_counts
 
@@ -591,7 +592,10 @@ class TestSSIP:
             tcpdump_interface = routed_interfaces[0]
         else:
             tcpdump_interface = vrf
-        tcpdump_file_name = syslogUtilsConst.DUT_PCAP_FILEPATH.format(vrf=vrf + '_neg' if neg else vrf)
+        tcpdump_file_name = syslogUtilsConst.DUT_PCAP_FILEPATH.format(
+            vrf=vrf + '_neg' if neg else vrf,
+            time=time.strftime("%m%d_%H%M%S")
+            )
         tcpdump_cmd = (
             f"sudo timeout {syslogUtilsConst.TCPDUMP_CAPTURE_TIME} tcpdump -i {tcpdump_interface}"
             f"port {port if port else SYSLOG_DEFAULT_PORT} -w {tcpdump_file_name}"

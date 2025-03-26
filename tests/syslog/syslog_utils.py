@@ -7,7 +7,7 @@ import os
 
 
 class syslogUtilsConst:
-    DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}.pcap"
+    DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}_{time}.pcap"
     DOCKER_TMP_PATH = "/tmp/"
     TCPDUMP_CAPTURE_TIME = 50
     # TSHARK_START_TIME should be smaller than TCPDUMP_CAPTURE_TIME
@@ -139,7 +139,7 @@ def capture_syslog_packets(dut, tcpdump_cmd, logging_data):
 
     logging.debug("Generating log message from DUT")
     # Generate syslog msgs from the DUT
-    default_priority = '--priority INFO'
+    default_priority = '--priority CRIT'
     for flag, msg in logging_data:
         for i in range(syslogUtilsConst.PACKETS_NUM):
             dut.shell(f"logger {default_priority} {flag} {msg} {i + 1}")
