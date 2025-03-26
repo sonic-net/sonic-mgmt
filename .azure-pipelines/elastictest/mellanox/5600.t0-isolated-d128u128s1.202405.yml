@@ -40,10 +40,11 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: " "
+    default: $(IMAGE_MLNX_202412_TAG)
     displayName: "Image URL"
     values:
       - " "
+      - $(IMAGE_MLNX_202412_TAG)
       - $(IMAGE_MLNX_202412_LATEST)
 
   - name: MGMT_BRANCH
