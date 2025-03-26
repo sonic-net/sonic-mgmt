@@ -38,7 +38,7 @@ The test aims to validate the ECN behaviors of the SONiC DUT based on the Random
 
 ## Test Setup
 
-The test is designed to be topology-agnostic, meaning it does not assume or impose a specific network connection.
+It is only applicable to single-tier networks and requires full connectivity to ensure all DUT ports are covered.
 
 ## Test Cases
 
