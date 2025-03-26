@@ -33,6 +33,10 @@ def ensure_dut_readiness(duthost):
         duthost: DUT host object
     """
     verify_orchagent_running_or_assert(duthost)
+
+    duthost.shell('sonic-db-cli CONFIG_DB hset "WRED_PROFILE|AZURE_LOSSLESS" green_min_threshold 100 \
+                   green_max_threshold 100000 green_drop_probability 10 wred_green_enable true')
+
     create_checkpoint(duthost)
 
     yield
@@ -43,6 +47,8 @@ def ensure_dut_readiness(duthost):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+    duthost.shell('sonic-db-cli CONFIG_DB del "WRED_PROFILE|AZURE_LOSSLESS"')
 
 
 def ensure_application_of_updated_config(duthost, configdb_field, values):
