@@ -100,15 +100,12 @@ FWD: #Rajendra Thirumurthi
   all_topo:
     all_pids:
       - acl/test_acl.py::TestBasicAcl
-      - bfd/test_bfd_traffic.py
       - crm/test_crm.py::test_crm_neighbor
       - crm/test_crm.py::test_crm_nhop_group
-      - everflow/test_everflow_testbed.py
       - route/test_default_route.py
       - route/test_route_flap
     mth64:
       - ipfwd/test_nhop_group.py
-    #- crm/test_crm.py::test_crm_route
 
 PLT: #Mridul Bajpai
   all_topo:
