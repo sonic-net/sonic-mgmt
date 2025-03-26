@@ -346,7 +346,7 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
         start_pfc_storm(storm_handler, peer_info, prio)
         ptfadapter.dataplane.flush()
         # Record the queue counter before sending test packet
-        base_queue_count = get_queue_counter(dut, port, queue, True)
+        base_queue_count = get_queue_counter(dut, port, queue, False)
         # Send testing packet again
         testutils.send_packet(ptfadapter, src_port, pkt, 1)
         # The packet should be paused
