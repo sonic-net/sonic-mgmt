@@ -140,9 +140,7 @@ MGMT: #Anukul Verma / Bidipta Das
       - gnmi/test_gnmi.py
       - snmp/test_snmp_interfaces.py
       - snmp/test_snmp_lldp.py
-      - snmp/test_snmp_link_local.py
       - ssh/test_ssh_limit.py
-      - telemetry/test_telemetry.py
 
 L2: #Venkata Gouri Rajesh Etla / Bidipta Das
   all_topo:
