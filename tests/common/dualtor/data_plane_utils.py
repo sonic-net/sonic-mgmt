@@ -6,9 +6,9 @@ import time
 import random
 import shutil
 
-from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
@@ -161,7 +161,7 @@ def verify_and_report(tor_IO, verify, delay, allowed_disruption,
 def run_test(
     duthosts, activehost, ptfhost, ptfadapter, vmhost, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
-    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa F811
+    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa: F811
 ):
     io_ready = threading.Event()
 
@@ -245,7 +245,7 @@ def save_pcap(request, pytestconfig):
 
 @pytest.fixture
 def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap):       # noqa F811
+                                  cable_type, vmhost, save_pcap):       # noqa: F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -311,7 +311,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
 @pytest.fixture
 def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap):   # noqa F811
+                                  cable_type, vmhost, save_pcap):   # noqa: F811
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -381,7 +381,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
 @pytest.fixture
 def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa: F811
 
     arp_setup(ptfhost)
 
@@ -410,7 +410,7 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
 @pytest.fixture
 def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa: F811
 
     arp_setup(ptfhost)
 
@@ -440,10 +440,10 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
 
 @pytest.fixture
-def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa F811
+def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa: F811
     """Return helper function to select test mux ports based on cable_type"""
 
-    def _select_test_mux_ports(cable_type, count):                                                  # noqa F811
+    def _select_test_mux_ports(cable_type, count):                                                  # noqa: F811
         if cable_type == CableType.active_active:
             test_mux_ports = random.sample(active_active_ports, count)
         elif cable_type == CableType.active_standby:
@@ -457,7 +457,7 @@ def select_test_mux_ports(active_active_ports, active_standby_ports):           
 
 @pytest.fixture
 def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                      cable_type, vmhost, save_pcap):   # noqa F811
+                                      cable_type, vmhost, save_pcap):   # noqa: F811
 
     arp_setup(ptfhost)
 

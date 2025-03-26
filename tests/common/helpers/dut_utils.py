@@ -419,7 +419,7 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
-def create_duthost_console(duthost,localhost, conn_graph_facts, creds):  # noqa F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
