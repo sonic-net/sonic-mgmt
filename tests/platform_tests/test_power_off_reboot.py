@@ -61,8 +61,8 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     for outlet in outlet_status:
         logging.debug("After turn off outlet, its status is {}".format(outlet))
 
-    logging.info("Power on {}".format(power_on_seq))
-    for outlet in power_on_seq:
+    logging.info("Power on {}".format(all_outlets))
+    for outlet in all_outlets:
         logging.debug("turning on {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
 
