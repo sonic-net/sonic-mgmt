@@ -449,7 +449,7 @@ class TestSSIP:
         Returns:
             str or None: The forward type if found, None otherwise
         """
-        forward_type_match = re.search(f"{self.duthost.hostname} CRIT\t+([^:]+):", syslog_message)
+        forward_type_match = re.search(rf"{self.duthost.hostname} CRIT\s+([^:]+):", syslog_message)
         if forward_type_match:
             return forward_type_match.group(1)  # Returns the forward type value
         return 'default'
@@ -598,7 +598,7 @@ class TestSSIP:
             time=time.strftime("%m%d_%H%M%S")
             )
         tcpdump_cmd = (
-            f"sudo timeout {syslogUtilsConst.TCPDUMP_CAPTURE_TIME} tcpdump -i {tcpdump_interface}"
+            f"sudo timeout {syslogUtilsConst.TCPDUMP_CAPTURE_TIME} tcpdump -i {tcpdump_interface} "
             f"port {port if port else SYSLOG_DEFAULT_PORT} -w {tcpdump_file_name}"
         )
         tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd, logging_data)

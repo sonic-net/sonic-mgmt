@@ -7,7 +7,7 @@ import os
 
 
 class syslogUtilsConst:
-    DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}_{time}.pcap"
+    DUT_PCAP_FILEPATH = "/new_tmp/test_syslog_tcpdump_{vrf}_{time}.pcap"
     DOCKER_TMP_PATH = "/tmp/"
     TCPDUMP_CAPTURE_TIME = 50
     # TSHARK_START_TIME should be smaller than TCPDUMP_CAPTURE_TIME
