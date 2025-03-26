@@ -5,17 +5,19 @@
 # This structure organizes a list of tests in two layers:
 #     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
 #     TOPOLOGY: Defines the type of topology in which the test is run.
+#     PLATFORM: Defines the type of platform in which the test is run
 #
 # In other words, the hierarchy is:
-#     TEST_CATEGORY -> TOPOLOGY -> [list of tests]
+#     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> [list of tests]
 #
-# TOPOLOGY section will always include a 'all_topo' key, which serves as a base.
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+# PLATFORM section will always include a 'all_pids'
 #
 # Example:
 #
 # example-ring2.yaml
 #
-
+#
 # baseline:
 #   all_topo:
 #     all_pids:
@@ -30,15 +32,13 @@
 #       - test_announce_routes.py
 #       - test_posttest.py
 #       - test_pretest.py
-
-# ROUTING: #Sridhar Santhanam
+# ROUTING:
 #   all_topo:
 #     all_pids:
 #       - bgp/test_4-byte_asn_community.py
 #       - bgp/test_bgp_update_timer.py
 #       - bgp/test_ipv6_nlri_over_ipv4.py
-
-# PFC: #Alpesh Patel
+# PFC:
 #   all_topo:
 #     all_pids:
 #       - cisco/platform_tests/test_serviceability_pfc.py
@@ -60,8 +60,9 @@
 # How the test list is created
 # - a list of TEST_CATEGORY is given(must have at least one)
 # - For each TEST_CATEGORY:
-#     - tests in TEST_CATEGORY/all_topo are included
-#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
+#     - tests in TEST_CATEGORY/all_topo/all_pids are included
+#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY/all_pids are included
+#     - if TOPOLOGY and PLATFORM are specified, and TEST_CATEGORY/TOPOLOGY/PLATFORM exists, tests in TEST_CATEGORY/TOPOLOGY/PLATFORM are included
 # - Any duplicate test entries are removed.
 # - You now have your final test list!
 

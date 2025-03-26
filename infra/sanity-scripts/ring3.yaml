@@ -5,11 +5,13 @@
 # This structure organizes a list of tests in two layers:
 #     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
 #     TOPOLOGY: Defines the type of topology in which the test is run.
+#     PLATFORM: Defines the type of platform in which the test is run
 #
 # In other words, the hierarchy is:
-#     TEST_CATEGORY -> TOPOLOGY -> [list of tests]
+#     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> [list of tests]
 #
 # TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+# PLATFORM section will always include a 'all_pids'
 #
 # Example:
 # 
@@ -17,40 +19,47 @@
 #
 # baseline:
 #   all_topo:
-#     - baseline/test/case_1.py
-#     - baseline/test/case_2.py
-#     - baseline/test/case_3.py
-#     - baseline/test/case_4.py
-#     - baseline/test/case_5.py
+#     all_pids:
+#       - baseline/test/case_1.py
+#       - baseline/test/case_2.py
+#       - baseline/test/case_3.py
+#       - baseline/test/case_4.py
+#       - baseline/test/case_5.py
 # FWD:
 #   all_topo:
+#     all_pids:
 #     - fwd/test/case_1.py
 #     - fwd/test/case_2.py
 #     - fwd/test/case_3.py
 #     - fwd/test/case_4.py
 #     - fwd/test/case_5.py
 #   t0-64:
+#     all_pids:
 #     - telemetry/test_telemetry.py::test_config_db_parameters
 #     - example/t0/specific/fwd/test.py
 # PLT:
 #   all_topo:
+#     all_pids:
 #     - plt/test/case_1.py
 #     - plt/test/case_2.py
 #     - plt/test/case_3.py
 #     - plt/test/case_4.py
 #     - plt/test/case_5.py
 #   t0-64:
+#     all_pids:
 #     - example/t0/specific/plt/test.py
 #     - example/t0/specific/plt/test2.py
 #   t1-64-lag:
+#     all_pids:
 #     - example/t1/specific/plt/test.py
 #     - example/t1/specific/plt/test2.py
 #
 # How the test list is created
 # - a list of TEST_CATEGORY is given(must have at least one)
 # - For each TEST_CATEGORY:
-#     - tests in TEST_CATEGORY/all_topo are included
-#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY are included
+#     - tests in TEST_CATEGORY/all_topo/all_pids are included
+#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY/all_pids are included
+#     - if TOPOLOGY and PLATFORM are specified, and TEST_CATEGORY/TOPOLOGY/PLATFORM exists, tests in TEST_CATEGORY/TOPOLOGY/PLATFORM are included
 # - Any duplicate test entries are removed.
 # - You now have your final test list!
 
