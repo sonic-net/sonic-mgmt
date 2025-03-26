@@ -1056,6 +1056,7 @@ def pytest_runtest_makereport(item, call):
 # DummyTestUtils would always return True for all verify function in ptf.testutils.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_call(item):
+    # See tests/common/plugins/conditional_mark/tests_mark_conditions_skip_traffic_test.yaml
     if "skip_traffic_test" in item.keywords:
         logger.info("Got skip_traffic_test marker, will skip traffic test")
         with DummyTestUtils():
