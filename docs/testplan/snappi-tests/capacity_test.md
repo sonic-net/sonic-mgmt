@@ -23,7 +23,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 ## Test Steps
 
-1. Run all traffic generators at full line rate, injecting traffic into SONiC devices to maximize stress. The test duration is configurable, with a default setting of 1 hour.
+1. Run all traffic generators at full line rate, injecting traffic into SONiC devices to maximize stress. The test duration is configurable, with a default setting of 15 minutes.
 2. Using the switch commands or RPC (Remote Procedure Call), collect all SONiC switches’ metrics listed in the next section. The data sampling rate is also configurable with a default value of every 1 minute.
 3. Save the sampled raw data to a database via the telemetry interface provided by the SONiC team in test_reporting folder. The metrics are structured as data points in our database. An example of how to use the interface is provided in telemetry folder.
 
