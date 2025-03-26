@@ -132,3 +132,41 @@ def combine_qos_parameter():
 
     with open(output_file, "w") as ofp:
         yaml.dump(combined_yaml, ofp, default_flow_style=False)
+
+
+@pytest.fixture(scope="session")
+def is_buffer_model_dynamic(duthost):
+    """Detect the current buffer model (dynamic or traditional).
+       Called only once when the module is initialized.
+
+    Args:
+        duthost: The DUT host fixture
+    """
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    yield (buffer_model == 'dynamic')
+
+
+@pytest.fixture(scope="session")
+def is_lossy_only_pool(duthost):
+    """Detect the current buffer pool.
+       Called only once when the module is initialized.
+
+    Args:
+        duthost: The DUT host fixtute
+    """
+    buffer_pg_output = duthost.shell(
+        'redis-cli -n 4 keys "BUFFER_PG|*-4"')['stdout']
+    yield True if not buffer_pg_output else False
+
+
+@pytest.fixture(scope="function")
+def skip_traditional_model(is_buffer_model_dynamic):
+    if not is_buffer_model_dynamic:
+        pytest.skip("Skip test in traditional model")
+
+
+@pytest.fixture(scope="function")
+def skip_lossy_buffer_only(is_lossy_only_pool):
+    if is_lossy_only_pool:
+        pytest.skip("Skip test for lossy only pool")
