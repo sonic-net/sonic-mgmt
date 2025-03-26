@@ -104,7 +104,7 @@ parameters:
   default: false
 
 stages:
-- template: metadata_upgrade_template.yml
+- template: ../metadata_upgrade_template.yml
   parameters:
     UPGRADE_TEST_TYPE: multi-hop
     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
