@@ -114,8 +114,10 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
     if loganalyzer:
         ignoreRegex = [
             ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
-            "\\(.* minutes\\).*"
-            ".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
+            "\\(.* minutes\\).*",
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
+            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 

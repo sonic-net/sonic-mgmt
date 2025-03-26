@@ -20,7 +20,9 @@ pytestmark = [
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
-        r".* ERR gbsyncd#syncd:.* sai_api_query: :- Invalid sai_api_t \d* passed.*"
+        r".* ERR gbsyncd#syncd:.* sai_api_query: :- Invalid sai_api_t \d* passed.*",
+        r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+        r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
         ]
     if loganalyzer:
         for duthost in duthosts:
