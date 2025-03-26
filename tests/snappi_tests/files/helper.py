@@ -1,7 +1,6 @@
 import logging
 import re
 import pytest
-import re
 import json
 from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
@@ -233,6 +232,7 @@ def get_fabric_mapping(duthost, asic=""):
 
     return fabric_map
 
+
 def load_port_stats(stats, threshold, direction="both"):
     """
     Parses port statistics and filters interfaces involved in traffic forwarding.
@@ -383,4 +383,3 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
         dict_output[entry] = value
 
     return dict_output
->>>>>>> b1a1eb3b6 (Added test case for fabric egress port and backplane egress port ecn marking)
