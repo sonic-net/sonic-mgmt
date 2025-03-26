@@ -1,4 +1,5 @@
 import pytest
+import ipaddress
 import logging
 import json
 import time
@@ -24,15 +25,39 @@ DECAP_IPINIP_SUBNET_DEL_TEMPLATE = "decap/template/decap_ipinip_subnet_delete.j2
 DECAP_IPINIP_SUBNET_DEL_JSON = "decap_ipinip_subnet_delete.json"
 
 SUBNET_DECAP_SRC_IP_V4 = "20.20.20.0/24"
+SUBNET_DECAP_SRC_IP_V4_NEW = "20.20.30.0/24"
 SUBNET_DECAP_SRC_IP_V6 = "fc01::/120"
+SUBNET_DECAP_SRC_IP_V6_NEW = "fc02::/120"
 OUTER_DST_IP_V4 = "192.168.0.200"
 OUTER_DST_IP_V6 = "fc02:1000::200"
+
+POSITIVE_TEST = "positive"
+NEGATIVE_TEST = "negative"
+
+
+@pytest.fixture
+def update_subnet_decap_source_ip(rand_selected_dut):
+    """Update the subnet decap source ip."""
+    def _update_subnet_decap_source_ip_helper():
+        logger.info("Update subnet decap source IP to %s and %s",
+                    SUBNET_DECAP_SRC_IP_V4_NEW, SUBNET_DECAP_SRC_IP_V6_NEW)
+        rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|AZURE" \
+                                "src_ip" "%s" "src_ip_v6" "%s"' % (
+                                    SUBNET_DECAP_SRC_IP_V4_NEW, SUBNET_DECAP_SRC_IP_V6_NEW))
+
+    yield _update_subnet_decap_source_ip_helper
+
+    logger.info("Restore subnet decap source IP to %s and %s",
+                SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6)
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|AZURE" \
+                            "src_ip" "%s" "src_ip_v6" "%s"' % (
+                                SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
 
 
 @pytest.fixture(scope='module')
 def prepare_subnet_decap_config(rand_selected_dut):
     logger.info("Prepare subnet decap config")
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|AZURE" \
                             "status" "enable" "src_ip" "{}" "src_ip_v6" "{}"'
                             .format(SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
     rand_selected_dut.shell('sudo config save -y')
@@ -41,7 +66,7 @@ def prepare_subnet_decap_config(rand_selected_dut):
     time.sleep(120)
 
     yield
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|AZURE"')
     rand_selected_dut.shell('sudo config save -y')
     config_reload(rand_selected_dut, config_source='minigraph')
 
@@ -127,9 +152,9 @@ def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_vers
 
     if ip_version == "IPv4":
         outer_dst_ipv4 = OUTER_DST_IP_V4
-        if stage == "positive":
+        if stage == POSITIVE_TEST:
             outer_src_ipv4 = "20.20.20.10"
-        elif stage == "negative":
+        elif stage == NEGATIVE_TEST:
             outer_src_ipv4 = "30.30.30.10"
 
         inner_packet = testutils.simple_ip_packet(
@@ -146,9 +171,9 @@ def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_vers
 
     elif ip_version == "IPv6":
         outer_dst_ipv6 = OUTER_DST_IP_V6
-        if stage == "positive":
+        if stage == POSITIVE_TEST:
             outer_src_ipv6 = "fc01::10"
-        elif stage == "negative":
+        elif stage == NEGATIVE_TEST:
             outer_src_ipv6 = "fc01::10:10"
 
         inner_packet = testutils.simple_tcpv6_packet(
@@ -167,14 +192,14 @@ def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_vers
 
 
 def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, decrease_ttl=False):
-    if stage == "positive":
+    if stage == POSITIVE_TEST:
         if ip_version == "IPv4":
             pkt = encapsulated_packet[packet.IP].payload[packet.IP].copy()
         elif ip_version == "IPv6":
             pkt = encapsulated_packet[packet.IPv6].payload[packet.IPv6].copy()
         # Use dummy mac address that will be ignored in mask
         pkt = packet.Ether(src="aa:bb:cc:dd:ee:ff", dst="aa:bb:cc:dd:ee:ff") / pkt
-    elif stage == "negative":
+    elif stage == NEGATIVE_TEST:
         pkt = encapsulated_packet.copy()
 
     if ip_version == "IPv4":
@@ -194,14 +219,14 @@ def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
                                 recv_ports=[], recv_port=None, timeout=10):    # noqa F811
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, send_port, pkt)
-    if stage == "positive":
+    if stage == POSITIVE_TEST:
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=timeout)
-    elif stage == "negative":
+    elif stage == NEGATIVE_TEST:
         testutils.verify_packet(ptfadapter, exp_pkt, recv_port, timeout=timeout)
 
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
-@pytest.mark.parametrize("stage", ["positive", "negative"])
+@pytest.mark.parametrize("stage", [POSITIVE_TEST, NEGATIVE_TEST])
 def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage,
                            prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
                            prepare_negative_ip_port_map, setup_arp_responder):     # noqa F811
@@ -210,7 +235,7 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
     encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage)
     exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, decrease_ttl=True)
 
-    if stage == "negative":
+    if stage == NEGATIVE_TEST:
         ptf_target_port, _ = prepare_negative_ip_port_map
         request.getfixturevalue('setup_arp_responder')
     else:
@@ -218,3 +243,26 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
 
     verify_packet_with_expected(ptfadapter, stage, encapsulated_packet, exp_pkt,
                                 ptf_src_port, recv_ports=upstream_port_ids, recv_port=ptf_target_port)
+
+
+@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
+def test_vlan_subnet_decap_source_ip_update(
+    rand_selected_dut, ptfadapter, ip_version, update_subnet_decap_source_ip,
+    prepare_subnet_decap_config, prepare_vlan_subnet_test_port      # noqa F811
+):
+    ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
+    encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, POSITIVE_TEST)
+    exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, POSITIVE_TEST, decrease_ttl=True)
+
+    verify_packet_with_expected(ptfadapter, POSITIVE_TEST, encapsulated_packet, exp_pkt,
+                                ptf_src_port, recv_ports=upstream_port_ids)
+
+    update_subnet_decap_source_ip()
+
+    if ip_version == "IPv4":
+        encapsulated_packet[packet.IP].src = str(next(ipaddress.ip_network(SUBNET_DECAP_SRC_IP_V4_NEW).hosts()))
+    elif ip_version == "IPv6":
+        encapsulated_packet[packet.IPv6].src = str(next(ipaddress.ip_network(SUBNET_DECAP_SRC_IP_V6_NEW).hosts()))
+    exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, POSITIVE_TEST, decrease_ttl=True)
+    verify_packet_with_expected(ptfadapter, POSITIVE_TEST, encapsulated_packet, exp_pkt,
+                                ptf_src_port, recv_ports=upstream_port_ids)
