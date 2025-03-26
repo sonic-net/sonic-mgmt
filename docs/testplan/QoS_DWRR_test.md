@@ -30,7 +30,7 @@ The test is designed to be configuration-agnostic, meaning it does not require o
 
 ## Test Setup
 
-The test is designed to be topology-agnostic, meaning it does not assume or impose a specific network connection. The only requirement is that the DUT is fully connected to handle full traffic loads under stress.
+This test does not assume or enforce a specific QoS configuration; any QoS configuration can be applied. It is only applicable to single-tier networks and requires full connectivity to ensure all DUT ports are covered.
 
 ## Test Steps
 
@@ -78,7 +78,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
    **Please note that this is just an example. Our test code should be designed to be general and adaptable, accommodating any number of queues, and various scheduler configurations.**
 
-2. Identify the traffic generator and its corresponding port connected to the DUT port under test—this serves as the Rx port for the traffic flows. Then, on a separator traffic generator that is not connected to the DUT port, pick X ports, where X corresponds to the number of queues in the retrieved configuration. These serve as the Tx ports for the traffic flows. Define X traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT.
+2. Identify the traffic generator and its corresponding port connected to the DUT port under test—this serves as the Rx port for the traffic flows. Then, on a separate traffic generator that is not connected to the DUT port, pick X ports, where X corresponds to the number of queues in the retrieved configuration. These serve as the Tx ports for the traffic flows. Define X traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT.
 3. Start the X number of traffic flows simultaneously and let them run for 1 minute.
 4. Collect the Rx traffic rate and packet loss rate for each traffic flow, then stop the traffic.
 5. Verify that the observed results match the expected test outcomes.
