@@ -448,7 +448,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     if "master" in os_version or "internal" in os_version:
         return True
     try:
-        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        version_required = gcu_conf["tables"][table][
+            "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
         # os_version is in format "20220531.04", version_required is in format "20220500"
