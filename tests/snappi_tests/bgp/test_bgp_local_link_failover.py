@@ -12,7 +12,6 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('convergence_test_iterations', [1])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
-@pytest.mark.parametrize('port_speed', ['speed_100_gbps'])
 def test_bgp_convergence_for_local_link_failover(cvg_api,                   # noqa F811
                                                  duthost,
                                                  tgen_ports,                # noqa F811
@@ -22,7 +21,7 @@ def test_bgp_convergence_for_local_link_failover(cvg_api,                   # no
                                                  convergence_test_iterations,
                                                  number_of_routes,
                                                  route_type,
-                                                 port_speed,):
+                                                 ):
     """
     Topo:
     TGEN1 --- DUT --- TGEN(2..N)
@@ -51,7 +50,6 @@ def test_bgp_convergence_for_local_link_failover(cvg_api,                   # no
         convergence_test_iterations: number of iterations the link failure test has to be run for a port
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     # convergence_test_iterations, multipath, number_of_routes and
     # route_type parameters can be modified as per user preference
@@ -62,4 +60,4 @@ def test_bgp_convergence_for_local_link_failover(cvg_api,                   # no
                                      multipath,
                                      number_of_routes,
                                      route_type,
-                                     port_speed,)
+                                     )
