@@ -53,7 +53,7 @@ def restore_test_env(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_port_toggle(duthosts, tbinfo):
+def disable_port_toggle(duthosts, tbinfo, restore_test_env):
     # set mux mode to manual on both TORs to avoid port state change during test
     if "dualtor" in tbinfo['topo']['name']:
         for dut in duthosts:
