@@ -73,8 +73,12 @@
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
 
   - name: Stop ptf container ptf_{{ vm_set_name }}
@@ -168,11 +172,14 @@
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
