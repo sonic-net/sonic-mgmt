@@ -22,6 +22,13 @@
     <model fallback='forbid'/>
     <topology sockets='1' dies='1' cores='3' threads='2'/>
   </cpu>
+{% elif hwsku == 'Nokia-IXR7250E-36x400G' or hwsku == 'Nokia-IXR7250E-SUP-10' %}
+  <memory unit='GB'>8</memory>
+  <vcpu placement='static'>10</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='5' threads='2'/>
+  </cpu>
 {% elif "dualtor" in topo %}
   <memory unit='GiB'>6</memory>
   <currentMemory unit='GiB'>6</currentMemory>
