@@ -16,7 +16,7 @@ import threading
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
@@ -28,11 +28,11 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
-from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
@@ -836,7 +836,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
+def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -1661,7 +1661,7 @@ def pfc_pause_delay_test_params(request):
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
-def pytest_generate_tests(metafunc):        # noqa E302
+def pytest_generate_tests(metafunc):        # noqa: E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -2007,7 +2007,7 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
+def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa: F811
     duthost = duthosts[enum_supervisor_dut_hostname]
     host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
 
@@ -2055,7 +2055,7 @@ def get_l2_info(dut):
 
 
 @pytest.fixture(scope='session')
-def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     # noqa F811
+def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     # noqa: F811
     """
     Configures L2 switch mode according to
     https://github.com/sonic-net/SONiC/wiki/L2-Switch-mode
@@ -2209,7 +2209,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
 
 @ pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host, creds):   # noqa F811
+                    ptf_portmap_file, lower_tor_host, creds):   # noqa: F811
     """
         Prepares DUT host test params
 

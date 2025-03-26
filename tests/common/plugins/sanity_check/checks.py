@@ -8,11 +8,11 @@ import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
-from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
-from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
+from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa: F401
+from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa: F401
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa: F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
-from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
+from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa: F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -670,9 +670,9 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
-                        reset_simulator_port, restart_nic_simulator,                # noqa F811
-                        restart_mux_simulator, active_standby_ports):               # noqa F811
+def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa: F811
+                        reset_simulator_port, restart_nic_simulator,                # noqa: F811
+                        restart_mux_simulator, active_standby_ports):               # noqa: F811
     def _recover():
         duthosts.shell('config muxcable mode auto all; config save -y')
         if active_standby_ports:

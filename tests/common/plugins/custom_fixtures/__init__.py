@@ -1,5 +1,5 @@
 import pytest
-from .check_dut_asic_type import check_dut_asic_type    # noqa F401
+from .check_dut_asic_type import check_dut_asic_type    # noqa: F401
 
 
 @pytest.hookimpl(trylast=True)
