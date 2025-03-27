@@ -336,9 +336,9 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         4. Verify error and that time hasn't changed
     """
     with allure.step('Select valid date and time to set'):
-        new_date = ClockUtils.select_random_date()
+        new_date = dt.datetime.today() + dt.timedelta(days=1)
         new_time = ClockUtils.select_random_time()
-        new_datetime = new_date + ' ' + new_time
+        new_datetime = new_date.strftime('%Y-%m-%d') + ' ' + new_time
 
     with allure.step(f'Set new date and time "{new_datetime}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
