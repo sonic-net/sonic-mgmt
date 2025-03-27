@@ -20,7 +20,7 @@ from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports, parse_intf_status
 from bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_vm_name_list, get_bgp_neighbor_ip, \
     check_route_install_status, validate_route_propagate_status, operate_orchagent, get_t2_ptf_intfs, \
     get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
@@ -288,6 +288,22 @@ def get_cfg_facts(duthost):
     return cfg_facts
 
 
+def check_interface_status(duthost, expected_oper='up'):
+    cfg_facts = duthost.get_running_config_facts()
+    up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == expected_oper]
+    output = duthost.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    for intf in up_ports:
+        if intf not in intf_status:
+            logging.info("Missing status for interface %s" % intf)
+            return False
+        if intf_status[intf]["oper"] != expected_oper:
+            logging.info("Oper status of interface {} is {}, expected {}".format(intf, intf_status[intf]["oper"],
+                                                                                 expected_oper))
+            return False
+    return True
+
+
 def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
     """
     Get ports that connects with T0 VM
@@ -335,6 +351,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
     config_reload(duthost, safe_reload=True)
+    wait_until(120, 10, 0, check_interface_status, duthost)
 
 
 def setup_vrf(duthost, nbrhosts, tbinfo):
@@ -622,8 +639,8 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
     Do reboot and wait critical services and ports up
     """
     with allure.step("Do {}".format(reboot_type)):
-        reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None,
-               wait_warmboot_finalizer=True)
+        reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True,
+               wait_for_bgp=True, wait_warmboot_finalizer=True)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "All critical services should be fully started!")
         pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
@@ -644,7 +661,8 @@ def param_reboot(request, duthost, localhost):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True)
+        wait_until(120, 10, 0, check_interface_status, duthost)
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
 
@@ -817,6 +835,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
                 config_reload(duthost, safe_reload=True)
+                wait_until(120, 10, 0, check_interface_status, duthost)
 
 
 def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,
@@ -1027,7 +1046,7 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
                 ptf_interfaces = get_t2_ptf_intfs(mg_facts)
                 retry_call(validate_bulk_traffic,
                            fargs=[tcpdump_helper, ptfadapter, traffic_data_ipv4_forward + traffic_data_ipv6_forward,
-                                  router_mac, ptf_interfaces, ptf_interfaces], tries=3, delay=2)
+                                  router_mac, ptf_interfaces, ptf_interfaces], tries=10, delay=2)
 
             with allure.step("Suspend orchagent process to simulate a route install delay"):
                 operate_orchagent(duthost)
