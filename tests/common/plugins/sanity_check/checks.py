@@ -8,11 +8,11 @@ import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
-from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
-from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
+from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa: F401
+from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa: F401
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa: F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
-from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
+from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa: F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -670,9 +670,9 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
-                        reset_simulator_port, restart_nic_simulator,                # noqa F811
-                        restart_mux_simulator, active_standby_ports):               # noqa F811
+def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa: F811
+                        reset_simulator_port, restart_nic_simulator,                # noqa: F811
+                        restart_mux_simulator, active_standby_ports):               # noqa: F811
     def _recover():
         duthosts.shell('config muxcable mode auto all; config save -y')
         if active_standby_ports:
@@ -708,6 +708,10 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             results['failed_reason'] = err_msg
             results['hosts'] = [dut.hostname for dut in duthosts]
             results['action'] = _recover
+            return results
+
+        # early exit for dualtor-aa testbed
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
             return results
 
         mux_simulator_status = get_mux_status()
@@ -1120,7 +1124,11 @@ def check_orchagent_usage(duthosts):
         results = kwargs['results']
         logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
         check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
-        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        res = dut.shell(
+            "COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'",
+            module_ignore_errors=True,
+        )["stdout_lines"]
+
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -1156,21 +1164,45 @@ def check_bfd_up_count(duthosts):
 
         return list(result.values())
 
-    def _check_bfd_up_count_on_asic(asic, dut, check_result):
-        asic_id = "asic{}".format(asic.asic_index)
-        bfd_up_count_str = dut.shell("ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id))["stdout"]
-        logger.info("BFD up count on {} of {} is {}".format(asic_id, dut.hostname, bfd_up_count_str))
-        try:
-            bfd_up_count = int(bfd_up_count_str)
-        except Exception as e:
-            logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+    def _check_bfd_up_count(dut, asic_id, check_result):
+        res = dut.shell(
+            "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
+            module_ignore_errors=True,
+        )
+
+        if res["rc"] != 0:
+            logger.error("Failed to get BFD up count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             bfd_up_count = -1
+        else:
+            bfd_up_count_str = res["stdout"]
+            logger.info("BFD up count on {} of {}: {}. Expected BFD up count: {}".format(
+                asic_id,
+                dut.hostname,
+                bfd_up_count_str,
+                expected_bfd_up_count,
+            ))
+
+            try:
+                bfd_up_count = int(bfd_up_count_str)
+            except Exception as e:
+                logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                bfd_up_count = -1
 
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
             if bfd_up_count != expected_bfd_up_count:
                 check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected.".format(asic_id, dut.hostname))
+                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                ))
+
+        return not check_result["failed"]
+
+    def _check_bfd_up_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        wait_until(300, 20, 0, _check_bfd_up_count, dut, asic_id, check_result)
 
     def _check_bfd_up_count_on_dut(*args, **kwargs):
         dut = kwargs['node']
@@ -1212,13 +1244,17 @@ def check_mac_entry_count(duthosts):
 
     def _check_mac_entry_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
-        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
-        try:
-            match = re.search(r'Total number of entries (\d+)', show_mac_output)
-            mac_entry_count = int(match.group(1)) if match else 0
-        except Exception as e:
-            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+        res = dut.shell("ip netns exec {} show mac".format(asic_id), module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error("Failed to get MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, res["stderr"]))
             mac_entry_count = -1
+        else:
+            try:
+                match = re.search(r'Total number of entries (\d+)', res["stdout"])
+                mac_entry_count = int(match.group(1)) if match else 0
+            except Exception as e:
+                logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+                mac_entry_count = -1
 
         with lock:
             check_result["mac_entry_count"][asic_id] = mac_entry_count
