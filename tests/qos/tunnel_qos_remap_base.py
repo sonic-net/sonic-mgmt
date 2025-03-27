@@ -95,8 +95,8 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     """
     if clear_before_read:
         duthost.shell("sonic-clear queuecounters")
-        # Wait a default interval (10 seconds)
-        time.sleep(10)
+    # Wait a default interval (10 seconds)
+    time.sleep(10)
     cmd = "show queue counters {}".format(port)
     output = duthost.shell(cmd)['stdout_lines']
     """
