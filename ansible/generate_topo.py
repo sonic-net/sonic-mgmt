@@ -6,6 +6,11 @@ from ipaddress import IPv4Network, IPv6Network
 import click
 import jinja2
 
+PTF_BACKPLANE_IPV4 = "10.10.246.254"
+backplane_additional_offset_ipv4 = 0
+PTF_BACKPLANE_IPV6 = "fc0a::ff"
+backplane_additional_offset_ipv6 = 0
+
 # Define the roles for the devices in the topology
 roles_cfg = {
     "t0": {
@@ -146,8 +151,16 @@ class VM:
         self.loopback_ipv6 = calc_ipv6("2064:100::", (self.ip_offset+1) * 2**64)
 
         # Backplane IPs
-        self.bp_ipv4 = calc_ipv4("10.10.246.1", self.ip_offset+1)
-        self.bp_ipv6 = calc_ipv6("fc0a::1", (self.ip_offset+1))
+        global backplane_additional_offset_ipv4
+        self.bp_ipv4 = calc_ipv4("10.10.246.1", self.ip_offset+1+backplane_additional_offset_ipv4)
+        if self.bp_ipv4 == PTF_BACKPLANE_IPV4:
+            backplane_additional_offset_ipv4 = 1
+            self.bp_ipv4 = calc_ipv4("10.10.246.1", self.ip_offset+1+backplane_additional_offset_ipv4)
+        global backplane_additional_offset_ipv6
+        self.bp_ipv6 = calc_ipv6("fc0a::1", (self.ip_offset+1+backplane_additional_offset_ipv6))
+        if self.bp_ipv6 == PTF_BACKPLANE_IPV6:
+            backplane_additional_offset_ipv6 = 1
+            self.bp_ipv6 = calc_ipv6("fc0a::1", self.ip_offset+1+backplane_additional_offset_ipv6)
 
 
 class HostInterface:
