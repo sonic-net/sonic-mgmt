@@ -15,7 +15,7 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 600
+GCUTIMEOUT_MAP = {'armhf-nokia_ixs7215_52x-r0': 1200}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -125,7 +125,8 @@ def apply_patch(duthost, json_data, dest_file):
     start_time = time.time()
     output = duthost.shell(cmds, module_ignore_errors=True)
     elapsed_time = time.time() - start_time
-    if elapsed_time > GCUTIMEOUT:
+    gcu_timeout = get_gcu_timeout(duthost)
+    if elapsed_time > gcu_timeout:
         logger.error("Command took too long: {} seconds".format(elapsed_time))
         raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
 
@@ -447,7 +448,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     if "master" in os_version or "internal" in os_version:
         return True
     try:
-        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        version_required = gcu_conf["tables"][table][
+            "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
         # os_version is in format "20220531.04", version_required is in format "20220500"
@@ -576,3 +578,7 @@ def get_bgp_speaker_runningconfig(duthost):
     bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
     bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
     return bgp_speaker_config
+
+
+def get_gcu_timeout(duthost):
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
