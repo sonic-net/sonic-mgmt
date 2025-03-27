@@ -6,8 +6,8 @@ from datetime import datetime
 from tests.arp.arp_utils import clear_dut_arp_cache
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 
 
 pytestmark = [
