@@ -69,6 +69,12 @@ EXPECTED_TUNNEL_ROUTE_MAP = {
 }
 
 
+def wait_until_with_final_check(timeout, interval, delay, condition, *args, **kwargs):
+    """Always allow for extra check after timeout."""
+    check_result = wait_until(timeout, interval, delay, condition, *args, **kwargs)
+    return check_result or condition(*args, **kwargs)
+
+
 class DBChecker:
 
     def __init__(self, duthost, state, health, intf_names='all',
@@ -106,8 +112,8 @@ class DBChecker:
 
     def verify_db(self, db):
         pytest_assert(
-            wait_until(self.VERIFY_DB_TIMEOUT, 10, 0,
-                       self.get_mismatched_ports, db),
+            wait_until_with_final_check(self.VERIFY_DB_TIMEOUT, 10, 0,
+                                        self.get_mismatched_ports, db),
             "Database states don't match expected state {state},"
             "incorrect {db_name} values {db_states}"
             .format(state=self.state, db_name=DB_NAME_MAP[db],
