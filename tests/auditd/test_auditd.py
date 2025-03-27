@@ -1,10 +1,10 @@
 import json
 import pytest
 import logging
-from tests.common.fixtures.tacacs import tacacs_creds # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-from tests.common.helpers.tacacs.tacacs_helper import check_tacacs, ssh_remote_run # noqa F401
+from tests.common.helpers.tacacs.tacacs_helper import check_tacacs, ssh_remote_run  # noqa: F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -14,8 +14,8 @@ pytestmark = [
 
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net "
-CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:8080" # noqa W605
-CURL_CMD = "curl http://localhost:8080" # noqa W605
+CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:8080"   # noqa: W605
+CURL_CMD = "curl http://localhost:8080"    # noqa: W605
 logger = logging.getLogger(__name__)
 
 
@@ -94,7 +94,8 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
                       "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
 
 
-def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
+def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                              tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -111,7 +112,8 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     assert len(result) > 0, "Auditd file_deletion rule does not contain the expected logs"
 
 
-def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
+def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                              tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -127,7 +129,8 @@ def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     assert len(result) > 0, "Auditd process_audit rule does not contain the expected logs"
 
 
-def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
+def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                                      tacacs_creds, check_tacacs, check_auditd):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -143,7 +146,8 @@ def test_auditd_user_group_management(localhost, duthosts, enum_rand_one_per_hws
     assert len(result) > 0, "Auditd user_group_management rule does not contain the expected logs"
 
 
-def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
+def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                                tacacs_creds, check_tacacs, check_auditd):          # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
@@ -159,7 +163,8 @@ def test_auditd_docker_commands(localhost, duthosts, enum_rand_one_per_hwsku_hos
     assert len(result) > 0, "Auditd docker_commands rule does not contain the expected logs"
 
 
-def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, check_auditd): # noqa F811
+def test_auditd_config_changes(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                               tacacs_creds, check_tacacs, check_auditd):           # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     container_name = "auditd"
