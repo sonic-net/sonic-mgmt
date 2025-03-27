@@ -14,10 +14,10 @@ from scapy.all import Ether, IP
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from abc import abstractmethod
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import check_skip_release
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
@@ -515,7 +515,7 @@ class AclVlanOuterTest_Base(object):
             self.post_running_hook(rand_selected_dut, ptfhost, ip_version)
 
     def _do_verification(self, ptfadapter, duthost, tbinfo, vlan_setup_info,
-                         ip_version, tagged_mode, action):   # noqa F811
+                         ip_version, tagged_mode, action):   # noqa: F811
         vlan_setup, _, _, _ = vlan_setup_info
         test_setup_config = self.setup_cfg(duthost, tbinfo, vlan_setup, tagged_mode, ip_version)
 
@@ -578,7 +578,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                              ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                              ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is forwarded by ACL rule on tagged interface
         """
@@ -587,7 +587,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                            ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                            ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is dropped by ACL rule on tagged interface
         """
@@ -596,7 +596,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                                ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is forwarded by ACL rule on untagged interface
         """
@@ -605,7 +605,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                              ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                              ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is dropped by ACL rule on untagged interface
         """
@@ -614,7 +614,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_combined_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                                       ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                       ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is forwarded by ACL rule on tagged interface, and the interface belongs to two vlans
         """
@@ -623,7 +623,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_combined_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                                     ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                     ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is dropped by ACL rule on tagged interface, and the interface belongs to two vlans
         """
@@ -632,7 +632,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_combined_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                                         ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                         ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is forwarded by ACL rule on untagged interface, and the interface belongs to two vlans
         """
@@ -641,7 +641,7 @@ class AclVlanOuterTest_Base(object):
 
     @pytest.mark.po2vlan
     def test_combined_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
-                                       ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                       ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
         """
         Verify packet is dropped by ACL rule on untagged interface, and the interface belongs to two vlans
         """

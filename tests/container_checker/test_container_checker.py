@@ -15,6 +15,7 @@ from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import get_disabled_container_list
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,16 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         up_bgp_neighbors[duthost] = duthost.get_bgp_neighbors_per_asic("established")
 
     yield
-    for hostname in selected_rand_one_per_hwsku_hostname:
-        duthost = duthosts[hostname]
-        logger.info("Reload config on DuT '{}' ...".format(duthost.hostname))
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        postcheck_critical_processes_status(duthost, up_bgp_neighbors[duthost])
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for hostname in selected_rand_one_per_hwsku_hostname:
+            duthost = duthosts[hostname]
+            logger.info("Reload config on DuT '{}' ...".format(duthost.hostname))
+            executor.submit(config_reload, duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for hostname in selected_rand_one_per_hwsku_hostname:
+            duthost = duthosts[hostname]
+            executor.submit(postcheck_critical_processes_status, duthost, up_bgp_neighbors[duthost])
 
 
 @pytest.fixture(autouse=True, scope="module")
