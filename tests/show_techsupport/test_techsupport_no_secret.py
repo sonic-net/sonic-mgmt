@@ -92,8 +92,8 @@ def test_secret_removed_from_show_techsupport(
     list_command = "ls {0}/etc/pam_radius_auth.d/*.conf || true".format(dump_extract_path)
     config_file_list = duthost.shell(list_command)["stdout_lines"]
     for config_file in config_file_list:
-        sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{2}"\
-            .format(radius_passkey, dump_extract_path, config_file)
+        sed_command = "sed -nE '/{0}/P' {1}"\
+            .format(radius_passkey, config_file)
         check_no_result(duthost, sed_command)
 
     # check snmp community string not exist
