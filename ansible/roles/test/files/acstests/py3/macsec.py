@@ -1,1 +1,1 @@
-../macsec.py
+../../ptftests/macsec.py

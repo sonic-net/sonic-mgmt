@@ -1,1 +1,1 @@
-../macsec.py
+../../../ansible/roles/test/files/ptftests/macsec.py
