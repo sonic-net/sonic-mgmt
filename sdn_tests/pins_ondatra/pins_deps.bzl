@@ -6,7 +6,7 @@ def pins_deps():
         git_repository(
           name = "com_github_sonic_net_sonic_pins",
           remote = "https://github.com/sonic-net/sonic-pins.git",
-          commit = "3f52760f3bbaf2723bcfb2de5ca68a8a826273f1" # main as on march 11, 2025
+          commit = "356fd830c741ed0f377139534eac737c2aa56e59" # main as on march 27, 2025
         )
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
@@ -126,9 +126,9 @@ def pins_deps():
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
         http_archive(
             name = "com_github_p4lang_p4_constraints",
-            urls = ["https://github.com/p4lang/p4-constraints/archive/3d5196a793f375ccbe1bf38ae6c49e2e65604f4b.zip"],
-            strip_prefix = "p4-constraints-3d5196a793f375ccbe1bf38ae6c49e2e65604f4b",
-            sha256 = "f87d885ebfd6a1bdf02b4c4ba5bf6fb333f90d54561e4d520a8413c8d1fb7beb",
+            urls = ["https://github.com/p4lang/p4-constraints/archive/19be9f88dd843e9012a46e8e0e764d545d649f67.zip"],
+            strip_prefix = "p4-constraints-19be9f88dd843e9012a46e8e0e764d545d649f67",
+            sha256 = "48cbe4e5831a54d78b79f33ae41fc9648f0731f055572e3568845805eea01cfa",
         )
     if not native.existing_rule("com_github_nlohmann_json"):
         http_archive(
