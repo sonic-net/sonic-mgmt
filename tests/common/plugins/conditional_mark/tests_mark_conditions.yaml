@@ -338,6 +338,12 @@ dash/test_dash_privatelink.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
+dash/test_dash_smartswitch_vnet.py:
+  skip:
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
 dash/test_dash_vnet.py:
   skip:
     conditions_logical_operator: or
@@ -843,6 +849,36 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-default]:
+  skip:
+    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_l3_scenario]:
+  skip:
+    reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['marvell']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vlan_scenario]:
+  skip:
+    reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['marvell']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
@@ -1095,6 +1131,10 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
+
+gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
+  skip:
+    reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
@@ -2529,7 +2569,7 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     reason: "Switch does not support ACL REDIRECT_ACTION."
     conditions_logical_operator: or
     conditions:
-      - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
+      - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
 vrf/test_vrf_attr.py:
