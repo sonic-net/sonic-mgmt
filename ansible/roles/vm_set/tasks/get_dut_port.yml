@@ -11,9 +11,33 @@
     dut_mgmt_port: ""
   when: external_port is defined
 
+- name: determine whether to include internal ports
+  set_fact:
+    include_internal: true
+  when: is_vs_chassis is defined and is_vs_chassis == true
+
+- name: determine whether to sort port_alias by index
+  set_fact:
+    sort_by_index: false
+  when: is_vs_chassis is defined and is_vs_chassis == true
+
+- set_fact:
+    hwsku: "{{ hostvars[dut_name].hwsku }}"
+    num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+    card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
+  when: dut_name in hostvars
+
+- name: Get DUT port alias
+  port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}
+  delegate_to: localhost
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
+
 - name: Get front panel and mgmt port for kvm vm
   kvm_port:
     vmname: "{{ dut_name }}"
+    front_panel_port_aliases: "{{ front_panel_port_alias }}"
+    midplane_port_aliases: "{{ midplane_port_alias }}"
+    inband_port_aliases: "{{ inband_port_alias }}"
   when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'kvm'
   become: yes
 
@@ -31,4 +55,6 @@
 
 - set_fact:
     duts_fp_ports: "{{ duts_fp_ports|default({}) | combine( { dut_name: dut_fp_ports } ) }}"
+    duts_midplane_ports: "{{ duts_midplane_ports|default({}) | combine( { dut_name: dut_midplane_ports|default([]) } ) }}"
+    duts_inband_ports: "{{ duts_inband_ports|default({}) | combine( { dut_name: dut_inband_ports|default([]) } ) }}"
     duts_mgmt_port: "{{ duts_mgmt_port|default([]) + [ dut_mgmt_port ] }}"

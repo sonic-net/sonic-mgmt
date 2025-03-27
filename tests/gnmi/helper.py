@@ -1,8 +1,10 @@
 import time
 import logging
 import pytest
+import json
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -112,8 +114,9 @@ def apply_cert_config(duthost):
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
-    is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
-    assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if env.gnmi_process not in output['stdout']:
         # Dump tcp port status and gnmi log
         logger.info("TCP port status: " + output['stdout'])
@@ -149,21 +152,28 @@ def check_system_time_sync(duthost):
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    ntp_status_cmd = "ntpstat"
-    restart_ntp_cmd = "sudo systemctl restart ntp"
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
 
-    ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-    if "synchronised" in ntp_status["stdout"]:
+    if ntp_daemon == NtpDaemon.CHRONY:
+        ntp_status_cmd = "chronyc -c tracking"
+        restart_ntp_cmd = "sudo systemctl restart chrony"
+    else:
+        ntp_status_cmd = "ntpstat"
+        restart_ntp_cmd = "sudo systemctl restart ntp"
+
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
         return True
-
     else:
         logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
-        duthost.shell(restart_ntp_cmd)
+        duthost.command(restart_ntp_cmd)
         time.sleep(5)
         # Rechecking status after restarting NTP
-        ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-        if "synchronised" in ntp_status["stdout"]:
+        ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+        if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+                (ntp_daemon != NtpDaemon.CHRONY and "synchronized" in ntp_status["stdout"]):
             logger.info("DUT %s is now synchronized with NTP server.", duthost)
             return True
         else:
@@ -452,3 +462,25 @@ def gnoi_request(duthost, localhost, module, rpc, request_json_data):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def extract_gnoi_response(output):
+    """
+    Extract the JSON response from the gNOI client output
+
+    Args:
+        output: gNOI client output, the output is in the form of
+                "Module RPC: <JSON response>", e.g. "System Time\n {"time":1735921221909617549}"
+
+    Returns:
+        json response: JSON response extracted from the output
+    """
+    try:
+        if '\n' not in output:
+            logging.error("Invalid output format: {}, expecting 'Module RPC: <JSON response>'.".format(output))
+            return None
+        response_line = output.split('\n')[1]
+        return json.loads(response_line)
+    except json.JSONDecodeError:
+        logging.error("Failed to parse JSON: {}".format(response_line))
+        return None

@@ -112,7 +112,7 @@ def get_ld_path(duthost):
         Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side
         for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
     """
-    find_ld_command = "find /lib/ -type f,l -regex '\/lib\/.*-linux-.*/ld-linux-.*\.so\.[0-9]*'"   # noqa W605
+    find_ld_command = "find /lib/ -type f,l -regex '\/lib\/.*-linux-.*/ld-linux-.*\.so\.[0-9]*'"   # noqa: W605
     return duthost.shell(find_ld_command)['stdout']
 
 
@@ -226,7 +226,7 @@ def stop_tacacs_server(ptfhost):
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
-    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'    # noqa W605
+    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'    # noqa: W605
     server_list = duthost.shell(find_server_command, module_ignore_errors=True)['stdout_lines']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
@@ -372,7 +372,7 @@ def check_nss_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds): # noqa F811
+def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
@@ -417,7 +417,7 @@ def generate_commands_from_commandset_config():
         command_name = ro_command_regex["Name"]
         command_arguments = ro_command_regex["Arguments"]
 
-        # Ignore denined commands 
+        # Ignore denined commands
         allow = ro_command_regex["Allow"]
         if not allow:
             continue;
@@ -453,7 +453,7 @@ def generate_commands_from_commandset_config():
         command_arguments = command_arguments.replace("[0-9]", "0")
         command_arguments = command_arguments.replace("[46]", "4")
         command_arguments = command_arguments.replace("[a-zA-Z0-9.]+", "0")
-        
+
 
         command = "{} {}".format(command_name, command_arguments)
         commands.append(command)
@@ -474,7 +474,7 @@ def generate_tacplus_config_from_commandset_config():
         command_name = ro_command_regex["Name"]
         command_arguments = ro_command_regex["Arguments"]
 
-        # Ignore denined commands 
+        # Ignore denined commands
         allow = ro_command_regex["Allow"]
         if not allow:
             continue;
@@ -496,10 +496,10 @@ def generate_tacplus_config_from_commandset_config():
             command_arguments = ".*"
 
         # Remove regex end, SONiC internal branch send DeviceType parameter,which cause a tacplus server
-        # side bug that add an additional space to end of the command. NetAAA service can handle it correctly. 
+        # side bug that add an additional space to end of the command. NetAAA service can handle it correctly.
         if command_arguments.endswith("$"):
             command_arguments = command_arguments[:-1]
-        
+
         # tacplus config not support following:
         #   space, need replace with \s
         #   =, need replace with \W

@@ -44,7 +44,7 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
     if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
-        logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
+        logger.warning("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
         reboot(duthost, localhost)
         # Some services are not ready immeidately after reboot
         wait_critical_processes(duthost)
@@ -161,7 +161,7 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     if not succeed:
         # Something unexpected happened.
         # We don't want to fail here because it's an util
-        logging.warn("Failed to retrieve feature status")
+        logging.warning("Failed to retrieve feature status")
         return
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")
     try:
@@ -403,6 +403,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
                 duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
                 output = duthost.shell("TSB", module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Failed TSB")
+                duthost.shell("sudo config save -y")
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(startup_tsa_tsb_file_path, duthost.hostname))

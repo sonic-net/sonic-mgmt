@@ -138,6 +138,8 @@ def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
 def check_docker_status(duthost):
     containers = duthost.get_all_containers()
     for container in containers:
+        if 'disabled' in duthost.get_feature_status()[0].get(container, ''):
+            continue
         if not duthost.is_service_fully_started(container):
             return False
     return True
