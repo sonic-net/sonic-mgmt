@@ -25,6 +25,16 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 DUMMY_QUOTA = "dummy_single_quota"
 
+smartswitch_hwsku_config = {
+    "Cisco-8102-28FH-DPU-O-T1": {
+         "dpu_num": 8,
+         "port_key": "Ethernet{}",
+         "interface_key": "Ethernet{}|18.{}.202.0/31",
+         "base": 224,
+         "step": 8
+        }
+    }
+
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
@@ -91,9 +101,65 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(dhcp_server_config_obj)
         return gold_config_db
 
+    def generate_smartswitch_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate FEATURE table from init_cfg.ini
+        ori_config_db = json.loads(out)
+        if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            return "{}"
+        ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
+        hwsku = ori_config_db["DEVICE_METADATA"]["localhost"].get("hwsku", None)
+
+        if "FEATURE" not in ori_config_db \
+                or "dhcp_relay" not in ori_config_db["FEATURE"]:
+            return "{}"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "enabled"
+
+        # Generate INTERFACE table for EthernetBPXX
+        if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
+            return "{}"
+
+        if hwsku not in smartswitch_hwsku_config:
+            return "{}"
+
+        if "CHASSIS_MODULE" not in ori_config_db:
+            ori_config_db["CHASSIS_MODULE"] = {}
+
+        hwsku_config = smartswitch_hwsku_config[hwsku]
+        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+            if "interface_key" in hwsku_config:
+                interface_key = hwsku_config["interface_key"].format(hwsku_config["base"] + i * hwsku_config["step"], i)
+
+            if port_key in ori_config_db["PORT"]:
+                ori_config_db["PORT"][port_key]["admin_status"] = "up"
+                if "interface_key" in hwsku_config:
+                    ori_config_db["INTERFACE"][port_key] = {}
+                    ori_config_db["INTERFACE"][interface_key] = {}
+
+            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "down"}
+
+        gold_config_db = {
+            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
+            "PORT": copy.deepcopy(ori_config_db["PORT"]),
+            "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
+        }
+
+        return json.dumps(gold_config_db, indent=4)
+
     def generate(self):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
+        elif self.topo_name in ["t1-28-lag"]:
+            config = self.generate_smartswitch_golden_config_db()
         else:
             config = "{}"
 
