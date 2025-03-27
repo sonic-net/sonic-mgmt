@@ -61,6 +61,7 @@ from ptf.base_tests import BaseTest
 
 import macsec  # noqa F401
 
+
 class DecapPacketTest(BaseTest):
     """ IP in IP decapsulation test """
 

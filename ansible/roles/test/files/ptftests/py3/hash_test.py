@@ -34,6 +34,7 @@ import fib
 import lpm
 import macsec  # noqa F401
 
+
 class HashTest(BaseTest):
 
     # ---------------------------------------------------------------------

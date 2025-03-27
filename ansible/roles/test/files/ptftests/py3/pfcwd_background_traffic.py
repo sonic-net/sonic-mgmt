@@ -31,6 +31,7 @@ from ptf.mask import Mask
 import ptf
 import macsec  # noqa F401
 
+
 class BG_pkt_sender(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)

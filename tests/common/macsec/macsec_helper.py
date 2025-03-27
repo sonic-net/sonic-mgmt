@@ -540,8 +540,9 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 if ret.port in MACSEC_INFO and MACSEC_INFO[ret.port]:
                     # Reload the macsec session if the session was restarted
                     if force_reload[ret.port]:
-                        load_macsec_info_for_ptf_id(test.duthost, ret.port,
-                            find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+                        load_macsec_info_for_ptf_id(
+                            test.duthost, ret.port, find_portname_from_ptf_id(test.mg_facts, ret.port),
+                            force_reload[ret.port])
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                         MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False

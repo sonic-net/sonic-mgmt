@@ -6,6 +6,7 @@ import time
 from ptf.testutils import test_params_get, simple_udp_packet, send_packet
 import macsec  # noqa F401
 
+
 class PfcWdBackgroundTrafficTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)

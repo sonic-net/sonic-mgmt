@@ -14,6 +14,7 @@ from ptf.mask import Mask
 from ptf.testutils import add_filter, reset_filters, dp_poll, simple_udp_packet, send_packet, test_params_get
 import macsec  # noqa F401
 
+
 def udp_filter(pkt_str):
     try:
         pkt = scapy.Ether(pkt_str)
