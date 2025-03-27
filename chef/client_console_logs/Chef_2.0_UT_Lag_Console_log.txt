@@ -1,0 +1,93 @@
+root@sonic:~# show interfaces portchannel
+Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available, S - selected, D - deselected
+No.    Team Dev     Protocol     Ports
+3    PortChannel3     LACP(A)(Dw)    Ethernet8(S) Ethernet12(S) 
+4    PortChannel4     LACP(A)(Dw)    Ethernet0(D) Ethernet4(D) 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# chef-client
+[2019-05-22T12:12:07+00:00] INFO: Forking chef instance to converge...
+Starting Chef Client, version 12.14.60
+[2019-05-22T12:12:07+00:00] INFO: *** Chef 12.14.60 ***
+[2019-05-22T12:12:07+00:00] INFO: Platform: x86_64-linux-gnu
+[2019-05-22T12:12:07+00:00] INFO: Chef-client pid: 19152
+[2019-05-22T12:12:19+00:00] INFO: Run List is [recipe[sonic::lag], role[sonic]]
+[2019-05-22T12:12:19+00:00] INFO: Run List expands to [sonic::lag]
+[2019-05-22T12:12:19+00:00] INFO: Starting Chef Run for sonic
+[2019-05-22T12:12:19+00:00] INFO: Running start handlers
+[2019-05-22T12:12:19+00:00] INFO: Start handlers complete.
+[2019-05-22T12:12:20+00:00] INFO: HTTP Request Returned 404 Object Not Found: 
+resolving cookbooks for run list: ["sonic::lag"]
+[2019-05-22T12:12:21+00:00] INFO: Loading cookbooks [sonic@0.1.0]
+Synchronizing Cookbooks:
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/resources/lag.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/recipes/lag.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/recipes/default.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/providers/lag.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/attributes/default.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/metadata.rb in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/CHANGELOG.md in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/metadata.json in the cache.
+[2019-05-22T12:12:22+00:00] INFO: Storing updated cookbooks/sonic/README.md in the cache.
+  - sonic (0.1.0)
+Installing Cookbook Gems:
+Compiling Cookbooks...
+[2019-05-22T12:12:22+00:00] INFO: My hostname is sonic
+[2019-05-22T12:12:22+00:00] INFO: My provider is sonic_lag
+[2019-05-22T12:12:22+00:00] INFO: Processing lag PortChannel4
+[2019-05-22T12:12:22+00:00] INFO: Processing lag PortChannel3
+[2019-05-22T12:12:22+00:00] INFO: Processing lag PortChannel2
+[2019-05-22T12:12:22+00:00] INFO: Processing lag PortChannel1
+Converging 4 resources
+Recipe: sonic::lag
+  * sonic_lag[PortChannel4] action del_members[2019-05-22T12:12:22+00:00] INFO: Processing sonic_lag[PortChannel4] action del_members (sonic::lag line 34)
+
+    - delete ports 'Ethernet0, Ethernet4' from Port Channel 'PortChannel4'
+  * sonic_lag[PortChannel4] action delete[2019-05-22T12:12:23+00:00] INFO: Processing sonic_lag[PortChannel4] action delete (sonic::lag line 34)
+
+    - delete Port Channel 'PortChannel4'
+  * sonic_lag[PortChannel3] action del_members[2019-05-22T12:12:23+00:00] INFO: Processing sonic_lag[PortChannel3] action del_members (sonic::lag line 41)
+
+    - delete ports 'Ethernet8, Ethernet12' from Port Channel 'PortChannel3'
+  * sonic_lag[PortChannel2] action create[2019-05-22T12:12:23+00:00] INFO: Processing sonic_lag[PortChannel2] action create (sonic::lag line 48)
+[2019-05-22T12:12:23+00:00] INFO: Minimum Links '0'
+[2019-05-22T12:12:23+00:00] INFO: Fallback 'false'
+
+    - create Port Channel 'PortChannel2'
+  * sonic_lag[PortChannel2] action add_members[2019-05-22T12:12:24+00:00] INFO: Processing sonic_lag[PortChannel2] action add_members (sonic::lag line 48)
+
+    - add ports 'Ethernet8, Ethernet12' to Port Channel 'PortChannel2'
+  * sonic_lag[PortChannel1] action create[2019-05-22T12:12:24+00:00] INFO: Processing sonic_lag[PortChannel1] action create (sonic::lag line 48)
+[2019-05-22T12:12:24+00:00] INFO: Minimum Links '2'
+[2019-05-22T12:12:24+00:00] INFO: Fallback 'true'
+
+    - create Port Channel 'PortChannel1'
+  * sonic_lag[PortChannel1] action add_members[2019-05-22T12:12:25+00:00] INFO: Processing sonic_lag[PortChannel1] action add_members (sonic::lag line 48)
+
+    - add ports 'Ethernet0, Ethernet4' to Port Channel 'PortChannel1'
+[2019-05-22T12:12:27+00:00] INFO: Chef Run complete in 8.662202881 seconds
+
+Running handlers:
+[2019-05-22T12:12:27+00:00] INFO: Running report handlers
+Running handlers complete
+[2019-05-22T12:12:27+00:00] INFO: Report handlers complete
+
+Deprecated features used!
+  Using an LWRP provider by its name (SonicLag) directly is no longer supported in Chef 12 and will be removed.  Use Chef::ProviderResolver.new(node, resource, action) instead. at 3 locations:
+    - /var/cache/chef/cookbooks/sonic/recipes/lag.rb:35:in `block (2 levels) in from_file'
+    - /var/cache/chef/cookbooks/sonic/recipes/lag.rb:42:in `block (2 levels) in from_file'
+    - /var/cache/chef/cookbooks/sonic/recipes/lag.rb:49:in `block (2 levels) in from_file'
+  An attempt was made to change fallback from false to nil by calling fallback(nil). In Chef 12, this does a get rather than a set. In Chef 13, this will change to set the value to nil. at 1 location:
+    - /var/cache/chef/cookbooks/sonic/recipes/lag.rb:51:in `block (2 levels) in from_file'
+
+Chef Client finished, 7/7 resources updated in 20 seconds
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show interfaces portchannel
+Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available, S - selected, D - deselected
+No.    Team Dev     Protocol     Ports
+1    PortChannel1     LACP(A)(Dw)    Ethernet4(S) 
+2    PortChannel2     LACP(A)(Dw)    Ethernet8(D) Ethernet12(D) 
+3    PortChannel3     LACP(A)(Dw)    N/A
+root@sonic:~# 
+root@sonic:~# 
