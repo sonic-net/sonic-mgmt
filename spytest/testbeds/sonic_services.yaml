@@ -164,7 +164,7 @@ ztp:
   provision_script_path: /sonic-ztp/provisioning_scripts
   xml_path: /sonic-ztp/xml
   build_file_name: sonic-broadcom-3.bin
-  uninstall_image: SONiC-OS-sonic_2.0_daily_190823_0000_262-dirty-20190823.000207
+  uninstall_image: SONiC-OS-dirty-20190823.000207
   dut_path: /host/ztp
   ztp_cfg_file_name: ztp_cfg.json
   docker_path: /sonic-ztp/firmware
@@ -176,8 +176,8 @@ ztp:
 usb:
   model: ['USB Flash Disk','Flash Disk','ProductCode']
   manufacturer: ['General','Generic','VendorCo']
-  enterprise_build_path: "http://10.250.0.254:8080/var/builds/daily_builds/4.1.0/sonic-broadcom-3.bin"
-  campus_build_path: "http://10.250.0.254:8080/var/builds/daily_builds/4.1.0/sonic-broadcom-2.bin"
+  daily_build_path: "http://10.250.0.254:8080/var/builds/daily_builds/sonic-broadcom-1.bin"
+  community_build_path: "http://10.250.0.254:8080/var/builds/community/sonic-broadcom-1.bin"
 
 http:
   ip: 1.1.1.1
@@ -220,8 +220,8 @@ calnex:
 
 mod:
   proto_file_name: r5_tapp_event.proto
-  protoc_path: /projects/scid/tools/protobuf/bin/protoc
-  protoc_alt_path: /opt/projects/scid/tools/protobuf/bin/protoc
+  protoc_path: /var/tools/protobuf/bin/protoc
+  protoc_alt_path: /opt/var/tools/protobuf/bin/protoc
 
 dhcp_server_vxlan:
     server_mgmt_ip: 10.2.3.210
@@ -234,35 +234,9 @@ fwdl_info:
   server_ip: '10.2.3.240'
   port: '9009'
   protocol: 'http'
-  image_30: '/var/builds/sonic_3.0/release/broadcom/Broadcom_SONiC_3.0.0/sonic-broadcom-3.bin'
-  image_301: '/var/builds/sonic_3.0.1/release/broadcom/Broadcom_SONiC_3.0.1/sonic-broadcom-3.bin'
-  image_302: '/var/builds/sonic_3.0.2/release/broadcom/Broadcom_SONiC_3.0.2/sonic-broadcom-3.bin'
-  image_303: '/var/builds/sonic_3.0.3/release/broadcom/Broadcom_SONiC_3.0.3/sonic-broadcom-3.bin'
-  image_304: '/var/builds/sonic_3.0.4/release/broadcom/Broadcom_SONiC_3.0.4/sonic-broadcom-3.bin'
-  image_305: '/var/builds/sonic_3.0.5/release/broadcom/Broadcom_SONiC_3.0.5/sonic-broadcom-3.bin'
-  image_306: '/var/builds/sonic_3.0.6/release/broadcom/Broadcom_SONiC_3.0.6/sonic-broadcom-3.bin'
-  image_307: '/var/builds/sonic_3.0.7/release/broadcom/Broadcom_SONiC_3.0.7/sonic-broadcom-3.bin'
-  image_308: '/var/builds/sonic_3.0.8/release/broadcom/Broadcom_SONiC_3.0.8/sonic-broadcom-3.bin'
-  image_309: '/var/builds/sonic_3.0.9/release/broadcom/Broadcom_SONiC_3.0.9/sonic-broadcom-3.bin'
-  image_31: '/var/builds/sonic_3.1/release/broadcom/Broadcom_SONiC_3.1.0/sonic-broadcom-3.bin'
-  image_311: '/var/builds/sonic_3.1.1/release/broadcom/Broadcom_SONiC_3.1.1/sonic-broadcom-3.bin'
-  image_312: '/var/builds/sonic_3.1.2/release/broadcom/Broadcom_SONiC_3.1.2/sonic-broadcom-3.bin'
-  image_312a: '/var/builds/sonic_3.1.2a/release/broadcom/Broadcom_SONiC_3.1.2a/sonic-broadcom-3.bin'
-  image_313: '/var/builds/sonic_3.1.3/release/broadcom/Broadcom_SONiC_3.1.3/sonic-broadcom-3.bin'
-  image_314: '/var/builds/sonic_3.1.4/release/broadcom/Broadcom_SONiC_3.1.4/sonic-broadcom-3.bin'
-  image_316: '/var/builds/sonic_3.1.6/release/broadcom/Broadcom_SONiC_3.1.6/sonic-broadcom-3.bin'
-  image_320: '/var/builds/sonic_3.2.0/release/broadcom/Broadcom_SONiC_3.2.0/sonic-broadcom-3.bin'
-  image_320a: '/var/builds/sonic_3.2.0a/release/broadcom/Broadcom_SONiC_3.2.0a/sonic-broadcom-3.bin'
-  image_321: '/var/builds/sonic_3.2.1/release/broadcom/Broadcom_SONiC_3.2.1/sonic-broadcom-3.bin'
-  image_330: '/var/builds/sonic_3.3.0/release/broadcom/Broadcom_SONiC_3.3.0/sonic-broadcom-3.bin'
-  image_340: '/var/builds/sonic_3.4.0/release/broadcom/Broadcom_SONiC_3.4.0/sonic-broadcom-3.bin'
-  image_342: '/var/builds/sonic_3.4.2/release/broadcom/Broadcom_SONiC_3.4.2/sonic-broadcom-3.bin'
-  image_352: '/var/builds/sonic_3.5.2/release/broadcom/Broadcom_SONiC_3.5.2/sonic-broadcom-3.bin'
-  image_400: '/var/builds/sonic_4.0.0/release/broadcom/Broadcom_SONiC_4.0.0/sonic-broadcom-3.bin'
-  image_401: '/var/builds/sonic_4.0.1/release/broadcom/Broadcom_SONiC_4.0.1/sonic-broadcom-3.bin'
-  image_402: '/var/builds/sonic_4.0.2/release/broadcom/Broadcom_SONiC_4.0.2/sonic-broadcom-3.bin'
-  image_404: '/var/builds/sonic_4.0.4/release/broadcom/Broadcom_SONiC_4.0.4/sonic-broadcom-3.bin'
-  image_322:
+  image_1: '/var/builds/sonic_builds/sonic-broadcom-1.bin'
+  image_2: '/var/builds/sonic_builds/sonic-broadcom-2.bin'
+  image_3: '/var/builds/sonic_builds/sonic-broadcom-3.bin'
 
 linuxradiusserver:
   ip: 10.2.3.147
