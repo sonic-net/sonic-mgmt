@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "bjw2-can-dual-t0-8101-1"
+    default: "vms18-dual-t0-8101"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -39,7 +39,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202411)
+    default: $(IMAGE_CISCO_202411_PRI)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -93,7 +93,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8101.dualtor.202411.NightlyTest_by_Elastictest
+    displayName: 8101.dualtor.202411.1.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
