@@ -169,8 +169,7 @@ class GenerateGoldenConfigDBModule(object):
                 "has_per_asic_scope": "True",
                 "high_mem_alert": "disabled",
                 "set_owner": "local",
-                "state": "enabled",
-                "support_syslog_rate_limit": "false"
+                "state": "enabled"
             }
         }
         for namespace, ns_data in gold_config_db.items():
@@ -202,8 +201,7 @@ class GenerateGoldenConfigDBModule(object):
             "has_per_asic_scope": "False",
             "high_mem_alert": "disabled",
             "set_owner": "local",
-            "state": "enabled",
-            "support_syslog_rate_limit": "false"
+            "state": "enabled"
         })
 
         # Create the gold_config_db dictionary with both "FEATURE" and the specified feature section
@@ -388,8 +386,10 @@ class GenerateGoldenConfigDBModule(object):
         # To enable bmp feature
         if self.check_version_for_bmp() is True:
             if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
