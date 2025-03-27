@@ -1,6 +1,6 @@
 parameters:
   - name: NUM_ASIC
-    type: int
+    type: number
     default: 1
 
   - name: VM_TYPE
