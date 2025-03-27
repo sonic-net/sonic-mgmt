@@ -1,3 +1,24 @@
+parameters:
+  - name: NUM_ASIC
+    type: int
+    default: 1
+
+  - name: VM_TYPE
+    type: string
+    default: ceos
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: ""
+
+  - name: DEPLOY_MG_EXTRA_PARAMS
+    type: string
+    default: ""
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: ""
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -8,7 +29,8 @@ jobs:
     steps:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
-  - job: impacted-area-kvmtest
+  - job: impacted_area_kvmtest
+    displayName: "impacted-area-kvmtest"
     cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
@@ -18,26 +40,18 @@ jobs:
           CHECKER: t0_checker
           TOPOLOGY: t0
           PREPARE_TIME: 30
-          NUM_ASIC: 1
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          COMMON_EXTRA_PARAMS: ""
         t0-2vlans:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
           TOPOLOGY: t0
           PREPARE_TIME: 30
-          NUM_ASIC: 1
-          COMMON_EXTRA_PARAMS: ""
         t1-lag:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-lag
           # 50 mins for preparing testbed, 30 mins for pre-test and post-test
           PREPARE_TIME: 80
-          NUM_ASIC: 1
-          COMMON_EXTRA_PARAMS: ""
-          DEPLOY_MG_EXTRA_PARAMS: ""
         dualtor:
           TESTBED_PREP_TOPOLOGY: dualtor
           CHECKER: dualtor_checker
@@ -45,8 +59,6 @@ jobs:
           TOPOLOGY: dualtor
           # 30 mins for preparing testbed, 30 mins for pre-test and 20 mins for post-test
           PREPARE_TIME: 80
-          NUM_ASIC: 1
-          DEPLOY_MG_EXTRA_PARAMS: ""
         multi-asic-t1:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
           CHECKER: t1-multi-asic_checker
@@ -60,8 +72,6 @@ jobs:
           TOPOLOGY: t0-64-32
           PREPARE_TIME: 40
           VM_TYPE: vsonic
-          NUM_ASIC: 1
-          DEPLOY_MG_EXTRA_PARAMS: ""
           SPECIFIC_PARAM: '[
             {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
             {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
@@ -71,9 +81,6 @@ jobs:
           CHECKER: dpu_checker
           TOPOLOGY: dpu
           PREPARE_TIME: 30
-          NUM_ASIC: 1
-          COMMON_EXTRA_PARAMS: ""
-          DEPLOY_MG_EXTRA_PARAMS: ""
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
@@ -87,7 +94,7 @@ jobs:
       - template: ../impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
-          BUILD_BRANCH: "master"
+          BUILD_BRANCH: $(Build.SourceBranchName)
           PREPARE_TIME: $(PREPARE_TIME)
 
       - template: ../run-test-elastictest-template.yml
@@ -98,8 +105,8 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: $(DEPLOY_MG_EXTRA_PARAMS)
           COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
-          KVM_IMAGE_BRANCH: "master"
-          MGMT_BRANCH: "master"
+          KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
+          MGMT_BRANCH: $(Build.SourceBranchName)
           BUILD_REASON: "BaselineTest"
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
