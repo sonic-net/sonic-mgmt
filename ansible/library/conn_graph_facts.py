@@ -300,6 +300,7 @@ class LabGraph(object):
             vlan_ID = link["VlanID"]
             vlan_mode = link["VlanMode"]
             autoneg_mode = link.get("AutoNeg")
+            fec_disable = link.get("FECDisable", False)
 
             if start_device not in links:
                 links[start_device] = {}
@@ -314,11 +315,13 @@ class LabGraph(object):
                 "peerdevice": end_device,
                 "peerport": end_port,
                 "speed": band_width,
+                "fec_disable": fec_disable
             }
             links[end_device][end_port] = {
                 "peerdevice": start_device,
                 "peerport": start_port,
                 "speed": band_width,
+                "fec_disable": fec_disable
             }
 
             if autoneg_mode:
