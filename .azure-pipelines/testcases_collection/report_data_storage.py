@@ -15,7 +15,6 @@ class KustoConnector():
 
     TESTCASES_TABLE = "TestCasesCollection"
 
-
     def __init__(self, db_name: str):
         """Initialize a Kusto report DB connector.
 
