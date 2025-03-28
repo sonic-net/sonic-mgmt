@@ -6415,14 +6415,21 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             lag_redirections = []
             failures = []
 
-            # All-to-all would take a while. Instead, do:
             src_dst_pairs = []
-            # first-to-all
-            for dst_port_id in self.all_port_ids[1:]:
-                src_dst_pairs.append((self.all_port_ids[0], dst_port_id))
-            # all-to-last
-            for src_port_id in self.all_port_ids[:-1]:
-                src_dst_pairs.append((src_port_id, self.all_port_ids[-1]))
+            do_all_to_all = False
+            if do_all_to_all:
+                for src_port_id in self.all_port_ids:
+                    for dst_port_id in self.all_port_ids:
+                        if src_port_id != dst_port_id:
+                            src_dst_pairs.append((src_port_id, dst_port_id))
+            else:
+                # All-to-all can take a while. Alternatively, do:
+                # first-to-all
+                for dst_port_id in self.all_port_ids[1:]:
+                    src_dst_pairs.append((self.all_port_ids[0], dst_port_id))
+                # all-to-last
+                for src_port_id in self.all_port_ids[:-1]:
+                    src_dst_pairs.append((src_port_id, self.all_port_ids[-1]))
             tprint("Total traffic src/dst pairings being tested:", len(src_dst_pairs))
             pkt_count = 500
             for src_port_id, dst_port_id in src_dst_pairs:
@@ -6445,7 +6452,7 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
                         msg = "Failed to check for get_rx_port"
                         tprint(msg)
                         failures.append(msg)
-
+                    all_recv_counters_base = {port_id: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in self.all_port_ids}
                     self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [real_dst_port_id])
                     # Test fill leakout algorithm here, since this tends to be a common
                     # failure point in other more complex tests.
@@ -6464,12 +6471,30 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, self.src_port_id, self.pkt, pkt_count)
                     self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [real_dst_port_id])
                     time.sleep(1)
+                    # Queue counters
                     q_cntrs = sai_thrift_read_port_counters(self.src_client, self.asic_type,
                                                             port_list['dst'][real_dst_port_id])[1]
                     pkts_enqueued = q_cntrs[QUEUE_3] - q_cntrs_base[QUEUE_3]
                     tprint("Q count: {}".format(pkts_enqueued))
                     tprint("")
                     assert pkts_enqueued >= pkt_count
+                    # All port counters
+                    tprint("Checking all port counters for pair {} -> {}".format(src_port_id, dst_port_id), header_level=1)
+                    all_recv_counters = {port_id: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in self.all_port_ids}
+                    for port_id in self.all_port_ids:
+                        # RX Port counter
+                        for cntr in [RECEIVED_PKTS, TRANSMITTED_PKTS]:
+                            is_rx = cntr == RECEIVED_PKTS
+                            cntr_str = "RX" if is_rx else "TX"
+                            base = all_recv_counters_base[port_id][cntr]
+                            new = all_recv_counters[port_id][cntr]
+                            change = new - base
+                            expected = pkt_count if port_id == (src_port_id if is_rx else dst_port_id) else 0
+                            error = abs(change - expected)
+                            if error > 100:
+                                msg = "During {} -> {} traffic, port {} {} counter error {} > 100, expected {} but got {}".format(src_port_id, dst_port_id, port_id, cntr_str, error, expected, change)
+                                tprint(msg)
+                                failures.append(msg)
 
             # Print organized summary of observations, then print observations that are
             # considered failure conditions
