@@ -90,13 +90,9 @@ def test_secret_removed_from_show_techsupport(
     sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.conf".format(radius_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
 
-    # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
-    list_command = "ls {0}/etc/pam_radius_auth.d/*.conf || true".format(dump_extract_path)
-    config_file_list = duthost.shell(list_command)["stdout_lines"]
-    for config_file in config_file_list:
-        sed_command = "sed -nE '/{0}/P' {1}"\
-            .format(radius_passkey, config_file)
-        check_no_result(duthost, sed_command)
+    # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/1.2.3.4_1812.conf
+    sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/1.2.3.4_1812.conf".format(radius_passkey, dump_extract_path)
+    check_no_result(duthost, sed_command)
 
     # check snmp community string not exist
     sed_command = r"sed -nE '/\s*snmp_rocommunity\s*:\s{0}/P' {1}/etc/sonic/snmp.yml"\
