@@ -100,13 +100,72 @@ ROUTING: #Sridhar Santhanam
 FWD: #Rajendra Thirumurthi
   all_topo:
     all_pids:
-      - acl/test_acl.py::TestBasicAcl
+      - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+      - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+      - route/test_default_route.py::test_default_route_set_src
+  t0-64:
+    all_pids:
+      - route/test_default_route.py::test_default_route_with_bgp_flap
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ingress_unmatched_blocked
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded
       - crm/test_crm.py::test_crm_neighbor
-      - crm/test_crm.py::test_crm_nhop_group
-      - route/test_default_route.py
-      - route/test_route_flap
-    mth64:
-      - ipfwd/test_nhop_group.py
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_egress_unmatched_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_forwarded
+  
+  t1-64-lag:
+    all_pids:
+      - route/test_default_route.py::test_default_route_with_bgp_flap
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ingress_unmatched_blocked
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded
+      - crm/test_crm.py::test_crm_neighbor
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_egress_unmatched_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_forwarded
 
 PLT: #Mridul Bajpai
   all_topo:
