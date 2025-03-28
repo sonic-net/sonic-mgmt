@@ -14,10 +14,8 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     run_traffic
-
+from tests.snappi_tests.files.helper import get_npu_voq_queue_counters
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-import json
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +24,6 @@ DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
 TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
 PAUSE_FLOW_NAME = 'Pause Storm'
-
-
-def get_npu_voq_queue_counters(duthost, interface, priority):
-    full_line = "".join(duthost.shell(
-        "show platform npu voq queue_counters -t {} -i {} -d".
-        format(priority, interface))['stdout_lines'])
-    dict_output = json.loads(full_line)
-    for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
-        dict_output[entry] = value
-
-    return dict_output
 
 
 def verify_ecn_counters(ecn_counters, link_state_toggled=False):
