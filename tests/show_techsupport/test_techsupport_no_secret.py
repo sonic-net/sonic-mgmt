@@ -28,10 +28,12 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     # Setup TACACS/Radius password
     duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost.hostname]['tacacs_passkey'])
     duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost.hostname]['radius_passkey'])
+    duthost.shell("sudo config radius add 1.2.3.4")
     yield
     # Remove TACACS/Radius password
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config radius default passkey")
+    duthost.shell("sudo config radius delete 1.2.3.4")
 
     # Remove TACACS/Radius keys
     delete_keys_json = [{"RADIUS": {}}, {"TACPLUS": {}}]
