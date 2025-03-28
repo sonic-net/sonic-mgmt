@@ -91,7 +91,8 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, sed_command)
 
     # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/1.2.3.4_1812.conf
-    sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/1.2.3.4_1812.conf".format(radius_passkey, dump_extract_path)
+    sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/1.2.3.4_1812.conf"\
+        .format(radius_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
 
     # check snmp community string not exist
