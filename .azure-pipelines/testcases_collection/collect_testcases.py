@@ -50,9 +50,8 @@ def run_pytest_collection(location):
         "--continue-on-collection-errors", "--disable-warnings", "--capture=no", "-q"
     ]
     result = subprocess.run(command, capture_output=True, text=True)
-
     output = result.stdout
-    test_cases = re.findall(r'^tests/(.*)', output, re.MULTILINE)
+    test_cases = re.findall(r'.+::.+', output, re.MULTILINE)
     return test_cases
 
 
@@ -67,7 +66,6 @@ def main():
 
     # Collect all test scripts (file names)
     scripts = collect_test_scripts(location)
-
     # Use a thread pool to extract topologies in parallel
     topology_dict = {}
     with ThreadPoolExecutor(max_workers=8) as executor:
@@ -98,6 +96,7 @@ def main():
             "trackid": trackid
         })
 
+    print(test_cases)
     upload_results(test_cases)
 
 
