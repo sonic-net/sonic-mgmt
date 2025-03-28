@@ -68,7 +68,7 @@ def get_asic_facts(duthost):
         return status_dict
 
     if duthost.is_multi_asic:
-        for asic in duthost.frontend_asics:
+        for asic in duthost.frontend_asics + duthost.backend_asics:
             asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running", namespace=asic.namespace)['ansible_facts']
             asic_ports_dict[asic.namespace] = get_ports_with_status(asic_cfg_facts)
     else:
@@ -255,7 +255,7 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
     """
     global chosen_duthost
     duthost = chosen_duthost
-    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']   
+    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
     for namespace in  namespace_list:
         show_command = "sudo show platform npu global -n '{}'"
         result = duthost.command(show_command.format(namespace))
