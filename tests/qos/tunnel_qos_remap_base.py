@@ -310,30 +310,6 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     return speed_cable_to_params[speed_cable]
 
 
-@pytest.fixture(scope='module', autouse=True)
-def disable_packet_aging(rand_selected_dut, duthosts):
-    """
-        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout. Need to disable this
-        before any buffer tests.
-    """
-    for duthost in duthosts:
-        asic = duthost.get_asic_name()
-        if 'spc' in asic:
-            logger.info("Disable Mellanox packet aging")
-            duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
-            duthost.command("docker cp /tmp/packets_aging.py syncd:/")
-            duthost.command("docker exec syncd python /packets_aging.py disable")
-
-    yield
-
-    for duthost in duthosts:
-        asic = duthost.get_asic_name()
-        if 'spc' in asic:
-            logger.info("Enable Mellanox packet aging")
-            duthost.command("docker exec syncd python /packets_aging.py enable")
-            duthost.command("docker exec syncd rm -rf /packets_aging.py")
-
-
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
     dut_asic = duthost.asic_instance()
     dut_asic.create_ssh_tunnel_sai_rpc()
@@ -394,12 +370,24 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="stop", **service)
 
+    asic = rand_selected_dut.get_asic_name()
+    if 'spc' in asic:
+        logger.info("Disable Mellanox packet aging")
+        rand_selected_dut.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        rand_selected_dut.command("docker cp /tmp/packets_aging.py syncd:/")
+        rand_selected_dut.command("docker exec syncd python /packets_aging.py disable")
+
     yield
 
     enable_container_autorestart(
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
+
+    if 'spc' in asic:
+        logger.info("Enable Mellanox packet aging")
+        rand_selected_dut.command("docker exec syncd python /packets_aging.py enable")
+        rand_selected_dut.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def _update_mux_feature(duthost, state):
