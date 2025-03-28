@@ -1,7 +1,7 @@
 import logging
 import unittest
 from unittest.mock import MagicMock
-from tests.common.plugins.conditional_mark import find_all_matches, load_conditions
+from tests.common.plugins.conditional_mark import find_all_matches, load_conditions, update_declared_constants
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,9 @@ def load_test_conditions():
     session_mock = MagicMock()
     session_mock.config.option.mark_conditions_files = \
         ["tests/common/plugins/conditional_mark/unit_test/tests_conditions.yaml"]
-    return load_conditions(session_mock), session_mock
+    conditions = load_conditions(session_mock)
+    update_declared_constants(CUSTOM_BASIC_FACTS, "tests/common/plugins/conditional_mark/unit_test/constants.yaml")
+    return conditions, session_mock
 
 
 class TestFindAllMatches(unittest.TestCase):
@@ -291,6 +293,47 @@ class TestFindAllMatches(unittest.TestCase):
 
         self.assertEqual(len(marks_found), 1)
         self.assertIn('xfail', marks_found)
+
+    def test_constants_boolean(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_constants_1"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_constants_chain(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_constants_2"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('xfail', marks_found)
+
+    def test_constants_negative(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_conditional_mark.py::test_constants_3"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 0)
 
 
 if __name__ == "__main__":

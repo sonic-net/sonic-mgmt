@@ -123,3 +123,23 @@ test_conditional_mark.py::test_mark_9_2:
     reason: "Xfail test_conditional_mark.py::test_mark_9_2"
     conditions:
       - "asic_type in ['vs']"
+
+test_conditional_mark.py::test_constants_1:
+  skip:
+    reason: "Boolean logic"
+    conditions:
+      - "is_vs"
+
+test_conditional_mark.py::test_constants_2:
+  xfail:
+    reason: "Constants can use other constant definitions"
+    conditions:
+      - "is_some_value"
+
+test_conditional_mark.py::test_constants_3:
+  xfail:
+    reason: "Negative test"
+    conditions_logical_operator: or
+    conditions:
+      - "not is_some_value"
+      - "not is_vs"
