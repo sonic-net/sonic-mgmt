@@ -64,7 +64,7 @@ class TestMACFault(object):
 
         local_fault_after = self.get_mac_fault_count(dut, interface, "mac local fault")
         logging.info("MAC local fault count after toggling low-power mode on " +
-                    "{}: {}".format(interface, local_fault_after))
+                     "{}: {}".format(interface, local_fault_after))
 
         pytest_assert(local_fault_after > local_fault_before, 
                       "MAC local fault count did not increment after toggling low-power mode")
