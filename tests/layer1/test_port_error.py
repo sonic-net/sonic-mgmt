@@ -4,10 +4,7 @@ import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release, wait_until
-from tests.common.platform.interface_utils import get_fec_eligible_interfaces
-from tests.common.platform.interface_utils import get_port_map
-from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
