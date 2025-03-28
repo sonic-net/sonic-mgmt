@@ -16,6 +16,7 @@ pytestmark = [
 
 SUPPORTED_PLATFORMS = ["arista_7060x6"]
 
+
 class  TestMACFault(object):
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost):
@@ -23,7 +24,7 @@ class  TestMACFault(object):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
-    
+
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
         output = dut.show_and_parse("show int errors {}".format(interface))
@@ -65,7 +66,8 @@ class  TestMACFault(object):
                       "Interface {} did not come up after disabling low-power mode".format(interface))
 
         local_fault_after = self.get_mac_fault_count(dut, interface, "mac local fault")
-        logging.info("MAC local fault count after toggling low-power mode on {}: {}".format(interface, local_fault_after))
+        logging.info("MAC local fault count after toggling low-power mode on " +
+                             "{}: {}".format(interface, local_fault_after))
 
         pytest_assert(local_fault_after > local_fault_before, 
                       "MAC local fault count did not increment after toggling low-power mode")
@@ -85,7 +87,8 @@ class  TestMACFault(object):
                       "Interface {} did not come up after disabling low-power mode".format(interface))
 
         remote_fault_after = self.get_mac_fault_count(dut, interface, "mac remote fault")
-        logging.info("MAC remote fault count after toggling low-power mode on {}: {}".format(interface, remote_fault_after))
+        logging.info("MAC remote fault count after toggling low-power mode on " +
+                             "{}: {}".format(interface, local_fault_after))
 
         pytest_assert(remote_fault_after > remote_fault_before, 
                       "MAC remote fault count did not increment after toggling low-power mode on remote device")
