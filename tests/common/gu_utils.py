@@ -448,7 +448,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     if "master" in os_version or "internal" in os_version:
         return True
     try:
-        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        version_required = gcu_conf["tables"][table][
+            "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
         # os_version is in format "20220531.04", version_required is in format "20220500"
@@ -503,15 +504,25 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
-        pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+        def check_table():
+            output = dut.show_and_parse(cmds)
+            if len(output) == 0:
+                return False
 
-        first_line = output[0]
-        pytest_assert(set(first_line.values()) == set(expected_first_line_content))
-        table_bindings = [first_line["binding"]]
-        for i in range(len(output)):
-            table_bindings.append(output[i]["binding"])
-        pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
+            first_line = output[0]
+            first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
+            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
+                          "First line content does not match. Difference: {}".format(first_line_diff))
+
+            table_bindings = [first_line["binding"]]
+            for i in range(len(output)):
+                table_bindings.append(output[i]["binding"])
+            table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
+            pytest_assert(set(table_bindings) == set(expected_bindings),
+                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            return True
+
+        wait_until(30, 5, 0, check_table)
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
