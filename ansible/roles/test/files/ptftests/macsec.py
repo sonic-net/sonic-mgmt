@@ -18,26 +18,31 @@ MACSEC_GLOBAL_PN_INCR = 100
 MACSEC_INFOS = {}
 
 
-def macsec_send(test, port_id, pkt, count=1):
+def macsec_send(test, port_number, pkt, count=1):
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
 
-    device, port_number = ptf.testutils.port_to_tuple(port_id)
-    if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
+    device, port_id = ptf.testutils.port_to_tuple(port_number)
+    if port_id in MACSEC_INFOS and MACSEC_INFOS[port_id]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
-                                                                                MACSEC_INFOS[port_number]
+                                                                                MACSEC_INFOS[port_id]
 
-        # Increment the PN by an offset so that the macsec frames are not late on DUT
-        pn += MACSEC_GLOBAL_PN_OFFSET
-        MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
+        for n in range(count):
+            if isinstance(pkt, bytes):
+                # If in bytes, convert it to an Ether packet
+                pkt = scapy.Ether(pkt)
 
-        macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
-        # send the packet
-        __origin_send_packet(test, port_id, macsec_pkt, count)
+            # Increment the PN by an offset so that the macsec frames are not late on DUT
+            MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
+            pn += MACSEC_GLOBAL_PN_OFFSET
+
+            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
+            # send the packet
+            __origin_send_packet(test, port_number, macsec_pkt, 1)
     else:
         # send the packet
-        __origin_send_packet(test, port_id, pkt, count)
+        __origin_send_packet(test, port_number, pkt, count)
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -95,11 +100,11 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
                 continue
         # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
         # Don't need to do MACsec further.
-        if ret.device != 0 or exp_pkt is None:
+        if ret.device != 0:
             return ret
         pkt = scapy.Ether(ret.packet)
         if pkt[scapy.Ether].type != 0x88e5:
-            if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+            if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
             else:
                 continue
@@ -108,7 +113,7 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
                                                                                          MACSEC_INFOS[ret.port]
             pkt, decap_success = __decap_macsec_pkt(
                 pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
-            if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+            if exp_pkt is None or decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
         recent_packets.append(pkt)
         packet_count += 1
