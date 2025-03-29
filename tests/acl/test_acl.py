@@ -263,7 +263,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
+          tbinfo, ptfadapter, topo_scenario, vlan_name):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -277,8 +278,12 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     """
 
     pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+    # NOTE: We cannot use rand_unselected_dut in this case
+    # ATM it's only used if 'dualtor' in tbinfo['topo']['name']
+    if topo == "t2":
+        rand_selected_dut = rand_selected_front_end_dut
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     vlan_ports = []
     vlan_mac = None
