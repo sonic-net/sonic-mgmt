@@ -1,0 +1,125 @@
+# This Playbook will run at the end of RDMA nightly tests to restore the L1 switch connections.
+
+- name: Restore L1 Switch Connections
+  hosts: sonic
+  gather_facts: no
+  
+  tasks:
+  - name: Gather RDMA testbed info
+    block:
+    - name: set default testbed file
+      set_fact:
+        testbed_file: testbed.yaml
+      when: testbed_file is not defined
+    
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+      delegate_to: localhost
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: inventory_hostname not in testbed_facts['duts']
+
+    - name: set ptf image name
+      set_fact:
+        ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
+    - name: check if testbed is an ixia testbed
+      set_fact:
+        is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
+
+    when: testbed_name is defined
+
+  - name: Run L1 Switch connection panel for restoring connections for RDMA testing
+    block:
+    - name: Get HWSKU type
+      set_fact:
+        hwsku_type: "{{ hostvars[inventory_hostname]['hwsku'] }}"
+
+    - name: Remove connections for 8111 testbed
+      block:
+      - name: Remove 1st port connection for Cisco 8111 testbed
+        raw: connection disconnect p40 from p45
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 2nd port connection for Cisco 8111 testbed
+        raw: connection disconnect p41 from p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 3rd port connection for Cisco 8111 testbed
+        raw: connection disconnect p42 from p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'Cisco-8111' in hwsku_type"
+    
+    - name: Remove connections for 7050CX3 testbed
+      block:
+      - name: Remove 1st port connection for 7050CX3 testbed
+        raw: connection disconnect p40 from p45
+        register: result_cc1
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 2nd port connection for 7050CX3 testbed
+        raw: connection disconnect p41 from p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 3rd port connection for 7050CX3 testbed
+        raw: connection disconnect p42 from p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'7050CX3' in hwsku_type"
+    
+    - name: Remove connections for Cisco 8102 testbed
+      block:
+      - name: Remove 1st port connection for Cisco 8102 testbed
+        raw: connection disconnect p40 from p45
+        register: result_cc1
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 2nd port connection for Cisco 8102 testbed
+        raw: connection disconnect p41 from p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Remove 3rd port connection for Cisco 8102 testbed
+        raw: connection disconnect p42 from p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'8102' in hwsku_type"
+
+    - name: Get connection panel information
+      raw: cc
+      register: cc_output
+      ignore_errors: yes
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+
+    when: is_ixia_testbed
