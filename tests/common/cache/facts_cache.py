@@ -117,7 +117,7 @@ class FactsCache(with_metaclass(Singleton, object)):
                                        .format(attempt + 1, retry_attempts, facts_file))
 
                 logger.error('[Cache] Load cache file "{}" failed with EOFError or UnpicklingError: {}'
-                             .format(facts_file, repr(e)))
+                             .format(os.path.abspath(facts_file), repr(e)))
                 return self.NOTEXIST
             except Exception as e:
                 logger.info('[Cache] Load cache file "{}" failed with unknown exception: {}'
