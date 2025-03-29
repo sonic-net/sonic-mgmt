@@ -7,7 +7,7 @@ from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest, UDP
 from scapy.layers.l2 import Ether
 
-from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist
+from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist, get_neighbor_mac
 from common.reboot import reboot
 from common.portstat_utilities import parse_portstat
 from common.utilities import wait_until
@@ -20,11 +20,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def get_neighbor_mac(dut, neighbor_ip):
-    """Get the MAC address of the neighbor via the ip neighbor table"""
-    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
