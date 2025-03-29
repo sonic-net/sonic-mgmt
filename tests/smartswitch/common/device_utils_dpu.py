@@ -492,7 +492,10 @@ def post_test_dpus_check(duthost, dpuhosts,
         }
 
         for future in concurrent.futures.as_completed(futures):
-            future.result()
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Error in post test dpus check: {e}")
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
@@ -520,7 +523,10 @@ def dpus_shutdown_and_check(duthost, dpu_list):
             ): dpu_name for dpu_name in dpu_list
         }
         for future in concurrent.futures.as_completed(futures_shutdown):
-            future.result()  # Ensure execution completes
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Error during DPU shutdown execution: {e}")
 
         # Verify all DPUs are down in parallel
         futures_down = {
@@ -555,7 +561,10 @@ def dpus_startup_and_check(duthost, dpu_list):
             ): dpu_name for dpu_name in dpu_list
         }
         for future in concurrent.futures.as_completed(futures_startup):
-            future.result()  # Ensure execution completes
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Error during DPU startup execution: {e}")
 
         # Verify all DPUs are UP in parallel
         futures_up = {
