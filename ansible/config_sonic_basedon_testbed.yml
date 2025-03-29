@@ -585,6 +585,11 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
+      - name: Preload minigraph to flush config_db for Virtual Chassis
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "'t2' in topo and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
@@ -637,12 +642,10 @@
           failed_when:
             - load_minigraph_result.rc != 0
             - "'no such option: --override_config' not in load_minigraph_result.stderr"
-          when: "'t2' not in topo or type != 'kvm'"
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
           shell: config load_minigraph -y
-          when: "('t2' in topo and type == 'kvm') or 'no such option: --override_config' in load_minigraph_result.stderr"
 
         - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
           become: true
