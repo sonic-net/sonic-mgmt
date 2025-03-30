@@ -14,8 +14,8 @@ pytestmark = [
 
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net "
-CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:8080"   # noqa: W605
-CURL_CMD = "curl http://localhost:8080"    # noqa: W605
+CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:50058"   # noqa: W605
+CURL_CMD = "curl http://localhost:50058"    # noqa: W605
 logger = logging.getLogger(__name__)
 
 
