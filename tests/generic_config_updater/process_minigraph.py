@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import json
 import shutil
 import os
+import sys
 
 NS_VAL = "Microsoft.Search.Autopilot.Evolution"
 NS_A_VAL = "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
@@ -103,12 +104,12 @@ class MinigraphRefactor:
 
 
 def main():
-    # if len(sys.argv) != 3:
-    #     # print(f"Usage: {sys.argv[0]} <input_minigraph.xml> <output_minigraph.xml>")
-    #     sys.exit(1)
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <input_minigraph.xml> <output_minigraph.xml>")
+        sys.exit(1)
 
-    # input_file, output_file = sys.argv[1], sys.argv[2]
-    input_file, output_file = "C:\\dump\\addcluster\\minigraph\\minigraph-ngs.xml", "C:\\dump\\addcluster\\minigraph\\t1-2.xml"
+    input_file, output_file = sys.argv[1], sys.argv[2]
+
     backup_file = f"{input_file}.backup"
     if not os.path.exists(backup_file):
         shutil.copy2(input_file, backup_file)
