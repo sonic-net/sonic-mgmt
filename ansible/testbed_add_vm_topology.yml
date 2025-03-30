@@ -80,6 +80,19 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
+  - name: Set ptf_imagetag
+    set_fact:
+      ptf_imagetag: >-
+        {{ (lookup('file', "testbed.yaml")|from_yaml)
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | map(attribute='ptf_imagetag')
+        | first }}
+    when: >-
+      (lookup('file', "testbed.yaml")|from_yaml)
+      | selectattr('conf-name', 'equalto', testbed_name)
+      | map(attribute='ptf_imagetag')
+      | first is defined
+
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
 
