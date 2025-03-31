@@ -646,6 +646,7 @@
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
           shell: config load_minigraph -y
+          when: "'no such option: --override_config' in load_minigraph_result.stderr"
 
         - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
           become: true
