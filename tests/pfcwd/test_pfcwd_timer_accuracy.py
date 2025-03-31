@@ -346,7 +346,7 @@ class TestPfcwdAllTimer(object):
                 logger.warning("Get {} timestamp: Unexpected syslog message format".format(syslog_msg))
                 return int(0)
 
-            timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+            timestamp_ms = self.dut.shell("date -d '{}' +%s%3N".format(timestamp))['stdout']
             return int(timestamp_ms)
         except Exception as e:
             logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
