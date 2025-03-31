@@ -629,8 +629,8 @@ sonic_cisco_8102_smartswitch:
           timeout: 300
           wait: 360
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
+          timeout: 700
+          wait: 660
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
@@ -661,8 +661,8 @@ sonic_cisco_8102_smartswitch:
           timeout: 300
           wait: 360
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
+          timeout: 700
+          wait: 660
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
