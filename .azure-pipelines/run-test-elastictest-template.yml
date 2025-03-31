@@ -189,12 +189,15 @@ steps:
           fi
         displayName: "Download Pr Script"
   - ${{ else }}:
-      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
-          - script: |
-              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
-              set -ex
+        - script: |
+            # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+            set -ex
+            CURRENT_BRANCH=$(MGMT_BRANCH)
+            echo "Current branch: $CURRENT_BRANCH"
+            if [[ "$CURRENT_BRANCH" != "master" ]]; then
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download Test Plan Script"
+            fi
+          displayName: "Download Test Plan Script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
