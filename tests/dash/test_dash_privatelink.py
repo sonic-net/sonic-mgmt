@@ -16,7 +16,6 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-hwsku = ''
 
 """
 Test prerequisites:
@@ -50,6 +49,14 @@ def dpu_ip(duthost, dpu_index):
     npu_interface_ip = get_interface_ip(duthost, dpu_port)
     return npu_interface_ip.ip + 1
 
+@pytest.fixture(scope="module")
+def is_smartswitch(duthost):
+    hwsku = duthost.sonichost._facts["hwsku"]
+    if hwsku == "Cisco-8102-28FH-DPU-O-T1":
+        return True
+    else:
+        return False
+
 
 @pytest.fixture(scope="module", autouse=True)
 def add_npu_static_routes(duthost, dpu_ip, dash_pl_config, skip_config, skip_cleanup):
@@ -79,8 +86,6 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     if skip_config:
         return
 
-    global hwsku
-    hwsku = duthost.sonichost._facts["hwsku"]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
         **pl.APPLIANCE_CONFIG,
@@ -117,8 +122,8 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, hwsku)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, hwsku)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, is_smartswitch)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, is_smartswitch)
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
