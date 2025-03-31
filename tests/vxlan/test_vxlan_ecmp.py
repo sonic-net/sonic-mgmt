@@ -143,7 +143,7 @@ def fixture_setUp(duthosts,
                   minigraph_facts,
                   tbinfo,
                   encap_type,
-                  backup_and_restore_config_db_on_duts):    # noqa F401
+                  backup_and_restore_config_db_on_duts):        # noqa F811
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:
