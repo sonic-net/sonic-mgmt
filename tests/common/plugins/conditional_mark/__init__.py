@@ -274,6 +274,8 @@ def load_config_facts(inv_name, dut_name):
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
             if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
                 results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+            else:
+                results['switch_type'] = ""
 
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
@@ -432,8 +434,17 @@ def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, ba
                 match = re.search(condition_entry, nodeid)
             else:
                 match = None
+
+        elif "use_longest" in condition_items.keys():
+            assert isinstance(condition_items["use_longest"], bool), \
+                "The value of 'use_longest' in the mark conditions yaml should be bool type."
+            if nodeid.startswith(condition_entry) and condition_items["use_longest"] is True:
+                all_matches = []
+
+            match = nodeid.startswith(condition_entry)
         else:
             match = nodeid.startswith(condition_entry)
+
         if match:
             all_matches.append(condition)
 
@@ -442,6 +453,9 @@ def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, ba
         length = len(case_starting_substring)
         marks = match[case_starting_substring].keys()
         for mark in marks:
+            if mark in ["regex", "use_longest"]:
+                continue
+
             condition_value = evaluate_conditions(dynamic_update_skip_reason, match[case_starting_substring][mark],
                                                   match[case_starting_substring][mark].get('conditions'), basic_facts,
                                                   match[case_starting_substring][mark].get(
@@ -539,10 +553,9 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             mark_details['reason'].append(condition)
         return condition_result
     except Exception:
-        logger.exception('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
+        raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
-        return False
 
 
 def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
@@ -636,7 +649,7 @@ def pytest_collection_modifyitems(session, config, items):
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
-                    if mark_name == "regex":
+                    if mark_name in ["regex", "use_longest"]:
                         continue
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
