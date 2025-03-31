@@ -2132,9 +2132,8 @@ class QosSaiBase(QosBase):
             queues = "0-1"
         else:
             if isMellanoxDevice(duthost):
-                profile_content = dut_asic.run_redis_cmd(
-                    argv=["redis-cli", "-n", 0, "keys", f'BUFFER_PG_TABLE:{srcport}:*-4'])
-                if not profile_content:
+                cable_len = dut_asic.shell(f"redis-cli -n 4 hget 'CABLE_LENGTH|AZURE' {srcport}")['stdout']
+                if cable_len == '0m':
                     is_lossy_queue_only = True
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
