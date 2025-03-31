@@ -1,0 +1,8 @@
+- name: "string"
+  value: "'some_value'"
+
+- name: "is_some_value"
+  value: "string == 'some_value'"
+
+- name: "is_vs"
+  value: "asic_type in ['vs']"
