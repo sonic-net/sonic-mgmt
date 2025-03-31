@@ -7,6 +7,9 @@ import copy
 import sys
 from rapidfuzz import process, fuzz
 import pandas as pd
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
 
 
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
@@ -187,109 +190,121 @@ class DataDeduplicator:
         return
 
     def find_similar_summaries_and_count(self, dataframe_data):
-        unique_summaries = {}
-        summaries_to_indices = {}  # Map summaries to their indices
+        """
+        Groups similar failure summaries by branch and counts how many entries are in each group.
+        Empty summaries and whitelisted summaries are each treated as their own group.
+        For non-special clusters, only keeps the first entry as a representative.
+        Returns the filtered data with cluster and count columns.
 
-        for index, row in dataframe_data.iterrows():
-            summary = row["failure_summary"]
-            branch = row["branch"]
-            subject = row["subject"]
+        Args:
+            dataframe_data: DataFrame containing failure data with summaries
 
-            if branch not in unique_summaries:
-                unique_summaries[branch] = {}
-                summaries_to_indices[branch] = {}
+        Returns:
+            DataFrame containing filtered data (keeping all special clusters and first entry of other clusters)
+            with 'cluster' and 'count' columns
+        """
+        # Create a copy and initialize the cluster column
+        df = dataframe_data.copy()
+        df['cluster'] = None
+        # Process each branch separately
+        for branch, branch_df in df.groupby('branch'):
+            # Handle special cases (empty or whitelisted summaries)
+            for idx in branch_df.index:
+                summary = df.loc[idx, 'failure_summary']
+                if summary == '' or summary in configuration["summary_white_list"]:
+                    # Each special case gets its own unique cluster ID
+                    df.loc[idx, 'cluster'] = f"special_cluster"
 
-            if summary == '':
-                unique_summaries[branch][index] = summary
-                summaries_to_indices[branch].setdefault(summary, []).append(index)
+            # Get data for clustering (non-empty, non-whitelisted summaries)
+            to_cluster = branch_df[
+                (branch_df['failure_summary'] != '') &
+                (~branch_df['failure_summary'].isin(configuration["summary_white_list"]))
+            ]
+
+            if to_cluster.empty:
                 continue
-            if summary in configuration["summary_white_list"]:
-                unique_summaries[branch][index] = summary
-                summaries_to_indices[branch].setdefault(summary, []).append(index)
-                continue
-            if not unique_summaries[branch]:
-                unique_summaries[branch][index] = summary
-                summaries_to_indices[branch][summary] = [index]
-                continue
 
-            # Replace the fuzzywuzzy process.extractOne call with RapidFuzz equivalent
-            result = process.extractOne(
-                summary, unique_summaries[branch].values(), scorer=fuzz.WRatio
-            )
-            if result:
-                matched_summary, highest_score, _ = (
-                    result  # Ignoring the index if not needed
-                )
-            else:
-                # Handle the case where there's no match
-                matched_summary, highest_score = None, None
-            # matched_summary, highest_score = process.extractOne(summary, unique_summaries.values())
+            # Preprocess the summaries
+            processed_summaries = to_cluster['failure_summary'].apply(self.__preprocess_summary)
+            # Get the cluster assignments
+            eps = configuration["threshold"]["eps"]
+            clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=1)
 
-            logger.debug(
-                "{}:{}===matched_summary={}, summary={}, hightest_score={}".format(
-                    index, subject, matched_summary[:80], summary[:80], highest_score
-                )
-            )
-            if highest_score < int(configuration["threshold"]["fuzzy_rate"]):
-                unique_summaries[branch][index] = summary
-                summaries_to_indices[branch][summary] = [index]
-            else:
-                # Find the original summary corresponding to the matched summary for mapping
-                for orig_summary, indices in summaries_to_indices[branch].items():
-                    if matched_summary in orig_summary:
-                        summaries_to_indices[branch][orig_summary].append(index)
-                        break
+            # Assign cluster labels
+            for i, idx in enumerate(to_cluster.index):
+                df.loc[idx, 'cluster'] = f"{branch}_{clusters[i]}"
+        # Count entries in each cluster
+        df['count'] = df.groupby('cluster')['cluster'].transform('count')
 
-        # Count the occurrences of each summary for each branch
-        summary_counts = {}
-        for branch, indices in summaries_to_indices.items():
-            summary_counts[branch] = {
-                summary: len(indices) for summary, indices in indices.items()
-            }
+        # Create a filtered dataframe that keeps:
+        # 1. All special_cluster clusters
+        # 2. Only the first entry from each non-special cluster
+        filtered_indices = []
+        seen_clusters = set()
 
-        # Create a new DataFrame from the filtered summaries
-        new_df = pd.DataFrame()
-        for branch, summaries in unique_summaries.items():
-            branch_df = dataframe_data[dataframe_data["branch"] == branch]
-            new_df = pd.concat([new_df, branch_df.loc[summaries.keys()]])
+        # Process rows in original order
+        for idx in df.index:
+            cluster_name = df.loc[idx, 'cluster']
 
-        # Add the 'count' column to the new DataFrame
-        new_df["count"] = new_df.apply(lambda row: summary_counts[row["branch"]][row["failure_summary"]], axis=1)
+            # Always keep special clusters
+            if cluster_name.startswith('special_'):
+                filtered_indices.append(idx)
+            # For non-special clusters, only keep the first occurrence
+            elif cluster_name not in seen_clusters:
+                filtered_indices.append(idx)
+                seen_clusters.add(cluster_name)
 
-        # Select the desired columns
-        new_df = new_df[["subject", "branch", "failure_summary", "count"]]
-
-        return new_df
+        # Return the filtered dataframe with the count information
+        return df.loc[filtered_indices]
 
     def is_matched_active_icm(self, case_branch, target_summary, icm_branch, active_icm_df):
         """
-        Calculate the similarity between target_summary and all summaries in active_icm_df
-        Save the similarity into a new column in active_icm_df
-        after all, compare the similarity with the threshold, if it is
-        higher than the threshold, return True and highest matched row in active_icm_df
+        Check if the target_summary matches any summary in active_icm_df using clustering.
+        Returns True and the matched row if a match is found, otherwise False and None.
         """
         active_icm_df['SourceCreateDate'] = pd.to_datetime(active_icm_df['SourceCreateDate'])
         valid_date = self.current_time - timedelta(days=configuration["threshold"]["summary_expiration_days"])
 
         valid_active_icm_df = active_icm_df[active_icm_df['SourceCreateDate'] >= valid_date]
-        valid_active_icm_df_copy = valid_active_icm_df.copy()
 
         # Filter active_icm_df to only include rows with the same branch as the target_summary
-        same_branch_df = valid_active_icm_df_copy[valid_active_icm_df_copy['Branch'] == icm_branch]
+        same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'] == icm_branch]
 
         if same_branch_df.empty:
             logger.info("{}: No active IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
             return False, None
 
-        same_branch_df.loc[:, 'Similarity'] = same_branch_df['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
+        # Prepare data for clustering
+        # Create a DataFrame with the target summary and all active ICM summaries
+        summaries = same_branch_df['FailureSummary'].tolist()
+        summaries.append(target_summary)
 
-        highest_similarity = same_branch_df['Similarity'].max()
-        if highest_similarity >= int(configuration["threshold"]["fuzzy_rate"]):
-            highest_matched_rows = same_branch_df.loc[same_branch_df['Similarity'] == highest_similarity]
-            for index, row in highest_matched_rows.iterrows():
-                logger.debug("{}: Matched Row: Branch={}, CreatedDate={}\n Title={}\n Summary={}".format(case_branch, icm_branch, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
-            logger.debug("{}: highest_similarity={}".format(case_branch, highest_similarity))
-            return True, highest_matched_rows.iloc[0]
+        # Preprocess the summaries
+        processed_summaries = [self.__preprocess_summary(s) for s in summaries]
+
+        # Get the cluster assignments
+        eps = 1 - float(configuration["threshold"]["fuzzy_rate"]) / 100  # Convert threshold to distance
+        clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=1)
+
+        # The target summary is the last one in the list
+        target_cluster = clusters[-1]
+
+        # Check if the target summary shares a cluster with any active ICM summary
+        # (excluding noise points which have cluster label -1)
+        if target_cluster != -1 and target_cluster in clusters[:-1]:
+            # Find which active ICMs are in the same cluster
+            same_cluster_indices = [i for i, c in enumerate(clusters[:-1]) if c == target_cluster]
+
+            # Get the rows from same_branch_df that match these indices
+            matched_rows = same_branch_df.iloc[same_cluster_indices]
+
+            logger.debug("{}: Found {} matches in the same cluster".format(case_branch, len(matched_rows)))
+            for index, row in matched_rows.iterrows():
+                logger.debug("{}: Matched Row: Branch={}, CreatedDate={}\n Title={}\n Summary={}".format(
+                    case_branch, icm_branch, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
+
+            # Return the first matched row
+            return True, matched_rows.iloc[0]
         else:
             logger.info("{}: No matched IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
             return False, None
@@ -340,13 +355,13 @@ class DataDeduplicator:
 
             logger.debug("{} failed_results_df=\n{}".format(case_branch, failed_results_df[['TestCase', 'Summary']]))
             if len(failed_results_df) > 0:
-                if all(failed_results_df['Summary'].apply(lambda x: fuzz.ratio(x, failed_results_df['Summary'].iloc[0])) >=
-                       int(configuration['threshold']['fuzzy_rate'])):
+                is_aggregated = self.is_same_cluster(failed_results_df, summary_col='Summary', eps=configuration["threshold"]["eps"], min_samples=1)
+                if is_aggregated:
                     kusto_data['failure_summary'] = failed_results_df['Summary'].iloc[0]
-                    logger.info("{}:{} {} {} {} Share similar summary and it can be aggregated: {}".format(case_branch,asic, topology, hwsku, osversion, kusto_data['failure_summary']))
+                    logger.info("{}:{} {} {} {} Has similar summary and it can be aggregated: {}".format(case_branch, asic, topology, hwsku, osversion, kusto_data['failure_summary']))
                 else:
                     kusto_data['failure_summary'] = ''
-                    logger.info("{}:{} {} {} {} Don't share similar summary but it can't be aggregated".format(case_branch, asic, topology, hwsku, osversion))
+                    logger.info("{}:{} {} {} {} Doesn't have similar summary, so it can't be aggregated".format(case_branch, asic, topology, hwsku, osversion))
             else:
                 kusto_data['failure_summary'] = ''
                 logger.info("{}: No failed results found".format(case_branch))
@@ -476,3 +491,69 @@ class DataDeduplicator:
                 icm['trigger_icm'] = False
                 duplicated_flag = True
         return duplicated_flag
+
+
+    def __preprocess_summary(self, text):
+        """
+        Lowercases, removes numbers and punctuation, and extra whitespace.
+        Adjust this function if you have specific patterns to remove.
+        """
+        if pd.isna(text) or not text:
+            return ''
+
+        text = text.lower()
+        text = re.sub(r'\d+', '', text)           # remove numbers
+        text = re.sub(r'[^\w\s]', '', text)         # remove punctuation
+        text = re.sub(r'\s+', ' ', text)            # collapse whitespace
+        return text.strip()
+
+    def cluster_summaries(self, summaries, eps=0.1, min_samples=1):
+        """
+        Cluster the list of summaries using TF-IDF vectorization and DBSCAN.
+        eps: The maximum cosine distance for two summaries to be considered similar.
+            You might need to tune this parameter.
+        min_samples: Minimum samples in a cluster (set to 1 so every summary is in some cluster).
+        Returns the cluster labels.
+        """
+        # Vectorize summaries with TF-IDF (removing common stopwords)
+        vectorizer = TfidfVectorizer(stop_words='english')
+        X = vectorizer.fit_transform(summaries)
+
+        # Use DBSCAN with cosine distance (distance = 1 - cosine similarity)
+        dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
+        clusters = dbscan.fit_predict(X)
+        return clusters
+
+    def is_same_cluster(self, df, summary_col='Summary', eps=0.1, min_samples=1):
+        """
+        Checks if all summaries in the dataframe belong to the same cluster.
+
+        Args:
+            df: DataFrame containing summaries to check
+            summary_col: Column name containing the summaries
+            eps: The maximum cosine distance for two summaries to be considered similar
+            min_samples: Minimum samples in a cluster
+
+        Returns:
+            bool: True if all summaries belong to the same cluster, False otherwise
+        """
+        # If there's 0 or 1 row, they're trivially in the same cluster
+        if len(df) <= 1:
+            return True
+
+        # Preprocess the summaries
+        processed_summaries = df[summary_col].apply(self.__preprocess_summary)
+
+        # Get the cluster assignments
+        clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=min_samples)
+        print(f"clusters:{clusters}")
+        # Check if all cluster assignments are the same
+        # We need to exclude any noise points (-1 in DBSCAN) from this check
+        non_noise_clusters = clusters[clusters != -1]
+
+        # If all points are noise, they're not in the same cluster
+        if len(non_noise_clusters) == 0:
+            return False
+
+        # If there are non-noise points, check if they're all the same cluster
+        return len(set(non_noise_clusters)) == 1

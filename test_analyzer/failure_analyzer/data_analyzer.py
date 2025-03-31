@@ -216,6 +216,7 @@ class DataAnalyzer(BasicAnalyzer):
     def run_failure_cross_branch(self):
         waiting_list = []
         failed_testcases_df = self.collect_failed_testcase_cross_branch()
+        self.week_failed_testcases_df = failed_testcases_df.copy()
         failed_testcases = {}
         for index, row in failed_testcases_df.iterrows():
             module_path = row['ModulePath']

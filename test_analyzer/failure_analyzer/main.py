@@ -37,9 +37,9 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     deduper = DataDeduplicator()
     kusto_connector = KustoConnector(current_time)
-    general = DataAnalyzer(kusto_connector, deduper, current_time)
+    analyzer = DataAnalyzer(kusto_connector, deduper, current_time)
 
-    failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure_cross_branch()
+    failure_new_icm_table, failure_duplicated_icm_table, failure_info = analyzer.run_failure_cross_branch()
     excluse_setup_error_dict = {}
     excluse_common_summary_dict = {}
     setup_error_new_icm_table = []
@@ -49,7 +49,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     branches_wanted = []
     branches_wanted_dict = {}
 
-    common_summary_new_icm_table, common_summary_duplicated_icm_table, common_summary_failures_info = general.run_common_summary_failure()
+    common_summary_new_icm_table, common_summary_duplicated_icm_table, common_summary_failures_info = analyzer.run_common_summary_failure()
     logger.info("=================Exclude the following common summary cases=================")
     for case in common_summary_new_icm_table + common_summary_duplicated_icm_table:
         key = case["testcase"] + "#" + case["branch"]
@@ -131,7 +131,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         logger.info("summary: {}".format(case['failure_summary']))
 
     final_list = final_error_list + final_failure_list
-    autoblame_table = general.generate_autoblame_ado_data(final_list)
+    autoblame_table = analyzer.generate_autoblame_ado_data(final_list)
     logger.info("=================AutoBlame items=================")
     if autoblame_table:
         logger.info("Total number of Autoblame items {}".format(len(autoblame_table)))
@@ -141,7 +141,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     #     logger.info("{}: {} {}".format(
     #         index + 1, case['autoblame_id']))
 
-    general.upload_to_kusto(final_list, duplicated_icm_table, autoblame_table)
+    analyzer.upload_to_kusto(final_list, duplicated_icm_table, autoblame_table)
 
     end_time = datetime.now(tz=pytz.UTC)
     logger.info("Cost {} for this run.".format(end_time - current_time))
