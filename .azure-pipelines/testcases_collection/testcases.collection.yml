@@ -74,9 +74,6 @@ stages:
 
               cd tests
 
-              # pip install -r ../.azure-pipelines/testcases_collection/requirements.txt
-              # python ../.azure-pipelines/testcases_collection/collect_testcases.py . SonicTestData
-
               sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
                     python ../.azure-pipelines/testcases_collection/collect_testcases.py . SonicTestData
           env:
