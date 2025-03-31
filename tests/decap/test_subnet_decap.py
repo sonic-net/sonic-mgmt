@@ -193,7 +193,7 @@ def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, de
 def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
                                 recv_ports=[], recv_port=None, timeout=10):    # noqa F811
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, send_port, pkt)
+    testutils.send(ptfadapter, send_port, pkt, 10)
     if stage == "positive":
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=timeout)
     elif stage == "negative":

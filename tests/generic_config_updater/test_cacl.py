@@ -21,7 +21,7 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 't1'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3', 't1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,14 @@ def get_iptable_rules(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_port_toggle(duthosts, tbinfo):
+def restore_test_env(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    yield
+
+
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo, restore_test_env):
     # set mux mode to manual on both TORs to avoid port state change during test
     if "dualtor" in tbinfo['topo']['name']:
         for dut in duthosts:
@@ -67,7 +74,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
     original_iptable_rules = get_iptable_rules(duthost)
     original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)

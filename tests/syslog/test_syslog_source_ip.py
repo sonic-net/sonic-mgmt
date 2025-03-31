@@ -95,7 +95,7 @@ def restore_config_by_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         # we need remove mgmt vrf, otherwise it will cause host unreachable
         remove_vrf(duthost, VRF_LIST[2])
         localhost.wait_for(host=duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
-                           state='absent', delay=1, timeout=30)
+                           state='absent', delay=1, connect_timeout=1, timeout=30)
         localhost.wait_for(host=duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                            state='started', delay=2, timeout=180)
     config_reload(duthost, safe_reload=True)
@@ -297,7 +297,7 @@ class TestSSIP:
             create_vrf(self.duthost, VRF_LIST[2])
             # when create mgmt vrf, dut connection will be lost for a while
             localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
-                               state='absent', delay=1, timeout=30)
+                               state='absent', delay=1, connect_timeout=1, timeout=30)
             localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='started', delay=2, timeout=180)
 

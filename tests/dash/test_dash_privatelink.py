@@ -1,6 +1,4 @@
-import json
 import logging
-from ipaddress import ip_interface
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
@@ -8,6 +6,7 @@ import pytest
 from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
+from tests.dash.conftest import get_interface_ip
 
 logger = logging.getLogger(__name__)
 

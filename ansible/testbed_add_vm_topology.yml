@@ -80,6 +80,19 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
+  - name: Set ptf_imagetag
+    set_fact:
+      ptf_imagetag: >-
+        {{ (lookup('file', "testbed.yaml")|from_yaml)
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | map(attribute='ptf_imagetag')
+        | first }}
+    when: >-
+      (lookup('file', "testbed.yaml")|from_yaml)
+      | selectattr('conf-name', 'equalto', testbed_name)
+      | map(attribute='ptf_imagetag')
+      | first is defined
+
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
 
@@ -108,6 +121,17 @@
       hosts: "{{ duts_name.split(',') }}"
     delegate_to: localhost
     when: duts_name.split(',')|length > 1
+
+  - name: Determine if the testbed is a VS testbed
+    set_fact:
+      is_vs_testbed: true
+    when: hostvars[item].type is defined and hostvars[item].type == 'kvm'
+    loop: "{{ duts_name.split(',') }}"
+
+  - name: Determine if the testbed is a VS chassis testbed
+    set_fact:
+      is_vs_chassis: true
+    when: base_topo == "t2" and (is_vs_testbed | default(false))
 
   roles:
     - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }

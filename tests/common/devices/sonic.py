@@ -203,7 +203,7 @@ class SonicHost(AnsibleHostBase):
             [
                 lambda: self._get_asic_count(facts["platform"]),
                 self._get_router_mac,
-                self._get_modular_chassis,
+                lambda: self._get_modular_chassis(facts["asic_type"]),
                 self._get_mgmt_interface,
                 self._get_switch_type,
                 self._get_router_type,
@@ -249,7 +249,15 @@ class SonicHost(AnsibleHostBase):
                 mgmt_addrs.append(addr.group(1))
         return mgmt_addrs
 
-    def _get_modular_chassis(self):
+    def _get_modular_chassis(self, asic_type):
+        if asic_type == 'vs':
+            out = self.shell(
+                "python3 -c \"import sonic_py_common.device_info as P; \
+                             print(P.is_chassis()); exit()\"",
+                module_ignore_errors=True)
+            res = "False" if out["failed"] else out["stdout"]
+            return res
+
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
@@ -1658,11 +1666,11 @@ Totals               6450                 6449
         For example, part of the output of command 'show interface status':
 
         admin@str-msn2700-02:~$ show interface status
-              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa E501
-        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa E501
-              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa E501
+              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa: E501
+        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa: E501
+              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa: E501
         ...
 
         The parsed example will be like:
