@@ -1314,6 +1314,7 @@ class QosSaiBase(QosBase):
             dutinterfaces = {
                 index: port for port, index in src_mgFacts["minigraph_ptf_indices"].items()
             }
+
         yield {
             "dutInterfaces": dutinterfaces,
             "uplinkPortIds": uplinkPortIds,
