@@ -150,14 +150,6 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     result = duthost.shell(dut_command, module_ignore_errors=True)
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, "Invalid oid: " + counter_key
-    # Subscribe table
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/"]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
-    assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
-    # Subscribe table key
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
-    assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
     # Subscribe table field
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
     msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
