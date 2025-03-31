@@ -499,7 +499,11 @@ def main(args):
 
         if pipeline_type == "ElasticTest":
             nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
-            shutil.make_archive(buildid, 'zip', base_path + '/' + buildid)
+            archive_path = os.path.join(base_path, buildid)
+            if not os.path.exists(archive_path):
+                # if path no exist, maybe test results not uploaded to storage, just skip
+                continue
+            shutil.make_archive(buildid, 'zip', archive_path)
         else:
             # dualtor test result is in the azure devops build artifacts
             azure_devops_connecter.download_artifacts(buildid, buildid)
