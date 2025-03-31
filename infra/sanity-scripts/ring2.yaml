@@ -106,12 +106,6 @@ FWD: #Rajendra Thirumurthi
   t0-64:
     all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap
-      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_forwarded
-      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_rules_priority_forwarded
-      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
       - crm/test_crm.py::test_crm_neighbor
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
@@ -119,12 +113,6 @@ FWD: #Rajendra Thirumurthi
   t1-64-lag:
     all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap
-      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_forwarded
-      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
-      - acl/test_acl.py::TestBasicAcl::test_rules_priority_forwarded
-      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
       - crm/test_crm.py::test_crm_neighbor
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
