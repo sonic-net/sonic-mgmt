@@ -143,7 +143,7 @@ def fixture_setUp(duthosts,
                   minigraph_facts,
                   tbinfo,
                   encap_type,
-                  backup_and_restore_config_db_on_duts):
+                  backup_and_restore_config_db_on_duts):    # noqa F401
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:
@@ -341,12 +341,14 @@ def fixture_setUp(duthosts,
 
     setup_crm_interval(data['duthost'], int(data['original_crm_interval']))
 
+
 @pytest.fixture(scope="module", autouse=True)
 def restore_config_by_config_reload(duthosts, rand_one_dut_hostname, localhost):
     yield
     duthost = duthosts[rand_one_dut_hostname]
 
     config_reload(duthost, safe_reload=True)
+
 
 @pytest.fixture(scope="module")
 def default_routes(setUp, encap_type):
