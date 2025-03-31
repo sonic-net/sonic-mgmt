@@ -886,3 +886,16 @@ class MultiAsicSonicHost(object):
             return self.command(f"sudo config interface -n {asic_ns} startup {port}")
         else:
             return self.command(f"sudo config interface startup {port}")
+
+    def yang_validate(self):
+        """
+        Validate yang over running config
+        """
+        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        if output['rc'] != 0:
+            return False
+        for line in output['stdout_lines']:
+            if "Note: Below table(s) have no YANG models:" in line:
+                logger.info(line)
+                return False
+        return True
