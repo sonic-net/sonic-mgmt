@@ -7,6 +7,7 @@ import pytest
 
 from collections import defaultdict
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
@@ -81,23 +82,24 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
-    for dut in duthosts:
+
+    def print_cmds_output_from_duthost(dut, is_dual_tor, ptf):
         logger.info("Run commands to print logs")
 
         cmds = list(constants.PRINT_LOGS.values())
 
-        if print_dual_tor_logs is False:
+        if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
         # check PTF device reachability
-        if ptfhost.mgmt_ip:
-            cmds.append("ping {} -c 1 -W 3".format(ptfhost.mgmt_ip))
-            cmds.append("traceroute {}".format(ptfhost.mgmt_ip))
+        if ptf.mgmt_ip:
+            cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
+            cmds.append("traceroute {}".format(ptf.mgmt_ip))
 
-        if ptfhost.mgmt_ipv6:
-            cmds.append("ping6 {} -c 1 -W 3".format(ptfhost.mgmt_ipv6))
-            cmds.append("traceroute6 {}".format(ptfhost.mgmt_ipv6))
+        if ptf.mgmt_ipv6:
+            cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
+            cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -106,6 +108,10 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
             res.pop('stderr')
             outputs.append(res)
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(print_cmds_output_from_duthost, duthost, print_dual_tor_logs, ptfhost)
 
 
 def filter_check_items(tbinfo, duthosts, check_items):
@@ -196,7 +202,7 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -209,6 +215,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    nbr_hosts = None
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -314,7 +321,8 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -340,8 +348,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
+                if not nbr_hosts:
+                    nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
-                                                nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                nbr_hosts, post_check_items, recover_method, request, tbinfo,
                                                 STAGE_POST_TEST)
 
             logger.info("Done post-test sanity check")
