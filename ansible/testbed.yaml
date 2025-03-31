@@ -2020,6 +2020,21 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
+- conf-name: vms73-t0-7060x6-512-1
+  group-name: vms73-4
+  topo: t0-isolated-d32u32s2
+  ptf_image_name: docker-ptf
+  ptf: vms73-4
+  ptf_ip: 10.64.247.127/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f77f/64
+  server: server_73
+  vm_base: VM73095 # 34VM
+  dut:
+  - str4-7060x6-512-1
+  inv_name: str4
+  auto_recover: 'True'
+  comment: zitingguo
+
 - conf-name: vms71-t1-7060x6-512-2
   group-name: vms71-3
   topo: t1-isolated-d28u1
