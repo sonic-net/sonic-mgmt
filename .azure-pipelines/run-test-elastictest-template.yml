@@ -195,7 +195,10 @@ steps:
             CURRENT_BRANCH=${{ parameters.MGMT_BRANCH }}
             echo "Current branch: $CURRENT_BRANCH"
             if [[ "$CURRENT_BRANCH" != "master" ]]; then
+              echo "Current mgmt branch is not master, need to download test_plan.py"
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+            else
+              echo "Current mgmt branch is master, no need to download test_plan.py"
             fi
           displayName: "Download Test Plan Script"
 
