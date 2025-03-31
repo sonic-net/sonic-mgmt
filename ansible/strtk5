@@ -859,7 +859,7 @@ sonic_nokia_7250_sup:
   hosts:
     strtk5-7250-sup-1:
       ansible_host: 10.212.70.30
-      ansible_hostv6: 2603:10e2:140:3000::1f
+      ansible_hostv6: 2603:10e2:140:3000::1f0
       mgmt_subnet_mask_length: 24
       hwsku: Nokia-IXR7250E-SUP-10
       model:
@@ -924,7 +924,7 @@ sonic_nokia_7250_lc_400G:
       serial:
       base_mac:
       ansible_host: 10.212.70.12
-      ansible_hostv6: 2603:10e2:140:3000::4a2
+      ansible_hostv6: 2603:10e2:140:3000::1f1
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -961,7 +961,7 @@ sonic_nokia_7250_lc_400G:
       serial:
       base_mac:
       ansible_host: 10.212.70.13
-      ansible_hostv6: 2603:10e2:140:3000::4a3
+      ansible_hostv6: 2603:10e2:140:3000::1f2
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -998,7 +998,7 @@ sonic_nokia_7250_lc_400G:
       serial:
       base_mac:
       ansible_host: 10.212.70.14
-      ansible_hostv6: 2603:10e2:140:3000::4a4
+      ansible_hostv6: 2603:10e2:140:3000::1f3
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -1035,7 +1035,7 @@ sonic_nokia_7250_lc_400G:
       serial:
       base_mac:
       ansible_host: 10.212.70.15
-      ansible_hostv6: 2603:10e2:140:3000::4a5
+      ansible_hostv6: 2603:10e2:140:3000::1f4
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
@@ -1072,7 +1072,7 @@ sonic_nokia_7250_lc_400G:
       serial:
       base_mac:
       ansible_host: 10.212.70.16
-      ansible_hostv6: 2603:10e2:140:3000::4a6
+      ansible_hostv6: 2603:10e2:140:3000::1f5
       mgmt_subnet_mask_length: 24
       model:
       syseeprom_info:
