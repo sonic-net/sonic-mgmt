@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
-from process_minigraph import MinigraphRefactor
+from .util.process_minigraph import MinigraphRefactor
 
 pytestmark = [
     pytest.mark.topology('any'),
