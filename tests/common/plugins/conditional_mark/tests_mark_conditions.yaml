@@ -2274,6 +2274,12 @@ snmp/test_snmp_queue_counters.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
 
+snmp/test_snmp_phy_entity.py::test_transceiver_info:
+  skip:
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/22150"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/22150
+
 #######################################
 #####            span             #####
 #######################################
