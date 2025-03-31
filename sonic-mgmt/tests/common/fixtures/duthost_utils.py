@@ -570,7 +570,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -594,7 +594,7 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
 

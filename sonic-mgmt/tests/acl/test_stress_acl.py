@@ -8,9 +8,9 @@ import time
 import ptf.testutils as testutils
 from ptf import mask, packet
 from collections import defaultdict
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test  # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
@@ -247,7 +247,7 @@ def acl_rule_loaded(rand_selected_dut, acl_rule_list):
 
 def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
                             prepare_test_port, get_function_completeness_level,
-                            toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
+                            toggle_all_simulator_ports_to_rand_selected_tor):   # noqa: F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 

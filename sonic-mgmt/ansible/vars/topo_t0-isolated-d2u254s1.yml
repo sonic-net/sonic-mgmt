@@ -5346,7 +5346,7 @@ configuration:
     properties:
     - common
     bgp:
-      router-id: 0.12.0.255
+      router-id: 0.12.1.0
       asn: 4200100000
       peers:
         4200000000:
@@ -5357,13 +5357,13 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fa/126
     bp_interface:
-      ipv6: fc0a::ff/64
+      ipv6: fc0a::100/64
 
   ARISTA254T1:
     properties:
     - common
     bgp:
-      router-id: 0.12.1.0
+      router-id: 0.12.1.1
       asn: 4200100000
       peers:
         4200000000:
@@ -5374,13 +5374,13 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::3fe/126
     bp_interface:
-      ipv6: fc0a::100/64
+      ipv6: fc0a::101/64
 
   ARISTA01PT0:
     properties:
     - common
     bgp:
-      router-id: 0.12.1.1
+      router-id: 0.12.1.2
       asn: 4200000001
       peers:
         4200000000:
@@ -5391,4 +5391,4 @@ configuration:
       Ethernet1:
         ipv6: fc00:a::402/126
     bp_interface:
-      ipv6: fc0a::101/64
+      ipv6: fc0a::102/64

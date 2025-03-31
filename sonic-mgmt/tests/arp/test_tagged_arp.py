@@ -5,17 +5,17 @@ import ptf.testutils as testutils
 import logging
 import pprint
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses   # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses   # noqa: F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
 from tests.common.utilities import wait_until
 
@@ -63,7 +63,7 @@ def arp_cleanup(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_arp(duthosts, rand_one_dut_hostname, ptfhost, rand_selected_dut, ptfadapter,
-                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, setup_po2vlan, cfg_facts):  # noqa F811
+              ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, setup_po2vlan, cfg_facts):  # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -130,7 +130,7 @@ def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vla
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
-                        rand_selected_dut, tbinfo, ports_list):  # noqa F811
+                        rand_selected_dut, tbinfo, ports_list):  # noqa: F811
     """
     Send tagged GARP packets from each port.
     Verify packets egress without tag from ports whose PVID same with ingress port.

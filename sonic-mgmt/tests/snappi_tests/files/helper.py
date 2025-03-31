@@ -1,4 +1,5 @@
 import logging
+import re
 import pytest
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
@@ -186,3 +187,27 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
         wait_until(360, 5, 0, is_debug_shell_enabled)
         yield
         pass
+
+
+def get_fabric_mapping(duthost, asic=""):
+    """
+    Retrieves the mapping between backplane and fabric interfaces dynamically.
+
+    Returns:
+        dict: Dictionary mapping backplane interfaces to fabric interfaces.
+    """
+
+    asic_namespace = ""
+    if asic:
+        asic_namespace = " --namespace {}".format(asic.namespace)
+
+    cmd = "show platform npu bp-interface-map" + asic_namespace
+    result = duthost.shell(cmd)['stdout']
+    fabric_map = {}
+
+    for line in result.split("\n"):
+        match = re.search(r"(Ethernet-BP\d+)\(S\).*(Ethernet-BP\d+)", line)
+        if match:
+            fabric_map[match.group(1)] = match.group(2)
+
+    return fabric_map

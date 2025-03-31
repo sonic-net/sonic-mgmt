@@ -2,17 +2,17 @@
     Helpful utilities for writing tests for the syslog feature.
 """
 import logging
-import random
-import string
 import time
 import os
 
 
-DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}.pcap"
-DOCKER_TMP_PATH = "/tmp/"
-TCPDUMP_CAPTURE_TIME = 30
-# TSHARK_START_TIME should be smaller than TCPDUMP_CAPTURE_TIME
-TSHARK_START_TIME = 5 if 5 < TCPDUMP_CAPTURE_TIME else TCPDUMP_CAPTURE_TIME*0.5
+class syslogUtilsConst:
+    DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}_{time}.pcap"
+    DOCKER_TMP_PATH = "/tmp/"
+    TCPDUMP_CAPTURE_TIME = 50
+    # TSHARK_START_TIME should be smaller than TCPDUMP_CAPTURE_TIME
+    TSHARK_START_TIME = 5 if 5 < TCPDUMP_CAPTURE_TIME else TCPDUMP_CAPTURE_TIME * 0.5
+    PACKETS_NUM = 2
 
 
 def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
@@ -34,7 +34,7 @@ def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
         cmd_add_syslog_server = "{} --vrf {} ".format(cmd_add_syslog_server, vrf)
     if port:
         cmd_add_syslog_server = "{} --port {} ".format(cmd_add_syslog_server, port)
-    logging.debug("add_syslog_server command is: {}".format(cmd_add_syslog_server))
+    logging.debug("add_syslog_server command is: %s", cmd_add_syslog_server)
     return dut.command(cmd_add_syslog_server, module_ignore_errors=True)
 
 
@@ -112,7 +112,15 @@ def replace_ip_neigh(dut, neighbour, neigh_mac_addr, dev):
         dev=dev))
 
 
-def capture_syslog_packets(dut, tcpdump_cmd, logger_flags='', logger_msg=''):
+def remove_pcap_file_from_sonic_mgmt(sonic_mgmt_pcap_filepath):
+    """
+    Remove pcap file from mgmt
+    """
+    if os.path.exists(sonic_mgmt_pcap_filepath):
+        os.remove(sonic_mgmt_pcap_filepath)
+
+
+def capture_syslog_packets(dut, tcpdump_cmd, logging_data):
     """
     Capture syslog packets
 
@@ -121,26 +129,41 @@ def capture_syslog_packets(dut, tcpdump_cmd, logger_flags='', logger_msg=''):
         tcpdump_cmd (str): tcpdump cmd
     Return: filepath
     """
-    logging.info("Start tcpdump: {}".format(tcpdump_cmd))
+    logging.info(f"Start tcpdump: {tcpdump_cmd}")
 
-    pcap_file_full_path = tcpdump_cmd.split("-w")[-1].strip()
-    dut.shell("sudo rm -f {}".format(pcap_file_full_path))
+    dut_pcap_filepath = tcpdump_cmd.split("-w")[-1].strip()
+    dut.shell("sudo rm -f {}".format(dut_pcap_filepath))
     tcpdump_task, tcpdump_result = dut.shell(tcpdump_cmd, module_async=True)
     # wait for starting tcpdump
-    time.sleep(TSHARK_START_TIME)
+    time.sleep(syslogUtilsConst.TSHARK_START_TIME)
 
     logging.debug("Generating log message from DUT")
     # Generate syslog msgs from the DUT
-    logger_info_msg_count = 20
-    default_priority = '--priority INFO'
-    random_msg = ''.join(random.choice(string.ascii_letters) for _ in range(logger_info_msg_count))
-    for i in range(logger_info_msg_count):
-        dut.shell("logger {flags} ....{msg}".format(flags=default_priority+''+logger_flags, msg=random_msg+logger_msg))
-        time.sleep(0.2)
+    default_priority = '--priority CRIT'
+    for flag, msg in logging_data:
+        for i in range(syslogUtilsConst.PACKETS_NUM):
+            dut.shell(f"logger {default_priority} {flag} {msg} {i + 1}")
+            time.sleep(0.2)
 
     # wait for stoping tcpdump
     tcpdump_task.close()
     tcpdump_task.join()
-    dut.fetch(src=pcap_file_full_path, dest=DOCKER_TMP_PATH)
-    filepath = os.path.join(DOCKER_TMP_PATH, dut.hostname, pcap_file_full_path.lstrip(os.path.sep))
-    return filepath
+
+    verify_tcpdump_file_created(dut, dut_pcap_filepath)
+
+    sonic_mgmt_pcap_filepath = os.path.join(syslogUtilsConst.DOCKER_TMP_PATH, dut.hostname,
+                                            dut_pcap_filepath.lstrip(os.path.sep))
+    # delete previous pcap file from mgmt if exists for clean start
+    remove_pcap_file_from_sonic_mgmt(sonic_mgmt_pcap_filepath=sonic_mgmt_pcap_filepath)
+    # fetch pcap file from dut to mgmt
+    dut.fetch(src=dut_pcap_filepath, dest=syslogUtilsConst.DOCKER_TMP_PATH)
+    return sonic_mgmt_pcap_filepath
+
+
+def verify_tcpdump_file_created(dut, dut_pcap_filepath):
+    """
+    Verify if tcpdump file was created
+    """
+    file_check = dut.shell(f"ls -l {dut_pcap_filepath}")
+    if file_check['rc'] != 0:
+        raise Exception(f"Pcap file was not created: {dut_pcap_filepath}")
