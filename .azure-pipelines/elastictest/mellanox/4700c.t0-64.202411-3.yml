@@ -77,7 +77,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 3600
+    default: 4800
 
   - name: RETRY_TIMES
     type: string
