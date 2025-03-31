@@ -27,7 +27,7 @@ DUMMY_QUOTA = "dummy_single_quota"
 
 smartswitch_hwsku_config = {
     "Cisco-8102-28FH-DPU-O-T1": {
-         "dpu_num": 8,
+         "dpu_num": {},
          "port_key": "Ethernet{}",
          "interface_key": "Ethernet{}|18.{}.202.0/31",
          "base": 224,
@@ -129,6 +129,8 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["CHASSIS_MODULE"] = {}
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
+        dpu_num = len(ori_config_db["CHASSIS_MODULE"].keys())
+        smartswitch_hwsku_config[hwsku]['dpu_num'] = int(format(dpu_num))
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
             if "base" in hwsku_config and "step" in hwsku_config:
                 port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
@@ -138,7 +140,7 @@ class GenerateGoldenConfigDBModule(object):
                 interface_key = hwsku_config["interface_key"].format(hwsku_config["base"] + i * hwsku_config["step"], i)
 
             if port_key in ori_config_db["PORT"]:
-                ori_config_db["PORT"][port_key]["admin_status"] = "up"
+                ori_config_db["PORT"][port_key]["admin_status"] = "down"
                 if "interface_key" in hwsku_config:
                     ori_config_db["INTERFACE"][port_key] = {}
                     ori_config_db["INTERFACE"][interface_key] = {}
