@@ -77,7 +77,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202411)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202411)"
     displayName: "Common test parameters"
 
   # Test timeout
