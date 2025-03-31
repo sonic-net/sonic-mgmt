@@ -14,7 +14,6 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # no
 from tests.common.config_reload import config_reload
 from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL,\
     BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb, wait_tcp_connection
-from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +196,7 @@ def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, de
 def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
                                 recv_ports=[], recv_port=None, timeout=10):    # noqa F811
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, send_port, pkt)
+    testutils.send(ptfadapter, send_port, pkt, count=100)
     if stage == "positive":
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=timeout)
     elif stage == "negative":
@@ -225,10 +224,24 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
 
 
 @pytest.fixture
-def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port, tbinfo):
     duthost = rand_selected_dut
-    peer_addr = generate_ip_through_default_route(duthost)
+    # gather DUT's VLAN info
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vlan = list(mg_facts["minigraph_vlans"].keys())[0]
+    for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+        if vlan_intf["attachto"] == vlan and "." in str(vlan_intf['subnet']):
+            vlan_ip_subnet = ipaddress.IPv4Network(vlan_intf["subnet"])
+            vlan_gw_ip = vlan_intf["addr"]
+            break
+
+    # pick a VLAN IP as the SLB's IP
+    for addr in vlan_ip_subnet.hosts():
+        if str(addr) != str(vlan_gw_ip):
+            peer_addr = str(addr)
+            break
     assert peer_addr, "Failed to generate ip address for test"
+
     _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
 
     # Get loopback0 address
@@ -250,9 +263,9 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     router_mac = duthost._get_router_mac()
     ptf_interface = "eth" + str(peer_port)
     logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
-    ptfhost.shell("ip addr add {} dev {}".format(peer_addr + "/32", ptf_interface))
+    ptfhost.shell("ip addr add {}/{} dev {}".format(peer_addr, vlan_ip_subnet.prefixlen, ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
+    ptfhost.shell("ip route add %s/%s dev %s" % (local_addr, str(32), ptf_interface))
 
     # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
@@ -270,7 +283,18 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     }
     slb_bgp.announce_route(vip_route)
 
-    yield
+    # Get the upstream neighbor connected to PortChannel101
+    ip_intf = duthost.command("show ip int")['stdout'].split('\n')
+    for line in ip_intf:
+        content = line.split()
+        if len(content) > 0 and content[0] == "PortChannel101":
+            neighbor_ip = content[4]
+    duthost.command(f"sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2.2.0.0/16' \
+                    nexthop '{neighbor_ip}' ifname 'PortChannel101'")
+
+    yield neighbor_ip
+
+    duthost.command("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|default|2.2.0.0/16'")
 
     # withdraw the VIP route
     slb_bgp.withdraw_route(vip_route)
@@ -279,16 +303,31 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     slb_bgp.stop_session()
 
     # clean ip config upon teardown
-    ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
+    ptfhost.shell("ip route del %s/%s dev %s" % (local_addr, str(32), ptf_interface))
     ptfhost.shell("ip neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip addr del %s dev %s" % (peer_addr + "/32", ptf_interface))
+    ptfhost.shell("ip addr del %s/%s dev %s" % (peer_addr, str(vlan_ip_subnet.prefixlen), ptf_interface))
 
 
 @pytest.fixture
-def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port):
+def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_test_port, tbinfo):
     duthost = rand_selected_dut
-    peer_addr = generate_ip_through_default_v6_route(duthost)
+
+    # gather DUT's VLAN info
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vlan = list(mg_facts["minigraph_vlans"].keys())[0]
+    for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+        if vlan_intf["attachto"] == vlan and ":" in str(vlan_intf['subnet']):
+            vlan_ipv6_subnet = ipaddress.IPv6Network(vlan_intf["subnet"])
+            vlan_gw_ip = vlan_intf["addr"]
+            break
+
+    # pick a VLAN IP as the SLB's IP
+    for addr in vlan_ipv6_subnet.hosts():
+        if str(addr) != str(vlan_gw_ip):
+            peer_addr = str(addr)
+            break
     assert peer_addr, "Failed to generate ip address for test"
+
     _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
 
     # Get loopback0 address
@@ -306,13 +345,14 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
 
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
+    random.seed(time.time())
     peer_port = random.choice(downstream_port_ids)
     router_mac = duthost._get_router_mac()
     ptf_interface = "eth" + str(peer_port)
     logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
-    ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 addr add {}/{} dev {}".format(peer_addr, str(vlan_ipv6_subnet.prefixlen), ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 route add %s/%s dev %s" % (local_addr, str(128), ptf_interface))
 
     # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
@@ -375,7 +415,18 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     }
     slb_bgp.announce_route(vip_route)
 
-    yield
+    # Get the upstream neighbor connected to PortChannel101
+    ipv6_intf = duthost.command("show ipv6 int")['stdout'].split('\n')
+    for line in ipv6_intf:
+        content = line.split()
+        if len(content) > 0 and content[0] == "PortChannel101":
+            neighbor_ip = content[4]
+    duthost.command(f"sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2::/16' \
+                    nexthop '{neighbor_ip}' ifname 'PortChannel101'")
+
+    yield neighbor_ip
+
+    duthost.command("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|default|2::/16'")
 
     # withdraw the VIP route
     slb_bgp.withdraw_route(vip_route)
@@ -384,9 +435,9 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     slb_bgp.stop_session()
 
     # clean ip config upon teardown
-    ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 route del %s/%s dev %s" % (local_addr, str(128), ptf_interface))
     ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 addr del %s/%s dev %s" % (peer_addr, str(vlan_ipv6_subnet.prefixlen), ptf_interface))
 
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
@@ -399,9 +450,9 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
 
     # setup BGP connection between SLB on PTF host and DUT
     if ip_version == "IPv4":
-        request.getfixturevalue("setup_IPv4_SLB_connection")
+        neighbor_ip = request.getfixturevalue("setup_IPv4_SLB_connection")
     else:
-        request.getfixturevalue("setup_IPv6_SLB_connection")
+        neighbor_ip = request.getfixturevalue("setup_IPv6_SLB_connection")
 
     # verify that STATE_DB gets programmed
     decap_entries = duthost.command('sonic-db-cli STATE_DB keys "*TUNNEL_DECAP_TABLE*"')["stdout_lines"]
@@ -410,6 +461,8 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     # construct encapsulated packet and expected packet
     if ip_version == "IPv4":
         inner_packet = testutils.simple_ip_packet(
+            eth_src=duthost._get_router_mac(),
+            eth_dst=duthost.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4],
             ip_src="1.1.1.1",
             ip_dst="2.2.2.2"
         )
@@ -422,10 +475,16 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
         )
         expected_packet = inner_packet.copy()
         expected_packet[packet.IP].ttl -= 1
+
+        exp_pkt = Mask(expected_packet)
+        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
+        exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
     else:
-        inner_packet = packet.Ether() / packet.IPv6(
+        inner_packet = packet.Ether(dst=duthost.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4],
+                                    src=duthost._get_router_mac()) / packet.IPv6(
             src="1::1",
-            dst="2::2"
+            dst="2::2",
         )
         encapsulated_packet = testutils.simple_ipv6ip_packet(
             eth_dst=duthost._get_router_mac(),
@@ -437,13 +496,11 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
         expected_packet = inner_packet.copy()
         expected_packet[packet.IPv6].hlim -= 1
 
-    # mask certain fields in the expected packet
-    expected_packet = Mask(expected_packet)
-    expected_packet.set_do_not_care_packet(packet.Ether, "dst")
-    expected_packet.set_do_not_care_packet(packet.Ether, "src")
-    if ip_version == "IPv4":
-        expected_packet.set_do_not_care_packet(packet.IP, "chksum")
+        exp_pkt = expected_packet
+
+    logger.info("Expected packet: {}".format(expected_packet.show(dump=True)))
 
     # run the traffic test
-    verify_packet_with_expected(ptfadapter, "positive", encapsulated_packet, expected_packet,
-                                ptf_src_port, recv_ports=upstream_port_ids)
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, ptf_src_port, encapsulated_packet, count=10)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, upstream_port_ids, timeout=30)
