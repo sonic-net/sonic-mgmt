@@ -4,8 +4,9 @@ import os
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import load_and_apply_json_patch
 
 from .util.process_minigraph import MinigraphRefactor
 
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 MINIGRAPH = "/etc/sonic/minigraph.xml"
 MINIGRAPH_BACKUP = "/etc/sonic/minigraph.xml.backup"
 TARGET_LEAF = "ARISTA01T1"
-ADDCLUSTER_FILE = "/tmp/addcluster.json"
+TEMPLATES_DIR = "./templates"
+ADDCLUSTER_FILE = "addcluster.json"
 
 
 @pytest.fixture(autouse=True)
@@ -55,8 +57,8 @@ def test_addcluster_workflow(duthost):
 
     # Step 4: Apply addcluster.json
     logger.info("Applying addcluster.json patch")
-    duthost.copy(src="templates/addcluster.json", dest=ADDCLUSTER_FILE)
-    json_patch = json.loads(open("addcluster.json").read())
+    with open(os.path.join(TEMPLATES_DIR, ADDCLUSTER_FILE)) as file:
+        json_patch = json.load(file)
     tmpfile = generate_tmpfile(duthost)
     try:
         apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
