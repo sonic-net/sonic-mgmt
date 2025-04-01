@@ -431,7 +431,7 @@ def post_test_switch_check(duthost, localhost,
 
 def post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
-                        ip_address_list):
+                        ip_address_list, reboot_cause):
     """
     Checks DPU off/on and reboot cause status Post Test
     Args:
@@ -464,7 +464,7 @@ def post_test_dpu_check(duthost, dpuhosts,
         logging.info("Checking reboot cause of %s" % (dpu_on_list[index]))
         pytest_assert(wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
                       check_dpu_reboot_cause,
-                      duthost, dpu_on_list[index], "Non-Hardware"),
+                      duthost, dpu_on_list[index], reboot_cause),
                       "Reboot cause is not correct")
 
     logging.info("Checking all powered on DPUs connectivity")

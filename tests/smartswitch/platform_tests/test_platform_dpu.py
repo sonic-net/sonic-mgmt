@@ -125,7 +125,7 @@ def test_pcie_link(duthosts, dpuhosts,
 
     post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
-                        ip_address_list)
+                        ip_address_list, "Non-Hardware")
 
     logging.info("Verifying output of '{}' on '{}'..."
                  .format(CMD_PCIE_INFO, duthost.hostname))

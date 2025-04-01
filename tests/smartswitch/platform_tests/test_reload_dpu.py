@@ -10,7 +10,7 @@ from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpu_check,\
-    check_dpu_reboot_cause, num_dpu_modules  # noqa: F401
+    num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -157,7 +157,7 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
-                        ip_address_list)
+                        ip_address_list, "Non-Hardware")
 
 
 def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
@@ -187,7 +187,7 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
-                        ip_address_list)
+                        ip_address_list, "Non-Hardware")
 
 
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
@@ -228,4 +228,4 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
                         dpu_on_list, dpu_off_list,
-                        ip_address_list)
+                        ip_address_list, "Switch rebooted DPU")
