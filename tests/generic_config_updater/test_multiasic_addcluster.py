@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 MINIGRAPH = "/etc/sonic/minigraph.xml"
 MINIGRAPH_BACKUP = "/etc/sonic/minigraph.xml.backup"
 TARGET_LEAF = "ARISTA01T1"
-TEMPLATES_DIR = "./templates"
-ADDCLUSTER_FILE = "addcluster.json"
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(THIS_DIR, "templates")
+ADDCLUSTER_FILE = os.path.join(TEMPLATES_DIR, "addcluster.json")
 
 
 @pytest.fixture(autouse=True)
@@ -56,7 +57,7 @@ def test_addcluster_workflow(duthost):
 
     # Step 4: Apply addcluster.json
     logger.info("Applying addcluster.json patch")
-    with open(os.path.join(TEMPLATES_DIR, ADDCLUSTER_FILE)) as file:
+    with open(ADDCLUSTER_FILE) as file:
         json_patch = json.load(file)
     tmpfile = generate_tmpfile(duthost)
     try:
