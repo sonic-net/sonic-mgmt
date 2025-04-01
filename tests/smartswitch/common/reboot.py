@@ -25,7 +25,12 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
 
     if reboot_type == REBOOT_TYPE_COLD:
         if duthost.is_smartswitch():
-            return duthost.command("sudo reboot -d {}".format(dpu_name))
+            if dpu_name is None:
+                logger.info("Rebooting the switch {} with cold reboot".format(hostname))
+                return duthost.command("sudo reboot")
+            else:
+                logger.info("Rebooting the DUT {} with cold reboot".format(hostname))
+                return duthost.command("sudo reboot -d {}".format(dpu_name))
         elif duthost.is_dpu():
             pytest.skip("Skipping the reboot test as the DUT is a DPU")
     else:
@@ -48,7 +53,10 @@ def perform_reboot(duthost, reboot_type=REBOOT_TYPE_COLD, dpu_name=None):
 
     res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
     if res['failed'] is True:
-        pytest.fail("Failed to reboot the DPU {}".format(dpu_name))
+        if dpu_name is None:
+            pytest.fail("Failed to reboot the {} with type {}".format(duthost.hostname, reboot_type))
+        else:
+            pytest.fail("Failed to reboot the DPU {}".format(dpu_name))
 
     logger.info("Appending the last reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)

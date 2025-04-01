@@ -209,8 +209,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     logging.info("Executing pre test check")
-    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn,
-                                                                num_dpu_modules)
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn, num_dpu_modules)
 
     def reboot_dpu(duthost, platform_api_conn, index):
         try:
@@ -225,6 +224,32 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
             executor.submit(reboot_dpu, duthost, platform_api_conn, index)
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost, dpuhosts,
-                        dpu_on_list, dpu_off_list,
-                        ip_address_list, "Switch rebooted DPU")
+    post_test_dpu_check(duthost, dpuhosts, dpu_on_list, dpu_off_list, ip_address_list, "Non-Hardware")
+
+
+def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
+                            platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+    """
+    Test to cold reboot the switch in the DUT.
+    Steps:
+    1. Perform pre-test checks to gather DPU state.
+    2. Initiate a cold reboot on the switch.
+    3. Perform post-test checks to verify the state of DPUs after the reboot.
+
+    Args:
+        duthosts: DUT hosts object
+        dpuhosts: DPU hosts object
+        enum_rand_one_per_hwsku_hostname: Randomized DUT hostname
+        platform_api_conn: Platform API connection object
+        num_dpu_modules: Number of DPU modules to verify
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn, num_dpu_modules)
+
+    logging.info("Starting switch reboot...")
+    perform_reboot(duthost, REBOOT_TYPE_COLD, None)
+
+    logging.info("Executing post switch reboot dpu check")
+    post_test_dpu_check(duthost, dpuhosts, dpu_on_list, dpu_off_list, ip_address_list, "reboot")
