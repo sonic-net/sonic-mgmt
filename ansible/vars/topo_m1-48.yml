@@ -34,131 +34,131 @@ topology:
       vm_offset: 7
     ARISTA05M0:
       vlans:
-      - 8
+        - 8
       vm_offset: 8
     ARISTA06M0:
       vlans:
-      - 9
+        - 9
       vm_offset: 9
     ARISTA07M0:
       vlans:
-      - 10
+        - 10
       vm_offset: 10
     ARISTA08M0:
       vlans:
-      - 11
+        - 11
       vm_offset: 11
     ARISTA09M0:
       vlans:
-      - 12
+        - 12
       vm_offset: 12
     ARISTA10M0:
       vlans:
-      - 13
+        - 13
       vm_offset: 13
     ARISTA11M0:
       vlans:
-      - 14
+        - 14
       vm_offset: 14
     ARISTA12M0:
       vlans:
-      - 15
+        - 15
       vm_offset: 15
     ARISTA13M0:
       vlans:
-      - 16
+        - 16
       vm_offset: 16
     ARISTA14M0:
       vlans:
-      - 17
+        - 17
       vm_offset: 17
     ARISTA15M0:
       vlans:
-      - 18
+        - 18
       vm_offset: 18
     ARISTA16M0:
       vlans:
-      - 19
+        - 19
       vm_offset: 19
     ARISTA17M0:
       vlans:
-      - 20
+        - 20
       vm_offset: 20
     ARISTA18M0:
       vlans:
-      - 21
+        - 21
       vm_offset: 21
     ARISTA19M0:
       vlans:
-      - 22
+        - 22
       vm_offset: 22
     ARISTA20M0:
       vlans:
-      - 23
+        - 23
       vm_offset: 23
     ARISTA21M0:
       vlans:
-      - 24
+        - 24
       vm_offset: 24
     ARISTA22M0:
       vlans:
-      - 25
+        - 25
       vm_offset: 25
     ARISTA23M0:
       vlans:
-      - 26
+        - 26
       vm_offset: 26
     ARISTA24M0:
       vlans:
-      - 27
+        - 27
       vm_offset: 27
     ARISTA25M0:
       vlans:
-      - 28
+        - 28
       vm_offset: 28
     ARISTA26M0:
       vlans:
-      - 29
+        - 29
       vm_offset: 29
     ARISTA27M0:
       vlans:
-      - 30
+        - 30
       vm_offset: 30
     ARISTA28M0:
       vlans:
-      - 31
+        - 31
       vm_offset: 31
     ARISTA29M0:
       vlans:
-      - 32
+        - 32
       vm_offset: 32
     ARISTA30M0:
       vlans:
-      - 33
+        - 33
       vm_offset: 33
     ARISTA31M0:
       vlans:
-      - 34
+        - 34
       vm_offset: 34
     ARISTA32M0:
       vlans:
-      - 35
+        - 35
       vm_offset: 35
     ARISTA33M0:
       vlans:
-      - 36
+        - 36
       vm_offset: 36
     ARISTA34M0:
       vlans:
-      - 37
+        - 37
       vm_offset: 37
     ARISTA35M0:
       vlans:
-      - 38
+        - 38
       vm_offset: 38
     ARISTA36M0:
       vlans:
-      - 39
+        - 39
       vm_offset: 39
     ARISTA01C0:
       vlans:
@@ -170,27 +170,27 @@ topology:
       vm_offset: 41
     ARISTA03C0:
       vlans:
-      - 42
+        - 42
       vm_offset: 42
     ARISTA04C0:
       vlans:
-      - 43
+        - 43
       vm_offset: 43
     ARISTA05C0:
       vlans:
-      - 44
+        - 44
       vm_offset: 44
     ARISTA06C0:
       vlans:
-      - 45
+        - 45
       vm_offset: 45
     ARISTA07C0:
       vlans:
-      - 46
+        - 46
       vm_offset: 46
     ARISTA08C0:
       vlans:
-      - 47
+        - 47
       vm_offset: 47
 
 configuration_properties:
