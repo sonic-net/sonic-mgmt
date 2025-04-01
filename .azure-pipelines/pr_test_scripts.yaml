@@ -225,6 +225,7 @@ t0:
   - fdb/test_fdb_mac_learning.py
   - ip/test_mgmt_ipv6_only.py
   - zmq/test_gnmi_zmq.py
+  - pc/test_lag_member_forwarding.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcpv6_relay.py
@@ -433,6 +434,7 @@ t1-lag:
   - vxlan/test_vxlan_route_advertisement.py
   - lldp/test_lldp_syncd.py
   - ipfwd/test_nhop_group.py
+  - pc/test_lag_member_forwarding.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
