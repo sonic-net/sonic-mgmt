@@ -736,9 +736,9 @@ def verify_pause_frame_count_dut(rx_dut,
                                       .format(prios))
                     else:
                         pytest_assert(pfc_pause_rx_frames > 0,
-                                      "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                                      .format(prio))
-
+                                      "PFC pause frames should be received and counted in RX PFC counters for "
+                                      "priority {}".format(prio)
+                                      )
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
             pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
