@@ -30,7 +30,8 @@ def initClassVars(func):
     """
     Automatically assign instance variables. currently handles only arg list
     """
-    names, varargs, keywords, defaults = inspect.getargspec(func)
+    signature = inspect.signature(func)
+    names = list(signature.parameters.keys())
 
     @functools.wraps(func)
     def wrapper(self, *args):
