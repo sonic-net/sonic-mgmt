@@ -486,10 +486,10 @@ def post_test_dpus_check(duthost, dpuhosts,
     """
 
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-         logging.info("Post test DPUs check in parallel")
-         for dpu in dpu_on_list:
-             executor.submit(post_test_dpu_check, duthost,
-                             dpuhosts, dpu)
+        logging.info("Post test DPUs check in parallel")
+        for dpu in dpu_on_list:
+            executor.submit(post_test_dpu_check, duthost,
+                            dpuhosts, dpu)
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)

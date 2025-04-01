@@ -68,15 +68,14 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_names)
 
-
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-         logging.info("Verify Reboot cause of all DPUs in parallel")
-         for dpu_name in dpu_names:
-             executor.submit(
-                 wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                 check_dpu_reboot_cause, duthost, dpu_name,
-                 "Switch rebooted DPU"
-             )
+        logging.info("Verify Reboot cause of all DPUs in parallel")
+        for dpu_name in dpu_names:
+            executor.submit(
+                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_reboot_cause, duthost, dpu_name,
+                "Switch rebooted DPU"
+            )
 
 
 def test_pcie_link(duthosts, dpuhosts,
