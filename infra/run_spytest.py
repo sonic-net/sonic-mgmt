@@ -12,15 +12,18 @@ import sys
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 import pexpect
+import csv
 
 VXR_PORTS_FILENAME = "vxr_ports.yaml"
 RESULT_FOLDER_PATH = "/home/vxr/sonic-test/sonic-mgmt/spytest/spytest_results"
 test_start_time = ""
 
 SUMMARY_REPORT_FILENAME = "results.json"
+NEW_SUMMARY_REPORT_FILENAME = "test_cases_info.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+NEW_SUMMARY_REPORT_PATH = "../../{}".format(NEW_SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
 pattern = r'_mh'
@@ -452,20 +455,25 @@ def collect_result():
     os.system(f"mkdir spytest_result_{test_start_time}")
     os.system(f"tar -xvf spytest_result.tar.gz -C spytest_result_{test_start_time}")
     os.system(f"tar -czvf vxr.out.tar.gz vxr.out")
-    
-    
+
     #generate report files for pipeline
     sum_f = open(SUMMARY_REPORT_PATH, "w")
-    com_f = open(COMMON_REPORT_PATH, "w") 
+    com_f = open(COMMON_REPORT_PATH, "w")
+    tc_f = open(NEW_SUMMARY_REPORT_PATH, 'w')
 
     sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
-
+    tc_details = {}
 
     ret = 0 
     try:
         spytest_result_sum_file = open(f"./spytest_result_{test_start_time}/results_{test_start_time}_summary.txt", 'r')
         spytest_result_sum = spytest_result_sum_file.readlines()
         spytest_result_sum_file.close()
+
+        test_file = open(
+            f"./spytest_result_{test_start_time}/results_{test_start_time}_testcases.csv", "r"
+        )
+        test_file_cont = csv.DictReader(test_file, skipinitialspace=True)
 
         print(f"Result sum file contents: {spytest_result_sum}")
 
@@ -485,7 +493,29 @@ def collect_result():
                 sum["skipped"] = int(value)
             elif key == "Test Count":
                 sum["total"] = int(value)
-        
+
+        for row in test_file_cont:
+            case_summary = dict()
+            module = row["Module"]
+            script_name = os.path.basename(row["Module"])
+            test_script = os.path.basename(row["Module"])
+            # print(f'{test_script=}')
+            dir_name = os.path.dirname(row['Module'])
+            test_category = os.path.split(dir_name)[1]
+            case_summary['start_time'] = row['ExecutedOn']
+            case_summary['test_case_name'] = row['TestCase']
+            case_summary['state'] = row['Result']
+            case_summary['test_case_full_name'] = module.split(".py")[0].replace('/', '.') + "#" + row['TestCase']
+            case_summary['test_category'] = test_category
+
+            script_name = os.path.basename(script_name)
+            if script_name not in tc_details:
+                tc_details[script_name] =  {
+                    "SCRIPT_NAME": script_name,
+                    'TC_INFO': []
+                }
+            tc_details[script_name]['TC_INFO'].append(case_summary)
+
         sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
     except Exception as e:
         print("Exception! Failed to open result file!")
@@ -494,11 +524,16 @@ def collect_result():
 
     print(f"result summary is: {sum}")
 
+    test_data = {'script_data': list(tc_details.values())}
+
+
     json.dump(sum, sum_f)
     json.dump(sum, com_f)
+    json.dump(test_data, tc_f, indent=2)
 
     sum_f.close()
     com_f.close()
+    tc_f.close()
 
     return ret, ""
 
@@ -514,6 +549,7 @@ def upload_result():
     
     ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/spytest_result.tar.gz")
     ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/vxr.out.tar.gz")
+    ftp_client.put(NEW_SUMMARY_REPORT_PATH, f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/{NEW_SUMMARY_REPORT_FILENAME}")
     exec_command_raise_error(client,f"cd /auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}; tar -xvf spytest_result.tar.gz")
     
     with open(SUMMARY_REPORT_PATH, "r") as f:

@@ -27,7 +27,7 @@ VXR_PORTS_FILENAME = "vxr_ports.yaml"
 RESULT_FOLDER_PATH = "/home/vxr/sonic-test/sonic-mgmt/spytest/spytest_results"
 
 SUMMARY_REPORT_FILENAME = "results.json"
-NEW_SUMMARY_REPORT_FILENAME = "new_results.json"
+NEW_SUMMARY_REPORT_FILENAME = "test_cases_info.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 TOPO_PLATFORM_FILE_MAP = "topo_and_platform_to_filename_map.json"
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
@@ -126,9 +126,9 @@ def _add_simulator_tags(vxr_yaml_file, args):
     with open(vxr_yaml_file, "r") as f:
         data = yaml.safe_load(f)
 
-    if not "sim_host" in data["simulation"]:
+    if "sim_host" not in data["simulation"]:
         print(f"{args=}")
-        if not 'sim_host' in args:
+        if 'sim_host' not in args:
             return
         data["simulation"]['sim_host'] = args['sim_host']
 
@@ -790,8 +790,20 @@ def collect_result(sim_dir):
             if tmp_sim not in failed_test_dict:
                 failed_test_dict[tmp_sim] = []
 
+            summary['TC_INFO'] = []
             for row in test_file_cont:
+                case_summary = dict()
+
+                module = row["Module"]
                 script_name = os.path.basename(row["Module"])
+                test_script = os.path.basename(row["Module"])
+                dir_name = os.path.dirname(row['Module'])
+                test_category = os.path.split(dir_name)[1]
+                case_summary['start_time'] = row['ExecutedOn']
+                case_summary['test_case_name'] = row['TestCase']
+                case_summary['state'] = row['Result']
+                case_summary['test_case_full_name'] = module.split(".py")[0].replace('/', '.') + "#" + row['TestCase']
+                case_summary['test_category'] = test_category
                 summary["SCRIPT_NAME"] = script_name
                 script_name = os.path.basename(script_name)
                 script_name = os.path.splitext(script_name)[0]
@@ -802,6 +814,8 @@ def collect_result(sim_dir):
                             #print(f"{report_file=}")
                             failed_log = report_file
                     failed_test_list.append((row['Module'], row['TestCase'], failed_log))
+
+                summary['TC_INFO'].append(case_summary)
 
 
             failed_test_dict[tmp_sim].extend(failed_test_list)
