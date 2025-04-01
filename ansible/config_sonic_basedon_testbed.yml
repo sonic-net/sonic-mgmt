@@ -93,10 +93,14 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
+
   - name: determine whether to sort port_alias by index
     set_fact:
       sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
@@ -580,6 +584,11 @@
         port_alias:
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
+
+      - name: Preload minigraph to flush config_db for Virtual Chassis
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "'t2' in topo and type == 'kvm'"
 
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
