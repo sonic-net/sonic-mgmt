@@ -33,3 +33,11 @@ pdu-124,2,svcstr-server-2,PSU1
 pdu-125,2,svcstr-server-2,PSU2
 pdu-117,41,svcstr-server-3,PSU1
 pdu-118,41,svcstr-server-3,PSU2
+pdu-124,31,svcstr-7250x3b-2,PSU1
+pdu-125,31,svcstr-7250x3b-2,PSU2
+pdu-124,30,svcstr-7250x3b-1,PSU1
+pdu-125,30,svcstr-7250x3b-1,PSU2
+pdu-124,29,svcstr-z9332f-01,PSU1
+pdu-125,29,svcstr-z9332f-01,PSU2
+pdu-124,28,svcstr-z9332f-02,PSU1
+pdu-125,28,svcstr-z9332f-02,PSU2
