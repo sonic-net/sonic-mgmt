@@ -14,6 +14,7 @@ pytestmark = [
 SUPPORTED_PLATFORMS = ["arista_7060x6"]
 cmd_sfp_presence = "sudo sfpshow presence"
 
+
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo):
@@ -47,12 +48,16 @@ class TestMACFault(object):
     def select_random_interface(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         interfaces = list(dut.show_and_parse("show interfaces status"))
-        
+
         sfp_presence = dut.command(cmd_sfp_presence)
+
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
-        
-        available_interfaces = [intf["interface"] for intf in interfaces if parsed_presence.get(intf["interface"]) == "Present"]
-        
+
+        available_interfaces = [
+            intf["interface"] for intf in interfaces 
+            if parsed_presence.get(intf["interface"]) == "Present"
+        ]
+
         pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
         
         return dut, random.choice(available_interfaces)
