@@ -1,24 +1,3 @@
-parameters:
-  - name: NUM_ASIC
-    type: number
-    default: 1
-
-  - name: VM_TYPE
-    type: string
-    default: ceos
-
-  - name: SPECIFIC_PARAM
-    type: string
-    default: ""
-
-  - name: DEPLOY_MG_EXTRA_PARAMS
-    type: string
-    default: ""
-
-  - name: COMMON_EXTRA_PARAMS
-    type: string
-    default: ""
-
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
