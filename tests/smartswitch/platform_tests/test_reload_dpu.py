@@ -13,7 +13,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,
     num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -213,17 +213,16 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                                                                 num_dpu_modules)
 
     def reboot_dpu(duthost, platform_api_conn, index):
-        dpu_name = module.get_name(platform_api_conn, index)
-        perform_reboot(duthost, REBOOT_TYPE_COLD, dpu_name)
+        try:
+            dpu_name = module.get_name(platform_api_conn, index)
+            perform_reboot(duthost, REBOOT_TYPE_COLD, dpu_name)
+        except Exception as e:
+            logging.error(f"Failed to reboot DPU at index {index}: {e}")
 
-    with ThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-        futures = [executor.submit(reboot_dpu, duthost, platform_api_conn, index) for index in range(num_dpu_modules)]
-
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                logging.error(f"Error during DPU reboot execution: {e}")
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        logging.info("Rebooting all DPUs in parallel")
+        for index in range(num_dpu_modules):
+            executor.submit(reboot_dpu, duthost, platform_api_conn, index)
 
     logging.info("Executing post test dpu check")
     post_test_dpu_check(duthost, dpuhosts,
