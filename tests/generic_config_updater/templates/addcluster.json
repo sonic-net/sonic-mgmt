@@ -142,6 +142,20 @@
     },
     {
         "op": "add",
+        "path": "/asic0/DEVICE_NEIGHBOR_METADATA/ARISTA01T1",
+        "value": {
+            "cluster": "TestbedForStr2-7250-2",
+            "deployment_id": "3",
+            "hwsku": "Arista-7260QX-64",
+            "lo_addr": "0.0.0.0/0",
+            "lo_addr_v6": "::/0",
+            "mgmt_addr": "172.16.148.124/17",
+            "mgmt_addr_v6": "::/0",
+            "type": "LeafRouter"
+        }
+    },
+    {
+        "op": "add",
         "path": "/asic0/CABLE_LENGTH/AZURE/Ethernet16",
         "value": "2000m"
     },

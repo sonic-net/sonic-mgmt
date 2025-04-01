@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -41,11 +42,12 @@ def test_addcluster_workflow(duthost):
 
     # Step 2: Generate new minigraph without ARISTA01T1
     logger.info(f"Modifying minigraph to remove {TARGET_LEAF}")
-    local_tmp = "/tmp/minigraph_modified.xml"
-    duthost.fetch(src=MINIGRAPH, dest=local_tmp)
+    local_dir = "/tmp/minigraph_modified"
+    local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
+    duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
     refactor = MinigraphRefactor(TARGET_LEAF)
-    refactor.process_minigraph(local_tmp, local_tmp)
-    duthost.copy(src=local_tmp, dest=MINIGRAPH)
+    refactor.process_minigraph(local_minigraph, local_minigraph)
+    duthost.copy(src=local_minigraph, dest=MINIGRAPH)
 
     # Step 3: Reload minigraph
     logger.info("Reloading minigraph using 'config load_minigraph -y'")
