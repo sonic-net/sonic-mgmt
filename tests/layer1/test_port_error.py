@@ -20,7 +20,7 @@ class TestMACFault(object):
     def is_supported_platform(self, duthost, tbinfo):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for PTP topology")
-        
+
         if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
@@ -54,12 +54,12 @@ class TestMACFault(object):
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
 
         available_interfaces = [
-            intf["interface"] for intf in interfaces 
+            intf["interface"] for intf in interfaces
             if parsed_presence.get(intf["interface"]) == "Present"
         ]
 
         pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
-        
+
         return dut, random.choice(available_interfaces)
 
     def test_mac_local_fault_increment(self, select_random_interface):
@@ -113,4 +113,3 @@ class TestMACFault(object):
 
         pytest_assert(remote_fault_after > remote_fault_before,
                       "MAC remote fault count did not increment after disabling/enabling tx-output on the device")
-
