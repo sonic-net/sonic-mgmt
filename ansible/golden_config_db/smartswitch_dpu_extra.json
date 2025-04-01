@@ -1,0 +1,16 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "65100",
+            "subtype": "SmartSwitch",
+            "switch_type": "dpu",
+            "type": "SmartSwitchDPU"
+        }
+    },
+    "GNMI": {
+        "gnmi": {
+            "log_level": "2",
+            "port": "50052"
+        }
+    }
+}
