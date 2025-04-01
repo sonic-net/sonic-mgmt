@@ -155,7 +155,7 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, dpu_off_list,
-                         ip_address_list)
+                         ip_address_list, num_dpu_modules)
 
 
 def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
@@ -184,4 +184,4 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, dpu_off_list,
-                         ip_address_list)
+                         ip_address_list, num_dpu_modules)

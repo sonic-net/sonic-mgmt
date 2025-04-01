@@ -13,6 +13,7 @@ from tests.common.platform.interface_utils \
      import check_interface_status_of_up_ports
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 # Timeouts, Delays and Time Intervals in secs
 DPU_TIMEOUT = 210
@@ -353,7 +354,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
     If not, fails the case
     Args:
        dpuhosts: DPU Host handle
-       dpu_id: Gets DPU ID
+       dpu_id: DPU ID
     Returns:
        Nothing
     """
@@ -471,7 +472,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name):
 
 def post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, dpu_off_list,
-                         ip_address_list):
+                         ip_address_list, num_dpu_modules):
     """
     Checks DPU OFF/ON and reboot cause status Post Test
     Args:
@@ -484,18 +485,11 @@ def post_test_dpus_check(duthost, dpuhosts,
        Returns Nothing
     """
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(post_test_dpu_check, duthost,
-                            dpuhosts, dpu): dpu
-            for dpu in dpu_on_list
-        }
-
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                logging.error(f"Error in post test dpus check: {e}")
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+         logging.info("Post test DPUs check in parallel")
+         for dpu in dpu_on_list:
+             executor.submit(post_test_dpu_check, duthost,
+                             dpuhosts, dpu)
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
