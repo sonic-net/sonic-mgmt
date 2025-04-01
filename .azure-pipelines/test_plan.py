@@ -179,6 +179,23 @@ def run_cmd(cmd):
     return stdout, stderr, return_code
 
 
+def get_trigger_type(tp_type: str, build_reason: str):
+    # 1. NIGHTLY type(only nightly test from pipeline)
+    if tp_type.upper() == "NIGHTLY":
+        return "NightlyTest"
+
+    # 2. PR type(pr test or baseline test)
+    # check build reason
+    if build_reason.upper() == "BASELINETEST":
+        return "BaselineTest"
+
+    if build_reason.upper() == "PULLREQUEST":
+        return "PRTest"
+
+    # Else, return None, no impact
+    return None
+
+
 class TestPlanManager(object):
 
     def __init__(self, scheduler_url, frontend_url, client_id, managed_identity_id):
@@ -251,6 +268,7 @@ class TestPlanManager(object):
         retry_cases_include = parse_list_from_str(kwargs.get("retry_cases_include", None))
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
+        build_reason = kwargs.get("build_reason", "PullRequest")
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -347,7 +365,8 @@ class TestPlanManager(object):
                 "requester": kwargs.get("requester", "Pull Request"),
                 "source_repo": kwargs.get("source_repo"),
                 "pull_request_id": pr_id,
-                "build_id": build_id
+                "build_id": build_id,
+                "type": get_trigger_type(test_plan_type, build_reason)
             },
             "extra_params": {},
             "priority": 10
@@ -1058,6 +1077,7 @@ if __name__ == "__main__":
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                    build_reason=reason
                 )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
