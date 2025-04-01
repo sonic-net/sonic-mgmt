@@ -433,13 +433,14 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
                     break
                 else:
                     attempts += 1
-                    if attempts > 20:
+                    if attempts >= 20:
                         # We exceeded the number of attempts to get a
                         # packet for this particular dest port. This
                         # means the packets are going to a different port
                         # consistently. Lets use that other port as dest
                         # port.
                         print("Warn: The packets are not going to the dst_port_id.")
+                        num_of_pkts += 1
                         all_pkts[src_tuple[0]].append((
                             pkt, masked_exp_pkt, actual_dst_id))
 
@@ -5208,7 +5209,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "SN5600" in hwsku or "SN5400" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN56" in hwsku or "SN5400" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
