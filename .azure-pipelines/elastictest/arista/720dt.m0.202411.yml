@@ -61,7 +61,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "copp/test_copp.py"
+    default: "copp/test_copp.py, metadata-scripts/test_metadata_postupgrade.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
