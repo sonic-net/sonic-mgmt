@@ -168,30 +168,30 @@ topology:
       vlans:
         - 41
       vm_offset: 41
-      ARISTA03C0:
-        vlans:
-        - 42
-        vm_offset: 42
-      ARISTA04C0:
-        vlans:
-        - 43
-        vm_offset: 43
-      ARISTA05C0:
-        vlans:
-        - 44
-        vm_offset: 44
-      ARISTA06C0:
-        vlans:
-        - 45
-        vm_offset: 45
-      ARISTA07C0:
-        vlans:
-        - 46
-        vm_offset: 46
-      ARISTA08C0:
-        vlans:
-        - 47
-        vm_offset: 47
+    ARISTA03C0:
+      vlans:
+      - 42
+      vm_offset: 42
+    ARISTA04C0:
+      vlans:
+      - 43
+      vm_offset: 43
+    ARISTA05C0:
+      vlans:
+      - 44
+      vm_offset: 44
+    ARISTA06C0:
+      vlans:
+      - 45
+      vm_offset: 45
+    ARISTA07C0:
+      vlans:
+      - 46
+      vm_offset: 46
+    ARISTA08C0:
+      vlans:
+      - 47
+      vm_offset: 47
 
 configuration_properties:
   common:
