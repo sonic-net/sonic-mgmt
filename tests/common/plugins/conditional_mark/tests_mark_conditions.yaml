@@ -2595,6 +2595,12 @@ vxlan/test_vnet_bgp_route_precedence.py:
       - "asic_type not in ['cisco-8000', 'mellanox']"
       - "release in ['202411']"
 
+vxlan/test_vnet_decap.py:
+  skip:
+    reason: "test_vnet_decap are not ready to run on Cisco-8000 with branch 202411"
+    conditions:
+      - "(asic_type in ['cisco-8000'] and release in ['202411'])"
+
 vxlan/test_vnet_route_leak.py:
   skip:
     reason: "Test skipped due to issue #8374"
