@@ -36,7 +36,7 @@ TBD
 
 ## Testing Plan
 
-### Test Case # 1 - Add Cluster With Basic QoS
+### Test Case # 1 - Basic Add Cluster With Data Traffic
 
 #### Test Objective
 
@@ -58,6 +58,11 @@ To verify updates in config paths:
 
 At least two frontend DUT hosts are required to perform traffic. Modifications via apply-patch are applied on the downstream frontend DUT host. The scenario verifies data traffic from upstream to downstream and downstream to downstream.
 
+#### Testing Parameters
+
+- With/without acl config.
+- Apply-patch standalone/aggregrated changes.
+
 #### Testing Steps
 
 - Select a random ASIC from the downstream host.
@@ -77,15 +82,12 @@ Re-add Peers and Re-enable Interfaces:
 - Re-add peers in the downstream namespace. -
 - Re-enable interfaces.
 - Verify that the peers are re-added, BGP sessions are established, and the route table is updated.
-- Verify the buffer profile created for the new cable length in CONFIG_DB, APPL_DB, and ASIC_DB.
-- Perform data traffic tests toward a randomly selected neighbor. Traffic should pass. Verify there are no packet drops via checking pkt counters.
-- Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should pass. Verify there are no packet drops via checking pkt counters.
+- Verify the buffer profile exists in CONFIG_DB, APPL_DB, and ASIC_DB.
 
-Send PFC Frame Pause/Continue:
-- Send a PFC pause frame.
-- Perform data traffic tests toward the static route. Traffic should not pass.
-- Send a PFC continue frame.
-- Perform data traffic tests toward the static route. Traffic should pass. Verify there are no packet drops via checking pkt counters.
+Data traffic verifications:
+- Perform data traffic tests toward a randomly selected neighbor/the static route from the randomly selected neighbor. Traffic should pass. Verify there are no packet drops via checking pkt counters.
+- Perform data traffic from upsteram to downstream linecard (interlinecard). Perform data traffic from the other asic of the same downsteram linecard (innerlinecard).
+- Variation with acl config verifies traffic passes/drops based on acl rules and src/dst port criterion.
 
 ### Test Case # 2 - Update CABLE Length
 
@@ -109,7 +111,7 @@ To verify qos updates in multi-asic t2 platform. To verify updates in tables "BU
 
 #### Testing Steps
 
-- Select a random ASIC namespace and shut down the interfaces.
+- Select a random ASIC namespace and shut down the interfaces. (to be modified per interface)
 - Remove QoS config via apply-patch remove operation for tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
 - Verify that configuration is cleared in CONFIG_DB, APPL_DB and ASIC_DB.
 - Add back QoS config via apply-patch add operation in tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
