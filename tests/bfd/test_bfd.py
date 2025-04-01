@@ -6,7 +6,6 @@ import logging
 
 from datetime import timedelta
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 from tests.common.database.sonic import start_subscribe, stop_subscribe
 from tests.common.database.sonic import wait_until_condition, check_hash_key
@@ -510,7 +509,7 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
-                      toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa F811
+                      toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa:F811
     duthost = rand_selected_dut
 
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
