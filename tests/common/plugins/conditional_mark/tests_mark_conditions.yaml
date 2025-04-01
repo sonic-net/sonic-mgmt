@@ -1047,6 +1047,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_multiasic_addcluster.py:
+  skip:
+    reason: "Only supported on multi-asic system."
+    conditions:
+      - "(is_multi_asic is False)"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms"
