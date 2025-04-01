@@ -946,7 +946,8 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
             routes.append((m0_lo_ip, nexthop, "{} {}".format(m1_asn, m0_asn)))
             m0_lo_ip = get_next_ip_by_net(m0_lo_ip)
             # Generate M0 subnet routes
-            m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size, ip_base, nexthop, 0, m0_asn)
+            m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size,
+                                                           ip_base, nexthop, 0, m0_asn)
             m0_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in m0_subnets]  # Add M1 asn to asn-path
             routes += m0_subnets
             ip_base = get_next_ip_by_net(prefix)
@@ -955,7 +956,8 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
                 routes.append((mx_lo_ip, nexthop, "{} {} {}".format(m1_asn, m0_asn, mx_asn)))
                 mx_lo_ip = get_next_ip_by_net(mx_lo_ip)
             # Generate Mx subnet routes
-            mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn, ip_base, nexthop, m0_asn)
+            mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn,
+                                                       ip_base, nexthop, m0_asn)
             mx_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in mx_subnets]  # Add M1 asn to asn-path
             routes += mx_subnets
             ip_base = get_next_ip_by_net(prefix)
