@@ -169,11 +169,12 @@ parameters:
     default: ""
 
 steps:
+  - checkout: none # This template downloads the necessary files; no repository checkout is required.
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
-          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./test_plan.py
         displayName: "Download Test Plan Script"
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
@@ -181,11 +182,11 @@ steps:
 
           # If public build image repo, download pr test scripts from public sonic-mgmt repo
           if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" || "$(BUILD.REPOSITORY.NAME)" = "Azure/sonic-buildimage-msft" ]]; then
-            curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./pr_test_scripts.yaml
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
           else
-            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./pr_test_scripts.yaml
           fi
         displayName: "Download Pr Script"
   - ${{ else }}:
@@ -196,7 +197,7 @@ steps:
             echo "Current branch: $CURRENT_BRANCH"
             if [[ "$CURRENT_BRANCH" != "master" ]]; then
               echo "Current mgmt branch is not master, need to download test_plan.py"
-              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./test_plan.py
             else
               echo "Current mgmt branch is master, no need to download test_plan.py"
             fi
@@ -246,7 +247,7 @@ steps:
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
-      python ./.azure-pipelines/test_plan.py create \
+      python ./test_plan.py create \
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
@@ -322,7 +323,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
           echo "[test_plan.py] poll LOCK_TESTBED status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
+          python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -355,7 +356,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
           echo "[test_plan.py] poll PREPARE_TESTBED status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
+          python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -387,7 +388,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
           echo "[test_plan.py] poll EXECUTING status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
+          python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -410,7 +411,7 @@ steps:
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
+          python ./test_plan.py cancel -i $TEST_PLAN_ID
       done
     condition: always()
     displayName: "Finalize Running Test Plan"
