@@ -129,7 +129,7 @@ stages:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -158,7 +158,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t1_lag_elastictest
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
@@ -188,7 +188,7 @@ stages:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -219,7 +219,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_multi_asic_elastictest
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
@@ -248,7 +248,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_sonic_elastictest
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
@@ -279,11 +279,11 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
           SPECIFIC_PARAM: '[
             {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
             {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
-          ]'
+            ]'
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -311,10 +311,10 @@ stages:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
-          ]'
+            ]'
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
@@ -345,4 +345,4 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: "master"
+          MGMT_BRANCH: $(BUILD_BRANCH)
