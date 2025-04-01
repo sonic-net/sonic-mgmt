@@ -2330,7 +2330,7 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(scope='class', autouse=True)
     def set_static_route(
             self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
         # Get portchannels.
@@ -2559,7 +2559,7 @@ class QosSaiBase(QosBase):
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
 
-    @pytest.fixture(scope="function", autouse=False)
+    @pytest.fixture(scope="class", autouse=False)
     def set_static_route_ptf64(self, dutConfig, get_src_dst_asic_and_duts, dutTestParams, enum_frontend_asic_index):
         def generate_ip_address(base_ip, new_first_octet):
             octets = base_ip.split('.')
