@@ -480,14 +480,14 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
         MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
 
 
-def macsec_send(test, port_number, pkt, count=1):
+def macsec_send(test, port_id, pkt, count=1):
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
 
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
-    device, port_id = testutils.port_to_tuple(port_number)
-    if port_id in MACSEC_INFO and MACSEC_INFO[port_id]:
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_id]
+    device, port_number = testutils.port_to_tuple(port_id)
+    if port_number in MACSEC_INFO and MACSEC_INFO[port_number]:
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_number]
 
         for n in range(count):
             if isinstance(pkt, bytes):
@@ -500,10 +500,10 @@ def macsec_send(test, port_number, pkt, count=1):
 
             macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
             # send the packet
-            __origin_send_packet(test, port_number, macsec_pkt, 1)
+            __origin_send_packet(test, port_id, macsec_pkt, 1)
     else:
         # send the packet
-        __origin_send_packet(test, port_number, pkt, count)
+        __origin_send_packet(test, port_id, pkt, count)
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
