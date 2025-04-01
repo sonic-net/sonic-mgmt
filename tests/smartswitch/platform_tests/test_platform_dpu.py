@@ -63,10 +63,10 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     ]
 
     logging.info("Shutting DOWN the DPUs in parallel")
-    dpus_shutdown_and_check(duthost, dpu_names)
+    dpus_shutdown_and_check(duthost, dpu_names, num_dpu_modules)
 
     logging.info("Starting UP the DPUs in parallel")
-    dpus_startup_and_check(duthost, dpu_names)
+    dpus_startup_and_check(duthost, dpu_names, num_dpu_modules)
 
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Verify Reboot cause of all DPUs in parallel")
@@ -102,7 +102,7 @@ def test_pcie_link(duthosts, dpuhosts,
                   "PCIe Link test failed'{}'".format(duthost.hostname))
 
     logging.info("Shutting DOWN the DPUs in parallel")
-    dpus_shutdown_and_check(duthost, dpu_on_list)
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
     pytest_assert(output_pcie_info[-1] ==
@@ -170,14 +170,14 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
         duthost, platform_api_conn, num_dpu_modules)
 
     logging.info("Shutting DOWN the DPUs in parallel")
-    dpus_shutdown_and_check(duthost, dpu_on_list)
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
                                 'Offline', 'down')
 
     logging.info("Starting UP the DPUs in parallel")
-    dpus_startup_and_check(duthost, dpu_on_list)
+    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
