@@ -727,17 +727,17 @@ def verify_pause_frame_count_dut(rx_dut,
                 if len(prios) > 1:
                     if is_cisco_device(tx_dut) and not test_traffic_pause:
                         pytest_assert(pfc_pause_rx_frames == 0,
-                                "PFC pause frames should not be counted in RX PFC counters for priority {}"
-                                .format(prios))
+                                      "PFC pause frames should not be counted in RX PFC counters for priority {}"
+                                      .format(prios))
                 else:
                     if is_cisco_device(tx_dut) and "x86_64-8122" in tx_dut.facts['platform'] and not test_traffic_pause:
                         pytest_assert(pfc_pause_rx_frames == 0,
-                                "PFC pause frames should not be counted in RX PFC counters for priority {}"
-                                .format(prios))
+                                      "PFC pause frames should not be counted in RX PFC counters for priority {}"
+                                      .format(prios))
                     else:
                         pytest_assert(pfc_pause_rx_frames > 0,
-                                "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                                .format(prio))
+                                      "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                                      .format(prio))
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
