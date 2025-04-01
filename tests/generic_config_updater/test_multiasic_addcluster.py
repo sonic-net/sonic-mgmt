@@ -4,9 +4,8 @@ import os
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import load_and_apply_json_patch
 
 from .util.process_minigraph import MinigraphRefactor
 
