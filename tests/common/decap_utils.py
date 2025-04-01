@@ -6,9 +6,6 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 
-OUTER_DST_IP_V4 = "192.168.0.200"
-OUTER_DST_IP_V6 = "fc02:1000::200"
-
 """
     Build an encapsulated VLAN subnet packet for testing.
 
@@ -32,7 +29,7 @@ def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_vers
     logger.info("eth_src: {}, eth_dst: {}".format(eth_src, eth_dst))
 
     if ip_version == "IPv4":
-        outer_dst_ipv4 = OUTER_DST_IP_V4
+        outer_dst_ipv4 = "192.168.0.200"
         if stage == "positive":
             outer_src_ipv4 = "20.20.20.10"
         elif stage == "negative":
@@ -51,7 +48,7 @@ def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_vers
         )
 
     elif ip_version == "IPv6":
-        outer_dst_ipv6 = OUTER_DST_IP_V6
+        outer_dst_ipv6 = "fc02:1000::200"
         if stage == "positive":
             outer_src_ipv6 = "fc01::10"
         elif stage == "negative":
