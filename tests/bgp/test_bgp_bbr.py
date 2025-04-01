@@ -316,7 +316,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             logging.warning('No route for {} found on {}'.format(route.prefix, tor1))
             return False
         tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-            ['asPathEntry']['asPath']   # noqa E211
+            ['asPathEntry']['asPath']   # noqa:E211
         if not tor1_route_aspath == route.aspath:
             logging.warning(
                 'On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath)
@@ -383,7 +383,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                 vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
             else:
                 tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-                    ['asPathEntry']['asPath']   # noqa E211
+                    ['asPathEntry']['asPath']   # noqa:E211
                 # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
                 tor_route_aspath_expected = '{} {} {}'.format(dut_asn, tor1_asn, route.aspath)
                 if tor_route_aspath != tor_route_aspath_expected:
@@ -466,9 +466,10 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
     pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
 
     # Check if BBR is enabled or disabled using the running configuration
-    bbr_status_running_config = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)\
-        ['stdout'] # noqa E211
+    bbr_status_running_config = duthost.shell(
+        "show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']    # noqa:E211
     if bbr_status == 'enabled':
         pytest_assert('allowas-in' in bbr_status_running_config, "BGP BBR is not enabled in running configuration")
     else:
-        pytest_assert('allowas-in' not in bbr_status_running_config, "BGP BBR is not disabled in running configuration")
+        pytest_assert('allowas-in' not in bbr_status_running_config,
+                      "BGP BBR is not disabled in running configuration")
