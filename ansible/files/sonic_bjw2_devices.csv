@@ -17,8 +17,10 @@ bjw2-can-720dt-leaf-13,10.150.22.192/23,Arista-720DT-G48S4,FanoutLeafSonic,,soni
 bjw2-can-720dt-leaf-14,10.150.22.194/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-15,10.150.22.196/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-16,10.150.22.198/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
-bjw2-can-7215a1-leaf-1,10.150.22.212/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
-bjw2-can-7215a1-leaf-2,10.150.22.214/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-17,10.150.22.212/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-18,10.150.22.214/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-19,10.150.23.252/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-20,10.150.23.254/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-7260-leaf-1,10.150.22.44/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-2,10.150.22.46/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-3,10.150.22.48/23,Arista-7260CX3,FanoutLeaf,,
@@ -66,6 +68,8 @@ bjw2-can-7215-7,10.150.22.179/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-8,10.150.22.181/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215a1-1,10.150.22.211/23,Nokia-7215-A1,DevSonic,,sonic
 bjw2-can-7215a1-2,10.150.22.213/23,Nokia-7215-A1,DevSonic,,sonic
+bjw2-can-7215a1-3,10.150.23.251/23,Nokia-7215-A1,DevSonic,,sonic
+bjw2-can-7215a1-4,10.150.23.253/23,Nokia-7215-A1,DevSonic,,sonic
 bjw2-can-720dt-1,10.150.22.183/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-2,10.150.22.185/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-3,10.150.22.187/23,Arista-720DT-G48S4,DevSonic,,sonic
@@ -137,9 +141,12 @@ bjw2-pdu-126-94,10.150.126.94,Vertiv,Pdu,snmp,
 bjw2-pdu-126-95,10.150.126.95,Vertiv,Pdu,snmp,
 bjw2-pdu-126-96,10.150.126.96,Vertiv,Pdu,snmp,
 bjw2-pdu-126-97,10.150.126.97,Vertiv,Pdu,snmp,
+bjw2-pdu-126-98,10.150.126.98,Vertiv,Pdu,snmp,
 bjw2-pdu-126-99,10.150.126.99,Vertiv,Pdu,snmp,
 bjw2-pdu-126-100,10.150.126.100,Vertiv,Pdu,snmp,
 bjw2-pdu-126-101,10.150.126.101,Vertiv,Pdu,snmp,
+bjw2-pdu-126-102,10.150.126.102,Vertiv,Pdu,snmp,
+bjw2-pdu-126-103,10.150.126.103,Vertiv,Pdu,snmp,
 bjw2-can-serv-1,10.150.22.238/23,TestServ,Server,,
 bjw2-can-serv-2,10.150.22.239/23,TestServ,Server,,
 bjw2-can-serv-3,10.150.22.240/23,TestServ,Server,,
