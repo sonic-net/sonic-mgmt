@@ -66,7 +66,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "sub_port_interfaces,auditd,bmp,clock,console,container_checker,container_hardening,database,disk,dns,dut_console,http,iface_namingmode,k8s,kubesonic,override_config_table,passw_hardening,platform_tests,portstat,process_monitoring,scp,sflow,show_techsupport,ssh,syslog,tacacs,telemetry,zmq"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
