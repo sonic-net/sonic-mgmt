@@ -745,6 +745,20 @@
         become: true
         shell: config bgp startup all
 
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          host_username: "{{ dpu_username | default('admin') }}"
+          host_password: "{{ dpu_password | default('password') }}"
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
       - name: Configure TACACS
         become: true
         shell: "{{ tacacs_config_cmd }}"
