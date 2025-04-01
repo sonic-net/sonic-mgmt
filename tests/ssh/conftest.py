@@ -41,6 +41,7 @@ def load_source(modname, filename):
     loader.exec_module(module)
     return module
 
+
 def generate_ssh_ciphers(request, typename):
     if typename == "enc":
         remote_cmd = "ssh -Q cipher"
