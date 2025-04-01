@@ -98,7 +98,7 @@
   - name: Determine if the testbed is a VS testbed
     set_fact:
       is_vs_testbed: true
-    when: hostvars[item].type is defined and hostvars[item].type == 'kvm'
+    when: item in hostvars and hostvars[item].type is defined and hostvars[item].type == 'kvm'
     loop: "{{ duts_name.split(',') }}"
 
   - name: Determine if the testbed is a VS chassis testbed
