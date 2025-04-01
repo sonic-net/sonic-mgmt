@@ -5,7 +5,10 @@ Base class for console connection of SONiC devices
 import logging
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
-from netmiko.ssh_exception import NetMikoAuthenticationException
+try:
+    from netmiko.ssh_exception import NetMikoAuthenticationException
+except ImportError:
+    from netmiko.exceptions import NetMikoAuthenticationException
 
 # For interactive shell
 import sys
