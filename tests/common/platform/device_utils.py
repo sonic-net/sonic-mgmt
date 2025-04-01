@@ -371,8 +371,8 @@ def check_subnet_decap(duthost, preboot, postboot, ptfadapter):
 
     # Check if decap status is enabled
     if decap_status != "enable":
-        logger.error(f"Decap rules are not configured correctly {'before' if preboot else 'after'} reboot.")
-        raise RebootHealthError(f"Decap rules verification failed {'before' if preboot else 'after'} reboot.")
+        logger.error(f"Decap rules are not configured correctly {'before' if preboot else 'after'} reboot due to decap_status: {decap_status}")
+        raise RebootHealthError(f"Decap rules verification failed {'before' if preboot else 'after'} reboot due to decap_status: {decap_status}")
     else:
         logger.info(f"Decap rules are correctly configured {'before' if preboot else 'after'} reboot.")
 

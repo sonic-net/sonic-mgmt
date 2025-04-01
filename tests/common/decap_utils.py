@@ -9,7 +9,23 @@ logger = logging.getLogger(__name__)
 OUTER_DST_IP_V4 = "192.168.0.200"
 OUTER_DST_IP_V6 = "fc02:1000::200"
 
+"""
+    Build an encapsulated VLAN subnet packet for testing.
 
+    Args:
+        ptfadapter: The PTF adapter used to interface with the test dataplane.
+        rand_selected_dut: The randomly selected Device Under Test (DUT), which provides facts like router MAC.
+        ip_version (str): IP version for packet encapsulation, either "IPv4" or "IPv6".
+        stage (str): Indicates the testing stage, either "positive" or "negative". 
+                     Determines the source IP of the outer packet to test allowed and disallowed scenarios.
+
+    Returns:
+        Scapy packet: An encapsulated IP packet suitable for VLAN subnet testing, configured according
+                      to specified IP version and test stage.
+
+    Raises:
+        KeyError: If the provided `ip_version` is neither "IPv4" nor "IPv6".
+"""
 def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage):
     eth_dst = rand_selected_dut.facts["router_mac"]
     eth_src = ptfadapter.dataplane.get_mac(0, 0)
