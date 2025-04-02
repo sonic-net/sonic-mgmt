@@ -159,7 +159,7 @@ stages:
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn:
-    - get_impacted_area
+      - get_impacted_area
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
@@ -189,7 +189,7 @@ stages:
   - job: impacted_area_multi_asic_elastictest
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
     dependsOn:
-    - get_impacted_area
+      - get_impacted_area
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
@@ -240,7 +240,6 @@ stages:
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
           STOP_ON_FAILURE: "False"
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
 
 
@@ -269,4 +268,3 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           STOP_ON_FAILURE: "False"
           MGMT_BRANCH: $(BUILD_BRANCH)
-
