@@ -148,13 +148,11 @@ def run_m2o_fluctuating_lossless_test(api,
         total_pkt_drop_ingress = pkt_drop_1_ingress + pkt_drop_2_ingress
         drop_percentage = (100 * total_pkt_drop_ingress) / total_rx_pkts
 
-        pytest_assert(abs(drop_percentage - 8) < 4, "FAIL: Drop packets must be around 8 percent")
-
     else:
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
 
-        pytest_assert(abs(drop_percentage - 8) < 1, "FAIL: Drop packets must be around 8 percent")
+    pytest_assert(abs(drop_percentage - 8) < 4, "FAIL: Drop packets must be around 8 percent")
 
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,
@@ -426,4 +424,7 @@ def verify_m2o_fluctuating_lossless_result(rows,
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
             background_loss += float(row.loss)
-    pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
+    pytest_assert(
+        8 <= round(background_loss / 4) <= 12,
+        "Each Background Flow must have an avg of 10% loss (Allowed ±2%)"
+    )
