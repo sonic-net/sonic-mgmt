@@ -157,13 +157,22 @@ baseline:
 FWD:
   all_topo:
     all_pids:
-      - acl/test_acl.py::TestBasicAcl
-      - bfd/test_bfd_traffic.py
+      - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+      - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+      - route/test_default_route.py::test_default_route_set_src
+  t0-64:
+    all_pids:
+      - route/test_default_route.py::test_default_route_with_bgp_flap
       - crm/test_crm.py::test_crm_neighbor
-      - crm/test_crm.py::test_crm_nhop_group
-      - route/test_route_flap
-      - everflow/test_everflow_testbed.py
-      - route/test_default_route.py
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+  
+  t1-64-lag:
+    all_pids:
+      - route/test_default_route.py::test_default_route_with_bgp_flap
+      - crm/test_crm.py::test_crm_neighbor
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
 
 PLT:
   all_topo:
