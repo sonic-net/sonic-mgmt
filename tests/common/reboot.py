@@ -146,10 +146,9 @@ command : command to reboot the smartswitch DUT
 '''
 reboot_ss_ctrl_dict = {
     REBOOT_TYPE_COLD: {
-        "command": "sudo reboot"
-    },
-    REBOOT_TYPE_KERNEL_PANIC: {
-        "command": "echo c | sudo tee /proc/sysrq-trigger"
+        "command": "reboot",
+        "timeout": 300,
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot"
     }
 }
 
@@ -236,7 +235,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, reboot_type='cold'):
+def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
