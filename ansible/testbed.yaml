@@ -1059,7 +1059,7 @@
   - str2-7250-lc2-1
   - str2-7250-sup-1
   inv_name: ixia
-  auto_recovery: 'False'
+  auto_recover: 'False'
   comment: vineetmittal
 
 - conf-name: vms62-t2-7800-1
@@ -3533,7 +3533,7 @@
   - str2-7804-lc5-1
   - str2-7804-sup-1
   inv_name: ixia
-  auto_recovery: 'False'
+  auto_recover: 'False'
   comment: yatishkoul
 
 - conf-name: vms24-t1-smartswitch-ha-4280-01
