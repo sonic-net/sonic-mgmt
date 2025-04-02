@@ -9,7 +9,7 @@ jobs:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_kvmtest
-    displayName: ""
+    displayName: " "
     cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
