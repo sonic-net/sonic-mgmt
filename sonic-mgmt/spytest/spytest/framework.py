@@ -5330,7 +5330,7 @@ def modify_tests(config, items):
     _remove_parameterized(items)
 
     # remove the repeat renamed
-    _remove_repeat_renamed(items)
+    #_remove_repeat_renamed(items)
 
     # order the items based on test names list
     if test_names:
