@@ -26,12 +26,12 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-2700-4"
+    default: "vms61-t0-8102-01"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MLNX_202405)
+    default: $(IMAGE_CISCO_202311)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -46,7 +46,7 @@ parameters:
 
   - name: SPECIFIC_PARAM
     type: string
-    default: '[{"name": "container_upgrade/test_container_upgrade.py","param": "--containers=docker-auditd:internal|docker-auditd-watchdog:internal --os_versions=20240510.15|20240510.22 --image_url_template=http://10.150.22.222/pipelines/Networking-acs-buildimage-Official/mellanox/internal-202405/tagged/sonic-mellanox-<osversion>.bin --parameters_file=container_upgrade/parameters.json --testcase_file=container_upgrade/testcases.json"}]'
+    default: '[{"name": "container_upgrade/test_container_upgrade.py","param": "--containers=docker-auditd:internal|docker-auditd-watchdog:internal --os_versions=20231110.22|20231110.26|20231110.30 --image_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/cisco-8000/internal-202311/tagged/sonic-cisco-8000-<osversion>.bin --parameters_file=container_upgrade/parameters.json --testcase_file=container_upgrade/testcases.json"}]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')" 
 
   # Test timeout
@@ -66,7 +66,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 2700.t0.202405.bjw.Container_Upgrade_Test_NightlyTest_by_Elastictest
+    displayName: 8102.t0.202311.Container_Upgrade_Test_NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
