@@ -6,7 +6,6 @@ import yaml
 import re
 import requests
 import ipaddress
-import traceback
 import json
 import sys
 import socket
@@ -1386,9 +1385,8 @@ def main():
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
     except Exception as e:
-        stack = traceback.format_exc()
-        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}, stack={}'
-                         .format(topo_name, topo_type, repr(e), stack))
+        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}'
+                         .format(topo_name, topo_type, repr(e)))
 
 
 if __name__ == '__main__':
