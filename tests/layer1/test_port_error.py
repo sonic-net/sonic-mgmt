@@ -4,6 +4,7 @@ import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.testbed import get_testbed_type
 from tests.common.utilities import skip_release
 
 pytestmark = [
@@ -11,14 +12,14 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-SUPPORTED_PLATFORMS = ["arista_7060x6"]
+SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
 
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo):
-        if 'ptp' not in tbinfo['topo']['name']:
+        if "ptp" not in get_testbed_type(tbinfo['topo']['name']).lower():
             pytest.skip("Skipping test: Not applicable for non PTP topology")
 
         if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
