@@ -4,7 +4,6 @@ import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.testbed import get_testbed_type
 from tests.common.utilities import skip_release
 
 pytestmark = [
