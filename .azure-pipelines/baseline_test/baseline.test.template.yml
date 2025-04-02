@@ -9,7 +9,7 @@ jobs:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_kvmtest
-    displayName: "impacted-area-kvmtest-${{ variables.TESTBED_PREP_TOPOLOGY }}"
+    displayName: "impacted-area-kvmtest-${{variables.TESTBED_PREP_TOPOLOGY}}"
     cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
@@ -66,6 +66,11 @@ jobs:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      NUM_ASIC: 1
+      VM_TYPE: ceos
+      COMMON_EXTRA_PARAMS: ""
+      DEPLOY_MG_EXTRA_PARAMS: ""
+      SPECIFIC_PARAM: "[]"
     timeoutInMinutes: 240
     continueOnError: false
     pool: sonic-ubuntu-1c
