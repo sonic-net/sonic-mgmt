@@ -441,7 +441,7 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
                     emulation_dst_handle=handles[item[1]]["int_handle"])
         stream_id = receive["stream_id"]
         traffic_item_dict[item[0]+"<-->"+item[1]] = {"stream_id":stream_id, "port_handle": handles[item[0]]["port_handle"] , "tg_handle": handles[item[0]]["tg_handle"]}
-        st.wait(5)
+        st.wait(7)
         if ping:
             ###PING TEST###
             ping_result = tgen_utils.verify_interface_ping(src_obj=handles[item[0]]["tg_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='5')
