@@ -30,8 +30,23 @@ In the above example, the DUT has 256 logical Ethernet ports and is connected to
 
 5. Monitor the BGP route learning on the DUT by running `show ipv6 route bgp`. Verify the DUT learns and installs all routes.
 
-6. One session down and up: Shut down one interface on the DUT. Wait till all routes advertised by the impacted BGP session are removed. Now bring up the interface and measure the time for BGP session and route reestablishment. Repeat this process and calculate the average update time of this scenario.
+## Key Test Cases
 
-7. All sessions down and up: Stop the BGP container on the DUT. Wait till all BGP routes are removed. Now bring up the BGP container and measure the time for BGP session and route reestablishment. Repeat this process and calculate the average update time of this scenario.
+### One BGP Session Flap
 
-8. Nexthop reduction and restoration: In one of the T0 switches, run `show ipv6 bgp network <ipv6>/<prefix>` and find the number of nexthops that can be used to reach <ipv6>/<prefix>. Randomly pick half of the next hops and remove them. Run the show command again and record the convergence time. Restore the removed nexthops and record the convergence time again. Repeat this process and calculate the average convergence time of this scenario.
+1. One session down and up: Shut down one interface on the DUT. Wait till all routes advertised by the impacted BGP session are removed.
+2. Bring up the interface and measure the time for BGP session and route reestablishment.
+3. Repeat this process and calculate the average update time of this scenario.
+
+### All BGP Sessions Down and Up Test
+
+1. Stop the BGP container on the DUT. Wait till all BGP routes are removed.
+2. Bring up the BGP container and measure the time for BGP session and route reestablishment.
+3. Repeat this process and calculate the average update time of this scenario.
+
+### Nexthop Reduction and Restoration Test
+
+1. In one of the T0 switches, run `show ipv6 bgp network <ipv6>/<prefix>` and find the number of nexthops that can be used to reach `<ipv6>/<prefix>`.
+2. Randomly pick half of the next hops and remove them. Run the show command again and record the convergence time.
+3. Restore the removed nexthops and record the convergence time again.
+4. Repeat this process and calculate the average convergence time of this scenario.
