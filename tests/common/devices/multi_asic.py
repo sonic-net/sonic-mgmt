@@ -898,5 +898,5 @@ class MultiAsicSonicHost(object):
             for line in output['stdout_lines']:
                 if "Note: Below table(s) have no YANG models:" in line:
                     logger.info(line)
-                return False
+                    return False
         return True
