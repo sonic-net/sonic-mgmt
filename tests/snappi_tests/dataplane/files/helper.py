@@ -163,17 +163,38 @@ def get_fanout_port_groups(snappi_ports, fanout_per_port):
     return group_list
 
 
-def create_snappi_config(snappi_api, fanout_port_group):
-    half_ports = int(len(fanout_port_group) / 2)
-    tx_ports = fanout_port_group[:half_ports]
-    rx_ports = fanout_port_group[half_ports:]
+def create_traffic_items(
+    config, tx_flow_name, rx_flow_name, line_rate=10, frame_size=1024, is_rdma=False
+):
+    test_flow = config.flows.flow(name="{} - {}".format(tx_flow_name, rx_flow_name))[-1]
+    if isinstance(tx_flow_name, list):
+        test_flow.tx_rx.device.tx_names = tx_flow_name
+    else:
+        test_flow.tx_rx.device.tx_names = [tx_flow_name]
+    if isinstance(rx_flow_name, list):
+        test_flow.tx_rx.device.rx_names = rx_flow_name
+    else:
+        test_flow.tx_rx.device.rx_names = [rx_flow_name]
+    test_flow.metrics.enable = True
+    test_flow.metrics.loss = True
+    test_flow.size.fixed = frame_size
+    test_flow.rate.percentage = line_rate
+    if is_rdma:
+        _, ipv4 = test_flow.packet.ethernet().ipv4()
+        ipv4.priority.dscp.phb.values = [
+            ipv4.priority.dscp.phb.DEFAULT,
+        ]
+        ipv4.priority.dscp.phb.value = 4
+        ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+    return config
+
+
+def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):
     config = snappi_api.config()
     for index, tx_port in enumerate(tx_ports):
         config.ports.port(name="Tx_%d" % index, location=tx_port["location"])
-
     for index, rx_port in enumerate(rx_ports):
         config.ports.port(name="Rx_%d" % index, location=rx_port["location"])
-
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = "port settings"
@@ -181,62 +202,62 @@ def create_snappi_config(snappi_api, fanout_port_group):
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = (
-        "speed_" + str(int(int(fanout_port_group[0]["speed"]) / 1000)) + "_gbps"
-    )
+    layer1.speed = "speed_" + str(int(int(tx_ports[0]["speed"]) / 1000)) + "_gbps"
     layer1.auto_negotiate = False
+    if is_rdma:
+        pfc = layer1.flow_control.ieee_802_1qbb
+        pfc.pfc_delay = 0
+        if pfcQueueGroupSize == 8:
+            pfc.pfc_class_0 = 0
+            pfc.pfc_class_1 = 1
+            pfc.pfc_class_2 = 2
+            pfc.pfc_class_3 = 3
+            pfc.pfc_class_4 = 4
+            pfc.pfc_class_5 = 5
+            pfc.pfc_class_6 = 6
+            pfc.pfc_class_7 = 7
+        elif pfcQueueGroupSize == 4:
+            pfc.pfc_class_0 = pfcQueueValueDict[0]
+            pfc.pfc_class_1 = pfcQueueValueDict[1]
+            pfc.pfc_class_2 = pfcQueueValueDict[2]
+            pfc.pfc_class_3 = pfcQueueValueDict[3]
+            pfc.pfc_class_4 = pfcQueueValueDict[4]
+            pfc.pfc_class_5 = pfcQueueValueDict[5]
+            pfc.pfc_class_6 = pfcQueueValueDict[6]
+            pfc.pfc_class_7 = pfcQueueValueDict[7]
+        else:
+            pytest_assert(False, "pfcQueueGroupSize value is not 4 or 8")
+
     # Tx
-    tx_flow_name = []
-    network = ipaddress.ip_network(tx_port[0]['subnet'], strict=False)
-    is_v4_subnet  = isinstance(network, ipaddress.IPv4Network)
-    for index, tx_port in enumerate(tx_ports):
-        d1 = config.devices.device(name="Tx Topology {}".format(index))[-1]
-        eth = d1.ethernets.add()
-        eth.connection.port_name = "Tx_%d" % index
-        eth.name = "Tx_Ethernet_%d" % index
-        eth.mac = tx_port["src_mac_address"]
-        if is_v4_subnet is True:
-            ipv4 = eth.ipv4_addresses.add()
-            ipv4.name = "Tx_IPv4_%d" % index
-            ipv4.address = tx_port["ipAddress"]
-            ipv4.gateway = tx_port["ipGateway"]
-            ipv4.prefix = tx_port["prefix"]
-        else:
-            ipv6 = eth.ipv6_addresses.add()
-            ipv6.name = "Tx_IPv6_%d" % index
-            ipv6.address = tx_port["ipAddress"]
-            ipv6.gateway = tx_port["ipGateway"]
-            ipv6.prefix = tx_port["prefix"]
-        tx_flow_name.append(d1.name)
+    macs_tx = get_macs("101700000011", len(tx_ports))
+    macs_rx = get_macs("001700000011", len(rx_ports))
 
-    # Rx
-    rx_flow_name = []
-    for index, rx_port in enumerate(rx_ports):
-        d2 = config.devices.device(name="Rx Topology {}".format(index))[-1]
-        eth = d2.ethernets.add()
-        eth.connection.port_name = "Rx_%d" % index
-        eth.name = "Rx_Ethernet_%d" % index
-        eth.mac = rx_port["src_mac_address"]
-        if is_v4_subnet is True:
-            ipv4 = eth.ipv4_addresses.add()
-            ipv4.name = "Rx_IPv4_%d" % index
-            ipv4.address = rx_port["ipAddress"]
-            ipv4.gateway = rx_port["ipGateway"]
-            ipv4.prefix = rx_port["prefix"]
-        else:
-            ipv6 = eth.ipv6_addresses.add()
-            ipv6.name = "Rx_IPv6_%d" % index
-            ipv6.address = rx_port["ipAddress"]
-            ipv6.gateway = rx_port["ipGateway"]
-            ipv6.prefix = rx_port["prefix"]
-        rx_flow_name.append(d2.name)
+    network = ipaddress.ip_network(tx_ports[0]["subnet"], strict=False)
+    is_v4_subnet = isinstance(network, ipaddress.IPv4Network)
 
-    test_flow = config.flows.flow(name="IPv4 Traffic")[-1]
-    test_flow.tx_rx.device.tx_names = tx_flow_name
-    test_flow.tx_rx.device.rx_names = rx_flow_name
-    test_flow.metrics.enable = True
-    test_flow.metrics.loss = True
-    test_flow.size.fixed = 512
-    test_flow.rate.percentage = 100
-    return config
+    def configure_devices(config, ports, is_ipv4=True, role="Tx"):
+        device_names = []
+        for index, port_data in enumerate(ports):
+            device = config.devices.device(name=f"{role} Topology {index}")[-1]
+            eth = device.ethernets.add()
+            eth.connection.port_name = f"{role}_{index}"
+            eth.name = f"{role}_Ethernet_{index}"
+            eth.mac = port_data["src_mac_address"]
 
+            if is_ipv4:
+                ip_layer = eth.ipv4_addresses.add()
+                ip_layer.name = f"{role}_IPv4_{index}"
+            else:
+                ip_layer = eth.ipv6_addresses.add()
+                ip_layer.name = f"{role}_IPv6_{index}"
+
+            ip_layer.address = port_data["ipAddress"]
+            ip_layer.gateway = port_data["ipGateway"]
+            ip_layer.prefix = port_data["prefix"]
+            device_names.append(device.name)
+        return device_names
+
+    tx_flow_name = configure_devices(config, tx_ports, is_v4_subnet, "Tx")
+    rx_flow_name = configure_devices(config, rx_ports, is_v4_subnet, "Rx")
+
+    return config, tx_flow_name, rx_flow_name
