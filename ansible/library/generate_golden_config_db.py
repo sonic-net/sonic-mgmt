@@ -7,6 +7,7 @@
 
 import copy
 import json
+import os
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -112,6 +113,7 @@ class GenerateGoldenConfigDBModule(object):
             return "{}"
         ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
         hwsku = ori_config_db["DEVICE_METADATA"]["localhost"].get("hwsku", None)
+        platform = ori_config_db["DEVICE_METADATA"]["localhost"].get("platform", None)
 
         if "FEATURE" not in ori_config_db \
                 or "dhcp_relay" not in ori_config_db["FEATURE"]:
@@ -127,7 +129,13 @@ class GenerateGoldenConfigDBModule(object):
 
         if "CHASSIS_MODULE" not in ori_config_db:
             ori_config_db["CHASSIS_MODULE"] = {}
-
+            skudir = "/usr/share/sonic/device/{}/{}/".format(platform, hwsku)
+            config_file_path = os.path.join(skudir, "config_db.json")
+            if os.path.exists(config_file_path):
+                with open(config_file_path, "r") as f:
+                    config_data = json.load(f)
+                if "CHASSIS_MODULE" in config_data:
+                    ori_config_db["CHASSIS_MODULE"].update(config_data["CHASSIS_MODULE"])
         hwsku_config = smartswitch_hwsku_config[hwsku]
         dpu_num = len(ori_config_db["CHASSIS_MODULE"].keys())
         smartswitch_hwsku_config[hwsku]['dpu_num'] = int(format(dpu_num))
