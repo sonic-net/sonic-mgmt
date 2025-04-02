@@ -103,7 +103,7 @@ stages:
             echo "Chosen PTF_IMAGE_TAG: $(ptf_image_tag.tag_value)"
         displayName: "PTF_IMAGE_TAG value"
 
-  - job: impacted_area_t0_elastictest
+  - job: impacted_area_t0_elastictest_nightly
     displayName: "dx010.t0.202012.NightlyTest_by_Elastictest"
     dependsOn:
     - get_impacted_area
@@ -112,7 +112,7 @@ stages:
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       set_ptf_image_tag: $[ dependencies.choose_between_mixed_and_py3_ptf_image.outputs['ptf_image_tag.tag_value'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 30
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -131,3 +131,60 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           BUILD_REASON: "Schedule"
+
+  - job: impacted_area_t0_elastictest_baseline
+    displayName: "impacted_area_t0_elastictest_baseline"
+    dependsOn:
+      - get_impacted_area
+      - choose_between_mixed_and_py3_ptf_image
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      set_ptf_image_tag: $[ dependencies.choose_between_mixed_and_py3_ptf_image.outputs['ptf_image_tag.tag_value'] ]
+    timeoutInMinutes: 30
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          PTF_IMAGE_TAG: $(set_ptf_image_tag)
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          BUILD_REASON: "BaselineTest"
+
+  - job: impacted_area_t0_elastictest_pr
+    displayName: "impacted_area_t0_elastictest_pr"
+    dependsOn:
+      - get_impacted_area
+      - choose_between_mixed_and_py3_ptf_image
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      set_ptf_image_tag: $[ dependencies.choose_between_mixed_and_py3_ptf_image.outputs['ptf_image_tag.tag_value'] ]
+    timeoutInMinutes: 30
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          PTF_IMAGE_TAG: $(set_ptf_image_tag)
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
