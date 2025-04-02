@@ -1038,6 +1038,7 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port, routes_v4)
         change_routes(action, ptf_ip, port6, routes_v6)
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
