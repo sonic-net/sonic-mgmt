@@ -27,7 +27,7 @@ TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 DUMMY_QUOTA = "dummy_single_quota"
 
 smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O-T1": {
+    "Cisco-8102-28FH-DPU-O": {
          "dpu_num": {},
          "port_key": "Ethernet{}",
          "interface_key": "Ethernet{}|18.{}.202.0/31",
