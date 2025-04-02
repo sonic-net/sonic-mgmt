@@ -6,6 +6,7 @@ import yaml
 import re
 import requests
 import ipaddress
+import traceback
 import json
 import sys
 import socket
@@ -940,11 +941,11 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
     for _ in range(m1_number - 1):
         # Generate loopback IP of M1
         routes.append((m1_lo_ip, nexthop, str(m1_asn)))
-        m1_lo_ip = get_next_ip_by_net(m1_lo_ip)
+        m1_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m1_lo_ip))
         for _ in range(m0_number):
             # Generate loopback IP of M0
             routes.append((m0_lo_ip, nexthop, "{} {}".format(m1_asn, m0_asn)))
-            m0_lo_ip = get_next_ip_by_net(m0_lo_ip)
+            m0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m0_lo_ip))
             # Generate M0 subnet routes
             m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size,
                                                            ip_base, nexthop, 0, m0_asn)
@@ -954,7 +955,7 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
             # Generate loopback IP of Mx
             for _ in range(mx_number):
                 routes.append((mx_lo_ip, nexthop, "{} {} {}".format(m1_asn, m0_asn, mx_asn)))
-                mx_lo_ip = get_next_ip_by_net(mx_lo_ip)
+                mx_lo_ip = ipaddress.ip_network(get_next_ip_by_net(mx_lo_ip))
             # Generate Mx subnet routes
             mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn,
                                                        ip_base, nexthop, m0_asn)
@@ -964,7 +965,7 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
         for _ in range(c0_number):
             # Generate loopback IP of C0
             routes.append((c0_lo_ip, nexthop, "{} {}".format(m1_asn, c0_asn)))
-            c0_lo_ip = get_next_ip_by_net(c0_lo_ip)
+            c0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(c0_lo_ip))
     return routes, ip_base, m1_lo_ip, m0_lo_ip, mx_lo_ip, c0_lo_ip
 
 
@@ -988,7 +989,7 @@ def generate_m1_m0_routes(nexthop, ip_base, m0_subnet_number, m0_subnet_size, m0
     # Generate Mx loopback routes
     for i in range(mx_number):
         routes.append((mx_lo_ip, nexthop, str(mx_asn)))
-        mx_lo_ip = get_next_ip_by_net(mx_lo_ip)
+        mx_lo_ip = ipaddress.ip_network(get_next_ip_by_net(mx_lo_ip))
 
     return routes, ip_base, mx_lo_ip
 
@@ -998,27 +999,27 @@ def fib_m1(topo, ptf_ip, action="announce"):
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
     m1_number = common_config.get("m1_number", M1_NUMBER)
-    m1_lo_v4_start = common_config.get("m1_loopback_v4_start")
-    m1_lo_v6_start = common_config.get("m1_loopback_v6_start")
+    m1_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v4_start")))
+    m1_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v6_start")))
     m1_asn = common_config.get("m1_asn")
     m0_number = common_config.get("m0_number", M0_NUMBER)
     m0_subnet_number = common_config.get("m0_subnet_number", M0_SUBNET_NUMBER)
     m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
     m0_subnet_size_v6 = 2 ** (128 - common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6))
-    m0_lo_v4_start = common_config.get("m0_loopback_v4_start")
-    m0_lo_v6_start = common_config.get("m0_loopback_v6_start")
+    m0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v4_start")))
+    m0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v6_start")))
     m0_asn = common_config.get("m0_asn")
     mx_number = common_config.get("mx_number", MX_NUMBER)
     mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
     mx_subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     mx_subnet_size_v6 = 2 ** (128 - common_config.get("mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6))
     mx_asn = common_config.get("mx_asn")
-    mx_lo_v4_start = common_config.get("mx_loopback_v4_start")
-    mx_lo_v6_start = common_config.get("mx_loopback_v6_start")
+    mx_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v4_start")))
+    mx_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v6_start")))
     c0_number = common_config.get("c0_number", C0_NUMBER)
     c0_asn = common_config.get("c0_asn")
-    c0_lo_v4_start = common_config.get("c0_loopback_v4_start")
-    c0_lo_v6_start = common_config.get("c0_loopback_v6_start")
+    c0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v4_start")))
+    c0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v6_start")))
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
@@ -1385,8 +1386,9 @@ def main():
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
     except Exception as e:
-        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}'
-                         .format(topo_name, topo_type, repr(e)))
+        stack = traceback.format_exc()
+        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}, stack={}'
+                         .format(topo_name, topo_type, repr(e), stack))
 
 
 if __name__ == '__main__':
