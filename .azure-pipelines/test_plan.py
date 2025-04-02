@@ -1018,7 +1018,7 @@ if __name__ == "__main__":
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
-            build_branch = args.mgmt_branch
+            build_branch = os.environ.get("BUILD_SOURCEBRANCHNAME")
 
             # Only pr test show pr id
             pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
