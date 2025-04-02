@@ -116,7 +116,7 @@ class GenerateGoldenConfigDBModule(object):
         if "FEATURE" not in ori_config_db \
                 or "dhcp_relay" not in ori_config_db["FEATURE"]:
             return "{}"
-        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "enabled"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "disabled"
 
         # Generate INTERFACE table for EthernetBPXX
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
