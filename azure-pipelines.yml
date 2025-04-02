@@ -104,7 +104,7 @@ stages:
         displayName: "PTF_IMAGE_TAG value"
 
   - job: impacted_area_t0_elastictest
-    displayName: "impacted-area-kvmtest-t0 by Elastictest"
+    displayName: "impacted-area-kvmtest_t0 by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -132,7 +132,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_2vlans_elastictest
-    displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
+    displayName: "impacted-area-kvmtest_t0-2vlans by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -161,7 +161,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t1_lag_elastictest
-    displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
+    displayName: "impacted-area-kvmtest_t1-lag by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -191,7 +191,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_dualtor_elastictest
-    displayName: "impacted-area-kvmtest-dualtor by Elastictest"
+    displayName: "impacted-area-kvmtest_dualtor by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -222,7 +222,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_multi_asic_elastictest
-    displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
+    displayName: "impacted-area-kvmtest_multi-asic-t1 by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -251,7 +251,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_sonic_elastictest
-    displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
+    displayName: "impacted-area-kvmtest_t0-sonic by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -286,7 +286,7 @@ stages:
             ]'
 
   - job: impacted_area_dpu_elastictest
-    displayName: "impacted-area-kvmtest-dpu by Elastictest"
+    displayName: "impacted-area-kvmtest_dpu by Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -318,7 +318,7 @@ stages:
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
-    displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest - optional"
+    displayName: "impacted-area-kvmtest_multi-asic-t1 by Elastictest - optional"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
