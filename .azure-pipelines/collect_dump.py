@@ -8,7 +8,7 @@ import datetime
 import traceback
 import tarfile
 import gzip
-from tests.common.helpers.parallel import parallel_run
+from concurrent.futures import ThreadPoolExecutor
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -28,14 +28,14 @@ TECHSUPPORT_SAVE_PATH = '../tests/logs/'
 LOGS_DIR = os.path.join(_self_dir, TECHSUPPORT_SAVE_PATH)
 
 
-def get_techsupport(sonichosts, time_since):
+def get_techsupport(sonichost, time_since):
     """Runs 'show techsupport' on SONiC devices and saves the output to logs/"""
     try:
         # Run "show techsupport" command
-        result = sonichosts.command(f"show techsupport --since {time_since}")
+        result = sonichost.command(f"show techsupport --since {time_since}")
         if result['rc'] == 0:
             tar_file = result['stdout_lines'][-1]
-            sonichosts.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+            sonichost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     except Exception as e:
         logger.info(f"Failed to get techsupport for {e}")
@@ -67,8 +67,7 @@ def extract_gz_file(gz_file_path):
         traceback.logger.info_exc()
 
 
-def extract_dump_file(testbed_name_with_idx, sonichost):
-    hostname = sonichost.hostname
+def extract_dump_file(testbed_name_with_idx, hostname):
     try:
         # extract dump file
         dump_file = [file for file in os.listdir(LOGS_DIR)
@@ -97,6 +96,12 @@ def extract_dump_file(testbed_name_with_idx, sonichost):
         traceback.logger.info_exc()
 
 
+def collect_dump_and_extract(sonichost, time_since, testbed_name_with_idx):
+    """Function to run tasks in parallel per sonichost"""
+    get_techsupport(sonichost, time_since=time_since)
+    extract_dump_file(testbed_name_with_idx=testbed_name_with_idx, hostname=sonichost.hostname)
+
+
 def main(args):
     logger.info("Initializing hosts")
     sonichosts = init_testbed_sonichosts(
@@ -109,8 +114,13 @@ def main(args):
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
 
-    get_techsupport(sonichosts, time_since=args.time_since)
-    parallel_run(extract_dump_file, [args.testbed_name_with_idx], {}, sonichosts, timeout=600)
+    with ThreadPoolExecutor(max_workers=len(sonichosts)) as executor:
+        futures = [
+            executor.submit(collect_dump_and_extract, sonichost, args.time_since, args.testbed_name_with_idx)
+            for sonichost in sonichosts
+        ]
+        for future in futures:
+            future.result()
 
 
 if __name__ == "__main__":
