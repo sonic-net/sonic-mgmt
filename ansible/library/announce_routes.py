@@ -899,9 +899,9 @@ def fib_t2_lag(topo, ptf_ip, action="announce", selected_route_set='all'):
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
-    if selected_route_set in ( 'all', 't1' ):
+    if selected_route_set in ('all', 't1'):
         route_set += generate_t2_routes(t1_vms, topo, ptf_ip, action)
-    if selected_route_set in ( 'all', 't3' ):
+    if selected_route_set in ('all', 't3'):
         route_set += generate_t2_routes(t3_vms, topo, ptf_ip, action)
     send_routes_in_parallel(route_set)
 
@@ -1037,7 +1037,6 @@ def fib_dpu(topo, ptf_ip, action="announce"):
 
         change_routes(action, ptf_ip, port, routes_v4)
         change_routes(action, ptf_ip, port6, routes_v6)
-
 
 def main():
     module = AnsibleModule(
