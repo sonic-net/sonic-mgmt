@@ -32,9 +32,19 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 6. Increase each traffic item's rate from 60% to 70%, 80%, and 90% of the line rate, respectively. Repeat the above three steps. Observe how latency changes in relation to packet loss. Note: Latency measurements may be skewed due to packet loss, as lost packets are counted as having infinite latency. This issue should be addressed to ensure accurate results.
 
+## Oversubscription Test Case
+
+This test is conducted in a one-tier network to evaluate latency under an oversubscribed state.
+
+1. Assume the DUT has X ports connected to traffic generators. Assume the DUT has X ports connected to traffic generators. Randomly select one port on a traffic generator as the Rx port, and designate the remaining (X-1) ports as Tx ports.
+2. Define (X-1) traffic items, each assigned to a different Tx port, using a frame size of 86 bytes. Set each traffic stream's rate to `(line_rate × 110%) / X` to create an oversubscribed condition.
+3. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics.
+4. Repeat the test with frame size 1024 bytes, 4096 bytes, and 8192 bytes.
+5. Analyze the results by comparing latency measurements across different frame sizes, identifying any patterns or anomalies, and determining how oversubscription affects latency performance.
+
 ## Metrics Processing
 
-Below is a diagram illustrating how latency data is stored in the database. For more details, refer to test_reporting/telemetry/README.md.
+Latency data is collected and stored periodically. The diagram below illustrates how it is organized in the database. For more details, refer to `test_reporting/telemetry/README.md`.
 
 ![metrics](./datapoints.png)
 
@@ -43,11 +53,8 @@ For each of the above results, save the latency figures in nanoseconds to a data
 In addition to the common labels below
 
 ```python
-METRIC_LABEL_TESTBED: Final[str] = "test.testbed"
-METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"
 METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
 METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
-METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"
 ```
 
 The following labels should also be provided:
@@ -57,8 +64,16 @@ METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
 METRIC_LABEL_DEVICE_INGRESS_PORT_ID: Final[str] = "device.ingress_port.id"
 METRIC_LABEL_DEVICE_EGRESS_PORT_ID: Final[str] = "device.egress_port.id"
 METRIC_LABEL_TRAFFIC_RATE: Final[str] = "traffic.rate"               # Measured as a percentage of the line rate
-METRIC_LABEL_TRAFFIC_LOSS_RATE: Final[str] = "traffic.loss_rate"     # Measured as a percentage of total traffic
 METRIC_LABEL_TRAFFIC_PACKET_SIZE: Final[str] = "traffic.packet_size" # Measured in bytes
+METRIC_LABEL_TRAFFIC_RFC2889_FLAG: Final[str] = "traffic.rfc2889_flag"
+```
+
+Three metrics are collected and stored.
+
+```python
+METRIC_NAME_MIN_LATENCY: Final[str] = "latency.min"
+METRIC_NAME_MAX_LATENCY: Final[str] = "latency.max"
+METRIC_NAME_AVG_LATENCY: Final[str] = "latency.avg"
 ```
 
 Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
