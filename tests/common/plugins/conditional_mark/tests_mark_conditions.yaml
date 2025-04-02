@@ -1728,7 +1728,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
-        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16233"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
 #######################################
