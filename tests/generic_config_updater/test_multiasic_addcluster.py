@@ -35,6 +35,30 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
+def create_table_if_not_exist(duthost, tables):
+    """
+    Create tables in CONFIG_DB if they do not exist.
+    :param duthost: DUT host object
+    :param tables: List of table names to check and create
+    """
+    for table in tables:
+        result = duthost.shell(f"sonic-db-cli -n asic0 CONFIG_DB keys '{table}|*'")["stdout"]
+        if not result:
+            logger.info(f"Table {table} does not exist, creating it")
+            json_patch = {
+                "op": "add",
+                "path": "/asic0/{}".format(table),
+                "value": {}
+            }
+            tmpfile = generate_tmpfile(duthost)
+            try:
+                apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+                if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
+                    pytest.fail(f"Failed to apply patch: {apply_patch_result['stdout']}")
+            finally:
+                delete_tmpfile(duthost, tmpfile)
+
+
 def test_addcluster_workflow(duthost):
     # Step 1: Backup minigraph
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
@@ -54,6 +78,11 @@ def test_addcluster_workflow(duthost):
     # Step 3: Reload minigraph
     logger.info("Reloading minigraph using 'config load_minigraph -y'")
     duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
+
+    # Step 3.1 check corresponding tables in CONFIG_DB, if not, create them by mini patch.
+    check_tables = ["BGP_NEIGHBOR", "PFC_WD", "CABLE_LENGTH", "BUFFER_PG", "PORT_QOS_MAP", "DEVICE_NEIGHBOR_METADATA"]
+    logger.info(f"Checking and creating tables: {check_tables}")
+    create_table_if_not_exist(duthost, check_tables)
 
     # Step 4: Apply addcluster.json
     logger.info("Applying addcluster.json patch")

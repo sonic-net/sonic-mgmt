@@ -1,11 +1,6 @@
 [
     {
         "op": "add",
-        "path": "/asic0/BGP_NEIGHBOR",
-        "value": {}
-    },
-    {
-        "op": "add",
         "path": "/asic0/PORT/Ethernet16",
         "value": {
             "admin_status": "up",
