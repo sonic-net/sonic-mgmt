@@ -17,6 +17,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa F401
@@ -43,7 +44,7 @@ class QosBase:
     """
     SUPPORTED_T0_TOPOS = [
         "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
-        "dualtor-120", "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend",
+        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "t0-120", "t0-80", "t0-backend",
         "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
         "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
     ]
@@ -1391,7 +1392,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
+            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports):  # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1430,20 +1431,24 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        is_dualtor_active_standby = is_dualtor and active_standby_ports
+        """ Stop mux container for dual ToR Active-Standby """
+        if is_dualtor:
+            if is_dualtor_active_standby:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR, retries=3)
-            check_result = wait_until(
-                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-            validate_check_result(check_result, duthosts, get_mux_status)
-
             try:
                 lower_tor_host.shell("ls %s" % file)
                 lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
                 lower_tor_host.shell("sudo rm {}".format(file))
                 lower_tor_host.shell("sudo touch {}".format(file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
@@ -1466,7 +1471,7 @@ class QosSaiBase(QosBase):
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             disable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -1499,7 +1504,7 @@ class QosSaiBase(QosBase):
             dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             try:
                 lower_tor_host.shell("ls %s" % backup_file)
                 lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
@@ -1515,7 +1520,7 @@ class QosSaiBase(QosBase):
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             enable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
