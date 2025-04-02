@@ -1047,7 +1047,7 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             selected_route_set=dict(required=False, type='str',
-                           default='all', choices=['all', 't1', 't3']),
+                                    default='all', choices=['all', 't1', 't3']),
             path=dict(required=False, type='str', default=''),
             log_path=dict(required=False, type='str', default='')
         ),
