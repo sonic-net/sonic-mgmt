@@ -104,7 +104,7 @@ stages:
         displayName: "PTF_IMAGE_TAG value"
 
   - job: impacted_area_t0_elastictest
-    displayName: "impacted-area-kvmtest-t0 by Elastictest"
+    displayName: "dx010.t0.202012.NightlyTest_by_Elastictest"
     dependsOn:
     - get_impacted_area
     - choose_between_mixed_and_py3_ptf_image
@@ -130,4 +130,4 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-          BUILD_REASON: "BaselineTest"
+          BUILD_REASON: "Schedule"

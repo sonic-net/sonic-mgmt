@@ -1013,7 +1013,7 @@ if __name__ == "__main__":
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
-            build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
+            build_repo_provider = "TfsGit"
             build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
