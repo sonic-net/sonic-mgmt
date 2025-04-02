@@ -9,7 +9,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
-    pre_test_check, post_test_switch_check, post_test_dpu_check,\
+    pre_test_check, post_test_switch_check, post_test_dpus_check,\
     num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
@@ -151,13 +151,12 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     for index in range(len(dpu_on_list)):
         logging.info("Triggering Kernel Panic on %s" % (dpu_on_list[index]))
         dpu_on = dpu_on_list[index]
-        dpu_number = int(re.search(r'\d+', dpu_on).group())
-        dpuhosts[dpu_number].shell(kernel_panic_cmd, executable="/bin/bash")
+        dpu_id = int(re.search(r'\d+', dpu_on).group())
+        dpuhosts[dpu_id].shell(kernel_panic_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost, dpuhosts,
-                        dpu_on_list, dpu_off_list,
-                        ip_address_list, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list,
+                        ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
 def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
@@ -180,14 +179,12 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                 "Triggering Memory Exhaustion on %s" % (dpu_on_list[index])
                 )
         dpu_on = dpu_on_list[index]
-        dpu_number = int(re.search(r'\d+', dpu_on).group())
-        dpuhosts[dpu_number].shell(memory_exhaustion_cmd,
-                                   executable="/bin/bash")
+        dpu_id = int(re.search(r'\d+', dpu_on).group())
+        dpuhosts[dpu_id].shell(memory_exhaustion_cmd, executable="/bin/bash")
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost, dpuhosts,
-                        dpu_on_list, dpu_off_list,
-                        ip_address_list, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Non-Hardware")
 
 
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
@@ -224,7 +221,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
             executor.submit(reboot_dpu, duthost, platform_api_conn, index)
 
     logging.info("Executing post test dpu check")
-    post_test_dpu_check(duthost, dpuhosts, dpu_on_list, dpu_off_list, ip_address_list, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
@@ -252,4 +249,4 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
 
     logging.info("Executing post switch reboot dpu check")
-    post_test_dpu_check(duthost, dpuhosts, dpu_on_list, dpu_off_list, ip_address_list, "reboot")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "reboot")
