@@ -13,6 +13,7 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -33,22 +34,6 @@ MACSEC_PROFILE_PATH = '/tmp/profile.json'
 GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
 GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
 DNS_CONFIG_PATH = '/tmp/dns_config.json'
-
-smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O-T1": {
-        "dpu_num": 8,
-        "port_key": "Ethernet-BP{}",
-        "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
-        "dpu_key": "dpu{}"
-    },
-    "Mellanox-SN4280-O28": {
-        "dpu_num": 4,
-        "port_key": "Ethernet{}",
-        "base": 224,
-        "step": 8,
-        "dpu_key": "dpu{}"
-    }
-}
 
 logger = logging.getLogger(__name__)
 
@@ -278,13 +263,6 @@ class GenerateGoldenConfigDBModule(object):
                 ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
             ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i + 1)]
 
-        midplane_network_config = {
-             "midplane_network": {
-                 "bridge_name": "bridge-midplane",
-                 "bridge_address": "169.254.200.254/24"
-             }
-         }
-        ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
         mid_plane_bridge_config = {
                 "GLOBAL": {
                     "bridge": "bridge-midplane",
@@ -314,7 +292,6 @@ class GenerateGoldenConfigDBModule(object):
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
-            "MIDPLANE_NETWORK": copy.deepcopy(ori_config_db["MIDPLANE_NETWORK"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
