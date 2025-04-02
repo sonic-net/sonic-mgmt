@@ -310,13 +310,12 @@ class ARPTest(PolicyTest):
         return packet
 
 
-# SONIC configuration has no packets to CPU for DHCP-T1 Topo
+# SONIC configuration has packets to CPU for DHCP-T1 Topo
 class DHCPTopoT1Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # T1 DHCP no packet to packet to CPU so police rate is 0
+        # T1 DHCP packets to be punted to cpu
         self.PPS_LIMIT_MIN = 0
-        self.PPS_LIMIT_MAX = 0
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
@@ -436,13 +435,12 @@ class DHCP6Test(PolicyTest):
         return packet
 
 
-# SONIC configuration has no packets to CPU for DHCPv6-T1 Topo
+# SONIC configuration has packets to CPU for DHCPv6-T1 Topo
 class DHCP6TopoT1Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # T1 DHCP6 no packet to packet to CPU so police rate is 0
+        # T1 DHCP6 packets to be punted to cpu
         self.PPS_LIMIT_MIN = 0
-        self.PPS_LIMIT_MAX = 0
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")
