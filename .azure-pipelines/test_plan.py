@@ -1020,7 +1020,13 @@ if __name__ == "__main__":
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
             build_branch = args.mgmt_branch
 
-            test_plan_prefix = (f"{build_repo_provider}_{build_reason}_{repo_name}_{build_branch}_PR_{pr_id}_"
+            # Only pr test show pr id
+            pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
+
+            # Only pr test and baseline test show repo and branch
+            source_repo_info = f"{repo_name}_{build_branch}_" if args.test_plan_type == "PR" else ""
+
+            test_plan_prefix = (f"{build_repo_provider}_{build_reason}_{source_repo_info}{pr_info}"
                                 f"BUILD_{build_id}_JOB_{job_name}").replace(' ', '_')
 
             scripts = args.scripts
