@@ -130,4 +130,4 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-#          BUILD_REASON: "BaselineTest"
+          BUILD_REASON: "BaselineTest"
