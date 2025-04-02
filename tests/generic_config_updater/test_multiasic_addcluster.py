@@ -45,11 +45,13 @@ def create_table_if_not_exist(duthost, tables):
         result = duthost.shell(f"sonic-db-cli -n asic0 CONFIG_DB keys '{table}|*'")["stdout"]
         if not result:
             logger.info(f"Table {table} does not exist, creating it")
-            json_patch = {
-                "op": "add",
-                "path": "/asic0/{}".format(table),
-                "value": {}
-            }
+            json_patch = [
+                {
+                    "op": "add",
+                    "path": "/asic0/{}".format(table),
+                    "value": {}
+                }
+            ]
             tmpfile = generate_tmpfile(duthost)
             try:
                 apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
