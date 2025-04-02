@@ -360,7 +360,13 @@ def verify_yang(duthost):
     """
     logging.info("Verify yang over running config")
 
-    if not wait_until(60, 15, 0, duthost.yang_validate):
+    # Strict yang validation is supported from 2025
+    strict_yang_validation = True
+    non_strict_versions = ["2019", "2020", "2021", "2022", "2023", "2024"]
+    if any(version in get_current_sonic_version(duthost) for version in non_strict_versions):
+        strict_yang_validation = False
+
+    if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
         raise RebootHealthError("Yang validation failed")
 
 
