@@ -35,7 +35,9 @@ def get_techsupport(sonichost, time_since):
         result = sonichost.command(f"show techsupport --since {time_since}")
         if result['rc'] == 0:
             tar_file = result['stdout_lines'][-1]
+            tar_file_name = tar_file.split("/")[-1]
             sonichost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+            return tar_file_name
 
     except Exception as e:
         logger.info(f"Failed to get techsupport for {e}")
@@ -64,15 +66,13 @@ def extract_gz_file(gz_file_path):
         os.remove(gz_file_path)
     except Exception as e:
         logger.info("Extract gz file {} failed: {}".format(gz_file_path, str(e)))
-        traceback.logger.info_exc()
+        traceback.print_exc()
 
 
-def extract_dump_file(testbed_name_with_idx, hostname):
+def extract_dump_file(testbed_name_with_idx, hostname, tar_file_name):
     try:
         # extract dump file
-        dump_file = [file for file in os.listdir(LOGS_DIR)
-                     if file.startswith("sonic_dump") and file.endswith(".tar.gz")][0]
-        dump_file_path = os.path.join(TECHSUPPORT_SAVE_PATH, dump_file)
+        dump_file_path = os.path.join(TECHSUPPORT_SAVE_PATH, tar_file_name)
         extract_dump_tar_gz(dump_file_path, TECHSUPPORT_SAVE_PATH)
 
         # rename dump file
@@ -93,13 +93,14 @@ def extract_dump_file(testbed_name_with_idx, hostname):
 
     except Exception as e:
         logger.info("Extract dump file failed: " + str(e))
-        traceback.logger.info_exc()
+        traceback.print_exc()
 
 
 def collect_dump_and_extract(sonichost, time_since, testbed_name_with_idx):
     """Function to run tasks in parallel per sonichost"""
-    get_techsupport(sonichost, time_since=time_since)
-    extract_dump_file(testbed_name_with_idx=testbed_name_with_idx, hostname=sonichost.hostname)
+    tar_file_name = get_techsupport(sonichost, time_since=time_since)
+    extract_dump_file(testbed_name_with_idx=testbed_name_with_idx,
+                      hostname=sonichost.hostname, tar_file_name=tar_file_name)
 
 
 def main(args):
