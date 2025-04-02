@@ -8,6 +8,7 @@ import datetime
 import traceback
 import tarfile
 import gzip
+from tests.common.helpers.parallel import parallel_run
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -27,18 +28,17 @@ TECHSUPPORT_SAVE_PATH = '../tests/logs/'
 LOGS_DIR = os.path.join(_self_dir, TECHSUPPORT_SAVE_PATH)
 
 
-def get_techsupport(dut, time_since):
+def get_techsupport(sonichosts, time_since):
     """Runs 'show techsupport' on SONiC devices and saves the output to logs/"""
     try:
-        logger.info(f"Collecting techsupport from {dut.hostname}")
         # Run "show techsupport" command
-        result = dut.command(f"show techsupport --since {time_since}")
+        result = sonichosts.command(f"show techsupport --since {time_since}")
         if result['rc'] == 0:
             tar_file = result['stdout_lines'][-1]
-            dut.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+            sonichosts.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     except Exception as e:
-        logger.info(f"Failed to get techsupport on {dut.hostname} for {e}")
+        logger.info(f"Failed to get techsupport for {e}")
         sys.exit(RC_GET_TECHSUPPORT_FAILED)
 
 
@@ -67,7 +67,8 @@ def extract_gz_file(gz_file_path):
         traceback.logger.info_exc()
 
 
-def extract_dump_file(testbed_name_with_idx, hostname):
+def extract_dump_file(testbed_name_with_idx, sonichost):
+    hostname = sonichost.hostname
     try:
         # extract dump file
         dump_file = [file for file in os.listdir(LOGS_DIR)
@@ -108,9 +109,8 @@ def main(args):
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
 
-    for dut in sonichosts:
-        get_techsupport(dut, time_since=args.time_since)
-        extract_dump_file(testbed_name_with_idx=args.testbed_name_with_idx, hostname=dut.hostname)
+    get_techsupport(sonichosts, time_since=args.time_since)
+    parallel_run(extract_dump_file, [args.testbed_name_with_idx], {}, sonichosts, timeout=600)
 
 
 if __name__ == "__main__":
