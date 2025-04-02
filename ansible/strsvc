@@ -30,12 +30,6 @@ all:
         svc3-1:
           ansible_host: 10.206.144.128
           ansible_hostv6: 2a01:111:e205:100::ace:9080
-        svc1-5:
-          ansible_host: 10.206.144.138
-          ansible_hostv6: 2a01:111:e205:100::ace:908a
-        svc1-6:
-          ansible_host: 10.206.144.139
-          ansible_hostv6: 2a01:111:e205:100::ace:908b
     pdu:
       hosts:
         pdu-124:
@@ -77,14 +71,6 @@ fanout:
     svcstr-7260cx3-acs-12:
       ansible_host: 10.206.144.130
       ansible_hostv6: 2a01:111:e205:100::ace:9082
-    svcstr-z9332f-01:
-      os: sonic
-      ansible_host: 10.206.144.253
-      ansible_hostv6: 2a01:111:e205:100::ace:9098
-    svcstr-z9332f-02:
-      os: sonic
-      ansible_host: 10.206.144.254
-      ansible_hostv6: 2a01:111:e205:100::ace:9099
 
 sonic:
   vars:
@@ -95,7 +81,6 @@ sonic:
     sonic_arista:
     sonic_nokia_lc_100G:
     sonic_nokia_sup:
-    sonic_nokia_7250x3b_400G:
 
 sonic_nexus_3164:
   vars:
@@ -327,66 +312,6 @@ sonic_nokia_sup:
         - PSU11
         - PSU12
       asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-
-sonic_nokia_7250x3b_400G:
-  vars:
-    max_cores: 4
-    switch_type: voq
-    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
-    voq_inband_type: port
-    num_asics: 2
-    frontend_asics: [0,1]
-    console_baudrate: 115200
-  hosts:
-    svcstr-7250x3b-1:
-      hwsku:  Nokia-IXR7250-X3B
-      sonic_hwsku:  Nokia-IXR7250-X3B
-      sonic_hw_platform:  x86_64-nokia_ixr7250_x3b-r0
-      switchids: [0,2]	
-      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
-      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
-      serial: NS244500112
-      base_mac:  20:f4:4f:e1:5b:53
-      ansible_host: 10.206.144.115
-      ansible_hostv6: 2a01:111:e205:100::ace:9096
-      model: '3HE17033AARA01'
-      syseeprom_info:
-        "0x21": "7250 IXR-X3B"
-        "0x22": "3HE17033AARA01"
-        "0x23": "NS244500112"
-        "0x24": "20:F4:4F:E1:5B:53"
-        "0x27": "DEMO UNIT"
-        "0x28": "x86_64-nokia_ixr7250_x3b-r0"
-        "0x29": "2024.02-90-gd1b62d9b"
-        "0x2D": "NOKIA"
-        "0xFE": "0x3E7859CE"
-    svcstr-7250x3b-2:
-      hwsku:  Nokia-IXR7250-X3B
-      sonic_hwsku:  Nokia-IXR7250-X3B
-      sonic_hw_platform:  x86_64-nokia_ixr7250_x3b-r0
-      switchids: [0,2]
-      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
-      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
-      serial: NS244500117
-      base_mac:  a8:24:b8:8b:46:e1
-      ansible_host: 10.206.144.116
-      ansible_hostv6: 2a01:111:e205:100::ace:9097
-      model: '3HE17033AARA01'
-      syseeprom_info:
-        "0x21":  "7250 IXR-X3B"
-        "0x22":  "3HE17033AARA01"
-        "0x23":  "NS244500117"
-        "0x24":  "A8:24:B8:8B:46:E1"
-        "0x27":  "DEMO UNIT"
-        "0x28":  "x86_64-nokia_ixr7250_x3b-r0"
-        "0x29":  "2024.02-90-gd1b62d9b"
-        "0x2D":  "NOKIA"
-        "0xFE":  "0xD842ADFC"
-
 
 server:
   hosts:
