@@ -8,8 +8,8 @@ jobs:
     steps:
       - template: ../impacted_area_testing/get-impacted-area.yml
 
-  - job: impacted_area_kvmtest_$(TESTBED_PREP_TOPOLOGY)
-    displayName: "impacted-area-kvmtest-$(TESTBED_PREP_TOPOLOGY)"
+  - job: impacted_area_kvmtest
+    displayName: "impacted-area-kvmtest-${{ matrix.TESTBED_PREP_TOPOLOGY }}"
     cancelTimeoutInMinutes: 10
     dependsOn: get_impacted_area
     strategy:
