@@ -19,7 +19,7 @@ cmd_sfp_presence = "sudo sfpshow presence"
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo):
-        if "ptp" not in get_testbed_type(tbinfo['topo']['name']).lower():
+        if if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non PTP topology")
 
         if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
