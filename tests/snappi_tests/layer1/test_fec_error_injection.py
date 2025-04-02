@@ -18,18 +18,31 @@ from snappi_tests.dataplane.files.helper import (
     get_ti_stats,
     get_fanout_port_groups,
     create_snappi_config,
+    create_traffic_items,
 )
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
 
-fanout_per_port = 8
+"""
+    The following FEC ErrorTypes are the options available for AresOneM in 800G, 400G and 200G speed modes in IxNetwork
+    with which the Ports go down when the error is injected or there is packet drop.
+    example: 
+        For codeWords, laneMarkers, minConsecutiveUncorrectableWithLossOfLink link goes down and there is packet drop
+        For maxConsecutiveUncorrectableWithoutLossOfLink link does not go down and there is packet drop
+"""
 ErrorTypes = [
     "codeWords",
     "laneMarkers",
     "minConsecutiveUncorrectableWithLossOfLink",
     "maxConsecutiveUncorrectableWithoutLossOfLink",
 ]
+
+"""
+    If the speed of the fanout port is 400G on a 800G front panel port then the fanout_per_port is 2 
+    (because 2 400G fanouts per 800G fron panel port), 
+    if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
+"""
 
 
 @pytest.mark.parametrize("fanout_per_port", [2])
@@ -68,7 +81,15 @@ def test_fec_error_injection(
                 + port["snappi_speed_type"]
             )
         logger.info("|----------------------------------------|\n")
-        snappi_config = create_snappi_config(snappi_api, fanout_port_group)
+        half_ports = int(len(fanout_port_group) / 2)
+        tx_ports = fanout_port_group[:half_ports]
+        rx_ports = fanout_port_group[half_ports:]
+        snappi_config, tx_names, rx_names = create_snappi_config(
+            snappi_api, tx_ports, rx_ports, is_rdma=False
+        )
+        snappi_config = create_traffic_items(
+            snappi_config, tx_names, rx_names, line_rate=100
+        )
         snappi_api.set_config(snappi_config)
         ixnet = snappi_api._ixnetwork
         logger.info("Wait for Arp to Resolve ...")
