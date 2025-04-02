@@ -74,7 +74,7 @@ def main(scripts, topology, branch, prepare_time):
 
     try:
         kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
-                                                                                      access_token)  # noqa F841
+                                                                                      access_token)  # noqa: F841
         client = KustoClient(kcsb)
     except Exception as e:
         raise Exception("Connect to kusto fails, error {}".format(e))

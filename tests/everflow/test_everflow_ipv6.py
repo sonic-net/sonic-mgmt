@@ -3,7 +3,6 @@ import threading
 import time
 import pytest
 import ptf.testutils as testutils
-import ipaddress
 from ptf import packet
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -93,13 +92,14 @@ class EverflowIPv6Tests(BaseEverflowTest):
         yield direction
 
     @pytest.fixture(scope='function', autouse=True)
-    def background_traffic(self, ptfadapter, everflow_direction, setup_info):  # noqa F811
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut):  # noqa F811
         stop_thread = threading.Event()
         src_port = EverflowIPv6Tests.rx_port_ptf_id
 
-        neigh_ipv6 = {entry['name']: entry['addr'].lower() for entry in ptfadapter.mg_facts['minigraph_bgp'] if
-                      'ASIC' not in entry['name'] and isinstance(ipaddress.ip_address(entry['addr']),
-                                                                 ipaddress.IPv6Address)}
+        cmd = 'show ipv6 bgp summary'
+        parse_result = everflow_dut.show_and_parse(cmd)
+        neigh_ipv6 = {entry['neighborname']: entry['neighbhor'].lower() for entry in parse_result}
+
         if len(neigh_ipv6) > 1:
             def background_traffic(run_count=None):
                 selected_addrs1 = random.sample(list(neigh_ipv6.values()), 2)
