@@ -5,13 +5,11 @@ import pytest
 import re
 import time
 
-from .helper import gnmi_set, gnmi_get, gnoi_reboot
+from .helper import gnmi_set, gnmi_get
 from .helper import gnmi_subscribe_polling
 from .helper import gnmi_subscribe_streaming_sample, gnmi_subscribe_streaming_onchange
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +254,13 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert interface in dic["PORT"], "Failed to get interface %s" % interface
     assert "admin_status" in dic["PORT"][interface], "Failed to get interface %s" % interface
 
+    def check_admin_status(duthost, interface, expected_status):
+        status = get_interface_status(duthost, "admin_status", interface)
+        return status == expected_status
+
+    # Make sure interface is up to begin with
+    assert check_admin_status(duthost, interface, "up"), "Unexpected port status"
+
     # Update full config with GNMI
     dic["PORT"][interface]["admin_status"] = "down"
     filename = "full.txt"
@@ -265,20 +270,11 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     delete_list = ["/sonic-db:CONFIG_DB/localhost/"]
     update_list = ["/sonic-db:CONFIG_DB/localhost/:@/root/%s" % filename]
     gnmi_set(duthost, ptfhost, delete_list, update_list, [])
-    # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "admin_status", interface)
-    assert status == "up", "Port status is changed"
-    # GNOI reboot
-    gnoi_reboot(duthost, 0, 0, "abc")
+
+    # Check that interface is down after full config push
     pytest_assert(
-        wait_until(600, 10, 0, duthost.critical_services_fully_started),
-        "All critical services should be fully started!")
-    wait_critical_processes(duthost)
-    pytest_assert(
-        wait_until(300, 10, 0, check_interface_status_of_up_ports, duthost),
-        "Not all ports that are admin up on are operationally up")
-    # Check interface status
-    status = get_interface_status(duthost, "admin_status", interface)
-    assert status == "down", "Full config failed to toggle interface %s status" % interface
+        wait_until(30, 2, 0, check_admin_status, duthost, interface, "down"),
+        "Full config failed to toggle interface %s status" % interface)
+
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
