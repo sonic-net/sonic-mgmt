@@ -22,22 +22,16 @@ def number_of_tx_rx_ports():
     yield (1, 2)
 
 
-test_subtype = ['single_linecard_single_asic', 'single_linecard_multiple_asic', 'multiple_linecard_multiple_asic']
-
-
-@pytest.mark.parametrize('test_speed', [100.0, 400.0])
-@pytest.mark.parametrize("test_subtype", test_subtype)
 def test_lossless_response_to_external_pause_storms_test(snappi_api,                     # noqa: F811
                                                          conn_graph_facts,               # noqa: F811
                                                          fanout_graph_facts_multidut,    # noqa: F811
                                                          duthosts,
-                                                         prio_dscp_map,                     # noqa: F811
-                                                         lossless_prio_list,                # noqa: F811
-                                                         tbinfo,                 # noqa: F811
-                                                         get_snappi_ports,     # noqa: F811
-                                                         setup_ports_and_dut,  # noqa: F811
-                                                         disable_pfcwd,         # noqa: F811
-                                                         tgen_port_info        # noqa: F811
+                                                         prio_dscp_map,                  # noqa: F811
+                                                         lossless_prio_list,             # noqa: F811
+                                                         tbinfo,                         # noqa: F811
+                                                         get_snappi_ports,               # noqa: F811
+                                                         disable_pfcwd,                  # noqa: F811
+                                                         tgen_port_info                  # noqa: F811
                                                          ):
     """
     Run PFC lossless response to external pause storm with many to one traffic pattern
@@ -68,9 +62,10 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
         N/A
     """
     multidut_port_info = tgen_port_info
-    print(multidut_port_info)  # Please update the test to use this variable
+    logger.info('Ports:{}'.format(multidut_port_info))
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, multidut_port_info, snappi_api, setup=True)
 
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
