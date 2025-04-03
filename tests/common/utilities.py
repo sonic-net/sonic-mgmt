@@ -1054,6 +1054,8 @@ def get_ipv4_loopback_ip(duthost):
                 if is_ipv4_address(ip):
                     loopback_ip = ip
                     break
+        if loopback_ip is not None:
+            break
 
     return loopback_ip
 
