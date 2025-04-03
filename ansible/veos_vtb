@@ -38,6 +38,7 @@ all:
           - t2
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
+          - m1-48
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
