@@ -1424,6 +1424,9 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
                         else:
                             port_list[port_speed]['single_linecard_single_asic'] = f[device][asic_val][0:total_ports]
 
+            if ('single_linecard_single_asic' not in port_list[port_speed]):
+                port_list[port_speed]['single_linecard_single_asic'] = {}
+
             # for 'single_linecard_multiple_asic'
             egress_done = False
             ingress_done = False
@@ -1479,6 +1482,9 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
                 # If egress or ingress ports are not found, delete the dictionary key-value.
                 if (not egress_done or not ingress_done):
                     del port_list[port_speed]['single_linecard_multiple_asic']
+
+            if ('single_linecard_multiple_asic' not in port_list[port_speed]):
+                port_list[port_speed]['single_linecard_multiple_asic'] = {}
 
             # for 'multiple linecard, multiple ASIC'
             egress_done = False
@@ -1536,6 +1542,9 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
                 # If the dictionary does not select either ingress or egress ports, then dictionary is deleted.
                 if (not egress_done or not ingress_done):
                     del port_list[port_speed]['multiple_linecard_multiple_asic']
+
+            if ('multiple_linecard_multiple_asic' not in port_list[port_speed]):
+                port_list[port_speed]['multiple_linecard_multiple_asic'] = {}
 
         pytest_assert(port_list is not None, 'snappi ports are not available for required Rx and Tx port counts')
         return port_list
