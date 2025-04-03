@@ -192,6 +192,22 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Cisco-8101-O8C48",
+        "topo": "dualtor",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8101-32FH-O-C01",
+        "topo": "dualtor",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Cisco-8102-C64",
         "topo": "t1",
         "owner": "Yawen Ni",
@@ -410,32 +426,32 @@
     {
         "hwsku": "Mellanox-SN4700-O8C48",
         "topo": "t1",
-        "owner": "Yan Mo",
-        "email": "yanmo@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O8V48",
         "topo": "t0",
-        "owner": "Yan Mo",
-        "email": "yanmo@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O28",
         "topo": "t1",
-        "owner": "Yan Mo",
-        "email": "yanmo@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O32",
         "topo": "t1",
-        "owner": "Yan Mo",
-        "email": "yanmo@microsoft.com",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },

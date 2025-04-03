@@ -26,11 +26,11 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
         logger.info("Skipping postupgrade_actions")
         return
     base_path = os.path.dirname(__file__)
-    metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
+    metadata_scripts_path = os.path.join(base_path, "../../sonic-metadata/scripts")
     pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
             .format(metadata_scripts_path))
-    postupgrade_actions_data_dir_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions_data")
-    postupgrade_actions_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions")
+    postupgrade_actions_data_dir_path = os.path.join(base_path, "../../sonic-metadata/scripts/postupgrade_actions_data")
+    postupgrade_actions_path = os.path.join(base_path, "../../sonic-metadata/scripts/postupgrade_actions")
     pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC Metadata postupgrade_action script not found in {}"
             .format(postupgrade_actions_path))
     pytest_assert(os.path.exists(postupgrade_actions_data_dir_path), "SONiC Metadata postupgrade_action data directory not found in {}"

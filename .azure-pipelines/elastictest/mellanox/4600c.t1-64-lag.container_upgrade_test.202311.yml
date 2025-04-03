@@ -1,0 +1,82 @@
+name: Container_Upgrade_Test_NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 12 * * 6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "testbed-bjw2-can-t1-4600c-6"
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(BJW_IMAGE_MLNX_202311)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal
+
+  # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: "container_upgrade/test_container_upgrade.py"
+    displayName: "Scripts to be executed"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[{"name": "container_upgrade/test_container_upgrade.py","param": "--containers=docker-auditd:internal|docker-auditd-watchdog:internal --os_versions=20231110.22|20231110.26|20231110.30 --image_url_template=http://10.150.22.222/pipelines/Networking-acs-buildimage-Official/mellanox/internal-202311/tagged/sonic-mellanox-<osversion>.bin --parameters_file=container_upgrade/parameters.json --testcase_file=container_upgrade/testcases.json"}]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')" 
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 180
+
+  - name: RETRY_TIMES
+    type: string
+    default: 0
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 4600c.t1-64-lag.202311.bjw.Container_Upgrade_Test_NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
