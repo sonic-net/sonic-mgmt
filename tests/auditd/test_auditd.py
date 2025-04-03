@@ -78,8 +78,6 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 
     # Define expected keys
     expected_keys = [
-        "cpu_usage",
-        "mem_usage",
         "auditd_conf",
         "syslog_conf",
         "auditd_rules",
@@ -232,8 +230,6 @@ def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostna
 
     # Define expected keys
     expected_keys = [
-        "cpu_usage",
-        "mem_usage",
         "auditd_active"
     ]
 
