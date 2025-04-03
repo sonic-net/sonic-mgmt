@@ -15,7 +15,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
-    get_egress_queue_pkt_count_all_prio, wait_until, get_vlan_mac
+    get_egress_queue_pkt_count_all_prio, wait_until, get_vlan_from_port
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module # noqa F401
 
@@ -174,7 +174,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_downlink_port_id)
         pytest_assert(src_port_name, "No port on DUT found for ptf downlink port {}".format(ptf_downlink_port_id))
-        vlan_mac = get_vlan_mac(duthost, src_port_name)
+        vlan_name = get_vlan_from_port(duthost, src_port_name)
+        vlan_mac = None if vlan_name is None else duthost.get_dut_iface_mac(vlan_name)
         if vlan_mac is not None:
             logger.info("Using VLAN mac {} instead of router mac".format(vlan_mac))
             dst_mac = vlan_mac

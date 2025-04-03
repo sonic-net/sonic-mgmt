@@ -1416,9 +1416,9 @@ def get_iface_ip(mg_facts, ifacename):
     return None
 
 
-def get_vlan_mac(duthost, member_port):
+def get_vlan_from_port(duthost, member_port):
     '''
-    Returns the mac of the VLAN that has the given member port.
+    Returns the name of the VLAN that has the given member port.
     If no VLAN or appropriate member found, returns None.
     '''
     mg_facts = duthost.get_extended_minigraph_facts()
@@ -1432,9 +1432,7 @@ def get_vlan_mac(duthost, member_port):
                 break
         if vlan_name is not None:
             break
-    if vlan_name is None:
-        return None
-    return duthost.get_dut_iface_mac(vlan_name)
+    return vlan_name
 
 
 def cleanup_prev_images(duthost):
