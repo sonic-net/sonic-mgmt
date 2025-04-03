@@ -68,6 +68,7 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
         if str(ip) != str(vlan_gw_ip):
             server_neighbor_ip = str(ip)
             break
+    logger.debug("PTF port map: {}".format(ptf_ports_map))
 
     topo = tbinfo["topo"]["type"]
     if topo != "t0":
@@ -96,8 +97,8 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
             ptf_src_port = ptf_ports_map[intf]
 
     # randomly select a downstream port to be used as the PTF dst port
-    # ptf_dst_port = random.choice(downstream_port_ids)
-    ptf_dst_port = 4
+    random.seed(time.time())
+    ptf_dst_port = random.choice(downstream_port_ids)
 
     logger.info("Doing test on DUT port {} | PTF src port {} | PTF dst port {}".format(
         dut_port, ptf_src_port, ptf_dst_port))
@@ -131,8 +132,9 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
 
     yield setup_info
 
-    # delete the VLAN IP address from PTF host
+    # delete the VLAN IP address from PTF host and clean neighbor entry on duthost
     ptfhost.command(f"ip addr del {server_neighbor_ip}/{vlan_ipv6_subnet.prefixlen} dev eth{ptf_dst_port}")
+    duthost.command(f"ip neigh del {server_neighbor_ip} dev {vlan}")
 
     # delete the SRv6 configuration
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
