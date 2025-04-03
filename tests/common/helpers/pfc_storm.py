@@ -125,10 +125,32 @@ class PFCStorm(object):
         if not out['stat']['exists'] or not out['stat']['isdir']:
             self.peer_device.file(path=pfc_gen_fpath, state="touch")
 
+    def _get_eos_fanout_version(self):
+        """
+        Get version info for eos fanout device
+        """
+        cmd = 'Cli -c "show version"'
+        return self.peer_device.shell(cmd)['stdout_lines']
+
+    def _get_sonic_fanout_hwsku(self):
+        """
+        Get hwsku for sonic fanout device
+        """
+        cmd = 'show version'
+        out_lines = self.peer_device.shell(cmd)['stdout_lines']
+        for line in out_lines:
+            if line.startswith('HwSKU:'):
+                return line.split()[1]
+
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
         """
+        if self.peer_device.os in ('eos', 'sonic'):
+            if ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
+               (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
+                self.pfc_gen_file = "pfc_gen_th5.py"
+                self.pfc_gen_file_test_name = "pfc_gen_th5.py"
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
@@ -216,6 +238,10 @@ class PFCStorm(object):
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
+        elif ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
+              (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         elif self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
@@ -235,6 +261,10 @@ class PFCStorm(object):
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
+        elif ((self.peer_device.os == 'eos' and self._get_eos_fanout_version()[0].startswith('Arista DCS-7060X6')) or
+              (self.peer_device.os == 'sonic' and self._get_sonic_fanout_hwsku().startswith('Arista-7060X6-64'))):
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         elif self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
