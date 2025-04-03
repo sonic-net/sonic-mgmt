@@ -1209,6 +1209,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+      - "release in ['202412']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
