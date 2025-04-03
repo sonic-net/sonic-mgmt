@@ -40,13 +40,9 @@ def trim_inventory(inv_files, tbinfo, target_hostname):
     inv_name = tbinfo.get("inv_name", None)
     duts = tbinfo.get("duts", None)
 
-    # TODO: Trim fanout hosts and PDU hosts. Currently blocked by https://github.com/sonic-net/sonic-mgmt/issues/17347
-    # graph_facts = get_graph_facts(localhost, duts)
-    # fanout_hosts_set = get_fanout_hosts_set(graph_facts) if graph_facts else set()
-    # pdu_hosts_set = get_pdu_hosts_set(graph_facts) if graph_facts else set()
-
     pattern = r'VM\d{3,7}'
 
+    # TODO: Trim fanout hosts and PDU hosts. Currently blocked by https://github.com/sonic-net/sonic-mgmt/issues/17347
     logger.info(f"Start to trim inventory, inv_files: {inv_files}, vm_base: {vm_base}, tb_name: {tb_name}, "
                 f"ptf: {ptf}, inv_name: {inv_name}, duts: {duts}")
 
@@ -104,14 +100,6 @@ def trim_inventory(inv_files, tbinfo, target_hostname):
                         if ptf_key_path:
                             logger.info(f"Keep PTF host {ptf} and trim the rest PTF hosts")
                             trim_value_of_key_path(ptf_key_path[:-1], {ptf})
-                    # elif var == "pdu" and pdu_hosts_set:
-                    #     _, pdu_key_path = find_key(d=inv, target_key=next(iter(pdu_hosts_set)))
-                    #     if pdu_key_path:
-                    #         trim_value_of_key_path(pdu_key_path, pdu_hosts_set)
-                    # elif var == "fanout" and fanout_hosts_set:
-                    #     _, fanout_key_path = find_key(d=inv, target_key=next(iter(fanout_hosts_set)))
-                    #     if fanout_key_path:
-                    #         trim_value_of_key_path(fanout_key_path, fanout_hosts_set)
                     elif var == "hwsku" and duts:
                         # We have all the user-defined HwSKUs as the root keys of this inv file, and these
                         # HwSKUs combined should be a subset of the keys under the sonic.children node.
@@ -177,34 +165,3 @@ def trim_inventory(inv_files, tbinfo, target_hostname):
 
                     dump_trimmed_inv_to_file(inv, trimmed_inv_file_name)
                     inv_files[idx] = trimmed_inv_file_name
-
-# def get_graph_facts(localhost, duts):
-#     try:
-#         return localhost.conn_graph_facts(hosts=duts, filepath="../ansible/files")["ansible_facts"]
-#     except Exception as e:
-#         logger.error(f"Failed to get graph facts: {e}")
-#         return None
-#
-#
-# def get_fanout_hosts_set(graph_facts):
-#     try:
-#         return {
-#             str(details["peerdevice"])
-#             for device, ports in graph_facts['device_conn'].items()
-#             for port, details in ports.items()
-#         }
-#     except Exception as e:
-#         logger.error(f"Failed to get fanout hosts set: {e}")
-#         return set()
-#
-#
-# def get_pdu_hosts_set(graph_facts):
-#     try:
-#         return {
-#             str(details["Hostname"])
-#             for device, pdus in graph_facts['device_pdu_info'].items()
-#             for pdu, details in pdus.items()
-#         }
-#     except Exception as e:
-#         logger.error(f"Failed to get PDU hosts set: {e}")
-#         return set()
