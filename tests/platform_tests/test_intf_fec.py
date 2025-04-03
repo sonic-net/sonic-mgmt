@@ -79,9 +79,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if fec_mode == "n/a":
             pytest.fail("FEC status is N/A for interface {}".format(intf))
 
-        asic_cli_option = ""
-        if duthost.is_multi_asic:
-            asic_cli_option = duthost.get_port_asic_instance(intf).cli_ns_option
+        asic_cli_option = duthost.get_port_asic_instance(intf).cli_ns_option
 
         config_status = duthost.command("sudo config interface {} fec {} {}"
                                         .format(asic_cli_option, intf, fec_mode))
@@ -182,12 +180,9 @@ def get_fec_histogram(duthost, intf_name):
     """
     try:
         logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
-        if duthost.is_multi_asic:
-            intf_asic = duthost.get_port_asic_instance(intf_name).namespace
-            fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram -n {} {}"
-                                              .format(intf_asic, intf_name))
-        else:
-            fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+        asic_cli_option = duthost.get_port_asic_instance(intf_name).cli_ns_option
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {} {}".format(asic_cli_option,
+                                                                                                intf_name))
     except Exception as e:
         logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
         pytest.skip("Command 'show interfaces counters fec-histogram {}' not found \
