@@ -1013,13 +1013,22 @@ if __name__ == "__main__":
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
-            repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
+            build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
+            build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
+            build_branch = os.environ.get("SYSTEM_PULLREQUEST_TARGETBRANCH") if build_reason.upper() == "PULLREQUEST" \
+                else os.environ.get("BUILD_SOURCEBRANCHNAME")
 
-            test_plan_prefix = f"{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}".replace(' ', '_')
+            # Only pr test show pr id
+            pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
+
+            # Only pr test and baseline test show repo and branch
+            source_repo_info = f"{repo_name}_{build_branch}_" if args.test_plan_type == "PR" else ""
+
+            test_plan_prefix = (f"{build_repo_provider}_{build_reason}_{source_repo_info}{pr_info}"
+                                f"BUILD_{build_id}_JOB_{job_name}").replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
@@ -1077,7 +1086,7 @@ if __name__ == "__main__":
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
-                    build_reason=reason
+                    build_reason=build_reason
                 )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
