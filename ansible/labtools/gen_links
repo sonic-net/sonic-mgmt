@@ -28,6 +28,10 @@ dut_ports_info = {
             ("1000", ["etp{}".format(i) for i in range(1, 49)]),
             ("10000", ["etp{}".format(i) for i in range(49, 53)]),
             ],
+        "Nokia-7215-A1": [
+            ("1000", ["etp{}".format(i) for i in range(1, 49)]),
+            ("10000", ["etp{}".format(i) for i in range(49, 53)]),
+            ],
         "Celestica-E1031-T48S4": [
             ("1000", ["etp{}".format(i) for i in range(1, 49)]),
             ("10000", ["etp{}".format(i) for i in range(49, 53)]),
@@ -80,12 +84,24 @@ dut_ports_info = {
         "Arista-7050CX3-32S-C32": [
             ("100000", ["Ethernet{}/1".format(i + 1) for i in range(32)]),
             ],
+        "Arista-7050CX3-32S-C16": [
+            ("100000", ["Ethernet{}/1".format(i + 1) for i in range(16)]),
+            ],
+        "Arista-7050CX3-32S-S128": [
+            ("10000", ["Ethernet{}/{}".format(i // 4 + 1, i % 4 + 1) for i in range(128)]),
+            ],
+        "Arista-7050CX3-32S-S64": [
+            ("10000", ["Ethernet{}/{}".format(i // 4 + 1, i % 4 + 1) for i in range(64)]),
+            ],
         "Arista-7050CX3-32S-D48C8": [
             ("50000", ["Ethernet{}/{}".format(i // 2 + 1, i % 2 * 2 + 1) for i in range(12)]),
             ("100000", ["Ethernet7/1", "Ethernet8/1", "Ethernet9/1", "Ethernet10/1"]),
             ("50000", ["Ethernet{}/{}".format(i // 2 + 11, i % 2 * 2 + 1) for i in range(24)]),
             ("100000", ["Ethernet23/1", "Ethernet24/1", "Ethernet25/1", "Ethernet26/1"]),
             ("50000", ["Ethernet{}/{}".format(i // 2 + 27, i % 2 * 2 + 1) for i in range(12)]),
+            ],
+        "Arista-7060CX-32S-C32": [
+            ("100000", ["Ethernet{}/1".format(i + 1) for i in range(32)]),
             ],
         }
 
@@ -103,6 +119,10 @@ fanout_ports_info = {
             },
         "Arista-7060CX-32S": {
             "100000": ["Ethernet{}/1".format(i + 1) for i in range(32)],
+            "10000": ["Ethernet33", "Ethernet34"],
+            },
+        "Arista-7060CX-32S-S128": {
+            "10000": ["Ethernet{}/{}".format(i // 4 + 1, i % 4 + 1) for i in range(128)],
             "10000": ["Ethernet33", "Ethernet34"],
             },
         "Nokia-7215": {
@@ -127,6 +147,8 @@ hwsku_logical_to_physical = {
         "Arista-7260CX3-D108C10": "Arista-7260CX3-C64",
         "Arista-7060CX-32S-D48C8": "Arista-7060CX-32S-C32",
         "Arista-7050CX3-32S-D48C8": "Arista-7050CX3-32S-C32",
+        "Arista-7050CX3-32S-S128": "Arista-7050CX3-32S-C32",
+        "Arista-7050CX3-32S-S64": "Arista-7050CX3-32S-C16",
         "Cisco-8101-O8C48": "Cisco-8101-O32",
         }
 
@@ -153,9 +175,18 @@ special_hwsku_to_shared_fanout_speed = {
         "Cisco-8101-O8C48" : "400000",
         }
 
+# some fanouts have ports that exceed the ability of root fanout
+# so their speed would need to be reduced
 special_fanout_to_root_fanout_reduced_speed = {
         "Cisco-8101-O32": {"400000": "100000"},
         "Cisco-8101-O8C48": {"400000": "100000"},
+        }
+
+# some hwsku are made up and has no relevant reference in function
+# in other package functions, so mark it here
+special_hwsku_to_port_breakout_map = {
+        "Arista-7050CX3-32S-S64" : {"Ethernet{}/1".format(i + 1): ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(16)},
+        "Arista-7060CX-32S-S128" : {"Ethernet{}/1".format(i + 1): ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(32)},
         }
 
 """
@@ -165,7 +196,7 @@ Helpers
 def get_port_alias_to_name_map_wrapper(hwsku, convert=False, accept_special=False):
     if convert:
         hwsku = hwsku_logical_to_physical.get(hwsku, hwsku)
-    if hwsku == "Arista-7260CX3" or hwsku == "Arista-7260CX3-64" or hwsku == "Arista-7060CX-32S":
+    if hwsku in ["Arista-7260CX3", "Arista-7260CX3-64", "Arista-7260CX3-dual-dut", "Arista-7060CX-32S"]:
         if accept_special:
             class KeyReturner:
                 def __getitem__(self, key):
@@ -209,6 +240,8 @@ def get_port_breakout_map_7060(dut_hwsku_list):
         fanout_hwsku = "Arista-7060CX-32S-C32"
     elif dut_port_num == 56:
         fanout_hwsku = "Arista-7060CX-32S-D48C8"
+    elif dut_port_num == 64:
+        fanout_hwsku = "Arista-7060CX-32S-S128"
     else:
         raise Exception("Other dut hwsku have not been using Arista 7060 as fanout yet")
     port_breakout_map = get_port_breakout_map_generic(fanout_hwsku)
@@ -245,10 +278,12 @@ def get_port_breakout_map_7260(dut_hwsku_list):
     else:
         raise Exception("Currently 1 7260 fanout cannot support all {} duts".format(dut_hwsku_list))
 
-def get_port_breakout_map_generic(fanout_hwsku):
-    fanout_ports_physical = get_port_alias_to_name_map_wrapper(fanout_hwsku, convert=True)
-    fanout_ports_logical = get_port_alias_to_name_map_wrapper(fanout_hwsku, convert=False)
-    return build_port_breakout_map(sorted(list(fanout_ports_physical.keys()), key=lambda port: port_cmp_key(port)), sorted(list(fanout_ports_logical.keys()), key=lambda port: port_cmp_key(port)))
+def get_port_breakout_map_generic(hwsku):
+    if hwsku in special_hwsku_to_port_breakout_map:
+        return dict(special_hwsku_to_port_breakout_map[hwsku])
+    ports_physical = get_port_alias_to_name_map_wrapper(hwsku, convert=True)
+    ports_logical = get_port_alias_to_name_map_wrapper(hwsku, convert=False)
+    return build_port_breakout_map(sorted(list(ports_physical.keys()), key=lambda port: port_cmp_key(port)), sorted(list(ports_logical.keys()), key=lambda port: port_cmp_key(port)))
 
 # to make request of NUM physical ports with certain speed, we have to 
 # convert it to logical ports with certain speed so the correct ports
@@ -631,7 +666,7 @@ class Device:
         self.ports_physical = fanout_ports_info[hwsku_physical]
         # for most hwsku, fanout hwsku decides what its port mapping looks like, 
         # but for Arista 7260, it's port breakout depends on the dut
-        if self.hwsku == "Arista-7260CX3":
+        if self.hwsku in ["Arista-7260CX3", "Arista-7260CX3-64", "Arista-7260CX3-dual-dut"]:
             self.port_breakout_map = get_port_breakout_map_7260(dut_hwsku_list)
         elif self.hwsku == "Arista-7060CX-32S":
             self.port_breakout_map = get_port_breakout_map_7060(dut_hwsku_list)
@@ -1076,7 +1111,7 @@ class GenLinks:
         if not to_root_fanout_link_exist:
             raise Exception("Shared fanout should be connected to root fanout")
 
-    def add_devices(self, dut_names, fanout_names):
+    def add_devices(self, dut_names, fanout_names, override_hwsku=None):
         if len(dut_names) != len(fanout_names):
             raise Exception("Number of dut and fanout does not match")
         device_hwsku_map = {}
@@ -1088,6 +1123,9 @@ class GenLinks:
                 line = f.readline()
         if any([dut_name not in device_hwsku_map for dut_name in dut_names]) or any([fanout_name and fanout_name not in device_hwsku_map for fanout_name in fanout_names]):
             raise Exception("Please enter device into in devices.csv before using this script")
+        if override_hwsku:
+            device_hwsku_map = dict(map(lambda item : (item[0], override_hwsku.get(item[1], item[1])),
+                                    device_hwsku_map.items()))
         for i in range(len(dut_names)):
             dut_name = dut_names[i]
             fanout_name = fanout_names[i]
@@ -1202,6 +1240,7 @@ if __name__ == "__main__":
     parser.add_argument("--inv", "-i", required=True, help="inventory")
     parser.add_argument("--dut", "-d", required=True, help="list of duts separated by comma")
     parser.add_argument("--fanout", "-f", required=True, help="list of fanouts separated by comma, fanout can be empty string")
+    parser.add_argument("--override_hwsku", "-o", required=False, help="override recorded hwsku with another, format ORIG_HWSKU=NEW_HWSKU, work on both dut and fanout")
     parser.add_argument("--console", "-c", required=False, help="console device for all the devices")
     parser.add_argument("--shared-fanout", "-b", required=False, help="shared fanout name for case where one fanout is not enough")
     parser.add_argument("--vlan", "-v", required=False, type=int, help="If starting vlan is not provided, will pick the largest vlan + 1 from inventory")
@@ -1212,7 +1251,11 @@ if __name__ == "__main__":
     gen_links = GenLinks(args.inv)
     if args.console:
         gen_links.prepare_console_info(args.console)
-    gen_links.add_devices(args.dut.split(","), args.fanout.split(","))
+    if args.override_hwsku:
+        override_hwsku = dict(map(lambda item : item.split("="), args.override_hwsku.split(",")))
+    else:
+        override_hwsku = None
+    gen_links.add_devices(args.dut.split(","), args.fanout.split(","), override_hwsku=override_hwsku)
     if args.console:
         gen_links.gen_console_links()
         gen_links.print_console_links(args.update_to_file)
