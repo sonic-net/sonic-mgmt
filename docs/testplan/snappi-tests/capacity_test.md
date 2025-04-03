@@ -88,34 +88,34 @@ These labels identify the specific device and component from which a metric is c
 
 #### PSU Metrics
 
-     The `show platform psu` command is used on the switch to retrieve PSU metrics. The following labels are expected to be provided:
+The `show platform psu` command is used on the switch to retrieve PSU metrics. The following labels are expected to be provided:
 
-     | Label                             | Example Value    |
-     | --------------------------------- | ---------------- |
-     | `METRIC_LABEL_DEVICE_ID`          | switch-A         |
-     | `METRIC_LABEL_DEVICE_PSU_ID`      | PSU 1            |
-     | `METRIC_LABEL_DEVICE_PSU_MODEL`   | PWR-ABCD         |
-     | `METRIC_LABEL_DEVICE_PSU_SERIAL`  | 1Z011010112349Q  |
-     | `METRIC_LABEL_DEVICE_PSU_HW_REV`  | 02.00            |
+| Label                             | Example Value    |
+| --------------------------------- | ---------------- |
+| `METRIC_LABEL_DEVICE_ID`          | switch-A         |
+| `METRIC_LABEL_DEVICE_PSU_ID`      | PSU 1            |
+| `METRIC_LABEL_DEVICE_PSU_MODEL`   | PWR-ABCD         |
+| `METRIC_LABEL_DEVICE_PSU_SERIAL`  | 1Z011010112349Q  |
+| `METRIC_LABEL_DEVICE_PSU_HW_REV`  | 02.00            |
 
-     | Metric Name                       | Name String      |
-     | --------------------------------- | ---------------- |
-     | `METRIC_PSU_VOLTAGE`              | psu_voltage      |
-     | `METRIC_PSU_CURRENT`              | psu_current      |
-     | `METRIC_PSU_POWER`                | psu_power        |
-     | `METRIC_PSU_STATUS`               | psu_status       |
-     | `METRIC_PSU_LED`                  | psu_led          |
+| Metric Name                       | Name String      |
+| --------------------------------- | ---------------- |
+| `METRIC_PSU_VOLTAGE`              | psu_voltage      |
+| `METRIC_PSU_CURRENT`              | psu_current      |
+| `METRIC_PSU_POWER`                | psu_power        |
+| `METRIC_PSU_STATUS`               | psu_status       |
+| `METRIC_PSU_LED`                  | psu_led          |
 
 #### Sensor Temperature Metrics
 
-     The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
+The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
 
-     | Label                            | Example Value       |
-     | -------------------------------- | ------------------- |
-     | `METRIC_LABEL_DEVICE_ID`         | switch-A            |
-     | `METRIC_LABEL_DEVICE_SENSOR_ID`  | Cpu temp sensor     |
+| Label                            | Example Value       |
+| -------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`         | switch-A            |
+| `METRIC_LABEL_DEVICE_SENSOR_ID`  | Cpu temp sensor     |
 
-     | Metric Name                      | Name String         |
-     | -------------------------------- | ------------------- |
-     | `SENSOR_TEMPERATURE`             | sensor_temperature  |
-     | `SENSOR_WARNING`                 | sensor_warning      |
+| Metric Name                      | Name String         |
+| -------------------------------- | ------------------- |
+| `SENSOR_TEMPERATURE`             | sensor_temperature  |
+| `SENSOR_WARNING`                 | sensor_warning      |
