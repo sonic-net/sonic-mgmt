@@ -59,11 +59,10 @@ func TestGnoiFileRemoveSucceeds(t *testing.T) {
 			t.Errorf("Failed to restore backup file %s to %s: err=%v, output=%s", backup, filename, err, out)
 		}
 	}()
-
 	req := &filepb.RemoveRequest{
-		RemoteFile: filename,
-	}
-	if _, err := dut.RawAPIs().GNOI(t).File().Remove(context.Background(), req); err != nil {
-		t.Errorf("Error removing %s: %v", filename, err)
-	}
+               RemoteFile: filename,
+        }
+        if _, err := dut.RawAPIs().GNOI(t).File().Remove(context.Background(), req); err != nil {
+                t.Errorf("Error removing %s: %v", filename, err)
+        }
 }

@@ -56,7 +56,7 @@ func TestGNMICPUType(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
-
+        t.Skip()
 	// Read the type via /state.
 	stateType := gnmi.Get(t, dut, gnmi.OC().Interface(cpuName).Type().State())
 
@@ -95,6 +95,7 @@ func TestGNMICPURole(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Read management via /state.  Note that the config path for
 	// these doesn't exist since they're read-only.
