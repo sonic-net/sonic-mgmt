@@ -123,7 +123,10 @@ stages:
 
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
-          TOPOLOGY: t0
+          TESTBED_NAME: "dummy-tb"
+          REPO_NAME: "sonic-mgmt-int"
+          TEST_PLAN_TYPE: "NIGHTLY"
+          PLATFORM: "PHYSICAL"
           PTF_IMAGE_TAG: $(set_ptf_image_tag)
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
