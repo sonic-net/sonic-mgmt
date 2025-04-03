@@ -6,7 +6,7 @@ import json
 import re
 import string
 import sys
-from ansible.plugins.callback import CallbackBase, strip_internal_keys      # noqa F401
+from ansible.plugins.callback import CallbackBase, strip_internal_keys      # noqa: F401
 from ansible.plugins.callback.default import CallbackModule as Default
 
 # simple workaroud for using yaml callback plugin
