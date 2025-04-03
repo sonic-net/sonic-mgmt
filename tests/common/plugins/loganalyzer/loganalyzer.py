@@ -151,7 +151,7 @@ class LogAnalyzer:
             if (self.expect_regex and (self.expected_matches_target > 0) and
                     result["total"]["expected_match"] != self.expected_matches_target):
                 err_target = "Log analyzer expected {} messages but found only {}\n"\
-                    .format(self.expected_matches_target, len(self.expect_regex))
+                    .format(self.expected_matches_target, result["total"]["expected_match"])
                 raise LogAnalyzerError(err_target + result_str)
 
     def save_matching_errors(self, result_log_errors):
