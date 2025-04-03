@@ -16,6 +16,7 @@ from .macsec_config_helper import enable_macsec_feature
 from .macsec_config_helper import disable_macsec_feature
 from .macsec_config_helper import setup_macsec_configuration
 from .macsec_config_helper import cleanup_macsec_configuration
+from .macsec_config_helper import is_macsec_configured
 from .macsec_config_helper import get_macsec_enable_status, get_macsec_profile
 from .macsec_helper import load_all_macsec_info
 
@@ -81,11 +82,6 @@ class MacsecPlugin(object):
         yield
         stop_macsec_service()
 
-    @pytest.fixture(scope="module", autouse=True)
-    def load_macsec_info(self, request, macsec_duthost, ctrl_links, tbinfo):
-        if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-            load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
-
     @pytest.fixture(scope="module")
     def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
         topo_name = tbinfo['topo']['name']
@@ -123,6 +119,14 @@ class MacsecPlugin(object):
         startup_macsec()
         yield
         shutdown_macsec()
+
+    @pytest.fixture(scope="module", autouse=True)
+    def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+        if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+            if is_macsec_configured(macsec_duthost, ctrl_links):
+                load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+            else:
+                request.getfixturevalue('macsec_setup')
 
     @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
@@ -259,8 +263,10 @@ class MacsecPluginT2(MacsecPlugin):
          super(MacsecPluginT2, self).__init__()
 
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        ctrl_nbr_names = []
         mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
-        ctrl_nbr_names = mg_facts['macsec_neighbors']
+        if 'macsec_neighbors' in mg_facts:
+            ctrl_nbr_names = mg_facts['macsec_neighbors']
         return ctrl_nbr_names
 
     def downstream_neighbor(self,tbinfo, neighbor):
