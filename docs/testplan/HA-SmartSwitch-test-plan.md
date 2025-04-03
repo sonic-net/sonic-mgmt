@@ -244,7 +244,9 @@ For each case in this module, there are 2 variations:
 
 ## Test Utilities 
 There are some test utilities we need to implement to cover all test scenarios, including but not limited to:
+1. Utilities to configure [PTF namespace](https://github.com/sonic-net/sonic-mgmt/blob/035122ff3ed2ae23ba3e9903f06ab3967e00c1fe/docs/testbed/README.testbed.vSmartSwitch.md#ptf-container).
+1. Utilities to generate, send and sniff traffic.
 1. Utilities to simulator gnmi requests from upstream service.
-2. Utilities to config link drops (add ACL rules to drop probe packets),  kill critical process etc. 
-3. Utilities to “fake” a failure signature in DB. 
-1. Utilities to do flow table dump and comparison between active/standby node. 
+2. Utilities to config link drops (add ACL rules to drop probe packets),  kill critical process etc.
+3. Utilities to “fake” a failure signature in DB.
+1. Utilities to do flow table dump and comparison between active/standby node.
