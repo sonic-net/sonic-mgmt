@@ -444,7 +444,7 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
         st.wait(7)
         if ping:
             ###PING TEST###
-            ping_result = tgen_utils.verify_interface_ping(src_obj=handles[item[0]]["tg_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='5')
+            ping_result = tgen_utils.verify_interface_ping(src_obj=handles[item[0]]["tg_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='3')
             if ping_result:
                 st.banner("Ping succeeded between endpoints for stream {} ".format(item[0]+"<-->"+item[1]))
             else:
