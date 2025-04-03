@@ -3751,3 +3751,37 @@
   inv_name: str2
   auto_recover: 'True'
   comment: yawenni
+
+- conf-name: testbed-bjw2-can-7215a1-3
+  group-name: bjw2-1-p
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-p
+  ptf_ip: 10.150.23.122/23
+  ptf_ipv6: 2404:f801:10:2200::a96:177a/52
+  server: server_bjw2_1
+  vm_base: VM81183
+  dut:
+    - bjw2-can-7215a1-3
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.122/17
+
+- conf-name: testbed-bjw2-can-7215a1-4
+  group-name: bjw2-1-q
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-q
+  ptf_ip: 10.150.23.123/23
+  ptf_ipv6: 2404:f801:10:2200::a96:177b/52
+  server: server_bjw2_1
+  vm_base: VM81189
+  dut:
+    - bjw2-can-7215a1-4
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.123/17

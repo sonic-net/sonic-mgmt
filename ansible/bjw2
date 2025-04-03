@@ -149,6 +149,12 @@ all:
         bjw2-1-o:
           ansible_host: 10.150.23.121
           ansible_hostv6: 2404:f801:10:2200::a96:1779
+        bjw2-1-p:
+          ansible_host: 10.150.23.122
+          ansible_hostv6: 2404:f801:10:2200::a96:177a
+        bjw2-1-q:
+          ansible_host: 10.150.23.123
+          ansible_hostv6: 2404:f801:10:2200::a96:177b
 
     pdu:
       hosts:
@@ -288,13 +294,21 @@ fanout:
       ansible_host: 10.150.22.198
       ansible_hostv6: 2404:f801:10:2200::a96:16c6
       os: sonic
-    bjw2-can-7215a1-leaf-1:
+    bjw2-can-720dt-leaf-17:
       ansible_host: 10.150.22.212
       ansible_hostv6: 2404:f801:10:2200::a96:16d4
       os: sonic
-    bjw2-can-7215a1-leaf-2:
+    bjw2-can-720dt-leaf-18:
       ansible_host: 10.150.22.214
       ansible_hostv6: 2404:f801:10:2200::a96:16d6
+      os: sonic
+    bjw2-can-720dt-leaf-19:
+      ansible_host: 10.150.23.252
+      ansible_hostv6: 2404:f801:10:2200::a96:17fc
+      os: sonic
+    bjw2-can-720dt-leaf-20:
+      ansible_host: 10.150.23.254
+      ansible_hostv6: 2404:f801:10:2200::a96:17fe
       os: sonic
     bjw2-can-7260-leaf-1:
       ansible_host: 10.150.22.44
@@ -795,6 +809,20 @@ sonic_nokia_7215a1:
         "0x2F": "CSMAR00ERA"
         "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
         "0xFE": "0x1F31FB9C"
+    bjw2-can-7215a1-3:
+      ansible_host: 10.150.23.251
+      ansible_hostv6: 2404:f801:10:2200::a96:17fb
+      model: 3HE18723AARA01
+      serial: 
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7215a1-4:
+      ansible_host: 10.150.23.253
+      ansible_hostv6: 2404:f801:10:2200::a96:17fd
+      model: 3HE18723AARA01
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 sonic_cisco_8102:
