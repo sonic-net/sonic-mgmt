@@ -112,6 +112,7 @@ class TestSfpApi(PlatformApiTestBase):
         'cable_length',
         'specification_compliance',
         'nominal_bit_rate',
+        'vdm_supported'
     ]
 
     # some new keys added for QSFP-DD and OSFP in 202205 or later branch
@@ -434,6 +435,9 @@ class TestSfpApi(PlatformApiTestBase):
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
+                        elif info_dict["type_abbrv_name"] == "SFP":
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = [
+                                key for key in self.EXPECTED_XCVR_INFO_KEYS if key != 'vdm_supported']
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
