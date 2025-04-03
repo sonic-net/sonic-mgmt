@@ -44,21 +44,25 @@ def create_table_if_not_exist(duthost, tables):
     for table in tables:
         result = duthost.shell(f"sonic-db-cli -n asic0 CONFIG_DB keys '{table}|*'")["stdout"]
         if not result:
-            logger.info(f"Table {table} does not exist, creating it")
-            json_patch = [
-                {
-                    "op": "add",
-                    "path": "/asic0/{}".format(table),
-                    "value": {}
-                }
-            ]
-            tmpfile = generate_tmpfile(duthost)
-            try:
-                apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-                if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
-                    pytest.fail(f"Failed to apply patch: {apply_patch_result['stdout']}")
-            finally:
-                delete_tmpfile(duthost, tmpfile)
+            if table == "PFC_WD":
+                logger.info(f"Table {table} does not exist, creating it")
+                duthost.shell("sudo pfcwd start_default")
+            else:
+                logger.info(f"Table {table} does not exist, creating it")
+                json_patch = [
+                    {
+                        "op": "add",
+                        "path": "/asic0/{}".format(table),
+                        "value": {}
+                    }
+                ]
+                tmpfile = generate_tmpfile(duthost)
+                try:
+                    apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+                    if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
+                        pytest.fail(f"Failed to apply patch: {apply_patch_result['stdout']}")
+                finally:
+                    delete_tmpfile(duthost, tmpfile)
 
 
 def test_addcluster_workflow(duthost):
