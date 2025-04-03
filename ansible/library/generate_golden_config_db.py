@@ -158,6 +158,11 @@ class GenerateGoldenConfigDBModule(object):
                 "support_syslog_rate_limit": "false"
             }
         }
+
+        # Add "frr_bmp" feature when feature_key is "bmp"
+        if feature_key == "bmp":
+            feature_data["frr_bmp"] = {"state": "enabled"}
+
         for namespace, ns_data in gold_config_db.items():
             if "FEATURE" in ns_data:
                 feature_section = ns_data["FEATURE"]
@@ -190,6 +195,12 @@ class GenerateGoldenConfigDBModule(object):
             "state": "enabled",
             "support_syslog_rate_limit": "false"
         })
+
+        # If feature_key is "bmp", also add "frr_bmp"
+        if feature_key == "bmp":
+            ori_config_db.setdefault("FEATURE", {}).setdefault("frr_bmp", {}).update({
+                "state": "enabled"
+            })
 
         # Create the gold_config_db dictionary with both "FEATURE" and the specified feature section
         if onlyFeature:
