@@ -59,7 +59,8 @@ def create_table_if_not_exist(duthost, tables):
                 tmpfile = generate_tmpfile(duthost)
                 try:
                     apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-                    if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
+                    if (apply_patch_result['rc'] != 0 or
+                            "Patch applied successfully"not in apply_patch_result['stdout']):
                         pytest.fail(f"Failed to apply patch: {apply_patch_result['stdout']}")
                 finally:
                     delete_tmpfile(duthost, tmpfile)
