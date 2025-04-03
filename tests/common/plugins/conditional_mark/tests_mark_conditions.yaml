@@ -2481,6 +2481,15 @@ upgrade_path:
       - "asic_type in ['vs']"
 
 #######################################
+#####        upgrade_path         #####
+#######################################
+upgrade_path/test_upgrade_path.py::test_warm_upgrade_sad_path:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
