@@ -14,30 +14,6 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(request, duthosts, enum_dut_hostname):
-    since = request.config.getoption("--posttest_show_tech_since")
-    if since == '':
-        since = 'yesterday'
-    duthost = duthosts[enum_dut_hostname]
-    """
-    A util for collecting techsupport after tests.
-
-    Since nightly test on Jenkins will do a cleanup at the beginning of tests,
-    we need a method to save history logs and dumps. This util does the job.
-    """
-    logger.info("Collecting techsupport since {}".format(since))
-    # Because Jenkins is configured to save artifacts from tests/logs,
-    # and this util is mainly designed for running on Jenkins,
-    # save path is fixed to logs for now.
-    TECHSUPPORT_SAVE_PATH = 'logs/'
-    out = duthost.command("show techsupport --since {}".format(since), module_ignore_errors=True)
-    if out['rc'] == 0:
-        tar_file = out['stdout_lines'][-1]
-        duthost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
-
-    assert True
-
-
 def test_restore_container_autorestart(duthosts, enum_dut_hostname, enable_container_autorestart):
     duthost = duthosts[enum_dut_hostname]
     enable_container_autorestart(duthost)
