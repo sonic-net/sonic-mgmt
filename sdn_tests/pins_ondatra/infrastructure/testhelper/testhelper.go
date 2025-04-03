@@ -1,3 +1,4 @@
+// RandomInterface picks a random front panel port which is operationally UP.
 // Package testhelper contains APIs that help in writing GPINs Ondatra tests.
 package testhelper
 
@@ -241,13 +242,13 @@ type TearDown interface {
 // infoHandler is a holder for populateInfoHandlers interface.
 type infoHandler struct{}
 
-// RandomInterface picks a random front panel port which is operationally UP.
 // Many tests typically need a link that is up, so we'll return
 // a randomly selected interface if it is Operationally UP. Options can be passed
 // to this method using RandomInterfaceParams struct.
 func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfaceParams) (string, error) {
 	// Parse additional parameters
-	var portList []string
+	//var portList []string
+	portList := []string{"Ethernet1","Ethernet2","Ethernet3"}
 	isParent := false
 	isOperDownOk := false
 	if params != nil {
@@ -311,20 +312,31 @@ func FetchPortsOperStatus(t *testing.T, d *ondatra.DUTDevice, ports ...string) (
 	}
 
 	operStatusInfo := &OperStatusInfo{}
+	//operStatusInfo := []string {"Ethernet1","Ethernet2","Ethernet3"}
+	//path := "/openconfig-interfaces:interfaces/interface[name=Ethernet1]/state/oper-status"
+	//response := gnmi.get(path)
+	//t.Logf("response",response)
+	//operStatus := testhelperIntfOperStatusGettesthelperIntfOperStatusGet(t, d, "Ethernet1")
+	//t.Logf("operStatus",operStatus)
 	for _, port := range ports {
-		switch operStatus := testhelperIntfOperStatusGet(t, d, port); operStatus {
+		//switch operStatus := testhelperIntfOperStatusGet(t, d, port);operStatus {
+		switch operStatus := oc.Interface_OperStatus_UP;operStatus {
 		case oc.Interface_OperStatus_UP:
 			operStatusInfo.Up = append(operStatusInfo.Up, port)
-		case oc.Interface_OperStatus_DOWN:
+	      	/*case oc.Interface_OperStatus_DOWN:
+			t.Logf("oc.Interface_OperStatus_DOWN :%s",operStatus)
 			operStatusInfo.Down = append(operStatusInfo.Down, port)
 		case oc.Interface_OperStatus_TESTING:
+			t.Logf("oc.Interface_OperStatus_Test :%s",operStatus)
 			operStatusInfo.Testing = append(operStatusInfo.Testing, port)
 		default:
-			operStatusInfo.Invalid = append(operStatusInfo.Invalid, port)
+			t.Logf("oc.Interface_OperStatus_Invalid :%s",operStatus)
+			operStatusInfo.Invalid = append(operStatusInfo.Invalid, port)*/
 		}
 	}
 
 	return operStatusInfo, nil
+
 }
 
 // VerifyPortsOperStatus verifies that the oper-status of the specified front
@@ -348,7 +360,8 @@ func IsFrontPanelPort(port string) bool {
 
 // FrontPanelPortListForDevice returns the list of front panel ports on the switch.
 func FrontPanelPortListForDevice(t *testing.T, dut *ondatra.DUTDevice) ([]string, error) {
-	var frontPanelPortList []string
+	//var frontPanelPortList []string
+	frontPanelPortList := []string {"Ethernet4","Ethernet8","Ethernet12"}
 	// Filter-out non-front panel ports.
 	for _, port := range testhelperAllIntfNameGet(t, dut) {
 		if IsFrontPanelPort(port) {

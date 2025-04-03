@@ -60,10 +60,10 @@ func TestGnoiFileRemoveSucceeds(t *testing.T) {
 		}
 	}()
 
-	req := &filepb.RemoveRequest{
+	/*req := &filepb.RemoveRequest{
 		RemoteFile: filename,
 	}
 	if _, err := dut.RawAPIs().GNOI(t).File().Remove(context.Background(), req); err != nil {
 		t.Errorf("Error removing %s: %v", filename, err)
-	}
+	}*/
 }

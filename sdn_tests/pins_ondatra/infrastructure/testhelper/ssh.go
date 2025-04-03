@@ -13,7 +13,7 @@ import (
 
 const (
 	sshPort        = 22
-	sshUser        = "root"
+	sshUser        = "admin"
 	defaultTimeout = 30 * time.Second
 )
 
@@ -22,7 +22,7 @@ const (
 var (
 	switchstackPrivateSSHRsaKey = func() (string, error) {
 
-		b, err := os.ReadFile("/home/user/.ssh/key")
+		b, err := os.ReadFile("/home/admin/.ssh/id_rsa.pub")
 		return string(b), err
 	}
 
