@@ -63,6 +63,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.connections.terminate_serial_connection import terminate_occupied_serial_connection
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -1957,22 +1958,50 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     except Exception as e:
         logger.warning(f"Issue trying to clear console port: {e}")
 
+    def attempt_connection(
+        console_type, console_host, console_port, sonic_username, sonic_password, console_username, console_password
+    ):
+        for attempt in range(1, 4):
+            try:
+                host = ConsoleHost(
+                    console_type=console_type,
+                    console_host=console_host,
+                    console_port=console_port,
+                    sonic_username=sonic_username,
+                    sonic_password=sonic_password,
+                    console_username=console_username,
+                    console_password=console_password,
+                )
+                return host
+            except Exception as e:
+                logger.warning(f"Attempt {attempt}/3 failed: {e}")
+                continue
+        return None
+
     # Set up console host
-    host = None
-    for attempt in range(1, 4):
-        try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type])
-            break
-        except Exception as e:
-            logger.warning(f"Attempt {attempt}/3 failed: {e}")
-            continue
-    else:
+    host = attempt_connection(
+        console_type,
+        console_host,
+        console_port,
+        creds["sonicadmin_user"],
+        sonic_password,
+        console_username,
+        creds["console_password"][console_type],
+    )
+
+    if host is None and terminate_occupied_serial_connection(duthost, creds, console_host, int(console_port)):
+        time.sleep(1)
+        host = attempt_connection(
+            console_type,
+            console_host,
+            console_port,
+            creds["sonicadmin_user"],
+            sonic_password,
+            console_username,
+            creds["console_password"][console_type],
+        )
+
+    if host is None:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
 
     yield host
