@@ -37,6 +37,7 @@ __all__ = [
     'toggle_all_simulator_ports_to_lower_tor',
     'toggle_all_simulator_ports_to_another_side',
     'toggle_all_simulator_ports_to_random_side',
+    'toggle_all_simulator_ports_to_rand_selected_tor_m',
     'toggle_simulator_port_to_upper_tor',
     'toggle_simulator_port_to_lower_tor',
     'toggle_all_simulator_ports',
@@ -662,7 +663,7 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
     _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
                                                       tbinfo, rand_one_dut_hostname,
                                                       active_standby_ports):
