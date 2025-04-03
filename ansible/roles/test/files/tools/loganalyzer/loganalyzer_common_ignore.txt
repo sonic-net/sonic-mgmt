@@ -336,3 +336,6 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 
 # Ignore notifications about fabric port status changes on LCs
 r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"
+
+# Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
+r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
