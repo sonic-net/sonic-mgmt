@@ -1416,6 +1416,27 @@ def get_iface_ip(mg_facts, ifacename):
     return None
 
 
+def get_vlan_mac(duthost, member_port):
+    '''
+    Returns the mac of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    if vlan_name is None:
+        return None
+    return duthost.get_dut_iface_mac(vlan_name)
+
+
 def cleanup_prev_images(duthost):
     logger.info("Cleaning up previously installed images on DUT")
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
