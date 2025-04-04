@@ -2306,7 +2306,7 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox platform with 202412 image at this time"
+    reason: "Only target mellanox and brcm platform with 202412 image at this time"
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
@@ -2315,6 +2315,12 @@ srv6/test_srv6_static_config.py:
     reason: "Requires particular image support, skip in PR testing"
     conditions:
       - "release not in ['202412']"
+
+srv6/test_srv6_vlan_forwarding.py:
+  skip:
+    reason: "Only target mellanox/brcm platform with 202412 image at this time"
+    conditions:
+      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
 #######################################
 #####             ssh             #####
