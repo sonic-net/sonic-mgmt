@@ -643,3 +643,11 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
 def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
     appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
     return key in appl_db_my_sids if exist else key not in appl_db_my_sids
+
+
+#
+# Get the mac address of a neighbor
+#
+def get_neighbor_mac(dut, neighbor_ip):
+    """Get the MAC address of the neighbor via the ip neighbor table"""
+    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
