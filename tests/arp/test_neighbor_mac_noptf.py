@@ -56,7 +56,7 @@ class TestNeighborMacNoPtf:
         for port in back_plane_ports:
             try:
                 output = duthost.shell(f"ip addr show {port} | grep -w inet | awk '{{print $2}}'",
-                                    module_ignore_errors=True, verbose=False)["stdout"].strip()
+                                       module_ignore_errors=True, verbose=False)["stdout"].strip()
                 back_plane_port_ips.append(str(ip_interface(output).ip))
             except Exception as e:
                 logger.warning(f"Error getting back plane {port} IP: {e}")
@@ -78,7 +78,8 @@ class TestNeighborMacNoPtf:
         # custom filtered ips
         filter = {
             ip for ip in set(filter_ip_list)
-            if not any(ip.lower().startswith(prefix) for prefix in (localv4_prefixes + localv6_prefixes + internal_prefixes))
+            if not any(ip.lower().startswith(prefix)
+                       for prefix in (localv4_prefixes + localv6_prefixes + internal_prefixes))
         }
         logger.info("custom filter: {}".format(filter))
         filtered = sum(self.count_routes(asichost, ip) for ip in set(filter))
