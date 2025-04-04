@@ -14,6 +14,7 @@
     - [Revision History](#revision-history)
     - [Table of Contents](#table-of-contents)
     - [Scope](#scope)
+    - [Terminology](#terminology)
     - [Topology](#topology)
         - [Setup configuration](#setup-configuration)
         - [Physical Connection](#physical-connection)
@@ -36,6 +37,11 @@ This document proposes solutions for Smart Switch High-Availability test plans. 
 
 The goal of this test plan is to verify HA state machine behavior in normal operation scenarios and network failure scenarios with [t1-smartswitch-ha](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t1-smartswitch-ha.yml) topology. Both control plane and data plane will need to be verified in the test cases. 
 
+## Terminology
+| Term | Meaning              |
+| ---- | -------------------- |
+| PLS  | Private link service |
+
 ## Topology
 
 ### Setup configuration  
@@ -43,12 +49,12 @@ The goal of this test plan is to verify HA state machine behavior in normal oper
 Traffic passes through the HA set under test. Assuming dpu0 in SmartSwitch0 will be the Active node and dpu0 in SmartSwitch1 shall be set to Standby. Both DPUs will share same network configurations.
 
 In case the traffic lands on standby node, it will be tunnelled through T0 neighbor, to the active node, and eventually sent out to destination VM. Diagram below shows the logical path of the traffic. Note that inline sync is omitted in the graphs.
-![vm-vm-standby](./Img/ssw-ha-test-plan-logic-standby.png)
+![vm-pls-standby](./Img/ssw-ha-testplan-pl-standby.png)
 
 In case the traffic lands on active node, the path will be like below. 
-![vm-vm-active](./Img/ssw-ha-testplan-logic-active.png)
+![vm-pls-active](./Img/ssw-ha-testplan-pl-active.png)
 
-The production scenario simulated with this testbed, is a VM-to-VM traffic scenario. Basically 2 VMs located in perhaps two different clusters in the data center, try to communicate with each other. We may add other critical scenarios, such as private link, in the future.
+The production scenario simulated with this testbed, is a VM-to-PLS traffic scenario. Basically in (Azure Private Link)[https://azure.microsoft.com/en-us/products/private-link] production scenario, a packet coming from the VM and being sent to PLS. We may add other critical scenarios, such as vnet-to-vnet, in the future.
 
 
 ### Physical Connection
@@ -79,7 +85,7 @@ Please refer to [sonic-mgmt testbed overview](https://github.com/sonic-net/sonic
 
 ## Test Methodology
 
-1. Test scenario is VM-to-VM traffic (we may add other critical scenarios, such as private link, in the future). 
+1. Test scenario is VM-to-PLS traffic (we may add other critical scenarios, such as vnet-to-vnet, in the future).
 1. Open flow rules are configured on OVS Bridges to control the traffic flow:
     * All packets sent out from Neighbor are only forwarded to DUT
     * All packets sent out from DUT are forwarded to Neighbor and PTF
@@ -217,7 +223,10 @@ The expected behavior is same, that HA state remains unchanged.
 | pmon on NPU   | Verify when pmon crash on NPU.   | • Start sending traffic<br>• Kill pmon on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
 | bgpd on NPU   | Verify when bgpd crash on NPU.   | • Start sending traffic<br>• Kill bgpd on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
 
-[^1]: The current goal for unplanned events are "time from detection to mitigation" is 2s. It will be a constant value defined in the test module. 
+> [!NOTE]
+> hamgrd and swbusd both run in ha docker. Either one of them crashing will lead to docker restart. The expected behavior needs to be evaluated based on this fact.
+
+[^1]: The current goal for unplanned events are "time from detection to mitigation" is 2s. It will be a constant value defined in the test module.
 
 ###  Module 7 Power down and hardware failure
 For each case in this module, there are 2 variations:
