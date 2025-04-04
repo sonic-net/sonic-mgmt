@@ -1940,7 +1940,7 @@ def generate_skeleton_port_info(request):
 
     ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
     """
-    dut_info = get_snappi_testbed_metadata(request)
+    dut_info = get_snappi_testbed_metadata(request) or []
     available_interfaces = {}
     matrix = {}
     for index, linecard in enumerate(dut_info):
