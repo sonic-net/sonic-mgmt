@@ -103,6 +103,7 @@ FWD: #Rajendra Thirumurthi
       - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
       - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
       - route/test_default_route.py::test_default_route_set_src
+      - route/test_route_flap.py
   t0-64:
     all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap

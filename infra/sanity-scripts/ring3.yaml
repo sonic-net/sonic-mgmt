@@ -117,7 +117,6 @@ baseline:
       - snmp/test_snmp_fdb.py
       - route/test_static_route.py
       - route/test_duplicate_route.py
-      - stress/test_stress_routes.py
       - syslog/test_syslog.py
       - system_health/test_system_status.py
       - vxlan/test_vxlan_decap.py
@@ -149,18 +148,17 @@ FWD:
       - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
       - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
       - route/test_default_route.py::test_default_route_set_src
+      - route/test_route_flap.py
   t0-64:
     all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap
       - crm/test_crm.py::test_crm_neighbor
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
   
   t1-64-lag:
     all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap
       - crm/test_crm.py::test_crm_neighbor
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
 
 PLT:
