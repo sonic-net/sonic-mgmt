@@ -2788,15 +2788,15 @@ def set_port_cir(interface, rate):
             return
 
         interfaces = [dst_port]
-        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
-        if output != '':
-            output = output.replace('(S)', '')
-            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
-            import re
-            match = re.match(pattern, output)
-            if not match:
-                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
-            interfaces = match.group(1).split(' ')
+        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
+        mgfacts = dst_dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if dst_port in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
+                    dst_port, portchan, members))
+                interfaces = members
+                break
 
         # Set scheduler to 5 Gbps.
         self.copy_set_cir_script_cisco_8000(
