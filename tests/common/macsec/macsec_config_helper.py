@@ -50,7 +50,7 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
             'mka key-server priority {}'.format(priority)
             ]
         if rekey_period:
-            lines.append( 'mka session rekey-period {}'.format(rekey_period) )
+            lines.append('mka session rekey-period {}'.format(rekey_period))
         if send_sci == 'true':
             lines.append('sci')
         host.eos_config(
