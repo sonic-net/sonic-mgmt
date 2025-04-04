@@ -173,16 +173,16 @@ Here the BFD pin down refers to a upstream service provided state, which does no
 
 ###  Module 5 Link Failures 
 
-| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                | Expected Data Plane Behavior                     |
-| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Case                                    | Goal                                                                     | Test Steps                                                                                      | Expected Control Plane Behavior                                                          | Expected Data Plane Behavior                     |
+| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | Active NPU-to-DPU probe drop -Active    | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU1-to-DPU1 link to drop packets.  | DPU1 remains active, DPU2 remains standby. All NPUs will be signaled to forward to DPU2. | T2 receives packets with allowed disruption[^1]. |
-| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 remains active, DPU2 remains standby.     | T2 receives packets with allowed disruption.     |
-| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 remains active, DPU2 remains standby.     | T2 receives packets without disruption.          |
-| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 remains active, DPU2 remains standby.     | T2 receives packets without disruption.          |
-| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes standby, DPU2 becomes standalone. | T2 receives packets with allowed disruption.     |
-| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes standby, DPU2 becomes standalone. | T2 receives packets with allowed disruption.     |
-| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is standby.      | T2 receives packets without disruption.          |
-| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is standby.      | T2 receives packets without disruption.          |
+| Active NPU-to-DPU probe drop -Standby   | Verify packet flow when NPU1 to DPU1 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU1-to-DPU1 link to drop packets. | DPU1 remains active, DPU2 remains standby.                                               | T2 receives packets with allowed disruption.     |
+| Standby NPU-to-DPU probe drop – Active  | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to active side.<br>• Configure the NPU2-to-DPU2 link to drop packets.  | DPU1 remains active, DPU2 remains standby.                                               | T2 receives packets without disruption.          |
+| Standby NPU-to-DPU probe drop – Standby | Verify packet flow when NPU2 to DPU2 link starts dropping probe packets. | • Start  sending traffic to standby side.<br>• Configure the NPU2-to-DPU2 link to drop packets. | DPU1 remains active, DPU2 remains standby.                                               | T2 receives packets without disruption.          |
+| Active T1-T0 link drop – Active         | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU1 side T1-T0 link drop.              | DPU1 becomes standby, DPU2 becomes standalone.                                           | T2 receives packets with allowed disruption.     |
+| Active T1-T0 link drop – Standby        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU1 side T1-T0 link drop.             | DPU1 becomes standby, DPU2 becomes standalone.                                           | T2 receives packets with allowed disruption.     |
+| Standby T1-T0 link drop – Active        | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to active side.<br>• Configure DPU2 side T1-T0 link drop.              | DPU1 becomes standalone, DPU2 is standby.                                                | T2 receives packets without disruption.          |
+| Standby T1-T0 link drop - Standby       | Verify packet flow when T1-T0 link drop.                                 | • Start  sending traffic to standby side.<br>• Configure DPU2 side T1-T0 link drop.             | DPU1 becomes standalone, DPU2 is standby.                                                | T2 receives packets with allowed disruption.     |
 
 An example of CONFIG_DB ACL rule entry to drop NPU to local DPU probe packets will be
 ```
@@ -200,7 +200,7 @@ An example of CONFIG_DB ACL rule entry to drop NPU to local DPU probe packets wi
             "PRIORITY": "1",
             "SRC_IP": <DPU1 IP>,
             "DST_IP": <NPU1 IP>,
-            "IP_TYPE": "IP",
+            "IP_TYPE": "IP",CO
             "L4_SRC_PORT": "3784"
         }
      }
@@ -216,12 +216,13 @@ For all process crash cases, we will have 4 variations, it’s
 
 The expected behavior is same, that HA state remains unchanged.
 
-| Case          | Goal                             | Test Steps                                      | Expected Control Plane Behavior            | Expected Data Plane Behavior                       |
-| ------------- | -------------------------------- | ----------------------------------------------- | ------------------------------------------ | -------------------------------------------------- |
-| syncd on DPU  | Verify when syncd crash on DPU.  | • Start sending traffic<br>• Kill syncd on DPU  | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption. |
-| hamgrd on NPU | Verify when hamgrd crash on NPU. | • Start sending traffic<br>• Kill hamgrd on NPU | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
-| pmon on NPU   | Verify when pmon crash on NPU.   | • Start sending traffic<br>• Kill pmon on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
-| bgpd on NPU   | Verify when bgpd crash on NPU.   | • Start sending traffic<br>• Kill bgpd on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.     |
+| Case          | Goal                                     | Test Steps                                      | Expected Control Plane Behavior            | Expected Data Plane Behavior                                                                                                                                                               |
+| ------------- | ---------------------------------------- | ----------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| syncd on DPU  | Verify when syncd crash on DPU.          | • Start sending traffic<br>• Kill syncd on DPU  | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.                                                                                                                                               |
+| hamgrd on NPU | Verify when hamgrd crash on NPU.         | • Start sending traffic<br>• Kill hamgrd on NPU | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.                                                                                                                                               |
+| pmon on NPU   | Verify when pmon crash on NPU.           | • Start sending traffic<br>• Kill pmon on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.                                                                                                                                               |
+| bgpd on NPU   | Verify when bgpd crash on NPU.           | • Start sending traffic<br>• Kill bgpd on NPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption.                                                                                                                                               |
+| bgpd on DPU   | Verify when frr is killed on active DPU. | • Start sending traffic<br>• Kill bgpd on DPU   | DPU1 remains active, DPU2 remains standby. | T2 receives packets with allowed disruption. (BFD runs in FRR on DPU, hence BFD state will be down for local DPU probing, traffic will be sniffed from standby side after bgpd is killed.) |
 
 > [!NOTE]
 > hamgrd and swbusd both run in ha docker. Either one of them crashing will lead to docker restart. The expected behavior needs to be evaluated based on this fact.
