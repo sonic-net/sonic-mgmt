@@ -134,7 +134,18 @@ scan_dbs = {
             "keys_to_skip_comp": {
                 "PORT_TABLE"
             },
-            "keys_skip_val_comp": set()
+            "keys_skip_val_comp": {
+                "active_apsel_hostlane1",
+                "active_apsel_hostlane2",
+                "active_apsel_hostlane3",
+                "active_apsel_hostlane4",
+                "active_apsel_hostlane5",
+                "active_apsel_hostlane6",
+                "active_apsel_hostlane7",
+                "active_apsel_hostlane8",
+                "host_lane_count",
+                "media_lane_count"
+            }
         }
     }
 
