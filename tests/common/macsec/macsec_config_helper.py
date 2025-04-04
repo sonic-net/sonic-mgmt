@@ -95,7 +95,7 @@ def is_macsec_configured(host, mac_profile, ctrl_links):
             profile = output.split('|')[1] if output else None
             is_profile_present = (profile == profile_name)
     else:
-        cmd = "sonic-db-cli CONFIG_DB HGET 'MACSEC_PROFILE|{}'".format(profile_name)
+        cmd = "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
         output = host.command(cmd)['stdout'].strip()
         profile = output.split('|')[1] if output else None
         is_profile_present = (profile == profile_name)
