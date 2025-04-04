@@ -375,8 +375,8 @@ class TestSSIP:
         """
         syslog_config_list = self.duthost.show_syslog()
         for syslog_config in syslog_config_list:
-            if all([syslog_config["server ip"] == syslog_server_ip,
-                    syslog_config["source ip"] == source,
+            if all([syslog_config["server ip"].lower() == syslog_server_ip.lower(),
+                    syslog_config["source ip"].lower() == source.lower(),
                     syslog_config["vrf"] == vrf,
                     syslog_config["port"] == port]):
                 return True
