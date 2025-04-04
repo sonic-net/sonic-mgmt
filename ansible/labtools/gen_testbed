@@ -183,8 +183,14 @@ class BJW(InvSpecific):
         return self.__max_vm
 
     def __increment_group(self, group):
-        if group[-1].isalpha():
+        if group[-1] == "9":
+            return group[:-1] + "a"
+        elif group[-1].isdigit():
+            return group[:-1] + str(int(group[-1]) + 1)
+        elif group[-1].isalpha():
             return group[:-1] + chr(ord(group[-1]) + 1)
+        else:
+            raise Exception("Unexpected group name {}".format(group))
 
     def allocate_group(self, server):
         ptf_name_prefix = server.replace("server_", "").replace("_", "-") + "-"
