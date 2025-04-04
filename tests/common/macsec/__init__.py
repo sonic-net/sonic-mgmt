@@ -123,7 +123,7 @@ class MacsecPlugin(object):
     @pytest.fixture(scope="module", autouse=True)
     def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-            if is_macsec_configured(macsec_duthost, ctrl_links):
+            if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
                 load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
             else:
                 request.getfixturevalue('macsec_setup')

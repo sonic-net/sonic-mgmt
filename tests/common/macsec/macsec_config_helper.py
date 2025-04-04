@@ -81,13 +81,10 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         host.command("lldpcli configure system bond-slave-src-mac-type real")
 
 
-def is_macsec_configured(host, ctrl_links):
+def is_macsec_configured(host, mac_profile, ctrl_links):
     is_profile_present = False
     is_port_profile_present = False
-
-    profile_name = get_macsec_profile(host)
-    if profile_name is None:
-        return False
+    profile_name = mac_profile['name']
 
     # Check macsec profile is configured in all namespaces
     if host.is_multi_asic:
