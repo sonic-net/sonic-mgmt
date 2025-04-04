@@ -54,7 +54,7 @@ In case the traffic lands on standby node, it will be tunnelled through T0 neigh
 In case the traffic lands on active node, the path will be like below. 
 ![vm-pls-active](./Img/ssw-ha-testplan-pl-active.png)
 
-The production scenario simulated with this testbed, is a VM-to-PLS traffic scenario. Basically in (Azure Private Link)[https://azure.microsoft.com/en-us/products/private-link] production scenario, a packet coming from the VM and being sent to PLS. We may add other critical scenarios, such as vnet-to-vnet, in the future.
+The production scenario simulated with this testbed, is a VM-to-PLS traffic scenario. Basically in [Azure Private Link](https://azure.microsoft.com/en-us/products/private-link) production scenario, a packet coming from the VM and being sent to PLS. We may add other critical scenarios, such as vnet-to-vnet, in the future.
 
 
 ### Physical Connection
