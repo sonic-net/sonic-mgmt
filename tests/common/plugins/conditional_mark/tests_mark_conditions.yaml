@@ -2775,7 +2775,7 @@ acl/test_acl.py:
 acl/test_stress_acl.py::test_acl_add_del_stress:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2860,7 +2860,7 @@ bfd/test_bfd_traffic.py:
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2868,7 +2868,7 @@ bfd/test_bfd.py::test_bfd_echo_mode:
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2876,7 +2876,7 @@ bfd/test_bfd.py::test_bfd_basic:
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2884,7 +2884,7 @@ bfd/test_bfd.py::test_bfd_scale:
 bfd/test_bfd.py::test_bfd_multihop:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2925,7 +2925,7 @@ bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload:
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2943,7 +2943,7 @@ bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2951,7 +2951,7 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
 bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2959,7 +2959,7 @@ bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
 bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2967,7 +2967,7 @@ bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
 bgp/test_bgpmon.py::test_bgpmon:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"      
@@ -2975,7 +2975,7 @@ bgp/test_bgpmon.py::test_bgpmon:
 bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2983,7 +2983,7 @@ bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
 bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -2994,7 +2994,7 @@ bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
 configlet/test_add_rack.py::test_add_rack:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3005,7 +3005,7 @@ configlet/test_add_rack.py::test_add_rack:
 container_checker/test_container_checker.py::test_container_checker_telemetry:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3049,7 +3049,7 @@ fib/test_fib.py::test_hash:
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3057,7 +3057,7 @@ fib/test_fib.py::test_nvgre_hash:
 fib/test_fib.py::test_ecmp_group_member_flap:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3068,7 +3068,7 @@ fib/test_fib.py::test_ecmp_group_member_flap:
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3076,7 +3076,7 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
 generic_config_updater/test_ntp.py::test_ntp_server_tc1_suite:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3084,7 +3084,7 @@ generic_config_updater/test_ntp.py::test_ntp_server_tc1_suite:
 generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3092,7 +3092,7 @@ generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
 generic_config_updater/test_pfcwd_status.py::test_start_pfcwd:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3103,7 +3103,7 @@ generic_config_updater/test_pfcwd_status.py::test_start_pfcwd:
 gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3111,7 +3111,7 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3119,7 +3119,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3127,7 +3127,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3135,7 +3135,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3143,7 +3143,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3151,7 +3151,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3159,7 +3159,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3167,7 +3167,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3175,7 +3175,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_output:
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3183,7 +3183,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3191,7 +3191,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3199,7 +3199,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3207,7 +3207,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_output:
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3215,7 +3215,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3223,7 +3223,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
 gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_invalid_cname:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3231,7 +3231,7 @@ gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_invalid_cname:
 gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_revoked_cert:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3239,7 +3239,7 @@ gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_revoked_cert:
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3250,7 +3250,7 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
 hash/test_generic_hash.py::test_hash_capability:
   skip:
     reason: >
-            Failed/Errored: New. XFAIL
+            Failed/Errored: To be included. XFAIL
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3258,7 +3258,7 @@ hash/test_generic_hash.py::test_hash_capability:
 hash/test_generic_hash.py::test_backend_error_messages:
   skip:
     reason: >
-            Failed/Errored: New. XFAIL
+            Failed/Errored: To be included. XFAIL
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3266,7 +3266,7 @@ hash/test_generic_hash.py::test_backend_error_messages:
 hash/test_generic_hash.py::test_algorithm_config:
   skip:
     reason: >
-            Failed/Errored: New. XFAIL
+            Failed/Errored: To be included. XFAIL
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3277,7 +3277,7 @@ hash/test_generic_hash.py::test_algorithm_config:
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3285,7 +3285,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3384,7 +3384,7 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
 log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3395,7 +3395,7 @@ log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown:
 memory_checker/test_memory_checker.py::test_memory_checker:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3403,7 +3403,7 @@ memory_checker/test_memory_checker.py::test_memory_checker:
 memory_checker/test_memory_checker.py::test_memory_checker_recover:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3411,7 +3411,7 @@ memory_checker/test_memory_checker.py::test_memory_checker_recover:
 memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3419,7 +3419,7 @@ memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
 memory_checker/test_memory_checker.py::test_memory_checker_without_container_created:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3473,7 +3473,7 @@ mpls/test_mpls.py::test_swap_labelstack:
 ntp/test_ntp.py::test_ntp_long_jump_enabled:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3481,7 +3481,7 @@ ntp/test_ntp.py::test_ntp_long_jump_enabled:
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3489,7 +3489,7 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 ntp/test_ntp.py::test_ntp:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3500,7 +3500,7 @@ ntp/test_ntp.py::test_ntp:
 process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes: 
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3511,7 +3511,7 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
 show_techsupport/test_techsupport.py::test_techsupport:
    skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3681,7 +3681,7 @@ snmp/test_snmp_memory.py::test_snmp_swap:
 snmp/test_snmp_lldp.py::test_snmp_lldp:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -3966,6 +3966,17 @@ dut_console/test_console_chassis_conn.py:
       - "asic_type in ['vpp']"
 
 dut_console/test_console_baud_rate.py:
+  skip:
+    reason: >
+            Failed/Errored: New
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####         LLDP                #####
+#######################################
+lldp/test_lldp.py lldp/test_lldp_syncd.py:
   skip:
     reason: >
             Failed/Errored: New
@@ -4505,8 +4516,184 @@ platform_tests/test_cpu_memory_usage.py:
 platform_tests/test_power_off_reboot.py:
   skip:
     reason: >
-            Failed/Errored: New
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####  Sonic-VPP Unsupported      #####
+#######################################
+#######################################
+#####          Everflow           #####
+#######################################
+everflow/test_everflow_testbed.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/everflow_test_utilities.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_per_interface.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_ipv6.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####          PFCWD              #####
+#######################################
+pfcwd/test_pfcwd_warm_reboot.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pfcwd/test_pfc_config.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pfcwd/test_pfcwd_cli.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pfcwd/test_pfcwd_function.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pfcwd/test_pfcwd_timer_accuracy.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####          QOS                #####
+#######################################
+qos/test_tunnel_qos_remap.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_buffer.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_qos_sai.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_ecn_config.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_pfc_counters.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_qos_dscp_mapping.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_qos_masic.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_pfc_pause.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+qos/test_buffer_traditional.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####          COPP               #####
+#######################################
+copp/test_copp.py:
+  skip:
+    reason: >
+            Failed/Errored: Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 
