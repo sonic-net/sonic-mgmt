@@ -4510,4 +4510,3 @@ platform_tests/test_power_off_reboot.py:
     conditions:
       - "asic_type in ['vpp']"
 
-#tst
