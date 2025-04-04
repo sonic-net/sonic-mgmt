@@ -155,6 +155,18 @@ all:
         bjw2-1-q:
           ansible_host: 10.150.23.123
           ansible_hostv6: 2404:f801:10:2200::a96:177b
+        bjw2-1-r:
+          ansible_host: 10.150.23.124
+          ansible_hostv6: 2404:f801:10:2200::a96:177c
+        bjw2-1-s:
+          ansible_host: 10.150.23.125
+          ansible_hostv6: 2404:f801:10:2200::a96:177d
+        bjw2-2-a:
+          ansible_host: 10.150.23.126
+          ansible_hostv6: 2404:f801:10:2200::a96:177e
+        bjw2-2-b:
+          ansible_host: 10.150.23.127
+          ansible_hostv6: 2404:f801:10:2200::a96:177f
 
     pdu:
       hosts:
@@ -402,7 +414,30 @@ fanout:
     bjw2-can-7260-leaf-24:
       ansible_host: 10.150.22.75
       ansible_hostv6: 2404:f801:10:2200::a96:164a
-
+    bjw2-can-7260-leaf-26:
+      ansible_host: 10.150.22.79
+      ansible_hostv6: 2404:f801:10:2200::a96:164f
+    bjw2-can-7260-leaf-27:
+      ansible_host: 10.150.22.82
+      ansible_hostv6: 2404:f801:10:2200::a96:1652
+    bjw2-can-7260-leaf-28:
+      ansible_host: 10.150.22.85
+      ansible_hostv6: 2404:f801:10:2200::a96:1655
+    bjw2-can-7260-leaf-29:
+      ansible_host: 10.150.22.88
+      ansible_hostv6: 2404:f801:10:2200::a96:1658
+    bjw2-can-7260-leaf-30:
+      ansible_host: 10.150.22.91
+      ansible_hostv6: 2404:f801:10:2200::a96:165b
+    bjw2-can-7260-leaf-31:
+      ansible_host: 10.150.22.94
+      ansible_hostv6: 2404:f801:10:2200::a96:165e
+    bjw2-can-7260-leaf-32:
+      ansible_host: 10.150.22.97
+      ansible_hostv6: 2404:f801:10:2200::a96:1661
+    bjw2-can-7260-leaf-33:
+      ansible_host: 10.150.22.215
+      ansible_hostv6: 2404:f801:10:2200::a96:16d7
 
 
 sonic:
@@ -419,6 +454,8 @@ sonic:
     sonic_cisco_8101:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
+    sonic_arista_7050_C32:
+    sonic_arista_7050_S128:
 
 
 sonic_arista_720dt:
@@ -1551,6 +1588,84 @@ sonic_cisco_8101_O8C48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+
+sonic_arista_7050_C32:
+  vars:
+    hwsku: Arista-7050CX3-32S-C32
+    iface_speed: 100000
+  hosts:
+    bjw2-can-7050-1:
+      ansible_host: 10.150.22.90
+      ansible_hostv6: 2404:f801:10:2200::a96:165a
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-2:
+      ansible_host: 10.150.22.92
+      ansible_hostv6: 2404:f801:10:2200::a96:165c
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-3:
+      ansible_host: 10.150.22.93
+      ansible_hostv6: 2404:f801:10:2200::a96:165d
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-4:
+      ansible_host: 10.150.22.95
+      ansible_hostv6: 2404:f801:10:2200::a96:165f
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+
+
+sonic_arista_7050_S128:
+  vars:
+    hwsku: Arista-7050CX3-32S-S128
+    iface_speed: 10000
+  hosts:
+    bjw2-can-7050-5:
+      ansible_host: 10.150.22.96
+      ansible_hostv6: 2404:f801:10:2200::a96:1660
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-6:
+      ansible_host: 10.150.22.98
+      ansible_hostv6: 2404:f801:10:2200::a96:1662
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-7:
+      ansible_host: 10.150.22.99
+      ansible_hostv6: 2404:f801:10:2200::a96:1663
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-8:
+      ansible_host: 10.150.22.96
+      ansible_hostv6: 2404:f801:10:2200::a96:16d8
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 server:
