@@ -932,6 +932,18 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
+def get_all_port_stats(duthost):
+    """
+    Runs the portstat command and retrieves JSON output.
+
+    Returns:
+        dict: Parsed JSON output from portstat.
+    """
+    raw_output = duthost.shell("portstat -j -s all")['stdout']
+    raw_out_stripped = re.sub(r'^(?:(?!{).)*\n', '', raw_output, count=1)
+    return json.loads(raw_out_stripped)
+
+
 def get_port_stats(duthost, port, stat):
     """
     Get the port stats for a given port from SONiC CLI
