@@ -1,0 +1,105 @@
+simulation:
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+
+devices:
+  SD1: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
+    linecard_types: ['8122-64EH-O']
+    port_breakout:
+       lc0:
+          0..63: 2x400
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 20GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD4:
+      <<: *sonic_router
+
+  SD5:
+      <<: *sonic_router
+
+  ixia:
+    platform: ixia-web
+    ixia_images:
+      windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_9.20.2206.28.qcow2
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
+    data_ports:
+      - data[0..7]
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0_0:
+      - SD1.Ethernet0/[0..1]
+      - SD3.Ethernet0/[0..1]
+    hub0_1:
+      - SD1.Ethernet1/[0..1]
+      - SD3.Ethernet1/[0..1]
+    hub1_0:
+      - SD1.Ethernet2/[0..1]
+      - SD4.Ethernet0/[0..1]
+    hub1_1:
+      - SD1.Ethernet3/[0..1]
+      - SD4.Ethernet1/[0..1]
+    hub2_0:
+      - SD2.Ethernet0/[0..1]
+      - SD3.Ethernet2/[0..1]
+    hub2_1:
+      - SD2.Ethernet1/[0..1]
+      - SD3.Ethernet3/[0..1]
+    hub3_0:
+      - SD2.Ethernet2/[0..1]
+      - SD4.Ethernet2/[0..1]
+    hub3_1:
+      - SD2.Ethernet3/[0..1]
+      - SD4.Ethernet3/[0..1]
+    hub4_0:
+      - SD3.Ethernet4/[0..1]
+      - ixia.data[0..1]
+    hub4_1:
+      - SD3.Ethernet5/[0..1]
+      - ixia.data[2..3]
+    hub5_0:
+      - SD4.Ethernet4/[0..1]
+      - ixia.data[4..5]
+    hub6_0:
+      - SD1.Ethernet4/[0..1]
+      - SD2.Ethernet4/[0..1]
+    hub6_1:
+      - SD1.Ethernet5/[0..1]
+      - SD2.Ethernet5/[0..1]
+    hub7_0:
+      - SD2.Ethernet6/[0..1]
+      - ixia.data[6..7]

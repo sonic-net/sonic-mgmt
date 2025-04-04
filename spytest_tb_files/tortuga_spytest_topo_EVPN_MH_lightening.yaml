@@ -1,0 +1,75 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    spine0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.46, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.103, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.251, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.223, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 9.20, ip: 192.168.122.248, ix_server: 192.168.122.168}
+
+topology:
+    spine0:
+        interfaces:
+            Ethernet1_1_1: {EndDevice: leaf1, EndPort: Ethernet1_1_1, params: def_link}
+            Ethernet1_1_2: {EndDevice: leaf1, EndPort: Ethernet1_1_2, params: def_link}
+            Ethernet1_2_1: {EndDevice: leaf1, EndPort: Ethernet1_2_1, params: def_link}
+            Ethernet1_2_2: {EndDevice: leaf1, EndPort: Ethernet1_2_2, params: def_link}
+            Ethernet1_3_1: {EndDevice: leaf2, EndPort: Ethernet1_1_1, params: def_link}
+            Ethernet1_3_2: {EndDevice: leaf2, EndPort: Ethernet1_1_2, params: def_link}
+            Ethernet1_4_1: {EndDevice: leaf2, EndPort: Ethernet1_2_1, params: def_link}
+            Ethernet1_4_2: {EndDevice: leaf2, EndPort: Ethernet1_2_2, params: def_link}
+            Ethernet1_5_1: {EndDevice: leaf0, EndPort: Ethernet1_5_1, params: def_link}
+            Ethernet1_5_2: {EndDevice: leaf0, EndPort: Ethernet1_5_2, params: def_link}
+            Ethernet1_6_1: {EndDevice: leaf0, EndPort: Ethernet1_6_1, params: def_link}
+            Ethernet1_6_2: {EndDevice: leaf0, EndPort: Ethernet1_6_2, params: def_link}
+
+    leaf0:
+        interfaces:
+            Ethernet1_7_1: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
+            Ethernet1_7_2: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+  
+    leaf1:
+        interfaces:
+            Ethernet1_5_1: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
+            Ethernet1_5_2: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet1_6_1: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet1_6_2: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+
+    leaf2:
+        interfaces:
+            Ethernet1_5_1: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet1_5_2: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}

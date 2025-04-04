@@ -18,6 +18,10 @@
         }
     },
     "t0-t1-5d-ixia": {
+        "lightening": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightening.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_lightening.yaml"
+        },
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_cmono.yaml"
@@ -38,6 +42,10 @@
         }
     },
     "t0-t1-5d-ixia_evpn_mh": {
+        "lightening": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightening.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH_lightening.yaml"
+        },
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH.yaml"
