@@ -1140,6 +1140,12 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
+gnmi/test_gnoi_system_reboot.py:
+  skip:
+    reason: "Test not supported on vs platform due to broken gRPC connection during reboot."
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####           hash              #####
 #######################################
