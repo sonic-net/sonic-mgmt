@@ -36,12 +36,14 @@ ROUTE_GROUP1 = "RouteGroup1"
 ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
+OUTBOUND_DIR_LOOKUP = "dst_mac"
 
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
-        "vm_vni": VM_VNI
+        "vm_vni": VM_VNI,
+        "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP
     }
 }
 
