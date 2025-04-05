@@ -21,6 +21,7 @@ from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 logger = logging.getLogger(__name__)
 
@@ -205,9 +206,11 @@ class AdvancedReboot:
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
-        for vlan in self.mgFacts['minigraph_vlan_interfaces']:
-            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
-                vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        vlan_interfaces = get_vlan_interface_list(self.duthost)
+        for vlan_if_name in vlan_interfaces:
+            vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
+            vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
+        logger.info('Vlan IP range: {}'.format(vlan_ip_range))
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
