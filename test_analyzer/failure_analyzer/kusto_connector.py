@@ -1,6 +1,6 @@
 import os
 import logging
-from config import configuration
+from config import configuration, logger, DATABASE, ICM_DATABASE, ADO_DATABASE
 from datetime import timedelta
 import tempfile
 import json
@@ -21,20 +21,6 @@ try:
     from azure.kusto.ingest import DataFormat
 except ImportError:
     from azure.kusto.data.data_format import DataFormat
-
-CONFI_FILE = 'test_failure_config.json'
-DATABASE = 'SonicTestData'
-ICM_DATABASE = 'IcMDataWarehouse'
-ADO_DATABASE = 'AzureDevOps'
-PARENT_ID1 = "13410203"
-PARENT_ID2 = "16726166"
-
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
 
 
 class KustoConnector(object):
@@ -120,15 +106,12 @@ class KustoConnector(object):
             self.ado_client = KustoClient(ado_kcsb)
 
     def icm_query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
         return self.icm_client.execute(self.icm_db_name, query)
 
     def ado_query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
         return self.ado_client.execute(self.ado_db_name, query)
 
     def query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
         return self.client_backup.execute(self.db_name, query)
 
     def query_active_icm(self):
@@ -450,14 +433,13 @@ class KustoConnector(object):
             "Query 7 days's failed cases cross branches:{}".format(query_str))
         return self.query(query_str)
 
-    def query_history_results(self, testcase_name, module_path, is_module_path=False):
+    def query_history_results(self, testcase_name, module_path, is_module_path=False, filter_common_summary=False):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
         project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
         """
-        if is_module_path:
-            query_str = self.query_head + f'''
+        common_query_head = f'''
                 TestReportUnionData
                 | where PipeStatus == 'FINISHED'
                 | where TestbedName != ''
@@ -469,9 +451,13 @@ class KustoConnector(object):
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-                | where ModulePath == "{module_path}"
-                | where TestBranch !contains "/"
+                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern'''
+
+        if filter_common_summary:
+            common_query_head += '''
+                | where Summary !in (SummaryWhileList)'''
+
+        commom_query_tail = '''| where TestBranch !contains "/"
                 // Extract the version from the branch name, get the first 6 digits
                 | extend BranchVersion = substring(BranchName, 0, 6)
                 | where (
@@ -485,39 +471,21 @@ class KustoConnector(object):
                     ) or
                         isempty(TestBranch)
                 | order by UploadTimestamp desc
-                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
+                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus'''
+
+        if is_module_path:
+            query_str = self.query_head + f'''
+                {common_query_head}
+                | where ModulePath == "{module_path}"
+                {commom_query_tail}
                 '''.strip()
         else:
             query_str = self.query_head + f'''
-                TestReportUnionData
-                | where PipeStatus == 'FINISHED'
-                | where TestbedName != ''
-                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-                | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
-                | where not(TestbedName has_any(ExcludeTestbedList))
-                | where not (HardwareSku has_any(ExcludeHwSkuList))
-                | where not(TopologyType has_any(ExcludeTopoList))
-                | where not(AsicType has_any(ExcludeAsicList))
-                | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+                {common_query_head}
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
-                | where TestBranch !contains "/"
-                // Extract the version from the branch name, get the first 6 digits
-                | extend BranchVersion = substring(BranchName, 0, 6)
-                | where (
-                        BranchName in ('master', 'internal') and TestBranch == 'internal'
-                    ) or (
-                        BranchName !in ('master', 'internal') and (
-                            TestBranch == strcat('internal-', BranchVersion) or
-                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                            TestBranch == strcat('internal-', BranchVersion, '-hack')
-                        )
-                    ) or
-                        isempty(TestBranch)
-                | order by UploadTimestamp desc
-                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
+                {commom_query_tail}
                 '''.strip()
+
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 

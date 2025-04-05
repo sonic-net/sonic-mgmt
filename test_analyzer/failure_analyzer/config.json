@@ -228,7 +228,6 @@
         "total_case_minimum_internal_version": 2,
         "recent_failure_tolerance_day": 3,
         "icm_number_threshold": 9,
-        "fuzzy_rate": 95,
         "eps": 0.1,
         "summary_expiration_days": 5
     },

@@ -1,5 +1,5 @@
 
-from config import configuration
+from config import configuration, logger, AUTH, ICM_PREFIX, BRANCH_PREFIX_LEN, ALL_FAILURES_CSV, ALL_RESUTLS_CSV
 from data_deduplicator import DataDeduplicator
 from kusto_connector import KustoConnector
 import traceback
@@ -16,27 +16,7 @@ import pytz
 import math
 import copy
 import json
-import logging
-import sys
-import pandas as pd
 
-
-TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
-
-if not TOKEN:
-    raise Exception(
-        'Must export environment variable AZURE_DEVOPS_MSAZURE_TOKEN')
-AUTH = ('', TOKEN)
-
-ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
-BRANCH_PREFIX_LEN = 6
-
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
 
 class BasicAnalyzer(object):
     def __init__(self, kusto_connector: KustoConnector, deduper: DataDeduplicator, current_time) -> None:
@@ -133,6 +113,7 @@ class DataAnalyzer(BasicAnalyzer):
 
     def __init__(self, kusto_connector, deduper, current_time) -> None:
         super().__init__(kusto_connector, deduper, current_time)
+        self.filter_common_summary = False
 
         self.icm_count_dict, self.active_icm_df = self.analyze_active_icm()
 
@@ -180,7 +161,7 @@ class DataAnalyzer(BasicAnalyzer):
         logger.debug("New common summary Icms\n{}".format(common_summary_new_icm_table))
         for row in common_summary_duplicated_icm_table:
             logger.debug("Common summary Icms dulicated Subject: {}".format(row['subject']))
-        return common_summary_new_icm_table, common_summary_duplicated_icm_table, summary_failures
+        return common_summary_new_icm_table, common_summary_duplicated_icm_table
 
     def run_failure(self, branch=None, exclude_error_module_failures=None, exclude_common_summary_failures=None, exclude_case_failures=None):
         waiting_list = []
@@ -216,7 +197,6 @@ class DataAnalyzer(BasicAnalyzer):
     def run_failure_cross_branch(self):
         waiting_list = []
         failed_testcases_df = self.collect_failed_testcase_cross_branch()
-        self.week_failed_testcases_df = failed_testcases_df.copy()
         failed_testcases = {}
         for index, row in failed_testcases_df.iterrows():
             module_path = row['ModulePath']
@@ -244,10 +224,10 @@ class DataAnalyzer(BasicAnalyzer):
                 "is_common_summary": False
             }
             waiting_list.append(item_dict)
-
+        self.filter_common_summary = True
         failure_new_icm_table, failure_duplicated_icm_table = self.multiple_process(
             waiting_list, failed_testcases_df)
-        return failure_new_icm_table, failure_duplicated_icm_table, failed_testcases
+        return failure_new_icm_table, failure_duplicated_icm_table
 
     def multiple_process(self, waiting_list, week_failed_testcases_df=None):
         """Multiple process to analyze test cases"""
@@ -718,49 +698,19 @@ class DataAnalyzer(BasicAnalyzer):
     def collect_failed_testcase_cross_branch(self):
         failedcases_response = self.kusto_connector.query_failed_testcase_cross_branch()
         failures_df = dataframe_from_result_table(failedcases_response.primary_results[0])
-        os.makedirs('logs', exist_ok=True)
-        with open('logs/failures_df.csv', 'w') as file:
-            failures_df.to_csv(file, index=False)
-
         logger.debug("Found {} failed test cases in total on all branches.".format(len(failures_df)))
+        failures_df_after_filter = self.filter_testcase(failures_df)
+        failures_df_after_filter.to_csv(ALL_FAILURES_CSV, index=False)
+        self.week_failed_testcases_df = failures_df_after_filter
+        logger.debug("Found {} failed test cases in total on all branches after filtering.".format(len(failures_df_after_filter)))
         # aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
         # aggregated_df.to_csv('aggregated_df.csv', index=False)
         # logger.debug("The count of failures before aggregation: {}".format(len(failures_df)))
 
-        return failures_df
+        return failures_df_after_filter
 
-    def analysis_process(self, case_info_dict):
-        history_testcases, history_case_df = self.search_and_parse_history_results(
-            case_info_dict)
-        kusto_data = self.generate_kusto_data(case_info_dict, history_testcases, history_case_df)
-        logger.info("There are {} IcM for case {} is_module_path={}.".format(
-            len(kusto_data), case_info_dict["case_branch"], case_info_dict["is_module_path"]))
-        for item in kusto_data:
-            logger.info("IcM title: {}".format(item['subject']))
-        return kusto_data
-
-    def search_and_parse_history_results(self, case_info_dict):
-        """The table header looks like this, save all of these information
-        project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
-        """
-        testcase = None
-        test_case_branch = case_info_dict["case_branch"]
-        is_module_path = case_info_dict["is_module_path"]
-        if is_module_path:
-            items = test_case_branch.split("#")
-            module_path = items[0]
-            branch = items[1]
-            response = self.kusto_connector.query_history_results(
-                None, module_path, True)
-        else:
-            items = test_case_branch.split("#")
-            testcase = items[0].split('.')[-1]
-            module_path = items[0][:-len(testcase)-1]
-            branch = items[1]
-            response = self.kusto_connector.query_history_results(
-                testcase, module_path, False)
-        case_df = dataframe_from_result_table(response.primary_results[0])
-        case_df_copy = copy.deepcopy(case_df)
+    def filter_testcase(self, testcase_df):
+        case_df_copy = copy.deepcopy(testcase_df)
         column_look_up = {
             'branch': 'BranchName',
             'os_version': 'OSVersion',
@@ -795,7 +745,7 @@ class DataAnalyzer(BasicAnalyzer):
                     else:
                         case_df_copy.loc[:, column] = case_df_copy[column].replace(single_type, type_config["name"])
         # reserve original BranchName, Topology, HardwareSku, OSVersion, AsicType information and add additional columns for type names
-        case_df_after_filter = copy.deepcopy(case_df)
+        case_df_after_filter = copy.deepcopy(testcase_df)
         case_df_after_filter['HardwareSku_OSVersion'] = case_df_copy['HardwareSku_OSVersion']
         case_df_after_filter['Topology_HardwareSku'] = case_df_copy['Topology_HardwareSku']
         case_df_after_filter['BranchNameName'] = case_df_copy['BranchName']
@@ -811,6 +761,44 @@ class DataAnalyzer(BasicAnalyzer):
                                        (~case_df_after_filter['HardwareSkuName'].isin(configuration['hwsku_excluded_types'])) &
                                        (~case_df_after_filter['HardwareSku_OSVersion'].isin(configuration['hwsku_osversion_excluded_types'])) &
                                        (~case_df_after_filter['Topology_HardwareSku'].isin(configuration['topology_hwsku_excluded_types']))]
+
+        return case_df_after_filter
+
+    def analysis_process(self, case_info_dict):
+        history_testcases, history_case_df = self.search_and_parse_history_results(
+            case_info_dict)
+        kusto_data = self.generate_kusto_data(case_info_dict, history_testcases, history_case_df)
+        logger.info("There are {} IcM for case {} is_module_path={}.".format(
+            len(kusto_data), case_info_dict["case_branch"], case_info_dict["is_module_path"]))
+        for item in kusto_data:
+            logger.info("IcM title: {}".format(item['subject']))
+        return kusto_data
+
+    def search_and_parse_history_results(self, case_info_dict):
+        """The table header looks like this, save all of these information
+        project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
+        """
+        testcase = None
+        test_case_branch = case_info_dict["case_branch"]
+        is_module_path = case_info_dict["is_module_path"]
+        if is_module_path:
+            items = test_case_branch.split("#")
+            module_path = items[0]
+            branch = items[1]
+            response = self.kusto_connector.query_history_results(
+                None, module_path, True)
+        else:
+            items = test_case_branch.split("#")
+            testcase = items[0].split('.')[-1]
+            module_path = items[0][:-len(testcase)-1]
+            branch = items[1]
+            response = self.kusto_connector.query_history_results(
+                testcase, module_path, False, self.filter_common_summary)
+        case_df = dataframe_from_result_table(response.primary_results[0])
+
+        case_df_after_filter = self.filter_testcase(case_df)
+
+        case_df_after_filter.to_csv(ALL_RESUTLS_CSV, index=False)
         case_branch_df = case_df_after_filter[case_df_after_filter['BranchName'] == branch]
 
         history_testcases = {}
@@ -1507,7 +1495,7 @@ class DataAnalyzer(BasicAnalyzer):
                 check_next_level = False
                 return check_next_level, prev_level_data
 
-        if total_success_rate < branch_threshold:
+        if total_success_rate <= branch_threshold:
             if total_success_rate == 0:
                 logger.info("All cases for {} on branch {} failed in 30 days.".format(
                 case_name, branch))
@@ -1576,7 +1564,7 @@ class DataAnalyzer(BasicAnalyzer):
             os_version_threshold = configuration["os_version_config"][latest_osversion].get("threshold", os_version_threshold)
         total_number = int(success_rate.split("/")[2])
         pass_rate = int(success_rate.split("%")[0])
-        if pass_rate < os_version_threshold:
+        if pass_rate <= os_version_threshold:
             if (internal_version and total_number >= total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['OSVersion'] == latest_osversion)]
@@ -1640,7 +1628,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on topology {} is 100%, skip it.".format(
                         case_name_branch, topology))
                     continue
-                if int(success_rate.split("%")[0]) < topology_threshold:
+                if int(success_rate.split("%")[0]) <= topology_threshold:
                     topology_failed_df = topology_df[topology_df['Result'] != 'success']
                     if topology_failed_df.empty:
                         logger.info("{} All results for topology {} are success. Ignore this topology.".format(case_name_branch, topology))
@@ -1719,7 +1707,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on asic {} is 100%, skip it.".format(
                         case_name_branch, asic))
                     continue
-                elif int(success_rate.split("%")[0]) < asic_threshold:
+                elif int(success_rate.split("%")[0]) <= asic_threshold:
                     asic_failed_df = asic_case_df[asic_case_df['Result'] != 'success']
                     if asic_failed_df.empty:
                         logger.info("{} All results for asic {} are success. Ignore this asic.".format(case_name_branch, asic))
@@ -1799,7 +1787,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on hwsku {} is 100%, skip it.".format(
                         case_name_branch, hwsku))
                     continue
-                elif int(success_rate.split("%")[0]) < hwsku_threshold:
+                elif int(success_rate.split("%")[0]) <= hwsku_threshold:
                     hwsku_failed_df = hwsku_df[hwsku_df['Result'] != 'success']
                     if hwsku_failed_df.empty:
                         logger.info("{} All results for hwsku {} are success. Ignore this hwsku.".format(case_name_branch, hwsku))
@@ -1903,7 +1891,7 @@ class DataAnalyzer(BasicAnalyzer):
                 success_rate = hwsku_osversion_pass_rate.split(":")[
                     1].strip()
 
-                if int(success_rate.split("%")[0]) < hwsku_osversion_threshold:
+                if int(success_rate.split("%")[0]) <= hwsku_osversion_threshold:
                     hwsku_os_failed_df = branch_df[(branch_df['Result'] != 'success') &
                                                         (branch_df['HardwareSku_OSVersion'] == hwsku_osversion)]
                     if hwsku_os_failed_df.empty:
@@ -1999,7 +1987,7 @@ class DataAnalyzer(BasicAnalyzer):
                 hwsku = topology_hwsku[last_underscore+1:]
                 success_rate = topology_hwsku_pass_rate.split(":")[1].strip()
 
-                if int(success_rate.split("%")[0]) < topology_hwsku_threshold:
+                if int(success_rate.split("%")[0]) <= topology_hwsku_threshold:
                     topology_hwsku_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['Topology_HardwareSku'] == topology_hwsku)]
                     if topology_hwsku_failed_df.empty:
                         logger.info("{} All results for topology_hwsku {} are success. Ignore this topology_hwsku.".format(case_name_branch, topology_hwsku))

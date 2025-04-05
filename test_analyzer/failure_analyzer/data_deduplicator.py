@@ -1,25 +1,13 @@
-from config import configuration
-import logging
+from config import configuration, logger, ICM_PREFIX, MIDDLE_FAILURES_CSV
 import pytz
 from datetime import datetime, timedelta
 import json
 import copy
-import sys
-from rapidfuzz import process, fuzz
 import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN
 
-
-ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
-
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
 
 class DataDeduplicator:
     def __init__(self):
@@ -41,7 +29,7 @@ class DataDeduplicator:
 
         self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']
 
-    def deduplication(self, setup_error_new_icm_table, common_summary_new_icm_table, original_failure_dict, branches):
+    def deduplication(self, common_summary_new_icm_table, original_failure_dict, branches):
         """
         Deduplicate the IcM list, remove the duplicated IcM.
         """
@@ -63,10 +51,6 @@ class DataDeduplicator:
             if limit is not None:
                 logger.info(f"limit the number of {branch} cases to {limit}")
 
-        if len(setup_error_new_icm_table) > self.setup_error_limit:
-            error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit]
-        else:
-            error_final_icm_list = setup_error_new_icm_table
         setup_set = set()
         common_summary_new_icm_list = []
 
@@ -188,74 +172,246 @@ class DataDeduplicator:
             logger.error("In check_subject_match: osversion {} not in subject {}".format(osversion_name, subject_name))
 
         return
+    def prepare_data_for_clustering(self, failure_new_icm_table):
+        """
+        Prepares data for clustering by removing duplicates and NaN values.
+        """
+        failures_df = pd.DataFrame(failure_new_icm_table, columns=['full_casename', 'subject', 'branch', 'failure_summary'])
+        # Add topology, asic, hwsku and os_version columns from failure_level_info
+        failures_df['topology'] = [item.get('failure_level_info', {}).get('topology', '') for item in failure_new_icm_table]
+        failures_df['asic'] = [item.get('failure_level_info', {}).get('asic', '') for item in failure_new_icm_table]
+        failures_df['hwsku'] = [item.get('failure_level_info', {}).get('hwsku', '') for item in failure_new_icm_table]
+        failures_df['os_version'] = [item.get('failure_level_info', {}).get('os_version', '') for item in failure_new_icm_table]
 
-    def find_similar_summaries_and_count(self, dataframe_data):
+        return failures_df
+
+    def find_similar_summaries_and_count(self, dataframe_data, week_failure_df):
         """
         Groups similar failure summaries by branch and counts how many entries are in each group.
-        Empty summaries and whitelisted summaries are each treated as their own group.
-        For non-special clusters, only keeps the first entry as a representative.
-        Returns the filtered data with cluster and count columns.
+        Process cases with empty summaries by retrieving all their failure summaries from week_failure_df.
+        Aggregates similar summaries and keeps representative cases.
 
         Args:
-            dataframe_data: DataFrame containing failure data with summaries
+            dataframe_data: DataFrame with columns [full_casename, subject, branch, failure_summary, topology, asic, hwsku, os_version]
+            week_failure_df: DataFrame containing all failure data with Summaries across branches and testbeds
 
         Returns:
-            DataFrame containing filtered data (keeping all special clusters and first entry of other clusters)
-            with 'cluster' and 'count' columns
+            DataFrame containing filtered data with 'cluster', 'count', and 'aggregated' columns
         """
-        # Create a copy and initialize the cluster column
+        # Create a copy and initialize the aggregated column
         df = dataframe_data.copy()
-        df['cluster'] = None
-        # Process each branch separately
-        for branch, branch_df in df.groupby('branch'):
-            # Handle special cases (empty or whitelisted summaries)
-            for idx in branch_df.index:
-                summary = df.loc[idx, 'failure_summary']
-                if summary == '' or summary in configuration["summary_white_list"]:
-                    # Each special case gets its own unique cluster ID
-                    df.loc[idx, 'cluster'] = f"special_cluster"
+        df['aggregated'] = df['failure_summary'].apply(lambda x: False if pd.isna(x) or not x else True)
 
-            # Get data for clustering (non-empty, non-whitelisted summaries)
-            to_cluster = branch_df[
-                (branch_df['failure_summary'] != '') &
-                (~branch_df['failure_summary'].isin(configuration["summary_white_list"]))
-            ]
+        # Track rows to drop and add
+        rows_to_drop = []
+        rows_to_add = []
+
+        # STEP 1: Fill empty failure_summary entries with data from week_failure_df
+        for idx, row in df.iterrows():
+            if pd.isna(row['failure_summary']) or not row['failure_summary']:
+                # Build match conditions
+                match_conditions = (
+                    (week_failure_df['FullCaseName'] == row['full_casename']) &
+                    (week_failure_df['BranchName'] == row['branch'])
+                )
+                # Add additional match conditions if they exist
+                if 'topology' in row and row['topology'] != '' and not pd.isna(row['topology']):
+                    match_conditions &= (week_failure_df['TopologyName'] == row['topology'])
+                if 'asic' in row and row['asic'] != '' and not pd.isna(row['asic']):
+                    match_conditions &= (week_failure_df['AsicTypeName'] == row['asic'])
+                if 'hwsku' in row and row['hwsku'] != '' and not pd.isna(row['hwsku']):
+                    match_conditions &= (week_failure_df['HardwareSkuName'] == row['hwsku'])
+                if 'os_version' in row and row['os_version'] != '' and not pd.isna(row['os_version']):
+                    match_conditions &= (week_failure_df['OSVersionName'] == row['os_version'])
+
+                # Get all matching records from week_failure_df
+                matches = week_failure_df[match_conditions]
+
+                if not matches.empty:
+                    # Mark this row for deletion
+                    rows_to_drop.append(idx)
+
+                    # Create new rows for each match with non-empty summaries
+                    for _, match_row in matches.iterrows():
+                        if not pd.isna(match_row['Summary']) and match_row['Summary']:
+                            new_row = row.copy()
+                            new_row['failure_summary'] = match_row['Summary']
+                            rows_to_add.append(new_row)
+                            logger.info(f"Subject '{row['subject']}': Added new row with summary {new_row['failure_summary'][:80]}")
+
+        # Apply the changes to the dataframe
+        if rows_to_drop:
+            df = df.drop(rows_to_drop, axis=0)
+
+        if rows_to_add:
+            df = pd.concat([df, pd.DataFrame(rows_to_add)], ignore_index=True)
+
+        # Verify that we don't have empty summaries after processing
+        empty_summary_rows = df[df['failure_summary'].isna() | (df['failure_summary'] == '')]
+        if not empty_summary_rows.empty:
+            logger.error(f"\nFound {len(empty_summary_rows)} rows with empty summaries after filling process:")
+            for idx, row in empty_summary_rows.iterrows():
+                logger.error(f"  - Subject '{row['subject']}': Case: {row['full_casename']}, Branch: {row['branch']}")
+
+        else:
+            logger.info("\nNo empty summaries found after filling process.")
+
+        # Initialize the cluster column
+        df['cluster'] = None
+
+        # Process each branch separately for clustering
+        for branch, branch_df in df.groupby('branch'):
+            # Skip empty summaries
+            to_cluster = branch_df[~branch_df['failure_summary'].isna() & (branch_df['failure_summary'] != '')]
 
             if to_cluster.empty:
+                logger.error(f"Branch {branch}: No summaries to cluster")
                 continue
 
-            # Preprocess the summaries
-            processed_summaries = to_cluster['failure_summary'].apply(self.__preprocess_summary)
-            # Get the cluster assignments
-            eps = configuration["threshold"]["eps"]
-            clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=1)
+            # Preprocess the summaries and save to a new column
+            branch_df['failure_summary'] = branch_df['failure_summary'].apply(self.__preprocess_summary)
+
+            # logger.info summaries before clustering for debugging
+            logger.info(f"\nSummaries for branch {branch}:")
+            for i, (idx, row) in enumerate(branch_df.iterrows()):
+                logger.info(f"{i}: Subject '{row['subject']}': {row['failure_summary'][:100]}...")
+
+            # Get the cluster assignments with a stricter eps value based on processed summaries
+            clusters = self.cluster_summaries(branch_df['failure_summary'], eps=0.1, min_samples=1)
+
+            # Update the failure_summary column in the main dataframe
+            for i, idx in enumerate(branch_df.index):
+                df.loc[idx, 'failure_summary'] = branch_df['failure_summary'].iloc[i]
+            # logger.info clustering results for debugging
+            logger.info(f"\nClustering results for branch {branch}:")
+            for i, (idx, row) in enumerate(branch_df.iterrows()):
+                logger.info(f"Subject '{row['subject']}': Summary {i} -> Cluster {clusters[i]}")
 
             # Assign cluster labels
-            for i, idx in enumerate(to_cluster.index):
+            for i, idx in enumerate(branch_df.index):
                 df.loc[idx, 'cluster'] = f"{branch}_{clusters[i]}"
+
         # Count entries in each cluster
         df['count'] = df.groupby('cluster')['cluster'].transform('count')
+        df.to_csv(MIDDLE_FAILURES_CSV, index=True)
 
-        # Create a filtered dataframe that keeps:
-        # 1. All special_cluster clusters
-        # 2. Only the first entry from each non-special cluster
-        filtered_indices = []
+        # Identify representative rows for each cluster
+        representative_rows = []
         seen_clusters = set()
+        # Process clusters with aggregated=True first, as they are preferred representatives
+        logger.info("\nProcessing clusters with aggregated=True as preferred representatives...")
+        for idx, (cluster_id, cluster_df) in enumerate(df.groupby('cluster')):
+            cluster_name = cluster_df['cluster'].iloc[0]
+            cluster_size = len(cluster_df)
 
-        # Process rows in original order
-        for idx in df.index:
-            cluster_name = df.loc[idx, 'cluster']
+            logger.info(f"Cluster {idx+1}/{len(df['cluster'].unique())}: Cluster '{cluster_name}' with {cluster_size} entries")
 
-            # Always keep special clusters
-            if cluster_name.startswith('special_'):
-                filtered_indices.append(idx)
-            # For non-special clusters, only keep the first occurrence
-            elif cluster_name not in seen_clusters:
-                filtered_indices.append(idx)
+            if cluster_name in seen_clusters:
+                logger.info(f"  - Skipping cluster '{cluster_name}' (already processed)")
+                continue
+
+            # Try to find an aggregated=True row as representative
+            aggregated_rows = cluster_df[cluster_df['aggregated']]
+            logger.info(f"  - Found {len(aggregated_rows)} aggregated rows in this cluster")
+
+            if not aggregated_rows.empty:
+                # Use the first aggregated row as representative
+                rep_row = aggregated_rows.iloc[0]
+                representative_rows.append(rep_row)
                 seen_clusters.add(cluster_name)
+                logger.info(f"  - Added representative row with subject: '{rep_row['subject']}' to output")
+            else:
+                # If no aggregated=True rows, find a row with subject not in existing representatives
+                existing_subjects = {r['subject'] for r in representative_rows}
+                non_duplicate_rows = cluster_df[~cluster_df['subject'].isin(existing_subjects)]
 
-        # Return the filtered dataframe with the count information
-        return df.loc[filtered_indices]
+                if not non_duplicate_rows.empty:
+                    # Use the first row with a unique subject
+                    rep_row = non_duplicate_rows.iloc[0]
+                    representative_rows.append(rep_row)
+                    seen_clusters.add(cluster_name)
+                    logger.info(f"  - Added non-aggregated row with unique subject: '{rep_row['subject']}' to output")
+                else:
+                    # If all subjects already exist in representative_rows
+                    logger.info(f"  - No subject for cluster: '{cluster_name}' to output")
+
+            # For non-aggregated cases with multiple summaries that don't fit in existing clusters
+            non_rep_cases = df[~df['aggregated'] & ~df['subject'].isin([r['subject'] for r in representative_rows])]
+
+        # Group by subject and check if we need to keep these rows
+        for case_name, case_df in non_rep_cases.groupby('subject'):
+            unique_clusters = case_df['cluster'].unique()
+            logger.info(f"Subject '{case_name}' has {len(unique_clusters)} clusters: {unique_clusters}")
+
+            # Filter out clusters that are already in seen_clusters
+            unseen_clusters = [cluster for cluster in unique_clusters if cluster not in seen_clusters]
+
+            if not unseen_clusters:
+                logger.info(f"  - Subject '{case_name}': All clusters are already processed, skipping")
+                continue
+
+            # If we still have only one unseen cluster after filtering
+            if len(unseen_clusters) == 1:
+                # Get the row with the unseen cluster
+                unseen_row = case_df[case_df['cluster'] == unseen_clusters[0]].iloc[0]
+                representative_rows.append(unseen_row)
+                seen_clusters.add(unseen_clusters[0])
+                logger.info(f"  - Subject '{case_name}': Added row with cluster '{unseen_clusters[0]}' to output")
+
+            # If we still have multiple unseen clusters
+            elif len(unseen_clusters) > 1:
+                # Take the first row, set failure_summary to empty, and add to representative_rows
+                representative_row = case_df.iloc[0].copy()
+                representative_row['failure_summary'] = ''
+
+                # Combine all unseen cluster names with a comma separator
+                representative_row['cluster'] = ','.join(unseen_clusters)
+
+                # Sum up the counts from all unique unseen clusters
+                # Use drop_duplicates to count each cluster type only once
+                unseen_cluster_df = case_df[case_df['cluster'].isin(unseen_clusters)].drop_duplicates('cluster')
+                total_count = unseen_cluster_df['count'].sum()
+                representative_row['count'] = total_count
+
+                representative_rows.append(representative_row)
+                logger.info(f"  - Subject '{case_name}': Added combined row with clusters '{representative_row['cluster']}' to output")
+
+                # Add all unseen clusters to seen_clusters to avoid duplicates
+                for cluster in unseen_clusters:
+                    seen_clusters.add(cluster)
+        # Check if all subjects in the original dataframe exist in representative_rows
+        all_subjects = set(df['subject'])
+        rep_subjects = set(r['subject'] for r in representative_rows)
+
+        missing_subjects = all_subjects - rep_subjects
+        if missing_subjects:
+            logger.info(f"Note: {len(missing_subjects)} subjects from original dataframe are missing in representative rows:")
+            for subject in missing_subjects:
+                logger.info(f"  - Aggreated subject: '{subject}'")
+
+        # Check for duplicate subjects in representative_rows
+        subject_counts = {}
+        for i, row in enumerate(representative_rows):
+            subject = row['subject']
+            if subject in subject_counts:
+                subject_counts[subject].append(i)
+            else:
+                subject_counts[subject] = [i]
+
+        # logger.info and handle duplicates
+        duplicates = {subject: indices for subject, indices in subject_counts.items() if len(indices) > 1}
+        if duplicates:
+            logger.error(f"Warning: Found {len(duplicates)} subjects with duplicate entries in representative rows:")
+            for subject, indices in duplicates.items():
+                logger.error(f"  - Subject '{subject}' appears {len(indices)} times at indices: {indices}")
+                # Keep only the first occurrence (you could implement a different strategy if needed)
+                indices_to_remove = indices[1:]
+                logger.info(f"  - Subject '{subject}': Keeping index {indices[0]}, removing indices {indices_to_remove}")
+                # Remove duplicates in reverse order to avoid index shifting
+                for idx in sorted(indices_to_remove, reverse=True):
+                    representative_rows.pop(idx)
+        # Return the final dataframe with representative rows
+        return pd.DataFrame(representative_rows)
 
     def is_matched_active_icm(self, case_branch, target_summary, icm_branch, active_icm_df):
         """
@@ -283,7 +439,7 @@ class DataDeduplicator:
         processed_summaries = [self.__preprocess_summary(s) for s in summaries]
 
         # Get the cluster assignments
-        eps = 1 - float(configuration["threshold"]["fuzzy_rate"]) / 100  # Convert threshold to distance
+        eps = configuration["threshold"]["eps"]
         clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=1)
 
         # The target summary is the last one in the list
@@ -501,10 +657,10 @@ class DataDeduplicator:
         if pd.isna(text) or not text:
             return ''
 
-        text = text.lower()
-        text = re.sub(r'\d+', '', text)           # remove numbers
-        text = re.sub(r'[^\w\s]', '', text)         # remove punctuation
-        text = re.sub(r'\s+', ' ', text)            # collapse whitespace
+        # text = text.lower()
+        # text = re.sub(r'\d+', '', text)           # remove numbers
+        # text = re.sub(r'[^\w\s]', '', text)         # remove punctuation
+        # text = re.sub(r'\s+', ' ', text)            # collapse whitespace
         return text.strip()
 
     def cluster_summaries(self, summaries, eps=0.1, min_samples=1):
@@ -546,7 +702,7 @@ class DataDeduplicator:
 
         # Get the cluster assignments
         clusters = self.cluster_summaries(processed_summaries, eps=eps, min_samples=min_samples)
-        print(f"clusters:{clusters}")
+        logger.info(f"clusters:{clusters}")
         # Check if all cluster assignments are the same
         # We need to exclude any noise points (-1 in DBSCAN) from this check
         non_noise_clusters = clusters[clusters != -1]

@@ -1,24 +1,14 @@
 from __future__ import print_function, division
 import json
 from datetime import datetime
-import sys
 import argparse
 import pytz
 
 from kusto_connector import KustoConnector
 from data_deduplicator import DataDeduplicator
 from data_analyzer import DataAnalyzer
-from config import configuration
-import logging
+from config import configuration, logger, FAILURES_AFTER_ANALYSIS_CSV, FAILURES_AFTER_AGGREGATION_CSV
 import pandas as pd
-import os
-
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
 
 
 def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch, upload_flag):
@@ -39,23 +29,12 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     kusto_connector = KustoConnector(current_time)
     analyzer = DataAnalyzer(kusto_connector, deduper, current_time)
 
-    failure_new_icm_table, failure_duplicated_icm_table, failure_info = analyzer.run_failure_cross_branch()
-    excluse_setup_error_dict = {}
-    excluse_common_summary_dict = {}
-    setup_error_new_icm_table = []
-    setup_error_duplicated_icm_table = []
     common_summary_new_icm_table = []
     common_summary_duplicated_icm_table = []
     branches_wanted = []
     branches_wanted_dict = {}
 
-    common_summary_new_icm_table, common_summary_duplicated_icm_table, common_summary_failures_info = analyzer.run_common_summary_failure()
-    logger.info("=================Exclude the following common summary cases=================")
-    for case in common_summary_new_icm_table + common_summary_duplicated_icm_table:
-        key = case["testcase"] + "#" + case["branch"]
-        if key in common_summary_failures_info:
-            excluse_common_summary_dict[key] = common_summary_failures_info[key]
-    logger.info(json.dumps(excluse_common_summary_dict, indent=4))
+    common_summary_new_icm_table, common_summary_duplicated_icm_table = analyzer.run_common_summary_failure()
 
     logger.info("=================Common summary failed cases=================")
     logger.info("Found {} IcM for common summary cases".format(
@@ -67,6 +46,8 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     for index, case in enumerate(common_summary_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
 
+    failure_new_icm_table, failure_duplicated_icm_table = analyzer.run_failure_cross_branch()
+
     logger.info("=================General failure cases=================")
     logger.info("Found {} IcM for general failure cases".format(
         len(failure_new_icm_table)))
@@ -77,15 +58,28 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     for index, case in enumerate(failure_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
 
-    failures_df = pd.DataFrame(failure_new_icm_table, columns=['subject', 'branch', 'failure_summary'])
-    with open('logs/failures_df_post.csv', 'w') as file:
-        failures_df.to_csv(file, index=False)
-    aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
-
-    with open('logs/aggregated_df_post.csv', 'w') as file:
-        aggregated_df.to_csv(file, index=False)
+    logger.info("=================Start aggregation=================")
+    failures_df = deduper.prepare_data_for_clustering(failure_new_icm_table)
+    failures_df.to_csv(FAILURES_AFTER_ANALYSIS_CSV, index=False)
+    aggregated_df = deduper.find_similar_summaries_and_count(failures_df, analyzer.week_failed_testcases_df)
+    aggregated_df.to_csv(FAILURES_AFTER_AGGREGATION_CSV, index=False)
     logger.debug("The count of failures before aggregation: {} after:{}".format(len(failures_df), len(aggregated_df)))
-    aggregated_failure_new_icm_list = [item for item in failure_new_icm_table if item['subject'] in list(aggregated_df['subject'])]
+
+    # Create a mapping from subject to failure_summary
+    subject_to_summary = dict(zip(aggregated_df['subject'], aggregated_df['failure_summary']))
+
+    # Update failure_new_icm_table items with the aggregated failure_summary
+    aggregated_failure_new_icm_list = []
+    for item in failure_new_icm_table:
+        if item['subject'] in subject_to_summary:
+            if item['failure_summary'] == '' or not item['failure_summary']:
+                logger.debug("{} summary is empty, will use the one in the aggregated_df".format(item['subject']))
+                item['failure_summary'] = subject_to_summary[item['subject']]
+            elif item['failure_summary'] != subject_to_summary[item['subject']]:
+                logger.debug("{} summary is not same as the one in the aggregated_df".format(item['subject']))
+                logger.debug("  - {}: {}".format(item['failure_summary'], subject_to_summary[item['subject']]))
+                item['failure_summary'] = subject_to_summary[item['subject']]
+            aggregated_failure_new_icm_list.append(item)
 
     logger.info("=================After aggregation, general failure cases=================")
     logger.info("Found {} IcM for general aggregated failure cases".format(
@@ -101,7 +95,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         origin_data.append(
             {"table": branches_wanted_dict[branch]["new_icm_table"], "type": branch})
     final_error_list, final_failure_list, uploading_dupplicated_list = deduper.deduplication(
-        setup_error_new_icm_table, common_summary_new_icm_table, origin_data, configuration["branch"]["included_branch"])
+        common_summary_new_icm_table, origin_data, configuration["branch"]["included_branch"])
     logger.info(
         "=================After deduplication, final result=================")
     logger.info("Will report {} new error cases".format(len(final_error_list)))
@@ -121,7 +115,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     duplicated_icm_table_wanted = []
     for branch in branches_wanted:
         duplicated_icm_table_wanted += branches_wanted_dict[branch]["duplicated_icm_table"]
-    duplicated_icm_table = setup_error_duplicated_icm_table + common_summary_duplicated_icm_table + failure_duplicated_icm_table + \
+    duplicated_icm_table = common_summary_duplicated_icm_table + failure_duplicated_icm_table + \
         duplicated_icm_table_wanted + uploading_dupplicated_list
     logger.info(
         "=================After deduplication, total duplicated IcMs=================")
@@ -137,9 +131,6 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         logger.info("Total number of Autoblame items {}".format(len(autoblame_table)))
     else:
         logger.error("There is something wrong with Autoblame search.")
-    # for index, case in enumerate(autoblame_table):
-    #     logger.info("{}: {} {}".format(
-    #         index + 1, case['autoblame_id']))
 
     analyzer.upload_to_kusto(final_list, duplicated_icm_table, autoblame_table)
 
