@@ -16,6 +16,27 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+@pytest.fixture(scope='function', autouse=True)
+def check_and_disable_routecheck(duthosts):
+    # Previous test can create route inconsistency for 1-2 cycle
+    # and anoter cycle as part of this test can cause failure of this test because of monit ERR.        
+    # To mitigate this make sure route_check is clean before starting the test and if so than restart
+    # monit route check to reset it's error check counter
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        rc = duthost.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check fail in test pre-setup stage")
+
+        duthost.shell("sudo monit restart routeCheck")
+    yield
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        rc = duthost.shell("sudo route_check.py", module_ignore_errors=True)
+        if rc['rc'] != 0:
+            pytest.fail("route_check fail in test post-route stage")
 
 def check_and_kill_process(duthost, container_name, program_name):
     """Checks the running status of a critical process. If it is running, kill it. Otherwise,
