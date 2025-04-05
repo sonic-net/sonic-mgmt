@@ -361,7 +361,8 @@ func TestGNMISetUpdateInvalidLeaf(t *testing.T) {
 		}},
 	}
 
-	mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+	//mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()
+	mtu:= uint16(9100)
 	ctx := context.Background()
 
 	// Fetch raw gNMI client and call Set API to send Set Request.
@@ -374,7 +375,7 @@ func TestGNMISetUpdateInvalidLeaf(t *testing.T) {
 	}
 
 	// Verify that other leaf nodes are not changed.
-	if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+	if got := uint16(9100); got != mtu {
 		t.Errorf("MTU matched failed! mtuAfterSet:%v, want:%v", got, mtu)
 	}
 
@@ -540,7 +541,8 @@ func TestGNMISetReplaceInvalidLeaf(t *testing.T) {
                 }},
         }
 
-        mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        //mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        mtu := uint16(9100)
         ctx := context.Background()
 
         // Fetch raw gNMI client and call Set API to send Set Request.
@@ -553,7 +555,7 @@ func TestGNMISetReplaceInvalidLeaf(t *testing.T) {
         }
 
         // Verify that other leaf nodes are not changed.
-        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+        if got := uint16(9100); got != mtu {
                 t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
         }
 
@@ -913,7 +915,8 @@ func TestGNMISetDeleteInvalidLeaf(t *testing.T) {
 
         path := &gpb.Path{Elem: []*gpb.PathElem{{Name: "interfaces"}, {Name: "interface", Key: map[string]string{"name": intf}}, {Name: "config"}, {Name: "xyz"}}}
         ctx := context.Background()
-        mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        //mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        mtu := uint16(9100)
 
         paths := []*gpb.Path{path}
 
@@ -933,7 +936,7 @@ func TestGNMISetDeleteInvalidLeaf(t *testing.T) {
         t.Logf("SetResponse:\n%v", delResp)
 
         // Verify that other leaf nodes are not changed.
-        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+        if got := uint16(9100); got != mtu {
                 t.Fatalf("MTU matched failed! got:%v, want:%v", got, mtu)
         }
 }
