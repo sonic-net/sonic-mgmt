@@ -215,6 +215,7 @@ def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfada
 
     # shutdown DUT downstream port
     duthost.shell("config interface shutdown {}".format(dut_downstream_port))
+    duthost.shell("sonic-clear fdb all")
     time.sleep(5)
 
     # run traffic test and verify no flooding in vlan
