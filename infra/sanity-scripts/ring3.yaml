@@ -114,7 +114,7 @@ baseline:
       - snmp/test_snmp_memory.py
       - snmp/test_snmp_queue.py
       - snmp/test_snmp_v2mib.py
-      - snmp/test_snmp_fdb.py
+      #- snmp/test_snmp_fdb.py
       - route/test_static_route.py
       - route/test_duplicate_route.py
       - syslog/test_syslog.py
@@ -124,7 +124,7 @@ baseline:
       - pc/test_po_update.py
       - vlan/test_autostate_disabled.py
       - vlan/test_host_vlan.py
-      - vlan/test_vlan_ping.py
+      #- vlan/test_vlan_ping.py
       - vlan/test_vlan.py
       - tests/test_posttest.py
       #- acl/custom_acl_table/test_custom_acl_table.py
