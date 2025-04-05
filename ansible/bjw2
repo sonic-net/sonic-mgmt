@@ -224,6 +224,9 @@ all:
         bjw2-pdu-126-97:  # R508S
           ansible_host: 10.150.126.97
           protocol: snmp
+        bjw2-pdu-126-98:  # R509M
+          ansible_host: 10.150.126.98
+          protocol: snmp
         bjw2-pdu-126-99:  # R509S
           ansible_host: 10.150.126.99
           protocol: snmp
