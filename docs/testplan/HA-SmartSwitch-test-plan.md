@@ -154,7 +154,7 @@ All of the test modules below, are requesting 2 SmartSwitch to form a pair. Test
 ###  Module 3 BFD state pinned
 This test module is to explicitly test status pinning behavior.
 
-Here the BFD pin down refers to a upstream service provided state, which does not essentially indicate a link failure hence **does not trigger an actual switchover**.
+Here the BFD pin down refers to a upstream service provided state, which does not essentially indicate a link failure hence **does not trigger an actual switchover**. The forwarding behavior change be achieved by overlay ECMP configuration or ENI forwarding configuration.
 
 | Case                                  | Goal                                          | Test Steps                                                                               | Expected Control Plane Behavior            | Expected Data Plane Behavior            |
 | ------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------- |
