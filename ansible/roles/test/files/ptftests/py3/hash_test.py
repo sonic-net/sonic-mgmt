@@ -586,7 +586,7 @@ class HashTest(BaseTest):
         @return (percentage, bool)
         '''
         percentage = (actual - expected) / float(expected)
-                balancing_range = self.balancing_range
+        balancing_range = self.balancing_range
         if hash_key == 'ip-proto' and self.topo_name == 't2':
             # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
             # a large number of ecmp paths so relax the hashing requirements
