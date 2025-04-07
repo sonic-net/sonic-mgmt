@@ -149,6 +149,24 @@ all:
         bjw2-1-o:
           ansible_host: 10.150.23.121
           ansible_hostv6: 2404:f801:10:2200::a96:1779
+        bjw2-1-p:
+          ansible_host: 10.150.23.122
+          ansible_hostv6: 2404:f801:10:2200::a96:177a
+        bjw2-1-q:
+          ansible_host: 10.150.23.123
+          ansible_hostv6: 2404:f801:10:2200::a96:177b
+        bjw2-1-r:
+          ansible_host: 10.150.23.124
+          ansible_hostv6: 2404:f801:10:2200::a96:177c
+        bjw2-1-s:
+          ansible_host: 10.150.23.125
+          ansible_hostv6: 2404:f801:10:2200::a96:177d
+        bjw2-2-a:
+          ansible_host: 10.150.23.126
+          ansible_hostv6: 2404:f801:10:2200::a96:177e
+        bjw2-2-b:
+          ansible_host: 10.150.23.127
+          ansible_hostv6: 2404:f801:10:2200::a96:177f
 
     pdu:
       hosts:
@@ -205,6 +223,9 @@ all:
           protocol: snmp
         bjw2-pdu-126-97:  # R508S
           ansible_host: 10.150.126.97
+          protocol: snmp
+        bjw2-pdu-126-98:  # R509M
+          ansible_host: 10.150.126.98
           protocol: snmp
         bjw2-pdu-126-99:  # R509S
           ansible_host: 10.150.126.99
@@ -288,13 +309,21 @@ fanout:
       ansible_host: 10.150.22.198
       ansible_hostv6: 2404:f801:10:2200::a96:16c6
       os: sonic
-    bjw2-can-7215a1-leaf-1:
+    bjw2-can-720dt-leaf-17:
       ansible_host: 10.150.22.212
       ansible_hostv6: 2404:f801:10:2200::a96:16d4
       os: sonic
-    bjw2-can-7215a1-leaf-2:
+    bjw2-can-720dt-leaf-18:
       ansible_host: 10.150.22.214
       ansible_hostv6: 2404:f801:10:2200::a96:16d6
+      os: sonic
+    bjw2-can-720dt-leaf-19:
+      ansible_host: 10.150.23.252
+      ansible_hostv6: 2404:f801:10:2200::a96:17fc
+      os: sonic
+    bjw2-can-720dt-leaf-20:
+      ansible_host: 10.150.23.254
+      ansible_hostv6: 2404:f801:10:2200::a96:17fe
       os: sonic
     bjw2-can-7260-leaf-1:
       ansible_host: 10.150.22.44
@@ -388,7 +417,30 @@ fanout:
     bjw2-can-7260-leaf-24:
       ansible_host: 10.150.22.75
       ansible_hostv6: 2404:f801:10:2200::a96:164a
-
+    bjw2-can-7260-leaf-26:
+      ansible_host: 10.150.22.79
+      ansible_hostv6: 2404:f801:10:2200::a96:164f
+    bjw2-can-7260-leaf-27:
+      ansible_host: 10.150.22.82
+      ansible_hostv6: 2404:f801:10:2200::a96:1652
+    bjw2-can-7260-leaf-28:
+      ansible_host: 10.150.22.85
+      ansible_hostv6: 2404:f801:10:2200::a96:1655
+    bjw2-can-7260-leaf-29:
+      ansible_host: 10.150.22.88
+      ansible_hostv6: 2404:f801:10:2200::a96:1658
+    bjw2-can-7260-leaf-30:
+      ansible_host: 10.150.22.91
+      ansible_hostv6: 2404:f801:10:2200::a96:165b
+    bjw2-can-7260-leaf-31:
+      ansible_host: 10.150.22.94
+      ansible_hostv6: 2404:f801:10:2200::a96:165e
+    bjw2-can-7260-leaf-32:
+      ansible_host: 10.150.22.97
+      ansible_hostv6: 2404:f801:10:2200::a96:1661
+    bjw2-can-7260-leaf-33:
+      ansible_host: 10.150.22.215
+      ansible_hostv6: 2404:f801:10:2200::a96:16d7
 
 
 sonic:
@@ -405,6 +457,8 @@ sonic:
     sonic_cisco_8101:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
+    sonic_arista_7050_C32:
+    sonic_arista_7050_S128:
 
 
 sonic_arista_720dt:
@@ -795,6 +849,20 @@ sonic_nokia_7215a1:
         "0x2F": "CSMAR00ERA"
         "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
         "0xFE": "0x1F31FB9C"
+    bjw2-can-7215a1-3:
+      ansible_host: 10.150.23.251
+      ansible_hostv6: 2404:f801:10:2200::a96:17fb
+      model: 3HE18723AARA01
+      serial: 
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7215a1-4:
+      ansible_host: 10.150.23.253
+      ansible_hostv6: 2404:f801:10:2200::a96:17fd
+      model: 3HE18723AARA01
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 sonic_cisco_8102:
@@ -1523,6 +1591,84 @@ sonic_cisco_8101_O8C48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+
+sonic_arista_7050_C32:
+  vars:
+    hwsku: Arista-7050CX3-32S-C32
+    iface_speed: 100000
+  hosts:
+    bjw2-can-7050-1:
+      ansible_host: 10.150.22.90
+      ansible_hostv6: 2404:f801:10:2200::a96:165a
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-2:
+      ansible_host: 10.150.22.92
+      ansible_hostv6: 2404:f801:10:2200::a96:165c
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-3:
+      ansible_host: 10.150.22.93
+      ansible_hostv6: 2404:f801:10:2200::a96:165d
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-4:
+      ansible_host: 10.150.22.95
+      ansible_hostv6: 2404:f801:10:2200::a96:165f
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+
+
+sonic_arista_7050_S128:
+  vars:
+    hwsku: Arista-7050CX3-32S-S128
+    iface_speed: 10000
+  hosts:
+    bjw2-can-7050-5:
+      ansible_host: 10.150.22.96
+      ansible_hostv6: 2404:f801:10:2200::a96:1660
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-6:
+      ansible_host: 10.150.22.98
+      ansible_hostv6: 2404:f801:10:2200::a96:1662
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-7:
+      ansible_host: 10.150.22.99
+      ansible_hostv6: 2404:f801:10:2200::a96:1663
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-7050-8:
+      ansible_host: 10.150.22.96
+      ansible_hostv6: 2404:f801:10:2200::a96:16d8
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 server:
