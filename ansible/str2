@@ -2575,7 +2575,7 @@ sonic_cisco_8101_tornado:
       mgmt_subnet_mask_length: 24
       model: 8101-32FH-O-C01
       serial: WZP28489YD3
-      base_mac: 
+      base_mac: 48:00:B3:A1:08:96
       syseeprom_info:
         "0x21": "8101-32FH-O-C01"
         "0x22": "000000"
