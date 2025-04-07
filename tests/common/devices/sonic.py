@@ -425,7 +425,18 @@ class SonicHost(AnsibleHostBase):
         Returns:
             True if the current node is a SmartSwitch, else False
         """
-        return "DPUS" in self.facts
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "SmartSwitch" and
+            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["type"] != "SmartSwitchDPU"
+        ):
+            return True
+
+        return False
 
     def is_dpu(self):
         """Check if the current node is a DPU
@@ -433,7 +444,16 @@ class SonicHost(AnsibleHostBase):
         Returns:
             True if the current node is a DPU, else False
         """
-        return "DPU" in self.facts
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["type"] == "SmartSwitchDPU"
+        ):
+            return True
+
+        return False
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
