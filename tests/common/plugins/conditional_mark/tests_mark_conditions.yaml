@@ -359,6 +359,15 @@ dash/test_relaxed_match_negative.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
 #######################################
+#####       db_migrator           #####
+#######################################
+db_migrator/test_migrate_dns.py::test_migrate_dns_03:
+  xfail:
+    reason: "db_migrator does not support SonicQosProfile in minigraph"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22120"
+
+#######################################
 #####            decap            #####
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
