@@ -286,7 +286,8 @@ class HashTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-        self, masked_exp_pkt, dst_ports, **({'timeout': 1} if is_timeout else {})
+           self, masked_exp_pkt, dst_ports,
+           **({'timeout': 1} if is_timeout else {})
         )
         rcvd_port = dst_ports[rcvd_port_index]
         return rcvd_port, rcvd_pkt
@@ -317,7 +318,7 @@ class HashTest(BaseTest):
                             dport))
         return logs
 
-    def create_pkt(self, vlan_id, router_mac, src_mac, ip_src, ip_dst, sport, dport, version='IP'):
+    def create_pkt(self, vlan_id, router_mac, src_mac, ip_src, ip_dst, sport, dport, version='IP', hash_key=None):
         if version == 'IP':
             pkt = simple_tcp_packet(pktlen=100 if vlan_id == 0 else 104,
                                     eth_dst=router_mac,
@@ -435,7 +436,8 @@ class HashTest(BaseTest):
                 ip_dst=ip_dst,
                 sport=sport,
                 dport=dport,
-                version='IP'
+                version='IP',
+                hash_key=hash_key
             )
         if class_name not in ['VxlanHashTest', 'NvgreHashTest'] and hash_key == 'ip-proto':
             if class_name == 'HashTest':
@@ -530,7 +532,8 @@ class HashTest(BaseTest):
                 ip_dst=ip_dst,
                 sport=sport,
                 dport=dport,
-                version='IPV6'
+                version='IPV6',
+                hash_key=hash_key
             )
         if class_name not in ['VxlanHashTest', 'NvgreHashTest'] and hash_key == 'ip-proto':
             if class_name == 'HashTest':
@@ -591,7 +594,7 @@ class HashTest(BaseTest):
             # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
             # a large number of ecmp paths so relax the hashing requirements
             balancing_range = self.RELAXED_BALANCING_RANGE
-        return (percentage, abs(percentage) <= self.balancing_range)
+        return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
@@ -726,7 +729,7 @@ class IPinIPHashTest(HashTest):
         return logs
 
     def create_pkt(self, vlan_id, router_mac, src_mac, ip_src, ip_dst, sport, dport, outer_src_ip, outer_dst_ip,
-                   version='IP'):
+                   version='IP',hash_key= None):
         inner_pkt_len = random.randrange(
             100, 1024) if hash_key == 'inner_length' else 100
         if version == 'IP':
@@ -770,10 +773,12 @@ class IPinIPHashTest(HashTest):
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         if self.ipver == 'ipv4':
             (matched_port, received) = self.check_ipv4_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
+                 outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
+                outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
 
         assert received
 
@@ -846,8 +851,8 @@ class IPinIPHashTest(HashTest):
 class VxlanHashTest(HashTest):
     '''
     This test is to verify the hash key for VxLAN packet.
-    The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
-    for IPinIP packet.
+    The src_ip, dst_ip, src_port and dst_port of inner frame
+    are expected to be hash keys for IPinIP packet.
     '''
 
     def create_packets_logs(self, src_port, vxlan_pkt, inner_pkt, outer_sport, sport, dport, ip_src, ip_dst, version='IP'):
@@ -962,10 +967,12 @@ class VxlanHashTest(HashTest):
                        outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
             (matched_port, received) = self.check_ipv4_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
+                outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,outer_src_ip=outer_src_ipv6, outer_dst_ip=outer_dst_ipv6)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,    
+                outer_src_ip=outer_src_ipv6, outer_dst_ip=outer_dst_ipv6)
 
         assert received
 
@@ -1169,10 +1176,12 @@ class NvgreHashTest(HashTest):
                        outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
             (matched_port, received) = self.check_ipv4_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
+                outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ipv6=outer_src_ipv6, outer_dst_ipv6=outer_dst_ipv6)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
+                outer_src_ipv6=outer_src_ipv6, outer_dst_ipv6=outer_dst_ipv6)
 
         assert received
 
