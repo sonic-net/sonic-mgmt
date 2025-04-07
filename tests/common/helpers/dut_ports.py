@@ -99,7 +99,7 @@ def get_vlan_interfaces_dict(duthost, tbinfo):
             ip_with_prefix = f"{interface['addr']}/{interface['prefixlen']}"
             if ip_with_prefix in config_facts['VLAN_INTERFACE'][vlan]:
                 config = config_facts['VLAN_INTERFACE'][vlan][ip_with_prefix]
-                if config.get('secondary') == 'true':
+                if isinstance(config, dict) and config.get('secondary') == 'true':
                     interface_info['secondary'] = True
 
         # Add to appropriate IP version list
@@ -155,7 +155,7 @@ def get_vlan_interface_info(duthost, tbinfo, vlan_name, ip_version="ipv4"):
 
     for interface in vlan_interfaces_dict[vlan_name][ip_version]:
         # Skip secondary addresses
-        if interface.get('secondary'):
+        if isinstance(interface, dict) and interface.get('secondary'):
             continue
 
         result = interface
