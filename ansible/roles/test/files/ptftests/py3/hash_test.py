@@ -888,7 +888,7 @@ class VxlanHashTest(HashTest):
                             dport,
                             src_port))
         logs.append(vxlan_pkt.show())
-        return logs;;
+        return logs
 
     def create_pkt(self, src_mac, dst_mac, ip_src, ip_dst, sport, dport, router_mac, outer_src_ip, outer_dst_ip,
                    outer_sport=None, version='IP'):
