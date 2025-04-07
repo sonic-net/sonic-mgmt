@@ -278,7 +278,8 @@ def enhance_inventory(request, tbinfo):
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
 
     if request.config.getoption("trim_inv"):
-        trim_inventory(inv_files, tbinfo)
+        target_hostname = get_target_hostname(request)
+        trim_inventory(inv_files, tbinfo, target_hostname)
 
     try:
         logger.info(f"Inventory file: {inv_files}")
