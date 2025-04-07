@@ -885,7 +885,7 @@ class VxlanHashTest(HashTest):
                             ip_src,
                             ip_dst,
                             sport,
-                            dport,`1
+                            dport,
                             src_port))
         logs.append(vxlan_pkt.show())
         return logs;;
