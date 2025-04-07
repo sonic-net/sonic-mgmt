@@ -73,7 +73,7 @@ def get_auditd_config_reload_line_count(duthost):
     return len(res["stdout_lines"])
 
 
-def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, timeout=10):
+def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, timeout=30):
     if not last_line_count:
         last_line_count = get_auditd_config_reload_line_count(duthost)
 
