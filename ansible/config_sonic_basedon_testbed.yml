@@ -110,10 +110,14 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
+
   - name: determine whether to sort port_alias by index
     set_fact:
       sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
@@ -601,6 +605,11 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
+      - name: Preload minigraph to flush config_db for Virtual Chassis
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "'t2' in topo and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
@@ -777,6 +786,20 @@
           loop_var: azng_config_cmd
         ignore_errors: false
         when: sup_dut is defined and testbed_facts['duts_map'][inventory_hostname] == 0 and (not is_ixia_testbed or 'route_conv' in topo)
+
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          host_username: "{{ dpu_username | default('admin') }}"
+          host_password: "{{ dpu_password | default('password') }}"
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Configure TACACS
         become: true
