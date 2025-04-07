@@ -2761,3 +2761,70 @@ zmq/test_gnmi_zmq.py:
     reason: "Test is for smartswitch"
     conditions:
       - "'arista' in platform"
+
+
+#######################################
+#####            GNMI             #####
+#######################################
+gnmi/test_gnmi.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_appldb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_configdb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_smartswitch.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_killprocess.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_os.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system_grpc.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
