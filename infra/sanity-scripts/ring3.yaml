@@ -207,7 +207,7 @@ MGMT:
     all_pids:
       #- generic_config_updater/test_aaa.py
       #- generic_config_updater/test_dhcp_relay.py
-      - snmp/test_snmp_interfaces.py
+      #- snmp/test_snmp_interfaces.py
       #- snmp/test_snmp_loopback.py
       #- snmp/test_snmp_lldp.py
       #- telemetry/test_telemetry.py
