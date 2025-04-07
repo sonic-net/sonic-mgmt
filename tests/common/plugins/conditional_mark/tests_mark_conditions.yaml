@@ -39,6 +39,12 @@ acl/test_acl_outer_vlan.py:
 #######################################
 #####            arp              #####
 #######################################
+arp/test_arp_dualtor.py::test_arp_update_for_failed_standby_neighbor:
+  skip:
+    reason: "Testcase is skipped on dualtor-aa topo due to test issue#17782"
+    conditions:
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17782"
+
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
   skip:
     reason: "`accept_untracked_na` currently only available in 202012"
