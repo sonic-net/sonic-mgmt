@@ -13,6 +13,9 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # noqa
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa F401
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
@@ -63,6 +66,20 @@ def check_running_condition(tbinfo, duthost):
     # Check tunnel_qos_remap is enabled
     pytest_require(is_tunnel_qos_remap_enabled(duthost),
                    "Only run when tunnel_qos_remap is enabled", True)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def disable_pfcwd(duthosts):
+    pfcwd_value = {}
+    for duthost in duthosts:
+        pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+        stop_pfcwd(duthost)
+        disable_packet_aging(duthost)
+    yield
+    for duthost in duthosts:
+        reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+        enable_packet_aging(duthost)
+    return
 
 
 def _last_port_in_last_lag(lags):
