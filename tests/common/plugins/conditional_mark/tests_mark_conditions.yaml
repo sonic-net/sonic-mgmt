@@ -3635,7 +3635,7 @@ route/test_route_consistency.py::TestRouteConsistency::test_critical_process_cra
       - "asic_type in ['vpp']"
 
 route/test_route_flow_counter.py::TestRouteCounter::test_update_route_pattern:
-skip:
+  skip:
     reason: >
             Failed/Errored: To be included
     conditions_logical_operator: or
@@ -4045,6 +4045,7 @@ lldp/test_lldp.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+      
 lldp/test_lldp_syncd.py:
   skip:
     reason: >
