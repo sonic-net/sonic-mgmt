@@ -885,10 +885,10 @@ class VxlanHashTest(HashTest):
                             ip_src,
                             ip_dst,
                             sport,
-                            dport,
+                            dport,`1
                             src_port))
         logs.append(vxlan_pkt.show())
-        return logs
+        return logs;;
 
     def create_pkt(self, src_mac, dst_mac, ip_src, ip_dst, sport, dport, router_mac, outer_src_ip, outer_dst_ip,
                    outer_sport=None, version='IP'):
@@ -980,7 +980,7 @@ class VxlanHashTest(HashTest):
                 outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,    
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
                 outer_src_ip=outer_src_ipv6, outer_dst_ip=outer_dst_ipv6)
 
         assert received
@@ -1234,4 +1234,3 @@ class NvgreHashTest(HashTest):
 
         for next_hop in next_hops:
             self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
-
