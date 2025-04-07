@@ -10,5 +10,8 @@
     },
     "docker-sonic-gnmi": {
         "parameters": ""
+    },
+    "docker-gnmi-watchdog": {
+        "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     }
 }
