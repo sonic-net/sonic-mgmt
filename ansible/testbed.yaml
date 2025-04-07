@@ -3687,7 +3687,7 @@
   auto_recover: 'True'
   comment: zitingguo
 
-- conf-name: vms18-dual-t0-8101
+- conf-name: vms18-dual-t0-8101-01
   group-name: vms18-3
   topo: dualtor-aa
   ptf_image_name: docker-ptf
@@ -3737,17 +3737,19 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms24-t0-8101-01
-  group-name: vms24-2
-  topo: t0-64
+- conf-name: vms29-dual-t0-8101-02
+  group-name: vms29-1
+  topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
-  ptf: vms24-2
+  ptf: vms29-1
   ptf_ip: 10.64.247.52/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f734/64
-  server: server_24
-  vm_base: VM24024
+  netns_mgmt_ip: 10.64.247.49/23
+  server: server_29
+  vm_base: VM29000
   dut:
   - str2-8101-03
+  - str2-8101-04
   inv_name: str2
   auto_recover: 'True'
   comment: yawenni
