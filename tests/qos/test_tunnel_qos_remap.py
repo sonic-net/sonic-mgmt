@@ -552,6 +552,7 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
     active_tor_mac = rand_unselected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     ptfadapter.dataplane.flush()
+    failures = []
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         wmk_stat_queue = queue
         if "cisco-8000" in dut_config["asic_type"]:
@@ -612,9 +613,14 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
         logger.info(("Congested queue watermark on {}|{} is {}, increased by {}," +
                      "minimum required increase is {}").format(
             actual_port_name, wmk_stat_queue, queue_wmk, queue_wmk - base_queue_wmk, required_wmk_inc_bytes))
-        assert queue_wmk > required_wmk_bytes, \
-            "Failed to detect congestion due to PFC pause, failed check {} > {}".format(
+        if queue_wmk <= required_wmk_bytes:
+            msg = "For inner_dscp, outer_dscp, prio, queue = ({}, {}, {}, {}):\n".format(
+                inner_dscp, outer_dscp, prio, queue)
+            msg += "  Failed to detect congestion due to PFC pause, failed check {} > {}".format(
                 queue_wmk, required_wmk_bytes)
+            logger.info(msg)
+            failures.append(msg)
+    assert len(failures) == 0, "Watermark failures were found:\n{}".format("\n".join(failures))
 
 
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
@@ -645,6 +651,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
     ptfadapter.dataplane.flush()
+    failures = []
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                                dst_ip=dualtor_meta['target_server_ip'],
@@ -703,9 +710,14 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
                      "minimum required increase is {}").format(
             dualtor_meta['selected_port'], queue, queue_wmk,
             queue_wmk - base_queue_wmk, required_wmk_inc_bytes))
-        assert queue_wmk > required_wmk_bytes, \
-            "Failed to detect congestion due to PFC pause, failed check {} > {}".format(
-                queue_wmk, base_queue_wmk)
+        if queue_wmk <= required_wmk_bytes:
+            msg = "For inner_dscp, outer_dscp, prio, queue = ({}, {}, {}, {}):\n".format(
+                inner_dscp, outer_dscp, prio, queue)
+            msg += "  Failed to detect congestion due to PFC pause, failed check {} > {}".format(
+                queue_wmk, required_wmk_bytes)
+            logger.info(msg)
+            failures.append(msg)
+    assert len(failures) == 0, "Watermark failures were found:\n{}".format("\n".join(failures))
 
 
 @pytest.mark.disable_loganalyzer
