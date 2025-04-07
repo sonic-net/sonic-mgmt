@@ -729,7 +729,7 @@ class IPinIPHashTest(HashTest):
         return logs
 
     def create_pkt(self, vlan_id, router_mac, src_mac, ip_src, ip_dst, sport, dport, outer_src_ip, outer_dst_ip,
-                   version='IP',hash_key= None):
+                   version='IP', hash_key=None):
         inner_pkt_len = random.randrange(
             100, 1024) if hash_key == 'inner_length' else 100
         if version == 'IP':
@@ -773,12 +773,20 @@ class IPinIPHashTest(HashTest):
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         if self.ipver == 'ipv4':
             (matched_port, received) = self.check_ipv4_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
-                 outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key,
+                src_port=src_port,
+                dst_port_lists=dst_port_lists,
+                outer_src_ip=outer_src_ip,
+                outer_dst_ip=outer_dst_ip
+            )
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists,
-                outer_src_ip=outer_src_ip, outer_dst_ip=outer_dst_ip)
+                hash_key=hash_key,
+                src_port=src_port,
+                dst_port_lists=dst_port_lists,
+                outer_src_ip=outer_src_ip,
+                outer_dst_ip=outer_dst_ip
+            )
 
         assert received
 
@@ -855,7 +863,8 @@ class VxlanHashTest(HashTest):
     are expected to be hash keys for IPinIP packet.
     '''
 
-    def create_packets_logs(self, src_port, vxlan_pkt, inner_pkt, outer_sport, sport, dport, ip_src, ip_dst, version='IP'):
+    def create_packets_logs(self, src_port, vxlan_pkt, inner_pkt, outer_sport, sport,
+                            dport, ip_src, ip_dst, version='IP'):
         """
         @summary: return list of packets sending logs
         """
