@@ -850,13 +850,6 @@ class VxlanHashTest(HashTest):
     for IPinIP packet.
     '''
 
-    def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
-        """
-        @summary: Send a VXLAN encapsulated packet and verify it is received on expected ports.
-        """
-        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
-                                               logs=logs)
-
     def create_packets_logs(self, src_port, vxlan_pkt, inner_pkt, outer_sport, sport, dport, ip_src, ip_dst, version='IP'):
         """
         @summary: return list of packets sending logs

@@ -43,9 +43,9 @@ r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Faile
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 
 # White list below messages found on KVM for now. Need to address them later.
-r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
-r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
-r, ".* ERR macsec#wpa_supplicant.*KaY: Life time has not elapsed since prior SAK distributed.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*l2_packet_send.*Network is down.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*KaY: Life time has not elapsed since prior SAK distributed.*"
 r, ".* ERR systemd.*Failed to start dhcp_relay container.*"
 r, ".* ERR monit.* 'rsyslog' failed to get service data.*"
 r, ".* ERR monit.* 'rsyslog' process is not running.*"
@@ -71,7 +71,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
-r, ".* ERR swss\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+r, ".* ERR .*\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -300,6 +300,7 @@ r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
+r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
@@ -310,8 +311,9 @@ r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 # ignore TACACS login failure, which will happen when other user trying login device when running test
 r, ".* ERR sshd\[\d*\]: auth fail.*"
 
-# ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
+# ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
+r, ".* ERR chrony\[\d*\]: nss_tacplus: .*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
@@ -328,6 +330,12 @@ r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SD
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
 r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_port\.c:\d+ brcm_pai_get_port_stats.*\s*.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_adapter\.c:\d+ sai_api_query: :- Invalid sai_api_t \d+ passed#\d+"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_switch\.c:\d+ pai_get_switch_attribute: :- Error processing switch attribute \d+\[\d+\]\.#\d+"
 
 # Ignore notifications about fabric port status changes on LCs
 r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"
+
+# Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
+r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
