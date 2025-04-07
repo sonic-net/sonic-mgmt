@@ -805,7 +805,7 @@ class DataAnalyzer(BasicAnalyzer):
         if case_branch_df.shape[0] == 0:  # the branch is not included
             return history_testcases, case_df_after_filter
         history_testcases[test_case_branch] = {}
-        history_testcases[test_case_branch]['latest_os_version'] = case_df['OSVersion'].max()
+        history_testcases[test_case_branch]['latest_os_version'] = case_branch_df['OSVersion'].max()
 
         tb_results = self.calculate_success_rate(
             case_branch_df, 'TestbedName', 'testbed')
