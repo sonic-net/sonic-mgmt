@@ -69,14 +69,14 @@ def check_portchannel_table(duthost, portchannel_table):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname, portchannel_table):
+def setup_env(duthosts, rand_one_dut_hostname, portchannel_table):
     """
     Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_front_end_hostname: The fixture returns a randomly selected frontend DuT.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT.
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -211,10 +211,11 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table, rand_portch
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(rand_selected_front_end_dut, portchannel_table, rand_portchannel_name):
-    portchannel_interface_tc1_add_duplicate(rand_selected_front_end_dut, portchannel_table, rand_portchannel_name)
-    portchannel_interface_tc1_xfail(rand_selected_front_end_dut, rand_portchannel_name)
-    portchannel_interface_tc1_add_and_rm(rand_selected_front_end_dut, portchannel_table, rand_portchannel_name)
+def test_portchannel_interface_tc1_suite(duthosts, rand_one_dut_hostname, portchannel_table, rand_portchannel_name):
+    duthost = duthosts[rand_one_dut_hostname]
+    portchannel_interface_tc1_add_duplicate(duthost, portchannel_table, rand_portchannel_name)
+    portchannel_interface_tc1_xfail(duthost, rand_portchannel_name)
+    portchannel_interface_tc1_add_and_rm(duthost, portchannel_table, rand_portchannel_name)
 
 
 def verify_po_running(duthost, portchannel_table):
@@ -312,6 +313,7 @@ def portchannel_interface_tc2_incremental(duthost, rand_portchannel_name):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc2_attributes(rand_selected_front_end_dut, rand_portchannel_name):
-    portchannel_interface_tc2_replace(rand_selected_front_end_dut, rand_portchannel_name)
-    portchannel_interface_tc2_incremental(rand_selected_front_end_dut, rand_portchannel_name)
+def test_portchannel_interface_tc2_attributes(duthosts, rand_one_dut_hostname, rand_portchannel_name):
+    duthost = duthosts[rand_one_dut_hostname]
+    portchannel_interface_tc2_replace(duthost, rand_portchannel_name)
+    portchannel_interface_tc2_incremental(duthost, rand_portchannel_name)
