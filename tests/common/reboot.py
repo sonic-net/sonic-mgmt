@@ -256,6 +256,7 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     return [reboot_res, dut_datetime]
 
 
+@support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,

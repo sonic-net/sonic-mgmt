@@ -261,9 +261,6 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if duthost.is_smartswitch():
-        pytest.skip("Smart Switch devices does not support watchdog reboot")
-
     watchdogutil_status_result = duthost.command(
         "watchdogutil status", module_ignore_errors=True)
     if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
