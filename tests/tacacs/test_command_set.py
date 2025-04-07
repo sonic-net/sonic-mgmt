@@ -6,7 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.test_authorization import setup_authorization_tacacs, ssh_run_command
 from tests.common.utilities import skip_release, wait_until
-from tests.common.helpers.tacacs.tacacs_helper import generate_commands_from_commandset_config
+from tests.common.helpers.tacacs.tacacs_helper import generate_commands_from_commandset_config, check_tacacs
 from tests.tacacs.utils import ssh_connect_remote_retry
 
 pytestmark = [
