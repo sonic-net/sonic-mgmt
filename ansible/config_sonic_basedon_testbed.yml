@@ -83,11 +83,11 @@
           loop: "{{ groups['l1_switch'] }}"
           loop_control:
             loop_var: target_l1_switch
-          when: 
+          when:
             - is_ixia_testbed is defined
             - is_ixia_testbed | bool
             - configure_l1 | default(false) | bool
-      when: 
+      when:
         - is_ixia_testbed is defined
         - is_ixia_testbed | bool
         - configure_l1 | default(false) | bool
