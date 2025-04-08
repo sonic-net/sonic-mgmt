@@ -1,37 +1,43 @@
-{% set vms=vm_topo_config['vm'].keys() | sort %}
 {% set vms_number = vms | length %}
-{% set dut_index = testbed_facts['duts_map'][inventory_hostname]|int %}
       <IPInterfaces>
 {% if (card_type is not defined or card_type != 'supervisor') and (vm_topo_config['topo_type'] != 'wan') %}
 {% for index in range(vms_number) %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
+{% for intf_index in range(vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|length) %}
+{% if vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] %}
         <IPInterface>
           <Name i:nil="true"/>
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
+{% endif %}
+{% if vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] %}
         <IPInterface>
           <Name i:Name="true"/>
-{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
-          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
+{% endif %}
+{% endfor %}
 {% endif %}
 {% endfor %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
 {% for vlan, vlan_param in vlan_configs.items() %}
+{% if 'prefix' in vlan_param %}
         <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>{{ vlan }}</AttachTo>
           <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
+{% endif %}
 {%if 'secondary_subnet' in vlan_param %}
         <IPInterface>
           <Name i:nil="true"/>
