@@ -51,7 +51,7 @@ def create_table_if_not_exist(duthost, tables):
             json_patch = [
                 {
                     "op": "add",
-                    "path": "/{ASICID}/{}".format(table),
+                    "path": "/{}/{}".format(ASICID, table),
                     "value": {}
                 }
             ]
@@ -203,7 +203,7 @@ def test_addcluster_workflow(duthost):
                 if portchannel in line:
                     # Check if status is LACP(A)(Up)
                     pytest_assert("LACP(A)(Up)" in line, 
-                                f"{portchannel} is not up. Current status: {line}")
+                                  f"{portchannel} is not up. Current status: {line}")
                     break
 
     # Step 11: Check BGP sessions
@@ -234,10 +234,10 @@ def test_addcluster_workflow(duthost):
             logger.info(f"Checking BGP neighbor {neighbor}")
             if ':' in neighbor:  # IPv6 address
                 pytest_assert(check_bgp_status(result_v6, neighbor), 
-                            f"IPv6 BGP session with {neighbor} not established")
+                              f"IPv6 BGP session with {neighbor} not established")
             else:  # IPv4 address
                 pytest_assert(check_bgp_status(result_v4, neighbor), 
-                            f"IPv4 BGP session with {neighbor} not established")
+                              f"IPv4 BGP session with {neighbor} not established")
 
     # Step 12: Verify all addcluster.json changes are reflected in CONFIG_DB
     for table, entries in config_entries_to_check.items():
@@ -245,5 +245,5 @@ def test_addcluster_workflow(duthost):
             redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
             redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
             pytest_assert(redis_value == entry,
-                         f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
+                          f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
             logger.info(f"Verified {entry} exists in CONFIG_DB")
