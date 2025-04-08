@@ -64,7 +64,8 @@ class MinigraphRefactor:
         if device_links:
             for link in list(device_links.findall(f"{NS}DeviceLinkBase")):
                 start_device = link.find(f"{NS}StartDevice").text
-                if self.leafrouter_name == start_device:
+                end_device = link.find(f"{NS}EndDevice").text
+                if self.leafrouter_name in [start_device, end_device]:
                     device_links.remove(link)
                     # print(f"Removed device link: {ET.tostring(link, encoding='unicode')}")
                     removed_links += 1
@@ -101,6 +102,9 @@ class MinigraphRefactor:
         tree.write(output_file)
 
         print(json.dumps(results, indent=2))
+        if results["removed_sessions"] == 0:
+            return False
+        return True
 
 
 def main():
