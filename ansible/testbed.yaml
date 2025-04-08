@@ -1240,6 +1240,38 @@
   auto_recover: 'False'
   comment: v-saidia
 
+- conf-name: vmsvc1-t2-7250x3b-1
+  group-name: svc1-5
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: svc1-5
+  ptf_ip: 10.206.144.138/24
+  ptf_ipv6: 2a01:111:e205:100::ace:908a/64
+  netns_mgmt_ip: 10.206.144.78/24
+  server: server_svc_1
+  vm_base: VM10096
+  dut:
+  - svcstr-7250x3b-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: linjin
+
+- conf-name:  vmsvc1-t2-7250x3b-2
+  group-name: svc1-6
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: svc1-6
+  ptf_ip: 10.206.144.139/24
+  ptf_ipv6: 2a01:111:e205:100::ace:908b/64
+  netns_mgmt_ip: 10.206.144.79/24
+  server: server_svc_1
+  vm_base: VM10102
+  dut:
+  - svcstr-7250x3b-2
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: linjin
+
 - conf-name: vms-example-ixia-1
   group-name: vms6-1
   topo: t0-64

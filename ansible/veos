@@ -9820,6 +9820,90 @@ vms_svc_1:
       ansible_host: 172.16.139.126
     VM10095:
       ansible_host: 172.16.139.127
+    VM10096:
+      ansible_host: 172.16.139.128
+    VM10097:
+      ansible_host: 172.16.139.129
+    VM10098:
+      ansible_host: 172.16.139.130
+    VM10099:
+      ansible_host: 172.16.139.131
+    VM10100:
+      ansible_host: 172.16.139.132
+    VM10101:
+      ansible_host: 172.16.139.133
+    VM10102:
+      ansible_host: 172.16.139.134
+    VM10103:
+      ansible_host: 172.16.139.135
+    VM10104:
+      ansible_host: 172.16.139.136
+    VM10105:
+      ansible_host: 172.16.139.137
+    VM10106:
+      ansible_host: 172.16.139.138
+    VM10107:
+      ansible_host: 172.16.139.139
+    VM10108:
+      ansible_host: 172.16.139.140
+    VM10109:
+      ansible_host: 172.16.139.141
+    VM10110:
+      ansible_host: 172.16.139.142
+    VM10111:
+      ansible_host: 172.16.139.143
+    VM10112:
+      ansible_host: 172.16.139.144
+    VM10113:
+      ansible_host: 172.16.139.145
+    VM10114:
+      ansible_host: 172.16.139.146
+    VM10115:
+      ansible_host: 172.16.139.147
+    VM10116:
+      ansible_host: 172.16.139.148
+    VM10117:
+      ansible_host: 172.16.139.149
+    VM10118:
+      ansible_host: 172.16.139.150
+    VM10119:
+      ansible_host: 172.16.139.151
+    VM10120:
+      ansible_host: 172.16.139.152
+    VM10121:
+      ansible_host: 172.16.139.153
+    VM10122:
+      ansible_host: 172.16.139.154
+    VM10123:
+      ansible_host: 172.16.139.155
+    VM10124:
+      ansible_host: 172.16.139.156
+    VM10125:
+      ansible_host: 172.16.139.157
+    VM10126:
+      ansible_host: 172.16.139.158
+    VM10127:
+      ansible_host: 172.16.139.159
+    VM10128:
+      ansible_host: 172.16.139.160
+    VM10129:
+      ansible_host: 172.16.139.161
+    VM10130:
+      ansible_host: 172.16.139.162
+    VM10131:
+      ansible_host: 172.16.139.163
+    VM10132:
+      ansible_host: 172.16.139.164
+    VM10133:
+      ansible_host: 172.16.139.165
+    VM10134:
+      ansible_host: 172.16.139.166
+    VM10135:
+      ansible_host: 172.16.139.167
+    VM10136:
+      ansible_host: 172.16.139.168
+    VM10137:
+      ansible_host: 172.16.139.169
 
 vms_svc_3:
   hosts:
