@@ -77,6 +77,8 @@ ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE = True
 
 # Describe default number of COLOs
 COLO_NUMBER = 30
+# Describe default number of M1 devices connected to M2 device
+M1_NUMBER = 4
 # Describe default number of M0 devices in 1 colo
 M0_NUMBER = 16
 # Describe default number of subnet in a M0 device
@@ -89,6 +91,8 @@ MX_NUMBER = 2
 MX_SUBNET_NUMBER = 2
 # Describe default number of subnet members
 MX_SUBNET_SIZE = 64
+# Describe default number of C0 devices connected to M1 device
+C0_NUMBER = 20
 # Describe default start asn of MXs
 MX_ASN_START = 68000
 # Describe default start asn of M0s
@@ -122,7 +126,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu|smartswitch-t1)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -253,7 +257,6 @@ def generate_prefix(subnet_size, ip_base, offset):
     ip = get_new_ip(ip_base, offset)
     prefixlen = (ip_base.max_prefixlen - int(math.log(subnet_size, 2)))
     prefix = "{}/{}".format(ip, prefixlen)
-
     return prefix
 
 
@@ -743,7 +746,7 @@ def generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size, ip_base, nexthop
         prefix = generate_prefix(m0_subnet_size, ip_base, offset)
 
         # For mx topo, current m0 is neighbor of DUT, which will announce this route. Not need after asn path of M0
-        # For m0 topo, need after path of M0
+        # For m0/m1 topo, need after path of M0
         aspath = None if m0_asn is None else "{}".format(m0_asn)
         routes.append((prefix, nexthop, aspath))
 
@@ -769,7 +772,7 @@ def generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn_st
 
             prefix = generate_prefix(mx_subnet_size, ip_base_mx, offset)
             # For mx topo, current m0 is neighbor of DUT, which will announce this route. Not need M0 asn
-            # For m0 topo, need M0 asn
+            # For m0/m1 topo, need M0 asn
             aspath = "{}".format(curr_mx_asn) if m0_asn is None else "{} {}".format(
                 m0_asn, curr_mx_asn)
 
@@ -886,6 +889,180 @@ def fib_mx(topo, ptf_ip, action="announce"):
             m0_routes_v4 = routes_v4
             m0_routes_v6 = routes_v6
 
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
+
+
+"""
+For M1, we have 3 sets of routes:
+    - M2 routes - advertised by the upstream M2 VMs
+    - M0 routes - advertised by the downstream M0 VMs
+    - C0 routes - advertised by the downstream C0 VMs
+
+The total number of routes is controlled by parameters:
+    - m1_number: number of M1 devices (including the DUT itself)
+    - m0_number: number of M0 devices connected to each M1
+    - m0_subnet_number: number of subnets on each M0
+    - mx_number, mx_subnet_number, c0_number, and the number of M2/M0/C0 devices from topology definition.
+
+- M2 routes:
+    - Default route, prefix: 0.0.0.0/0
+    - Routes advertised by DUT's peer M1. Each peer M1 advertises: (count of peer M1: m1_number - 1)
+        - Loopback IP of M1,   count: 1
+        - Loopback IPs of M0,  count: m0_number
+        - Subnet routes of M0, count: m0_number * m0_subnet_number
+        - Loopback IPs of Mx,  count: m0_number * mx_number
+        - Subnet routes of Mx, count: m0_number * mx_number * mx_subnet_number
+        - Loopback IP of C0,   count: c0_number
+- Routes advertised by each M0:
+    - Loopback IP of M0,   count: 1
+    - Subnet routes of M0, count: m0_subnet_number
+    - Loopback IP of Mx,   count: mx_number
+    - Subnet routes of Mx, count: mx_number * mx_subnet_number
+- Routes advertised by each C0:
+    - Loopback IP of C0,   count: 1
+"""
+
+
+def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
+                          m0_number, m0_subnet_number, m0_subnet_size, m0_lo_ip, m0_asn,
+                          mx_number, mx_subnet_number, mx_subnet_size, mx_lo_ip, mx_asn,
+                          c0_number, c0_lo_ip, c0_asn):
+    """
+    Generate subnet routes for M2 devices in M1 topo
+    """
+    routes = []
+
+    # Generate default route
+    routes.append(("0.0.0.0/0" if ip_base.version == 4 else "::/0", nexthop, None))
+
+    # Generate routes by DUT's peer M1.
+    for _ in range(m1_number - 1):
+        # Generate loopback IP of M1
+        routes.append((m1_lo_ip, nexthop, str(m1_asn)))
+        m1_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m1_lo_ip))
+        for _ in range(m0_number):
+            # Generate loopback IP of M0
+            routes.append((m0_lo_ip, nexthop, "{} {}".format(m1_asn, m0_asn)))
+            m0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m0_lo_ip))
+            # Generate M0 subnet routes
+            m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size,
+                                                           ip_base, nexthop, 0, m0_asn)
+            m0_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in m0_subnets]  # Add M1 asn to asn-path
+            routes += m0_subnets
+            ip_base = get_next_ip_by_net(prefix)
+            # Generate loopback IP of Mx
+            for _ in range(mx_number):
+                routes.append((mx_lo_ip, nexthop, "{} {} {}".format(m1_asn, m0_asn, mx_asn)))
+                mx_lo_ip = ipaddress.ip_network(get_next_ip_by_net(mx_lo_ip))
+            # Generate Mx subnet routes
+            mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn,
+                                                       ip_base, nexthop, m0_asn)
+            mx_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in mx_subnets]  # Add M1 asn to asn-path
+            routes += mx_subnets
+            ip_base = get_next_ip_by_net(prefix)
+        for _ in range(c0_number):
+            # Generate loopback IP of C0
+            routes.append((c0_lo_ip, nexthop, "{} {}".format(m1_asn, c0_asn)))
+            c0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(c0_lo_ip))
+    return routes, ip_base, m1_lo_ip, m0_lo_ip, mx_lo_ip, c0_lo_ip
+
+
+def generate_m1_m0_routes(nexthop, ip_base, m0_subnet_number, m0_subnet_size, m0_asn,
+                          mx_number, mx_subnet_number, mx_subnet_size, mx_lo_ip, mx_asn):
+    """
+    Generate subnet routes for M0 devices in M1 topo
+    """
+    routes = []
+
+    # Generate M0 subnet routes
+    m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size, ip_base, nexthop)
+    routes += m0_subnets
+    ip_base = get_next_ip_by_net(prefix)
+
+    # Generate Mx subnet routes
+    mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn, ip_base, nexthop)
+    routes += mx_subnets
+    ip_base = get_next_ip_by_net(prefix)
+
+    # Generate Mx loopback routes
+    for i in range(mx_number):
+        routes.append((mx_lo_ip, nexthop, str(mx_asn)))
+        mx_lo_ip = ipaddress.ip_network(get_next_ip_by_net(mx_lo_ip))
+
+    return routes, ip_base, mx_lo_ip
+
+
+def fib_m1(topo, ptf_ip, action="announce"):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    m1_number = common_config.get("m1_number", M1_NUMBER)
+    m1_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v4_start")))
+    m1_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v6_start")))
+    m1_asn = common_config.get("m1_asn")
+    m0_number = common_config.get("m0_number", M0_NUMBER)
+    m0_subnet_number = common_config.get("m0_subnet_number", M0_SUBNET_NUMBER)
+    m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
+    m0_subnet_size_v6 = 2 ** (128 - common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6))
+    m0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v4_start")))
+    m0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v6_start")))
+    m0_asn = common_config.get("m0_asn")
+    mx_number = common_config.get("mx_number", MX_NUMBER)
+    mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
+    mx_subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
+    mx_subnet_size_v6 = 2 ** (128 - common_config.get("mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6))
+    mx_asn = common_config.get("mx_asn")
+    mx_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v4_start")))
+    mx_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v6_start")))
+    c0_number = common_config.get("c0_number", C0_NUMBER)
+    c0_asn = common_config.get("c0_asn")
+    c0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v4_start")))
+    c0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v6_start")))
+
+    vms = topo['topology']['VMs']
+    vms_config = topo['configuration']
+
+    ipv4_base = ipaddress.IPv4Address(UNICODE_TYPE("192.168.1.0"))
+    ipv6_base = ipaddress.IPv6Address(UNICODE_TYPE("20c0:a800::0"))
+
+    for k, v in vms_config.items():
+        vm_offset = vms[k]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        router_type = None
+        if "m2" in v["properties"]:
+            router_type = "m2"
+        elif "m0" in v["properties"]:
+            router_type = "m0"
+        elif "c0" in v["properties"]:
+            router_type = "c0"
+
+        routes_v4, routes_v6 = [], []
+        if router_type == "m2":
+            routes_v4, ipv4_base, m1_lo_v4_start, m0_lo_v4_start, mx_lo_v4_start, c0_lo_v4_start = \
+                generate_m1_m2_routes(nhipv4, ipv4_base, m1_number, m1_lo_v4_start, m1_asn,
+                                      m0_number, m0_subnet_number, m0_subnet_size, m0_lo_v4_start, m0_asn,
+                                      mx_number, mx_subnet_number, mx_subnet_size, mx_lo_v4_start, mx_asn,
+                                      c0_number, c0_lo_v4_start, c0_asn)
+            routes_v6, ipv6_base, m1_lo_v6_start, m0_lo_v6_start, mx_lo_v6_start, c0_lo_v6_start = \
+                generate_m1_m2_routes(nhipv6, ipv6_base, m1_number, m1_lo_v6_start, m1_asn,
+                                      m0_number, m0_subnet_number, m0_subnet_size_v6, m0_lo_v6_start, m0_asn,
+                                      mx_number, mx_subnet_number, mx_subnet_size_v6, mx_lo_v6_start, mx_asn,
+                                      c0_number, c0_lo_v6_start, c0_asn)
+        elif router_type == "m0":
+            routes_v4, ipv4_base, mx_lo_v4_start = \
+                generate_m1_m0_routes(nhipv4, ipv4_base, m0_subnet_number, m0_subnet_size, m0_asn,
+                                      mx_number, mx_subnet_number, mx_subnet_size, mx_lo_v4_start, mx_asn)
+            routes_v6, ipv6_base, mx_lo_v6_start = \
+                generate_m1_m0_routes(nhipv6, ipv6_base, m0_subnet_number, m0_subnet_size_v6, m0_asn,
+                                      mx_number, mx_subnet_number, mx_subnet_size_v6, mx_lo_v6_start, mx_asn)
+        elif router_type == "c0":
+            # C0 announce nothing but it's loopback IP.
+            pass
+
+        # routes_v4 = generate_m1_routes(nhipv4)
         change_routes(action, ptf_ip, port, routes_v4)
         change_routes(action, ptf_ip, port6, routes_v6)
 
@@ -1191,6 +1368,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action)
+            module.exit_json(changed=True)
+        elif topo_type == "m1":
+            fib_m1(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         elif topo_type == "m0":
             fib_m0(topo, ptf_ip, action=action)
