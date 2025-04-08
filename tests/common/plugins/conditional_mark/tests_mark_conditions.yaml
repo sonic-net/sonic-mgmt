@@ -119,7 +119,7 @@ bfd/test_bfd_traffic.py:
   skip:
     reason: "Test only supported on Cisco 8800 platforms."
     conditions:
-      - "asic_type not in ['cisco-8000', 'vpp']"
+      - "asic_type not in ['cisco-8000']"
 
 #######################################
 #####            bgp              #####
@@ -2752,4 +2752,3 @@ zmq/test_gnmi_zmq.py:
     reason: "Test is for smartswitch"
     conditions:
       - "'arista' in platform"
-

@@ -1678,7 +1678,7 @@ platform_tests/test_power_off_reboot.py:
 #######################################
 #####          COPP               #####
 #######################################
-copp/test_copp.py:
+copp:
   skip:
     reason: >
             Unsupported
@@ -1689,31 +1689,7 @@ copp/test_copp.py:
 #######################################
 #####          Everflow           #####
 #######################################
-everflow/test_everflow_testbed.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-everflow/everflow_test_utilities.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-everflow/test_everflow_per_interface.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-everflow/test_everflow_ipv6.py:
+everflow:
   skip:
     reason: >
             Unsupported
@@ -1724,7 +1700,7 @@ everflow/test_everflow_ipv6.py:
 #######################################
 #####           MPLS              #####
 #######################################
-mpls/test_mpls.py:
+mpls:
   skip:
     reason: >
             Failed/Errored: Unsupported
@@ -1735,47 +1711,7 @@ mpls/test_mpls.py:
 #######################################
 #####          PFCWD              #####
 #######################################
-pfcwd/test_pfcwd_warm_reboot.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pfcwd/test_pfc_config.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pfcwd/test_pfcwd_cli.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pfcwd/test_pfcwd_all_port_storm.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pfcwd/test_pfcwd_function.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pfcwd/test_pfcwd_timer_accuracy.py:
+pfcwd:
   skip:
     reason: >
             Unsupported
@@ -1786,87 +1722,7 @@ pfcwd/test_pfcwd_timer_accuracy.py:
 #######################################
 #####          QOS                #####
 #######################################
-qos/test_tunnel_qos_remap.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_buffer.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_qos_sai.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_ecn_config.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_pfc_counters.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_qos_dscp_mapping.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_qos_masic.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_pfc_pause.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_buffer_traditional.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_pfc_counters.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-qos/test_qos_sai.py:
+qos:
   skip:
     reason: >
             Unsupported
