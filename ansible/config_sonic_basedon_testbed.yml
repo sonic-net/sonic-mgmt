@@ -70,17 +70,10 @@
         is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
 
     - block:
-        - name: Set l1 connection script path
+        - name: Set L1 connection script path
           set_fact:
             script_path: "{{ playbook_dir }}/l1_port_mapper.py"
             csv_dir: "{{ playbook_dir }}/files"
-
-        - name: Debug l1 connection script path and csv directory
-          debug:
-            msg:
-              - "script_path: {{ script_path }}"
-              - "csv_dir: {{ csv_dir }}"
-          debugger: always
 
         - name: Configure L1 switches
           include_tasks: config_l1_testbed.yaml
@@ -93,15 +86,11 @@
           when: 
             - is_ixia_testbed is defined
             - is_ixia_testbed | bool
-            - configure_l1 | default(true) | bool
-
-        - name: Debug L1 switch configuration
-          debug:
-            msg: "Configured L1 switch: {{ target_l1_switch }}"
+            - configure_l1 | default(false) | bool
       when: 
         - is_ixia_testbed is defined
         - is_ixia_testbed | bool
-        - configure_l1 | default(true) | bool
+        - configure_l1 | default(false) | bool
 
     - name: set vm
       set_fact:
