@@ -26,7 +26,8 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
-    container_name = asic.get_docker_name("swss")
+    feature_name = "swss"
+    container_name = asic.get_docker_name(feature_name)
     program_name = "orchagent"
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
