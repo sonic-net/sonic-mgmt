@@ -19,6 +19,7 @@ import copy
 import tempfile
 import uuid
 import paramiko
+import asyncio
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
@@ -160,6 +161,55 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         else:
             logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
             time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        return False
+
+
+async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    @summary: Same as wait_until but async
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True. If the condition function raises an
+        exception, log the error and keep waiting and polling.
+    """
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+                 (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        await asyncio.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        logger.debug("Time elapsed: %f seconds" % elapsed_time)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
+            check_result = False
+
+        if check_result:
+            logger.debug("%s is True, exit early with True" % condition.__name__)
+            return True
+        else:
+            logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
+            await asyncio.sleep(interval)
             elapsed_time = time.time() - start_time
 
     if elapsed_time >= timeout:
