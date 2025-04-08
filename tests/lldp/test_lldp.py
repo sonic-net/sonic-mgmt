@@ -25,12 +25,15 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
-    container_name = asic.get_docker_name("swss")
+    feature_name = "swss"
+    container_name = asic.get_docker_name(feature_name)
     program_name = "orchagent"
 
     logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
 
-    duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+    # disable feature autorestart. Feature is enabled/disabled at feature level and
+    # not per container namespace level.
+    duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
     _, program_pid = get_program_info(duthost, container_name, program_name)
     kill_process_by_pid(duthost, container_name, program_name, program_pid)
     is_running = is_container_running(duthost, container_name)
