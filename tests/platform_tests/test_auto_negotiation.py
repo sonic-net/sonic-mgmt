@@ -329,14 +329,31 @@ def test_force_speed(enum_speed_per_dutport_fixture):
     )
 
     FEC_FOR_SPEED = {
-        25000: 'fc',
-        50000: 'fc',
-        100000: 'rs',
-        200000: 'rs',
-        400000: 'rs'
+        10000: ['None', 'fc'],
+        25000: ['None', 'fc', 'rs'],
+        50000: ['None', 'fc', 'rs'],
+        100000: ['None', 'rs'],
+        200000: ['rs'],
+        400000: ['rs'],
+        800000: ['rs']
     }
 
-    fec_mode = FEC_FOR_SPEED.get(int(speed))
+    fec_mode_for_speed = FEC_FOR_SPEED.get(int(speed))
+    if not fec_mode_for_speed:
+        fec_mode_for_speed = ['None']
+
+    dut_current_port_fec = duthost.get_port_fec(dut_port)
+    dut_supported_fecs = duthost.get_supported_fecs(dut_port)
+    if not dut_supported_fecs:
+        dut_supported_fecs = [dut_current_port_fec]
+
+    fanout_supported_fecs = fanout.get_supported_fecs(fanout_port)
+    if not fanout_supported_fecs:
+        fanout_supported_fecs = [dut_current_port_fec]
+
+    fec_mode = list(set(dut_supported_fecs) & set(fanout_supported_fecs) & set(fec_mode_for_speed))[0]
+    if not fec_mode:
+        fec_mode = dut_current_port_fec
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
     # Disable auto negotiation on fanout port
