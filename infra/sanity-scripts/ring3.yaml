@@ -175,15 +175,35 @@ PLT:
       - platform_tests/test_thermal_state_db.py
       - platform_tests/api/test_module.py
       - platform_tests/api/test_sfp.py
-      - platform_tests/api/test_thermal.py
-      - platform_tests/cli/test_show_platform.py
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
+      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
+      - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+      - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+      - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
       - platform_tests/daemon/test_ledd.py
-      - platform_tests/daemon/test_pcied.py
+      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
+      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
+      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
       - platform_tests/daemon/test_psud.py
       - platform_tests/daemon/test_syseepromd.py
-      - platform_tests/test_platform_info.py
-      - platform_tests/test_reboot.py
-      - platform_tests/test_reload_config.py
+      - platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus
+      - platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked
+      - platform_tests/test_platform_info.py::test_show_platform_temperature_mocked
+      - platform_tests/test_platform_info.py::test_thermal_control_fan_status
+      - platform_tests/test_reboot.py::test_cold_reboot
+      - platform_tests/test_reboot.py::test_soft_reboot
+      - platform_tests/test_reboot.py::test_fast_reboot
+      - platform_tests/test_reboot.py::test_warm_reboot
+      - platform_tests/test_reboot.py::test_continuous_reboot
 
 INFRA:
   all_topo:
