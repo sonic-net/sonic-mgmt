@@ -76,7 +76,7 @@
             csv_dir: "{{ playbook_dir }}/files"
 
         - name: Configure L1 switches
-          include_tasks: config_l1_testbed.yaml
+          include_tasks: config_l1_testbed.yml
           vars:
             num_ports: "{{ num_ports_to_connect | default(3) }}"
             target_sonic_host: "{{ sonic_hostname }}"
