@@ -1,13 +1,7 @@
-try:
-    import importlib.util
-    import importlib.machinery
-    use_importlib = True
-except ImportError:
-    import imp
-    use_importlib = False
 import subprocess
 import pytest
 import logging
+from ansible.devutil.testbed import load_source
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +25,6 @@ PERMITTED_KEXS = [
 ]
 
 
-def load_source(modname, filename):
-    loader = importlib.machinery.SourceFileLoader(modname, filename)
-    spec = importlib.util.spec_from_file_location(modname, filename, loader=loader)
-    module = importlib.util.module_from_spec(spec)
-    # The module is always executed and not cached in sys.modules.
-    # Uncomment the following line to cache the module.
-    # sys.modules[module.__name__] = module
-    loader.exec_module(module)
-    return module
-
-
 def generate_ssh_ciphers(request, typename):
     if typename == "enc":
         remote_cmd = "ssh -Q cipher"
@@ -60,10 +43,7 @@ def generate_ssh_ciphers(request, typename):
 
     testbed_name = request.config.option.testbed
     testbed_file = request.config.option.testbed_file
-    if use_importlib:
-        testbed_module = load_source('testbed', 'common/testbed.py')
-    else:
-        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+    testbed_module = load_source('testbed', 'common/testbed.py')
     tbinfo = testbed_module.TestbedInfo(
         testbed_file).testbed_topo.get(testbed_name, None)
 

@@ -6,9 +6,30 @@ import itertools
 import os
 import re
 import yaml
+try:
+    import importlib.util
+    import importlib.machinery
+    use_importlib = True
+except ImportError:
+    import imp
+    use_importlib = False
 from typing import Any, Dict, List, Optional
-
 from devutil.device_inventory import DeviceInfo, DeviceInventory
+
+
+def load_source(modname, filename):
+    if use_importlib:
+        loader = importlib.machinery.SourceFileLoader(modname, filename)
+        spec = importlib.util.spec_from_file_location(modname, filename, loader=loader)
+        module = importlib.util.module_from_spec(spec)
+        # The module is always executed and not cached in sys.modules.
+        # Uncomment the following line to cache the module.
+        # sys.modules[module.__name__] = module
+        loader.exec_module(module)
+    else:
+        # For Python 2.x compatibility
+        module = imp.load_source(modname, filename)
+    return module
 
 
 class TestBed(object):

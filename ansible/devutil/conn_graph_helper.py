@@ -1,7 +1,7 @@
 import os
 import inspect
 import sys
-import imp
+from ansible.devutil.testbed import load_source
 
 CONN_GRAPH_LOG = "/tmp/conn_graph_debug.txt"
 
@@ -18,7 +18,7 @@ def get_conn_graph_facts(hostnames):
     if ansible_path not in sys.path:
         sys.path.append(ansible_path)
 
-    utils = imp.load_source('conn_graph_utils', os.path.join(
+    utils = load_source('conn_graph_utils', os.path.join(
         ansible_path, 'library/conn_graph_facts.py'))
     utils.LAB_GRAPHFILE_PATH = os.path.join(
         ansible_path, utils.LAB_GRAPHFILE_PATH)
