@@ -1495,7 +1495,7 @@ class DataAnalyzer(BasicAnalyzer):
                 check_next_level = False
                 return check_next_level, prev_level_data
 
-        if total_success_rate <= branch_threshold:
+        if total_success_rate < branch_threshold:
             if total_success_rate == 0:
                 logger.info("All cases for {} on branch {} failed in 30 days.".format(
                 case_name, branch))
@@ -1564,7 +1564,7 @@ class DataAnalyzer(BasicAnalyzer):
             os_version_threshold = configuration["os_version_config"][latest_osversion].get("threshold", os_version_threshold)
         total_number = int(success_rate.split("/")[2])
         pass_rate = int(success_rate.split("%")[0])
-        if pass_rate <= os_version_threshold:
+        if pass_rate < os_version_threshold:
             if (internal_version and total_number >= total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['OSVersion'] == latest_osversion)]
@@ -1628,7 +1628,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on topology {} is 100%, skip it.".format(
                         case_name_branch, topology))
                     continue
-                if int(success_rate.split("%")[0]) <= topology_threshold:
+                if int(success_rate.split("%")[0]) < topology_threshold:
                     topology_failed_df = topology_df[topology_df['Result'] != 'success']
                     if topology_failed_df.empty:
                         logger.info("{} All results for topology {} are success. Ignore this topology.".format(case_name_branch, topology))
@@ -1707,7 +1707,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on asic {} is 100%, skip it.".format(
                         case_name_branch, asic))
                     continue
-                elif int(success_rate.split("%")[0]) <= asic_threshold:
+                elif int(success_rate.split("%")[0]) < asic_threshold:
                     asic_failed_df = asic_case_df[asic_case_df['Result'] != 'success']
                     if asic_failed_df.empty:
                         logger.info("{} All results for asic {} are success. Ignore this asic.".format(case_name_branch, asic))
@@ -1787,7 +1787,7 @@ class DataAnalyzer(BasicAnalyzer):
                     logger.info("{} The success rate on hwsku {} is 100%, skip it.".format(
                         case_name_branch, hwsku))
                     continue
-                elif int(success_rate.split("%")[0]) <= hwsku_threshold:
+                elif int(success_rate.split("%")[0]) < hwsku_threshold:
                     hwsku_failed_df = hwsku_df[hwsku_df['Result'] != 'success']
                     if hwsku_failed_df.empty:
                         logger.info("{} All results for hwsku {} are success. Ignore this hwsku.".format(case_name_branch, hwsku))
@@ -1878,7 +1878,8 @@ class DataAnalyzer(BasicAnalyzer):
 
             hwsku_osversion_results = self.calculate_combined_success_rate(
                 branch_df, 'hwsku_osversion')
-
+            logger.debug("{} combined hwsku and osversion success rate : {}".format(
+                        case_name_branch, json.dumps(hwsku_osversion_results, indent=4)))
             for hwsku_osversion_pass_rate in hwsku_osversion_results["success_rate"]:
                 hwsku_osversion = hwsku_osversion_pass_rate.split(":")[
                     0].strip()
@@ -1891,7 +1892,7 @@ class DataAnalyzer(BasicAnalyzer):
                 success_rate = hwsku_osversion_pass_rate.split(":")[
                     1].strip()
 
-                if int(success_rate.split("%")[0]) <= hwsku_osversion_threshold:
+                if int(success_rate.split("%")[0]) < hwsku_osversion_threshold:
                     hwsku_os_failed_df = branch_df[(branch_df['Result'] != 'success') &
                                                         (branch_df['HardwareSku_OSVersion'] == hwsku_osversion)]
                     if hwsku_os_failed_df.empty:
@@ -1987,7 +1988,7 @@ class DataAnalyzer(BasicAnalyzer):
                 hwsku = topology_hwsku[last_underscore+1:]
                 success_rate = topology_hwsku_pass_rate.split(":")[1].strip()
 
-                if int(success_rate.split("%")[0]) <= topology_hwsku_threshold:
+                if int(success_rate.split("%")[0]) < topology_hwsku_threshold:
                     topology_hwsku_failed_df = branch_df[(branch_df['Result'] != 'success') & (branch_df['Topology_HardwareSku'] == topology_hwsku)]
                     if topology_hwsku_failed_df.empty:
                         logger.info("{} All results for topology_hwsku {} are success. Ignore this topology_hwsku.".format(case_name_branch, topology_hwsku))

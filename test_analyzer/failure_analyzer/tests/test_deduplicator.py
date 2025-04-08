@@ -254,7 +254,6 @@ class TestDeduplicator(unittest.TestCase):
 
 
     def test_deduplication(self):
-        setup_error_new_icm_table = []
         common_summary_new_icm_table = []
         original_failure_dict = [
             {'table': [
@@ -360,8 +359,7 @@ class TestDeduplicator(unittest.TestCase):
             'type': 'general'}
         ]
         branches = ['master', 'internal', '202012', '202205', '202305', '202311', '202405']
-        _, actual_final_icm_list, actual_duplicated_icm_list = self.deduplicator.deduplication(setup_error_new_icm_table,
-                                                                                 common_summary_new_icm_table,
+        _, actual_final_icm_list, actual_duplicated_icm_list = self.deduplicator.deduplication(common_summary_new_icm_table,
                                                                                  original_failure_dict, branches)
         expected_final_icm_list = [
             {
