@@ -202,7 +202,7 @@ def test_addcluster_workflow(duthost):
             for line in result.splitlines():
                 if portchannel in line:
                     # Check if status is LACP(A)(Up)
-                    pytest_assert("LACP(A)(Up)" in line, 
+                    pytest_assert("LACP(A)(Up)" in line,
                                   f"{portchannel} is not up. Current status: {line}")
                     break
 
@@ -233,10 +233,10 @@ def test_addcluster_workflow(duthost):
         for neighbor in bgp_neighbors_to_check:
             logger.info(f"Checking BGP neighbor {neighbor}")
             if ':' in neighbor:  # IPv6 address
-                pytest_assert(check_bgp_status(result_v6, neighbor), 
+                pytest_assert(check_bgp_status(result_v6, neighbor),
                               f"IPv6 BGP session with {neighbor} not established")
             else:  # IPv4 address
-                pytest_assert(check_bgp_status(result_v4, neighbor), 
+                pytest_assert(check_bgp_status(result_v4, neighbor),
                               f"IPv4 BGP session with {neighbor} not established")
 
     # Step 12: Verify all addcluster.json changes are reflected in CONFIG_DB
