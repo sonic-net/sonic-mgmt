@@ -43,9 +43,9 @@ r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Faile
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 
 # White list below messages found on KVM for now. Need to address them later.
-r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
-r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
-r, ".* ERR macsec#wpa_supplicant.*KaY: Life time has not elapsed since prior SAK distributed.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*l2_packet_send.*Network is down.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
+r, ".* ERR macsec\d*#wpa_supplicant.*KaY: Life time has not elapsed since prior SAK distributed.*"
 r, ".* ERR systemd.*Failed to start dhcp_relay container.*"
 r, ".* ERR monit.* 'rsyslog' failed to get service data.*"
 r, ".* ERR monit.* 'rsyslog' process is not running.*"
@@ -311,8 +311,9 @@ r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 # ignore TACACS login failure, which will happen when other user trying login device when running test
 r, ".* ERR sshd\[\d*\]: auth fail.*"
 
-# ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
+# ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
+r, ".* ERR chrony\[\d*\]: nss_tacplus: .*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
@@ -335,3 +336,6 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 
 # Ignore notifications about fabric port status changes on LCs
 r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*"
+
+# Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
+r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
