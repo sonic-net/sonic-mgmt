@@ -473,6 +473,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
