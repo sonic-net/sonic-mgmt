@@ -28,7 +28,7 @@ class KustoConnector():
             to improve the high availability of test result data service
             by hosting a backup cluster, which is optional.
         """
-        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_URL")
         access_token = os.getenv('ACCESS_TOKEN', None)
 
         if not ingest_cluster or not access_token:

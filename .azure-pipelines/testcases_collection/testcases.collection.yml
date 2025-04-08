@@ -77,4 +77,4 @@ stages:
               sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
                     python ../.azure-pipelines/testcases_collection/collect_testcases.py . SonicTestData
           env:
-            TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
