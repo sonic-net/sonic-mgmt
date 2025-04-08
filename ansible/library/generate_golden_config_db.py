@@ -120,7 +120,7 @@ class GenerateGoldenConfigDBModule(object):
             return "{}"
         ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "disabled"
 
-        # Generate INTERFACE table for EthernetBPXX
+        # Generate INTERFACE table for backplane interfaces
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
 
