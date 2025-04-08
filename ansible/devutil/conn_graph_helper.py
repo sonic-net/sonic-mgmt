@@ -1,7 +1,7 @@
 import os
 import inspect
 import sys
-from ansible.devutil.testbed import load_source
+from devutil.testbed import load_source
 
 CONN_GRAPH_LOG = "/tmp/conn_graph_debug.txt"
 

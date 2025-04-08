@@ -11,7 +11,7 @@ try:
 except ImportError:
     # ToDo: Support running without Ansible
     has_ansible = False
-from ansible.devutil.testbed import load_source
+from devutil.testbed import load_source
 
 ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)

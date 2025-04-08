@@ -5,7 +5,7 @@ import os
 from functools import wraps
 from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure
 from ansible.plugins import connection
-from ansible.devutil.testbed import load_source
+from devutil.testbed import load_source
 
 logger = logging.getLogger(__name__)
 

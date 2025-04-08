@@ -9,7 +9,7 @@ import collections
 import datetime
 import time
 import tempfile
-from ansible.devutil.testbed import load_source
+from devutil.testbed import load_source
 # Add tests path to syspath
 sys.path.append('../')
 
