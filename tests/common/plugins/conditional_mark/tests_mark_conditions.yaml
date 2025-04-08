@@ -2751,4 +2751,4 @@ zmq/test_gnmi_zmq.py:
   skip:
     reason: "Test is for smartswitch"
     conditions:
-      - "'arista' in platform"
+      - "'arista' in platform" 
