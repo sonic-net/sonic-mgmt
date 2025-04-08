@@ -50,7 +50,8 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -484,8 +485,27 @@ def duthost(duthosts, request):
     return duthost
 
 
+@pytest.fixture(scope="session")
+def enable_nat_for_dpuhosts(duthosts, ansible_adhoc, request):
+    """
+    @summary: fixture to enable nat for dpuhost.
+    @param duthosts: fixture to get DUT hosts
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param request: request parameters for duthost test fixture
+    """
+    dpuhost_names = get_specified_dpus(request)
+    if dpuhost_names:
+        logging.info(f"dpuhost_names: {dpuhost_names}")
+        for duthost in duthosts:
+            if not is_enabled_nat_for_dpu(duthost, request):
+                dpu_name_ssh_port_dict = get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc)
+                enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request)
+
+
 @pytest.fixture(name="dpuhosts", scope="session")
-def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_nat_for_dpuhosts):
     """
     @summary: fixture to get DPU hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
