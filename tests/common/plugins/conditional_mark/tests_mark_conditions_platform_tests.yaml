@@ -776,19 +776,21 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
@@ -828,11 +830,12 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
   skip:
-    reason: "Unsupported platform API"
     conditions_logical_operator: or
+    reason: "Unsupported platform API in mellanox. Skip in case of Cisco platform for T2 profile due to temperarory bug."
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
   skip:
@@ -883,7 +886,7 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type not in ['broadcom']"
-      - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
+      - "platform in ['x86_64-arista_720dt_48s']"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
 
 #######################################
@@ -935,7 +938,7 @@ platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue
   skip:
     reason: "Unsupported topology"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
 
 #######################################
 #####           daemon            #####
@@ -985,6 +988,14 @@ platform_tests/mellanox:
     reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
+
+platform_tests/mellanox/test_check_sfp_eeprom.py:
+  skip:
+    reason: "202405 and 202411 not support command like 'mlxlink -d /dev/mst/mt53104_pci_cr0 -p 1 -m' on mellanox spc3 devices when software control is enabled"
+    conditions_logical_operator: or
+    conditions:
+      - "'SN4' in hwsku and (release in ['202405', '202411'])"
+      - "'SN5' in hwsku and (release in ['202405', '202411'])"
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
@@ -1099,6 +1110,15 @@ platform_tests/test_kdump.py:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
+########   test_link_down.py   ########
+#######################################
+platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
+  skip:
+    reason: "Skip for non T2"
+    conditions:
+      - "topo_type not in ['t2']"
+
+#######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
@@ -1184,11 +1204,12 @@ platform_tests/test_reboot.py::test_cold_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for m0/mx/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+      - "release in ['202412']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1197,9 +1218,9 @@ platform_tests/test_reboot.py::test_fast_reboot:
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
-    reason: "Skip test_soft_reboot for m0/mx and test is supported only on S6100 hwsku"
+    reason: "Skip test_soft_reboot for M* and test is supported only on S6100 hwsku"
     conditions:
-      - "topo_type in ['m0', 'mx'] or hwsku not in ['Force10-S6100']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3'] or hwsku not in ['Force10-S6100']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1208,10 +1229,10 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for m0/mx/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot for M*/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1283,6 +1304,17 @@ platform_tests/test_service_warm_restart.py:
     reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
+
+#######################################
+#####test_thermal_state_db.py #####
+#######################################
+
+platform_tests/test_thermal_state_db.py:
+  skip:
+    reason: "Skip in case of Cisco platform for T2 profile due to temperarory bug."
+    conditions:
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
