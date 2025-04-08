@@ -21,15 +21,17 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
     @param dpu_name: Name of the DPU (optional)
     """
     hostname = duthost.hostname
-    logger.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
     if reboot_type == REBOOT_TYPE_COLD:
         if duthost.is_smartswitch():
             if dpu_name is None:
-                logger.info("Rebooting the switch {} with cold reboot".format(hostname))
+                logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
+                sync_reboot_history_queue_with_dut(hostname)
+
+                logger.info("Rebooting the switch {} with type {}".format(hostname, reboot_type))
                 return duthost.command("sudo reboot")
             else:
-                logger.info("Rebooting the DUT {} with cold reboot".format(hostname))
+                logger.info("Rebooting the DPU {} with type {}".format(dpu_name, reboot_type))
                 return duthost.command("sudo reboot -d {}".format(dpu_name))
         elif duthost.is_dpu():
             pytest.skip("Skipping the reboot test as the DUT is a DPU")
@@ -48,15 +50,13 @@ def perform_reboot(duthost, reboot_type=REBOOT_TYPE_COLD, dpu_name=None):
     if reboot_type not in reboot_dict:
         pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
 
-    logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
-    sync_reboot_history_queue_with_dut(duthost)
-
     res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
     if res['failed'] is True:
         if dpu_name is None:
             pytest.fail("Failed to reboot the {} with type {}".format(duthost.hostname, reboot_type))
         else:
-            pytest.fail("Failed to reboot the DPU {}".format(dpu_name))
+            pytest.fail("Failed to reboot the DPU {} with type {}".format(dpu_name, reboot_type))
 
-    logger.info("Appending the last reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
+    if dpu_name is None:
+        logger.info("Appending the last reboot type to the queue")
+        REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)

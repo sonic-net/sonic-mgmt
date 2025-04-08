@@ -148,7 +148,16 @@ reboot_ss_ctrl_dict = {
     REBOOT_TYPE_COLD: {
         "command": "reboot",
         "timeout": 300,
-        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot"
+        "wait": 120,
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
+        "test_reboot_cause_only": False
+        },
+    REBOOT_TYPE_WATCHDOG: {
+        "command": "watchdogutil arm -s 5",
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Watchdog",
+        "test_reboot_cause_only": True
     }
 }
 
