@@ -1,7 +1,20 @@
 steps:
 - script: |
-    # set -x
+    # Check for any .bats files and run them if found
+    cd sonic-metadata
+    cd scripts/tests
+    if ls *.bats 1> /dev/null 2>&1; then
+      for test_file in *.bats; do
+        bats "$test_file"
+      done
+    else
+      echo "No .bats files found."
+    fi
+  displayName: 'Run Bats tests'
+
+- script: |
+    # Run Python unit tests
     cd sonic-metadata
     cd scripts/tests
     python3 -m pytest
-  displayName: Unit test SONiC metadata scripts
+  displayName: 'Unit test SONiC metadata scripts'

@@ -167,6 +167,18 @@ all:
         bjw2-2-b:
           ansible_host: 10.150.23.127
           ansible_hostv6: 2404:f801:10:2200::a96:177f
+        bjw2-9-1:
+          ansible_host: 10.150.23.128
+          ansible_hostv6: 2404:f801:10:2200::a96:1780
+        bjw2-9-2:
+          ansible_host: 10.150.23.129
+          ansible_hostv6: 2404:f801:10:2200::a96:1781
+        bjw2-9-3:
+          ansible_host: 10.150.23.130
+          ansible_hostv6: 2404:f801:10:2200::a96:1782
+        bjw2-9-4:
+          ansible_host: 10.150.23.131
+          ansible_hostv6: 2404:f801:10:2200::a96:1783
 
     pdu:
       hosts:
@@ -1642,33 +1654,93 @@ sonic_arista_7050_S128:
       ansible_hostv6: 2404:f801:10:2200::a96:1660
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial:
-      base_mac:
+      serial: HBG244605RM
+      base_mac: 54:0f:2c:48:ab:6c
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG244605RM"
+        "0x24": "54:0f:2c:48:ab:6c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG244605RM"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7050-6:
       ansible_host: 10.150.22.98
       ansible_hostv6: 2404:f801:10:2200::a96:1662
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial:
-      base_mac:
+      serial: HBG244605SB
+      base_mac: 54:0f:2c:49:39:bc
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG244605SB"
+        "0x24": "54:0f:2c:49:39:bc"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG244605SB"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7050-7:
       ansible_host: 10.150.22.99
       ansible_hostv6: 2404:f801:10:2200::a96:1663
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial:
-      base_mac:
+      serial: HBG2446065U
+      base_mac: 54:0f:2c:4d:01:90
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG2446065U"
+        "0x24": "54:0f:2c:4d:01:90"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG2446065U"
+        "0xFE": "0xdeadbeef"
     bjw2-can-7050-8:
-      ansible_host: 10.150.22.96
+      ansible_host: 10.150.22.216
       ansible_hostv6: 2404:f801:10:2200::a96:16d8
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial:
-      base_mac:
+      serial: HBG244605SM
+      base_mac: 54:0f:2c:49:7d:cc
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG244605SM"
+        "0x24": "54:0f:2c:49:7d:cc"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG244605SM"
+        "0xFE": "0xdeadbeef"
 
 
 server:

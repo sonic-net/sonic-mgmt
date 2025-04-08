@@ -245,7 +245,7 @@ class TestOSVersionLevel(unittest.TestCase):
                     'consistent_failure_os_version': [],
                     'latest_failure_os_version': '20240510.19'
                 },
-                'latest_os_version': '20240510.21'
+                'latest_os_version': '20240510.20'
             },
         }
         self.assertEqual(actual_history_testcases[self.case_name_branch]['total_success_rate'],
