@@ -2,8 +2,5 @@ azure-kusto-data==4.5.1
 azure-kusto-ingest==4.5.1
 defusedxml==0.7.1
 setuptools-rust==1.1.2
-numpy==1.24.4
-pandas==2.0.3
-crontab==1.0.1
-azure-loganalytics==0.1.1
-msrestazure==0.6.4
+numpy==2.2.4
+pandas==2.2.3
