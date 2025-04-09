@@ -1,10 +1,8 @@
 import pytest
 import logging
-import re
-from tests.common import reboot
-from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version,\
-    upgrade_test_helper, check_asic_and_db_consistency
+from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, check_asic_and_db_consistency
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
+from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import verify_dut_health    # noqa F401
@@ -14,7 +12,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
 
@@ -44,47 +41,16 @@ def upgrade_path_lists(request):
     return upgrade_type, from_list, to_list, restore_to_image, enable_cpa
 
 
-def cleanup_prev_images(duthost):
-    logger.info("Cleaning up previously installed images on DUT")
-    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-    duthost.shell("sonic_installer set_next_boot {}".format(current_os_version), module_ignore_errors=True)
-    duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
-    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
-
-
 def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                        upgrade_type, modify_reboot_script=None, allow_fail=False):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
     cleanup_prev_images(duthost)
     # Install base image
-    logger.info("Installing {}".format(from_image))
-    try:
-        target_version = install_sonic(duthost, from_image, tbinfo)
-    except RunAnsibleModuleFail as err:
-        migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
-        msg = err.results['msg'].replace('\n', '')
-        if re.search(migration_err_regexp, msg):
-            logger.info(
-                "Ignore the package migration error when downgrading to from_image")
-            target_version = duthost.shell(
-                "cat /tmp/downloaded-sonic-image-version")['stdout']
-        else:
-            raise err
-    # Remove old config_db before rebooting the DUT in case it is not successfully
-    # removed in install_sonic due to migration error
-    logger.info("Remove old config_db file if exists, to load minigraph from scratch")
-    if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
-        duthost.shell("rm -f /host/old_config/config_db.json")
-    # Perform a cold reboot
-    logger.info("Cold reboot the DUT to make the base image as current")
-    # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
-    reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
-    reboot(duthost, localhost, reboot_type=reboot_type)
-    check_sonic_version(duthost, target_version)
+    boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
-    target_version = install_sonic(duthost, to_image, tbinfo)
+    install_sonic(duthost, to_image, tbinfo)
 
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script

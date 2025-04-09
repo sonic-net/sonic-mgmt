@@ -738,18 +738,8 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
                                            format(observed_start_count, observed_end_count))
 
 
-@pytest.fixture()
-def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
-    """
-    Advance reboot log analysis.
-    This fixture starts log analysis at the beginning of the test. At the end,
-    the collected expect messages are verified and timing of start/stop is calculated.
-
-    Args:
-        duthosts : List of DUT hosts
-        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
+    """Create pre-reboot and post-reboot analysis functions via `LogAnalyzer` with optional marker postfix"""
     test_name = request.node.name
     if "upgrade_path" in test_name:
         reboot_type_source = request.config.getoption("--upgrade_type")
@@ -761,18 +751,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         reboot_type = "fast"
     else:
         reboot_type = "unknown"
-    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
-    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
-    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-        device_marks = [arg for mark in request.node.iter_markers(
-            name='device_type') for arg in mark.args]
-        if 'vs' not in device_marks:
-            pytest.skip('Testcase not supported for kvm')
     platform = duthost.facts["platform"]
     logs_in_tmpfs = list()
 
+    marker_prefix = "test_advanced_reboot_{}".format(test_name) if not marker_postfix else\
+        "test_advanced_reboot_{}_{}".format(test_name, marker_postfix)
     loganalyzer = LogAnalyzer(
-        ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
+        ansible_host=duthost, marker_prefix=marker_prefix)
     base_os_version = list()
 
     def bgpd_log_handler(preboot=False):
@@ -926,7 +911,61 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 duthost, event_counters, analyze_result, verification_errors)
         return verification_errors
 
+    return pre_reboot_analysis, post_reboot_analysis
+
+
+@pytest.fixture()
+def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    """
+    Advance reboot log analysis.
+    This fixture starts log analysis at the beginning of the test. At the end,
+    the collected expect messages are verified and timing of start/stop is calculated.
+
+    Args:
+        duthosts : List of DUT hosts
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(
+            name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
+    pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(duthost, request)
     yield pre_reboot_analysis, post_reboot_analysis
+
+
+@pytest.fixture()
+def multihop_advanceboot_loganalyzer_factory(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+    """
+    Advance reboot log analysis involving multiple hops.
+    This fixture returns a factory function requiring the hop_index to be supplied.
+    Then, it starts log analysis at the beginning of the test. At the end,
+    the collected expect messages are verified and timing of start/stop is calculated.
+
+    Args:
+        duthosts : List of DUT hosts
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
+        request: pytests request fixture
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(
+            name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
+    def _multihop_advanceboot_loganalyzer_factory(hop_index):
+        pre_reboot_analysis, post_reboot_analysis = advanceboot_loganalyzer_factory(
+            duthost, request, marker_postfix="hop-{}".format(hop_index))
+        return pre_reboot_analysis, post_reboot_analysis
+
+    yield _multihop_advanceboot_loganalyzer_factory
 
 
 @pytest.fixture()
