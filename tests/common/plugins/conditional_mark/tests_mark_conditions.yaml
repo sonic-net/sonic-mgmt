@@ -721,6 +721,10 @@ dualtor_io/test_tor_failure.py:
     conditions:
       - "asic_type in ['vs']"
 
+tests/dualtor_io/test_switchover_impact.py:
+  skip:
+    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
+
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
     reason: "Has flaky issue on kvm testbed"
