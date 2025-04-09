@@ -9,7 +9,7 @@ import collections
 import datetime
 import time
 import tempfile
-from devutil.testbed import load_source
+from devutil.conn_graph_helper import load_source
 # Add tests path to syspath
 sys.path.append('../')
 

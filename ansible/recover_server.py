@@ -17,7 +17,7 @@ import sys
 import tempfile
 import threading
 import time
-from devutil.testbed import load_source
+from devutil.conn_graph_helper import load_source
 from tabulate import tabulate
 # Add tests path to syspath
 sys.path.append('../')
