@@ -1049,6 +1049,8 @@ def get_ipv4_loopback_ip(duthost):
                 if is_ipv4_address(ip):
                     loopback_ip = ip
                     break
+        if loopback_ip is not None:
+            break
 
     return loopback_ip
 
@@ -1407,3 +1409,22 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
