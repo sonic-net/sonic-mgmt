@@ -11,7 +11,6 @@ import os
 import six
 import scapy.all as scapyall
 import ptf.testutils as testutils
-from operator import itemgetter
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
