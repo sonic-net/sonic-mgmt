@@ -12,11 +12,11 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from tests.common import constants
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,8 @@ def initClassVars(func):
     """
     Automatically assign instance variables. currently handles only arg list
     """
-    names, varargs, keywords, defaults = inspect.getargspec(func)
+    signature = inspect.signature(func)
+    names = list(signature.parameters.keys())
 
     @functools.wraps(func)
     def wrapper(self, *args):
@@ -174,8 +175,8 @@ def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
 
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor_m,           # noqa F811
-                setup_standby_ports_on_rand_unselected_tor_unconditionally): # noqa F811
+                toggle_all_simulator_ports_to_rand_selected_tor_m,              # noqa: F811
+                setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa: F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -259,7 +260,7 @@ class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
     def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp):     # noqa F811
+                 intfs, ptf_ports, arp_entry, dscp):     # noqa: F811
         """
         Args:
             duthost(AnsibleHost) : dut instance
