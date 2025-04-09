@@ -22,7 +22,10 @@ CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
-    "docker-sonic-gnmi": "gnmi"
+    "docker-sonic-gnmi": "gnmi",
+    "docker-gnmi-watchdog": "gnmi_watchdog",
+    "docker-auditd": "auditd",
+    "docker-auditd-watchdog": "auditd_watchdog",
 }
 
 

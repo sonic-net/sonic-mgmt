@@ -209,7 +209,7 @@ def parse_monit_status_output(output, memory_params):
         if "memory usage" in line:
             match = re.search(memory_pattern, line)
             if match:
-                used_memory = match.group(1)         # noqa F841
+                used_memory = match.group(1)         # noqa: F841
                 memory_percentage = match.group(2)
                 memory_values['memory_usage'] = float(memory_percentage)
             else:
@@ -217,8 +217,8 @@ def parse_monit_status_output(output, memory_params):
         if "swap usage" in line:
             match = re.search(swap_pattern, line)
             if match:
-                used_swap = match.group(1)            # noqa F841
-                swap_percentage = match.group(2)      # noqa F841
+                used_swap = match.group(1)            # noqa: F841
+                swap_percentage = match.group(2)      # noqa: F841
             else:
                 logger.debug("Failed to parse swap usage from line: {}".format(line))
 

@@ -76,6 +76,6 @@ steps:
       exit 1
     fi
 
-    echo "$INSTANCE_NUMBER"
-    echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
+    INSTANCE_NUMBER=$(echo $INSTANCE_NUMBER | tr -d '\r' | tr -d ' ')
+    echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER; isOutput=true]$INSTANCE_NUMBER"
   displayName: "Calculate instance number"

@@ -37,7 +37,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
     fib_info = {}
     route_key = 'ROUTE*'
     if 'test_ecmp_group_member_flap' in testname:
-        route_key = 'ROUTE_TABLE:0\.0\.0\.0*'    # noqa W605
+        route_key = 'ROUTE_TABLE:0\.0\.0\.0*'    # noqa: W605
 
     # Collect system neighbors, inband intf and port channel info to resolve ptf ports
     # for system neigh or lags.
