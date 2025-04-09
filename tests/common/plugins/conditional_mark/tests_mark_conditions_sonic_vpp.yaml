@@ -1093,162 +1093,10 @@ syslog/test_logrotate.py syslog/test_syslog_source_ip.py:
 #######################################
 #####       Platform Tests        #####
 #######################################
-platform_tests/test_idle_driver.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/cli/test_show_chassis_module.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_process_reboot_cause.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_secure_upgrade.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/sfp/test_sfpshow.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_thermal.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_module.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/platform_api_test_base.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_component.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_chassis_fans.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_fan_drawer.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_chassis.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_psu_fans.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_sfp.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_fan_drawer_fans.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_psu.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/api/test_watchdog.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_sensors.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1256,151 +1104,7 @@ platform_tests/test_sensors.py:
 platform_tests/counterpoll/test_counterpoll_watermark.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_intf_fec.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_service_warm_restart.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_power_budget_info.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_kdump.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_check_sfp_eeprom.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_hw_management_service.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_check_sysfs.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_psu_power_threshold.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_reboot_cause.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_check_sfp_presence.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/mellanox/test_check_sfp_using_ethtool.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_fancontrol.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_psud.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_ledd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_chassisd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_sensord.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_syseepromd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/daemon/test_pcied.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1408,15 +1112,7 @@ platform_tests/daemon/test_pcied.py:
 platform_tests/test_sequential_restart.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_cont_warm_reboot.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1424,7 +1120,7 @@ platform_tests/test_cont_warm_reboot.py:
 platform_tests/test_xcvr_info_in_db.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1432,23 +1128,7 @@ platform_tests/test_xcvr_info_in_db.py:
 platform_tests/test_link_down.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_advanced_reboot.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1456,47 +1136,7 @@ platform_tests/test_advanced_reboot.py:
 platform_tests/test_port_toggle.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/link_flap/test_link_flap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/link_flap/test_cont_link_flap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_thermal_state_db.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/broadcom/test_ser.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_chassis_reboot.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1504,15 +1144,7 @@ platform_tests/test_chassis_reboot.py:
 platform_tests/test_cpu_memory_usage.py:
   skip:
     reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_power_off_reboot.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+            To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -1567,6 +1199,206 @@ pfcwd:
 #######################################
 #####       Platform Tests        #####
 #######################################
+platform_tests/test_idle_driver.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+      
+platform_tests/cli/test_show_chassis_module.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/sfp/test_sfpshow.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_thermal.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_chassis_fans.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_fan_drawer.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_chassis.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_psu_fans.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_sfp.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_fan_drawer_fans.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/api/test_psu.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/test_sensors.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/test_power_budget_info.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/mellanox/test_check_sfp_eeprom.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/mellanox/test_hw_management_service.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/mellanox/test_psu_power_threshold.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/mellanox/test_check_sfp_presence.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/mellanox/test_check_sfp_using_ethtool.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_fancontrol.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_psud.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_ledd.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_sensord.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_syseepromd.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/daemon/test_pcied.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 platform_tests/test_reload_config.py:
   skip:
     reason: >
