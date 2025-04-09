@@ -3,17 +3,17 @@ import time
 import random
 import logging
 import string
+import scapy
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
 import ptf.testutils as testutils
-import ptf.packet as scapy
+from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist, SRv6, dump_packet_detail, \
-    validate_srv6_in_appl_db, validate_techsupport_generation
+    validate_srv6_in_appl_db, validate_techsupport_generation, get_neighbor_mac
 from tests.common.reboot import reboot
 from tests.common.portstat_utilities import parse_portstat
-from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
@@ -25,11 +25,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def get_neighbor_mac(dut, neighbor_ip):
-    """Get the MAC address of the neighbor via the ip neighbor table"""
-    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):

@@ -1,6 +1,8 @@
 import logging
 import re
 import pytest
+import json
+from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
@@ -189,6 +191,24 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
         pass
 
 
+def compute_expected_packets(flow_rate_bps, pkt_size_bytes, duration_s, num_streams=1):
+    """
+    Computes the expected packet count and threshold based on traffic parameters.
+
+    Args:
+        flow_rate_bps (int): Flow rate in bits per second.
+        pkt_size_bytes (int): Packet size in bytes.
+        duration_s (int): Duration in seconds.
+        threshold_pct (int): Percentage threshold for filtering significant traffic.
+
+    Returns:
+        int: Minimum packet count threshold.
+    """
+    pkt_size_bits = (pkt_size_bytes + 20) * 8
+    expected_packets = (flow_rate_bps * duration_s) // pkt_size_bits
+    return int(expected_packets / num_streams * 0.95)  # 5 % margin
+
+
 def get_fabric_mapping(duthost, asic=""):
     """
     Retrieves the mapping between backplane and fabric interfaces dynamically.
@@ -211,3 +231,155 @@ def get_fabric_mapping(duthost, asic=""):
             fabric_map[match.group(1)] = match.group(2)
 
     return fabric_map
+
+
+def load_port_stats(stats, threshold, direction="both"):
+    """
+    Parses port statistics and filters interfaces involved in traffic forwarding.
+
+    Args:
+        stats (dict): Dictionary containing port statistics.
+        threshold (int): Minimum packet count to consider an interface active.
+        direction (str): Filter interfaces based on "tx", "rx", or "both"
+
+    Returns:
+        dict: Dictionary of interfaces with nonzero TX_OK and RX_OK above threshold.
+    """
+    active_interfaces = {}
+
+    for interface, data in stats.items():
+        tx_ok = int(data.get("TX_OK", 0).replace(",", ""))
+        rx_ok = int(data.get("RX_OK", 0).replace(",", ""))
+
+        # Consider interfaces with TX/RX OK counts above threshold
+        if (direction == "tx" and tx_ok > threshold):
+            active_interfaces[interface] = {"TX_OK": tx_ok}
+
+        if (direction == "rx" and rx_ok > threshold):
+            active_interfaces[interface] = {"RX_OK": rx_ok}
+
+        if (direction == "both" and (tx_ok > threshold or rx_ok > threshold)):
+            active_interfaces[interface] = {"TX_OK": tx_ok, "RX_OK": rx_ok}
+
+    return active_interfaces
+
+
+def infer_ecmp_backplane_ports(
+                                ingress_active_interfaces,
+                                egress_active_interfaces,
+                                ingress,
+                                egress,
+                                ingress_fabric_mapping,
+                                egress_fabric_mapping):
+    """
+    Identifies all backplane ports involved in ECMP traffic forwarding.
+
+    Args:
+        ingress_active_interfaces (dict): Interfaces on ingress DUT with TX_OK > threshold.
+        egress_active_interfaces (dict): Interfaces on egress DUT with RX_OK > threshold.
+        ingress (str): Known ingress port.
+        egress (str): Known egress port.
+        ingress_fabric_mapping (dict): Mapping of ingress DUT backplane interfaces to fabric interfaces.
+        egress_fabric_mapping (dict): Mapping of egress DUT backplane interfaces to fabric interfaces.
+
+    Returns:
+        list: List of traffic paths, each as an ordered list of interfaces.
+    """
+    # Step 1: Remove ingress and egress from active interfaces
+    ingress_active_interfaces = {k: v for k, v in ingress_active_interfaces.items() if k not in {ingress, egress}}
+    egress_active_interfaces = {k: v for k, v in egress_active_interfaces.items() if k not in {ingress, egress}}
+
+    tx_ports = []
+    rx_ports = []
+
+    for interface, stats in ingress_active_interfaces.items():
+        tx_ok = stats.get('TX_OK', 0)
+        rx_ok = stats.get('RX_OK', 0)
+
+        if tx_ok > rx_ok:  # Ports with more TX are considered transmitting backplanes
+            tx_ports.append((interface, tx_ok))
+
+    for interface, stats in egress_active_interfaces.items():
+        tx_ok = stats.get('TX_OK', 0)
+        rx_ok = stats.get('RX_OK', 0)
+
+        if rx_ok > tx_ok:
+            rx_ports.append((interface, rx_ok))
+
+    # Sort the lists based on TX_OK (for transmitting) or RX_OK (for receiving)
+    tx_ports = sorted(tx_ports, key=lambda x: x[1], reverse=True)
+    rx_ports = sorted(rx_ports, key=lambda x: x[1], reverse=True)
+
+    backplane_tx_ports = [port[0] for port in tx_ports]
+    backplane_rx_ports = [port[0] for port in rx_ports]
+
+    traffic_paths = []
+
+    # Always cycle the smaller list
+    if len(backplane_tx_ports) >= len(backplane_rx_ports):
+        rx_cycle = cycle(backplane_rx_ports)  # RX cycles if fewer or equal
+        for tx_bp in backplane_tx_ports:
+            rx_bp = next(rx_cycle)
+            fabric_rx = ingress_fabric_mapping.get(tx_bp)
+            fabric_tx = egress_fabric_mapping.get(rx_bp)
+            if fabric_rx and fabric_tx:
+                path = [ingress, tx_bp, fabric_rx, fabric_tx, rx_bp, egress]
+                traffic_paths.append(path)
+    else:
+        tx_cycle = cycle(backplane_tx_ports)  # TX cycles if fewer
+        for rx_bp in backplane_rx_ports:
+            tx_bp = next(tx_cycle)
+            fabric_rx = ingress_fabric_mapping.get(tx_bp)
+            fabric_tx = egress_fabric_mapping.get(rx_bp)
+            if fabric_rx and fabric_tx:
+                path = [ingress, tx_bp, fabric_rx, fabric_tx, rx_bp, egress]
+                traffic_paths.append(path)
+
+    return traffic_paths
+
+
+def set_cir_cisco_8000(dut, ports, asic="", speed=240151205000):
+    dshell_script = '''
+from common import *
+from sai_utils import *
+
+def set_port_cir(interface, rate):
+    mp = get_mac_port(interface)
+    sch = mp.get_scheduler()
+    sch.set_credit_cir(rate)
+'''
+
+    for intf in ports:
+        dshell_script += f'\nset_port_cir("{intf}", {speed})'
+
+    script_path = "/tmp/set_scheduler.py"
+    dut.copy(content=dshell_script, dest=script_path)
+    dest = f"syncd{asic.asic_index}"
+
+    dut.docker_copy_to_all_asics(
+        container_name=dest,
+        src=script_path,
+        dst="/")
+
+    cmd = "sudo show platform npu script -n {} -s set_scheduler.py".format(asic.namespace)
+    dut.shell(cmd)
+
+
+def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
+    asic_namespace_string = ""
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(interface)
+        asic_namespace_string = " -n " + asic.namespace
+
+    clear_cmd = ""
+    if clear:
+        clear_cmd = " -c"
+
+    full_line = "".join(duthost.shell(
+        "show platform npu voq queue_counters -t {} -i {} -d{}{}".
+        format(priority, interface, asic_namespace_string, clear_cmd))['stdout_lines'])
+    dict_output = json.loads(full_line)
+    for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
+        dict_output[entry] = value
+
+    return dict_output

@@ -14,6 +14,7 @@ from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
@@ -759,24 +760,34 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                     snmp_ipv6_address[duthost.hostname].append(ip_addr.lower())
 
     # Do config_reload after processing BOTH SNMP and MGMT config
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
-            logger.info(f"config changed. Doing config reload for {duthost.hostname}")
+    def config_reload_if_modified(dut):
+        if config_db_modified[dut.hostname]:
+            logger.info(f"config changed. Doing config reload for {dut.hostname}")
             try:
-                config_reload(duthost, wait=300, wait_for_bgp=True)
+                config_reload(dut, safe_reload=True, wait_for_bgp=True)
             except AnsibleConnectionFailure as e:
                 # IPV4 mgmt interface been deleted by config reload
                 # In latest SONiC, config reload command will exit after mgmt interface restart
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(config_reload_if_modified, duthost)
+
     duthosts.reset()
 
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
+    def wait_for_processes_and_bgp(dut):
+        if config_db_modified[dut.hostname]:
             # Wait until all critical processes are up,
             # especially snmpd as it needs to be up for SNMP status verification
-            wait_critical_processes(duthost)
-            wait_bgp_sessions(duthost)
+            wait_critical_processes(dut)
+            if not dut.is_supervisor_node():
+                wait_bgp_sessions(dut)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(wait_for_processes_and_bgp, duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"

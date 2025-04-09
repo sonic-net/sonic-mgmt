@@ -5,8 +5,8 @@ performance_meter:
     run: 10
     op: noop
     success_criteria: random_success_20_perc
-    random_success_20_perc_timeout: 10
-    random_success_20_perc_interval: 1
+    timeout: 10
+    interval: 1
     random_success_20_perc_foo: 42
     random_success_20_perc_success_rate_op: 1
     random_success_20_perc_success_rate: 0.7
@@ -17,8 +17,8 @@ performance_meter:
     run: 10
     op: bad_op
     success_criteria: random_success_20_perc
-    random_success_20_perc_timeout: 10
-    random_success_20_perc_delay: 5
+    timeout: 10
+    delay: 5
     random_success_20_perc_foo: 42
     random_success_20_perc_success_rate_op: 1
     random_success_20_perc_success_rate: 0.7
