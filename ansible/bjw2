@@ -248,6 +248,12 @@ all:
         bjw2-pdu-126-101:  # R50aS
           ansible_host: 10.150.126.101
           protocol: snmp
+        bjw2-pdu-126-102:
+          ansible_host: 10.150.126.102
+          protocol: snmp
+        bjw2-pdu-126-103:
+          ansible_host: 10.150.126.103
+          protocol: snmp
 
 fanout:
   hosts:
