@@ -359,6 +359,15 @@ dash/test_relaxed_match_negative.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
 #######################################
+#####       db_migrator           #####
+#######################################
+db_migrator/test_migrate_dns.py::test_migrate_dns_03:
+  xfail:
+    reason: "db_migrator does not support SonicQosProfile in minigraph"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22120"
+
+#######################################
 #####            decap            #####
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
@@ -1024,7 +1033,7 @@ generic_config_updater/test_dynamic_acl.py:
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
       - "'t2' in topo_name"
-      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'Cisco-8101-32FH-O-C01']"
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
@@ -2306,7 +2315,7 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox platform with 202412 image at this time"
+    reason: "Only target mellanox and brcm platform with 202412 image at this time"
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
@@ -2315,6 +2324,12 @@ srv6/test_srv6_static_config.py:
     reason: "Requires particular image support, skip in PR testing"
     conditions:
       - "release not in ['202412']"
+
+srv6/test_srv6_vlan_forwarding.py:
+  skip:
+    reason: "Only target mellanox/brcm platform with 202412 image at this time"
+    conditions:
+      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
 #######################################
 #####             ssh             #####
