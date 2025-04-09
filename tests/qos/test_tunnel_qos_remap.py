@@ -14,8 +14,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
-from tests.common.snappi_tests.common_helpers import \
-        stop_pfcwd, disable_packet_aging, enable_packet_aging
+from tests.common.snappi_tests.common_helpers import stop_pfcwd
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
@@ -74,11 +73,9 @@ def disable_pfcwd(duthosts):
     for duthost in duthosts:
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
         stop_pfcwd(duthost)
-        disable_packet_aging(duthost)
     yield
     for duthost in duthosts:
         reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
-        enable_packet_aging(duthost)
     return
 
 
