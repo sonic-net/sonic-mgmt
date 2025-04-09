@@ -99,7 +99,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 1. Turn off all PSUs, turn on PSU1, then check.
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
-    _list = []
+    power_on_seq_list = []
     if all_outlets:
         power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
         power_on_seq_list.append(all_outlets)
