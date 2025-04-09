@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3'),
     pytest.mark.device_type('vs')
 ]
 
@@ -26,7 +26,8 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
-    container_name = asic.get_docker_name("swss")
+    feature_name = "swss"
+    container_name = asic.get_docker_name(feature_name)
     program_name = "orchagent"
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
@@ -48,7 +49,9 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         time.sleep(30)
     else:
         logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
-        duthost.shell("sudo config feature autorestart swss disabled")
+        # disable feature autorestart. Feature is enabled/disabled at feature level and
+        # not per container namespace level.
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
         _, program_pid = get_program_info(duthost, container_name, program_name)
         kill_process_by_pid(duthost, container_name, program_name, program_pid)
         is_running = is_container_running(duthost, container_name)

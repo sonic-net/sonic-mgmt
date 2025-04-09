@@ -228,7 +228,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False,  wait_for_ibgp=True):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -246,6 +246,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param safe_reboot: arguments to wait DUT ready after reboot
     :param check_intf_up_ports: arguments to check interface after reboot
     :param wait_for_bgp: arguments to wait for BGP after reboot
+    :param wait_for_ibgp: True to wait for all iBGP connections to come up after device reboot. This
+                          parameter is only used when `wait_for_bgp` is True
     :return:
     """
     assert not (safe_reboot and return_after_reconnect)
@@ -342,6 +344,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     # Use an alternative reboot check if T2 device and REBOOT_TYPE_POWEROFF
     if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        wait_until(120, 5, 0, duthost.critical_processes_running, "database")
+        time.sleep(60)
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
@@ -356,6 +360,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        if not wait_for_ibgp:
+            # Filter out iBGP neighbors
+            filtered_bgp_neighbors = {}
+            for asic, interfaces in bgp_neighbors.items():
+                filtered_interfaces = {
+                    ip: details for ip, details in interfaces.items()
+                    if details["local AS"] != details["remote AS"]
+                }
+
+                if filtered_interfaces:
+                    filtered_bgp_neighbors[asic] = filtered_interfaces
+
+            bgp_neighbors = filtered_bgp_neighbors
+
         pytest_assert(
             wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after reboot",
@@ -447,7 +465,7 @@ def sync_reboot_history_queue_with_dut(dut):
     # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
-        logger.warn("Unable to sync reboot history queue")
+        logger.warning("Unable to sync reboot history queue")
         return
 
     # If the reboot cause history is received from DUT,
@@ -516,8 +534,10 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
-                logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
-                            format(reboot_type))
+                logger.warning(
+                    "Reboot type: {} not in dictionary. Skipping history check for this entry.".format(reboot_type)
+                )
+
                 continue
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                         (index, reboot_ctrl_dict[reboot_type]["cause"],
