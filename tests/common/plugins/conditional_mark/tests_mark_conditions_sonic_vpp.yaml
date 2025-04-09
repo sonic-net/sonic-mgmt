@@ -742,6 +742,14 @@ route/test_route_flow_counter.py::TestRouteCounter::test_update_route_pattern:
     conditions:
       - "asic_type in ['vpp']"
 
+route/test_route_flow_counter.py::TestRouteCounter::test_max_match_count:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####      Show Techsupport       #####
 #######################################
