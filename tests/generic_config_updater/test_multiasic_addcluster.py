@@ -214,7 +214,25 @@ def test_addcluster_workflow(duthost):
         result_v6 = duthost.shell(f"show ipv6 bgp summary -n {ASICID}", module_ignore_errors=False)["stdout"]
 
         def check_bgp_status(output, neighbor):
-            """Helper function to check BGP neighbor status"""
+            """Helper function to check BGP neighbor status.
+
+            Example output format:
+            admin@bjw-can-7250-lc2-1:~$ show ip bgp sum -n asic0
+
+            IPv4 Unicast Summary:
+            asic0: BGP router identifier 192.0.0.6, local AS number 65100 vrf-id 0
+            BGP table version 26
+            RIB entries 27, using 6048 bytes of memory
+            Peers 5, using 3709880 KiB of memory
+            Peer groups 4, using 256 bytes of memory
+
+            Neighbhor   V   AS  MsgRcvd  MsgSent  TblVer  InQ  OutQ  Up/Down  State/PfxRcd Neightbor
+            --------- --- ---- -------- -------- ------- ---- ----- -------- ------------- ---------
+            10.0.0.13   4  65000   0        0        0     0     0   never    Idle (Admin) ARISTA01T1
+            10.0.0.17   4  65001   0        0        0     0     0   never    Idle (Admin) ARISTA03T1
+
+            Total number of neighbors 2
+            """
             for line in output.splitlines():
                 if neighbor in line:
                     # Split line into fields
