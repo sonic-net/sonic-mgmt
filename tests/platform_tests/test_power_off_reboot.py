@@ -47,7 +47,6 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     """
     pdu_ctrl = kwargs["pdu_ctrl"]
     all_outlets = kwargs["all_outlets"]
-    power_on_seq = kwargs["power_on_seq"]
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
@@ -100,7 +99,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 1. Turn off all PSUs, turn on PSU1, then check.
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
-    power_on_seq_list = []
+    _list = []
     if all_outlets:
         power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
         power_on_seq_list.append(all_outlets)
