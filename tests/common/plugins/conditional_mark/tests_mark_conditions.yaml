@@ -210,6 +210,13 @@ bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
     reason: "Not applicable for passive bgpmon_v6"
 
+bgp/test_traffic_shift.py:
+  skip:
+    reason: "Skipped dut to test issue https://github.com/sonic-net/sonic-buildimage/issues/21721"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21721"
+      - "'4280' in platform"
+
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
@@ -305,6 +312,12 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
 #######################################
 #####            crm              #####
 #######################################
+crm/test_crm.py:
+  skip:
+    reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/21243 on dualtor aa setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21243 and 'dualtor-aa' in topo_name"
+
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
@@ -2634,8 +2647,10 @@ vxlan/test_vnet_vxlan.py:
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
     reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions_logical_operator: OR
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21721 and '4280' in platform"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
   skip:
