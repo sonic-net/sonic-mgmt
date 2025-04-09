@@ -9,6 +9,7 @@ import re
 from copy import deepcopy
 
 from tests.common.utilities import wait_until
+from tests.common.reboot import SONIC_SSH_REGEX
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ POWER_CYCLE = "power off"
 FAST_REBOOT = "fast"
 
 DEVICES_PATH = "usr/share/sonic/device"
-TIMEOUT = 1200
+TIMEOUT = 2100
+
 REBOOT_TYPES = {
     COLD_REBOOT: "reboot",
     WARM_REBOOT: "warm-reboot",
@@ -81,14 +83,23 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
             logger.info("Rebooting switch using {} boot".format(boot_type))
             duthost.command("sonic-installer set-default {}".format(current))
             reboot(duthost, pdu_ctrl, boot_type, pdu_delay)
+            logger.info("Waiting on switch to shutdown...")
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=timeout)
+            # Wait for 30s in case there is ssh flap
+            time.sleep(30)
+            logger.info("Waiting on switch to come up in SONiC....")
+            localhost.wait_for(host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=600)
+        else:
+            # For auto reboot scenario, it takes some time in ONIE to update the firmware
+            logger.info("Waiting on switch to shutdown after auto reboot...")
+            # Need wait longer for CPLD/FPGA which requires power off reboot
+            auto_reboot_timeout = timeout if boot_type == 'power off' else 120
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=auto_reboot_timeout)
+            # Wait for 30s in case there is ssh flap
+            time.sleep(30)
+            logger.info("Waiting on switch to come up in SONiC....")
+            localhost.wait_for(host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=1200)
 
-        logger.info("Waiting on switch to shutdown...")
-        # Wait for ssh flap
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=timeout)
-        logger.info("Letting switch get through ONIE / BIOS before pinging....")
-        time.sleep(300)
-        logger.info("Waiting on switch to come up....")
-        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
         logger.info("Waiting on critical systems to come online...")
         wait_until(300, 30, 0, duthost.critical_services_fully_started)
         time.sleep(60)
