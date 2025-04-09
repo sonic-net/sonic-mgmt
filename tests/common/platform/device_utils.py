@@ -381,6 +381,37 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
                   .format(test_report))
 
 
+@pytest.fixture
+def verify_testbed_health(request, duthosts, tbinfo):
+    global test_report
+    for duthost in duthosts:
+        test_report = {}
+        check_services(duthost)
+        check_interfaces_and_transceivers(duthost, request)
+        check_neighbors(duthost, tbinfo)
+        check_all = all([check is True for check in list(test_report.values())])
+        pytest_assert(check_all, "DUT {} not ready for test. Health check failed before reboot: {}"
+                      .format(duthost.hostname, test_report))
+
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell(
+            'ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+
+    yield
+
+    for duthost in duthosts:
+        test_report = {}
+        check_services(duthost)
+        check_interfaces_and_transceivers(duthost, request)
+        check_neighbors(duthost, tbinfo)
+        verify_no_coredumps(duthost, pre_existing_cores)
+        check_all = all([check is True for check in list(test_report.values())])
+        pytest_assert(check_all, "Health check failed for {} after reboot: {}"
+                      .format(duthost.hostname, test_report))
+
+
 def get_current_sonic_version(duthost):
     return duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
