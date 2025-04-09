@@ -3,6 +3,7 @@ import struct
 import ipaddress
 import binascii
 import os
+import logging
 
 # Packet Test Framework imports
 import ptf
@@ -14,6 +15,8 @@ from ptf.mask import Mask
 import scapy.all as scapy2
 from threading import Thread
 
+logger = logging.getLogger(__name__)
+
 
 # Helper function to increment an IP address
 # ip_addr should be passed as a dot-decimal string
@@ -22,6 +25,19 @@ def incrementIpAddress(ip_addr, by=1):
     new_addr = ipaddress.ip_address(str(ip_addr))
     new_addr = new_addr + by
     return str(new_addr)
+
+
+def log_dhcp_packet_info(packet):
+    if isinstance(packet, Mask):
+        packet = packet.packet
+    logger.info("Ether: src_mac={}, dst_mac={}".format(packet[scapy.Ether].src, packet[scapy.Ether].dst))
+    logger.info("IP: src_ip={}, dst_ip={}".format(packet[scapy.IP].src, packet[scapy.IP].dst))
+    logger.info("UDP: sport={}, dport={}".format(packet[scapy.UDP].sport, packet[scapy.UDP].dport))
+    chaddr = packet[scapy.BOOTP].chaddr
+    logger.info("BOOTP: op={}, hops={}, ciaddr={}, yiaddr={}, siaddr={}, giaddr={}, chaddr={}"
+                .format(packet[scapy.BOOTP].op, packet[scapy.BOOTP].hops, packet[scapy.BOOTP].ciaddr,
+                        packet[scapy.BOOTP].yiaddr, packet[scapy.BOOTP].siaddr, packet[scapy.BOOTP].giaddr,
+                        binascii.hexlify(chaddr[:6]).decode('utf-8')))
 
 
 class DataplaneBaseTest(BaseTest):
@@ -528,6 +544,8 @@ class DHCPTest(DataplaneBaseTest):
     def client_send_discover(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
+        logger.info("Client send discover packet")
+        log_dhcp_packet_info(dhcp_discover)
         testutils.send_packet(self, self.client_port_index, dhcp_discover)
 
     # Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and
@@ -583,6 +601,8 @@ class DHCPTest(DataplaneBaseTest):
 
         # Count the number of these packets received on the ports connected to our leaves
         num_expected_packets = self.num_dhcp_servers
+        logger.info("Expect receiving relayed discover packet from Ports [{}]".format(self.server_port_indices))
+        log_dhcp_packet_info(dhcp_discover_relayed)
         discover_count = testutils.count_matched_packets_all_ports(
             self, masked_discover, self.server_port_indices)
         self.assertTrue(discover_count == num_expected_packets,
@@ -593,6 +613,8 @@ class DHCPTest(DataplaneBaseTest):
     # of our leaf switches.
     def server_send_offer(self):
         dhcp_offer = self.create_dhcp_offer_packet()
+        logger.info("Server send offer packet")
+        log_dhcp_packet_info(dhcp_offer)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
 
     # Verify that the DHCPOFFER would be received by our simulated client
@@ -619,12 +641,16 @@ class DHCPTest(DataplaneBaseTest):
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
 
+        logger.info("Expect receiving relayed offer packet from port {}".format(self.client_port_index))
+        log_dhcp_packet_info(dhcp_offer)
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
 
     # Simulate our client sending a DHCPREQUEST message
     def client_send_request(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
+        logger.info("Client send request packet")
+        log_dhcp_packet_info(dhcp_request)
         testutils.send_packet(self, self.client_port_index, dhcp_request)
 
     # Verify that the DHCP relay actually received and relayed the DHCPREQUEST message to all of
@@ -659,6 +685,8 @@ class DHCPTest(DataplaneBaseTest):
 
         # Count the number of these packets received on the ports connected to our leaves
         num_expected_packets = self.num_dhcp_servers
+        logger.info("Expect receiving relayed request packets from port [{}]".format(self.server_port_indices))
+        log_dhcp_packet_info(dhcp_request_relayed)
         request_count = testutils.count_matched_packets_all_ports(
             self, masked_request, self.server_port_indices)
         self.assertTrue(request_count == num_expected_packets,
@@ -667,6 +695,8 @@ class DHCPTest(DataplaneBaseTest):
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
     def server_send_ack(self):
         dhcp_ack = self.create_dhcp_ack_packet()
+        logger.info("Server send ack packet")
+        log_dhcp_packet_info(dhcp_ack)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_ack)
 
     # Verify that the DHCPACK would be received by our simulated client
@@ -693,6 +723,8 @@ class DHCPTest(DataplaneBaseTest):
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
 
+        logger.info("Expect receiving relayed ack packets from port {}".format(self.client_port_index))
+        log_dhcp_packet_info(dhcp_ack)
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
 
@@ -742,6 +774,8 @@ class DHCPTest(DataplaneBaseTest):
     def verify_dhcp_relay_pkt_on_server_port_with_no_padding(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         # Form and send DHCP Relay packet
         dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
+        logger.info("Client send request packet")
+        log_dhcp_packet_info(dhcp_request)
         testutils.send_packet(self, self.client_port_index, dhcp_request)
 
         # Mask off fields we don't care about matching
@@ -773,6 +807,8 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
 
         try:
+            logger.info("Expect receiving request packets from port [{}]".format(self.server_port_indices))
+            log_dhcp_packet_info(dhcp_request_relayed)
             testutils.verify_packets_any(
                 self, masked_request, self.server_port_indices)
         except Exception:
@@ -797,6 +833,8 @@ class DHCPTest(DataplaneBaseTest):
     def client_send_bootp(self):
         bootp_packet = self.create_bootp_packet(src_mac=self.client_mac, src_ip=self.DEFAULT_ROUTE_IP,
                                                 giaddr=self.DEFAULT_ROUTE_IP, hops=1, sport=self.DHCP_CLIENT_PORT)
+        logger.info("Client send bootp packet")
+        log_dhcp_packet_info(bootp_packet)
         testutils.send_packet(self, self.client_port_index, bootp_packet)
 
     def verify_relayed_bootp(self):
@@ -831,6 +869,8 @@ class DHCPTest(DataplaneBaseTest):
         masked_bootp.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_bootp.set_do_not_care_scapy(scapy.BOOTP, "file")
 
+        logger.info("Expect receiving bootp packets from port [{}]".format(self.server_port_indices))
+        log_dhcp_packet_info(bootp_packet)
         # Count the number of these packets received on the ports connected to upstream
         num_expected_packets = self.num_dhcp_servers
         bootp_count = testutils.count_matched_packets_all_ports(
