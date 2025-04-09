@@ -50,14 +50,6 @@ arp/test_arpall.py::test_arp_garp_no_update:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
   skip:
     reason: >
@@ -848,97 +840,6 @@ stress/test_stress_routes.py::test_announce_withdraw_route:
       - "asic_type in ['vpp']"
 
 #######################################
-#####      Sub Port Interface     #####
-#######################################
-sub_port_interfaces/test_sub_port_interfaces.py::test_packet_routed_with_valid_vlan:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_admin_status_down_disables_forwarding:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_mtu_inherited_from_parent_port:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_vlan_config_impact:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports_unaffected_by_sub_ports_removal:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports_and_port:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_tunneling_between_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_balancing_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_packet_routed_with_invalid_vlan:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::test_max_numbers_of_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####          SSH                #####
 #######################################
 ssh/test_ssh_ciphers.py::test_ssh_enc_ciphers:
@@ -1200,14 +1101,6 @@ platform_tests/test_idle_driver.py:
     conditions:
       - "asic_type in ['vpp']"
 
-platform_tests/test_reboot.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: >
@@ -1232,23 +1125,7 @@ platform_tests/cli/test_show_chassis_module.py:
     conditions:
       - "asic_type in ['vpp']"
 
-platform_tests/cli/test_show_platform.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 platform_tests/test_process_reboot_cause.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_reload_config.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1265,22 +1142,6 @@ platform_tests/test_secure_upgrade.py:
       - "asic_type in ['vpp']"
 
 platform_tests/sfp/test_sfpshow.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/sfp/test_show_intf_xcvr.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/sfp/test_sfputil.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1600,14 +1461,6 @@ platform_tests/test_port_toggle.py:
     conditions:
       - "asic_type in ['vpp']"
 
-platform_tests/fwutil/test_fwutil.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 platform_tests/link_flap/test_link_flap.py:
   skip:
     reason: >
@@ -1617,14 +1470,6 @@ platform_tests/link_flap/test_link_flap.py:
       - "asic_type in ['vpp']"
 
 platform_tests/link_flap/test_cont_link_flap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-platform_tests/test_platform_info.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1718,6 +1563,65 @@ pfcwd:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####       Platform Tests        #####
+#######################################
+platform_tests/test_reload_config.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/test_reboot.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"      
+
+platform_tests/cli/test_show_platform.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"      
+
+platform_tests/test_platform_info.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"      
+
+platform_tests/fwutil/test_fwutil.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"      
+
+platform_tests/sfp/test_sfputil.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"      
+
+platform_tests/sfp/test_show_intf_xcvr.py: 
+  skip:
+    reason: >
+            Unsupported
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']" 
 
 #######################################
 #####          QOS                #####
