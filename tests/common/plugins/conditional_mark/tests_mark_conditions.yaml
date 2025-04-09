@@ -2507,7 +2507,6 @@ vrf/test_vrf.py:
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
 
-
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
     reason: "Switch does not support ACL REDIRECT_ACTION."
