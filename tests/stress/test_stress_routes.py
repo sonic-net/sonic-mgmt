@@ -75,9 +75,9 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     ipv4_route_used_before, ipv6_route_used_before = withdraw_and_announce_existing_routes
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-
     frr_demons_to_check = ['bgpd', 'zebra']
-    start_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, asichost.asic_index)
+    start_time_frr_daemon_memory = get_frr_daemon_memory_usage(
+        duthost, frr_demons_to_check, enum_rand_one_frontend_asic_index)
     logging.info(f"memory usage at start: {start_time_frr_daemon_memory}")
 
     while loop_times > 0:
@@ -94,7 +94,8 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
                   "ipv6 route used after is not equal to it used before")
 
-    end_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, asichost.asic_index)
+    end_time_frr_daemon_memory = get_frr_daemon_memory_usage(
+        duthost, frr_demons_to_check, enum_rand_one_frontend_asic_index)
     logging.info(f"memory usage at end: {end_time_frr_daemon_memory}")
     check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_daemon_memory,
                                    end_time_frr_daemon_memory)
@@ -124,10 +125,11 @@ def check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_
 
 def get_frr_daemon_memory_usage(duthost, daemon_list, asic_index):
     frr_daemon_memory_dict = {}
+    asic_prefix = f'-n {asic_index}' if asic_index is not None else ''
     for daemon in daemon_list:
-        frr_daemon_memory_output = duthost.shell(f'vtysh -n {asic_index} -c "show memory {daemon}"')["stdout"]
+        frr_daemon_memory_output = duthost.shell(f'vtysh {asic_prefix} -c "show memory {daemon}"')["stdout"]
         logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
-        output = duthost.shell(f'vtysh -n {asic_index} -c "show memory {daemon}" \
+        output = duthost.shell(f'vtysh {asic_prefix} -c "show memory {daemon}" \
                                | grep "Free ordinary blocks"')["stdout"]
         frr_daemon_memory = int(output.split()[-2])
         unit = output.split()[-1]
