@@ -709,6 +709,10 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_switchover_impact.py:
+  skip:
+    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
@@ -720,10 +724,6 @@ dualtor_io/test_tor_failure.py:
     reason: "This script would toggle PDU, which is not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
-
-tests/dualtor_io/test_switchover_impact.py:
-  skip:
-    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
