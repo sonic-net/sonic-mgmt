@@ -54,6 +54,7 @@
 
 import os
 import random
+import re
 import struct
 import datetime
 import time
@@ -1400,6 +1401,22 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
+        # Set LACP timer multiplier to 5 for cEOS peers
+        if self.test_params['neighbor_type'] == "eos":
+            for neigh in self.ssh_targets:
+                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'],
+                                                                     neigh, None, self.test_params)
+                self.neigh_handle.connect()
+
+                neigh_int_set = set(re.findall(r"Et\d", self.neigh_handle.do_cmd(
+                    "show lacp interface | awk '$1 ~ /Et/ {print $1}'")))
+                self.neigh_handle.do_cmd("config")
+                for neigh_int in neigh_int_set:
+                    self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                    self.neigh_handle.do_cmd("lacp timer multiplier 5")
+
+                self.neigh_handle.disconnect()
+
         self.pre_reboot_test_setup()
         try:
             self.log("Check that device is alive and pinging")
@@ -1453,6 +1470,23 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
+            # Restore cEOS LACP timer multiplier changes
+            if self.test_params['neighbor_type'] == "eos":
+                for neigh in self.ssh_targets:
+                    self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'],
+                                                                         neigh, None, self.test_params)
+                    self.neigh_handle.connect()
+
+                    neigh_int_set = set(re.findall(r"Et\d", self.neigh_handle.do_cmd(
+                                        "show lacp interface | awk '$1 ~ /Et/ {print $1}'")))
+                    self.neigh_handle.do_cmd("config")
+                    for neigh_int in neigh_int_set:
+                        self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                        # Restore lacp timer multiplier to default (3)
+                        self.neigh_handle.do_cmd("lacp timer multiplier 3")
+
+                    self.neigh_handle.disconnect()
+
             self.handle_post_reboot_test_reports()
 
     def neigh_lag_status_check(self):
