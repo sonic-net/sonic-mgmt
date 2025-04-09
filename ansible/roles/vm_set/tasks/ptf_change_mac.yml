@@ -19,10 +19,6 @@
     timeout: 300
   delegate_to: "localhost"
 
-- name: Display current working directory
-  debug:
-    msg: "Current path: {{ lookup('env', 'PWD') }}"
-
 - name: Change PTF interface MAC addresses
   script: change_mac.sh
   delegate_to: "{{ ptf_host }}"

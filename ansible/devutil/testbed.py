@@ -7,6 +7,7 @@ import os
 import re
 import yaml
 from typing import Any, Dict, List, Optional
+
 from devutil.device_inventory import DeviceInfo, DeviceInventory
 
 
