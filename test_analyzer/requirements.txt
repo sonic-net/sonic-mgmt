@@ -1,5 +1,6 @@
 azure-kusto-data==4.5.1
 azure-kusto-ingest==4.5.1
+azure-loganalytics
 defusedxml==0.7.1
 setuptools-rust==1.1.2
 numpy==2.2.4

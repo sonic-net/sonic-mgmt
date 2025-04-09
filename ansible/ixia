@@ -38,6 +38,12 @@ sonic:
     sonic_str_7060x6_stress3:
     sonic_str_7060x6_stress4:
     sonic_str2_arista_7808:
+    sonic_str_sn5600_I11-U02:
+    sonic_str_sn5600_I11-U04:
+    sonic_str_sn5600_I11-U13:
+    sonic_str_sn5600_I11-U15:
+    sonic_str_sn5600_I11-U17:
+    sonic_str_sn5600_I11-U19:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -455,3 +461,51 @@ l1_switch:
       ansible_host: 10.64.247.250
     STR-W2W-SONIC-03-B:
       ansible_host: 10.64.247.251
+
+sonic_str_sn5600_I11-U02:
+  hosts:
+    str-sn5600-I11-U02:
+      ansible_host: 10.3.147.53
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+sonic_str_sn5600_I11-U04:
+  hosts:
+    str-sn5600-I11-U04:
+      ansible_host: 10.3.147.54
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+sonic_str_sn5600_I11-U13:
+  hosts:
+    str-sn5600-I11-U13:
+      ansible_host: 10.3.147.56
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+sonic_str_sn5600_I11-U15:
+  hosts:
+    str-sn5600-I11-U15:
+      ansible_host: 10.3.147.57
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+sonic_str_sn5600_I11-U17:
+  hosts:
+    str-sn5600-I11-U17:
+      ansible_host: 10.3.147.58
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+sonic_str_sn5600_I11-U19:
+  hosts:
+    str-sn5600-I11-U19:
+      ansible_host: 10.3.147.59
+  vars:
+    hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000

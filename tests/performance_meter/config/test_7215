@@ -1,0 +1,24 @@
+run_when:
+  - 'tbinfo["topo"]["type"] in ["m0", "mx"]'
+  - '"-7215-" in tbinfo["conf-name"]'
+
+performance_meter:
+  config_reload_by_cmd_to_swss_up:
+    run: 5
+    op: config_reload_by_cmd
+    success_criteria: swss_create_switch
+    timeout: 1000
+    delay: 60
+    interval: 10
+    swss_create_switch_mean: 80
+    swss_create_switch_p100: 110
+  reboot_by_cmd_to_mem_usage:
+    run: 5
+    op: reboot_by_cmd
+    success_criteria: startup_mem_usage_after_bgp_up
+    timeout: 1000
+    delay: 60
+    startup_mem_usage_after_bgp_up_bgp_up_mean: 550
+    startup_mem_usage_after_bgp_up_bgp_up_p90: 600
+    startup_mem_usage_after_bgp_up_mem_used_perc_mean: 0.6
+    startup_mem_usage_after_bgp_up_mem_used_perc_p90: 0.65

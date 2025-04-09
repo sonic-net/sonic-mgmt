@@ -70,9 +70,8 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
-      - "platform in ['x86_64-mlnx_msn3800-r0']"
+      - "platform in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "release in ['202412']"
-
 
 #######################################
 #####            bfd              #####
