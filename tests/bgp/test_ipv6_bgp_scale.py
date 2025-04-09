@@ -9,6 +9,7 @@ import json
 import ipaddress
 import random
 import time
+from copy import deepcopy
 from threading import Thread, Event
 from tests.common.helpers.assertions import pytest_assert
 from ptf.testutils import simple_icmpv6_packet
@@ -46,7 +47,7 @@ def bgp_peers_info(tbinfo, duthost):
 
     while True:
         down_neighbors = get_down_bgp_sessions_neighbors(duthost)
-        if len(down_neighbors) < MAX_BGP_SESSIONS_DOWN_COUNT:
+        if len(down_neighbors) <= MAX_BGP_SESSIONS_DOWN_COUNT:
             if down_neighbors:
                 logging.warning("There are down_neighbors %s", down_neighbors)
             break
@@ -82,12 +83,16 @@ def get_down_bgp_sessions_neighbors(duthost):
 @pytest.fixture(scope="function")
 def announce_bgp_routes_teardown(localhost, tbinfo):
     yield
+    announce_routes(localhost, tbinfo)
+
+
+def announce_routes(localhost, tbinfo):
     topo_name = tbinfo['topo']['name']
     ptf_ip = tbinfo['ptf_ip']
     localhost.announce_routes(
         topo_name=topo_name,
         ptf_ip=ptf_ip,
-        action="announce",
+        action=ACTION_ANNOUNCE,
         path="../ansible/",
         log_path="logs"
     )
@@ -126,7 +131,7 @@ def change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change,
 
 
 def remove_nexthops_in_routes(routes, nexthops):
-    ret_routes = dict(routes)  # make a deep copy here
+    ret_routes = deepcopy(routes)
     prefxies_to_remove = []
     for prefix, attr in ret_routes.items():
         _nhs = [nh for nh in attr[0]['nexthops'] if nh['ip'] not in nexthops]
@@ -144,8 +149,8 @@ def compare_routes(running_routes, expected_routes):
     diff_cnt = 0
     if len(expected_routes) != len(running_routes):
         is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes coun =%d",
-                    len(expected_routes), len(expected_routes))
+        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
+                    len(expected_routes), len(running_routes))
         return is_same
     for prefix, attr in expected_routes.items():
         if prefix not in running_routes:
@@ -163,7 +168,7 @@ def compare_routes(running_routes, expected_routes):
 
 def caculate_downtime(ptf_dp, end_time, start_time):
     rx_total = sum(list(ptf_dp.rx_counters.values())[:-1])  # Exclude the backplane
-    tx_total = sum(ptf_dp.tx_counters.values()) + 1
+    tx_total = sum(ptf_dp.tx_counters.values())
     missing_pkt_cnt = tx_total - rx_total
     if missing_pkt_cnt < 0:
         logger.warning("There are packets noise on ptf dataplane")
@@ -242,7 +247,7 @@ def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, time
 
 
 @pytest.mark.parametrize("flapping_port_count", [1,  10, 20])
-def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_count):
+def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_count, announce_bgp_routes_teardown):
     '''
     This test is to make sure When BGP sessions are flapping,
     control plane is functional and data plane has no downtime or acceptable downtime.
@@ -303,7 +308,7 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_co
         duthost.no_shutdown_multiple(flapping_ports)
 
 
-def test_device_unisolation(duthost, ptfadapter, bgp_peers_info):
+def test_device_unisolation(duthost, ptfadapter, bgp_peers_info, announce_bgp_routes_teardown):
     '''
     This test is for the worst senario that all ports are flapped,
     verify control/data plane have acceptable conergence time.
@@ -427,7 +432,7 @@ def test_nexthop_group_member_scale(
     flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
-    expected_routes = dict(startup_routes)
+    expected_routes = deepcopy(startup_routes)
     for peer, routes in peers_routes_to_change.items():
         prefixes = [r[0] for r in routes]
         nexthop_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n == peer]
@@ -453,7 +458,7 @@ def test_nexthop_group_member_scale(
     flush_counters(pdp)
     start_time = datetime.datetime.now()
     traffic_thread.start()
-    change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_ANNOUNCE)
+    announce_routes(localhost, tbinfo)
     announce_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
