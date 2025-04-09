@@ -1746,7 +1746,6 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
 
