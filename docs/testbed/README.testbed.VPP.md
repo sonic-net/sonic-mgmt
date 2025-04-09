@@ -14,7 +14,7 @@ cd /data/sonic-mgmt/ansible
 ### Example test run:
 ```
 cd /data/sonic-mgmt/tests
-./run_tests.sh -n vms-kvm-vpp-t1-lag -d vlab-vpp-01 -c vxlan/test_vxlan_ecmp.py -f vtestbed.yaml -i ../ansible/veos_vtb -O -u -l debug -e -s -e "--disable_loganalyzer --skip_sanity" -t t1,any
+./run_tests.sh -n vms-kvm-vpp-t1-lag -d vlab-vpp-01 -O -u -l debug -e -s -e "--disable_loganalyzer --skip_sanity --mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions.yaml" -e "--mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions_sonic_vpp.yaml" -m individual -f vtestbed.yaml -i ../ansible/veos_vtb -p <log> -c <tests>
 ```
 ### Remove topology:
 ```
