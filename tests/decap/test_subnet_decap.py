@@ -50,9 +50,11 @@ def prepare_subnet_decap_config(rand_selected_dut):
 def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+
+    if not mg_facts['minigraph_portchannels']:
+        pytest.skip('No portchannels found in minigraph')
+
     dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
-    if not dut_port:
-        pytest.skip('No portchannels found')
     dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
