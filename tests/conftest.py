@@ -59,6 +59,9 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.sai_validation.gnmi_client import create_gnmi_stub
+
+import tests.common.gnmi_setup as gnmi_setup
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -71,7 +74,6 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
-from tests.common.database.sonic import SonicDB, SonicDBInstance
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -218,13 +220,11 @@ def pytest_addoption(parser):
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
     ##############################
-    # db connection options      #
+    # gnmi connection options      #
     ##############################
-    # The database port number on which the socat service will be configured on the
-    # DUT so that the SONiC Redis database on localhost:6379 is exposed to
-    # 0.0.0.0:<exposed-db-port> for the duration tests.
-    parser.addoption("--exposed-db-port", action="store", default=6381,
-                     help="Publicly exposed SONiC Redis database port number")
+    # The gNMI target port number to connect to the DUT gNMI server.
+    parser.addoption("--gnmi-port", action="store", default=50052, type=int,
+                     help="gNMI target port number on the DUT")
     ############################
     #   Parallel run options   #
     ############################
@@ -2891,69 +2891,38 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session")
-def setup_socat(duthost):
+def setup_gnmi_server(request, localhost, duthost):
     """
-    Check if socat is available on the DUT host. If not, copy socat from
-    container to DUT host. Releases after 202405 have socat installed on
-    the host by default.
+    SAI validation library uses gNMI to access sonic-db data
+    objects. This fixture is used by tests to set up gNMI server
     """
-    socat_installed = duthost.stat(path="/usr/bin/socat")
-    if socat_installed["stat"]["exists"]:
-        logger.info("socat is already installed on the DUT host")
-        return
-    else:
-        logger.info("socat is not installed on the DUT host. Copying socat from container to DUT host")
-        duthost.shell('sudo docker cp swss:/usr/bin/socat /usr/bin/socat')
-        verify_socat_installed = duthost.stat(path="/usr/bin/socat")
-        if not verify_socat_installed["stat"]["exists"]:
-            pytest.fail("Failed to copy socat from container to DUT host")
-    logger.debug('SOcat setup complete')
+    checkpoint_name = "before-applying-gnmi-certs"
+    cert_path = pathlib.Path("/tmp/gnmi_certificates")
+    gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+    gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+    gnmi_setup.apply_certs(duthost, checkpoint_name)
+    yield duthost, cert_path
+    gnmi_setup.remove_certs(duthost, checkpoint_name)
 
 
 @pytest.fixture(scope="session")
-def expose_redis(request, setup_socat, duthost):
-    logger.debug('exposing redis service')
-    # setup SOcat as service
-    db_port = request.config.getoption("--exposed-db-port")
-    extra_vars = {
-        'port': db_port
-    }
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    conf_dir = pathlib.Path(os.path.dirname(__file__)).joinpath('templates')
-    logger.debug(f'expose redis copy service file template from {conf_dir}')
-    duthost.template(src=f'{conf_dir}/socat-sonicdb.service.j2',
-                     dest='/tmp/socat-sonicdb.service', force=True)
-    duthost.shell('sudo cp /tmp/socat-sonicdb.service /etc/systemd/system/')
-    duthost.shell('sudo systemctl daemon-reload')
-    duthost.shell('sudo systemctl start socat-sonicdb')
-    duthost.shell('sudo systemctl enable socat-sonicdb')
-    logger.debug(f'expose redis on port {extra_vars["port"]} complete')
-
-    yield duthost.mgmt_ip, db_port
-
-    duthost.shell('sudo systemctl stop socat-sonicdb')
-    duthost.shell('sudo systemctl disable socat-sonicdb')
+def setup_connection(request, setup_gnmi_server):
+    duthost, cert_path = setup_gnmi_server
+    duthost_mgmt_ip = duthost.mgmt_ip
+    gnmi_target_port = request.config.getoption("--gnmi-port")
+    root_cert = str(cert_path / 'gnmiCA.pem')
+    client_cert = str(cert_path / 'gnmiclient.crt')
+    client_key = str(cert_path / 'gnmiclient.key')
+    channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                port=gnmi_target_port, secure=True,
+                                                root_cert_path=root_cert,
+                                                client_cert_path=client_cert,
+                                                client_key_path=client_key)
+    yield gnmi_connection
+    channel.close()
 
 
 @pytest.fixture(scope="session")
-def state_db(request, expose_redis):
-    db_ip, db_port = expose_redis
-    state_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.STATE_DB)
-    yield state_db
-
-
-@pytest.fixture(scope="session")
-def asic_db(request, expose_redis):
-    db_ip, db_port = expose_redis
-    asic_db = SonicDB(host=db_ip, port=db_port, db_id=SonicDBInstance.ASIC_DB)
-    yield asic_db
-
-
-@pytest.fixture(scope="class")
-def state_db_connection(state_db):
-    yield state_db.connection()
-
-
-@pytest.fixture(scope="class")
-def asic_db_connection(asic_db):
-    yield asic_db.connection()
+def gnmi_connection(request, setup_connection):
+    connection = setup_connection
+    yield connection

@@ -1,6 +1,6 @@
 import logging
 import re
-import redis
+import tests.common.sai_validation.gnmi_client as gnmi_client
 
 logger = logging.getLogger(__name__)
 
@@ -102,27 +102,70 @@ def match_rule_to_event(rule, event):
     return True
 
 
-def rule_in_events(rule, events, asic_db_connection: redis.Redis):
-    logger.debug('searching for rule')
+# given a known object id (SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x1234) return
+# its value from gnmi_events
+def find_object_value(gnmi_events: list, object_id: str):
+    logger.debug(f'finding object {object_id} in gnmi events')
+    for event in gnmi_events:
+        value_type = event.get('value_type')
+        if value_type != 'JSON_IETF':
+            logger.error(f'Event value type {value_type} is not JSON_IETF')
+            continue
+        event_value = event.get('value')
+        # event_value is a dictionary of dictionaries for which we don't
+        # know the key names
+        value = event_value.get(object_id)
+        logger.debug(f'found value {value} for object {object_id}')
+        return value
+
+
+# Given a object type but not the object id, find the value from
+# gnmi_events. The object type example is SAI_OBJECT_TYPE_ACL_ENTRY
+# or SAI_OBJECT_TYPE_ACL_RANGE or SAI_OBJECT_TYPE_ROUTE_ENTRY etc.
+def find_object_value_by_type(gnmi_events: list, object_type: str) -> dict:
+    values = {}
+    logger.debug(f'finding object {object_type} in gnmi events')
+    for event in gnmi_events:
+        value_type = event.get('value_type')
+        if value_type != 'JSON_IETF':
+            logger.error(f'Event value type {value_type} is not JSON_IETF')
+            continue
+        event_value = event.get('value')
+        # event_value is a dictionary of dictionaries for which we don't
+        # know the key names
+        for entry, value in event_value.items():
+            logger.debug(f'find_object_value_by_type: entry {entry} value {value}')
+            if entry.startswith(object_type):
+                values[entry] = value
+    logger.debug(f'found values {values} for object type {object_type}')
+    return values
+
+
+def rule_in_events(rule, events, gnmi_connection):
     fetch_range = False
     if 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE' in rule:
         fetch_range = True
     for evt_key, event in events.items():
-        # Fetch event again from ASIC DB events produced during creation of
-        # ACL rule does not populate all values in the event.
-        # TODO: Find a way to avoid accessing db.
-        evt = asic_db_connection.hgetall(evt_key)
         # if the rule is a range type we need to fetch corresponding range object of the
         # event and compare the range values.
-        if 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE' in evt and fetch_range:
-            range_oid = evt['SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE']
-            oid = range_oid[range_oid.find('oid:'):]
-            range = asic_db_connection.hgetall(f'ASIC_STATE:SAI_OBJECT_TYPE_ACL_RANGE:{oid}')
-            # rewrite evt for comparison to match the rule format for comparison
-            evt['SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE'] = (range['SAI_ACL_RANGE_ATTR_TYPE'],
-                                                              range['SAI_ACL_RANGE_ATTR_LIMIT'])
-        logger.debug(f'searching in event (from ASIC_DB): {evt}')
-        if match_rule_to_event(rule, evt):
+        if 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE' in event and fetch_range:
+            range_oid = event['SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE']
+            # FIXME: event is already in the format required.
+            oid = None
+            if isinstance(range_oid, str):
+                oid = range_oid[range_oid.find('oid:'):]
+                path_str = f'ASIC_DB/localhost/ASIC_STATE/SAI_OBJECT_TYPE_ACL_RANGE:{oid}'
+                gnmi_path = gnmi_client.get_gnmi_path(path_str)
+                range_oid_values = gnmi_client.get_request(gnmi_connection, gnmi_path)
+                logger.debug(f'found range oid values {range_oid_values} for range oid {oid}')
+                # rewrite evt for comparison to match the rule format for comparison
+                range_oid_value = range_oid_values[0]
+                event['SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE'] = (range_oid_value['SAI_ACL_RANGE_ATTR_TYPE'],
+                                                                    range_oid_value['SAI_ACL_RANGE_ATTR_LIMIT'])
+            else:
+                logger.debug(f'Event is already in the format required {event}')
+        logger.debug(f'searching in event (from ASIC_DB): {event}')
+        if match_rule_to_event(rule, event):
             logger.debug('Found event for rule. Returning True')
             return True
     logger.debug('Event for rule not found. Returning False')

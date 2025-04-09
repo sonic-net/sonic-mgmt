@@ -30,7 +30,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
 from tests.common.sai_validation.sonic_db import start_db_monitor, wait_for_n_keys, stop_db_monitor
-# from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
+from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
 from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
@@ -1317,31 +1317,32 @@ class TestBasicAcl(BaseAclTest):
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             logger.info('Start monitoring for ACL rules')
-            prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
+            path = 'ASIC_DB/localhost/ASIC_STATE'
+            filter_path = 'SAI_OBJECT_TYPE_ACL_ENTRY'
             rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
             n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
             # n_rules + 1 because of one extra rule created (by default) to DROP all
             # traffic if no rule matches
             event_queue = queue.Queue()
-            stop_event, acl_monitor = start_db_monitor(executor, gnmi_connection, prefix, event_queue)
+            monitor_ctx = start_db_monitor(executor, gnmi_connection, path, event_queue)
             logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
             dut.command("config acl update full {}".format(dut_conf_file_path))
             try:
-                events, actual_wait_secs = wait_for_n_keys(event_queue, n_rules+1, timedelta(minutes=5))
-                logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
+                events = wait_for_n_keys(filter_path, event_queue, n_rules+1, timedelta(minutes=5))
+                logger.debug(f'Received {len(events)}')
                 logger.debug(f'Events: {events}')
-                # validation = validate_acl_asicdb_entries(acl_rules=rules,
-                #                                          table_name=table_name,
-                #                                          events=events,
-                #                                          ip_version=ip_version,
-                #                                          asic_db_connection=asic_db_connection)
-                # # TODO assert on validation
-                # logger.debug(f'Validation result: {validation}')
-                # assert n_rules+1 == len(events)
+                validation = validate_acl_asicdb_entries(acl_rules=rules,
+                                                         table_name=table_name,
+                                                         events=events,
+                                                         ip_version=ip_version,
+                                                         gnmi_connection=gnmi_connection)
+                # TODO assert on validation
+                logger.debug(f'Validation result: {validation}')
+                assert n_rules+1 == len(events)
             except TimeoutError:
                 logger.error("Timeout waiting for ACL rules to be created in ASIC DB")
             finally:
-                stop_db_monitor(stop_event, acl_monitor)
+                stop_db_monitor(monitor_ctx)
 
 
 class TestIncrementalAcl(BaseAclTest):
@@ -1384,7 +1385,9 @@ class TestIncrementalAcl(BaseAclTest):
                     .format(table_name))
 
         logger.debug(f'stage: {stage}')
-        prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
+
+        path = 'ASIC_DB/localhost/ASIC_STATE'
+        filter_path = 'SAI_OBJECT_TYPE_ACL_ENTRY'
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
                 logger.info('Start monitoring for ACL rules')
@@ -1394,17 +1397,17 @@ class TestIncrementalAcl(BaseAclTest):
                     rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
                     n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
                     event_queue = queue.Queue()
-                    stop_event, acl_monitor = start_db_monitor(executor, gnmi_connection, prefix, event_queue)
+                    monitor_ctx = start_db_monitor(executor, gnmi_connection, path, event_queue)
                     logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
                     dut.command("config acl update incremental {}".format(dut_conf_file_path))
                     try:
-                        events, actual_wait_secs = wait_for_n_keys(acl_monitor, n_rules+1, timedelta(minutes=5))
-                        logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
+                        events = wait_for_n_keys(filter_path, event_queue, n_rules+1, timedelta(minutes=5))
+                        logger.debug(f'Received {len(events)}')
                         assert n_rules == len(events)
                     except TimeoutError:
                         logger.error("Timeout waiting for ACL rules to be created in ASIC DB")
                     finally:
-                        stop_db_monitor(stop_event, acl_monitor)
+                        stop_db_monitor(monitor_ctx)
                 else:
                     logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
                     dut.command("config acl update incremental {}".format(dut_conf_file_path))
