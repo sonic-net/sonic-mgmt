@@ -1699,7 +1699,7 @@ def validate_active_active_dualtor_setup(
     return
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):     # noqa: F811
     """Config the active-active dualtor that one ToR as active and the other as standby."""
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
@@ -1906,7 +1906,7 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
     return
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def setup_standby_ports_on_rand_unselected_tor_unconditionally(
     active_active_ports,                                                   # noqa: F811
     rand_selected_dut,
