@@ -23,11 +23,6 @@ class KustoConnector():
         """
         self.db_name = db_name
 
-        """
-            Kusto performance depends on the work load of cluster,
-            to improve the high availability of test result data service
-            by hosting a backup cluster, which is optional.
-        """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_URL")
         access_token = os.getenv('ACCESS_TOKEN', None)
 
@@ -36,7 +31,7 @@ class KustoConnector():
                 "Could not load Kusto Credentials from environment")
         else:
             kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster, access_token)
-            self._ingestion_client_backup = KustoIngestClient(kcsb)
+            self._ingestion_client = KustoIngestClient(kcsb)
 
     def upload_testcases(self, test_cases):
         uploadtime = str(datetime.now())
@@ -62,7 +57,7 @@ class KustoConnector():
             else:
                 temp.write(json.dumps(data))
             temp.seek(0)
-            if self._ingestion_client_backup:
-                print("Ingest to backup cluster...")
-                self._ingestion_client_backup.ingest_from_file(
+            if self._ingestion_client:
+                print("Ingest to cluster...")
+                self._ingestion_client.ingest_from_file(
                     temp.name, ingestion_properties=props)
