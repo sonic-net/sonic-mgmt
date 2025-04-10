@@ -108,6 +108,9 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
+        # NOTE: Not all testcases set the allowed duplication threshold and the duplication check
+        # uses the allowed disruption threshold here.q So let's set the allowed duplication to
+        # allowed disruption if the allowed duplication is provided here.
         if allowed_duplication is None:
             allowed_duplication = allowed_disruption
         if total_duplications > allowed_duplication:
