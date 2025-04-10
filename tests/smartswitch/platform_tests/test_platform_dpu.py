@@ -113,9 +113,7 @@ def test_pcie_link(duthosts, dpuhosts,
         duthost.shell("sudo config chassis modules \
                        startup %s" % (dpu_on_list[index]))
 
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, dpu_off_list,
-                         ip_address_list, num_dpu_modules)
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
     logging.info("Verifying output of '{}' on '{}'..."
                  .format(CMD_PCIE_INFO, duthost.hostname))
@@ -297,9 +295,8 @@ def test_system_health_summary(duthosts, dpuhosts,
                                                  num_dpu_modules)
 
     logging.info("Checking DPU is completely UP")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, dpu_off_list,
-                         ip_address_list, num_dpu_modules)
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list,
+                         ip_address_list, num_dpu_modules, "Non-Hardware")
 
     logging.info("Checking show system-health summary on Switch")
     output_health_summary = duthost.command("show system-health summary")
