@@ -214,7 +214,7 @@ def parallel_run(
             # For analyzed matched syslog, don't need to log the traceback
             if "analyze_logs" in process_name and "Match Messages" in str(p_exception):
                 failure_message = 'Got matched syslog in processes "{}" exit code:"{}"\n{}'.format(
-                    list(failed_processes.keys()), p_exitcode, p_exception
+                    process_name, p_exitcode, p_exception
                 )
             else:
                 failure_message = 'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
