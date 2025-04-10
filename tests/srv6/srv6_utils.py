@@ -2,8 +2,6 @@ import logging
 import time
 import requests
 import random
-import sys
-from io import StringIO
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.reboot import reboot
@@ -228,23 +226,6 @@ class MySIDs(MyLocators):
     ]
 
 
-def create_srv6_locator(duthost,
-                        locator_name,
-                        prefix,
-                        block_len=32,
-                        node_len=16,
-                        func_len=0,
-                        arg_len=0):
-    logger.info(f'Configure locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
-        f'"prefix" "{prefix}" '
-        f'"block_len" "{block_len}" '
-        f'"node_len" "{node_len}" '
-        f'"func_len" "{func_len}" '
-        f'"arg_len" "{arg_len}"')
-
-
 def validate_srv6_in_appl_db(duthost,
                              block_len=32,
                              node_len=16,
@@ -265,30 +246,6 @@ def validate_srv6_in_appl_db(duthost,
     return True
 
 
-def del_srv6_locator(duthost, locator_name):
-    logger.info(f'Delete locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
-
-
-def create_srv6_sid(duthost,
-                    locator_name,
-                    ip_addr,
-                    action=SRv6.uN,
-                    decap_vrf='default',
-                    decap_dscp_mode=SRv6.uniform_mode):
-    logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
-        f'"action" "{action}" '
-        f'"decap_vrf" "{decap_vrf}" '
-        f'"decap_dscp_mode" "{decap_dscp_mode}"')
-
-
-def del_srv6_sid(duthost, locator_name, ip_addr):
-    logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
-
-
 def random_reboot(duthost, localhost):
     """
     Randomly choose one action from reload/cold reboot and do the action and wait system recovery
@@ -303,15 +260,6 @@ def random_reboot(duthost, localhost):
         logger.info(f'Do {reboot_type}')
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True, safe_reboot=True,
                check_intf_up_ports=True, wait_for_bgp=True)
-
-
-def dump_packet_detail(pkt):
-    _stdout, sys.stdout = sys.stdout, StringIO()
-    try:
-        pkt.show()
-        return sys.stdout.getvalue()
-    finally:
-        sys.stdout = _stdout
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
