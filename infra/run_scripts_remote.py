@@ -128,18 +128,18 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
     
     reports_dir = allure_config['allure']['local-report-dir']
     chan.send(f'rm -f {reports_dir}/* \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     chan.send('cd /data/tests \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     build_project_name = get_build_project_name()
 
@@ -154,7 +154,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     chan.send('rm -rf DT\n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     delta1 = datetime.datetime.now()
 
@@ -173,7 +173,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         chan.send('python add_sim_hooks.py \n')
         time.sleep(60)
         resp = chan.recv(9999)
-        print(resp.decode("ascii"))
+        print(resp.decode("utf-8", errors="replace"))
         additional_params += " --mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml"
 
     print("Run command:")
@@ -199,15 +199,15 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         chan.send('ps -ef | grep run_scripts.py\n')
         time.sleep(3)
         resp = chan.recv(9999)
-        print(resp.decode("ascii"))
+        print(resp.decode("utf-8", errors="replace"))
         sys.stdout.flush()
 
-        if script_file in resp.decode("ascii"):
+        if script_file in resp.decode("utf-8", errors="replace"):
             time.sleep(150)
             chan.send('cat /data/tests/{} \n'.format(result_file))
             time.sleep(3)
             resp = chan.recv(9999)
-            print(resp.decode("ascii"))
+            print(resp.decode("utf-8", errors="replace"))
             if datetime.datetime.now() < later:
                 time.sleep(150)
             else:
@@ -219,8 +219,8 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     chan.send('cat /data/tests/{} \n'.format(result_file))
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-    if "Exiting" in resp.decode("ascii"):
+    print(resp.decode("utf-8", errors="replace"))
+    if "Exiting" in resp.decode("utf-8", errors="replace"):
         run_status = False
     else:
         run_status = True

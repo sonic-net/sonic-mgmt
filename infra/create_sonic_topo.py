@@ -173,16 +173,16 @@ def repo_update(data):
 
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("ls \n")
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     if 'golden-code' in buff:
@@ -190,47 +190,47 @@ def repo_update(data):
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+            buff += resp.decode("utf-8", errors="replace")
+            print(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
         chan.send("docker container stop docker-sonic-mgmt\n")
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+            buff += resp.decode("utf-8", errors="replace")
+            print(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
         chan.send("docker container rm docker-sonic-mgmt\n")
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+            buff += resp.decode("utf-8", errors="replace")
+            print(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
     chan.send("mkdir golden-code\n")
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("cd golden-code\n")
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("wget {}\n".format(data['tar_ball']))
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("utf-8")
+        buff += resp.decode("utf-8", errors="replace")
     time.sleep(3)
 
     tar_ball = data['tar_ball'].split('/')[-1]
@@ -238,32 +238,32 @@ def repo_update(data):
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("cd sonic-test/sonic-mgmt\n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("mkdir ansible/vars/docker-ptf\n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("docker run -v $PWD:/data --privileged --network host --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
 
@@ -277,39 +277,39 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('cd /data/ansible \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     if topo_type in ['dualtor-56', 'dualtor-56-4']:
         chan.send('echo "    docker-ptf: 8080">>/data/ansible/group_vars/all/mux_simulator_http_port_map.yml \n')
         time.sleep(3)
         resp = chan.recv(9999)
-        print(resp.decode("ascii"))
+        print(resp.decode("utf-8", errors="replace"))
 
     if topo_type == 'dualtor-56-4':
         chan.send('cp /data/ansible/vars/topo_dualtor-56-4.yml /data/ansible/vars/topo_dualtor-56.yml \n')
         time.sleep(3)
         resp = chan.recv(9999)
-        print(resp.decode("ascii"))
+        print(resp.decode("utf-8", errors="replace"))
 
     chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     if topo_type in ['t2-min', 't2-vs']:
         overwrite_lab_file(data, lc_topo_code)
@@ -326,7 +326,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
         while not chan.exit_status_ready():
             if chan.recv_ready():
                 resp = chan.recv(9999)
-                buff += resp.decode("ascii")
+                buff += resp.decode("utf-8", errors="replace")
             else:
                 rcv_timeout -= interval_length
             if rcv_timeout < 0:
@@ -337,7 +337,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
             if chan.recv_stderr_ready():
                 error_buff = chan.recv_stderr(9999)
                 while error_buff:
-                    err_buff += error_buff.decode("ascii")
+                    err_buff += error_buff.decode("utf-8", errors="replace")
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:
@@ -355,27 +355,27 @@ def untar_cisco_dir(data):
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('cd /data/tests \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     chan.send('tar -xvf cisco.tar\n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -448,7 +448,7 @@ def change_dut_passwd(device):
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
+        buff += resp.decode("utf-8", errors="replace")
         print(resp)
 
     # Ssh and wait for the password prompt.
@@ -456,8 +456,8 @@ def change_dut_passwd(device):
     buff = ''
     while not buff.endswith('password: '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     # Send the password and wait for a prompt.
     time.sleep(3)
@@ -466,8 +466,8 @@ def change_dut_passwd(device):
     buff = ''
     while not buff.endswith('password: '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     # Send the password and wait for a prompt.
     time.sleep(3)
@@ -476,8 +476,8 @@ def change_dut_passwd(device):
     buff = ''
     while buff.find(' successfully') < 0 :
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     if (' successfully') in buff:
         print("Password change successful")
@@ -489,32 +489,32 @@ def change_dut_passwd(device):
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo config interface ip add eth0 FC00:2::32/64 fc00:2::1\n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo config save -y\n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
 
     if user != 'cisco':
         time.sleep(3)
@@ -523,8 +523,8 @@ def change_dut_passwd(device):
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+            buff += resp.decode("utf-8", errors="replace")
+            print(resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -538,7 +538,7 @@ def run_python_script(host,port,user,passwd,cmd_list):
         chan.send(cmd)
         time.sleep(3)
         resp = chan.recv(9999)
-        print("Response : %s" % resp.decode("ascii"))
+        print("Response : %s" % resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -550,8 +550,8 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdout.channel.recv_exit_status()
-        out = stdout.read().decode("ascii").strip()
-        error = stderr.read().decode("ascii")
+        out = stdout.read().decode("utf-8", errors="replace").strip()
+        error = stderr.read().decode("utf-8", errors="replace")
         print(out)
         if error:
             print('There was an error pulling the runtime: {}'.format(error))
@@ -562,10 +562,10 @@ def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     tn = telnetlib.Telnet(veos1_host,veos1_port, connection_timeout)
 
     #    tn.read_until(b"Username: ")
-    #    tn.write(user.encode('ascii') + b"\n")
+    #    tn.write(user.encode('utf-8') + b"\n")
     #    if password:
     #        tn.read_until(b"Password: ")
-    #        tn.write(password.encode('ascii') + b"\n")
+    #        tn.write(password.encode('utf-8') + b"\n")
 
     tn.write(b"enable\n")
     time.sleep(1)
@@ -824,32 +824,32 @@ def add_vEOS_cfg(data):
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+        buff += resp.decode("utf-8", errors="replace")
+        print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('cd /data/ansible \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     chan.send('env \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    print(resp.decode("utf-8", errors="replace"))
 
     chan.send('./testbed-cli.sh -t testbed.csv -k veos -m veos add-topo docker-ptf password.txt\n')
     chan.settimeout(180)
@@ -862,8 +862,8 @@ def add_vEOS_cfg(data):
         while not chan.exit_status_ready():
             if chan.recv_ready():
                 resp = chan.recv(9999)
-                print(resp.decode("ascii"))
-                buff += resp.decode("ascii")
+                print(resp.decode("utf-8", errors="replace"))
+                buff += resp.decode("utf-8", errors="replace")
             else:
                 rcv_timeout -= interval_length
             if rcv_timeout < 0:
@@ -874,7 +874,7 @@ def add_vEOS_cfg(data):
             if chan.recv_stderr_ready():
                 error_buff = chan.recv_stderr(9999)
                 while error_buff:
-                    err_buff += error_buff.decode("ascii")
+                    err_buff += error_buff.decode("utf-8", errors="replace")
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:
@@ -893,8 +893,8 @@ def add_vEOS_cfg(data):
         while not chan.exit_status_ready():
             if chan.recv_ready():
                 resp = chan.recv(9999)
-                print(resp.decode("ascii"))
-                buff += resp.decode("ascii")
+                print(resp.decode("utf-8", errors="replace"))
+                buff += resp.decode("utf-8", errors="replace")
             else:
                 rcv_timeout -= interval_length
             if rcv_timeout < 0:
@@ -905,7 +905,7 @@ def add_vEOS_cfg(data):
             if chan.recv_stderr_ready():
                 error_buff = chan.recv_stderr(9999)
                 while error_buff:
-                    err_buff += error_buff.decode("ascii")
+                    err_buff += error_buff.decode("utf-8", errors="replace")
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
     except Exception as e:

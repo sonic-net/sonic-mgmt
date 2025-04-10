@@ -37,6 +37,12 @@ devices:
     linecard_types: ['8122-64EH-O']
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
     onie-install: /auto/vxr1/sonic-images/lightning/nightly/16519-202405-sonic-cisco-8000.bin
+    vxr_sim_config:
+      shelf:
+        # the below config prevet packet reaching nsim before the full initialization. We observer dsim crash when the packets are sent before the full initialization.
+        # the below config can be removed when dsim issue is fixed
+        ConfigS1EgressSeen: 'true'
+        ConfigS1DelayAfterEgressSeen: '60' 
     port_breakout:
        lc0:
           0..63: 2x400
