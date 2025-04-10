@@ -256,7 +256,9 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "testing_mode": testing_mode,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
@@ -346,7 +348,9 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                                "testing_mode": testing_mode,
                                "enable_source_port_ip_in_relay": True,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.src_ip.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
@@ -408,7 +412,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.link_flap.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
@@ -465,7 +471,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.uplinks_down.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -501,7 +509,9 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.unicast_mac.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -536,7 +546,9 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.random_sport.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def get_dhcp_relay_counter(duthost, ifname, type, dir):
