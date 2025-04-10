@@ -126,26 +126,15 @@ scan_dbs = {
             "db_no": 6,
             "keys_to_compare": {
                 "NEIGH_STATE_TABLE",
-                "TRANSCEIVER_INFO",
-                "TRANSCEIVER_STATUS",
                 "VLAN_MEMBER_TABLE",
                 "VLAN_TABLE"
             },
             "keys_to_skip_comp": {
-                "PORT_TABLE"
+                "PORT_TABLE",
+                "TRANSCEIVER_INFO",
+                "TRANSCEIVER_STATUS"
             },
-            "keys_skip_val_comp": {
-                "active_apsel_hostlane1",
-                "active_apsel_hostlane2",
-                "active_apsel_hostlane3",
-                "active_apsel_hostlane4",
-                "active_apsel_hostlane5",
-                "active_apsel_hostlane6",
-                "active_apsel_hostlane7",
-                "active_apsel_hostlane8",
-                "host_lane_count",
-                "media_lane_count"
-            }
+            "keys_skip_val_comp": set()
         }
     }
 
