@@ -24,6 +24,39 @@ Test prerequisites:
 """
 
 
+def get_dpu_dataplane_port(duthost, dpu_index):
+    platform = duthost.facts["platform"]
+    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
+    try:
+        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
+    except KeyError:
+        interface = f"Ethernet-BP{dpu_index}"
+
+    logger.info(f"DPU dataplane interface: {interface}")
+    return interface
+
+
+def get_interface_ip(duthost, interface):
+    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
+    output = duthost.shell(cmd)["stdout"].strip()
+    return ip_interface(output)
+
+
+@pytest.fixture(scope="module")
+def dpu_ip(duthost, dpu_index):
+    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
+    npu_interface_ip = get_interface_ip(duthost, dpu_port)
+    return npu_interface_ip.ip + 1
+
+@pytest.fixture(scope="module")
+def is_smartswitch(duthost):
+    hwsku = duthost.sonichost._facts["hwsku"]
+    if hwsku == "Cisco-8102-28FH-DPU-O-T1":
+        return True
+    else:
+        return False
+
+
 @pytest.fixture(scope="module", autouse=True)
 def add_npu_static_routes(duthost, dpu_ip, dash_pl_config, skip_config, skip_cleanup):
     if not skip_config:
@@ -75,6 +108,12 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
+    yield
+    logger.info("Teardown in reverse order")
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, route_messages, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index, False)
+
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
@@ -82,8 +121,8 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, outer_encap=encap_proto)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, is_smartswitch)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, is_smartswitch)
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
