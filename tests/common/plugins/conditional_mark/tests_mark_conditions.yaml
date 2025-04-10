@@ -979,6 +979,12 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 #####            fib              #####
 #######################################
+fib/test_fib.py::test_ecmp_group_member_flap:
+  skip:
+    reason: 'Skip due to issue https://github.com/sonic-net/sonic-mgmt/issues/17887'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/17887
+
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
