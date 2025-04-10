@@ -33,7 +33,7 @@ def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_por
                 eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
                 ipv6_src=ptfhost.mgmt_ipv6,
                 ipv6_dst="fcbb:bbbb:1:2::",
-                srh_seg_left=0,
+                srh_seg_left=1,
                 srh_nh=41,
                 inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
