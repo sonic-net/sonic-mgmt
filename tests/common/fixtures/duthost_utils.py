@@ -697,7 +697,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
+                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0: [{duthost_interface}]")
                         ssh_client.connect(ip_addr_without_mask,
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
@@ -709,10 +709,12 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     finally:
                         ssh_client.close()
 
-        pytest_assert(len(ipv6_address[duthost.hostname]) > 0,
-                      f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        pytest_assert(has_available_ipv6_addr,
-                      f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+        if (not ipv6_address[duthost.hostname] and not has_available_ipv6_addr or
+                ipaddress.IPv6Address(ipv6_address[duthost.hostname][0]).is_link_local):
+            pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address or doesn't have available IPv6 "
+                        f"Management IP address")
+        if ipv6_address[duthost.hostname] and not has_available_ipv6_addr:
+            pytest.fail(f"{duthost.hostname}  IPv6 address configuration presents but not applied to mgmt port")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
@@ -855,9 +857,9 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
     for addr in addr_set[hostname]:
         if expect_exists:
             pytest_assert(addr in cmd_output,
-                          f"{addr} not appeared in {hostname} {cmd_desc}")
+                          f"{addr} not in {hostname} {cmd_desc}")
             logger.info(f"{addr} exists in the output of {cmd_desc}")
         else:
             pytest_assert(addr not in cmd_output,
                           f"{hostname} {cmd_desc} still with addr {addr}")
-            logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+            logger.info(f"{addr} not in the output of {cmd_desc} which is expected")
