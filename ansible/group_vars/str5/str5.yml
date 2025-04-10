@@ -1,0 +1,80 @@
+---
+#starlab (str) group variables
+# file: group_vars/str.yml
+
+# ntp variables
+ntp_servers: ['10.20.8.129', '10.20.8.130']
+
+# syslog variables
+syslog_servers: ['10.64.246.95']
+
+# dns variables
+dns_servers: ['10.3.145.98', '10.3.145.99', '10.64.5.5']
+
+# forced_mgmt_routes
+# 40.122.216.24 acsdockerregistry.blob.core.windows.net
+# 13.91.48.226 apt-mo.trafficmanager.net
+# 10.3.145.14 lab tacacs server
+# 10.3.145.98/31 lab proxy
+forced_mgmt_routes: [
+  '10.3.145.98/31', '10.3.145.8', '100.127.20.16/28', '10.3.149.170/31', '40.122.216.24', '13.91.48.226', '10.64.246.0/23', '10.3.146.0/24', '10.64.5.5', '10.201.148.32/28',
+  # IPv6 HyperNet network address:
+  '2603:10b0:11d:1::400/118', '2603:10b0:b17:18::400/118',
+  # IPv6 lab subnets:
+  '2a01:111:e210:b000::1/64', '2a01:111:e210:3000::1/64'
+]
+
+#properties of ErspanDestinationIpv4 in minigraph
+erspan_dest: ['10.20.6.16']
+
+#'RadiusResources' in minigraph
+radius_servers: []
+
+radius_passkey: testing123
+
+# It can be a real lab tacacs server.
+tacacs_servers: ['10.3.145.14', '10.3.145.15']
+
+#'TacacsGroup' in minigraph
+tacacs_group: 'Starlab'
+
+# tacacs facts required for pytest
+tacacs_passkey: starlab
+
+# Determine whether enable tacacs authentication during deploy-minigraph. If false, use local authentication.
+# If yes, authenticate using servers configured in `tacacs_servers`
+tacacs_enabled_by_default: false
+
+#'SnmpResources in minigraph
+snmp_servers: ['10.3.145.98']
+
+#'DhcpResources' in minigraph
+dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4', '192.0.0.5', '192.0.0.6', '192.0.0.7', '192.0.0.8', '192.0.0.9', '192.0.0.10', '192.0.0.11', '192.0.0.12', '192.0.0.13', '192.0.0.14', '192.0.0.15', '192.0.0.16', '192.0.0.17', '192.0.0.18', '192.0.0.19', '192.0.0.20', '192.0.0.21', '192.0.0.22', '192.0.0.23', '192.0.0.24', '192.0.0.25', '192.0.0.26', '192.0.0.27', '192.0.0.28', '192.0.0.29', '192.0.0.30', '192.0.0.31', '192.0.0.32', '192.0.0.33', '192.0.0.34', '192.0.0.35', '192.0.0.36', '192.0.0.37', '192.0.0.38', '192.0.0.39', '192.0.0.40', '192.0.0.41', '192.0.0.42', '192.0.0.43', '192.0.0.44', '192.0.0.45', '192.0.0.46', '192.0.0.47', '192.0.0.48']
+dhcpv6_servers: ['fc02:2000::1', 'fc02:2000::2', 'fc02:2000::3', 'fc02:2000::4']
+
+# snmp variables
+snmp_location: str
+
+# NetworkDeviceManager SLB VIP
+ndm_vip: 25.71.6.196
+
+#Active Directory Integration
+ad_integration_enabled: True
+
+# OU for this environment (TEST,PREPRODUCTION,PRODUCTION)
+ou_environment: TEST
+
+#network security groups
+ad_domain: GME
+rw_netgroups: [
+        "NWK-FABRIC-FTE-ALLDVC-PERSISTENTRW",          # FTEs with full time RW for FABRIC devices; they do not use JIT for access
+        "NWK-FABRIC-FTE-ALLDVC-TEMPRW",                # FTEs allowed to use JIT to request elevation of access to FABRIC devices
+        "NWK-FABRIC-VENDOR-ALLDVC-TEMPRW",             # Vendors allowed to use JIT to request elevation of access to FABRIC devices
+        "NWK-AZURE-FABRICATOR-TORTEST-CUSTOM",         # starlab test users
+]
+
+ro_netgroups: [
+        "NWK-ALLDVC-PERSISTENTRO",                     # users with full time RO access to all network devices
+]
+# bgp slb passive range
+bgp_slb_passive_range: 10.255.0.0/25
