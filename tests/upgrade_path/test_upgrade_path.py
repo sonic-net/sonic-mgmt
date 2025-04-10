@@ -2,10 +2,11 @@ import pytest
 import logging
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
-from tests.common.platform.device_utils import verify_dut_health    # noqa F401
+from tests.common.platform.device_utils import verify_dut_health, verify_testbed_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -101,6 +102,41 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                         preboot_setup=upgrade_path_preboot_setup,
                         consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
+
+@pytest.mark.device_type('t2')
+def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
+                         tbinfo, request, verify_testbed_health,            # noqa: F811
+                         consistency_checker_provider):                     # noqa: F811
+
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
+    logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+
+    def upgrade_path_preboot_setup(dut):
+        setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
+
+    def upgrade_path_postboot_setup(dut):
+        dut.shell("config bgp startup all")
+        patch_rsyslog(dut)
+
+    # get_advanced_reboot=None and advanceboot_loganalyzer=None as only cold reboot needed for T2
+    suphost = duthosts.supervisor_nodes[0]
+    upgrade_test_helper(suphost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot=None,
+                        advanceboot_loganalyzer=None,
+                        preboot_setup=lambda: upgrade_path_preboot_setup(suphost),
+                        postboot_setup=lambda: upgrade_path_postboot_setup(suphost),
+                        consistency_checker_provider=consistency_checker_provider,
+                        enable_cpa=enable_cpa)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in duthosts.frontend_nodes:
+            executor.submit(upgrade_test_helper, dut, localhost, ptfhost, from_image,
+                            to_image, tbinfo, upgrade_type, get_advanced_reboot=None,
+                            advanceboot_loganalyzer=None,
+                            preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut),
+                            postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
+                            consistency_checker_provider=consistency_checker_provider,
+                            enable_cpa=enable_cpa)
 
 
 @pytest.mark.device_type('vs')
