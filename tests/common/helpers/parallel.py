@@ -78,6 +78,9 @@ def parallel_run(
         dict: An instance of multiprocessing.Manager().dict(). It is a proxy to the shared dict that is used by all the
             spawned processes.
     """
+
+    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}")
+
     nodes = [node for node in nodes_list]
 
     # Callback API for wait_procs
