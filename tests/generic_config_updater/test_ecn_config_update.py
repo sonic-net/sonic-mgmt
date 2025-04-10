@@ -97,7 +97,16 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
     ecn_data = duthost.shell('sonic-db-cli CONFIG_DB hgetall "WRED_PROFILE|AZURE_LOSSLESS"')['stdout']
     ecn_data = ast.literal_eval(ecn_data)
     for field in configdb_field.split(','):
-        value = int(ecn_data[field]) + 1
+        value = int(ecn_data[field])
+        if "probability" in field:
+            if 0 <= value <= 99:
+                value += 1
+            elif value == 100:
+                value -= 1
+            else:
+                raise ValueError("Invalid probability value: {}".format(value))
+        else:
+            value += 1
         values.append(str(value))
 
         logger.info("value to be added to json patch: {}, operation: {}, field: {}"
