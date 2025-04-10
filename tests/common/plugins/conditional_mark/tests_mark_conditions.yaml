@@ -718,6 +718,10 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_switchover_impact.py:
+  skip:
+    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
