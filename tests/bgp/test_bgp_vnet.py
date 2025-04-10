@@ -1,0 +1,384 @@
+import sys
+import time
+from copy import deepcopy
+import json
+import logging
+import traceback
+import yaml
+
+from natsort import natsorted
+import pytest
+
+from tests.common.reboot import reboot
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+
+pytestmark = [
+    pytest.mark.topology('t0')
+]
+
+logger = logging.getLogger(__name__)
+
+# global variables
+g_vars = {}
+
+
+# helper functions
+def get_vlan_members(vlan_name, cfg_facts):
+    tmp_member_list = []
+
+    for m in list(cfg_facts['VLAN_MEMBER'].keys()):
+        v, port = m.split('|')
+        if vlan_name == v:
+            tmp_member_list.append(port)
+
+    return natsorted(tmp_member_list)
+
+
+def get_cfg_facts(duthost):
+    # return config db contents(running-config)
+    tmp_facts = json.loads(duthost.shell(
+        "sonic-cfggen -d --print-data")['stdout'])
+
+    port_name_list_sorted = natsorted(list(tmp_facts['PORT'].keys()))
+    port_index_map = {}
+    for idx, val in enumerate(port_name_list_sorted):
+        port_index_map[val] = idx
+
+    tmp_facts['config_port_indices'] = port_index_map
+
+    return tmp_facts
+
+
+def setup_vrf_cfg(duthost, localhost, cfg_facts):
+    '''
+    setup vrf configuration on dut before test suite
+    '''
+
+    cfg_t0 = deepcopy(cfg_facts)
+
+    cfg_t0.pop('config_port_indices', None)
+
+    # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
+    ports = get_vlan_members('Vlan1000', cfg_facts)
+
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
+
+    extra_vars = {'cfg_t0': cfg_t0,
+                  'vlan_ports': vlan_ports}
+
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+
+    duthost.template(src="bgp/templates/vnet_config_db.j2",
+                     dest="/tmp/config_db_vnet.json")
+    duthost.shell("cp /tmp/config_db_vnet.json /etc/sonic/config_db.json")
+
+    reboot(duthost, localhost)
+
+
+# fixtures
+@pytest.fixture(scope="module")
+def dut_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return duthost.facts
+
+
+@pytest.fixture(scope="module")
+def cfg_facts(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return get_cfg_facts(duthost)
+
+
+def restore_config_db(localhost, duthost):
+    # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
+    # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
+    # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
+    localhost.wait_for(host=g_vars["dut_ip"],
+                       port=22,
+                       state='started',
+                       search_regex='OpenSSH_[\\w\\.]+ Debian',
+                       timeout=180)   # Similiar approach to increase the chance that the next line get executed.
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+    reboot(duthost, localhost)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
+              skip_test_module_over_backend_topologies):        # noqa F811
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # backup config_db.json
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+
+    # Setup global variables
+    global g_vars
+
+    try:
+        # Setup dut
+        g_vars["dut_ip"] = duthost.host.options["inventory_manager"].get_host(
+            duthost.hostname).vars["ansible_host"]
+        # Don't care about 'pmon' and 'lldp' here
+        duthost.critical_services = [
+            "swss", "syncd", "database", "teamd", "bgp"]
+        cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
+
+        setup_vrf_cfg(duthost, localhost, cfg_t0)
+
+        duthost.shell("sonic-clear arp")
+        duthost.shell("sonic-clear nd")
+        duthost.shell("sonic-clear fdb all")
+
+        with open("../ansible/vars/topo_{}.yml".format(tbinfo['topo']['name']), 'r') as fh:
+            g_vars['topo_properties'] = yaml.safe_load(fh)
+
+        g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']
+
+    except Exception as e:
+        # Ensure that config_db is restored.
+        # If exception is raised in setup, the teardown code won't be executed. That's why we need to capture
+        # exception and do cleanup here in setup part (code before 'yield').
+        logger.error("Exception raised in setup: {}".format(repr(e)))
+        logger.error(json.dumps(
+            traceback.format_exception(*sys.exc_info()), indent=2))
+
+        restore_config_db(localhost, duthost)
+
+        # Setup failed. There is no point to continue running the cases.
+        # If this line is hit, script execution will stop here
+        pytest.fail("Vnet testing setup failed")
+
+    # --------------------- Testing -----------------------
+    yield
+
+    # --------------------- Teardown -----------------------
+    restore_config_db(localhost, duthost)
+
+
+@pytest.fixture(scope="module")
+def mg_facts(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts
+
+
+def validate_state_db_entry(duthost, peer, vnet, dynamic_peer):
+    '''
+    Validate the entry for a given peer in the state db.
+    '''
+    if dynamic_peer:
+        peer_config_db_key = "BGP_PEER_RANGE" + "|" + vnet + "|" + peer
+    else:
+        peer_config_db_key = "BGP_NEIGHBOR" + "|" + vnet + "|" + peer
+    peer_state_db_key = "BGP_PEER_CONFIGURED_TABLE" + "|" + vnet + "|" + peer
+    expected_state = duthost.shell(
+        'redis-cli -n 4 --json HGETALL "{}"'.format(str(peer_config_db_key)))['stdout']
+    expected_state = json.loads(expected_state)
+    if isinstance(expected_state, dict):
+        expected_state = {k.rstrip('@'): v for k, v in expected_state.items()}
+    peer_state = duthost.shell(
+        'redis-cli -n 6 --json HGETALL "{}"'.format(str(peer_state_db_key)))['stdout']
+    peer_state = json.loads(peer_state)
+    assert peer_state == expected_state, \
+        "Peer {} vnet {} state in state db is not {}. Found {}".format(peer, vnet, expected_state, peer_state)
+
+
+def modify_dynamic_peer_cfg(duthost, cfg_facts, template):
+    '''
+    modify dynamic peer configuration on DUT
+    '''
+    cfg_t0 = deepcopy(cfg_facts)
+    cfg_t0.pop('config_port_indices', None)
+    extra_vars = {'cfg_t0': cfg_t0}
+    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    temp_location = "/tmp/{}.json".format(template)
+    duthost.template(src="bgp/templates/{}.j2".format(template), dest=temp_location)
+    duthost.shell("sonic-cfggen -j {} --write-to-db".format(temp_location))
+
+
+def dynamic_range_add_delete(duthost, cfg_facts, template):
+    '''
+    Validate the behavior when a different dynamic range is added/deleted.
+    '''
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    dynamic_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+    static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    time.sleep(10)
+    modify_dynamic_peer_cfg(duthost, cfg_facts, template)
+    time.sleep(10)
+
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
+    dynamic_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+    static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    # add 20 seconds to the uptime to account for the sleep timer
+    dynamic_peer_uptime_before = dynamic_peer_uptime_before + 2*10*1000
+    static_peer_uptime_before = static_peer_uptime_before + 2*10*1000
+
+    assert dynamic_peer_uptime_after >= dynamic_peer_uptime_before, \
+        "Peer from other range should not flap when a different dynamic range is added/deleted!"
+    assert static_peer_uptime_after >= static_peer_uptime_before, \
+        "Static peer should not flap when a dynamic range is added/deleted!"
+    if template == 'vnet_dynamic_peer_add':
+        assert int(total_peers) == 2, "There should be 2 dynamic peer! found {}".format(total_peers)
+    elif template == 'vnet_dynamic_peer_del':
+        assert int(total_peers) == 1, "There should be only 1 dynamic peer! found {}".format(total_peers)
+    else:
+        assert False, "Invalid template name {}".format(template)
+    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
+
+
+def dynamic_peer_delete(duthost):
+    '''
+    Validate the behavior when a dynamic peer is deleted.
+    '''
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+    duthost.shell(redis_cmd)
+    time.sleep(10)
+
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_before = static_peer_uptime_before + 10000
+    static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    assert static_peer_uptime_after >= static_peer_uptime_before, \
+        "Static peer should not flap when a dynamic peer is deleted!"
+    total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
+    assert int(total_peers) == 0, "There should be no dynamic peer! found {}".format(total_peers)
+    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", False)
+
+
+def get_core_dumps(duthost):
+    '''
+    Check if there is a core dump file in the /var/core directory.
+    '''
+    cmd = "ls /var/core 2>/dev/null"  # List only core dump files (core*)
+    result = duthost.shell(cmd)['stdout'].strip()
+
+    # If result is empty, no core dumps exist, otherwise core dumps are present
+    return result.split('\n') if result else []
+
+
+def dynamic_peer_modify_stress_test(duthost, cfg_facts):
+    '''
+    Stress test for modifying dynamic peer configuration.
+    '''
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    dynamic_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+    core_dumps_before = get_core_dumps(duthost)
+
+    for i in range(20):
+        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_del')
+        time.sleep(10)
+        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
+        time.sleep(10)
+
+    static_peer_uptime_after = static_peer_uptime_before + 20*20*1000
+    dynamic_peer_uptime_after = dynamic_peer_uptime_before + 20*20*1000
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    dynamic_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+
+    assert static_peer_uptime_after >= static_peer_uptime_before, \
+        "Static peer should not flap when a dynamic peer is modified!"
+    assert dynamic_peer_uptime_after >= dynamic_peer_uptime_before, \
+        "Dynamic peer should not flap when a dynamic peer is modified!"
+    core_dumps_after = get_core_dumps(duthost)
+    assert core_dumps_before == core_dumps_after, \
+        "Core dumps should not be generated when modifying dynamic peer configuration!"
+
+
+def dynamic_peer_delete_stress_test(duthost, cfg_facts):
+    '''
+    Stress test for deleting dynamic peer configuration.
+    '''
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    core_dumps_before = get_core_dumps(duthost)
+
+    for i in range(20):
+        redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+        duthost.shell(redis_cmd)
+        time.sleep(10)
+        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
+        time.sleep(10)
+
+    static_peer_uptime_before = static_peer_uptime_before + 20*20*1000
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    assert static_peer_uptime_after >= static_peer_uptime_before, \
+        "Static peer should not flap when a dynamic peer is deleted!"
+    core_dumps_after = get_core_dumps(duthost)
+    assert core_dumps_before == core_dumps_after, \
+        "Core dumps should not be generated when deleting dynamic peer configuration!"
+
+
+def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
+    '''
+    Tests for static and dynamic peers inside a vnet.
+    '''
+    try:
+        duthost = duthosts[rand_one_dut_hostname]
+        props = g_vars['props']
+        route_count = props['podset_number'] * \
+            props['tor_number'] * props['tor_subnet_number']
+
+        # Validate static and dynamic peers are established and have correct route counts inside VNET.
+        for vnet in cfg_facts['VNET']:
+            bgp_summary_string = duthost.shell(
+                "vtysh -c 'show bgp vrf {} summary json'".format(vnet))['stdout']
+            bgp_summary = json.loads(bgp_summary_string)
+            for info in bgp_summary:
+                for peer, attr in list(bgp_summary[info]['peers'].items()):
+                    prefix_count = attr['pfxRcd']
+                    # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast',
+                    # and ipv4 peers under 'ipv6Unicast'
+                    if ((info == "ipv4Unicast" and attr['idType'] == 'ipv6') or
+                            (info == "ipv6Unicast" and attr['idType'] == 'ipv4')):
+                        continue
+                    else:
+                        assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (
+                            peer, route_count)
+                        if 'dynamicPeer' in attr:
+                            validate_state_db_entry(duthost, peer, vnet, True)
+                        else:
+                            validate_state_db_entry(duthost, peer, vnet, False)
+
+        # Verify changing ip_range for dynamic peers
+        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_del')
+        time.sleep(20)
+        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(bgp_summary_string)
+        total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
+        assert int(total_peers) == 1, "There should be only 1 dynamic peer!"
+        validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
+
+        # Verify adding a new dynamic range
+        dynamic_range_add_delete(duthost, cfg_facts, 'vnet_dynamic_peer_add')
+
+        # Verify deleting a dynamic range
+        dynamic_range_add_delete(duthost, cfg_facts, 'vnet_dynamic_peer_del')
+
+        # Verify deleting a dynamic peer
+        dynamic_peer_delete(duthost)
+
+        # Add the dynamic peer group back to the config db
+        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
+        time.sleep(10)
+
+        # Perform stress test for modifying dynamic peer configuration
+        dynamic_peer_modify_stress_test(duthost, cfg_facts)
+
+        # Perform stress test for deleting dynamic peer configuration
+        dynamic_peer_delete_stress_test(duthost, cfg_facts)
+    except Exception as e:
+        logger.error("Exception raised in test_setup_vnet: {}".format(repr(e)))
+        pytest.fail("Vnet testing setup failed")
