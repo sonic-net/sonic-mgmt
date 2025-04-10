@@ -17,10 +17,60 @@ It should be noted that, in general, the IPv6 prefix length should be less than 
 |t1|spine|tor|
 |t2|core|leaf|
 |t0-mclag|leaf|N/A|
+|m1|m2|m0, c0|
 |m0|m1|mx|
 |mc0|m1|mx|
 |mx|m0|N/A|
 
+## M1
+
+### Design
+
+For M1 topology, there are 3 sets of routes to be advertised:
+
+1. Routes advertised by upstream VMs which simulates M2 devices.
+2. Routes advertised by downstream VMs which simulates M0 devices.
+3. Routes advertised by downstream VMs which simulates C0 devices.
+
+The picture below shows how the routes is announces to DUT. The orange arrows indicate routes announced by upstream M2s. The blue arrows indicates routes announced by downstream M0s and C0s.
+
+![](./img/announce_routes_m1.png)
+
+### Details
+
+The total number of routes is controlled by below parameters:
+|definition|description|
+|:----|:----|
+|m1_number|number of M1 devices (including the DUT itself)|
+|m0_number|number of M0 devices connected to each M1|
+|m0_subnet_number|number of subnets on each M0|
+|mx_number|number of Mx devices connected to each M0|
+|mx_subnet_number|number of subnets on each MX|
+|c0_number|number of C0 devices connected to each M1|
+
+
+Routes advertised by each M2:
+
+- Default route, prefix: 0.0.0.0/0
+- Routes advertised by DUT's peer M1. Each peer M1 advertises: (count of peer M1: m1_number- 1)
+    - Loopback IP of M1, count: `1`
+    - Loopback IPs of M0, count: `m0_number`
+    - Subnet routes of M0, count: `m0_number * m0_subnet_number`
+    - Loopback IPs of Mx, count: `m0_number * mx_number`
+    - Subnet routes of Mx, count: `m0_number * mx_number * mx_subnet_number`
+    - Loopback IP of C0, count: `c0_number`
+
+Routes advertised by each M0:
+
+- Loopback IP of M0, count: `1`
+- Subnet routes of M0, count: `m0_subnet_number`
+- Loopback IP of Mx, count: `mx_number`
+- Subnet routes of Mx, count: `mx_number * mx_subnet_number`
+
+Routes advertised by each C0:
+
+- Loopback IP of C0, count: `1`
+  
 ## M0/MC0
 
 ### Design
