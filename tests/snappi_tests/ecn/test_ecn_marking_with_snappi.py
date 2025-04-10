@@ -15,6 +15,7 @@ from tests.snappi_tests.ecn.files.helper import run_ecn_marking_test, \
     run_ecn_marking_port_toggle_test, run_ecn_marking_ect_marked_pkts, \
     run_voq_eviction_to_hbm
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.cisco_data import is_cisco_device
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -163,7 +164,6 @@ def test_ecn_marking_lossless_prio(
     """
     Verify ECN marking on lossless prio with same DWRR weight
     Args:
-        request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
@@ -195,8 +195,8 @@ def test_ecn_marking_lossless_prio(
                             prio_dscp_map=prio_dscp_map,
                             test_flow_percent=test_flow_percent,
                             number_of_streams=10,
-                            input_port_same_asic=info.input_port_same_asic,
-                            input_port_same_dut=info.input_port_same_dut,
+                            input_port_same_asic=info.input_ports_same_asic,
+                            input_port_same_dut=info.input_ports_same_dut,
                             single_dut=info.single_dut,
                             snappi_extra_params=snappi_extra_params)
 
@@ -265,23 +265,24 @@ def test_voq_eviction_to_hbm(
                                 setup_ports_and_dut,     # noqa: F811
                                 prio_dscp_map):                    # noqa: F811
     """
-    Verify ECN marking for ECT marked pkts
+    Verify VoQ eviction to HBM on congestion
     Args:
-        request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        tbinfo (pytest fixture): fixture provides information about testbed
         get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        tbinfo (pytest fixture): fixture provides information about testbed
+        disable_pfcwd: Disables the PFCWD on all the duthosts
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
     Returns:
         N/A
     """
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+
+    pytest_require(is_cisco_device(snappi_ports[0]['duthost']), "This test is for Cisco 8000 only")
 
     info = snappi_port_dut_info(snappi_ports)
 

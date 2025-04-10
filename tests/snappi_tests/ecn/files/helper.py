@@ -1091,7 +1091,6 @@ def run_voq_eviction_to_hbm(
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
-    duthost = egress_duthost
 
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[tx_port_index]
     ingress_duthost = tx_port['duthost']
@@ -1104,10 +1103,6 @@ def run_voq_eviction_to_hbm(
     logger.info("Stopping PFC watchdog")
     for host, asic_value in hosts_to_stop_pfcwd:
         stop_pfcwd(host, asic_value)
-
-    logger.info("Disabling packet aging if necessary")
-    for host in {host for host, _ in hosts_to_stop_pfcwd}:
-        disable_packet_aging(host)
 
     TEST_FLOW_NAME = 'Test Flow'
     DATA_FLOW_PKT_SIZE = 1350
@@ -1152,7 +1147,7 @@ def run_voq_eviction_to_hbm(
 
     """ Run traffic """
     _, _, _ = run_traffic(
-                        duthost,
+                        egress_duthost,
                         api=api,
                         config=testbed_config,
                         data_flow_names=data_flow_names,
@@ -1162,7 +1157,7 @@ def run_voq_eviction_to_hbm(
                         snappi_extra_params=snappi_extra_params)
 
     hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
-    pytest_assert(len(hbm_json['Queues']) == 0, "VoQ eviction to HBM not expected for both TC")
+    pytest_assert(len(hbm_json['Queues']) == 0, "VoQ eviction to HBM not expected when no congestion is induced")
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -1180,22 +1175,63 @@ def run_voq_eviction_to_hbm(
             "flow_traffic_type": traffic_flow_mode.CONTINUOUS
         }
 
-    # Generate pause storm config
-    generate_pause_flows(testbed_config=testbed_config,
-                         pause_prio_list=test_prio_list,
-                         global_pause=False,
-                         snappi_extra_params=snappi_extra_params)
+    def run_voq_eviction_test(pause_prio_list, expected_voq_count, err_msg):
+        # Remove any existing pause flow
+        for index, flow in list(enumerate(testbed_config.flows)):
+            if PAUSE_FLOW_NAME in flow.name:
+                testbed_config.flows.remove(index)
 
-    api.set_config(testbed_config)
+        # Generate pause flows
+        generate_pause_flows(
+            testbed_config=testbed_config,
+            pause_prio_list=pause_prio_list,
+            global_pause=False,
+            snappi_extra_params=snappi_extra_params
+        )
 
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+        # Apply and run the config
+        api.set_config(testbed_config)
 
-    time.sleep(1)
-    hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
 
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
-    pytest_assert(len(hbm_json['Queues']), "VoQ eviction to HBM expected for both TC")
+        time.sleep(1)
+        hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
+
+        pytest_assert(len(hbm_json['Queues']) == expected_voq_count, err_msg)
+        time.sleep(1)
+
+        hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+        pytest_assert(len(hbm_json['Queues']) == 0, 'VoQ should be unevicted from HBM when the pause flow is stopped')
+
+    # First test with both priorities
+    run_voq_eviction_test(
+        pause_prio_list=test_prio_list,
+        expected_voq_count=2,
+        err_msg="VoQ eviction to HBM expected for both TC"
+    )
+
+    # Test with only the first priority
+    run_voq_eviction_test(
+        pause_prio_list=[test_prio_list[0]],
+        expected_voq_count=1,
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[1])
+    )
+
+    # Test with only the second priority
+    run_voq_eviction_test(
+        pause_prio_list=[test_prio_list[1]],
+        expected_voq_count=1,
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[0])
+    )
+
+    # Test case 4: no pause priorities
+    run_voq_eviction_test(
+        pause_prio_list=[],
+        expected_voq_count=0,
+        err_msg="VoQ eviction to HBM not expected when no pause priorities are set"
+    )
