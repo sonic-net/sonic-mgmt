@@ -90,7 +90,6 @@ baseline:
       - bgp/test_bgp_dual_asn.py
       - bgp/test_bgp_speaker.py
       - portstat/test_portstat.py
-      - lldp/test_lldp.py
       - generic_config_updater/test_bgpl.py
       - generic_config_updater/test_incremental_qos.py
       - generic_config_updater/test_lo_interface.py
@@ -98,12 +97,6 @@ baseline:
       - generic_config_updater/test_portchannel_interface.py
       - generic_config_updater/test_syslog.py
       - generic_config_updater/test_vlan_interface.py
-      - arp/test_arp_extended.py
-      - arp/test_tagged_arp.py
-      - fdb/test_fdb.py
-      - fdb/test_fdb_flush.py
-      - fdb/test_fdb_mac_expire.py
-      - fdb/test_fdb_mac_move.py
       - log_fidelity/test_bgp_shutdown.py
       - memory_checker/test_memory_checker.py
       - ssh/test_ssh_ciphers.py
@@ -114,18 +107,11 @@ baseline:
       - snmp/test_snmp_memory.py
       - snmp/test_snmp_queue.py
       - snmp/test_snmp_v2mib.py
-      #- snmp/test_snmp_fdb.py
       - route/test_static_route.py
       - route/test_duplicate_route.py
       - syslog/test_syslog.py
       - system_health/test_system_status.py
       - vxlan/test_vxlan_decap.py
-      - pc/test_po_cleanup.py
-      - pc/test_po_update.py
-      - vlan/test_autostate_disabled.py
-      - vlan/test_host_vlan.py
-      #- vlan/test_vlan_ping.py
-      - vlan/test_vlan.py
       - tests/test_posttest.py
       #- acl/custom_acl_table/test_custom_acl_table.py
   t0-64: *t0  
@@ -136,7 +122,6 @@ baseline:
       - bgp/test_bgp_bounce.py
       - bgp/test_bgp_multipath_relax.py
       - bgp/test_bgp_session_flap.py
-      - arp/test_arpall.py
       - route/test_duplicate_route.py
       - decap/test_decap.py
   t1-64-lag: *t1
@@ -238,3 +223,36 @@ MGMT:
       #- snmp/test_snmp_link_local.py
       #- tacacs/test_authorization.py
       #- tacacs/test_ro_disk.py
+L2:
+  t0:
+    all_pids:
+      - lldp/test_lldp.py
+      - arp/test_arp_extended.py
+      #- arp/test_tagged_arp.py
+      - fdb/test_fdb.py
+      - fdb/test_fdb_flush.py
+      #- fdb/test_fdb_mac_expire.py
+      #- fdb/test_fdb_mac_move.py
+      #- snmp/test_snmp_fdb.py
+      - pc/test_po_cleanup.py
+      - pc/test_po_update.py
+      - vlan/test_autostate_disabled.py
+      - vlan/test_host_vlan.py
+      #- vlan/test_vlan_ping.py
+      - vlan/test_vlan.py
+  t0-64: 
+    all_pids:
+      - lldp/test_lldp.py
+      - arp/test_arp_extended.py
+      #- arp/test_tagged_arp.py
+      - fdb/test_fdb.py
+      - fdb/test_fdb_flush.py
+      #- fdb/test_fdb_mac_expire.py
+      #- fdb/test_fdb_mac_move.py
+      #- snmp/test_snmp_fdb.py
+      - pc/test_po_cleanup.py
+      - pc/test_po_update.py
+      - vlan/test_autostate_disabled.py
+      - vlan/test_host_vlan.py
+      #- vlan/test_vlan_ping.py
+      - vlan/test_vlan.py  
