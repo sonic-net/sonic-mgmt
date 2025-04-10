@@ -54,7 +54,6 @@
 
 import os
 import random
-import re
 import struct
 import datetime
 import time
@@ -1404,16 +1403,18 @@ class ReloadTest(BaseTest):
         # Set LACP timer multiplier to 5 for cEOS peers
         if self.test_params['neighbor_type'] == "eos":
             for neigh in self.ssh_targets:
-                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'],
-                                                                     neigh, None, self.test_params)
+                self.neigh_handle = HostDevice.getHostDeviceInstance(
+                      self.test_params['neighbor_type'], neigh, None, self.test_params)
                 self.neigh_handle.connect()
 
-                neigh_int_set = set(re.findall(r"Et\d", self.neigh_handle.do_cmd(
-                    "show lacp interface | awk '$1 ~ /Et/ {print $1}'")))
+                raw_json = self.neigh_handle.do_cmd("show lacp interface | json")
+                neigh_int_json = json.loads(raw_json[raw_json.find("{"):raw_json.rfind("}")+1])
+
                 self.neigh_handle.do_cmd("config")
-                for neigh_int in neigh_int_set:
-                    self.neigh_handle.do_cmd(f"interface {neigh_int}")
-                    self.neigh_handle.do_cmd("lacp timer multiplier 5")
+                for lag in neigh_int_json["portChannels"]:
+                    for neigh_int in neigh_int_json["portChannels"][lag]['interfaces']:
+                        self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                        self.neigh_handle.do_cmd("lacp timer multiplier 5")
 
                 self.neigh_handle.disconnect()
 
@@ -1473,17 +1474,19 @@ class ReloadTest(BaseTest):
             # Restore cEOS LACP timer multiplier changes
             if self.test_params['neighbor_type'] == "eos":
                 for neigh in self.ssh_targets:
-                    self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'],
-                                                                         neigh, None, self.test_params)
+                    self.neigh_handle = HostDevice.getHostDeviceInstance(
+                                            self.test_params['neighbor_type'], neigh, None, self.test_params)
                     self.neigh_handle.connect()
 
-                    neigh_int_set = set(re.findall(r"Et\d", self.neigh_handle.do_cmd(
-                                        "show lacp interface | awk '$1 ~ /Et/ {print $1}'")))
+                    raw_json = self.neigh_handle.do_cmd("show lacp interface | json")
+                    neigh_int_json = json.loads(raw_json[raw_json.find("{"):raw_json.rfind("}")+1])
+
                     self.neigh_handle.do_cmd("config")
-                    for neigh_int in neigh_int_set:
-                        self.neigh_handle.do_cmd(f"interface {neigh_int}")
-                        # Restore lacp timer multiplier to default (3)
-                        self.neigh_handle.do_cmd("lacp timer multiplier 3")
+                    for lag in neigh_int_json["portChannels"]:
+                        for neigh_int in neigh_int_json["portChannels"][lag]['interfaces']:
+                            self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                            # Restore lacp timer multiplier to default (3)
+                            self.neigh_handle.do_cmd("lacp timer multiplier 3")
 
                     self.neigh_handle.disconnect()
 
