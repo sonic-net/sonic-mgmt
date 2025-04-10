@@ -1,0 +1,13 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
+str5-7060x6-pe64-root,Ethernet41/1,str5-acs-serv-91,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet51/1,str5-acs-serv-91,ens4f1,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet42/1,str5-acs-serv-92,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet52/1,str5-acs-serv-92,ens4f1,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet43/1,str5-acs-serv-93,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet53/1,str5-acs-serv-93,ens4f1,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet44/1,str5-acs-serv-94,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet54/1,str5-acs-serv-94,ens4f1,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet45/1,str5-acs-serv-95,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet55/1,str5-acs-serv-95,ens4f1,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet46/1,str5-acs-serv-96,ens4f0,100000,"",Trunk,off
+str5-7060x6-pe64-root,Ethernet56/1,str5-acs-serv-96,ens4f1,100000,"",Trunk,off

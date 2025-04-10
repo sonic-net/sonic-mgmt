@@ -1,0 +1,162 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+    str5:
+      children:
+        sonic:
+        fanout:
+        server:
+        self_hosted_azure_agents:
+        pdu:
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+
+    pdu:
+      hosts:
+        pdu-85:
+          ansible_host: 10.3.154.84
+          protocol: snmp
+        pdu-86:
+          ansible_host: 10.3.154.85
+          protocol: snmp
+        pdu-88:
+          ansible_host: 10.3.154.86
+          protocol: snmp
+        pdu-89:
+          ansible_host: 10.3.154.87
+          protocol: snmp
+        pdu-90:
+          ansible_host: 10.3.154.88
+          protocol: snmp
+        pdu-91:
+          ansible_host: 10.3.154.89
+          protocol: snmp
+        pdu-92:
+          ansible_host: 10.3.154.90
+          protocol: snmp
+        pdu-93:
+          ansible_host: 10.3.154.91
+          protocol: snmp
+        pdu-94:
+          ansible_host: 10.3.154.92
+          protocol: snmp
+        pdu-95:
+          ansible_host: 10.3.154.93
+          protocol: snmp
+        pdu-100:
+          ansible_host: 10.3.154.101
+          protocol: snmp
+        pdu-96:
+          ansible_host: 10.3.155.96
+          protocol: snmp
+        pdu-97:
+          ansible_host: 10.3.154.98
+          protocol: snmp
+        pdu-98:
+          ansible_host: 10.3.154.99
+          protocol: snmp
+        pdu-99:
+          ansible_host: 10.3.154.100
+          protocol: snmp
+        pdu-101:
+          ansible_host: 10.3.154.102
+          protocol: snmp
+        pdu-102:
+          ansible_host: 10.3.154.103
+          protocol: snmp
+        pdu-103:
+          ansible_host: 10.3.154.104
+          protocol: snmp
+        pdu-104:
+          ansible_host: 10.3.154.105
+          protocol: snmp
+        pdu-105:
+          ansible_host: 10.3.154.106
+          protocol: snmp
+        pdu-106:
+          ansible_host: 10.3.154.107
+          protocol: snmp
+        pdu-107:
+          ansible_host: 10.3.154.108
+          protocol: snmp
+        pdu-115:
+          ansible_host: 10.3.154.116
+          protocol: snmp
+        pdu-116:
+          ansible_host: 10.3.154.117
+          protocol: snmp
+        pdu-118:
+          ansible_host: 10.3.154.119
+          protocol: snmp
+        pdu-119:
+          ansible_host: 10.3.154.120
+          protocol: snmp
+        pdu-120:
+          ansible_host: 10.3.154.121
+          protocol: snmp
+        pdu-122:
+          ansible_host: 10.3.154.123
+          protocol: snmp
+        pdu-123:
+          ansible_host: 10.3.154.124
+          protocol: snmp
+        pdu-124:
+          ansible_host: 10.3.154.125
+          protocol: snmp
+        pdu-125:
+          ansible_host: 10.3.154.126
+          protocol: snmp
+        pdu-126:
+          ansible_host: 10.3.154.243
+          protocol: snmp
+        pdu-127:
+          ansible_host: 10.3.154.244
+          protocol: snmp
+
+fanout:
+  hosts:
+
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+    mgmt_subnet_v6_mask_length: 64
+  children:
+    sonic_arista_7060x6_512:
+
+sonic_arista_7060x6_512:
+  hosts:
+
+
+server:
+  hosts:
+    str5-acs-serv-91:
+      ansible_host: 10.64.247.191
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7bf
+    str5-acs-serv-92:
+      ansible_host: 10.64.247.192
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c0
+    str5-acs-serv-93:
+      ansible_host: 10.64.247.193
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c1
+    str5-acs-serv-94:
+      ansible_host: 10.64.247.194
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c2
+    str5-acs-serv-95:
+      ansible_host: 10.64.247.195
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c3
+    str5-acs-serv-96:
+      ansible_host: 10.64.247.196
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c4
+
+# designated nightly agents
+self_hosted_azure_agents:
+  hosts:
+    str5-acs-serv-65:
+      ansible_host: 10.64.246.7
+      ansible_hostv6: 2a01:111:e210:b000::a40:f607
