@@ -499,9 +499,6 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             # this device simulates 32 ports, with 4 as the step for port naming.
             for i in range(0, 32, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku == "Cisco-8102-28FH-DPU-O-T1":
-            for i in range(0, 217, 8):
-                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Cisco-8102-28FH-DPU-O":
             for i in range(0, 217, 8):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
