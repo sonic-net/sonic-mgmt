@@ -140,4 +140,6 @@ def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, set
     config_reload(duthost, safe_reload=True)
     is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']
     pytest_assert(is_bbr_enabled == "", "BBR is not disabled when it should be.")
+    logger.info("[chunangli] start sleep 600s")
     time.sleep(600)
+    logger.info("[chunangli] end sleep 600s")
