@@ -90,12 +90,12 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
         for dut_port, neigh in list(mg_facts["minigraph_neighbors"].items()):
             pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and
                           topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
-            if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
+            if any(t in neigh["name"].lower() for t in UPSTREAM_NEIGHBOR_MAP[topo_type]):
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
                 upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
 
-            elif DOWNSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
+            elif any(t in neigh["name"].lower() for t in DOWNSTREAM_NEIGHBOR_MAP[topo_type]):
                 downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 downstream_ports_namespace.add(neigh['namespace'])
                 downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
