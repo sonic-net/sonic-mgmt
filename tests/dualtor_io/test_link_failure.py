@@ -84,7 +84,8 @@ def test_active_link_down_downstream_active(
     if cable_type == CableType.active_active:
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=1,
+            action=shutdown_fanout_upper_tor_intfs
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -332,7 +333,8 @@ def test_active_link_down_downstream_active_soc(
     if cable_type == CableType.active_active:
         send_t1_to_soc_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=1,
+            action=shutdown_fanout_upper_tor_intfs
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
