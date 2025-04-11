@@ -405,6 +405,8 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
+                # RFC 5880, section 6.2: Remote system (dut) to enter "Down"
+                # state when local system (ptf) is set to "AdminDown" state.
                 check_dut_bfd_status(duthost, neighbor_addr, "Down")
                 check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "AdminDown")
             else:
