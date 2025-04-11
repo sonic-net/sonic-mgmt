@@ -493,6 +493,7 @@ multi-asic-t1-lag:
   - http/test_http_copy.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry.py
+  - generic_config_updater/test_multiasic_addcluster.py
   - generic_config_updater/test_multiasic_idf.py
   - generic_config_updater/test_multiasic_linkcrc.py
 
