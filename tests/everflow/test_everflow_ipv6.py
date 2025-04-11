@@ -92,7 +92,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
         yield direction
 
     @pytest.fixture(scope='function', autouse=True)
-    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut):  # noqa F811
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally):     # noqa F811
         stop_thread = threading.Event()
         src_port = EverflowIPv6Tests.rx_port_ptf_id
 
@@ -141,7 +142,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
                             exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
-                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set)
+                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set,
+                                                             timeout=5)
                     count += 1
 
             background_traffic(run_count=1)
