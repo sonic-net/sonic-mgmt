@@ -32,6 +32,7 @@ from ptf.testutils import simple_nvgre_packet
 
 import fib
 import lpm
+import macsec  # noqa F401
 
 
 class HashTest(BaseTest):
