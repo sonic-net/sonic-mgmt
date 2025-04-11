@@ -718,6 +718,10 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_switchover_impact.py:
+  skip:
+    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
@@ -1741,6 +1745,15 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
         - "release in ['202412']"
 
 #######################################
+#####     platform_tests          #####
+#######################################
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####     process_monitoring      #####
 #######################################
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
@@ -2609,12 +2622,6 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
       - "release in ['202411']"
-
-vxlan/test_vnet_decap.py:
-  skip:
-    reason: "test_vnet_decap are not ready to run on Cisco-8000 with branch 202411"
-    conditions:
-      - "(asic_type in ['cisco-8000'] and release in ['202411'])"
 
 vxlan/test_vnet_route_leak.py:
   skip:
