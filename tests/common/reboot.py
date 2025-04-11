@@ -319,7 +319,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
-    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+    logger.info('DUT OS Version: {}'.format(duthost.os_version))
+    prev_reboot_cause_history = None
+    # show reboot-cause history is not supported in devices with device having version 202012
+    if "202012" not in duthost.os_version:
+        logger.info('Fetching reboot cause history before rebooting')
+        prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+
+    logger.info("reboot-cause check complete.")
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
