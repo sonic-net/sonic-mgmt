@@ -12,6 +12,7 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -59,6 +60,9 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.sai_validation.gnmi_client import create_gnmi_stub
+
+import tests.common.gnmi_setup as gnmi_setup
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -70,6 +74,7 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -215,6 +220,14 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # gnmi connection options      #
+    ##############################
+    # The gNMI target port number to connect to the DUT gNMI server.
+    parser.addoption("--gnmi-port", action="store", default=50052, type=int,
+                     help="gNMI target port number on the DUT")
+    parser.addoption("--gnmi-insecure", action="store_true", default=False, type=bool,
+                     help="Use insecure connection to the gNMI server")
     ############################
     #   Parallel run options   #
     ############################
@@ -2897,3 +2910,55 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost):
+    """
+    SAI validation library uses gNMI to access sonic-db data
+    objects. This fixture is used by tests to set up gNMI server
+    """
+    gnmi_insecure = request.config.getoption("--gnmi-insecure")
+    if gnmi_insecure:
+        logger.info("gNMI insecure mode is enabled")
+        yield duthost, None
+        return
+    else:
+        checkpoint_name = "before-applying-gnmi-certs"
+        cert_path = pathlib.Path("/tmp/gnmi_certificates")
+        gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+        gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+        gnmi_setup.apply_certs(duthost, checkpoint_name)
+        yield duthost, cert_path
+        gnmi_setup.remove_certs(duthost, checkpoint_name)
+
+
+@pytest.fixture(scope="session")
+def setup_connection(request, setup_gnmi_server):
+    duthost, cert_path = setup_gnmi_server
+    # if cert_path is None then it is insecure mode
+    gnmi_insecure = request.config.getoption("--gnmi-insecure")
+    gnmi_target_port = request.config.getoption("--gnmi-port")
+    duthost_mgmt_ip = duthost.mgmt_ip
+    channel = None
+    gnmi_connection = None
+    if gnmi_insecure:
+        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                    port=gnmi_target_port, secure=False)
+    else:
+        root_cert = str(cert_path / 'gnmiCA.pem')
+        client_cert = str(cert_path / 'gnmiclient.crt')
+        client_key = str(cert_path / 'gnmiclient.key')
+        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                    port=gnmi_target_port, secure=True,
+                                                    root_cert_path=root_cert,
+                                                    client_cert_path=client_cert,
+                                                    client_key_path=client_key)
+    yield gnmi_connection
+    channel.close()
+
+
+@pytest.fixture(scope="session")
+def gnmi_connection(request, setup_connection):
+    connection = setup_connection
+    yield connection
