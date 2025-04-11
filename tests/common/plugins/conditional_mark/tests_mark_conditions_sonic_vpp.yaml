@@ -1028,7 +1028,23 @@ dut_console/test_console_baud_rate.py:
 #######################################
 #####         LLDP                #####
 #######################################
-lldp/test_lldp.py:
+lldp/test_lldp.py::test_lldp:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+lldp/test_lldp.py::test_lldp_neighbor:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1063,10 +1079,112 @@ sub_port_interfaces/test_show_subinterface.py:
     conditions:
       - "asic_type in ['vpp']"
 
-sub_port_interfaces/test_sub_port_interfaces.py:
+sub_port_interfaces/test_sub_port_interfaces.py::test_packet_routed_with_valid_vlan:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Failed/Errored: AssertionError: Did not receive expected packet on any of ports [0] for device 0.
+             :: RCA: 
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_admin_status_down_disables_forwarding:
+  skip:
+    reason: >
+            Failed/Errored: AssertionError: Did not receive expected packet on any of ports [0] for device 0.
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_mtu_inherited_from_parent_port:
+  skip:
+    reason: >
+            Failed/Errored: IndexError: list index out of range
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_vlan_config_impact:
+  skip:
+    reason: >
+            Failed/Errored: AssertionError: Did not receive expected packet on any of ports [0] for device 0.
+             :: RCA: 
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports:
+  skip:
+    reason: >
+            Failed/Errored: AssertionError: Did not receive expected packet on any of ports [0] for device 0.
+             :: RCA: 
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports_unaffected_by_sub_ports_removal:
+  skip:
+    reason: >
+            Failed/Errored:  test_routing_between_sub_ports_unaffected_by_sub_ports_removal
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_routing_between_sub_ports_and_port:
+  skip:
+    reason: >
+            Failed/Errored: Failed: Expected packet not available:
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_tunneling_between_sub_ports:
+  skip:
+    reason: >
+            Failed/Errored: Failed: Expected packet not available
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_balancing_sub_ports:
+  skip:
+    reason: >
+            Failed/Errored: Failed: Expected packet not available
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_packet_routed_with_invalid_vlan:
+  skip:
+    reason: >
+            Failed/Errored: tests.common.errors.RunAnsibleModuleFail: run module shell failed, Ansible Results =&gt;
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::test_max_numbers_of_sub_ports:
+  skip:
+    reason: >
+            Failed/Errored: AssertionError: Did not receive expected packet on any of ports [0] for device 0.
+             :: RCA: Unstable
+             :: Jira: https://miggbo.atlassian.net/browse/MIGSOFTWAR-19988
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
