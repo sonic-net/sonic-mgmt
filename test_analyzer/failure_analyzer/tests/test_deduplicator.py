@@ -133,16 +133,32 @@ class TestDeduplicator(unittest.TestCase):
 
     def test_check_deduplicator_8(self):
         """
-            check if [case_a][20240510][hwskuA_osversionB] is duplicated with [case_a][20240510][topologyA][asicB][hwskuA]
+            check if [case_a][20240510][hwskuA_20240510.16] is duplicated with [case_a][20240510][topologyA][asicB][hwskuA]
         """
         icm = {
-            'subject': '[case_a][20240510][hwskuA_osversionB]',
+            'subject': '[case_a][20240510][hwskuA_20240510.16]',
             'failure_level_info': {
                 'is_combined': True
             }
         }
         actual_duplicated_flag = self.deduplicator.check_duplicates(
             active_icm_title='{}[case_a][20240510][topologyA][asicB][hwskuA]'.format(ICM_PREFIX), icm=icm)
+        expected_duplicated_flag = True
+        self.assertEqual(actual_duplicated_flag, expected_duplicated_flag)
+
+    def test_check_deduplicator_9(self):
+        """
+            check if [hash.test_generic_hash][test_reboot][20241110][T0][mellanox][Mellanox-SN4600C-C64] is not duplicated with
+            [bgp.test_bgp_sentinel][test_bgp_sentinel][20241110][Mellanox-SN4600C-C64_20241110.12]
+        """
+        icm = {
+            'subject': '[bgp.test_bgp_sentinel][test_bgp_sentinel][20241110][Mellanox-SN4600C-C64_20241110.12]',
+            'failure_level_info': {
+                'is_combined': True
+            }
+        }
+        actual_duplicated_flag = self.deduplicator.check_duplicates(
+            active_icm_title='{}[hash.test_generic_hash][test_reboot][20241110][T0][mellanox][Mellanox-SN4600C-C64]'.format(ICM_PREFIX), icm=icm)
         expected_duplicated_flag = False
         self.assertEqual(actual_duplicated_flag, expected_duplicated_flag)
 

@@ -613,14 +613,20 @@ class DataDeduplicator:
         level1 = combined_level[:last_underscore]
         level2 = combined_level[last_underscore+1:]
         component = []
+        # prefix with case and branch is also considered as a component
+        # otherwise, only use level1 and level2 to check duplication is not enough
+        # other case with same level1 and level2 will be considered as duplicated
+        component.append(prefix)
         if level2.find('.') == -1:
             component.append(level2)
             level2 = None
             title2 = prefix
         else:
             level2 = level2[:level2.index('.')]
-            title2 = "{}[{}]".format(prefix, level2)
-            component.append(level2)
+            if prefix.endswith("[" + level2 + "]"):
+                title2 = prefix
+            else:
+                title2 = "{}[{}]".format(prefix, level2)
 
         title1 = "{}[{}]".format(prefix, level1)
         component.append(level1)
