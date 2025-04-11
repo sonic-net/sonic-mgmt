@@ -225,6 +225,8 @@ def pytest_addoption(parser):
     # The gNMI target port number to connect to the DUT gNMI server.
     parser.addoption("--gnmi-port", action="store", default=50052, type=int,
                      help="gNMI target port number on the DUT")
+    parser.addoption("--gnmi-insecure", action="store_true", default=False, type=bool,
+                     help="Use insecure connection to the gNMI server")
     ############################
     #   Parallel run options   #
     ############################
@@ -2896,28 +2898,42 @@ def setup_gnmi_server(request, localhost, duthost):
     SAI validation library uses gNMI to access sonic-db data
     objects. This fixture is used by tests to set up gNMI server
     """
-    checkpoint_name = "before-applying-gnmi-certs"
-    cert_path = pathlib.Path("/tmp/gnmi_certificates")
-    gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
-    gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
-    gnmi_setup.apply_certs(duthost, checkpoint_name)
-    yield duthost, cert_path
-    gnmi_setup.remove_certs(duthost, checkpoint_name)
+    gnmi_insecure = request.config.getoption("--gnmi-insecure")
+    if gnmi_insecure:
+        logger.info("gNMI insecure mode is enabled")
+        yield duthost, None
+        return
+    else:
+        checkpoint_name = "before-applying-gnmi-certs"
+        cert_path = pathlib.Path("/tmp/gnmi_certificates")
+        gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+        gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+        gnmi_setup.apply_certs(duthost, checkpoint_name)
+        yield duthost, cert_path
+        gnmi_setup.remove_certs(duthost, checkpoint_name)
 
 
 @pytest.fixture(scope="session")
 def setup_connection(request, setup_gnmi_server):
     duthost, cert_path = setup_gnmi_server
-    duthost_mgmt_ip = duthost.mgmt_ip
+    # if cert_path is None then it is insecure mode
+    gnmi_insecure = request.config.getoption("--gnmi-insecure")
     gnmi_target_port = request.config.getoption("--gnmi-port")
-    root_cert = str(cert_path / 'gnmiCA.pem')
-    client_cert = str(cert_path / 'gnmiclient.crt')
-    client_key = str(cert_path / 'gnmiclient.key')
-    channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
-                                                port=gnmi_target_port, secure=True,
-                                                root_cert_path=root_cert,
-                                                client_cert_path=client_cert,
-                                                client_key_path=client_key)
+    duthost_mgmt_ip = duthost.mgmt_ip
+    channel = None
+    gnmi_connection = None
+    if gnmi_insecure:
+        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                    port=gnmi_target_port, secure=False)
+    else:
+        root_cert = str(cert_path / 'gnmiCA.pem')
+        client_cert = str(cert_path / 'gnmiclient.crt')
+        client_key = str(cert_path / 'gnmiclient.key')
+        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                    port=gnmi_target_port, secure=True,
+                                                    root_cert_path=root_cert,
+                                                    client_cert_path=client_cert,
+                                                    client_key_path=client_key)
     yield gnmi_connection
     channel.close()
 
