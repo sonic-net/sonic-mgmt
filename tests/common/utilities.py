@@ -866,7 +866,7 @@ def get_image_type(duthost):
     return "public"
 
 
-def find_duthost_on_role(duthosts, role, tbinfo):
+def find_duthost_on_roles(duthosts, roles, tbinfo):
     role_set = False
     role_host = None
     for duthost in duthosts:
@@ -877,10 +877,11 @@ def find_duthost_on_role(duthosts, role, tbinfo):
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            if role in neighbor["name"]:
-                role_host = duthost
-                role_set = True
-    pytest_assert(role_host, "Could not find {} duthost".format(role))
+            for role in roles:
+                if role in neighbor["name"]:
+                    role_host = duthost
+                    role_set = True
+    pytest_assert(role_host, "Could not find {} duthost".format(roles))
     return role_host
 
 
@@ -919,32 +920,30 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 
-def get_upstream_neigh_type(topo_type, is_upper=True):
+def get_upstream_neigh_types(topo_type, is_upper=True):
     """
     @summary: Get neighbor type by topo type
     @param topo_type: topo type
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
-    @return a str
-        Sample output: "mx"
+    @return a list
+        Sample output: ["mx"]
     """
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_NEIGHBOR_MAP.get(topo_type, [])
 
-    return None
 
-
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_downstream_neigh_types(topo_type, is_upper=True):
     """
     @summary: Get neighbor type by topo type
     @param topo_type: topo type
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
-    @return a str
-        Sample output: "mx"
+    @return a list
+        Sample output: ["mx"]
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
-
-    return None
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_NEIGHBOR_MAP.get(topo_type, [])
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):

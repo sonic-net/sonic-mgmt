@@ -13,12 +13,11 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
-    DEFAULT_ASIC_ID
+from tests.common.helpers.constants import DEFAULT_NAMESPACE, DEFAULT_ASIC_ID
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
-from tests.common.utilities import wait_until
+from tests.common.utilities import get_upstream_neigh_types, get_downstream_neigh_types, wait_until
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 
@@ -266,12 +265,15 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     setup_info = {}
 
-    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_neighbors = \
-        natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
+    downstream_neighbors = []
+    for neigh_type in get_downstream_neigh_types(topo_type):
+        downstream_neighbors += [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(neigh_type)]
+    downstream_neighbors = natsorted(downstream_neighbors)
     downstream = downstream_neighbors[0]
-    upstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
+    upstream_neighbors = []
+    for neigh_type in get_upstream_neigh_types(topo_type):
+        upstream_neighbors += [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(neigh_type)]
+    upstream_neighbors = natsorted(upstream_neighbors)
     other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]

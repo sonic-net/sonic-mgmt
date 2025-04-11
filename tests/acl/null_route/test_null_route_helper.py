@@ -13,7 +13,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F40
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_types
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.utilities import get_neighbor_port_list
 
@@ -124,8 +124,10 @@ def create_acl_table(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
-        neighbor_ports = get_neighbor_port_list(rand_selected_dut, upstream_neigh_type)
+        upstream_neigh_types = get_upstream_neigh_types(topo)
+        neighbor_ports = []
+        for neigh_type in upstream_neigh_types:
+            neighbor_ports += get_neighbor_port_list(rand_selected_dut, upstream_neigh_types)
         ports = ",".join(neighbor_ports)
     else:
         # Get the list of LAGs
@@ -259,8 +261,10 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
-        ptf_interfaces = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
+        upstream_neigh_types = get_upstream_neigh_types(topo)
+        ptf_interfaces = []
+        for neigh_type in upstream_neigh_types:
+            ptf_interfaces += get_neighbor_ptf_port_list(rand_selected_dut, neigh_type, tbinfo)
     else:
         portchannel_members = []
         for _, v in list(mg_facts["minigraph_portchannels"].items()):

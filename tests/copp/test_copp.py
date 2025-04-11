@@ -35,8 +35,8 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import find_duthost_on_role
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import find_duthost_on_roles
+from tests.common.utilities import get_upstream_neigh_types
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -261,7 +261,7 @@ def copp_testbed(
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
         if 't2' in tbinfo["topo"]["name"]:
-            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+            upStreamDuthost = find_duthost_on_roles(duthosts, get_upstream_neigh_types(tbinfo['topo']['type']), tbinfo)
         else:
             upStreamDuthost = duthost
 
