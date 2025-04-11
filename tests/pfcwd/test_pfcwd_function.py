@@ -1233,6 +1233,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def test_pfcwd_no_traffic(
             self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
             set_pfc_time_cisco_8000): # noqa F811
         """
         Verify the pfcwd is not triggered when no traffic is sent, even when pfc storm is active.
