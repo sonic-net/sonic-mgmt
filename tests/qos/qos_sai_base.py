@@ -2807,3 +2807,56 @@ def set_port_cir(interface, rate):
 
         yield
         return
+
+    def copy_set_voq_watchdog_script_cisco_8000(self, dut, asic="", enable=True):
+        if dut.facts['asic_type'] != "cisco-8000":
+            raise RuntimeError("This function should have been called only for cisco-8000.")
+        dshell_script = '''
+def set_voq_watchdog(enable):
+    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
+
+'''
+        dshell_script += f'set_voq_watchdog({enable})\n'
+
+        script_path = "/tmp/set_voq_watchdog.py"
+        dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
+        dut.docker_copy_to_all_asics(
+            container_name=dest,
+            src=script_path,
+            dst="/")
+
+    @pytest.fixture(scope='class', autouse=True)
+    def disable_voq_watchdog(self, get_src_dst_asic_and_duts, dutConfig):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_index = dst_asic.asic_index
+
+        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+            yield
+            return
+
+        # Disable voq watchdog.
+        self.copy_set_voq_watchdog_script_cisco_8000(
+            dut=dst_dut,
+            asic=dst_index,
+            enable=False)
+
+        cmd_opt = "-n asic{}".format(dst_index)
+        if not dst_dut.sonichost.is_multi_asic:
+            cmd_opt = ""
+        dst_dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+        yield
+
+        # Enable voq watchdog.
+        self.copy_set_voq_watchdog_script_cisco_8000(
+            dut=dst_dut,
+            asic=dst_index,
+            enable=True)
+        dst_dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+        return
