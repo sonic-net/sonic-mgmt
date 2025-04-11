@@ -16,8 +16,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import find_duthost_on_roles
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.utilities import find_duthost_on_roles, get_upstream_neigh_types, get_downstream_neigh_types
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
 
@@ -88,14 +87,14 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
     # Get the list of T0/T2 ports
     for mg_facts in mg_facts_list:
         for dut_port, neigh in list(mg_facts["minigraph_neighbors"].items()):
-            pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and
-                          topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
-            if any(t in neigh["name"].lower() for t in UPSTREAM_NEIGHBOR_MAP[topo_type]):
+            upstream_neigh_types = get_upstream_neigh_types(topo_type)
+            downstream_neigh_types = get_downstream_neigh_types(topo_type)
+            pytest_assert(len(upstream_neigh_types) > 0 and len(downstream_neigh_types) > 0, "Unsupported topo")
+            if any(t in neigh["name"].lower() for t in upstream_neigh_types):
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
                 upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
-
-            elif any(t in neigh["name"].lower() for t in DOWNSTREAM_NEIGHBOR_MAP[topo_type]):
+            elif any(t in neigh["name"].lower() for t in downstream_neigh_types):
                 downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 downstream_ports_namespace.add(neigh['namespace'])
                 downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])

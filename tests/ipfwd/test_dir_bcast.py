@@ -6,8 +6,8 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.utilities import get_neighbor_ptf_port_list
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.utilities import get_neighbor_ptf_port_list, get_upstream_neigh_types
+
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
 ]
@@ -19,8 +19,10 @@ PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 def get_ptf_src_ports(tbinfo, duthost):
     # Source ports are upstream ports
-    upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
-    ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
+    upstream_neigh_types = get_upstream_neigh_types(tbinfo["topo"]["type"])
+    ptf_src_ports = []
+    for neigh_type in upstream_neigh_types:
+        ptf_src_ports += get_neighbor_ptf_port_list(duthost, neigh_type, tbinfo)
     return ptf_src_ports
 
 

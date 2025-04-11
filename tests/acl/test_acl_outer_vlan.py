@@ -20,7 +20,7 @@ from abc import abstractmethod
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import check_skip_release
 from tests.common.utilities import get_neighbor_ptf_port_list
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.utilities import get_upstream_neigh_types
 
 logger = logging.getLogger(__name__)
 
@@ -787,8 +787,10 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         cfg['dst_mac'] = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
         # We will inject packet with vlan from portchannel. The packet will egress from the
         # interface we setup
-        upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
-        ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
+        upstream_neigh_types = get_upstream_neigh_types([tbinfo["topo"]["type"]])
+        ptf_src_ports = []
+        for neigh_type in upstream_neigh_types:
+            ptf_src_ports += get_neighbor_ptf_port_list(duthost, neigh_type, tbinfo)
         cfg['src_port'] = [ptf_src_ports[-1]]
         if TYPE_TAGGED == tagged_mode:
             cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
