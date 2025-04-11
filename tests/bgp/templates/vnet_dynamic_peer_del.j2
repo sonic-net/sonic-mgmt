@@ -1,0 +1,16 @@
+{
+{% for k in cfg_t0 %}
+{%     if k == 'BGP_PEER_RANGE' %}
+    "BGP_PEER_RANGE": {
+        "Vnet2|BGPSLBPassive": {
+            "ip_range": [
+                "10.0.0.60/31"
+            ],
+            "peer_asn": "64600",
+            "src_address": "10.0.0.60",
+            "name": "BGPSLBPassive"
+        }
+    }
+{%     endif %}
+{% endfor %}
+}
