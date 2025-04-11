@@ -9629,101 +9629,101 @@ vms_29:
 vms_svc_1:
   hosts:
     VM10000:
-      ansible_host: 10.206.144.22
+      ansible_host:172.16.139.32
     VM10001:
-      ansible_host: 10.206.144.23
+      ansible_host:172.16.139.33
     VM10002:
-      ansible_host: 10.206.144.24
+      ansible_host:172.16.139.34
     VM10003:
-      ansible_host: 10.206.144.25
+      ansible_host:172.16.139.35
     VM10004:
-      ansible_host: 10.206.144.26
+      ansible_host:172.16.139.36
     VM10005:
-      ansible_host: 10.206.144.27
+      ansible_host:172.16.139.37
     VM10006:
-      ansible_host: 10.206.144.28
+      ansible_host:172.16.139.38
     VM10007:
-      ansible_host: 10.206.144.29
+      ansible_host:172.16.139.39
     VM10008:
-      ansible_host: 10.206.144.30
+      ansible_host:172.16.139.40
     VM10009:
-      ansible_host: 10.206.144.31
+      ansible_host:172.16.139.41
     VM10010:
-      ansible_host: 10.206.144.32
+      ansible_host:172.16.139.42
     VM10011:
-      ansible_host: 10.206.144.33
+      ansible_host:172.16.139.43
     VM10012:
-      ansible_host: 10.206.144.34
+      ansible_host:172.16.139.44
     VM10013:
-      ansible_host: 10.206.144.35
+      ansible_host:172.16.139.45
     VM10014:
-      ansible_host: 10.206.144.36
+      ansible_host:172.16.139.46
     VM10015:
-      ansible_host: 10.206.144.37
+      ansible_host:172.16.139.47
     VM10016:
-      ansible_host: 10.206.144.38
+      ansible_host:172.16.139.48
     VM10017:
-      ansible_host: 10.206.144.39
+      ansible_host:172.16.139.49
     VM10018:
-      ansible_host: 10.206.144.40
+      ansible_host:172.16.139.50
     VM10019:
-      ansible_host: 10.206.144.41
+      ansible_host:172.16.139.51
     VM10020:
-      ansible_host: 10.206.144.42
+      ansible_host:172.16.139.52
     VM10021:
-      ansible_host: 10.206.144.43
+      ansible_host:172.16.139.53
     VM10022:
-      ansible_host: 10.206.144.44
+      ansible_host:172.16.139.54
     VM10023:
-      ansible_host: 10.206.144.45
+      ansible_host:172.16.139.55
     VM10024:
-      ansible_host: 10.206.144.46
+      ansible_host:172.16.139.56
     VM10025:
-      ansible_host: 10.206.144.47
+      ansible_host:172.16.139.57
     VM10026:
-      ansible_host: 10.206.144.48
+      ansible_host:172.16.139.58
     VM10027:
-      ansible_host: 10.206.144.49
+      ansible_host:172.16.139.59
     VM10028:
-      ansible_host: 10.206.144.50
+      ansible_host:172.16.139.60
     VM10029:
-      ansible_host: 10.206.144.51
+      ansible_host:172.16.139.61
     VM10030:
-      ansible_host: 10.206.144.52
+      ansible_host:172.16.139.62
     VM10031:
-      ansible_host: 10.206.144.53
+      ansible_host:172.16.139.63
     VM10032:
-      ansible_host: 10.206.144.54
+      ansible_host:172.16.139.64
     VM10033:
-      ansible_host: 10.206.144.55
+      ansible_host:172.16.139.65
     VM10034:
-      ansible_host: 10.206.144.56
+      ansible_host:172.16.139.66
     VM10035:
-      ansible_host: 10.206.144.57
+      ansible_host:172.16.139.67
     VM10036:
-      ansible_host: 10.206.144.58
+      ansible_host:172.16.139.68
     VM10037:
-      ansible_host: 10.206.144.59
+      ansible_host:172.16.139.69
     VM10038:
-      ansible_host: 10.206.144.60
+      ansible_host:172.16.139.70
     VM10039:
-      ansible_host: 10.206.144.61
+      ansible_host:172.16.139.71
     VM10040:
-      ansible_host: 10.206.144.62
+      ansible_host:172.16.139.72
     VM10041:
-      ansible_host: 10.206.144.63
+      ansible_host:172.16.139.73
     VM10042:
-      ansible_host: 10.206.144.64
+      ansible_host:172.16.139.74
     VM10043:
-      ansible_host: 10.206.144.65
+      ansible_host:172.16.139.75
     VM10044:
-      ansible_host: 10.206.144.66
+      ansible_host:172.16.139.76
     VM10045:
-      ansible_host: 10.206.144.67
+      ansible_host:172.16.139.77
     VM10046:
-      ansible_host: 10.206.144.68
+      ansible_host:172.16.139.78
     VM10047:
-      ansible_host: 10.206.144.69
+      ansible_host:172.16.139.79
     VM10048:
       ansible_host: 10.206.144.70
     VM10049:
