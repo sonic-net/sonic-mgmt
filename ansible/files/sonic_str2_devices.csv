@@ -73,8 +73,8 @@ str2-7260cx3-acs-13,10.3.146.46/24,Arista-7260CX3-D108C8,DevSonic,,sonic
 str2-msn4600c-acs-01,10.3.146.51/24,ACS-MSN4600C,DevSonic,,sonic
 str2-msn4600c-acs-03,10.3.146.93/24,ACS-MSN4600C,DevSonic,,sonic
 str2-msn4600c-acs-04,10.3.146.96/24,ACS-MSN4600C,DevSonic,,sonic
-str2-8101-01,10.3.146.250/24,Cisco-8101-32FH-O-C01,DevSonic,,sonic
-str2-8101-02,10.3.146.234/24,Cisco-8101-32FH-O-C01,DevSonic,,sonic
+str2-8101-01,10.3.146.250/24,Cisco-8101-O32,DevSonic,,sonic
+str2-8101-02,10.3.146.234/24,Cisco-8101-O32,DevSonic,,sonic
 str2-8101-03,10.3.146.231/24,Cisco-8101-V64,DevSonic,,sonic
 str2-8101-04,10.3.146.220/24,Cisco-8101-V64,DevSonic,,sonic
 str2-8101-05,10.64.246.114/23,Cisco-8101-O8C48,DevSonic,,sonic
