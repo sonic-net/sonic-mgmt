@@ -2546,7 +2546,7 @@ sonic_cisco_8101:
 
 sonic_cisco_8101_tornado:
   vars:
-    hwsku: Cisco-8101-32FH-O-C01
+    hwsku: Cisco-8101-O32
     iface_speed: 100000
   hosts:
     str2-8101-01:
