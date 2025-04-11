@@ -313,7 +313,7 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
-r, ".* ERR chrony\[\d*\]: nss_tacplus: .*"
+r, ".* ERR chronyd\[\d*\]: nss_tacplus: .*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
