@@ -16,7 +16,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import find_duthost_on_roles
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
@@ -326,8 +326,8 @@ def get_t2_duthost(duthosts, tbinfo):
     """
     Generate setup information dictionary for T2 topologies.
     """
-    t3_duthost = find_duthost_on_role(duthosts, "T3", tbinfo)
-    t1_duthost = find_duthost_on_role(duthosts, "T1", tbinfo)
+    t3_duthost = find_duthost_on_roles(duthosts, ["T3"], tbinfo)
+    t1_duthost = find_duthost_on_roles(duthosts, ["T1"], tbinfo)
     return t1_duthost, t3_duthost
 
 
