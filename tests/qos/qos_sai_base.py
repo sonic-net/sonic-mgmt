@@ -2826,29 +2826,42 @@ set_voq_watchdog({})
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_index = dst_asic.asic_index
+        dut_list = [dst_dut]
+        asic_index_list = [dst_index]
+
+        if not get_src_dst_asic_and_duts["single_asic_test"]:
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = get_src_dst_asic_and_duts['src_asic']
+            src_index = src_asic.asic_index
+            dut_list.append(src_dut)
+            asic_index_list.append(src_index)
 
         if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
             yield
             return
 
         # Disable voq watchdog.
-        self.copy_set_voq_watchdog_script_cisco_8000(
-            dut=dst_dut,
-            asic=dst_index,
-            enable=False)
-
-        cmd_opt = "-n asic{}".format(dst_index)
-        if not dst_dut.sonichost.is_multi_asic:
-            cmd_opt = ""
-        dst_dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=False)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
         yield
 
         # Enable voq watchdog.
-        self.copy_set_voq_watchdog_script_cisco_8000(
-            dut=dst_dut,
-            asic=dst_index,
-            enable=True)
-        dst_dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=True)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
         return
