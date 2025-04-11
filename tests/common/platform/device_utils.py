@@ -353,6 +353,23 @@ def verify_no_coredumps(duthost, pre_existing_cores):
                                                                                   coredumps_count))
 
 
+@handle_test_error
+def verify_yang(duthost):
+    """
+    Verify yang over running config
+    """
+    logging.info("Verify yang over running config")
+
+    # Strict yang validation is supported from 2025
+    strict_yang_validation = True
+    non_strict_versions = ["2019", "2020", "2021", "2022", "2023", "2024"]
+    if any(version in get_current_sonic_version(duthost) for version in non_strict_versions):
+        strict_yang_validation = False
+
+    if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
+        raise RebootHealthError("Yang validation failed")
+
+
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     global test_report
@@ -376,6 +393,7 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
+    verify_yang(duthost)
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))
