@@ -898,7 +898,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 tcp_sport=sport,
@@ -911,7 +911,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             pkt = testutils.simple_tcpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 tcp_sport=sport,
@@ -934,7 +934,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 udp_sport=sport,
@@ -944,7 +944,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             return testutils.simple_udpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 udp_sport=sport,
@@ -959,7 +959,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 icmp_type=icmp_type,
@@ -969,7 +969,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             return testutils.simple_icmpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 icmp_type=icmp_type,
