@@ -9,6 +9,7 @@ schedules:
     branches:
       include:
         - master
+        - 202411
     always: true
 
 stages:
