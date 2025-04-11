@@ -37,7 +37,9 @@ def load_csv_devices(csv_pattern):
                 ip = row['ManagementIp'].split('/')[0]  # Extract IP without CIDR
                 hostname = row['Hostname']
                 if hostname in devices and devices[hostname] != ip:
-                    warnings.append(f"Warning: Hostname {hostname} is mapped to multiple IPs: {devices[hostname]} and {ip}.")
+                    warnings.append(f"Warning: Hostname "
+                                    f"{hostname} is mapped to multiple IPs: "
+                                    f"{devices[hostname]} and {ip}.")
                 devices[hostname] = ip
 
     for warning in warnings:
@@ -115,9 +117,13 @@ def main(base_hosts, output_file, csv_pattern, override):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a hosts file from CSV device files.")
-    parser.add_argument("-b", "--base-hosts", help="Path to the base hosts file. Can be empty if no base file.", default="/etc/hosts")
+    parser.add_argument("-b", "--base-hosts",
+                        help="Path to the base hosts file. Can be empty if no base file.",
+                        default="/etc/hosts")
     parser.add_argument("-o", "--output", required=True, help="Path to the new hosts file.")
-    parser.add_argument("-c", "--csv-pattern", help="Glob pattern for CSV files.", default=os.path.join(os.path.dirname(__file__), "files/sonic_*_devices.csv"))
+    parser.add_argument("-c", "--csv-pattern",
+                        help="Glob pattern for CSV files.",
+                        default=os.path.join(os.path.dirname(__file__), "files/sonic_*_devices.csv"))
     parser.add_argument("--override", action="store_true", help="Force override without prompting.")
     args = parser.parse_args()
 
