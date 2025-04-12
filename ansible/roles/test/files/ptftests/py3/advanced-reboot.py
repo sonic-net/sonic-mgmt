@@ -440,7 +440,13 @@ class ReloadTest(BaseTest):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i %
                                                  len(self.ports_per_vlan[vlan])]
-                addr = self.host_ip(prefix, i)
+                try:
+                    addr = self.host_ip(prefix, i)
+                except Exception as e:
+                    # If the number of hosts exceeds the number of available IPs in the subnet
+                    # half host number to avoid the exception and ip collision
+                    self.log("Capture exception for host_ip: {}".format(repr(e)))
+                    addr = self.host_ip(prefix, int(i//2))
                 self.vlan_host_ping_map[port][addr] = mac
 
             self.nr_vl_pkts += n_hosts
@@ -1005,7 +1011,7 @@ class ReloadTest(BaseTest):
         # By default its required to wait for the Watcher started.
         self.watcher_is_running.clear()
         # Give watch thread some time to wind up
-        watcher = self.pool.apply_async(self.reachability_watcher)      # noqa F841
+        watcher = self.pool.apply_async(self.reachability_watcher)      # noqa: F841
         time.sleep(5)
 
     def get_warmboot_finalizer_state(self):
@@ -1839,8 +1845,6 @@ class ReloadTest(BaseTest):
         sniffer.start()
         # Let the scapy sniff initialize completely.
         time.sleep(2)
-        # Unblock waiter for the send_in_background.
-        self.sniffer_started.set()
         sniffer.join()
         self.log("Sniffer has been running for %s" %
                  str(datetime.datetime.now() - sniffer_start))
@@ -1875,9 +1879,23 @@ class ReloadTest(BaseTest):
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
             iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            process = subprocess.Popen(
+                ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True
+            )
             self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
+
+        for proc in processes_list:
+            while True:
+                line = proc.stderr.readline()
+                if not line or 'listening on' in line:
+                    break
+
+        # Unblock waiter for the send_in_background.
+        self.sniffer_started.set()
 
         time_start = time.time()
         while not self.kill_sniffer:

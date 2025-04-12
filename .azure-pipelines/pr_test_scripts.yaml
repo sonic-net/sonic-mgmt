@@ -181,6 +181,7 @@ t0:
   - vlan/test_host_vlan.py
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vnet_vxlan.py
   - vxlan/test_vxlan_decap.py
@@ -239,12 +240,13 @@ t0:
   - qos/test_pfc_pause.py
   - qos/test_qos_dscp_mapping.py
   - pc/test_lag_member_forwarding.py
+  - fips/test_fips.py
 
 t0-2vlans:
-  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 t0-sonic:
   - bgp/test_bgp_fact.py
@@ -490,6 +492,10 @@ multi-asic-t1-lag:
   - http/test_http_copy.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry.py
+  - generic_config_updater/test_multiasic_addcluster.py
+  - generic_config_updater/test_multiasic_idf.py
+  - generic_config_updater/test_multiasic_linkcrc.py
+
 
 dpu:
   - dash/test_dash_vnet.py

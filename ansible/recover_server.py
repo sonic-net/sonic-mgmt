@@ -10,7 +10,6 @@ from __future__ import print_function
 import argparse
 import collections
 import datetime
-import imp
 import logging
 import os
 import subprocess
@@ -18,7 +17,7 @@ import sys
 import tempfile
 import threading
 import time
-
+from devutil.conn_graph_helper import load_source
 from tabulate import tabulate
 # Add tests path to syspath
 sys.path.append('../')
@@ -40,7 +39,7 @@ root.addHandler(handler)
 
 def parse_testbed(testbedfile, testbed_servers):
     """Return a dictionary containing mapping from server name to testbeds."""
-    testbed = imp.load_source('testbed', os.path.join(
+    testbed = load_source('testbed', os.path.join(
         SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     testbeds = {server_name: list() for server_name in testbed_servers}
     for tbname, tb in testbed.TestbedInfo(testbedfile).testbed_topo.items():
@@ -258,7 +257,7 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                 break
             time.sleep(5)
 
-    utilities = imp.load_source('utilities', os.path.join(
+    utilities = load_source('utilities', os.path.join(
         SONIC_MGMT_DIR, 'tests/common/utilities.py'))
 
     curr_date = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')

@@ -6,9 +6,9 @@ import time
 import random
 import shutil
 
-from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
@@ -41,7 +41,8 @@ def arp_setup(ptfhost):
 
 
 def validate_traffic_results(tor_IO, allowed_disruption, delay,
-                             allow_disruption_before_traffic=False):
+                             allow_disruption_before_traffic=False,
+                             allowed_duplication=None):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -107,7 +108,12 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        if total_duplications > allowed_disruption:
+        # NOTE: Not all testcases set the allowed duplication threshold and the duplication check
+        # uses the allowed disruption threshold here.q So let's set the allowed duplication to
+        # allowed disruption if the allowed duplication is provided here.
+        if allowed_duplication is None:
+            allowed_duplication = allowed_disruption
+        if total_duplications > allowed_duplication:
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
@@ -150,18 +156,19 @@ def _validate_long_disruption(disruptions, allowed_disruption, delay):
 
 
 def verify_and_report(tor_IO, verify, delay, allowed_disruption,
-                      allow_disruption_before_traffic=False):
+                      allow_disruption_before_traffic=False, allowed_duplication=None):
     # Wait for the IO to complete before doing checks
     if verify:
         validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
-                                 allow_disruption_before_traffic=allow_disruption_before_traffic)
+                                 allow_disruption_before_traffic=allow_disruption_before_traffic,
+                                 allowed_duplication=allowed_duplication)
     return tor_IO.get_test_results()
 
 
 def run_test(
     duthosts, activehost, ptfhost, ptfadapter, vmhost, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
-    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa F811
+    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa: F811
 ):
     io_ready = threading.Event()
 
@@ -207,12 +214,15 @@ def run_test(
     return tor_IO
 
 
-def cleanup(ptfadapter, duthosts_list):
-    print_logs(duthosts_list, print_dual_tor_logs=True)
+def cleanup(ptfadapter, duthosts_list, ptfhost):
+    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
+        # add show arp and neighbor check here to help debug
+        duthost.shell('show arp')
+        duthost.shell('dualtor_neighbor_check.py -o STDOUT')
         duthost.shell('sonic-clear arp')
 
 
@@ -237,12 +247,12 @@ def save_pcap(request, pytestconfig):
         else:
             logging.info("Skip saving pcap file to log directory as log directory not set.")
     else:
-        logging.warn("No pcap file found at {}".format(pcap_file))
+        logging.warning("No pcap file found at {}".format(pcap_file))
 
 
 @pytest.fixture
 def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap):       # noqa F811
+                                  cable_type, vmhost, save_pcap):       # noqa: F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -264,7 +274,8 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
-                             stop_after=None, allow_disruption_before_traffic=False):
+                             stop_after=None, allow_disruption_before_traffic=False,
+                             allowed_duplication=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -299,16 +310,17 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic,
+                                 allowed_duplication=allowed_duplication)
 
     yield t1_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                  cable_type, vmhost, save_pcap):   # noqa F811
+                                  cable_type, vmhost, save_pcap):   # noqa: F811
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -373,12 +385,12 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield server_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa: F811
 
     arp_setup(ptfhost)
 
@@ -402,18 +414,18 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield soc_to_t1_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
 def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                               cable_type, vmhost, save_pcap):      # noqa F811
+                               cable_type, vmhost, save_pcap):      # noqa: F811
 
     arp_setup(ptfhost)
 
     def t1_to_soc_io_test(activehost, tor_vlan_port=None,
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                          stop_after=None):
+                          stop_after=None, allowed_duplication=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -429,18 +441,19 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if asic_type == "vs":
             logging.info("Skipping verify on VS platform")
             return
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption,
+                                 allowed_duplication=allowed_duplication)
 
     yield t1_to_soc_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
 
 
 @pytest.fixture
-def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa F811
+def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa: F811
     """Return helper function to select test mux ports based on cable_type"""
 
-    def _select_test_mux_ports(cable_type, count):                                                  # noqa F811
+    def _select_test_mux_ports(cable_type, count):                                                  # noqa: F811
         if cable_type == CableType.active_active:
             test_mux_ports = random.sample(active_active_ports, count)
         elif cable_type == CableType.active_standby:
@@ -454,7 +467,7 @@ def select_test_mux_ports(active_active_ports, active_standby_ports):           
 
 @pytest.fixture
 def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
-                                      cable_type, vmhost, save_pcap):   # noqa F811
+                                      cable_type, vmhost, save_pcap):   # noqa: F811
 
     arp_setup(ptfhost)
 
@@ -479,4 +492,4 @@ def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     yield server_to_server_io_test
 
-    cleanup(ptfadapter, duthosts)
+    cleanup(ptfadapter, duthosts, ptfhost)
