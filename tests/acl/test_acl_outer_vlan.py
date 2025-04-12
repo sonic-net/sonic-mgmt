@@ -787,7 +787,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         cfg['dst_mac'] = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
         # We will inject packet with vlan from portchannel. The packet will egress from the
         # interface we setup
-        upstream_neigh_types = get_upstream_neigh_types([tbinfo["topo"]["type"]])
+        upstream_neigh_types = get_upstream_neigh_types(tbinfo["topo"]["type"])
         ptf_src_ports = []
         for neigh_type in upstream_neigh_types:
             ptf_src_ports += get_neighbor_ptf_port_list(duthost, neigh_type, tbinfo)
