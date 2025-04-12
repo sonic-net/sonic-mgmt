@@ -32,7 +32,7 @@ import re
 import urllib.parse
 
 from jinja2 import Environment, FileSystemLoader
-from run_scripts_remote import run_scripts_remote, handle_sim_failure
+from run_scripts_remote import run_scripts_remote, upload_log_files, SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 
@@ -60,6 +60,9 @@ with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
 wa_file_map = { "sfd": "sfd_wa_cmd_list",
                 "churchill-mono": "cmono_wa_cmd_list"
               }
+
+VXR_OUT_TAR_GZ = "vxr.out.tar.gz"
+VXR_OUT = "vxr.out"
 
 def _run_cmd_in_ssh(ssh, cmd, timeout=180):
     """
@@ -1075,6 +1078,38 @@ def determine_base_topo(topo_type, device_type):
 
     return base_topo_file, vEOS_count, ptf_intfcount
 
+def create_vxr_log_tarball(vxr_path):
+    os.system(f"bash -c '{vxr_path} logs'")
+    os.system(f"tar -czvf vxr.out.tar.gz vxr.out")    
+
+def generate_results_json(run_result, failure_reason):
+    # Path to config file
+    SUMMARY_REPORT_FILENAME = "results.json"
+    SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+
+    sum = {
+        "total": 0, 
+        "failed": 0, 
+        "passed": 0, 
+        "skipped": 0, 
+        "success_rate": 0.0, 
+        "status" : run_result,
+        "failure_reason": failure_reason
+    }
+
+    sum_f = open(SUMMARY_REPORT_PATH, "w")
+
+    # List of files to copy into the build directory
+    files_to_copy = [VXR_OUT_TAR_GZ, VXR_OUT]
+    log_url = upload_log_files(files_to_copy)
+
+    sum["log_tarball_link"] = log_url
+
+    print(f"Result summary: {sum}")
+
+    json.dump(sum, sum_f)
+    sum_f.close()
+
 def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
 
@@ -1093,7 +1128,8 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
 
     # Populate results file with failure data
     if not int(sim_output):
-        handle_sim_failure("sim_failure")
+        create_vxr_log_tarball(vxr_path)
+        generate_results_json(FAILURE_STATUS, FAILURE_RESONS.SIM_BRINGUP_FAIL)
         sys.exit("Sim is not up. Exiting now")
 
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
@@ -1329,9 +1365,12 @@ def main():
     vcr_configure_end = datetime.datetime.now()
 
     export_sim_cfg_to_file(data, "docker-ptf", device_type, "docker-sonic-mgmt")
+    create_vxr_log_tarball(vxr_path)
+    upload_log_files([VXR_OUT, VXR_OUT_TAR_GZ])
 
+    ret = 0
     if run_sanity:
-        run_scripts_remote(
+        ret = run_scripts_remote(
             data['sonic_mgmt']['HostAgent'],
             "vxr",
             "cisco123",
@@ -1362,6 +1401,9 @@ def main():
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
 
+    return ret
+
 
 if __name__ == '__main__':
-  main()
+  ret = main()
+  sys.exit(ret)

@@ -8,6 +8,8 @@ import sys
 import json
 import yaml
 import subprocess
+import shutil
+from enum import Enum
 
 # Path to config file
 ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
@@ -17,6 +19,23 @@ with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
     config_file.close()
 
 ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
+CICD_LOG_DIR = "/auto/mb/sonic/workspace/sonic-cicd/sanity_logs"
+CICD_LOG_URL = "https://allure.cisco.com/auto/mb/sonic/workspace/sonic-cicd/sanity_logs"
+
+SUCCESS_STATUS = "success"
+FAILURE_STATUS = "failure"
+
+class FAILURE_RESONS(str, Enum):
+    SIM_BAD_STATE = "sim_bad_state"
+    TEST_CASES_FAILED = "test_cases_failed"
+    NO_REPORT_FILE = "no_report_file"
+    CREATE_REPORT_FAIL = "create_report_fail"
+    RUN_SCRIPTS_EXCEPTION = "run_scripts_exception"
+    LOG_FILES_GET_FAIL = "log_files_get_fail"
+    SIM_BRINGUP_FAIL = "sim_bringup_fail"
+
+    def __str__(self):
+        return self.value
 
 # VXR sim failed
 def handle_sim_failure(error_msg):
@@ -102,7 +121,7 @@ def get_build_project_name():
 
     return build_project_name
 
-def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, additional_tests='', ssh_port=22,
+def trigger_run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, additional_tests='', ssh_port=22,
             topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, apply_sim_patches=False, test_tag=None):
     print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report,
             ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file)
@@ -220,10 +239,12 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("utf-8", errors="replace"))
-    if "Exiting" in resp.decode("utf-8", errors="replace"):
-        run_status = False
+    if "BGP Fact testcase is still failing" in resp.decode("utf-8", errors="replace"):
+        status = FAILURE_STATUS
+        failure_reason = FAILURE_RESONS.SIM_BAD_STATE
     else:
-        run_status = True
+        status = SUCCESS_STATUS
+        failure_reason = None
     
     if create_allure_report:
         copy_allure_report_tar_to_remote_and_generate_url(host=host, username=username, password=password, build_project_name=build_project_name, docker_mgmt_container=docker_mgmt_container, ssh_port=ssh_port)
@@ -235,7 +256,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     minutes = total_seconds/60
 
     print("Total run time for sanity suite: {} mins".format(minutes))
-    return run_status
+    return status, failure_reason
 
 def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
     print("Creating report html on remote host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
@@ -395,42 +416,222 @@ def copy_allure_report_tar_to_remote_and_generate_url(host, username, password, 
     print("Allure report copied to remote successfully and generated URL: {}".format(report_url))
 
 
-def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
-    print("Get log files")
+def get_sanity_logs(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
+    print("Get sanity log files")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
-    chan = ssh.invoke_shell()
-    time.sleep(3)
-    chan.send("cd {}/sonic-test/sonic-mgmt/tests/{} \n".format(sonic_test_dir,log_dir))
-    resp = ''
-    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-    time.sleep(3)
 
-    chan.send("tar -cvf sanity_logs.tar * \n")
-    resp = ''
-    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-    time.sleep(3)
+    tar_commands = [
+        f"cd {sonic_test_dir}/sonic-test/sonic-mgmt/tests",
+        f"mkdir sanity_logs; cp -r *.log logs/ {log_dir} sanity_logs",
+        "tar -cvf sanity_logs.tar sanity_logs",
+        "gzip -f sanity_logs.tar"
+    ]
 
-    chan.send("gzip -f sanity_logs.tar \n")
-    resp = ''
-    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-    time.sleep(3)
+    print(f"Running remote command: {tar_commands}")
+    stdin, stdout, stderr = ssh.exec_command(';'.join(tar_commands))
+    exit_status = stdout.channel.recv_exit_status()
+    if exit_status != 0:
+        error_output = stderr.read().decode()
+        print(f"Error creating sanity logs tarball: {error_output}")
+        ssh.close()
+        return
 
     ftp_client=ssh.open_sftp()
-    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(sonic_test_dir, log_dir),'sanity_logs.tar.gz')
+    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/sanity_logs.tar.gz'.format(sonic_test_dir),'sanity_logs.tar.gz')
     ftp_client.close()
     ssh.close()
+
+    # extract syslogs tarball
+    print(f"Extracting sanity_logs.tar.gz")
+    result = subprocess.run(["tar", "-xvzf", "sanity_logs.tar.gz"])
+    if result.returncode != 0:
+        print(f"Error! Could not extract sanity_logs.tar.gz! stderr: {result.stderr}, stdout: {result.stdout}")
+
+def get_syslogs(dut_data_file):
+    dut_uname = 'cisco'
+    dut_passwd = 'cisco123'
+
+    with open(dut_data_file) as f:
+        dut_data = yaml.load(f, Loader=yaml.FullLoader)
+
+    #get syslog for each DUT
+    for dut_name, dut_config in dut_data.items():
+        #only consider DUTs
+        if not dut_name.startswith('sonic_dut'):
+            continue
+
+        dut_address = dut_config['HostAgent']
+        ssh_port = dut_config['xr_redir22']
+
+        # Initialize SSH client
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(dut_address, port=ssh_port, username=dut_uname, password=dut_passwd)
+
+        # Create the tar.gz archive on the remote machine.
+        # The command changes directory to remote_dir and archives its contents.
+        remote_tar_path = f"/tmp/syslogs_{dut_name}.tar.gz"
+        local_tar_path = os.path.basename(remote_tar_path)
+        tar_commands = [
+            f"mkdir -p /tmp/syslogs/{dut_name}",
+            f"sudo cp /var/log/syslog* /tmp/syslogs/{dut_name}",
+            f"sudo chmod 666 /tmp/syslogs/{dut_name}/syslog*",
+            f"tar -czvf {remote_tar_path} -C /tmp syslogs",
+            "rm -rf /tmp/syslogs"
+        ]
+        print(f"Running remote command: {tar_commands}")
+        stdin, stdout, stderr = ssh.exec_command(';'.join(tar_commands))
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            error_output = stderr.read().decode()
+            print(f"Error creating tar archive on remote host: {error_output}")
+            ssh.close()
+            return
+
+        # Open an SFTP session and download the tar file.
+        sftp = ssh.open_sftp()
+        print(f"Downloading remote archive from {remote_tar_path} to {local_tar_path}")
+        sftp.get(remote_tar_path, local_tar_path)
+
+        # Optionally, remove the remote tar.gz file
+        print(f"Removing remote archive {remote_tar_path}")
+        sftp.remove(remote_tar_path)
+        sftp.close()
+        ssh.close()
+        print("Download complete.")
+
+        # extract syslogs tarball
+        print(f"Extracting tarball {local_tar_path}")
+        result = subprocess.run(["tar", "-xvzf", local_tar_path])
+        if result.returncode != 0:
+            print(f"Error! Could not extract {local_tar_path}! stderr: {result.stderr}, stdout: {result.stdout}")
+            return
+
+    # re-packaging syslogs directory into a tarball
+    print(f"Re-packaging directory syslogs into tarball")
+    result = subprocess.run(["tar", "-czvf", "syslogs.tar.gz", "syslogs"])
+    if result.returncode != 0:
+        print(f"Error! encountered error while creating tarball! stderr: {result.stderr}, stdout: {result.stdout}")
+        return
+
+def generate_results_json(run_result, failure_reason):
+    # Path to config file
+    ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
+    allure_config = {}
+    with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
+        allure_config = yaml.load(config_file, Loader=yaml.FullLoader)
+        config_file.close()
+
+    SUMMARY_REPORT_FILENAME = "results.json"
+
+    SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+    ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
+
+    sum = {
+        "total": 0, 
+        "failed": 0, 
+        "passed": 0, 
+        "skipped": 0, 
+        "success_rate": 0.0, 
+        "status" : run_result,
+        "failure_reason": failure_reason
+    }
+
+    sum_f = open(SUMMARY_REPORT_PATH, "w")
+    resultpattern = r'<th class="(passed|skipped|failed)">'
+    numberpattern = r'<td>(\d+)</td>'
+
+    try:
+        report = open("./report.html", "r")
+        resultclass = ""
+        lines = report.readlines()
+        for line in lines:
+            result = re.findall(resultpattern, line)
+            if result:
+                print(result[0])
+                resultclass = result[0]
+            n = re.findall(numberpattern, line)
+            if n:
+                print(n[0])
+                sum[resultclass] = int(n[0])
+                sum["total"] += int(n[0])
+        if sum["total"] > 0:
+            sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
+            if sum["success_rate"] != 100:
+                sum["status"] = FAILURE_STATUS
+                sum["failure_reason"] = sum["failure_reason"] or FAILURE_RESONS.TEST_CASES_FAILED
+    except:
+        print("error: report.html file does not exist!")
+        sum["status"] = FAILURE_STATUS
+        sum["failure_reason"] = sum["failure_reason"] or FAILURE_RESONS.NO_REPORT_FILE
+    
+    try:
+        with open(ALLURE_REPORT_URL_FILE, 'r') as f:
+            allure_url = f.readline()
+            print(f"found allure report url: {allure_url}")
+            sum["report_link"] = allure_url
+    except FileNotFoundError as e:
+        print(f"Error! could not find file {ALLURE_REPORT_URL_FILE}, containing allure report: {e}")
+
+    # List of files to copy into the build directory
+    files_to_copy = ["report.html", "test-results.xml.html", "sanity_logs.tar.gz", "sanity_logs", "syslogs", "syslogs.tar.gz"]
+    log_url = upload_log_files(files_to_copy)
+
+    sum["log_tarball_link"] = log_url
+
+    print(f"Result summary: {sum}")
+
+    json.dump(sum, sum_f)
+    sum_f.close()
+
+    return sum
+
+def upload_log_files(files_to_copy):
+    print("Current working directory:", os.getcwd())
+
+    user = os.getenv("USER")
+    date_formatted = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    pipeline_type = os.getenv("PIPELINE_TYPE", "manual_sanity")
+    build_id = os.getenv("BUILD_ID", f"{user}_{date_formatted}")
+    report_repo = os.getenv("REPORT_REPO", f"{CICD_LOG_DIR}/{pipeline_type}")
+
+    # Create the build directory within the 'infra' directory
+    os.makedirs(build_id, exist_ok=True)
+
+    uploaded_files = []
+
+    # Copy each file from 'infra' to the build directory
+    for file_name in files_to_copy:
+        if os.path.exists(file_name):
+            if os.path.isdir(file_name):
+                dest = os.path.join(build_id, os.path.basename(file_name))
+                shutil.copytree(file_name, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy(file_name, build_id)
+            uploaded_files.append(file_name)
+        else:
+            print(f"Warning: {file_name} does not exist and was not copied.")
+
+    # Copy the build directory to the report repository
+    dest_dir = os.path.join(report_repo, build_id)
+    try:
+        shutil.copytree(build_id, dest_dir, dirs_exist_ok=True)
+        log_url = f"{CICD_LOG_URL}/{pipeline_type}/{build_id}"
+        print(f"uploaded files {uploaded_files} to url: {log_url}")
+        return log_url
+    except Exception as e:
+        print(f"Error copying build directory to report repo: {e}")
+        return None
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
             sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, add_sim_patches=False, test_tag=None):
     sanity_start_time = datetime.datetime.now()
+    
+    run_result = None
+    failure_reason = None
+
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
     print("Script file: {}, drop version: {}, log_dir {}, sonic-test directory: {}, docker-mgmt container name: '{}', create-allure-report: {}".format(script_file, drop_version, log_dir, sonic_test_dir, docker_mgmt_container, create_allure_report))
@@ -476,30 +677,59 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     upload_dut_data_file(host, username, password, dut_data_file, sonic_test_dir, ssh_port)
 
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
-    run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,topo_type,create_allure_report, additional_tests,
-                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file, add_sim_patches, test_tag)
+    try:
+        run_result, failure_reason = trigger_run_scripts(
+            host, 
+            username, 
+            password, 
+            uploaded_script_files_str,
+            drop_version,
+            log_dir,
+            device_type,
+            topo_type,
+            create_allure_report, 
+            additional_tests,
+            ssh_port, 
+            topo_name, 
+            docker_mgmt_container, 
+            skip_sanity, 
+            dut_data_file, 
+            add_sim_patches, 
+            test_tag
+        )
+    except Exception as e:
+        print(f"Caught exception while running run_scripts.py! error: {e}")
+        run_result = FAILURE_STATUS
+        failure_reason = FAILURE_RESONS.RUN_SCRIPTS_EXCEPTION
+    
     sanity_end_time = datetime.datetime.now()
 
+    try:
+        create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port)
+        parse_report(host, username, password, sonic_test_dir, ssh_port)
+        get_report_file(host, username, password, sonic_test_dir, ssh_port)
+    except Exception as e:
+        print(f"Caught exception while creating report! error: {e}")
+        run_result = FAILURE_STATUS
+        failure_reason = failure_reason or FAILURE_RESONS.CREATE_REPORT_FAIL
+    
+    try:
+        get_sanity_logs(host, username, password, log_dir, sonic_test_dir, ssh_port)
+        get_syslogs(dut_data_file)
+    except Exception as e:
+        print(f"Caught exception while getting logs! error: {e}")
+        run_result = FAILURE_STATUS
+        failure_reason = failure_reason or FAILURE_RESONS.LOG_FILES_GET_FAIL
 
-    if not run_result:
-        log_dir = 'logs'
-        handle_sim_failure("bgp_failure")
-
-    create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port)
-    parse_report(host, username, password, sonic_test_dir, ssh_port)
-    get_report_file(host, username, password, sonic_test_dir, ssh_port)
-    get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port)
-    # else:
-    #     report_file = open('full_report.txt', 'w')
-    #     report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-    #     report_file.flush()
-    #     report_file.close()
-    #     print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+    results_summary = generate_results_json(run_result, failure_reason)
 
     sanity_time_delta = (sanity_end_time - sanity_start_time).total_seconds()
     print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
-    if not run_result:
+    if results_summary["status"] != SUCCESS_STATUS:
         print("Sanity run unsuccesful !!!, Check log files for more details")
+        return 1
+
+    return 0
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
@@ -564,7 +794,8 @@ if __name__ == '__main__':
     dut_data_file = args['dut_data_file']
     add_sim_patches = args['add_sim_patches']
     test_tag = args['test_tag']
-    run_scripts_remote(
+    
+    ret = run_scripts_remote(
         host_address,
         username,
         password,
@@ -584,3 +815,5 @@ if __name__ == '__main__':
         add_sim_patches,
         test_tag
     )
+
+    sys.exit(ret)

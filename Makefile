@@ -4,6 +4,8 @@ TESTFILE ?= sanity-scripts/sanity_scripts.txt
 GOLDENBRANCH ?= 202012
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
+PIPELINE_TYPE ?= "manual_sanity"
+BUILD_ID ?= "${USER}_$(date +%Y%m%d%H%M%S)"
 REPORT_REPO ?= /auto/mb/sonic/workspace/sonic-cicd/sanity_logs/${PIPELINE_TYPE}
 DUT_USERNAME ?= "cisco"
 DUT_PASSWORD ?= "cisco123"
@@ -147,15 +149,6 @@ run_hw:
 	--sonic_test_dir=${SONIC_TEST_DIR} \
 	--create_allure_report \
 	--additional_tests="${ADDITIONAL_TESTS}"
-
-collect:
-	echo "collect test result..."
-	cd infra; python3 ./pipeline_collect_result.py
-	pwd
-	cd infra; mkdir $(BUILD_ID)
-	cd infra; cp report.html $(BUILD_ID)/; cp test-results.xml.html $(BUILD_ID)/; cp sanity_logs.tar.gz $(BUILD_ID)/
-	cd infra; cp -r $(BUILD_ID) $(REPORT_REPO) | true
-
 
 collect_controller_logs:
 	echo "collect controller test result..."

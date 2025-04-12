@@ -30,7 +30,7 @@ import subprocess
 import sys
 from jinja2 import Environment, FileSystemLoader
 import re
-from run_scripts_remote import run_scripts_remote, handle_sim_failure
+from run_scripts_remote import run_scripts_remote, handle_sim_failure, FAILURE_RESONS
 
 SUMMARY_REPORT_FILENAME = "results.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
@@ -597,10 +597,12 @@ def create_report_json(sanity_success):
     if sanity_success:
         sum["passed"] = 1
         sum["status"] = "success"
+        sum["failure_reason"] = None
         sum["success_rate"] = 100
     else:
         sum["failed"] = 1
         sum["status"] = "failure"
+        sum["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
         sum["success_rate"] = 0
 
     sum_f = open(SUMMARY_REPORT_PATH, "w")
@@ -699,6 +701,8 @@ def main():
 
     profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
 
+    ret = 0
+
     if 'tortuga-controller' not in data['topo_type']:
         print("******************************************************************************************************************************************************************************\n")
         print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
@@ -719,15 +723,19 @@ def main():
         sanity_success = start_controller()
         if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
+            ret = 0
         else:
             print("Test Failed. Something went wrong, Please check the test logs")
+            ret = 1
         create_sanity_log_tarball(data, leaf_ports + spine_ports)
         create_report_json(sanity_success)
 
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
-
+    
+    return ret
 
 if __name__ == '__main__':
-  main()
+  ret = main()
+  sys.exit(ret)

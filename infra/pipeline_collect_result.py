@@ -14,10 +14,8 @@ with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
     config_file.close()
 
 SUMMARY_REPORT_FILENAME = "results.json"
-COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
-COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
 
 # VXR SIM failure detected, don't overwrite file contents
@@ -32,7 +30,6 @@ if (os.path.isfile(SUMMARY_REPORT_PATH)):
             bgp_failure = True
 
 sum_f = open(SUMMARY_REPORT_PATH, "w")
-com_f = open(COMMON_REPORT_PATH, "w") 
 
 sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
 
@@ -42,9 +39,7 @@ if bgp_failure:
     sum["failed"] = 1
     sum["status"] = "bgp_failure"
     json.dump(sum, sum_f)
-    json.dump(sum, com_f)
     sum_f.close()
-    com_f.close()
     exit(0)
 
 resultpattern = r'<th class="(passed|skipped|failed)">'
@@ -54,10 +49,8 @@ try:
     report = open("./report.html", "r")
 except:
     print("error: report.html file not exit!")
-    com_f.write("report.html file was not found, did something go wrong?")
     json.dump(sum, sum_f)
     sum_f.close()
-    com_f.close()
     exit(1)
 
 resultclass = ""
@@ -86,7 +79,5 @@ except FileNotFoundError as e:
 print(sum)
 
 json.dump(sum, sum_f)
-json.dump(sum, com_f)
 sum_f.close()
-com_f.close()
 

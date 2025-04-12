@@ -440,6 +440,26 @@ def process_conditions_files(mark_conditions_files):
     return mark_conditions_file_opt
 
 def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None, device_type=None):
+    print("running new_run_scripts")
+    print("params: ", 
+          "\nscript_file: " + str(script_file),
+          "\ndrop_version: " + str(drop_version),
+          "\nlog_dir: " + str(log_dir),
+          "\ndut_name: " + str(dut_name),
+          "\ntopo_type: " + str(topo_type),
+          "\ntopo_name: " + str(topo_name),
+          "\ntstamp: " + str(tstamp),
+          "\nbuild_id: " + str(build_id),
+          "\ncreate_allure_report: " + str(create_allure_report),
+          "\ncollect_logs: " + str(collect_logs),
+          "\ndut_address: " + str(dut_address),
+          "\nadditional_tests: " + str(additional_tests),
+          "\nrun_options: " + str(run_options),
+          "\ndut_data_file: " + str(dut_data_file), 
+          "\nmark_conditions_files: " + str(mark_conditions_files),
+          "\ntest_tag: " + str(test_tag),
+          "\ndevice_type: " + str(device_type)
+          )
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -475,7 +495,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     delta1 = datetime.datetime.now()
 
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR)
+    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
     os.system("bash -c '{}'".format(cmd))
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     if not int(passed):
@@ -483,7 +503,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
         current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR)
+        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
         os.system("bash -c '{}'".format(cmd))
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
         if not int(passed):
@@ -491,7 +511,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
             current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
             current_result_file.flush()
             time.sleep(60)
-            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR)
+            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
             os.system("bash -c '{}'".format(cmd))
 
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
