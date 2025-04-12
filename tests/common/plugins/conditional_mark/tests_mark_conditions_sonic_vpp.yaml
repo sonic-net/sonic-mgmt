@@ -1303,10 +1303,10 @@ everflow:
 #######################################
 #####           MPLS              #####
 #######################################
-mpls:
+mpls/test_mpls.py:
   skip:
     reason: >
-            Failed/Errored: Unsupported
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
