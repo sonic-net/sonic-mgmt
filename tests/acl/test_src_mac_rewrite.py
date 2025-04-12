@@ -6,23 +6,15 @@ import os
 import time
 import logging
 import pytest
-import ipaddress
-import json
 import ptf.testutils as testutils
 from ptf import mask
-from ptf.packet import Ether, IP, UDP, VXLAN
+from ptf.packet import Ether, VXLAN
 import ptf.packet as scapy
 from scapy.all import Ether
 
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import get_neighbor_ptf_port_list
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
-
-from abc import abstractmethod
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +45,10 @@ ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 
+
 def setup_acl_table(duthost):
     table_name = ACL_TABLE_NAME
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     ports = list(mg_facts['minigraph_portchannels'])
     dut_port = ports[0] if ports else None
 
@@ -75,6 +69,7 @@ def setup_acl_table(duthost):
         # Todo: cleanup
         pytest.fail("Failed to create ACL table {}".format(table_name))
 
+
 def remove_acl_table(duthost):
     table_name = ACL_TABLE_NAME
     cmd = "config acl remove table {}".format(table_name)
@@ -89,6 +84,7 @@ def remove_acl_table(duthost):
     except LogAnalyzerError:
         # Todo: cleanup
         pytest.fail("Failed to remove ACL table {}".format(table_name))   
+
 
 def setup_acl_rules(duthost, inner_src_ip, vni, action, new_src_mac):
     table_name = ACL_TABLE_NAME
@@ -110,12 +106,14 @@ def setup_acl_rules(duthost, inner_src_ip, vni, action, new_src_mac):
     if duthost.facts['asic_type'] != 'vs':
         pytest_assert(wait_until(60, 2, 0, check_rule_counters, duthost), "Acl rule counters are not ready")
 
+
 def remove_acl_rules(self, duthost):
     table_name = ACL_TABLE_NAME
     duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
     remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
     duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, table_name))
     time.sleep(5)
+
 
 def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
     # Define test parameters
@@ -163,9 +161,6 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
 
     time.sleep(2)
 
-    # Verify the modified packet is received at egress
-    #testutils.verify_packet(ptfadapter, expected_pkt, 0)
-
     result = testutils.dp_poll(ptfadapter, exp_pkt=expected_pkt, port_number=0, timeout=2)
 
     # Check and extract inner source MAC
@@ -178,7 +173,7 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
 
         print(f"Inner source MAC: {inner_src_mac}")
 
-        assert inner_src_mac == modified_inner_src_mac, f"Expected inner src MAC {modified_inner_src_mac}, got {inner_src_mac}"
+        assert inner_src_mac == modified_inner_src_mac, f"Expected {modified_inner_src_mac},got {inner_src_mac}"
     else:
         assert False, "No packet received on port 0"
 
