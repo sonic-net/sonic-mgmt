@@ -1162,11 +1162,11 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     untar_cisco_dir(data)
 
     # Change DUT password and set mgmt ip address
-    '''
+
     for dut_name in get_dut_names(data):
         print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
         change_dut_passwd(data[dut_name])
-    '''
+
     if add_sim_patch:
         add_sim_patches(data)
     # Start docker container, deploy DUT minigraph
