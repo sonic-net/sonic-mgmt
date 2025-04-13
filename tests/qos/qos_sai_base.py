@@ -237,6 +237,9 @@ class QosSaiBase(QosBase):
                 port_dynamic_th = dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
+                port_profile_reserved_size = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                )[0]
                 break
         if port_dynamic_th:
 
@@ -256,17 +259,24 @@ class QosSaiBase(QosBase):
                 )[0]
             )
 
-            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+            pg_q_reserved_size = int(port_profile_reserved_size) * pg_q_alpha / (1 + pg_q_alpha)
+            reserved_size = pg_q_reserved_size if pg_q_reserved_size > int(pg_q_buffer_profile["size"]) \
+                else int(pg_q_buffer_profile["size"])
+
+            if pg_q_buffer_profile['dynamic_th'] == "7" and port_dynamic_th != "7":
+                buffer_scale = port_alpha / (1 + port_alpha)
+            else:
+                buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
 
             pg_q_max_occupancy = int(buffer_size * buffer_scale)
 
             pg_q_buffer_profile.update(
-                {"static_th": int(
-                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+                {"static_th": int(pg_q_max_occupancy) + int(reserved_size)}
             )
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -2147,8 +2157,8 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['1-3', '4', '5']
-                queue_to_dscp_map = {'1-3': '1', '4': '11', '5': '31'}
+                queue_table_postfix_list = ['0-3', '4', '5']
+                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
                 queues = random.choice(queue_table_postfix_list)
             else:
                 queues = "0-2"
@@ -2164,7 +2174,7 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-3' else queues
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
         logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
