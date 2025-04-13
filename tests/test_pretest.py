@@ -226,7 +226,7 @@ def collect_dut_lossless_prio(dut):
 
     """ Here we assume all the ports have the same lossless priorities """
     intf = list(port_qos_map.keys())[0]
-    if 'pfc_enable' not in port_qos_map[intf]:
+    if not port_qos_map[intf].get('pfc_enable'):
         return []
 
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
