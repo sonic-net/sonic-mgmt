@@ -119,6 +119,8 @@ steps:
               IMAGE_SUFFIX=20231110
           elif [[ $IMAGE_URL == *"202405"* ]]; then
               IMAGE_SUFFIX=20240510
+          elif [[ $IMAGE_URL == *"202411"* ]]; then
+              IMAGE_SUFFIX=20241110
           fi
           echo "$IMAGE_URL_PREFIX-$IMAGE_SUFFIX"
         }
@@ -203,7 +205,7 @@ steps:
             done
         elif [[ x"$UPGRADE_TEST_TYPE" = x"multi-hop" ]]; then
             echo "******************* Multi-hop Upgrade Test *******************"
-            
+
             # Resolve multi-hop upgrade paths
             if [[ x"${{ parameters.POOL }}" == x"nightly-bjw" ]]; then
                 assemble_upgrade_path_extra_params="--bjw-lab"
