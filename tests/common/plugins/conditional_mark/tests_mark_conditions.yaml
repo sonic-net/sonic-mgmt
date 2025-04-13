@@ -20,9 +20,11 @@ acl/custom_acl_table/test_custom_acl_table.py:
 #######################################
 acl/null_route/test_null_route_helper.py:
   skip:
-    reason: "Skip running on dualtor testbed"
+    reason: "Skip running on dualtor/m1/m2/m3 testbed"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "'m1' in topo_type or 'm2' in topo_type or 'm3' in topo_type"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
@@ -1120,6 +1122,13 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
       - "'t2' in topo_name"
+
+generic_config_updater/test_multiasic_addcluster.py:
+  skip:
+    reason: "Only supported on multi-asic system."
+    conditions:
+      - "(is_multi_asic is False)"
+      - "hwsku in ['Nokia-IXR7250E-36x400G']"
 
 generic_config_updater/test_multiasic_idf.py:
   skip:

@@ -246,7 +246,6 @@ t0:
   - fips/test_fips.py
 
 t0-2vlans:
-  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
@@ -496,6 +495,7 @@ multi-asic-t1-lag:
   - http/test_http_copy.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry.py
+  - generic_config_updater/test_multiasic_addcluster.py
   - generic_config_updater/test_multiasic_idf.py
   - generic_config_updater/test_multiasic_linkcrc.py
 
