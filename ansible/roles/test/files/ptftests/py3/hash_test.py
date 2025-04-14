@@ -209,7 +209,7 @@ class HashTest(BaseTest):
             logging.info("hash_key={}, hit count map: {}".format(
                 hash_key, hit_count_map))
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists):
         if ip_network(six.text_type(dst_ip)).version == 4:
@@ -628,7 +628,7 @@ class IPinIPHashTest(HashTest):
     '''
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
-            vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
+            vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
             ip_src=None, ip_dst=None, ip_proto=None
     ):
         """
