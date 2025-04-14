@@ -222,14 +222,19 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for dut in duthosts:
+            executor.submit(collect_dut_info, dut, metadata)
+
     for dut in duthosts:
-        dutinfo = collect_dut_info(dut)
+        dutinfo = metadata[dut.hostname]
         asic_to_interface = {}
         for asic in dut.asics:
             interfaces = dut.show_interface(command="status", namespace=asic.namespace)["ansible_facts"]["int_status"]
             asic_to_interface[asic.namespace] = list(interfaces.keys())
         dutinfo.update({"asic_to_interface": asic_to_interface})
         metadata[dut.hostname] = dutinfo
+
     folder = 'metadata/snappi_tests'
     filepath = os.path.join(folder, tbname + '.json')
     info = {tbname: metadata}
