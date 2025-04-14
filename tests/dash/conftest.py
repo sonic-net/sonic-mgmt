@@ -25,7 +25,8 @@ def get_dpu_dataplane_port(duthost, dpu_index):
     try:
         interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
     except KeyError:
-        interface = f"Ethernet-BP{dpu_index}"
+        if_dpu_index = 224 + dpu_index*8
+        interface = f"Ethernet{if_dpu_index}"
 
     logger.info(f"DPU dataplane interface: {interface}")
     return interface

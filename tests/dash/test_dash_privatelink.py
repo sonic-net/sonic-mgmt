@@ -23,33 +23,8 @@ Test prerequisites:
 - Default route on DPU to NPU
 """
 
-
-def get_dpu_dataplane_port(duthost, dpu_index):
-    platform = duthost.facts["platform"]
-    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
-    try:
-        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
-    except KeyError:
-        interface = f"Ethernet-BP{dpu_index}"
-
-    logger.info(f"DPU dataplane interface: {interface}")
-    return interface
-
-
-def get_interface_ip(duthost, interface):
-    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
-    output = duthost.shell(cmd)["stdout"].strip()
-    return ip_interface(output)
-
-
 @pytest.fixture(scope="module")
-def dpu_ip(duthost, dpu_index):
-    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
-    npu_interface_ip = get_interface_ip(duthost, dpu_port)
-    return npu_interface_ip.ip + 1
-
-@pytest.fixture(scope="module")
-def is_smartswitch(duthost):
+def use_pkt_alt_attrs(duthost):
     hwsku = duthost.sonichost._facts["hwsku"]
     if hwsku == "Cisco-8102-28FH-DPU-O-T1":
         return True
@@ -121,8 +96,8 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, is_smartswitch)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, is_smartswitch)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, use_pkt_alt_attrs)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, use_pkt_alt_attrs)
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
