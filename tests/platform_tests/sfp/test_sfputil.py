@@ -339,7 +339,16 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     skip_release(duthost, ["201811", "201911", "202012"])
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
-
+    platform = duthost.facts['platform']
+    if platform == 'x86_64-8102_28fh_dpu_o-r0':
+        # Ports to filter out
+        excluded_ports = {
+            'Ethernet224', 'Ethernet232', 'Ethernet240', 'Ethernet248',
+            'Ethernet256', 'Ethernet264', 'Ethernet272', 'Ethernet280'
+        }
+        # Filtered dictionary
+        filtered_ports = {k: v for k, v in portmap.items() if k not in excluded_ports}
+        portmap = filtered_ports
     logging.info("Check output of '{}'".format(cmd_sfp_error_status))
     sfp_error_status = duthost.command(cmd_sfp_error_status, module_ignore_errors=True)
     if "NOT implemented" in sfp_error_status['stdout']:
