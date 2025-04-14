@@ -149,3 +149,30 @@ def add_advanced_reboot_args(parser):
         "sad(3h45m), multi_sad(5h), sad_bgp(1h5m), sad_lag_member(1h15m), sad_lag(1h15m), " +
         "sad_vlan_port(1h10m), sad_inboot(1h20m)",
         )
+
+    parser.addoption(
+        "--enable_consistency_checker",
+        action="store_true",
+        default=False,
+        help="Enables the consistency checker between the ASIC_DB and ASIC itself for the test"
+    )
+
+    parser.addoption(
+        "--consistency_checker_libsairedis_url_template",
+        default="",
+        help="Optional URL template for downloading and using an alternative version of libsairedis deb package " +
+        "during the consistency check. E.g. " +
+        "http://build-server.example/sonic-buildimage/{sonic_version}/debs/libsairedis_1.0.0_amd64.deb " +
+        "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
+        "test. e.g. 202311"
+    )
+
+    parser.addoption(
+        "--consistency_checker_python3_pysairedis_url_template",
+        default="",
+        help="Optional URL template for downloading and using an alternative version of python3-pysairedis deb " +
+        "package during the consistency check. E.g. " +
+        "http://build-server.example/sonic-buildimage/{sonic_version}/debs/python3-pysairedis_1.0.0_amd64.deb " +
+        "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
+        "test. e.g. 202311"
+    )

@@ -5,10 +5,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
 from tests.common.reboot import REBOOT_TYPE_COLD
-from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version,\
+from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version, \
     get_reboot_command, check_copp_config
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 
@@ -51,7 +52,7 @@ def upgrade_path_lists(request):
 def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                       nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
-                      upgrade_path_lists):
+                      upgrade_path_lists, consistency_checker_provider):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
@@ -92,7 +93,8 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                 reboot(duthost, localhost)
             else:
                 advancedReboot = get_advanced_reboot(rebootType=get_reboot_command(duthost, upgrade_type),
-                                                     advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                                     advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                                     consistency_checker_provider=consistency_checker_provider)
                 advancedReboot.runRebootTestcase()
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
@@ -107,7 +109,8 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                                nbrhosts, fanouthosts, vmhost, tbinfo, restore_image,                # noqa F811
                                get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,     # noqa F811
                                upgrade_path_lists, backup_and_restore_config_db,                    # noqa F811
-                               advanceboot_neighbor_restore, sad_case_type):                        # noqa F811
+                               advanceboot_neighbor_restore, consistency_checker_provider,          # noqa F811
+                               sad_case_type):                                                      # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
@@ -128,7 +131,8 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
             logger.info("Upgrading to {}".format(to_image))
             install_sonic(duthost, to_image, tbinfo)
             advancedReboot = get_advanced_reboot(rebootType=get_reboot_command(duthost, "warm"),
-                                                 advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                                 advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                                 consistency_checker_provider=consistency_checker_provider)
             sad_preboot_list, sad_inboot_list = get_sad_case_list(
                 duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
             advancedReboot.runRebootTestcase(
