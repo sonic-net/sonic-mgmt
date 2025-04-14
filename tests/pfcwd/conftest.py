@@ -149,8 +149,11 @@ def setup_pfc_test(
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
+    topo = tbinfo["topo"]["name"]
+
     # build the port list for the test
-    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
     test_ports = tp_handle.build_port_list()
     mg_facts['minigraph_port_indices'] = {
         key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
@@ -161,7 +164,6 @@ def setup_pfc_test(
         if not key.startswith('Ethernet-BP')
     }
     # In T1 topology update test ports by removing inactive ports
-    topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
