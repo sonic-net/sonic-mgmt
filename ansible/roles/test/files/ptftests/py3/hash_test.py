@@ -29,7 +29,8 @@ from ptf.testutils import simple_vxlanv6_packet
 from ptf.testutils import simple_nvgre_packet
 import fib
 import lpm
-import macsec
+
+
 class HashTest(BaseTest):
     # ---------------------------------------------------------------------
     # Class variables
@@ -263,7 +264,7 @@ class HashTest(BaseTest):
 
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
-            vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
+            vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
             ip_src=None, ip_dst=None, ip_proto=None
     ):
         """
@@ -506,7 +507,7 @@ class HashTest(BaseTest):
             rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
 
-    def check_within_expected_range(self, actual, expected):
+    def check_within_expected_range(self, actual, expected, hash_key):
         '''
         @summary: Check if the actual number is within the accepted range of the expected number
         @param actual : acutal number of recieved packets
@@ -595,7 +596,7 @@ class HashTest(BaseTest):
                     total_entry_hit_cnt, float(total_hit_cnt) / len(asic_member))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                              % ("ECMP", str(ecmp_entry), total_hit_cnt // len(asic_member),
-                                total_entry_hit_cnt, str(round(p, 4) * 100) + '%'))
+                                total_entry_hit_cnt, str(round(p, 4) * 100) + '%'), hash_key)
                 result &= r
                 if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
                     continue
@@ -604,7 +605,7 @@ class HashTest(BaseTest):
                         member, 0), float(total_entry_hit_cnt) / len(ecmp_entry))
                     logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                                  % ("LAG", str(member), total_entry_hit_cnt // len(ecmp_entry),
-                                    port_hit_cnt.get(member, 0), str(round(p, 4) * 100) + '%'))
+                                    port_hit_cnt.get(member, 0), str(round(p, 4) * 100) + '%'), hash_key)
                     result &= r
         assert result
 
@@ -617,6 +618,8 @@ class HashTest(BaseTest):
         for hash_key in self.hash_keys:
             logging.info("hash test hash_key: {}".format(hash_key))
             self.check_hash(hash_key)
+
+
 class IPinIPHashTest(HashTest):
     '''
     This test is to verify the hash key for IPinIP packet.
@@ -777,6 +780,7 @@ class IPinIPHashTest(HashTest):
             for next_hop in next_hops:
                 self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
 
+
 class VxlanHashTest(HashTest):
     '''
     This test is to verify the hash key for VxLAN packet.
@@ -792,7 +796,7 @@ class VxlanHashTest(HashTest):
 
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
-            vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
+            vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
             ip_src=None, ip_dst=None, ip_proto=None
     ):
         """
@@ -956,6 +960,7 @@ class VxlanHashTest(HashTest):
         for next_hop in next_hops:
             self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
 
+
 class NvgreHashTest(HashTest):
     '''
     This test is to verify the hash key for NvGRE packet.
@@ -964,7 +969,7 @@ class NvgreHashTest(HashTest):
     '''
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
-            vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
+            vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
             ip_src=None, ip_dst=None, ip_proto=None
     ):
         """
