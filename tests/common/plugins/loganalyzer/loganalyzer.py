@@ -4,12 +4,12 @@ import os
 import re
 import time
 import pprint
+import shutil
 
 from . import system_msg_handler
 
 from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
-from .bug_handler_helper import log_analyzer_bug_handler, skip_loganalyzer_bug_handler
 
 ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
@@ -95,6 +95,8 @@ class LogAnalyzer:
         self.additional_start_str = list(additional_files.values())
         self.request = request
 
+        self._la_logs_dir = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
+
     def _add_end_marker(self, marker):
         """
         @summary: Add stop marker into syslog on the DUT.
@@ -164,15 +166,21 @@ class LogAnalyzer:
             for error_list in result_log_errors:
                 log_errors += ''.join(error_list)
 
-            tmp_folder = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
-            os.makedirs(tmp_folder, exist_ok=True)
+            os.makedirs(self._la_logs_dir, exist_ok=True)
             cur_time = time.strftime("%d_%m_%Y_%H_%M_%S", time.gmtime())
             cleaned_marker_prefix = re.sub(r'[\\/\'"<>|]', '_', self.marker_prefix)
-            file_path = os.path.join(tmp_folder, "log_error_{}_{}.json".format(cleaned_marker_prefix, cur_time))
-            logging.info("Log errors will be saved in file: {}".format(file_path))
-            data = {'log_errors': log_errors}
-            with open(file_path, "w+") as file:
-                json.dump(data, file)
+            file_path = os.path.join(self._la_logs_dir, "log_error_{}_{}.json".format(cleaned_marker_prefix, cur_time))
+            self.write_errors_to_file(file_path, log_errors)
+
+    @staticmethod
+    def write_errors_to_file(file_path, log_errors):
+        """Write error-lines to a file that can be read by the bug-handler."""
+        logging.info("Log errors will be saved in file: {}".format(file_path))
+        if not isinstance(log_errors, str):  # so log_errors is a list of strings
+            log_errors = '\n'.join(log_errors)
+        data = {BugHandlerConst.LOG_ERRORS_FILE_ROOT_ITEM: log_errors}
+        with open(file_path, "w+") as file:
+            json.dump(data, file)
 
     def _results_repr(self, result):
         """
@@ -419,21 +427,15 @@ class LogAnalyzer:
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
         logging.debug("Analyzer summary: {}".format(pprint.pformat(analyzer_summary)))
+        try:
+            shutil.rmtree(self._la_logs_dir)
+        except FileNotFoundError:
+            pass
         if analyzer_summary["total"]["match"] != 0 and store_la_logs:
             self.save_matching_errors(analyzer_summary["match_messages"].values())
-
         if fail:
             self._verify_log(analyzer_summary)
-        elif store_la_logs:
-            self._post_err_msg_handler(analyzer_summary)
-        else:
-            return analyzer_summary
-
-    def _post_err_msg_handler(self, analyzer_summary):
-        if skip_loganalyzer_bug_handler(self.ansible_host, self.request):
-            self._verify_log(analyzer_summary)
-        else:
-            log_analyzer_bug_handler(self.ansible_host, self.request)
+        return analyzer_summary
 
     def save_extracted_log(self, dest):
         """
