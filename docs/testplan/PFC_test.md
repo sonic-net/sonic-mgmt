@@ -108,3 +108,16 @@ The reserved multicast address 01-80-C2-00-00-01 is used as the destination MAC 
 
 1. Data traffic transmitted through PFC-disabled queues should remain unaffected by PFC pause frames and maintain a 0% packet loss rate.
 2. Data Traffic transmitted through PFC-enabled queues and lossless priorities is expected to experience a 0% Rx rate on the traffic generator as a result of the PFC pause frames.
+
+## Metrics
+
+Save the PFC test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
+
+| Label                          | Example Value      |
+| ------------------------------ | ------------------ |
+| `METRIC_LABEL_DEVICE_ID`       | switch-A           |
+| `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8          |
+
+| Metric Name                    | Example Value      |
+| ------------------------------ | ------------------ |
+| `METRIC_NAME_PFC_LOSSY`        | FINAL_STATUS.PASS  |
