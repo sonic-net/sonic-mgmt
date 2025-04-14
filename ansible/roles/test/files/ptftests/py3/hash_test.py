@@ -439,7 +439,7 @@ class HashTest(BaseTest):
         else:
             rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
-   
+
     def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip=None, outer_dst_ip=None):
         '''
         @summary: Check IPv6 route works.
@@ -524,7 +524,7 @@ class HashTest(BaseTest):
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
-            if type(port) == list:
+            if isinstance(port, list):
                 per_port_list = list()
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
@@ -565,7 +565,7 @@ class HashTest(BaseTest):
             asic_list['voq'] = dest_port_list
         else:
             for port in dest_port_list:
-                if type(port) == list:
+                if isinstance(port, list):
                     port_map = self.ptf_test_port_map[str(port[0])]
                     asic_id = port_map.get('asic_idx', 0)
                     member = asic_list.get(asic_id)
@@ -625,6 +625,7 @@ class IPinIPHashTest(HashTest):
     The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
     for IPinIP packet.
     '''
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -786,6 +787,7 @@ class VxlanHashTest(HashTest):
     The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
     for IPinIP packet.
     '''
+
     def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
         """
         @summary: Send a VXLAN encapsulated packet and verify it is received on expected ports.
@@ -966,6 +968,7 @@ class NvgreHashTest(HashTest):
     The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
     for NvGRE packet.
     '''
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
