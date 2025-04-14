@@ -438,6 +438,12 @@ class AclVlanOuterTest_Base(object):
         logger.info("Creating ACL table {} for testing".format(table_name))
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestAclVlanOuter")
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+
+        # Remove acl tables for more TCAM resource
+        duthost.command('config acl remove table DATAACL')
+        duthost.command('config acl remove table EVERFLOW')
+        duthost.command('config acl remove table EVERFLOWV6')
+
         try:
             with loganalyzer:
                 duthost.shell(cmd)
