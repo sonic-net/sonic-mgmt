@@ -1,6 +1,5 @@
 import pytest
 import logging
-import grpc
 
 from tests.common.reboot import wait_for_startup
 from tests.gnmi.grpc_utils import get_gnoi_system_stubs
