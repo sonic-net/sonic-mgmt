@@ -1,11 +1,10 @@
 import pytest
 import logging
 import grpc
-import os
-import sys
 
 from tests.common.reboot import wait_for_startup
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.gnmi.grpc_utils import get_gnoi_system_stubs
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -18,14 +17,7 @@ This module contains tests for the gNOI System Services, using gRPC python API.
 """
 
 
-def _get_gnoi_stubs():
-    PROTO_ROOT = "gnmi/protos"
-    sys.path.append(os.path.abspath(PROTO_ROOT))
-    from gnoi.system import system_pb2_grpc, system_pb2
-    return system_pb2_grpc, system_pb2
-
-
-system_pb2_grpc, system_pb2 = _get_gnoi_stubs()
+system_pb2_grpc, system_pb2 = get_gnoi_system_stubs()
 
 
 def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
