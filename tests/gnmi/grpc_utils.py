@@ -1,6 +1,7 @@
 import sys
 import os
 
+
 def get_gnoi_system_stubs():
     """
     Dynamically generates and returns gNOI system stubs for gRPC communication.
