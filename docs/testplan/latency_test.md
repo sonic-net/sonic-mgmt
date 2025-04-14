@@ -50,30 +50,19 @@ Latency data is collected and stored periodically. The diagram below illustrates
 
 For each of the above results, save the latency figures in nanoseconds to a database via the telemetry interface provided by the SONiC team. An example of how to use the interface is provided in telemetry folder. The metrics are stored as data points in our database.
 
-In addition to the common labels below
+| Label                                 | Example Value  |
+| ------------------------------------- | -------------- |
+| `METRIC_LABEL_DEVICE_ID`              | switch-A       |
+| `METRIC_LABEL_DEVICE_INGRESS_PORT_ID` | Ethernet8      |
+| `METRIC_LABEL_DEVICE_EGRESS_PORT_ID`  | Ethernet257    |
+| `METRIC_LABEL_TRAFFIC_RATE`           | 50             |
+| `METRIC_LABEL_TRAFFIC_PACKET_SIZE`    | 4096           |
+| `METRIC_LABEL_TRAFFIC_RFC2889_FLAG`   | ON             |
 
-```python
-METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
-METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
-```
-
-The following labels should also be provided:
-
-```python
-METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-METRIC_LABEL_DEVICE_INGRESS_PORT_ID: Final[str] = "device.ingress_port.id"
-METRIC_LABEL_DEVICE_EGRESS_PORT_ID: Final[str] = "device.egress_port.id"
-METRIC_LABEL_TRAFFIC_RATE: Final[str] = "traffic.rate"               # Measured as a percentage of the line rate
-METRIC_LABEL_TRAFFIC_PACKET_SIZE: Final[str] = "traffic.packet_size" # Measured in bytes
-METRIC_LABEL_TRAFFIC_RFC2889_FLAG: Final[str] = "traffic.rfc2889_flag"
-```
-
-Three metrics are collected and stored.
-
-```python
-METRIC_NAME_MIN_LATENCY: Final[str] = "latency.min"
-METRIC_NAME_MAX_LATENCY: Final[str] = "latency.max"
-METRIC_NAME_AVG_LATENCY: Final[str] = "latency.avg"
-```
+| Metric Name                           | Example Value  |
+| ------------------------------------- | -------------- |
+| `METRIC_NAME_MIN_LATENCY`             | 5891           |
+| `METRIC_NAME_MAX_LATENCY`             | 7620           |
+| `METRIC_NAME_AVG_LATENCY`             | 6387           |
 
 Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
