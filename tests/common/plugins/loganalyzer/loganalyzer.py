@@ -1,15 +1,14 @@
 import json
 import logging
 import os
+import pprint
 import re
 import time
-import pprint
+from os.path import join, split
 
 from . import system_msg_handler
-
-from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
-from os.path import join, split
 from .bug_handler_helper import log_analyzer_bug_handler, skip_loganalyzer_bug_handler
+from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 
 ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
@@ -68,6 +67,7 @@ class DisableLogrotateCronContext:
 
 class LogAnalyzerError(Exception):
     """Raised when loganalyzer found matches during analysis phase."""
+
     def __repr__(self):
         return pprint.pformat("Log Analyzer Error- Matches found, please check errors in log")
 
@@ -103,7 +103,7 @@ class LogAnalyzer:
         """
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
-        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}" \
             .format(run_dir=self.dut_run_dir, marker=marker)
 
         logging.debug("Adding end marker '{}'".format(marker))
@@ -136,8 +136,10 @@ class LogAnalyzer:
         when there is configured expected regexp in self.expect_regex list
         """
         if not result:
+            logging.info("[chunangli] Log analyzer failed - no result.")
             raise LogAnalyzerError("Log analyzer failed - no result.")
         else:
+            logging.info("[chunangli] check match number.")
             result_str = self._results_repr(result)
             if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
                 raise LogAnalyzerError(result_str)
@@ -150,7 +152,7 @@ class LogAnalyzer:
             # if the number of expected matches is provided
             if (self.expect_regex and (self.expected_matches_target > 0) and
                     result["total"]["expected_match"] != self.expected_matches_target):
-                err_target = "Log analyzer expected {} messages but found only {}\n"\
+                err_target = "Log analyzer expected {} messages but found only {}\n" \
                     .format(self.expected_matches_target, result["total"]["expected_match"])
                 raise LogAnalyzerError(err_target + result_str)
 
@@ -281,7 +283,7 @@ class LogAnalyzer:
         # always copy script to make sure the marker can be added successfully.
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
         add_start_ignore_mark = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
-        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}"\
+        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}" \
             .format(run_dir=self.dut_run_dir, add_start_ignore_mark=add_start_ignore_mark)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
@@ -299,7 +301,7 @@ class LogAnalyzer:
         # always copy script to make sure the marker can be added successfully.
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
         marker = self._markers.pop()
-        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}"\
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}" \
             .format(run_dir=self.dut_run_dir, marker=marker)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
@@ -312,7 +314,7 @@ class LogAnalyzer:
         Adds the marker to the log files
         """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
-        cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}"\
+        cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}" \
             .format(run_dir=self.dut_run_dir, start_marker=start_marker)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
@@ -419,12 +421,16 @@ class LogAnalyzer:
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
         logging.debug("Analyzer summary: {}".format(pprint.pformat(analyzer_summary)))
+        logging.info(f"[chunangli] store_la_logs={store_la_logs}, fail={fail}")
         if analyzer_summary["total"]["match"] != 0 and store_la_logs:
+            logging.info("[chunangli] save_matching_errors")
             self.save_matching_errors(analyzer_summary["match_messages"].values())
 
         if fail:
+            logging.info("[chunangli] _verify_log")
             self._verify_log(analyzer_summary)
         elif store_la_logs:
+            logging.info("[chunangli] _post_err_msg_handler")
             self._post_err_msg_handler(analyzer_summary)
         else:
             return analyzer_summary
