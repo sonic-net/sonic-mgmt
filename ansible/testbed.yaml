@@ -3736,7 +3736,7 @@
 
 - conf-name: vms18-dual-t0-8101-01
   group-name: vms18-3
-  topo: dualtor-aa
+  topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
   ptf: vms18-3
   ptf_ip: 10.64.246.235/23
