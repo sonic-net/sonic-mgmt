@@ -25,7 +25,7 @@ The test is designed to be topology-agnostic, meaning it does not assume or impo
 
 1. Run all traffic generators at full line rate, injecting traffic into SONiC devices to maximize stress. The test duration is configurable, with a default setting of 15 minutes.
 2. Using the switch commands or RPC (Remote Procedure Call), collect all SONiC switches’ metrics listed in the next section. The data sampling rate is also configurable with a default value of every 1 minute.
-3. Save the sampled raw data to a database via the periodic metrics reporter interface provided by the SONiC team in test_reporting folder. The metrics are structured as data points in our database. An example of how to use the interface is provided in telemetry folder.
+3. Save the sampled raw data to a database via the periodic metrics reporter interface provided by the SONiC team in `test_reporting` folder. The metrics are structured as data points in our database. An example of how to use the interface is provided in `telemetry` folder.
 
 ![overview](./capacity_test_diagram.png)
 
@@ -37,10 +37,13 @@ The collected metrics are structured in the database using two sets of labels
 
 These labels are shared across all metrics within one test job and must be included with every metric.
 
-     | Label                     | Example Value  |
-     | ------------------------- | -------------- |
-     | `METRIC_LABEL_TEST_CASE`  | mock-case      |
-     | `METRIC_LABEL_TEST_FILE`  | mock-test.py   |
+| Label                     | Example Value               |
+| ------------------------- | --------------------------- |
+| `METRIC_LABEL_TESTBED`    | TB-XYZ                      |
+| `METRIC_LABEL_TEST_BUILD` | 2024.1103                   |
+| `METRIC_LABEL_TEST_CASE`  | mock-case                   |
+| `METRIC_LABEL_TEST_FILE`  | mock-test.py                |
+| `METRIC_LABEL_TEST_JOBID` | mock-case_20250412_23:34:58 |
 
 ### Metric labels
 
@@ -48,43 +51,43 @@ These labels identify the specific device and component from which a metric is c
 
 #### Interface Metrics
 
-     The `show interface counters` is used on the switch to retrieve interface metrics. The outputs include drop counters. The following labels are expected to be provided:
+The `show interface counters` is used on the switch to retrieve interface metrics. The outputs include drop counters. The following labels are expected to be provided:
 
-     | Label                            | Example Value      |
-     | -------------------------------- | ------------------ |
-     | `METRIC_LABEL_DEVICE_ID`         | switch-A           |
-     | `METRIC_LABEL_DEVICE_PORT_ID`    | Ethernet8          |
+| Label                                 | Example Value      |
+| ------------------------------------- | ------------------ |
+| `METRIC_LABEL_DEVICE_ID`              | switch-A           |
+| `METRIC_LABEL_DEVICE_PORT_ID`         | Ethernet8          |
 
-     | Metric Name                      | Name String        |
-     | -------------------------------- | ------------------ |
-     | `port_state`                     | port_state         |
-     | `RX_BPS`                         | Rx_BPS             |
-     | `RX_UTILIZATION`                 | Rx_utilization     |
-     | `RX_OK_COUNTER`                  | Rx_OK_counter      |
-     | `RX_ERR_COUNTER`                 | Rx_ERR_counter     |
-     | `RX_DROP_COUNTER`                | Rx_drop_counter    |
-     | `RX_OVERRUN_COUNTER`             | Rx_overrun_counter |
-     | `TX_BPS`                         | Tx_BPS             |
-     | `TX_UTILIZATION`                 | Tx_utilization     |
-     | `TX_OK_COUNTER`                  | Tx_OK_counter      |
-     | `TX_ERR_COUNTER`                 | Tx_ERR_counter     |
-     | `TX_DROP_COUNTER`                | Tx_drop_counter    |
-     | `TX_OVERRUN_COUNTER`             | Tx_overrun_counter |
+| Metric Name                           | Example Value      |
+| ------------------------------------- | ------------------ |
+| `METRIC_NAME_PORT_STATE`              | OPER_STATUS.UP     |
+| `METRIC_NAME_PORT_RX_BPS`             | 26.38              |
+| `METRIC_NAME_PORT_RX_UTILIZATION`     | 0.00               |
+| `METRIC_NAME_PORT_RX_OK_COUNTER`      | 5190               |
+| `METRIC_NAME_PORT_RX_ERR_COUNTER`     | 0                  |
+| `METRIC_NAME_PORT_RX_DROP_COUNTER`    | 248                |
+| `METRIC_NAME_PORT_RX_OVERRUN_COUNTER` | 0                  |
+| `METRIC_NAME_PORT_TX_BPS`             | 9.76               |
+| `METRIC_NAME_PORT_TX_UTILIZATION`     | 0.00               |
+| `METRIC_NAME_PORT_TX_OK_COUNTER`      | 4896               |
+| `METRIC_NAME_PORT_TX_ERR_COUNTER`     | 0                  |
+| `METRIC_NAME_PORT_TX_DROP_COUNTER`    | 10                 |
+| `METRIC_NAME_PORT_TX_OVERRUN_COUNTER` | 0                  |
 
 #### Queue Metrics
 
-     The `show queue watermark unicast` or  `show queue watermark multicast` is used on the switch to retrieve queue metrics. The following labels are expected to be provided:
+The `show queue watermark unicast` or  `show queue watermark multicast` is used on the switch to retrieve queue metrics. The following labels are expected to be provided:
 
-     | Label                            | Example Value  |
-     | -------------------------------- | -------------- |
-     | `METRIC_LABEL_DEVICE_ID`         | switch-A       |
-     | `METRIC_LABEL_DEVICE_PORT_ID`    | Ethernet8      |
-     | `METRIC_LABEL_DEVICE_QUEUE_ID`   | 1              |
-     | `METRIC_LABEL_DEVICE_QUEUE_CAST` | multicast      |
+| Label                            | Example Value  |
+| -------------------------------- | -------------- |
+| `METRIC_LABEL_DEVICE_ID`         | switch-A       |
+| `METRIC_LABEL_DEVICE_PORT_ID`    | Ethernet8      |
+| `METRIC_LABEL_DEVICE_QUEUE_ID`   | MC1            |
+| `METRIC_LABEL_DEVICE_QUEUE_CAST` | multicast      |
 
-     | Metric Name                      | Name String    |
-     | -------------------------------- | -------------- |
-     | `WATERMARK`                      | watermark      |
+| Metric Name                      | Example Value  |
+| -------------------------------- | -------------- |
+| `METRIC_NAME_QUEUE_WATERMARK`    | 7620           |
 
 #### PSU Metrics
 
@@ -98,24 +101,28 @@ The `show platform psu` command is used on the switch to retrieve PSU metrics. T
 | `METRIC_LABEL_DEVICE_PSU_SERIAL`  | 1Z011010112349Q  |
 | `METRIC_LABEL_DEVICE_PSU_HW_REV`  | 02.00            |
 
-| Metric Name                       | Name String      |
+| Metric Name                       | Example Value    |
 | --------------------------------- | ---------------- |
-| `METRIC_PSU_VOLTAGE`              | psu_voltage      |
-| `METRIC_PSU_CURRENT`              | psu_current      |
-| `METRIC_PSU_POWER`                | psu_power        |
-| `METRIC_PSU_STATUS`               | psu_status       |
-| `METRIC_PSU_LED`                  | psu_led          |
+| `METRIC_NAME_PSU_VOLTAGE`         | 12.09            |
+| `METRIC_NAME_PSU_CURRENT`         | 18.38            |
+| `METRIC_NAME_PSU_POWER`           | 222.00           |
+| `METRIC_NAME_PSU_STATUS`          | PSU_STATUS.OK    |
+| `METRIC_NAME_PSU_LED`             | LED_STATE.GREEN  |
 
 #### Sensor Temperature Metrics
 
 The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
 
-| Label                            | Example Value       |
-| -------------------------------- | ------------------- |
-| `METRIC_LABEL_DEVICE_ID`         | switch-A            |
-| `METRIC_LABEL_DEVICE_SENSOR_ID`  | Cpu temp sensor     |
+| Label                                  | Example Value       |
+| -------------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`               | switch-A            |
+| `METRIC_LABEL_DEVICE_SENSOR_ID`        | Cpu temp sensor     |
 
-| Metric Name                      | Name String         |
-| -------------------------------- | ------------------- |
-| `SENSOR_TEMPERATURE`             | sensor_temperature  |
-| `SENSOR_WARNING`                 | sensor_warning      |
+| Metric Name                            | Example Value       |
+| -------------------------------------- | ------------------- |
+| `METRIC_NAME_TEMPERATURE_READING`      | 29.5                |
+| `METRIC_NAME_TEMPERATURE_HIGH_TH`      | 95                  |
+| `METRIC_NAME_TEMPERATURE_LOW_TH`       | 0                   |
+| `METRIC_NAME_TEMPERATURE_CRIT_HIGH_TH` | 115                 |
+| `METRIC_NAME_TEMPERATURE_CRIT_LOW_TH`  | -5                  |
+| `METRIC_NAME_TEMPERATURE_WARNING`      | WARNING_STATUS.TRUE |
