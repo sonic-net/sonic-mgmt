@@ -94,7 +94,7 @@ def portchannel_interface_tc1_add_duplicate(duthost, portchannel_table, enum_ran
     """ Test adding duplicate portchannel interface
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     dup_ip = portchannel_table[rand_portchannel_name]["ip"]
     dup_ipv6 = portchannel_table[rand_portchannel_name]["ipv6"]
     json_patch = [
@@ -137,7 +137,7 @@ def portchannel_interface_tc1_xfail(duthost, enum_rand_one_frontend_asic_index, 
     ("remove", "PortChannel101", "10.0.0.56/31", "FC00::72/126"), REMOVE Unexist IPv6 address
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     xfail_input = [
         ("add", rand_portchannel_name, "10.0.0.256/31", "FC00::71/126"),
         ("add", rand_portchannel_name, "10.0.0.56/31", "FC00::xyz/126"),
@@ -179,7 +179,7 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
     """ Test portchannel interface replace ip address
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     org_ip = portchannel_table[rand_portchannel_name]["ip"]
     org_ipv6 = portchannel_table[rand_portchannel_name]["ipv6"]
     rep_ip = "10.0.0.156/31"
@@ -281,7 +281,7 @@ def portchannel_interface_tc2_replace(duthost,
     """Test PortChannelXXXX attribute change
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     attributes = [
         ("mtu", "3324"),
         ("min_links", "2"),
@@ -319,7 +319,7 @@ def portchannel_interface_tc2_incremental(duthost,
     """Test PortChannelXXXX incremental change
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
          "op": "add",
