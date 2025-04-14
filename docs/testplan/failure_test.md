@@ -107,3 +107,20 @@ Expected Outcome:
 
 - Traffic should reroute if alternative paths exist.
 - Once routes are re-advertised, traffic should recover without persistent packet loss.
+
+## Metrics
+
+Save the failure test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
+
+| Label                                       | Example Value                 |
+| ------------------------------------------- | ----------------------------- |
+| `METRIC_LABEL_DEVICE_ID`                    | switch-A                      |
+
+| Metric Name                                 | Example Value                 |
+| ------------------------------------------- | ----------------------------- |
+| `METRIC_NAME_FAILURE_TEST_SINGLE_LINK`      | failure_test.single_link      |
+| `METRIC_NAME_FAILURE_TEST_ALL_LINKS`        | failure_test.all_links        |
+| `METRIC_NAME_FAILURE_TEST_CONTAINER`        | failure_test.container        |
+| `METRIC_NAME_FAILURE_TEST_DUT_REBOOT`       | failure_test.DUT_reboot       |
+| `METRIC_NAME_FAILURE_TEST_NEIGHBOR_REBOOT`  | failure_test.neighbor_reboot  |
+| `METRIC_NAME_FAILURE_TEST_ROUTE_WITHDRAWAL` | failure_test.route_withdrawal |
