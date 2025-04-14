@@ -68,6 +68,7 @@ def parse_show(output_lines):
 
     return result
 
+
 def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, logger=logging_logger):
     """
     @summary: Execute function with retry mechanism
@@ -89,6 +90,7 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, logger=logging_
             if logger is not None:
                 logger.warning('%s, retrying in %s seconds...', e, delay)
             time.sleep(delay)
+
 
 def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=-1, delay=0, logger=logging_logger):
     """
