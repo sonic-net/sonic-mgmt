@@ -12,7 +12,7 @@
 - name: Add all lag member down case
   set_fact:
       pre_list: "{{ pre_list + ['dut_lag_member_down:2:{{ lag_memb_cnt }}', 'neigh_lag_member_down:3:{{ lag_memb_cnt }}']}}"
-  when: testbed_type in ['t0-64', 't0-116', 't0-64-32']
+  when: testbed_type in ['t0-64', 't0-116', 't0-118', 't0-64-32']
 
 - name: set default values vnet variables
   set_fact:
