@@ -43,7 +43,7 @@ class HashTest(BaseTest):
         'fib_info_files',
         'ptf_test_port_map'
     ]
-    
+
     def __init__(self):
         '''
         @summary: constructor
