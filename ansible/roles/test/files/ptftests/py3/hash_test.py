@@ -35,12 +35,14 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
+    RELAXED_BALANCING_RANGE = 0.80
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
         'fib_info_files',
         'ptf_test_port_map'
     ]
+    
     def __init__(self):
         '''
         @summary: constructor
@@ -48,15 +50,18 @@ class HashTest(BaseTest):
         BaseTest.__init__(self)
         self.test_params = test_params_get()
         self.check_required_params()
+
     def check_required_params(self):
         for param in self._required_params:
             if param not in self.test_params:
                 raise Exception("Missing required parameter {}".format(param))
+
     def generate_random_sport(self):
         while True:
             port = random.randint(0, 65535)
             if port != 53:
                 return port
+
     def setUp(self):
         '''
         @summary: Setup for the test
@@ -101,6 +106,7 @@ class HashTest(BaseTest):
         self.base_mac = self.dataplane.get_mac(
             *random.choice(list(self.dataplane.ports.keys())))
         self.vxlan_dest_port = int(self.test_params.get('vxlan_dest_port', 0))
+
     def _get_nexthops(self, src_port, dst_ip):
         active_dut_indexes = [0]
         if self.single_fib == "multiple-fib":
@@ -109,6 +115,7 @@ class HashTest(BaseTest):
         next_hops = [self.fibs[active_dut_index][dst_ip]
                      for active_dut_index in active_dut_indexes]
         return next_hops
+
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
@@ -119,11 +126,6 @@ class HashTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
@@ -135,6 +137,7 @@ class HashTest(BaseTest):
                         src_port = int(random.choice(ptf_non_upstream_ports))
                 break
         return src_port, exp_port_lists, next_hops
+
     def get_ingress_ports(self, exp_port_lists, dst_ip):
         # To test ingress-port hash, we need to ensure that the exp_port_list be identical for all the ingress ports.
         # For dualtor topology, the exp_port_list could be T1 facing ports on either one of the ToR if the ingress
@@ -161,6 +164,7 @@ class HashTest(BaseTest):
         logging.info('ports={}'.format(ports))
         logging.info('filtered_ports={}'.format(filtered_ports))
         return filtered_ports
+
     def check_hash(self, hash_key):
         dst_ip = self.dst_ip_interval.get_random_ip()
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
@@ -205,6 +209,7 @@ class HashTest(BaseTest):
                 hash_key, hit_count_map))
             for next_hop in next_hops:
                 self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists):
         if ip_network(six.text_type(dst_ip)).version == 4:
             (matched_port, received) = self.check_ipv4_route(
@@ -216,6 +221,7 @@ class HashTest(BaseTest):
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
         return (matched_port, received)
+
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
         # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
@@ -237,6 +243,7 @@ class HashTest(BaseTest):
             ip_proto = random.randint(0, 255)
             if ip_proto not in skip_protos:
                 return ip_proto
+
     def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt,
                                 dst_port_lists, is_timeout=True, logs=[]):
         """
@@ -253,6 +260,7 @@ class HashTest(BaseTest):
             self, masked_exp_pkt, dst_ports, **kwargs)
         rcvd_port = dst_ports[rcvd_port_index]
         return rcvd_port, rcvd_pkt
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -282,6 +290,7 @@ class HashTest(BaseTest):
                             sport,
                             dport))
         return logs
+
     def create_pkt(
             self, router_mac, src_mac, dst_mac, ip_src, ip_dst, sport, dport, version='IP',
             outer_src_ip=None, outer_dst_ip=None, vlan_id=None, outer_src_ipv6=None,
@@ -324,6 +333,7 @@ class HashTest(BaseTest):
                 tcp_dport=dport,
                 ipv6_hlim=63)
         return pkt, exp_pkt, None
+
     def get_validated_packet(self, rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port):
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
@@ -342,6 +352,7 @@ class HashTest(BaseTest):
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
+
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         # mask the chksum also if masking the ttl
@@ -354,6 +365,7 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         return masked_exp_pkt
+
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
         if hash_key == 'ip-proto':
             if version == 'IP':
@@ -362,6 +374,7 @@ class HashTest(BaseTest):
             else:
                 pkt['IPv6'].nh = ip_proto
                 exp_pkt['IPv6'].nh = ip_proto
+
     def check_ipv4_route(self, hash_key, src_port, dst_port_lists, outer_sport=None, outer_dst_ip=None,
                          outer_src_ip=None):
         '''
@@ -426,6 +439,7 @@ class HashTest(BaseTest):
         else:
             rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
+   
     def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip=None, outer_dst_ip=None):
         '''
         @summary: Check IPv6 route works.
@@ -491,6 +505,7 @@ class HashTest(BaseTest):
         else:
             rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
+
     def check_within_expected_range(self, actual, expected):
         '''
         @summary: Check if the actual number is within the accepted range of the expected number
@@ -499,7 +514,13 @@ class HashTest(BaseTest):
         @return (percentage, bool)
         '''
         percentage = (actual - expected) / float(expected)
-        return (percentage, abs(percentage) <= self.balancing_range)
+        balancing_range = self.balancing_range
+        if hash_key == 'ip-proto' and self.topo_name == 't2':
+            # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
+            # a large number of ecmp paths so relax the hashing requirements
+            balancing_range = self.RELAXED_BALANCING_RANGE
+        return (percentage, abs(percentage) <= balancing_range)
+
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
@@ -526,6 +547,7 @@ class HashTest(BaseTest):
         if updated_exp_port_list:
             exp_port_list = updated_exp_port_list
         return exp_port_list
+
     def check_balancing(self, dest_port_list, port_hit_cnt, src_port):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
@@ -585,6 +607,7 @@ class HashTest(BaseTest):
                                     port_hit_cnt.get(member, 0), str(round(p, 4) * 100) + '%'))
                     result &= r
         assert result
+
     def runTest(self):
         """
         @summary: Send packet for each range of both IPv4 and IPv6 spaces and
@@ -624,6 +647,7 @@ class IPinIPHashTest(HashTest):
                             dport,
                             src_port))
         return logs
+
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
         if hash_key == 'ip-proto':
             if version == 'IP':
@@ -632,6 +656,7 @@ class IPinIPHashTest(HashTest):
             else:
                 pkt['IP'].payload['IPv6'].nh = ip_proto
                 exp_pkt['IP'].payload['IPv6'].nh = ip_proto
+
     def create_pkt(
             self, router_mac, src_mac, dst_mac, ip_src, ip_dst, sport, dport, version='IP',
             outer_src_ip=None, outer_dst_ip=None, vlan_id=None, outer_src_ipv6=None,
@@ -670,6 +695,7 @@ class IPinIPHashTest(HashTest):
         exp_pkt = ipinip_pkt.copy()
         exp_pkt['IP'].ttl -= 1
         return pkt, exp_pkt, ipinip_pkt
+
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -679,6 +705,7 @@ class IPinIPHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         return masked_exp_pkt
+
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         if self.ipver == 'ipv4':
             (matched_port, received) = self.check_ipv4_route(
@@ -692,6 +719,7 @@ class IPinIPHashTest(HashTest):
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
         return (matched_port, received)
+
     def check_hash(self, hash_key):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
@@ -748,6 +776,7 @@ class IPinIPHashTest(HashTest):
                 hash_key, hit_count_map))
             for next_hop in next_hops:
                 self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+
 class VxlanHashTest(HashTest):
     '''
     This test is to verify the hash key for VxLAN packet.
@@ -760,6 +789,7 @@ class VxlanHashTest(HashTest):
         """
         return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
                                                logs=logs)
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -789,8 +819,10 @@ class VxlanHashTest(HashTest):
                             src_port))
         logs.append(vxlan_pkt.show())
         return logs
+
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
         pass
+
     def create_pkt(
             self, router_mac, src_mac, dst_mac, ip_src, ip_dst, sport, dport, version='IP',
             outer_src_ip=None, outer_dst_ip=None, vlan_id=None, outer_src_ipv6=None,
@@ -865,6 +897,7 @@ class VxlanHashTest(HashTest):
             exp_pkt = vxlan_pkt.copy()
             exp_pkt['IPv6'].hlim -= 1
         return vxlan_pkt, exp_pkt, inner_pkt
+
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -874,6 +907,7 @@ class VxlanHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         return masked_exp_pkt
+
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
                        outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
@@ -888,6 +922,7 @@ class VxlanHashTest(HashTest):
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
         return (matched_port, received)
+
     def check_hash(self, hash_key):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
@@ -920,6 +955,7 @@ class VxlanHashTest(HashTest):
             hash_key, hit_count_map))
         for next_hop in next_hops:
             self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+
 class NvgreHashTest(HashTest):
     '''
     This test is to verify the hash key for NvGRE packet.
@@ -951,8 +987,10 @@ class NvgreHashTest(HashTest):
                     dport,
                     src_port))
         return logs
+
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
         pass
+
     def simple_nvgrev6_packet(self, pktlen=300,
                               eth_dst='00:01:02:03:04:05',
                               eth_src='00:06:07:08:09:0a',
@@ -996,12 +1034,14 @@ class NvgreHashTest(HashTest):
             pkt = pkt / scapy.IP()
             pkt = pkt / ("D" * (pktlen - len(pkt)))
         return pkt
+
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         if version == 'IPv6':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
         return masked_exp_pkt
+
     def create_pkt(
             self, router_mac, src_mac, dst_mac, ip_src, ip_dst, sport, dport, version='IP',
             outer_src_ip=None, outer_dst_ip=None, vlan_id=None, outer_src_ipv6=None,
@@ -1071,6 +1111,7 @@ class NvgreHashTest(HashTest):
             nvgre_pkt = self.simple_nvgrev6_packet(**pkt_opts)
             exp_pkt = nvgre_pkt.copy()
         return nvgre_pkt, exp_pkt, inner_pkt
+
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
                        outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
@@ -1085,6 +1126,7 @@ class NvgreHashTest(HashTest):
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
         return (matched_port, received)
+
     def check_hash(self, hash_key):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
