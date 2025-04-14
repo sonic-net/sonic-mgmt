@@ -84,12 +84,14 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
 
         def dhcp_ready(enable_source_port_ip_in_relay):
             dhcp_relay_running = duthost.is_service_fully_started("dhcp_relay")
-            dhcp_relay_process = duthost.shell("ps -ef |grep dhcrelay|grep -v grep",
-                                               module_ignore_errors=True)["stdout"]
+            dhcp_processes = duthost.shell("ps -ef |grep -E 'dhcrelay|dhcpmon' | grep -v grep",
+                                           module_ignore_errors=True)["stdout"]
             if enable_source_port_ip_in_relay:
-                dhcp_relay_process_ready = "-si" in dhcp_relay_process and "dhcrelay" in dhcp_relay_process
+                dhcp_relay_process_ready = ("-si" in dhcp_processes and "dhcrelay" in dhcp_processes and
+                                            "dhcpmon" in dhcp_processes)
             else:
-                dhcp_relay_process_ready = "-si" not in dhcp_relay_process and "dhcrelay" in dhcp_relay_process
+                dhcp_relay_process_ready = ("-si" not in dhcp_processes and "dhcrelay" in dhcp_processes and
+                                            "dhcpmon" in dhcp_processes)
             return dhcp_relay_running and dhcp_relay_process_ready
         pytest_assert(wait_until(60, 2, 0, dhcp_ready, True), "Source port ip in relay is not enabled!")
         yield
