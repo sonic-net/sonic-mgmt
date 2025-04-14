@@ -442,8 +442,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     for duthost in duthosts:
         duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
-    # Reload macsec config if enable_macsec is set for this test run
-    # If macsec is enabled, use the override option to get macsec profile from golden config
+    # Set the flag force_reload_macsec to True, if enable_macsec is set for this test run
     if is_macsec_enabled_for_test:
         setattr(ptfadapter, "force_reload_macsec", True)
 
