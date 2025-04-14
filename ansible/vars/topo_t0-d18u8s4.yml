@@ -318,7 +318,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 4200000000
       peers:
         65100:
         - 10.0.0.156
@@ -338,7 +338,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 4200000001
       peers:
         65100:
         - 10.0.0.158
@@ -358,7 +358,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 4200000002
       peers:
         65100:
         - 10.0.0.160
@@ -378,7 +378,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 4200000003
       peers:
         65100:
         - 10.0.0.162
