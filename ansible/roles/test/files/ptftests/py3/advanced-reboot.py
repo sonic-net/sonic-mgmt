@@ -1863,12 +1863,11 @@ class ReloadTest(BaseTest):
             sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
         try:
-            capture_pcap = ("/tmp/capture_%s.pcap" % self.logfile_suffix
-                            if self.logfile_suffix is not None else "/tmp/capture.pcap")
+            capture_pcap = ("/tmp/capture_%s.pcapng" % self.logfile_suffix
+                            if self.logfile_suffix is not None else "/tmp/capture.pcapng")
             subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
             self.kill_sniffer = False
             self.start_sniffer(capture_pcap, sniff_filter, wait)
-            self.create_single_pcap(capture_pcap)
             self.packets = scapyall.rdpcap(capture_pcap)
             self.log("Number of all packets captured: {}".format(len(self.packets)))
         except Exception:
@@ -1881,23 +1880,24 @@ class ReloadTest(BaseTest):
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
-        processes_list = []
+        process_args = ['dumpcap', '-w', pcap_path, '-f', tcpdump_filter, '-Z', 'none', '-s', '1514', '-t']
         for iface in self.tcpdump_data_ifaces:
-            iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-            process = subprocess.Popen(
-                ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
-            processes_list.append(process)
+            process_args += ['-i', iface]
 
-        for proc in processes_list:
-            while True:
-                line = proc.stderr.readline()
-                if not line or 'listening on' in line:
-                    break
+        process = subprocess.Popen(process_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.log('Dumpcap sniffer process started')
+
+        pcap_existence_check_limit = 10
+        pcap_existence_check_count = 0
+        while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
+            time.sleep(1)
+            pcap_existence_check_count += 1
+
+        if not os.path.exists(pcap_path):
+            self.log("Dumpcap did not create pcap file!")
+            process.terminate()
+            process.kill()
+            return
 
         # Unblock waiter for the send_in_background.
         self.sniffer_started.set()
@@ -1909,71 +1909,27 @@ class ReloadTest(BaseTest):
             if curr_time - time_start > timeout:
                 break
 
-        self.log("Going to kill all tcpdump processes by SIGTERM")
-        for process in processes_list:
-            process.terminate()
-
-        for process in processes_list:
+        self.log("Going to kill dumpcap process by SIGTERM")
+        process.terminate()
+        try:
             process.wait(timeout=5)
-            # Return code here could be 0, so we need to explicitly check for None
-            if process.returncode is not None:
-                self.log("Tcpdump process {} terminated".format(process.args))
+        except subprocess.TimeoutExpired:
+            pass
 
-        for process in processes_list:
-            if process.returncode is not None:
-                continue
-            self.log("Killing tcpdump process {}".format(process.args))
-            process.kill()
+        # Return code here could be 0, so we need to explicitly check for None
+        if process.returncode is not None:
+            self.log("Dumpcap process terminated")
+            return
+
+        self.log("Killing dumpcap process")
+        process.kill()
+        try:
             process.wait(timeout=5)
-            # Return code here could be 0, so we need to explicitly check for None
-            if process.returncode is not None:
-                self.log("Tcpdump process {} killed".format(process.args))
-
-        self.log("Killed all tcpdump processes")
-
-    def create_single_pcap(self, pcap_path):
-        """
-        Merge all pcaps from each interface into single pcap file
-        """
-        pcapng_full_capture = self.merge_pcaps(
-            pcap_path, self.tcpdump_data_ifaces)
-        self.convert_pcapng_to_pcap(pcap_path, pcapng_full_capture)
-        self.log('Pcap files merged into single pcap file: {}'.format(pcap_path))
-
-    def merge_pcaps(self, pcap_path, data_ifaces):
-        """
-        Merge all pcaps into one, format: pcapng
-        """
-        pcapng_full_capture = '{}.pcapng'.format(pcap_path)
-        cmd = ['mergecap', '-w', pcapng_full_capture]
-        ifaces_pcap_files_list = []
-        for iface in data_ifaces:
-            pcap_file_path = '{}_{}'.format(pcap_path, iface)
-            if os.path.exists(pcap_file_path):
-                cmd.append(pcap_file_path)
-                ifaces_pcap_files_list.append(pcap_file_path)
-
-        self.log('Starting merge pcap files')
-        subprocess.call(cmd)
-        self.log('Pcap files merged into tmp pcapng file')
-
-        # Remove pcap files created per interface
-        for pcap_file in ifaces_pcap_files_list:
-            subprocess.call(['rm', '-f', pcap_file])
-
-        return pcapng_full_capture
-
-    def convert_pcapng_to_pcap(self, pcap_path, pcapng_full_capture):
-        """
-        Convert pcapng file into pcap. We can't just merge all in pcap,
-        mergecap can merge multiple files only into pcapng format
-        """
-        cmd = ['mergecap', '-F', 'pcap', '-w', pcap_path, pcapng_full_capture]
-        self.log('Converting pcapng file into pcap file')
-        subprocess.call(cmd)
-        self.log('Pcapng file converted into pcap file')
-        # Remove tmp pcapng file
-        subprocess.call(['rm', '-f', pcapng_full_capture])
+        except subprocess.TimeoutExpired:
+            pass
+        # Return code here could be 0, so we need to explicitly check for None
+        if process.returncode is not None:
+            self.log("Dumpcap process killed")
 
     def check_tcp_payload(self, packet):
         """
