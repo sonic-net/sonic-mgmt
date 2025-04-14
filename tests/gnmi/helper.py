@@ -15,8 +15,20 @@ GNMI_PORT = 0
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
+def get_env(duthost):
+    dut_command = "docker ps"
+    container_list = duthost.shell(dut_command)
+    if "telemetry" in container_list["stdout"]:
+        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    elif "gnmi" in container_list["stdout"]:
+        env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    else:
+        raise ValueError("Expected modes \"telemetry\" or \"gnmi\" not found in container list output")
+    return env
+
+
 def gnmi_container(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     return env.gnmi_container
 
 
@@ -44,7 +56,7 @@ IP      = %s
 
 
 def dump_gnmi_log(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
     res = duthost.shell(dut_command, module_ignore_errors=True)
     logger.info("GNMI log: " + res['stdout'])
@@ -52,7 +64,7 @@ def dump_gnmi_log(duthost):
 
 
 def dump_system_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
     res = duthost.shell(dut_command, module_ignore_errors=True)
     logger.info("GNMI process: " + res['stdout'])
@@ -77,6 +89,7 @@ def del_gnmi_client_common_name(duthost, cname):
 
 
 def apply_cert_config(duthost):
+    env = get_env(duthost)
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Get subtype
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -126,14 +139,14 @@ def apply_cert_config(duthost):
 
 
 def check_gnmi_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
 
 
 def recover_cert_config(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     cmds = [
         'systemctl reset-failed %s' % (env.gnmi_container),
         'systemctl restart %s' % (env.gnmi_container)
@@ -182,7 +195,7 @@ def check_system_time_sync(duthost):
 
 
 def gnmi_capabilities(duthost, localhost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
@@ -214,7 +227,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
 
     Returns:
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
@@ -273,7 +286,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     Returns:
         msg_list: list for get result
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
@@ -428,7 +441,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
 
 
 def gnoi_reboot(duthost, method, delay, message):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    env = get_env(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     # Run gnoi_client in gnmi container as workaround
