@@ -803,8 +803,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, change_lag_lacp_timer
-    ):
+            ingressLosslessProfile, change_lag_lacp_timer):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
@@ -868,8 +867,7 @@ class TestQosSai(QosSaiBase):
 
             src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
                               if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
-                              else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]
-                                                       ]
+                              else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
         testParams = dict()

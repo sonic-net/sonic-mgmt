@@ -2848,6 +2848,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             summarize_diag_counter(self)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
+
 class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
@@ -2970,9 +2971,6 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
         xmit_counters_bases = [sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                              port_list['dst'][did])[0] for did in self.uniq_dst_ports]
 
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
-
         # Pause egress of dut xmit port
         # Disable all dst ports
         self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, self.uniq_dst_ports)
@@ -3039,7 +3037,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
                                        self.src_port_vlan[sidx_dscp_pg_tuples[i][0]],
                                        ecn=self.ecn,
                                        ttl=64)
-                pkt_cnt =0
+                pkt_cnt = 0
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
                 while (recv_counters[sidx_dscp_pg_tuples[i][2]] ==
