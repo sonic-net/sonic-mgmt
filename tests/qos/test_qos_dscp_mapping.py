@@ -160,6 +160,9 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         """
         Set up test parameters for the DSCP to Queue mapping test for IP-IP packets.
 
+        Destination mac returned will prioritize the VLAN mac address and fallback to the router mac
+        if no VLAN is found.
+
         Args:
             duthost (fixture): DUT fixture
             downstream_links (fixture): Dictionary of downstream links info for DUT
@@ -175,11 +178,13 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_downlink_port_id)
         pytest_assert(src_port_name, "No port on DUT found for ptf downlink port {}".format(ptf_downlink_port_id))
         vlan_name = get_vlan_from_port(duthost, src_port_name)
+        logger.debug("Found VLAN {} on port {}".format(vlan_name, src_port_name))
         vlan_mac = None if vlan_name is None else duthost.get_dut_iface_mac(vlan_name)
         if vlan_mac is not None:
             logger.info("Using VLAN mac {} instead of router mac".format(vlan_mac))
             dst_mac = vlan_mac
         else:
+            logger.info("VLAN mac not found, falling back to router mac")
             dst_mac = duthost.facts["router_mac"]
 
         # Setup DSCP decap config on DUT
@@ -255,6 +260,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 inner_dscp = rotating_dscp
                 logger.info("Pipe mode: outer_dscp = {}, inner_dscp = {}".format(outer_dscp, inner_dscp))
 
+            # The dst_mac used may be the VLAN mac instead of the router mac depending on the topology.
             pkt, exp_pkt = create_ipip_packet(outer_src_mac=ptf_src_mac,
                                               outer_dst_mac=dst_mac,
                                               outer_src_pkt_ip=outer_src_pkt_ip,
