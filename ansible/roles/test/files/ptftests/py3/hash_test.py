@@ -1,4 +1,3 @@
-
 '''
 Description:    This file contains the hash test for SONiC
 '''
