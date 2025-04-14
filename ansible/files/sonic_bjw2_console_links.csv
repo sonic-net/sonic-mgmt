@@ -22,6 +22,16 @@ bjw2-can-720dt-mc0-1,20,bjw2-can-7215a1-3,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,21,bjw2-can-720dt-leaf-19,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,22,bjw2-can-7215a1-4,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,23,bjw2-can-720dt-leaf-20,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,24,bjw2-can-8101c1-1,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,25,bjw2-can-8101c1-leaf-1,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,26,bjw2-can-8101c1-2,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,27,bjw2-can-8101c1-leaf-2,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,28,bjw2-can-8101c1-3,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,29,bjw2-can-8101c1-leaf-3,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,30,bjw2-can-8101c1-4,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,31,bjw2-can-8101c1-leaf-4,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,32,bjw2-can-8101c1-5,ssh,sonic_config,sonicadmin,9600
+bjw2-can-720dt-mc0-1,33,bjw2-can-8101c1-leaf-5,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,49,bjw2-can-8101-1,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,50,bjw2-can-8101-leaf-1,ssh,sonic_config,sonicadmin,9600
 bjw2-can-720dt-mc0-1,51,bjw2-can-8101-2,ssh,sonic_config,sonicadmin,9600
