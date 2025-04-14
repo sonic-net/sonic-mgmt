@@ -26,7 +26,7 @@ In the above example, the DUT has 256 logical Ethernet ports and is connected to
 
 3. Monitor the BGP session establishment on the DUT using command `show ipv6 bgp summary`. Ensure all X BGP sessions are established without errors.
 
-4. In each neighboring switch: Configure a vlan, assign 10*X IPv6 addresses with the specified prefix length and add all the Ethernet ports connected to IXIA to the vlan.
+4. In each neighboring switch: Configure a vlan, assign `10*X` IPv6 addresses with the specified prefix length and add all the Ethernet ports connected to IXIA to the vlan.
 
 5. Monitor the BGP route learning on the DUT by running `show ipv6 route bgp`. Verify the DUT learns and installs all routes.
 
@@ -50,3 +50,17 @@ In the above example, the DUT has 256 logical Ethernet ports and is connected to
 2. Randomly pick half of the next hops and remove them. Run the show command again and record the convergence time.
 3. Restore the removed nexthops and record the convergence time again.
 4. Repeat this process and calculate the average convergence time of this scenario.
+
+## Metrics
+
+Save the BGP convergence time info to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
+
+| Label                                           | Example Value       |
+| ----------------------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`                        | switch-A            |
+
+| Metric Name                                     | Example Value       |
+| ----------------------------------------------- | ------------------- |
+| `METRIC_NAME_BGP_CONVERGENCE_PORT_RESTART`      | 15                  |
+| `METRIC_NAME_BGP_CONVERGENCE_CONTAINER_RESTART` | 72                  |
+| `METRIC_NAME_BGP_CONVERGENCE_NEXTHOP_CHANGE`    | 60                  |
