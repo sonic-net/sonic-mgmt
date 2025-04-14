@@ -11,7 +11,7 @@ This test aims to determine the maximum traffic rate that results in 0% packet l
 
 ## Test Setup
 
-This test is designed to be flexible and applicable to various network setups for evaluating traffic loss thresholds. It can be used to assess different configurations, such as one-tier and multi-tier networks. If testing the setup described in BGP_IPv6_test.md, the testbed should first be configured following the procedures outlined in that test plan. Once the setup is complete, the test can proceed with traffic generation, monitoring, and analysis to evaluate performance and identify any potential issues.
+This test is designed to be flexible and applicable to various network setups for evaluating traffic loss thresholds. It can be used to assess different configurations, such as one-tier and multi-tier networks. If testing the setup described in `BGP_IPv6_test.md`, the testbed should first be configured following the procedures outlined in that test plan. Once the setup is complete, the test can proceed with traffic generation, monitoring, and analysis to evaluate performance and identify any potential issues.
 
 ## Test Steps
 
@@ -22,20 +22,13 @@ This test is designed to be flexible and applicable to various network setups fo
 
 ## Metrics Processing
 
-The traffic loss threshold is evaluated once per setup and is reported by FinalMetricsReporter. For more details, refer to test_reporting/telemetry/README.md.
+The traffic loss threshold is evaluated once per switch and is reported by FinalMetricsReporter. For more details, refer to `test_reporting/telemetry/README.md`.
 
-In addition to the common labels below
+| Label                                 | Example Value  |
+| ------------------------------------- | -------------- |
+| `METRIC_LABEL_DEVICE_ID`              | switch-A       |
+| `METRIC_LABEL_TRAFFIC_PACKET_SIZE`    | 4096           |
 
-```python
-METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"
-METRIC_LABEL_TEST_FILE: Final[str] = "test.file"
-```
-
-The following metric labels and metric name should also be provided:
-
-```python
-METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"
-METRIC_LABEL_TRAFFIC_PACKET_SIZE: Final[str] = "traffic.packet_size" # Measured in bytes
-
-METRIC_NAME_TRAFFIC_LOSS_RATE: Final[str] = "traffic.loss_rate"      # Measured as a percentage of total traffic
-```
+| Metric Name                           | Example Value  |
+| ------------------------------------- | -------------- |
+| `METRIC_NAME_NO_LOSS_MAX_RATE`        | 59             |
