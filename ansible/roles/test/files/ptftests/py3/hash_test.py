@@ -778,7 +778,7 @@ class IPinIPHashTest(HashTest):
             logging.info("hash_key={}, hit count map: {}".format(
                 hash_key, hit_count_map))
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
 
 class VxlanHashTest(HashTest):
@@ -958,7 +958,7 @@ class VxlanHashTest(HashTest):
         logging.info("hash_key={}, hit count map: {}".format(
             hash_key, hit_count_map))
         for next_hop in next_hops:
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
 
 class NvgreHashTest(HashTest):
@@ -1163,4 +1163,4 @@ class NvgreHashTest(HashTest):
         logging.info("hash_key={}, hit count map: {}".format(
             hash_key, hit_count_map))
         for next_hop in next_hops:
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
