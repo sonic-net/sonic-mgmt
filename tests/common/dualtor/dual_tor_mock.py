@@ -363,6 +363,8 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         logger.info("Restarting swss service to regenerate config.bcm")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
+        logger.info("Wait for 100 seconds for complete update of configs after swss restart")
+    wait_until(120, 5, 5, check_config_applied)
 
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]

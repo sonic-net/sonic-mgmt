@@ -5,7 +5,7 @@ import random
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import is_mocked_dualtor
 from tests.common.dualtor.dual_tor_mock import set_dual_tor_state_to_orchagent
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import get_t1_active_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
@@ -88,8 +88,13 @@ def test_mac_move(
     tbinfo, tunnel_traffic_monitor, vmhost          # noqa F811
 ):
     tor = rand_selected_dut
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-    ptf_t1_intf_index = int(ptf_t1_intf.strip("eth"))
+    portchannels = None
+    # get the list of portchannels that are connected to active PTF ports
+    portchannels = get_t1_active_ptf_ports(tor, tbinfo)
+    # randomly select a portchannel from the list
+    portchannel = portchannels[random.choice(list(portchannels.keys()))]
+    # randomly choose an active PTF port from the selected portchannel
+    ptf_t1_intf_index = random.choice(portchannel)   # get the PTF port number
 
     # new neighbor learnt on an active port
     test_port = next(announce_new_neighbor)
