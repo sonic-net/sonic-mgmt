@@ -1829,6 +1829,12 @@ qos/test_qos_dscp_mapping.py:
     conditions:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
 
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base:
+  skip:
+    reason: "Skip test on dualtor setup due to https://github.com/sonic-net/sonic-mgmt/issues/17974"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17974"
+
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
   skip:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M* topo does not support qos"
