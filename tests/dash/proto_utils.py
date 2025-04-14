@@ -60,6 +60,11 @@ def parse_byte_field(orig_val):
 def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
+def parse_vnet_direct(vnet_direct):
+    return {
+        "overlay_ip": parse_ip_address(vnet_direct["overlay_ip"]),
+        "vnet": vnet_direct["vnet"]
+    }
 
 def parse_dash_proto(key: str, proto_dict: dict):
     """
@@ -201,6 +206,8 @@ def json_to_proto(key: str, proto_dict: dict):
                 new_dict[key] = parse_ip_prefix(value)
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
+            elif field_map[key].message_type.name == "VnetDirect":
+                new_dict[key] = parse_vnet_direct(value)
 
         elif field_map[key].type == field_map[key].TYPE_ENUM:
             new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
