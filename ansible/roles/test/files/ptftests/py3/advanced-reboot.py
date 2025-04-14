@@ -738,6 +738,11 @@ class ReloadTest(BaseTest):
         self.log("Enabling arp_responder")
         self.cmd(["supervisorctl", "restart", "arp_responder"])
 
+        # Give arp_responder 15 seconds to start up, because with the libpcap backend, scapy will first get information
+        # about all of the interfaces on the system (which takes a bit of time) and then proceeds.
+        self.log("Waiting 15 seconds for ARP responder to complete initialization")
+        time.sleep(15)
+
         return
 
     def setup_fdb(self):
