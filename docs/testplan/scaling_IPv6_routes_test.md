@@ -21,11 +21,11 @@ This test builds upon the **SONiC Switch BGP IPv6 Test**. Before running this te
 
 1. Execute "SONiC Switch BGP IPv6 Test" till step 3.
 
-2. On each neighboring switch: Configure a vlan, assign 4*X/Y IPv6 addresses with the specified prefix length and add all the Ethernet ports connected to a traffic generator to the vlan.
+2. On each neighboring switch: Configure a vlan, assign `4*X/Y` IPv6 addresses with the specified prefix length and add all the Ethernet ports connected to a traffic generator to the vlan.
 
 3. Monitor the BGP route learning on the DUT by running `show ipv6 route bgp`. Verify that the DUT successfully learns and installs all routes.
 
-4. Using traffic generator's application or web interface, create one topology per traffic generator. In each topology, add the Ethernet ports connected to its neighboring T0, apply IPv6 protocol to emulate 4*X/Y IPv6 hosts with the specified prefix length.
+4. Using traffic generator's application or web interface, create one topology per traffic generator. In each topology, add the Ethernet ports connected to its neighboring T0, apply IPv6 protocol to emulate `4*X/Y` IPv6 hosts with the specified prefix length.
 
 5. On each traffic generator, define a unidirectional traffic item at 100% line rate. Distribute traffic destinations evenly across all traffic generators. Start the traffic and verify interface counters on the switches to ensure expected behavior.
 
@@ -70,3 +70,17 @@ The objective of this test is to evaluate the impact of nexthop reduction and re
 5. Next we test the traffic overload scenario by setting the Tx traffic rate to 100% of the line rate. Record the Rx traffic rate as a baseline.
 6. On the DUT, randomly remove half of the nexthops. Given the total traffic rate exceeds the total line rate, packet loss is expected. Measure the time it takes for the traffic rate to stabilize.
 7. Restore the removed nexthops. Measure the convergence time. Repeat steps 5-7 for the other half of the nexthops and calculate the average convergence time.
+
+## Metrics
+
+Save the route restoration time info to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
+
+| Label                                          | Example Value       |
+| ---------------------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`                       | switch-A            |
+
+| Metric Name                                    | Example Value       |
+| ---------------------------------------------- | ------------------- |
+| `METRIC_NAME_ROUTE_RECOVERY_PORT_RESTART`      | 35                  |
+| `METRIC_NAME_ROUTE_RECOVERY_CONTAINER_RESTART` | 243                 |
+| `METRIC_NAME_ROUTE_RECOVERY_NEXTHOP_CHANGE`    | 189                 |
