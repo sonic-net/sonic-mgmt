@@ -19,18 +19,16 @@ The following acronyms are used in this document:
 |---------|--------------------------------------|
 | DSCP    | Differentiated Services Code-Point   |
 | DWRR    | Deficit Weighted Round Robin         |
-| ECN     | Explicit Congestion Notification     |
 | QoS     | Quality of Service                   |
 | WRED    | Weighted Random Early Detection      |
 
 ## Test Objective
 
 This test aims to validate that the DUT correctly prioritizes traffic based on QoS rules and DWRR-based scheduling, ensuring proportional bandwidth allocation across multiple traffic classes.
-The test is designed to be configuration-agnostic, meaning it does not require or impose a specific QoS configuration. Instead, it provides a flexible framework that allows testing of various QoS configurations and policies. The sole assumption is that only lossy QoS setting is expected in this test.
 
 ## Test Setup
 
-This test does not assume or enforce a specific QoS configuration; any QoS configuration can be applied. It is only applicable to single-tier networks and requires full connectivity to ensure all DUT ports are covered.
+This test does not assume or enforce a specific QoS configuration; any QoS configuration can be applied. It is only applicable to single-tier networks. In this phase, only queues marked lossy are expected in this test. To test every port on the switch, full connectivity is necessary to ensure complete coverage of all DUT ports.
 
 ## Test Steps
 
@@ -80,7 +78,7 @@ This test does not assume or enforce a specific QoS configuration; any QoS confi
 
 2. Identify the traffic generator and its corresponding port connected to the DUT port under test—this serves as the Rx port for the traffic flows. Then, on a separate traffic generator that is not connected to the DUT port, pick X ports, where X corresponds to the number of queues in the retrieved configuration. These serve as the Tx ports for the traffic flows. Define X traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT.
 3. Start the X number of traffic flows simultaneously and let them run for 1 minute.
-4. Collect the Rx traffic rate and packet loss rate for each traffic flow, then stop the traffic.
+4. Collect the Rx traffic rate and packet loss rate for each traffic flow, then stop the traffic.  Collect the queue stats of the DUT port under test.
 5. Verify that the observed results match the expected test outcomes.
 
    The DWRR algorithm allocates bandwidth proportionally based on the weights assigned to the schedulers. The total bandwidth is divided according to the ratio of the weights. In the above configuration example,
@@ -101,6 +99,21 @@ This test does not assume or enforce a specific QoS configuration; any QoS confi
    scheduler.2: 20/40 × 100% = 50.0% of the total available bandwidth
    ```
 
-6. Modify the traffic items so that they have ascending packet sizes. Re-run the test and analyze whether packet size impacts the results.
-7. Move to the next port of the DUT and repeat the above steps until all ports have been tested.
-8. Start all traffic flows across all ports to place the DUT under stress. Verify if the Rx traffic rates remain as expected under full load.
+6. Use queue counters to cross-validate the results. Note that the exact bandwidth share may slightly differ from the expected value due to ASIC-specific DWRR implementations or hardware limitations.
+7. Modify the traffic items so that they have ascending packet sizes. Re-run the test and analyze whether packet size impacts the results.
+8. Move to the next port of the DUT and repeat the above steps until all ports have been tested.
+9. Start all traffic flows across all ports to place the DUT under stress. Verify if the Rx traffic rates remain as expected under full load.
+
+## Metrics
+
+Save the QoS DWRR test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
+
+| Label                          | Example Value      |
+| ------------------------------ | ------------------ |
+| `METRIC_LABEL_DEVICE_ID`       | switch-A           |
+| `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8          |
+| `METRIC_LABEL_DEVICE_QUEUE_ID` | UC1                |
+
+| Metric Name                    | Example Value      |
+| ------------------------------ | ------------------ |
+| `METRIC_NAME_QOS_DWRR`         | FINAL_STATUS.PASS  |
