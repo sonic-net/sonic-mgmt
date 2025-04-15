@@ -103,6 +103,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                         consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
 
+
 @pytest.mark.device_type('t2')
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
                          tbinfo, request, verify_testbed_health,            # noqa: F811
@@ -116,7 +117,6 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
 
     def upgrade_path_postboot_setup(dut):
         dut.shell("config bgp startup all")
-        patch_rsyslog(dut)
 
     # get_advanced_reboot=None and advanceboot_loganalyzer=None as only cold reboot needed for T2
     suphost = duthosts.supervisor_nodes[0]
