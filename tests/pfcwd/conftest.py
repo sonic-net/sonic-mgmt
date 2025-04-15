@@ -85,7 +85,10 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
+    ip_ifaces = {}
+    for asic in duthost.asics:
+        ip_int = duthost.get_active_ip_interfaces(tbinfo, asic_index=asic.asic_index)
+        ip_ifaces.update(ip_int)
     port_list = []
     for iface in list(ip_ifaces.keys()):
         if iface.startswith("PortChannel"):
