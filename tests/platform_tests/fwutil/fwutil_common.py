@@ -21,7 +21,7 @@ POWER_CYCLE = "power off"
 FAST_REBOOT = "fast"
 
 DEVICES_PATH = "usr/share/sonic/device"
-TIMEOUT = 2100
+TIMEOUT = 1200
 
 REBOOT_TYPES = {
     COLD_REBOOT: "reboot",
