@@ -112,6 +112,14 @@
         "tag": ""
     },
     {
+        "hwsku": "Arista-7060CX-32S-Q32",
+        "topo": "t0",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
         "hwsku": "Arista-720DT-G48S4",
         "topo": "m0",
         "owner": "Jing Kan",
