@@ -568,8 +568,19 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, pkt, 1)
         # Get the actual egress port
-        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
-        actual_port = dst_ports[result[0]]
+        # Note: Do not use verify_packet_any_port. Can fail incorrectly when a basic
+        # verify_packet on the correct port succeeds.
+        actual_port = None
+        for poss_dst_port in dst_ports:
+            try:
+                testutils.verify_packet(ptfadapter, exp_pkt, poss_dst_port)
+                actual_port = poss_dst_port
+                break
+            except AssertionError:
+                logger.info("Did not find probing packet on port ID {}".format(poss_dst_port))
+        assert actual_port, "Unable to find packet in any dst port in {}".format(dst_ports)
+        logger.info("Found port ID {} as the real destination port".format(actual_port))
+
         # Get the port name from mgfacts
         for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
             if idx == actual_port:
