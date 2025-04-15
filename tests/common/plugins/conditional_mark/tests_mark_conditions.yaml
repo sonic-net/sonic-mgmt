@@ -1067,6 +1067,8 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t2' in topo_name"
+      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
+                           'Mellanox-SN5640-C448O16']"
 
 generic_config_updater/test_eth_interface.py::test_update_speed:
   skip:
@@ -1410,6 +1412,13 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
+  skip:
+    reason: "Not supported on SKU"
+    conditions:
+      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
+                   'Mellanox-SN5640-C448O16']"
 
 #######################################
 #####            ip               #####
@@ -1812,6 +1821,13 @@ qos/test_ecn_config.py:
     reason: "This test only support on cisco device"
     conditions:
       - "asic_type not in ['cisco-8000']"
+
+qos/test_pfc_counters.py:
+  skip:
+    reason: "Not supported on SKU"
+    conditions:
+      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
+                   'Mellanox-SN5640-C448O16']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -2465,9 +2481,12 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
 #######################################
 telemetry/test_events.py:
   skip:
-    reason: "Skip telemetry test events for 202211 and older branches"
+    reason: "Skip telemetry test events for 202211 and older branches or not supported on specific SKU"
+    conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
+                           'Mellanox-SN5640-C448O16']"
   xfail:
     reason: "Test events is flaky in PR test, xfail until issue resolved"
     conditions:
