@@ -13,6 +13,7 @@ from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
+from dash_pipeline_utils import P4UnderlayRoutingTable
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +291,25 @@ def dash_smartswitch_vnet_config(duthost, config_facts, minigraph_facts, tbinfo)
     return dash_info
 
 
+def apply_underlay_config(duthost, config_info, op):
+    if duthost.facts["asic_type"] != "vs":
+        return
+
+    local_ip = '::'+ config_info[LOCAL_PA_IP]
+    if config_info[ROUTING_TYPE] == "direct":
+        remote_ip = '::'+ config_info[REMOTE_CA_IP]
+    else:
+        remote_ip = '::'+ config_info[REMOTE_PA_IP]
+
+    underlay_routing = P4UnderlayRoutingTable(duthost.mgmt_ip + ":9559")
+    if op == "SET":
+        underlay_routing.set(ip_prefix = local_ip,  ip_prefix_len = 128, next_hop_id = 0)
+        underlay_routing.set(ip_prefix = remote_ip, ip_prefix_len = 128, next_hop_id = 1)
+    else:
+        underlay_routing.unset(ip_prefix = local_ip,  ip_prefix_len = 128)
+        underlay_routing.unset(ip_prefix = remote_ip, ip_prefix_len = 128)
+
+
 @pytest.fixture(scope="function")
 def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
@@ -309,6 +329,8 @@ def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
             apply_gnmi_file(localhost, duthost, ptfhost, dest_path)
         else:
             apply_swssconfig_file(duthost, dest_path)
+
+        apply_underlay_config(duthost, config_info, op)
 
     yield _apply_config
 
