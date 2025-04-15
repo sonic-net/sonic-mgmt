@@ -175,6 +175,13 @@
                     "included": true
                 },
                 {
+                    "id": "m1",
+                    "name": "M1",
+                    "testbed_topology": ["m1-48"],
+                    "threshold": 51,
+                    "included": true
+                },
+                {
                     "id": "dualtor",
                     "name": "DUALTOR",
                     "testbed_topology": ["dualtor-aa-64-breakout", "dualtor-aa-56", "dualtor-aa", "dualtor-120", "dualtor", "dualtor-64", "dualtor-56", "dualtor-mixed"],
