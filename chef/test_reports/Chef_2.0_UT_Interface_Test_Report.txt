@@ -1,0 +1,26 @@
+Test Case ID: 1
+Test Case: Interface Admin Status setting
+Purpose: To verify that interface admin status can be set via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Interface resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Interface config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Interface admin status as mentioned in the "sonic.json" role should be set successfully on the SONiC switch.
+Observed Result:
+Observed that interface admin status as mentioned in the "sonic.json" role is set successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 2
+Test Case: Interface Speed setting
+Purpose: To verify that interface speed can be set via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Interface resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Interface config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Interface speed as mentioned in the "sonic.json" role should be set successfully on the SONiC switch.
+Observed Result:
+Observed that interface speed as mentioned in the "sonic.json" role is set successfully on the SONiC switch.
+Result: PASS
+
