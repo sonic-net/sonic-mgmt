@@ -4,6 +4,7 @@ import random
 import json
 import time
 
+from tests.common import config_reload
 from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC, \
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
@@ -18,6 +19,32 @@ from dash_pipeline_utils import P4UnderlayRoutingTable
 logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
+
+
+@pytest.fixture(scope="module", autouse=True)
+def enable_kvm_dpu(duthost):
+    if duthost.facts["asic_type"] != "vs":
+        return
+
+    duthost.shell("sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' switch_type dpu")
+    duthost.shell("config save -y")
+    eth1_ip = get_interface_ip(duthost, "Ethernet0").with_prefixlen
+    eth2_ip = get_interface_ip(duthost, "Ethernet4").with_prefixlen
+    duthost.shell(f"ifconfig eth1 {eth1_ip} && ifconfig eth2 {eth2_ip}")
+    duthost.shell("systemctl enable dash-engine && systemctl start dash-engine")
+
+    config_reload(duthost, wait=210)
+
+    yield
+
+    duthost.shell("systemctl stop dash-engine && systemctl disable dash-engine")
+    eth1_ip = "0.0.0.0"
+    eth2_ip = "0.0.0.0"
+    duthost.shell(f"ifconfig eth1 {eth1_ip} && ifconfig eth2 {eth2_ip}")
+    duthost.shell("sonic-db-cli CONFIG_DB hdel 'DEVICE_METADATA|localhost' switch_type")
+    duthost.shell("config save -y")
+
+    config_reload(duthost, wait=210)
 
 
 def get_dpu_dataplane_port(duthost, dpu_index):
