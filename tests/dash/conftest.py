@@ -322,19 +322,19 @@ def apply_underlay_config(duthost, config_info, op):
     if duthost.facts["asic_type"] != "vs":
         return
 
-    local_ip = '::'+ config_info[LOCAL_PA_IP]
+    local_ip = '::' + config_info[LOCAL_PA_IP]
     if config_info[ROUTING_TYPE] == "direct":
-        remote_ip = '::'+ config_info[REMOTE_CA_IP]
+        remote_ip = '::' + config_info[REMOTE_CA_IP]
     else:
-        remote_ip = '::'+ config_info[REMOTE_PA_IP]
+        remote_ip = '::' + config_info[REMOTE_PA_IP]
 
     underlay_routing = P4UnderlayRoutingTable(duthost.mgmt_ip + ":9559")
     if op == "SET":
-        underlay_routing.set(ip_prefix = local_ip,  ip_prefix_len = 128, next_hop_id = 0)
-        underlay_routing.set(ip_prefix = remote_ip, ip_prefix_len = 128, next_hop_id = 1)
+        underlay_routing.set(ip_prefix=local_ip,  ip_prefix_len=128, next_hop_id=0)
+        underlay_routing.set(ip_prefix=remote_ip, ip_prefix_len=128, next_hop_id=1)
     else:
-        underlay_routing.unset(ip_prefix = local_ip,  ip_prefix_len = 128)
-        underlay_routing.unset(ip_prefix = remote_ip, ip_prefix_len = 128)
+        underlay_routing.unset(ip_prefix=local_ip,  ip_prefix_len=128)
+        underlay_routing.unset(ip_prefix=remote_ip, ip_prefix_len=128)
 
 
 @pytest.fixture(scope="function")

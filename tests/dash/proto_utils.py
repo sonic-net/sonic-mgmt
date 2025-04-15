@@ -60,11 +60,13 @@ def parse_byte_field(orig_val):
 def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
+
 def parse_vnet_direct(vnet_direct):
     return {
         "overlay_ip": parse_ip_address(vnet_direct["overlay_ip"]),
         "vnet": vnet_direct["vnet"]
     }
+
 
 def parse_dash_proto(key: str, proto_dict: dict):
     """

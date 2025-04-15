@@ -24,7 +24,8 @@ class GNMIEnvironment(object):
         self.gnmi_client_key = "gnmiclient.key"
         self.gnmi_server_start_wait_time = 30
         if duthost.facts["asic_type"] == "vs":
-            self.enable_zmq = False # zmq has issue in kvm dpu
+            # zmq has issue in kvm dpu
+            self.enable_zmq = False
         else:
             self.enable_zmq = True
         cmd = "docker images | grep -w sonic-gnmi"
