@@ -95,7 +95,7 @@ class TestNeighborMacNoPtf:
         bgp_routes = 0
 
         filter_ip_list = []
-        if duthost.facts["asic_type"] == ["cisco-8000"]:
+        if duthost.facts["asic_type"] == "cisco-8000":
             filter_ip_list = self._get_back_plane_port_ips(duthost)
 
         # Checks that there are no routes installed by BGP in ASIC_DB
