@@ -37,6 +37,23 @@ strtk5-z9332f-fanout-05,10.212.70.26/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,soni
 strtk5-z9332f-fanout-06,10.212.70.27/27,DellEMC-Z9332f-O32,FanoutLeaf,,sonic
 
 strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8V48,DevSonic,,sonic
+strtk5-7060cx-fanout-01,10.212.69.142/27,Arista-7060CX-32S,FanoutLeaf,,
+strtk5-7060cx-fanout-02,10.212.69.143/27,Arista-7060CX-32S,FanoutLeaf,,
+strtk5-7060cx-fanout-03,10.212.69.144/27,Arista-7060CX-32S,FanoutLeaf,,
+strtk5-e1031-fanout-01,10.212.69.146/27,Celestica-E1031-T48S4,FanoutLeafSonic,,sonic
+strtk5-7215-05,10.212.69.148/27,Nokia-7215,FanoutLeafSonic,,sonic
+strtk5-7260-fanout-27,10.212.69.151/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-28,10.212.69.152/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-29,10.212.69.153/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-30,10.212.69.154/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-31,10.212.69.155/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-32,10.212.69.156/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-33,10.212.69.157/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-7260-fanout-34,10.212.70.2/27,Arista-7260CX3,FanoutLeaf,,
+strtk5-z9332f-01,10.212.70.9/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+strtk5-z9332f-04,10.212.70.8/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+
+strtk5-8101-01,10.212.69.38/27,Cisco-8101-O8V48,DevSonic,,sonic
 strtk5-s6000-09,10.212.69.50/27,Force10-S6000,DevSonic,,sonic
 strtk5-n3132-acs-2,10.212.69.63/27,Nexus-3132-GE-Q32,DevSonic,,sonic
 strtk5-msn2700-02,10.212.69.59/27,Mellanox-SN2700,DevSonic,,sonic
@@ -79,11 +96,28 @@ strtk5-8800-lc1-1,10.212.70.21/27,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 strtk5-8800-lc2-1,10.212.70.22/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
 strtk5-8800-lc3-1,10.212.70.23/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
 
+strtk5-dx010-06,10.212.69.149/27,Celestica-DX010-C32,DevSonic,,sonic
+strtk5-dx010-07,10.212.70.4/27,Celestica-DX010-C32,DevSonic,,sonic
+strtk5-e1031-01,10.212.69.145/27,Celestica-E1031-T48S4,DevSonic,,sonic
+strtk5-n3164-01,10.212.70.6/27,Nexus-3164,DevSonic,,sonic
+strtk5-n3164-03,10.212.70.5/27,Nexus-3164,DevSonic,,sonic
+strtk5-n3164-04,10.212.69.150/27,Nexus-3164,DevSonic,,sonic
+strtk5-4600c-07,10.212.70.10/27,ACS-MSN4600C,DevSonic,,sonic
+strtk5-4600c-08,10.212.70.11/27,ACS-MSN4600C,DevSonic,,sonic
+strtk5-7170-azd-01,10.212.70.3/27,Arista-7170-64C,DevSonic,,sonic
+strtk5-720dt-01,10.212.69.147/27,Arista-720DT-G48S4,DevSonic,,sonic
+strtk5-7260cx3-02,10.212.69.141/27,Arista-7260CX3-D108C8,DevSonic,,sonic
+strtk5-7050-02,10.212.69.140/27,Arista-7050-QX32,DevSonic,,sonic
+strtk5-7280cr3-02,10.212.69.138/27,Arista-7280CR3-C40,DevSonic,,sonic
+strtk5-8101-02,10.212.70.7/27,Cisco-8101-O32,DevSonic,,sonic
+
 strtk5-serv-01,10.212.65.2/24,TestServ,Server,,
 strtk5-serv-02,10.212.65.3/24,TestServ,Server,,
 strtk5-serv-03,10.212.65.4/24,TestServ,Server,,
 strtk5-serv-04,10.212.65.5/24,TestServ,Server,,
 strtk5-serv-05,10.212.65.6/24,TestServ,Server,,
+strtk5-serv-06,10.212.65.7/24,TestServ,Server,,
+strtk5-serv-07,10.212.65.8/24,TestServ,Server,,
 strtk5-serv-08,10.212.65.9/24,TestServ,Server,,
 strtk5-serv-09,10.212.65.10/24,TestServ,Server,,
 strtk5-serv-10,10.212.65.11/24,TestServ,Server,,
@@ -91,7 +125,7 @@ strtk5-serv-10,10.212.65.11/24,TestServ,Server,,
 strtk5-0101-0200-01c0,10.212.68.9/27,Cisco,ConsoleServer,ssh,
 strtk5-0101-0200-02c0,10.212.68.11/27,Cisco,ConsoleServer,ssh,
 strtk5-0101-0200-03c0,10.212.68.13/27,Cisco,ConsoleServer,ssh,
-strtk5-0101-0200-07c0,10.212.68.21/32,Cisco,ConsoleServer,ssh,
+strtk5-0101-0200-07c0,10.212.68.21/27,Cisco,ConsoleServer,ssh,
 
 pdu-226,10.212.69.226,Sentry4,Pdu,snmp,
 pdu-227,10.212.69.227,Sentry4,Pdu,snmp,

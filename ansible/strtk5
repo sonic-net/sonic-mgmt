@@ -105,15 +105,63 @@ all:
         ptf5-9:
           ansible_host: 10.212.65.79
           ansible_hostv6: 2603:10e2:140:3000::13e
-        ptf10-0:
+        ptf6-0:
           ansible_host: 10.212.65.80
-          ansible_hostv6: 2603:10e2:140:3000::13f
-        ptf9-0:
+          ansible_hostv6: 2603:10e2:140:3000::110
+        ptf6-1:
           ansible_host: 10.212.65.81
-          ansible_hostv6: 2603:10e2:140:3000::120
+          ansible_hostv6: 2603:10e2:140:3000::111
+        ptf6-2:
+          ansible_host: 10.212.65.82
+          ansible_hostv6: 2603:10e2:140:3000::112
+        ptf6-3:
+          ansible_host: 10.212.65.83
+          ansible_hostv6: 2603:10e2:140:3000::113
+        ptf6-4:
+          ansible_host: 10.212.65.84
+          ansible_hostv6: 2603:10e2:140:3000::114
+        ptf6-5:
+          ansible_host: 10.212.65.85
+          ansible_hostv6: 2603:10e2:140:3000::115
+        ptf6-6:
+          ansible_host: 10.212.65.86
+          ansible_hostv6: 2603:10e2:140:3000::116
+        ptf6-7:
+          ansible_host: 10.212.65.87
+          ansible_hostv6: 2603:10e2:140:3000::117
+        ptf6-8:
+          ansible_host: 10.212.65.88
+          ansible_hostv6: 2603:10e2:140:3000::118
+        ptf6-9:
+          ansible_host: 10.212.65.89
+          ansible_hostv6: 2603:10e2:140:3000::119
+        ptf7-0:
+          ansible_host: 10.212.65.90
+          ansible_hostv6: 2603:10e2:140:3000::11a
+        ptf7-1:
+          ansible_host: 10.212.65.91
+          ansible_hostv6: 2603:10e2:140:3000::11b
+        ptf7-2:
+          ansible_host: 10.212.65.92
+          ansible_hostv6: 2603:10e2:140:3000::11c
+        ptf7-3:
+          ansible_host: 10.212.65.93
+          ansible_hostv6: 2603:10e2:140:3000::11d
+        ptf7-4:
+          ansible_host: 10.212.65.94
+          ansible_hostv6: 2603:10e2:140:3000::11e
+        ptf7-5:
+          ansible_host: 10.212.65.95
+          ansible_hostv6: 2603:10e2:140:3000::11f
         ptf8-0:
           ansible_host: 10.212.65.82
           ansible_hostv6: 2603:10e2:140:3000::140
+        ptf9-0:
+          ansible_host: 10.212.65.81
+          ansible_hostv6: 2603:10e2:140:3000::120
+        ptf10-0:
+          ansible_host: 10.212.65.80
+          ansible_hostv6: 2603:10e2:140:3000::13f
 
     pdu:
       hosts:
@@ -139,10 +187,10 @@ all:
           ansible_host: 10.212.69.232
           protocol: snmp
         pdu-233:
-          ansible_host:
+          ansible_host: 10.212.69.233
           protocol: snmp
         pdu-234:
-          ansible_host:
+          ansible_host: 10.212.69.234
           protocol: snmp
         pdu-235:
           ansible_host: 10.212.69.235
@@ -161,61 +209,138 @@ fanout:
   hosts:
     strtk5-7260-root-01:
       ansible_host: 10.212.69.34
+      ansible_hostv6: 2603:10e2:140:3000::42
     strtk5-8101-fanout-02:
       ansible_host: 10.212.69.39
+      ansible_hostv6: 2603:10e2:140:3000::47
     strtk5-7260-fanout-02:
       ansible_host: 10.212.69.36
+      ansible_hostv6: 2603:10e2:140:3000::44
     strtk5-7260-fanout-03:
       ansible_host: 10.212.69.37
+      ansible_hostv6: 2603:10e2:140:3000::45
     strtk5-7260-fanout-04:
       ansible_host: 10.212.69.51
+      ansible_hostv6: 2603:10e2:140:3000::53
     strtk5-7260-fanout-05:
       ansible_host: 10.212.69.53
+      ansible_hostv6: 2603:10e2:140:3000::55
     strtk5-7260-fanout-06:
       ansible_host: 10.212.69.55
+      ansible_hostv6: 2603:10e2:140:3000::57
     strtk5-7260-fanout-07:
       ansible_host: 10.212.69.57
+      ansible_hostv6: 2603:10e2:140:3000::59
     strtk5-7260-fanout-08:
       ansible_host: 10.212.69.60
+      ansible_hostv6: 2603:10e2:140:3000::5c
     strtk5-7260-fanout-09:
       ansible_host: 10.212.69.98
+      ansible_hostv6: 2603:10e2:140:3000::82
     strtk5-7260-fanout-10:
       ansible_host: 10.212.69.101
+      ansible_hostv6: 2603:10e2:140:3000::85
     strtk5-7260-fanout-11:
       ansible_host: 10.212.69.104
+      ansible_hostv6: 2603:10e2:140:3000::88
     strtk5-7260-fanout-12:
       ansible_host: 10.212.69.105
+      ansible_hostv6: 2603:10e2:140:3000::89
     strtk5-7260-fanout-13:
       ansible_host: 10.212.69.109
+      ansible_hostv6: 2603:10e2:140:3000::8d
     strtk5-7260-fanout-14:
       ansible_host: 10.212.69.110
+      ansible_hostv6: 2603:10e2:140:3000::8e
     strtk5-7260-fanout-15:
       ansible_host: 10.212.69.112
+      ansible_hostv6: 2603:10e2:140:3000::90
     strtk5-7260-fanout-16:
       ansible_host: 10.212.69.114
+      ansible_hostv6: 2603:10e2:140:3000::92
     strtk5-7260-fanout-17:
       ansible_host: 10.212.69.125
+      ansible_hostv6: 2603:10e2:140:3000::94
     strtk5-7260-fanout-18:
       ansible_host: 10.212.69.116
+      ansible_hostv6: 2603:10e2:140:3000::95
     strtk5-7260-fanout-19:
       ansible_host: 10.212.69.120
+      ansible_hostv6: 2603:10e2:140:3000::99
     strtk5-7260-fanout-20:
       ansible_host: 10.212.69.121
+      ansible_hostv6: 2603:10e2:140:3000::9a
     strtk5-7260-fanout-21:
       ansible_host: 10.212.69.122
+      ansible_hostv6: 2603:10e2:140:3000::9b
     strtk5-7260-fanout-23:
       ansible_host: 10.212.69.130
+      ansible_hostv6: 2603:10e2:140:3000::c2
     strtk5-7260-fanout-24:
       ansible_host: 10.212.69.131
+      ansible_hostv6: 2603:10e2:140:3000::c3
     strtk5-7260-fanout-25:
       ansible_host: 10.212.69.133
+      ansible_hostv6: 2603:10e2:140:3000::c5
     strtk5-7260-fanout-26:
       ansible_host: 10.212.69.134
+      ansible_hostv6: 2603:10e2:140:3000::c6
     strtk5-e1031-fan-4:
       ansible_host: 10.212.69.132
+      ansible_hostv6: 2603:10e2:140:3000::c4
       os: sonic
     strtk5-7260-24:
       ansible_host: 10.212.69.139
+      ansible_hostv6:
+    strtk5-7060cx-fanout-01:
+      ansible_host: 10.212.69.142
+      ansible_hostv6: 2603:10e2:140:3000::ce
+    strtk5-7060cx-fanout-02:
+      ansible_host: 10.212.69.143
+      ansible_hostv6: 2603:10e2:140:3000::cf
+    strtk5-7060cx-fanout-03:
+      ansible_host: 10.212.69.144
+      ansible_hostv6: 2603:10e2:140:3000::d0
+    strtk5-7260-fanout-27:
+      ansible_host: 10.212.69.151
+      ansible_hostv6: 2603:10e2:140:3000::d7
+    strtk5-7260-fanout-28:
+      ansible_host: 10.212.69.152
+      ansible_hostv6: 2603:10e2:140:3000::d8
+    strtk5-7260-fanout-29:
+      ansible_host: 10.212.69.153
+      ansible_hostv6: 2603:10e2:140:3000::d9
+    strtk5-7260-fanout-30:
+      ansible_host: 10.212.69.154
+      ansible_hostv6: 2603:10e2:140:3000::da
+    strtk5-7260-fanout-31:
+      ansible_host: 10.212.69.155
+      ansible_hostv6: 2603:10e2:140:3000::db
+    strtk5-7260-fanout-32:
+      ansible_host: 10.212.69.156
+      ansible_hostv6: 2603:10e2:140:3000::dc
+    strtk5-7260-fanout-33:
+      ansible_host: 10.212.69.157
+      ansible_hostv6: 2603:10e2:140:3000::dd
+    strtk5-7260-fanout-34:
+      ansible_host: 10.212.70.2
+      ansible_hostv6: 2603:10e2:140:3000::1c2
+    strtk5-7215-05:
+      ansible_host: 10.212.69.148
+      ansible_hostv6: 2603:10e2:140:3000::d4
+      os: sonic
+    strtk5-e1031-fanout-01:
+      ansible_host: 10.212.69.146
+      ansible_hostv6: 2603:10e2:140:3000::d2
+      os: sonic
+    strtk5-z9332f-01:
+      ansible_host: 10.212.70.9
+      ansible_hostv6: 2603:10e2:140:3000::1c9
+      os: sonic
+    strtk5-z9332f-04:
+      ansible_host: 10.212.70.8
+      ansible_hostv6: 2603:10e2:140:3000::1c8
+      os: sonic
     strtk5-z9332f-fanout-04:
       ansible_host: 10.212.69.45
       os: sonic
@@ -244,7 +369,10 @@ sonic:
     mgmt_subnet_mask_length: 27
     mgmt_subnet_v6_mask_length: 122
   children:
+    sonic_arista_40:
+    sonic_arista32_100:
     sonic_arista64_100:
+    sonic_arista_720dt:
     sonic_cisco_8101:
     sonic_dell32_40:
     sonic_dell64_40:
@@ -262,6 +390,42 @@ sonic:
     sonic_nokia_7250_lc_400G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
+
+sonic_arista_40:
+  hosts:
+    strtk5-7050-02:
+      ansible_host: 10.212.69.140
+      ansible_hostv6: 2603:10e2:140:3000::cc
+      hwsku: Arista-7050-QX32
+      model: DCS-7050QX-32
+      serial: JPE13292373
+      base_mac: 00:1c:73:3a:9e:9a
+  vars:
+    iface_speed: 40000
+
+sonic_arista32_100:
+  hosts:
+    strtk5-7280cr3-02:
+      ansible_host: 10.212.69.138
+      ansible_hostv6: 2603:10e2:140:3000::ca
+      hwsku: Arista-7280CR3-C40
+      model: DCS-7280CR3K-32P4
+      serial: JPE19362918
+      base_mac: fc:bd:67:3c:40:02
+      syseeprom_info:
+        "0x21": "DCS-7280CR3K-32P4"
+        "0x22": "ASY0444201A0"
+        "0x23": "JPE19362918"
+        "0x24": "fc:bd:67:3c:40:02"
+        "0x25": "2019/09/24 22:44:53"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7280cr3k_32p4"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal9-9.0.1-11845100"
+        "0x2F": "JPE19362918"
+  vars:
+    iface_speed: 100000
 
 sonic_arista64_100:
   hosts:
@@ -307,8 +471,59 @@ sonic_arista64_100:
       ansible_host: 10.212.69.123
       ansible_hostv6: 2603:10e2:140:3000::9c
       hwsku: Arista-7170-64C
+    strtk5-7260cx3-02:
+      ansible_host: 10.212.69.141
+      ansible_hostv6: 2603:10e2:140:3000::cd
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: SSJ17432414
+      base_mac: 74:83:ef:09:33:1c
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504B0"
+        "0x23": "SSJ17432414"
+        "0x24": "74:83:ef:09:33:1c"
+        "0x25": "2017/11/08 21:42:08"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "SSJ17432414"
+    strtk5-7170-azd-01:
+      ansible_host: 10.212.70.3
+      ansible_hostv6: 2603:10e2:140:3000::1c3
+      hwsku: Arista-7170-64C
   vars:
     iface_speed: 100000
+
+sonic_arista_720dt:
+  vars:
+    hwsku: Arista-720DT-G48S4
+    iface_speed: 1000
+  hosts:
+    strtk5-720dt-01:
+      ansible_host: 10.212.69.147
+      ansible_hostv6: 2603:10e2:140:3000::d3
+      model: CCS-720DT-48S
+      serial: WTW21470009
+      base_mac: 2c:dd:e9:ff:c5:3e
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S"
+        "0x22": "ASY062430102"
+        "0x23": "WTW21470009"
+        "0x24": "2c:dd:e9:ff:c5:3e"
+        "0x25": "2022/03/15 06:39:11"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-26164164"
+        "0x2F": "WTW21470009"
+        "0xFE": "0xdeadbeef"
 
 sonic_cisco_8101:
   vars:
@@ -333,6 +548,38 @@ sonic_cisco_8101:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x90B319A7"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    strtk5-8101-02:
+      ansible_host: 10.212.70.7
+      ansible_hostv6: 2603:10e2:140:3000::1c7
+      hwsku: Cisco-8101-O32
+      model: 8101-32FH-O
+      serial: FLM2634071J
+      base_mac: 04:A7:41:54:F2:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM2634071J"
+        "0x24": "04:A7:41:54:F2:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x66350FBA"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -522,6 +769,52 @@ sonic_dx010_100:
         "0x2E": "1.0.5"
         "0x2F": "LB"
         "0xFE": "0xAAB39BDB"
+    strtk5-dx010-06:
+      ansible_host: 10.212.69.149
+      ansible_hostv6: 2603:10e2:140:3000::d5
+      model: R0872-F0009-01
+      serial: DX010F2B118711MS100005
+      base_mac: 00:E0:EC:C2:AE:74
+      syseeprom_info:
+        "0x21": "DX010"
+        "0x22": "R0872-F0009-01"
+        "0x23": "DX010F2B118711MS100005"
+        "0x24": "00:E0:EC:C2:AE:74"
+        "0x25": "07/19/2018 02:10:45"
+        "0x26": "11"
+        "0x27": "Seastone"
+        "0x28": "RANGELEY"
+        "0x29": "2014.08"
+        "0x2A": "131"
+        "0x2B": "CELESTICA"
+        "0x2C": "CHN"
+        "0x2D": "Celestica"
+        "0x2E": "1.1.1"
+        "0x2F": "LB"
+        "0xFE": "0x79E8DB41"
+    strtk5-dx010-07:
+      ansible_host: 10.212.70.4
+      ansible_hostv6: 2603:10e2:140:3000::1c4
+      model: R0872-F0009-01
+      serial: DX010F2B118711MS100007
+      base_mac: 00:E0:EC:C2:AF:7A
+      syseeprom_info:
+        "0x21": "DX010"
+        "0x22": "R0872-F0009-01"
+        "0x23": "DX010F2B118711MS100007"
+        "0x24": "00:E0:EC:C2:AF:7A"
+        "0x25": "07/19/2018 02:10:56"
+        "0x26": "11"
+        "0x27": "Seastone"
+        "0x28": "RANGELEY"
+        "0x29": "2014.08"
+        "0x2A": "131"
+        "0x2B": "CELESTICA"
+        "0x2C": "CHN"
+        "0x2D": "Celestica"
+        "0x2E": "1.1.1"
+        "0x2F": "LB"
+        "0xFE": "0x75C90801"
   vars:
     hwsku: Celestica-DX010-C32
     iface_speed: 100000
@@ -553,6 +846,31 @@ sonic_e1031:
       plt_reboot_dict:
         cold:
           timeout: 600
+    strtk5-e1031-01:
+      ansible_host: 10.212.69.145
+      ansible_hostv6: 2603:10e2:140:3000::d1
+      model: R0882-F4111-01
+      serial: R0882F2B128709BY000006
+      base_mac: 00:e0:ec:83:c0:57
+      syseeprom_info:
+        "0x21": "E1031"
+        "0x23": "R0882F2B128709BY000006"
+        "0x24": "00:E0:EC:83:C0:57"
+        "0x25": "07/11/2018 19:28:09"
+        "0x26": "12"
+        "0x27": "Celestica"
+        "0x28": "Rangeley_7"
+        "0x29": "2015.05.0.0.3"
+        "0x2A": "53"
+        "0x2B": "Celestica"
+        "0x2C": "CN"
+        "0x2D": "Celestica"
+        "0x2E": "3.0.6"
+        "0x2F": "LB"
+        "0xFE": "0x86F7C95F"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
   vars:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
@@ -580,6 +898,14 @@ sonic_nexus_3132GX_40:
 
 sonic_nexus_3164:
   hosts:
+    strtk5-n3164-01:
+      ansible_host: 10.212.70.6
+      ansible_hostv6: 2603:10e2:140:3000::1c6
+      model: 73-16477-04
+      serial: FDO22101QN0
+      base_mac: 70:79:b3:07:60:50
+      num_asics: 6
+      frontend_asics: [0, 1, 2, 3]
     strtk5-n3164-acs-2:
       ansible_host: 10.212.69.115
       ansible_hostv6: 2603:10e2:140:3000::93
@@ -587,6 +913,22 @@ sonic_nexus_3164:
       model: 73-16477-04
       serial: FDO215109NN
       base_mac: 00:be:75:3a:ef:50
+      frontend_asics: [0, 1, 2, 3]
+    strtk5-n3164-03:
+      ansible_host: 10.212.70.5
+      ansible_hostv6: 2603:10e2:140:3000::1c5
+      num_asics: 6
+      model: 73-16477-04
+      serial: SAL2025S727
+      base_mac: 00:81:c4:1d:91:68
+      frontend_asics: [0, 1, 2, 3]
+    strtk5-n3164-04:
+      ansible_host: 10.212.69.150
+      ansible_hostv6: 2603:10e2:140:3000::d6
+      model: 73-16477-04
+      serial: SAL185060V4
+      base_mac: 88:1d:fc:c4:4e:82
+      num_asics: 6
       frontend_asics: [0, 1, 2, 3]
   vars:
     hwsku: Nexus-3164
@@ -737,6 +1079,42 @@ sonic_mlnx_4600C:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x35984B80"
+    strtk5-4600c-07:
+      ansible_host: 10.212.70.10
+      ansible_hostv6: 2603:10e2:140:3000::1ca
+      model: MSN4600-CS2ROS
+      serial: MT2207X25064
+      base_mac: 90:0A:84:11:96:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2207X25064"
+        "0x24": "90:0A:84:11:96:00"
+        "0x25": "02/20/2022 19:38:59"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2020.11-5.3.0005-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xC03AD379"
+    strtk5-4600c-08:
+      ansible_host: 10.212.70.11
+      ansible_hostv6: 2603:10e2:140:3000::1cb
+      model: MSN4600-CS2ROS
+      serial: MT2115X26255
+      base_mac: 1C:34:DA:BB:8C:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2115X26255"
+        "0x24": "1C:34:DA:BB:8C:00"
+        "0x25": "04/21/2021 19:31:12"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2019.11-5.2.0020-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x6FD3FEB1"
 
 sonic_arista_7800_sup:
   vars:
@@ -1097,6 +1475,7 @@ sonic_nokia_7250_lc_400G:
           timeout: 600
           wait: 900
 
+
 server:
   hosts:
     strtk5-serv-01:
@@ -1111,15 +1490,21 @@ server:
     strtk5-serv-05:
       ansible_host: 10.212.65.6
       ansible_hostv6: 2603:10e2:140:3000::106
-    strtk5-serv-10:
-      ansible_host: 10.212.65.11
-      ansible_hostv6: 2603:10e2:140:3000::10a
-    strtk5-serv-09:
-      ansible_host: 10.212.65.10
-      ansible_hostv6: 2603:10e2:140:3000::10b
+    strtk5-serv-06:
+      ansible_host: 10.212.65.7
+      ansible_hostv6: 2603:10e2:140:3000::107
+    strtk5-serv-07:
+      ansible_host: 10.212.65.8
+      ansible_hostv6: 2603:10e2:140:3000::108
     strtk5-serv-08:
       ansible_host: 10.212.65.9
       ansible_hostv6: 2603:10e2:140:3000::109
+    strtk5-serv-09:
+      ansible_host: 10.212.65.10
+      ansible_hostv6: 2603:10e2:140:3000::10b
+    strtk5-serv-10:
+      ansible_host: 10.212.65.11
+      ansible_hostv6: 2603:10e2:140:3000::10a
 
 # designated nightly agents
 self_hosted_azure_agents:

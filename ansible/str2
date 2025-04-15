@@ -485,7 +485,6 @@ sonic:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
     sonic_cisco_8101_tornado:
-    sonic_cisco_8101_tornado_V64:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -2546,7 +2545,7 @@ sonic_cisco_8101:
 
 sonic_cisco_8101_tornado:
   vars:
-    hwsku: Cisco-8101-O32
+    hwsku: Cisco-8101-V64
     iface_speed: 100000
   hosts:
     str2-8101-01:
@@ -2613,12 +2612,6 @@ sonic_cisco_8101_tornado:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-
-sonic_cisco_8101_tornado_V64:
-  vars:
-    hwsku: Cisco-8101-V64
-    iface_speed: 100000
-  hosts:
     str2-8101-03:
       ansible_host: 10.3.146.231
       ansible_hostv6: 2a01:111:e210:3000::a03:92e7
