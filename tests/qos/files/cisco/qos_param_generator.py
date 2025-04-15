@@ -7,6 +7,16 @@ logger = logging.getLogger(__name__)
 class QosParamCisco(object):
     SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
     DEEP_BUFFER_PLATFORMS = ["x86_64-8111_32eh_o-r0"]
+    # Only specific platform/hwskus enable separate VOQs for Cisco-8000
+    SEPARATE_VOQ_PLAT_SKUS = {"x86_64-8101_32fh_o-r0": ["Cisco-8101-O32",
+                                                        "Cisco-8101-C64",
+                                                        "Cisco-8101-O8C48",
+                                                        "Cisco-8101-O8V48"],
+                              "x86_64-8101_32fh_o_c01-r0": ["Cisco-8101-O32",
+                                                            "Cisco-8101-V64"],
+                              "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"]}
+    VOQ_ASICS = ["gb", "gr"]
+
     LOG_PREFIX = "QosParamCisco: "
 
     def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength):
@@ -14,6 +24,7 @@ class QosParamCisco(object):
         Initialize parameters all tests will use
         '''
         self.qos_params = qos_params
+        self.duthost = duthost
         self.dutAsic = dutAsic
         self.bufferConfig = bufferConfig
         self.portSpeedCableLength = portSpeedCableLength
@@ -44,19 +55,20 @@ class QosParamCisco(object):
         # 0: Max queue depth in bytes
         # 1: Flow control configuration on this device, either 'separate' or 'shared'.
         # 2: Number of packets margin for the quantized queue watermark tests.
-        asic_params = {"gb": (6144000, "separate", 3072, 384, 1350, 2, 3),
-                       "gr": (24576000, "shared", 18000, 384, 1350, 2, 3),
-                       "gr2": (None, None, 1, 512, 64, 1, 3)}
+        asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3),
+                       "gr": (24576000, 18000, 384, 1350, 2, 3),
+                       "gr2": (None, 1, 512, 64, 1, 3)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
             # Asic dependent parameters
             (max_queue_depth,
-             self.flow_config,
              self.q_wmk_margin,
              self.buffer_size,
              self.preferred_packet_size,
              self.lossless_pause_tuning_pkts,
              self.lossless_drop_tuning_pkts) = asic_params[dutAsic]
+
+            self.flow_config = self.get_expected_flow_config()
 
             # Calculate attempted pause threshold
             if "dynamic_th" in lossless_prof:
@@ -159,6 +171,21 @@ class QosParamCisco(object):
             # DSCP, queue, weight list
             self.dscp_list, self.q_list, self.weight_list = self.get_dscp_q_weight_list()
 
+    def get_expected_flow_config(self):
+        '''
+        Return the expected type of VOQs present based on the device info
+        '''
+        platform = self.duthost.facts['platform']
+        hwsku = self.duthost.facts['hwsku']
+        if self.dutAsic not in self.VOQ_ASICS:
+            # Test should skip in this case
+            flow_config = None
+        elif platform in self.SEPARATE_VOQ_PLAT_SKUS and hwsku in self.SEPARATE_VOQ_PLAT_SKUS[platform]:
+            flow_config = "separate"
+        else:
+            flow_config = "shared"
+        return flow_config
+
     def get_one_dscp_from_queue(self, queue):
         '''
         Get one dscp value which is mapped to given queue
@@ -166,9 +193,17 @@ class QosParamCisco(object):
         dscp_to_tc_map = self.config_facts['DSCP_TO_TC_MAP']['AZURE']
         tc_to_queue_map = self.config_facts['TC_TO_QUEUE_MAP']['AZURE']
         queue = str(queue)
-        tc = list(tc_to_queue_map.keys())[list(tc_to_queue_map.values()).index(queue)]
-        dscp = list(dscp_to_tc_map.keys())[list(dscp_to_tc_map.values()).index(tc)]
-        return int(dscp)
+        tc_to_queue_map_keys = list(tc_to_queue_map.keys())
+        tc_to_queue_map_vals = list(tc_to_queue_map.values())
+        tc = None
+        dscp = None
+        if queue in tc_to_queue_map_vals:
+            tc = tc_to_queue_map_keys[tc_to_queue_map_vals.index(queue)]
+        dscp_to_tc_map_keys = list(dscp_to_tc_map.keys())
+        dscp_to_tc_map_vals = list(dscp_to_tc_map.values())
+        if tc is not None and tc in dscp_to_tc_map_vals:
+            dscp = int(dscp_to_tc_map_keys[dscp_to_tc_map_vals.index(tc)])
+        return dscp
 
     def get_scheduler_cfg(self):
         '''
@@ -253,6 +288,7 @@ class QosParamCisco(object):
         self.__define_wrr()
         self.__define_wrr_chg()
         self.__define_xon_hysteresis()
+        self.__define_pcbb_xoff()
         return self.qos_params
 
     def gr_get_mantissa_exp(self, thr):
@@ -1076,3 +1112,22 @@ class QosParamCisco(object):
                         "dst_port_i": [7, 7, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8,  8,  8],
                         "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
             self.write_params("xon_hysteresis_9", params_9)
+
+    def __define_pcbb_xoff(self):
+        if self.should_autogen(["pcbb_xoff_{}".format(n) for n in range(1, 5)]):
+            dscps = [3, 4, 3, 4]
+            outer_dscps = [None, None, 2, 6]
+            pgs = [3, 4, 2, 6]
+            packet_buffs = self.get_buffer_occupancy(self.preferred_packet_size)
+            for i in range(4):
+                label = "pcbb_xoff_{}".format(i + 1)
+                params = {"dscp": dscps[i],
+                          "ecn": 1,
+                          "pg": pgs[i],
+                          "pkts_num_trig_pfc": self.pause_thr // self.buffer_size // packet_buffs,
+                          "pkts_num_margin": 4,
+                          "packet_size": self.preferred_packet_size}
+                outer_dscp = outer_dscps[i]
+                if outer_dscp is not None:
+                    params["outer_dscp"] = outer_dscp
+                self.write_params(label, params)

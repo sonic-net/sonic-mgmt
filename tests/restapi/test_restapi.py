@@ -56,15 +56,24 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     response = r.json()
     pytest_assert(response['reset_status'] == "true")
 
+    support_warm_fast_reboot = True
+    if 'isolated' in duthosts.tbinfo['topo']['name']:
+        support_warm_fast_reboot = False
+        logger.info("Skipping warm and fast reboot tests for isolated topology")
+
     # Check reset status post fast reboot
-    check_reset_status_after_reboot(
-        'fast', "false", "true", duthost, localhost, construct_url)
+    if support_warm_fast_reboot:
+        check_reset_status_after_reboot(
+            'fast', "false", "true", duthost, localhost, construct_url)
+
     # Check reset status post cold reboot
     check_reset_status_after_reboot(
         'cold', "false", "true", duthost, localhost, construct_url)
+
     # Check reset status post warm reboot
-    check_reset_status_after_reboot(
-        'warm', "false", "false", duthost, localhost, construct_url)
+    if support_warm_fast_reboot:
+        check_reset_status_after_reboot(
+            'warm', "false", "false", duthost, localhost, construct_url)
 
 
 def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_status,

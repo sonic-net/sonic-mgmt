@@ -22,7 +22,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2')
+    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3')
 ]
 
 logger = logging.getLogger(__name__)
@@ -805,6 +805,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
                                               "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
+                                              "th5": th_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
