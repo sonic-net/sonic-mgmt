@@ -404,6 +404,10 @@ def test_bfd_basic(request, gnmi_connection,
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
+
+        # Delay to allow for IPv6 addresses to be fully programmed so IPv6
+        # neighborship can be resolved on PTF side.
+        time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up
         # path = STATE_DB/localhost/BFD_SESSION_TABLE/'
