@@ -125,9 +125,12 @@ def check_reboot_cause(duthost, expected_cause):
 
 def check_copp_config(duthost):
     logging.info("Comparing CoPP configuration from copp_cfg.json to COPP_TABLE")
-    # Supervisor card and fabric (VoQ) doesn't program COPP tables into APPL_DB
+
     if duthost.is_supervisor_node() and duthost.facts['switch_type'] == "fabric":
+        logging.info("Skipping CoPP config check for fabric (VoQ) supervisor card as it "
+                     "doesn't program CoPP tables into APPL_DB")
         return
+
     for asichost in duthost.asics:
         copp_tables = json.loads(asichost.command("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
         copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
