@@ -221,12 +221,12 @@ def check_bgp(duthosts, tbinfo):
                 # Chassis and multi_asic is not supported for now
                 if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis") is True or
                                                   dut.get_facts().get("modular_chassis") == "True"):
-                    if num_v4_neighbors and not _check_default_route(4, dut):
+                    if (num_v4_neighbors > 0) and not _check_default_route(4, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v4_default_route"] = True
                         a_asic_result = True
-                    if num_v6_neighbors and not _check_default_route(6, dut):
+                    if (num_v6_neighbors > 0) and not _check_default_route(6, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v6_default_route"] = True
