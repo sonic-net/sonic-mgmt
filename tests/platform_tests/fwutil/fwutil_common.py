@@ -84,7 +84,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
             duthost.command("sonic-installer set-default {}".format(current))
             reboot(duthost, pdu_ctrl, boot_type, pdu_delay)
             logger.info("Waiting on switch to shutdown...")
-            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=timeout)
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=60)
             # Wait for 30s in case there is ssh flap
             time.sleep(30)
             logger.info("Waiting on switch to come up in SONiC....")
