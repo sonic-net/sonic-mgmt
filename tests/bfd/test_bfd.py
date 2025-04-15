@@ -401,7 +401,6 @@ def test_bfd_basic(request, gnmi_connection,
         executor = SafeThreadPoolExecutor(max_workers=3)
         monitor_ctx = start_db_monitor(executor=executor, gnmi_conn=gnmi_connection,
                                        path=path, event_queue=event_queue)
-
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
@@ -409,7 +408,7 @@ def test_bfd_basic(request, gnmi_connection,
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up
         # path = STATE_DB/localhost/BFD_SESSION_TABLE/'
         prefix = 'default|default|'
-        status, actual_wait = wait_until_condition(event_queue, prefix, neighbor_addrs,
+        status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, neighbor_addrs,
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
         logger.debug(f'All up; Wait for {neighbor_addrs} to be Up completed with'
@@ -422,9 +421,9 @@ def test_bfd_basic(request, gnmi_connection,
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
         # the one on neighbor_addrs[update_idx] which has to be 'Admin_Down'
-        status, actual_wait = wait_until_condition(event_queue, prefix,
+        status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix,
                                                    [neighbor_addrs[update_idx]],
-                                                   condition_cb=lambda k, v: neighbor_addrs[update_idx] in k and v.get('state') == 'Admin_Down',  # noqa F501
+                                                   condition_cb=lambda k, v: neighbor_addrs[update_idx] in k and v.get('state') == 'Admin_Down',  # noqa: E501
                                                    timeout=timedelta(minutes=2)
                                                    )
         logger.debug(f'Admin check; Wait for {neighbor_addrs[update_idx]}'
@@ -441,7 +440,7 @@ def test_bfd_basic(request, gnmi_connection,
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "up")
         # check the STATE_DB BFD_SESSION_TABLE neighbor_addrs[update_idx] state is back
         # to 'Up'.
-        status, actual_wait = wait_until_condition(event_queue, prefix, [neighbor_addrs[update_idx]],
+        status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
         logger.debug(f'Reset to Up check; Wait for {neighbor_addrs[update_idx]}'
@@ -453,7 +452,7 @@ def test_bfd_basic(request, gnmi_connection,
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
         # the one on neighbor_addrs[update_idx] which has to be 'Down'
-        status, actual_wait = wait_until_condition(event_queue, prefix,
+        status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix,
                                                    [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Down',
                                                    timeout=timedelta(minutes=2))

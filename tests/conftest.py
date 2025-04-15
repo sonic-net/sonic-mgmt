@@ -224,10 +224,12 @@ def pytest_addoption(parser):
     # gnmi connection options      #
     ##############################
     # The gNMI target port number to connect to the DUT gNMI server.
-    parser.addoption("--gnmi-port", action="store", default=50052, type=int,
-                     help="gNMI target port number on the DUT")
-    parser.addoption("--gnmi-insecure", action="store_true", default=False, type=bool,
-                     help="Use insecure connection to the gNMI server")
+    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
+                     help="gNMI target port number")
+    parser.addoption("--gnmi_insecure", action="store_true", default=True,
+                     help="Use insecure connection to gNMI target")
+    parser.addoption("--disable_sai_validation", action="store_true", default=False,
+                     help="Disable SAI validation")
     ############################
     #   Parallel run options   #
     ############################
@@ -2918,7 +2920,12 @@ def setup_gnmi_server(request, localhost, duthost):
     SAI validation library uses gNMI to access sonic-db data
     objects. This fixture is used by tests to set up gNMI server
     """
-    gnmi_insecure = request.config.getoption("--gnmi-insecure")
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield duthost, None
+        return
+    gnmi_insecure = request.config.getoption("--gnmi_insecure")
     if gnmi_insecure:
         logger.info("gNMI insecure mode is enabled")
         yield duthost, None
@@ -2936,26 +2943,32 @@ def setup_gnmi_server(request, localhost, duthost):
 @pytest.fixture(scope="session")
 def setup_connection(request, setup_gnmi_server):
     duthost, cert_path = setup_gnmi_server
-    # if cert_path is None then it is insecure mode
-    gnmi_insecure = request.config.getoption("--gnmi-insecure")
-    gnmi_target_port = request.config.getoption("--gnmi-port")
-    duthost_mgmt_ip = duthost.mgmt_ip
-    channel = None
-    gnmi_connection = None
-    if gnmi_insecure:
-        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
-                                                    port=gnmi_target_port, secure=False)
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield None
+        return
     else:
-        root_cert = str(cert_path / 'gnmiCA.pem')
-        client_cert = str(cert_path / 'gnmiclient.crt')
-        client_key = str(cert_path / 'gnmiclient.key')
-        channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
-                                                    port=gnmi_target_port, secure=True,
-                                                    root_cert_path=root_cert,
-                                                    client_cert_path=client_cert,
-                                                    client_key_path=client_key)
-    yield gnmi_connection
-    channel.close()
+        # if cert_path is None then it is insecure mode
+        gnmi_insecure = request.config.getoption("--gnmi_insecure")
+        gnmi_target_port = int(request.config.getoption("--gnmi_port"))
+        duthost_mgmt_ip = duthost.mgmt_ip
+        channel = None
+        gnmi_connection = None
+        if gnmi_insecure:
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=False)
+        else:
+            root_cert = str(cert_path / 'gnmiCA.pem')
+            client_cert = str(cert_path / 'gnmiclient.crt')
+            client_key = str(cert_path / 'gnmiclient.key')
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=True,
+                                                        root_cert_path=root_cert,
+                                                        client_cert_path=client_cert,
+                                                        client_key_path=client_key)
+        yield gnmi_connection
+        channel.close()
 
 
 @pytest.fixture(scope="session")

@@ -27,7 +27,8 @@ class MonitorContext:
     information required to stop gNMI subscription
     and cancel the thread.
     """
-    def __init__(self, stop_event, subscription_thread, cancel_thread):
+    def __init__(self, stop_event, subscription_thread, cancel_thread, disabled=False):
+        self.sai_validation_disabled = disabled
         self.stop_event = stop_event
         self.subscription_thread = subscription_thread
         self.cancel_thread = cancel_thread
@@ -37,6 +38,10 @@ def start_db_monitor(executor: ThreadPoolExecutor,
                      gnmi_conn,
                      path: str,
                      event_queue: queue.Queue):
+    if gnmi_conn is None:
+        logger.debug("gNMI connection is None, disabling SAI validation.")
+        return MonitorContext(None, None, None, disabled=True)
+
     logger.debug(f"Starting gNMI subscribe for path: {path}")
     call = gnmi_client.new_subscribe_call(gnmi_conn, [path], GnmiSubscriptionMode.STREAM)
     stop_event = threading.Event()
@@ -53,6 +58,9 @@ def stop_db_monitor(ctx: MonitorContext):
     stop_db_monitor stops the thread started by 'start_db_monitor'
     function. The function returns immediately.
     """
+    if ctx.sai_validation_disabled:
+        logger.debug("SAI validation is disabled")
+        return
     logger.debug("Stopping DB monitor.")
     ctx.stop_event.set()
     logger.debug("Stop event set for DB monitor.")
@@ -64,11 +72,13 @@ def stop_db_monitor(ctx: MonitorContext):
     logger.debug("DB monitor stopped successfully.")
 
 
-def wait_for_n_keys(filter_path: str, event_queue: queue.Queue, n: int, timeout: timedelta = None) -> list:
+def wait_for_n_keys(ctx: MonitorContext, filter_path: str, event_queue: queue.Queue, n: int, timeout: timedelta = None):
     """
     Waits for n keys to arrive in the queue, with an optional timedelta timeout.
 
     Args:
+        ctx: The context returned by start_db_monitor.
+        filter_path: The path to filter the keys. (Required if path contains larger subset of keys)
         event_queue: The queue to read events from.
         n: The number of keys to wait for.
         timeout: The maximum time to wait (datetime.timedelta). If the value is None,
@@ -76,10 +86,18 @@ def wait_for_n_keys(filter_path: str, event_queue: queue.Queue, n: int, timeout:
 
     Returns:
         A list of the received events.
+        If SAI validation is disabled it returns empty events of the expected size
 
     Raises:
         TimeoutError: If the timeout is reached before n keys arrive.
     """
+    if ctx.sai_validation_disabled:
+        logger.debug("SAI validation is disabled, skipping wait for keys.")
+        empty_events = {}
+        for i in range(n):
+            empty_events[i] = None
+        return empty_events
+
     logger.debug(f"Waiting for {n} keys with timeout: {timeout}")
     received_events = {}
     start_time = time.time()
@@ -112,9 +130,10 @@ def wait_for_n_keys(filter_path: str, event_queue: queue.Queue, n: int, timeout:
                     elif key_oid.startswith(filter_path):
                         received_events[key_oid] = value
                 else:
-                    # if number of entries in value is more than previously
-                    # received value, then set this one
-                    if len(value) > len(received_events[key_oid]):
+                    # if number of entries in value is greater than
+                    # or equal to previously received value,
+                    # then set this one
+                    if len(value) >= len(received_events[key_oid]):
                         if filter_path is None:
                             received_events[key_oid] = value
                         elif key_oid.startswith(filter_path):
@@ -131,7 +150,8 @@ def wait_for_n_keys(filter_path: str, event_queue: queue.Queue, n: int, timeout:
     return received_events
 
 
-def wait_until_condition(event_queue: queue.Queue,
+def wait_until_condition(ctx: MonitorContext,
+                         event_queue: queue.Queue,
                          prefix: str,
                          keys: list,
                          condition_cb,
@@ -146,6 +166,9 @@ def wait_until_condition(event_queue: queue.Queue,
     """
     if condition_cb is None:
         raise Exception('callback not set')
+    if ctx.sai_validation_disabled:
+        logger.debug("SAI validation is disabled, skipping wait until condition.")
+        return True, 0.0
     executor = ThreadPoolExecutor(max_workers=3)
     future = executor.submit(sonic_internal._wait_until_condition,
                              event_queue=event_queue,
@@ -171,7 +194,8 @@ def wait_until_condition(event_queue: queue.Queue,
         executor.shutdown(wait=False)
 
 
-def wait_until_keys_match(event_queue: queue.Queue, prefix: str,
+def wait_until_keys_match(ctx: MonitorContext,
+                          event_queue: queue.Queue, prefix: str,
                           hashes: list, key: str, value: str,
                           timeout: timedelta):
     """
@@ -199,6 +223,9 @@ def wait_until_keys_match(event_queue: queue.Queue, prefix: str,
         value: The expected value for the specified key (e.g., 'Up', 'Down').
         timeout: The maximum time to wait for the condition to be met.
     """
+    if ctx.sai_validation_disabled:
+        logger.debug("SAI validation is disabled, skipping wait until keys match.")
+        return True, 0.0
     executor = ThreadPoolExecutor(max_workers=3)
     future = executor.submit(sonic_internal._wait_until_keys_match,
                              event_queue,
@@ -226,6 +253,9 @@ def wait_until_keys_match(event_queue: queue.Queue, prefix: str,
 
 
 def check_key(gnmi_connection, path, key_name, expected_value):
+    if gnmi_connection is None:
+        logger.debug("gNMI connection is None, cannot check key.")
+        return True
     logger.debug(f"Checking path {path} for key {key_name} with expected value {expected_value}")
     try:
         gnmi_path = gnmi_client.get_gnmi_path(path)

@@ -1328,7 +1328,7 @@ class TestBasicAcl(BaseAclTest):
             logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
             dut.command("config acl update full {}".format(dut_conf_file_path))
             try:
-                events = wait_for_n_keys(filter_path, event_queue, n_rules+1, timedelta(minutes=5))
+                events = wait_for_n_keys(monitor_ctx, filter_path, event_queue, n_rules+1, timedelta(minutes=5))
                 logger.debug(f'Received {len(events)}')
                 logger.debug(f'Events: {events}')
                 validation = validate_acl_asicdb_entries(acl_rules=rules,
@@ -1401,7 +1401,7 @@ class TestIncrementalAcl(BaseAclTest):
                     logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
                     dut.command("config acl update incremental {}".format(dut_conf_file_path))
                     try:
-                        events = wait_for_n_keys(filter_path, event_queue, n_rules+1, timedelta(minutes=5))
+                        events = wait_for_n_keys(monitor_ctx, filter_path, event_queue, n_rules+1, timedelta(minutes=5))
                         logger.debug(f'Received {len(events)}')
                         assert n_rules == len(events)
                     except TimeoutError:

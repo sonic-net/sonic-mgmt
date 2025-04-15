@@ -10,6 +10,10 @@ def validate_acl_asicdb_entries(acl_rules, table_name, events, ip_version, gnmi_
     """
     Check if all the input ACL rules from the config command have corresponding ASIC DB events/entries.
     """
+    if gnmi_connection is None:
+        logger.debug('gnmi_connection is None, skipping ACL validation')
+        return True
+
     # TODO - Add support for ipv6
     if ip_version == 'ipv6':
         return True

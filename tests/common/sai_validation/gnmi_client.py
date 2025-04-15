@@ -182,7 +182,7 @@ def set_request(stub, path, value, data_type='json_val', origin="sonic-db"):
 
 
 def new_subscribe_call(stub, paths, subscription_mode=1, origin="sonic-db"):
-    logger.debug("Creating new gNMI subscription call for {paths}")
+    logger.debug(f"Creating new gNMI subscription call for {paths}")
     subscriptions = []
     subscription = None
     try:
