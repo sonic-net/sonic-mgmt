@@ -121,8 +121,6 @@ topology:
         - 35
       vm_offset: 27
 
-   
-
   DUT:
     loopback:
       ipv4:
@@ -322,7 +320,7 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.9/24
       ipv6: fc0a::10/64
- 
+
   ARISTA21T1:
     properties:
       - common
