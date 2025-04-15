@@ -2070,6 +2070,12 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
+qos/test_tunnel_qos_remap_nvidia.py:
+  skip:
+    reason: "The test is only for Nvidia platforms and dualtor-aa topology"
+    conditions:
+      - "asic_type not in ['mellanox'] or 'dualtor-aa' not in topo_name"
+
 #######################################
 #####           radv             #####
 #######################################
