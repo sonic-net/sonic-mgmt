@@ -14,6 +14,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.common.reboot import REBOOT_TYPE_COLD
 
 
 pytestmark = [
@@ -109,7 +110,8 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
                          tbinfo, request, verify_testbed_health,            # noqa: F811
                          consistency_checker_provider):                     # noqa: F811
 
-    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
+    _, from_image, to_image, _, _ = upgrade_path_lists
+    upgrade_type = REBOOT_TYPE_COLD
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
 
     def upgrade_path_preboot_setup(dut):
@@ -121,22 +123,24 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     # get_advanced_reboot=None and advanceboot_loganalyzer=None as only cold reboot needed for T2
     suphost = duthosts.supervisor_nodes[0]
     upgrade_test_helper(suphost, localhost, ptfhost, from_image,
-                        to_image, tbinfo, upgrade_type, get_advanced_reboot=None,
-                        advanceboot_loganalyzer=None,
+                        to_image, tbinfo, upgrade_type,
+                        get_advanced_reboot=None,               # Not needed as only cold reboot supported to T2
+                        advanceboot_loganalyzer=None,           # Not needed as only cold reboot supported to T2
                         preboot_setup=lambda: upgrade_path_preboot_setup(suphost),
                         postboot_setup=lambda: upgrade_path_postboot_setup(suphost),
-                        consistency_checker_provider=consistency_checker_provider,
-                        enable_cpa=enable_cpa)
+                        consistency_checker_provider=None,      # Not needed as only cold reboot supported to T2
+                        enable_cpa=False)
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for dut in duthosts.frontend_nodes:
             executor.submit(upgrade_test_helper, dut, localhost, ptfhost, from_image,
-                            to_image, tbinfo, upgrade_type, get_advanced_reboot=None,
-                            advanceboot_loganalyzer=None,
+                            to_image, tbinfo, upgrade_type,
+                            get_advanced_reboot=None,           # Not needed as only cold reboot supported to T2
+                            advanceboot_loganalyzer=None,       # Not needed as only cold reboot supported to T2
                             preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut),
                             postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
-                            consistency_checker_provider=consistency_checker_provider,
-                            enable_cpa=enable_cpa)
+                            consistency_checker_provider=None,  # Not needed as only cold reboot supported to T2
+                            enable_cpa=False)
 
 
 @pytest.mark.device_type('vs')
