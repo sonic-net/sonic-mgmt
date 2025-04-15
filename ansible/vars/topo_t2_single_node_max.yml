@@ -127,7 +127,7 @@ topology:
         - 10.1.0.1/32
       ipv6:
         - FC00:10::1/128
-        
+
 configuration_properties:
   common:
     podset_number: 400
