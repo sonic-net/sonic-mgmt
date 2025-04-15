@@ -31,7 +31,7 @@ fi
 
 # Common static routes, sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|7.7.7.1/32#41.216.0.2#3|7.7.7.2/32#41.216.0.3#3|8.8.8.2/32#41.216.0.3#4"
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|8.8.8.2/32#41.216.0.3#4"
 PYVXR_PORTS="leaf0|Ethernet1_32_1#41.230.10.2/24#Vrf12000000"
 PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1#2|lo"
 PYVXR_POLICIES="policy-imp#false#*|true#9999:99"
@@ -41,7 +41,7 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-CLOUD_URL=https://tortuga-k8s-a.cisco.com:30728
+CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
 START_TIME=$(date +%s)
 TEST_TAGS="sonic-test,ipv4,ipv6,loopback"
 CGEN_TEST=extended
@@ -128,21 +128,40 @@ fi
 # PortChannels are always between two fixed ports.
 LAG_PORT1="Ethernet1_9"
 LAG_PORT2="Ethernet1_13"
+
+# Add PortChannels for single switch setup.
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
-PYVXR_IPS="Vrf40000|7.7.7.1|10"
+PYVXR_IPS="7.7.7.1"
+PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.1/32#41.216.0.2#3"
 
-# Add MLAG on [first, second] leaves.
-if [[ ${LENGTH} -gt 0 ]]; then
+# Add PortChannels for Group1: MLAG on [first, second] leaves and LAG on third leaf.
+if [[ ${LENGTH} -gt 1 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
-
-  if [[ ${LENGTH} -gt 1 ]]; then
-    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
-    PYVXR_IPS="Vrf40000|7.7.7.1#7.7.7.2|10"
-
-    # Last leaf always has LAG.
-    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
-  fi
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_IPS="${PYVXR_IPS}#7.7.7.2#7.7.7.3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#3|7.7.7.3/32#41.216.0.4#3"
 fi
+
+# Add PortChannels for Group2: MLAG on [first, second] leaves and LAG on third leaf.
+if [[ ${LENGTH} -gt 3 ]]; then
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel30|leaf3:${LAG_PORT1}#leaf4:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel40|leaf4:${LAG_PORT1}#leaf3:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel50|leaf5:${LAG_PORT1}#leaf5:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_IPS="${PYVXR_IPS}#7.7.7.4#7.7.7.5#7.7.7.6"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.4/32#41.216.0.5#3|7.7.7.5/32#41.216.0.6#3|7.7.7.6/32#41.216.0.7#3"
+fi
+
+# Add PortChannels for Group3: MLAG on [first, second] leaves and LAG on third leaf.
+if [[ ${LENGTH} -gt 6 ]]; then
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel60|leaf6:${LAG_PORT1}#leaf7:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel70|leaf7:${LAG_PORT1}#leaf6:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel80|leaf8:${LAG_PORT1}#leaf8:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_IPS="${PYVXR_IPS}#7.7.7.7#7.7.7.8#7.7.7.9"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.7/32#41.216.0.8#3|7.7.7.8/32#41.216.0.9#3|7.7.7.9/32#41.216.0.10#3"
+fi
+
+PYVXR_IPS="Vrf40000|${PYVXR_IPS}|10"
 
 # Add BGP peers. bgp1 uses default policies, and bgp2 uses custom policies.
 PYVXR_BGPPEERS="Vrf40000|bgp1#4000|41.216.0.4#2000|leaf0#Loopback10"
