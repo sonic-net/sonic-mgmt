@@ -986,6 +986,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
         self.ports = setup_info['selected_test_ports']
+        rx_ports = {rp for pi in self.ports.values() for rp in
+                    (pi["rx_port"] if isinstance(pi["rx_port"], (list, tuple)) else [pi["rx_port"]])}
+        self.ports = {p: pi for p, pi in self.ports.items() if p not in rx_ports}
         selected_ports = list(self.ports.keys())[:2]
         self.test_ports_info = setup_info['test_ports']
         pytest_require(len(selected_ports) == 2, 'Pfcwd multi port test needs at least 2 ports')
