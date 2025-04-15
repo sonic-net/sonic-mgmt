@@ -2777,3 +2777,5 @@ zmq/test_gnmi_zmq.py:
     reason: "Test is for smartswitch"
     conditions:
       - "'arista' in platform"
+      - "'isolated' in topo_name"
+
