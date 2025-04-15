@@ -14,7 +14,6 @@ import pytest
 import time
 
 import tests.common.gu_utils as gu_utils
-import tests.gnmi.helper as gnmi_helper
 
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.utilities import wait_until
@@ -242,7 +241,7 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
     logger.info("Signing server certificate.")
     extfile_path = str(dest_dir / 'extfile.cnf')
     logger.debug(f"Extension file path: {extfile_path}")
-    gnmi_helper.create_ext_conf(duthost_mgmt_ip, extfile_path)
+    create_ext_conf(duthost_mgmt_ip, extfile_path)
     ca_key = str(dest_dir / 'gnmiCA.key')
     ca_pem = str(dest_dir / 'gnmiCA.pem')
     in_file = str(dest_dir / 'gnmiserver.csr')
