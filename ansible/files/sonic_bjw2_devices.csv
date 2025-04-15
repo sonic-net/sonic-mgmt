@@ -58,6 +58,11 @@ bjw2-can-8101-leaf-2,10.150.22.58/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-3,10.150.22.60/23,Cisco-8101-O8C48,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-4,10.150.22.61/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-5,10.150.22.63/23,Cisco-8101-O8C48,FanoutLeafSonic,,sonic
+bjw2-can-8101c1-leaf-1,10.150.22.242/23,Cisco-8101-V64,FanoutLeafSonic,,sonic
+bjw2-can-8101c1-leaf-2,10.150.22.244/23,Cisco-8101-V64,FanoutLeafSonic,,sonic
+bjw2-can-8101c1-leaf-3,10.150.22.246/23,Cisco-8101-V64,FanoutLeafSonic,,sonic
+bjw2-can-8101c1-leaf-4,10.150.22.248/23,Cisco-8101-V64,FanoutLeafSonic,,sonic
+bjw2-can-8101c1-leaf-5,10.150.22.250/23,Cisco-8101-V64,FanoutLeafSonic,,sonic
 bjw2-can-7215-1,10.150.22.167/23,Nokia-7215,DevSonic,,sonic
 bjw2-can-7215-2,10.150.22.169/23,Nokia-7215,DevSonic,,sonic
 bjw2-can-7215-3,10.150.22.171/23,Nokia-7215,DevSonic,,sonic
@@ -122,6 +127,11 @@ bjw2-can-7050-5,10.150.22.96/23,Arista-7050CX3-32S-S128,devsonic,,sonic
 bjw2-can-7050-6,10.150.22.98/23,Arista-7050CX3-32S-S128,devsonic,,sonic
 bjw2-can-7050-7,10.150.22.99/23,Arista-7050CX3-32S-S128,devsonic,,sonic
 bjw2-can-7050-8,10.150.22.216/23,Arista-7050CX3-32S-S128,devsonic,,sonic
+bjw2-can-8101c1-1,10.150.23.241/23,Cisco-8101-V64,DevSonic,,sonic
+bjw2-can-8101c1-2,10.150.23.243/23,Cisco-8101-V64,DevSonic,,sonic
+bjw2-can-8101c1-3,10.150.23.245/23,Cisco-8101-V64,DevSonic,,sonic
+bjw2-can-8101c1-4,10.150.23.247/23,Cisco-8101-V64,DevSonic,,sonic
+bjw2-can-8101c1-5,10.150.23.249/23,Cisco-8101-V64,DevSonic,,sonic
 bjw2-pdu-127-166,10.150.127.166,Vertiv,Pdu,snmp,
 bjw2-pdu-126-80,10.150.126.80,Vertiv,Pdu,snmp,
 bjw2-pdu-126-81,10.150.126.81,Vertiv,Pdu,snmp,
