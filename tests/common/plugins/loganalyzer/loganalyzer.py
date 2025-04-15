@@ -139,21 +139,29 @@ class LogAnalyzer:
             logging.info("[chunangli] Log analyzer failed - no result.")
             raise LogAnalyzerError("Log analyzer failed - no result.")
         else:
-            logging.info("[chunangli] check match number.")
+            logging.info(f"[chunangli] check match number. total_match={result['total']['match']}, "
+                         f"expected_missing_match={result['total']['expected_missing_match']}")
             result_str = self._results_repr(result)
             if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
+                logging.info("[chunangli] raise LogAnalyzerError.")
                 raise LogAnalyzerError(result_str)
 
             # Check for negative case
+            logging.info(
+                f"[chunangli] check negative case. expected_match={result['total']['expected_match']}")
             if self.expect_regex and result["total"]["expected_match"] == 0:
                 err_parse = 'Log Analyzer failed parsing expected messages\n'
+                logging.info("[chunangli] raise LogAnalyzerError.")
                 raise LogAnalyzerError(err_parse + result_str)
 
             # if the number of expected matches is provided
+            logging.info(f"[chunangli] if the number of expected matches is provided. "
+                         f"expected_matches_target={self.expected_matches_target}")
             if (self.expect_regex and (self.expected_matches_target > 0) and
                     result["total"]["expected_match"] != self.expected_matches_target):
                 err_target = "Log analyzer expected {} messages but found only {}\n" \
                     .format(self.expected_matches_target, result["total"]["expected_match"])
+                logging.info("[chunangli] raise LogAnalyzerError.")
                 raise LogAnalyzerError(err_target + result_str)
 
     def save_matching_errors(self, result_log_errors):
