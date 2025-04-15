@@ -1,0 +1,19 @@
+Value av1 (\d+\.\d+)
+Value av2 (\d+\.\d+)
+Value av3 (\d+\.\d+)
+Value cpu_usage (\d+\.\d+)
+Value cpu_system (\d+\.\d+)
+Value mem_total (\d+\.\d+)
+Value mem_free (\d+\.\d+)
+Value mem_used (\d+\.\d+)
+Value mem_cache (\d+\.\d+)
+Value mem_swap_total (\d+\.\d+)
+Value mem_swap_free (\d+\.\d+)
+Value mem_swap_used (\d+\.\d+)
+Value mem_swap_avail (\d+\.\d+)
+
+Start
+ ^.*load average: ${av1}, ${av2}, ${av3}
+ ^%Cpu\(s\):\s+${cpu_usage}\s+us,\s+${cpu_system}\s+sy,
+ ^MiB Mem :\s+${mem_total} total,\s+${mem_free} free,\s+${mem_used} used,\s+${mem_cache} buff/cache
+ ^MiB Swap:\s+${mem_swap_total} total,\s+${mem_swap_free} free,\s+${mem_swap_used} used.\s+${mem_swap_avail} avail Mem

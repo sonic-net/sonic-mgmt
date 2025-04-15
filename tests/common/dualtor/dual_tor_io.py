@@ -11,7 +11,6 @@ import os
 import six
 import scapy.all as scapyall
 import ptf.testutils as testutils
-from operator import itemgetter
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
@@ -793,16 +792,37 @@ class DualTorIO:
             logger.error("Sniffer failed to filter any traffic from DUT")
         else:
             # Find ranges of consecutive packets that have been duplicated
-            # All packets within the same consecutive range will have the same
-            # difference between the packet index and the sequence number
-            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda t: t[0] - t[1][0]):
-                group = list(map(itemgetter(1), grouper))
-                duplicate_start, duplicate_end = group[0], group[-1]
+            # All consecutive packets with the same payload will be grouped as one
+            # duplication group.
+            # For example, for the duplication list as the following:
+            # [(70, 1744253633.499116), (70, 1744253633.499151), (70, 1744253633.499186),
+            #  (81, 1744253635.49922), (81, 1744253635.499255)]
+            # two duplications will be reported:
+            # "duplications": [
+            #     {
+            #         "start_time": 1744253633.499116,
+            #         "end_time": 1744253633.499186,
+            #         "start_id": 70,
+            #         "end_id": 70,
+            #         "duplication_count": 3
+            #     },
+            #     {
+            #         "start_time": 1744253635.49922,
+            #         "end_time": 1744253635.499255,
+            #         "start_id": 81,
+            #         "end_id": 81,
+            #         "duplication_count": 2
+            #     }
+            # ]
+            for _, grouper in groupby(duplicate_packet_list, lambda d: d[0]):
+                duplicates = list(grouper)
+                duplicate_start, duplicate_end = duplicates[0], duplicates[-1]
                 duplicate_dict = {
                     'start_time': duplicate_start[1],
                     'end_time': duplicate_end[1],
                     'start_id': duplicate_start[0],
-                    'end_id': duplicate_end[0]
+                    'end_id': duplicate_end[0],
+                    'duplication_count': len(duplicates)
                 }
                 duplicate_ranges.append(duplicate_dict)
 
