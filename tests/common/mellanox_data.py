@@ -82,6 +82,68 @@ SWITCH_MODELS = {
             }
         }
     },
+    "x86_64-nvidia_sn5640-r0": {
+        "chip_type": "spectrum5",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 5,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 4,
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[1]
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "ports": {
+            "number": 64
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 6
+            },
+            "module": {
+                "start": 1,
+                "number": 65
+            },
+            "psu": {
+                "start": 1,
+                "number": 2
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "cpu_ambient": {
+                "number": 1
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 1
+            },
+            "fan_ambient": {
+                "number": 1
+            },
+            "pch": {
+                "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
+            }
+        }
+    },
     "x86_64-nvidia_sn2201-r0": {
         "chip_type": "spectrum1",
         "reboot": {
