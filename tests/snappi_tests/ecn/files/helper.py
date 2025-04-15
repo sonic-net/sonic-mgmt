@@ -1219,14 +1219,14 @@ def run_voq_eviction_to_hbm(
     run_voq_eviction_test(
         pause_prio_list=[test_prio_list[0]],
         expected_voq_count=1,
-        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[1])
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[0])
     )
 
     # Test with only the second priority
     run_voq_eviction_test(
         pause_prio_list=[test_prio_list[1]],
         expected_voq_count=1,
-        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[0])
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[1])
     )
 
     # Test case 4: no pause priorities
