@@ -2549,8 +2549,6 @@ sensors_checks:
       - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_CPU PHASE TEMP/temp1_crit_alarm
       - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_crit_alarm
 
-      - 00000800400-mdio-8/temp1/temp1_max_alarm
-
       - jc42-i2c-43-1e/SODIMM3 Temp/temp1_max_alarm
       - jc42-i2c-43-1e/SODIMM3 Temp/temp1_min_alarm
       - jc42-i2c-43-1e/SODIMM3 Temp/temp1_crit_alarm
@@ -2613,9 +2611,6 @@ sensors_checks:
 
       - - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_input
         - mp2855-i2c-39-69/PMIC-14 COMEX VDDCR_SOC PHASE TEMP/temp2_crit
-
-      - - 00000800400-mdio-8/temp1/temp1_input
-        - 00000800400-mdio-8/temp1/temp1_crit
 
       - - jc42-i2c-43-1e/SODIMM3 Temp/temp1_input
         - jc42-i2c-43-1e/SODIMM3 Temp/temp1_crit
