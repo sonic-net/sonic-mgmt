@@ -11,7 +11,7 @@ from ptf import mask
 from ptf.packet import Ether, VXLAN
 import ptf.packet as scapy
 from scapy.all import Ether
-
+from collections import defaultdict
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -46,11 +46,39 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 
 
-def setup_acl_table(duthost):
-    table_name = ACL_TABLE_NAME
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+@pytest.fixture(scope='module')
+def prepare_test_port(rand_selected_dut, tbinfo):
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+
     ports = list(mg_facts['minigraph_portchannels'])
+    if not ports:
+        ports = mg_facts["minigraph_acls"]["DataAcl"]
+
     dut_port = ports[0] if ports else None
+
+    if not dut_port:
+        pytest.skip('No portchannels nor dataacl ports found')
+    if "Ethernet" in dut_port:
+        dut_eth_port = dut_port
+    elif "PortChannel" in dut_port:
+        dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
+    ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
+
+    topo = tbinfo["topo"]["type"]
+    # Get the list of upstream ports
+    upstream_ports = defaultdict(list)
+    upstream_port_ids = []
+    for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
+        if (topo == "t0" and "T1" in neighbor["name"]):
+            upstream_ports[neighbor['namespace']].append(interface)
+            upstream_port_ids.append(port_id)
+
+    return ptf_src_port, upstream_port_ids, dut_port
+
+def setup_acl_table(duthost, prepare_test_port):
+    table_name = ACL_TABLE_NAME
+    _, _, dut_port = prepare_test_port
 
     cmd = "config acl add table {} {} -s {} -p {}".format(
             ACL_TABLE_NAME,
@@ -115,10 +143,10 @@ def remove_acl_rules(self, duthost):
     time.sleep(5)
 
 
-def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
+def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
     # Define test parameters
-    inner_src_ip = "192.168.0.2"
-    inner_dst_ip = "192.168.0.1"
+    inner_dst_ip = "192.168.0.2"
+    inner_src_ip = "192.168.0.1"
     vni_id = 5000
     original_inner_src_mac = "00:66:77:88:99:aa"
     modified_inner_src_mac = "00:11:22:33:44:55"
@@ -126,6 +154,8 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
     outer_dst_mac = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
     outer_src_ip = "10.1.1.1"
     outer_dst_ip = "20.1.1.1"
+
+    ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
     setup_acl_rules(duthost, inner_src_ip, vni_id, ACTION_FORWARD, modified_inner_src_mac)
     # Create VXLAN-encapsulated packet sent by server
@@ -157,12 +187,12 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, tbinfo):
     expected_pkt.set_do_not_care_scapy(Ether, 'src')
 
     # Send packet from server into the DUT
-    testutils.send(ptfadapter, 0, pkt)
+    testutils.send(ptfadapter, ptf_src_port, pkt)
 
     time.sleep(2)
 
-    result = testutils.dp_poll(ptfadapter, exp_pkt=expected_pkt, port_number=0, timeout=2)
-
+    result = testutils.dp_poll(ptfadapter, exp_pkt=expected_pkt, port_number=ptf_src_port, timeout=2)
+    
     # Check and extract inner source MAC
     if result:
         actual_pkt = scapy.Ether(result.packet)
