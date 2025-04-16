@@ -280,3 +280,49 @@ def test_addcluster_workflow(duthost):
                 pytest_assert(redis_value == entry,
                             f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
                 logger.info(f"Verified {entry} exists in CONFIG_DB")
+
+    # Step 13: capture full running configuration after applying addcluster.json
+    logger.info("Capturing applied full running configuration")
+    dut_config_path = "/tmp/applied.json"
+    applied_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-applied.json")
+    os.makedirs(os.path.dirname(applied_config_path), exist_ok=True)
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+
+    duthost.fetch(src=dut_config_path, dest=applied_config_path, flat=True)
+    logger.info(f"Saved applied full configuration backup to {applied_config_path}")
+    duthost.shell(f"rm -f {dut_config_path}")
+
+    # Step 14: Compare full configuration before and after applying addcluster.json
+    logger.info("Comparing specific tables before and after applying addcluster.json")
+
+    def get_table_data(config, table):
+        """Extract table data from config."""
+        return config.get(ASICID, {}).get(table, {})
+
+    # Get list of tables to compare from the patch
+    tables_to_compare = set()
+    for patch_entry in json_patch:
+        path = patch_entry.get('path', '')
+        parts = path.split('/')
+        if len(parts) > 2:
+            tables_to_compare.add(parts[2])
+
+    # Load configurations
+    with open(full_config_path, 'r') as file:
+        full_config = json.load(file)
+    with open(applied_config_path, 'r') as file:
+        applied_config = json.load(file)
+
+    # Compare only modified tables
+    for table in tables_to_compare:
+        logger.info(f"Comparing table: {table}")
+        original_table = get_table_data(full_config, table)
+        applied_table = get_table_data(applied_config, table)
+
+        if original_table != applied_table:
+            logger.error(f"Table {table} mismatch:")
+            logger.error(f"Original: {original_table}")
+            logger.error(f"Applied:  {applied_table}")
+            pytest.fail(f"Configuration mismatch in table {table}")
+        else:
+            logger.info(f"Table {table} matches between configurations")
