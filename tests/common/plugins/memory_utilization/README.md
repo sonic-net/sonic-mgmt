@@ -74,11 +74,11 @@ Memory thresholds must be defined using the following structured formats:
      "value": 128
    }
    ```
-   
+
 2. **Percentage threshold**:
    ```json
    "memory_increase_threshold": {
-     "type": "percentage", 
+     "type": "percentage",
      "value": "10%"
    }
    ```
@@ -99,7 +99,7 @@ Memory thresholds must be defined using the following structured formats:
 
 ### Behavior for Combined Thresholds
 
-When thresholds include both **value** and **percentage** types, the plugin calculates both thresholds and applies the most restrictive one (i.e., the smallest value). 
+When thresholds include both **value** and **percentage** types, the plugin calculates both thresholds and applies the most restrictive one (i.e., the smallest value).
 
 For example:
 - If `memory_increase_threshold` includes:
@@ -158,7 +158,7 @@ Monitors system memory usage via Monit.
 
 - **Command**: `sudo monit status`
 - **Parser Function**: `parse_monit_status_output`
-- **Monitored Parameters**: 
+- **Monitored Parameters**:
   - `memory_usage`: System memory utilization percentage
 
 Example configuration:
@@ -289,7 +289,7 @@ Example configuration:
 
 Monitors memory usage of FRR routing daemons.
 
-- **Commands**: 
+- **Commands**:
   - `vtysh -c "show memory bgp"`
   - `vtysh -c "show memory zebra"`
 - **Parser Function**: `parse_frr_memory_output`
@@ -366,11 +366,11 @@ You can modify or add memory items within individual tests by:
 def test_case_example(duthosts, enum_frontend_dut_hostname, memory_utilization):
     # Get memory monitors and values
     memory_monitors, memory_values = memory_utilization
-    
+
     # Get memory monitor for the current DUT
     duthost = duthosts[enum_frontend_dut_hostname]
     memory_monitor = memory_monitors[duthost.hostname]
-    
+
     # Update existing monitor thresholds or register new monitors
     # ...existing code...
 ```
@@ -393,4 +393,3 @@ Common troubleshooting steps:
 2. Verify if the memory increase is expected due to test operations
 3. Analyze the DUT logs for potential memory leaks or resource issues
 4. For persistent issues, consider increasing the threshold or disabling the specific check
-
