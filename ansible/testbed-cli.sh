@@ -332,7 +332,7 @@ function add_topo
     fi
 
     if [[ $topo == *"t2"* ]]; then
-      ansible-playbook -i ${inv_name} testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e topo="$topo"
+      ansible-playbook -i ${inv_name} testbed_config_vchassis.yml -l "$duts" -e topo="$topo"
     fi
 
     # Delete the obsoleted arp entry for the PTF IP
