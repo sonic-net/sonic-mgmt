@@ -360,10 +360,29 @@ def verify_yang(duthost):
     """
     logging.info("Verify yang over running config")
 
-    # Strict yang validation is supported from 2025
+    # return release number of current sonic version such as '20191130'
+    def get_current_sonic_version(duthost):
+        os_version = duthost.shell('sonic_installer list 2>/dev/null | grep Current | cut -f2 -d " "')['stdout']
+        # os_version format: 
+        # "SONiC-OS-20191130.89" 
+        # "SONiC-OS-master.825947-534613c6d" 
+        # "SONiC-OS-internal.121161804-317e9bb571"
+        version = os_version.split('-')[2].split('.')[0]
+        match = re.search(r"SONiC-OS-(\d{8})\.", version)
+        if match:
+            release = match.group(1)
+        else:
+            release = None
+        return release
+
+    release = get_current_sonic_version(duthost)
+    # Skip yang validation when no release number found or old version
+    if not release or release < '20220500':
+       return True
+
     strict_yang_validation = True
-    non_strict_versions = ["2019", "2020", "2021", "2022", "2023", "2024"]
-    if any(version in get_current_sonic_version(duthost) for version in non_strict_versions):
+    # Strict yang validation is supported from 202505
+    if release < '20250500':
         strict_yang_validation = False
 
     if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
