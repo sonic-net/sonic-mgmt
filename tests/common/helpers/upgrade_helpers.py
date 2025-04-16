@@ -1,6 +1,5 @@
 import pytest
 import logging
-# import time
 import ipaddress
 import json
 import re
