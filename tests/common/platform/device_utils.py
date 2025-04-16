@@ -369,6 +369,9 @@ def verify_no_coredumps(duthost, pre_existing_cores):
 
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
+    """
+    Performs health check on single DUT defined by rand_one_dut_hostname before and after a test
+    """
     global test_report
     test_report = {}
     duthost = duthosts[rand_one_dut_hostname]
@@ -397,6 +400,9 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 @pytest.fixture
 def verify_testbed_health(request, duthosts, tbinfo):
+    """
+    Performs health check on all DUTs in a testbed before and after a test
+    """
     global test_report
     for duthost in duthosts:
         test_report = {}
