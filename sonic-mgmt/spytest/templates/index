@@ -17,6 +17,7 @@ show_interface_breakout_cisco.tmpl, .*, sonic, show interfaces breakout current-
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
 show_interfaces_pktdrops_nonzero.tmpl, .*, sonic, show interfaces pktdrops nonzero
 show_interfaces_counters.tmpl, .*, sonic, sudo show interfaces counters -i .*
+show_ars_cisco.tmpl, .*, sonic, show ars
 show_interfaces_transceiver_eeprom.tmpl, .*, sonic, show interface(|s) transceiver eeprom\s*(Ethernet\S+|Eth\S+)*
 show_interface_status.tmpl, .*, sonic, show interface status
 show_interface_counters.tmpl, .*, sonic, sudo show interface counters -i .*
