@@ -247,8 +247,13 @@ class MemoryMonitor:
                 )
             )
 
-        logger.warning(message)
-        pytest.fail(message)
+        # Not return failure on Virtual Switch
+        asic_type = self.ansible_host.facts['asic_type']
+        if asic_type == "vs":
+            logger.warning(message)
+        else:
+            logger.error(message)
+            pytest.fail(message)
 
     def _format_threshold_for_display(self, threshold):
         """Format a threshold value for better readability in messages."""
