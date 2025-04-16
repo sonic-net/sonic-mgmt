@@ -25,19 +25,22 @@ class SonicProcess(Process):
     This exception (including backtrace) can be logged in test log
     to provide better info of why a particular Process failed.
     """
+
     def __init__(self, *args, **kwargs):
-        Process.__init__(self, *args, **kwargs)
+        super(SonicProcess, self).__init__(*args, **kwargs)
         self._pconn, self._cconn = Pipe()
         self._exception = None
 
     def run(self):
         try:
-            Process.run(self)
+            if self._target:
+                self._target(*self._args, **self._kwargs)
             self._cconn.send(None)
         except Exception as e:
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
-            raise e
+        finally:
+            self._cconn.close()
 
     # for wait_procs
     def wait(self, timeout):
