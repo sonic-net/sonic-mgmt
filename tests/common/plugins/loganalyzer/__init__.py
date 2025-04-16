@@ -6,6 +6,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from ...helpers.parallel import parallel_run
+# from ...helpers.parallel_new import parallel_run as parallel_run_new
 
 
 def pytest_addoption(parser):

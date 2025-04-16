@@ -4,6 +4,8 @@ import traceback
 from datetime import datetime
 from typing import Callable, List, Any, Dict, Optional
 
+import pytest
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +31,7 @@ def parallel_run(
         concurrent_tasks: int = 24
 ) -> Dict:
     start_time = datetime.now()
-    logger.info(f"Running '{target.__name__}' on {len(nodes)} nodes with timeout={timeout}")
+    logger.info(f"[chunangli]Running '{target.__name__}' on {len(nodes)} nodes with timeout={timeout}")
 
     results = {}
     errors = []
@@ -58,9 +60,11 @@ def parallel_run(
     if errors:
         for err in errors:
             logger.error(f"Error on node {err['node']}:\n{err['exception']}\n{err['traceback']}")
-        raise RuntimeError(f"{len(errors)} task(s) failed during parallel run.")
+        # raise RuntimeError(f"{len(errors)} task(s) failed during parallel run.")
+        logger.info("[chunangli] pytest fail since errors catched.")
+        pytest.fail(errors)
 
     end_time = datetime.now()
-    logger.info(f"Completed in {(end_time - start_time).total_seconds()} seconds")
+    logger.info(f"[chunangli]Completed in {(end_time - start_time).total_seconds()} seconds")
 
     return results
