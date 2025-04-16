@@ -252,15 +252,28 @@ def wait_until_keys_match(ctx: MonitorContext,
         executor.shutdown(wait=False)
 
 
+def get_key(gnmi_connection, path):
+    if gnmi_connection is None:
+        logger.debug("gNMI connection is None, cannot get key.")
+        return None
+    logger.debug(f"Getting value for path {path}")
+    try:
+        gnmi_path = gnmi_client.get_gnmi_path(path)
+        response = gnmi_client.get_request(gnmi_connection, gnmi_path)
+        logger.debug(f"Response from gNMI get request: {response}")
+        return response
+    except Exception as e:
+        logger.error(f"Error getting path: {e}")
+        return None
+
+
 def check_key(gnmi_connection, path, key_name, expected_value):
     if gnmi_connection is None:
         logger.debug("gNMI connection is None, cannot check key.")
         return True
     logger.debug(f"Checking path {path} for key {key_name} with expected value {expected_value}")
     try:
-        gnmi_path = gnmi_client.get_gnmi_path(path)
-        response = gnmi_client.get_request(gnmi_connection, gnmi_path)
-        logger.debug(f"Response from gNMI get request: {response}")
+        response = get_key(gnmi_connection, path)
         if response and response[0].get(key_name) == expected_value:
             return True
         else:

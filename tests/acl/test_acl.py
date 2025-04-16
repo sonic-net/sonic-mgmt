@@ -1329,8 +1329,8 @@ class TestBasicAcl(BaseAclTest):
             dut.command("config acl update full {}".format(dut_conf_file_path))
             try:
                 events = wait_for_n_keys(monitor_ctx, filter_path, event_queue, n_rules+1, timedelta(minutes=5))
-                logger.debug(f'Received {len(events)}')
-                logger.debug(f'Events: {events}')
+                logger.debug(f'Number of received events for Basic ACL events#: {len(events)}')
+                logger.debug(f'Events for Basic ACL test: {events}')
                 validation = validate_acl_asicdb_entries(acl_rules=rules,
                                                          table_name=table_name,
                                                          events=events,
@@ -1389,6 +1389,8 @@ class TestIncrementalAcl(BaseAclTest):
         path = 'ASIC_DB/localhost/ASIC_STATE'
         filter_path = 'SAI_OBJECT_TYPE_ACL_ENTRY'
         with SafeThreadPoolExecutor(max_workers=8) as executor:
+            event_queue = queue.Queue()
+            monitor_ctx = start_db_monitor(executor, gnmi_connection, path, event_queue)
             for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
                 logger.info('Start monitoring for ACL rules')
                 dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}_part_{}.json".format(table_name, part))
@@ -1396,21 +1398,26 @@ class TestIncrementalAcl(BaseAclTest):
                 if stage != "egress":
                     rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
                     n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
-                    event_queue = queue.Queue()
-                    monitor_ctx = start_db_monitor(executor, gnmi_connection, path, event_queue)
-                    logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
+                    logger.info("Applying ACL rules config incremental ACL \"{}\"".format(dut_conf_file_path))
                     dut.command("config acl update incremental {}".format(dut_conf_file_path))
                     try:
                         events = wait_for_n_keys(monitor_ctx, filter_path, event_queue, n_rules+1, timedelta(minutes=5))
-                        logger.debug(f'Received {len(events)}')
-                        assert n_rules == len(events)
+                        logger.debug(f'Number of events for incremental ACL part: {part}, events#: {len(events)}')
+                        logger.debug(f'Events for incremental ACL: {events}')
+                        validation = validate_acl_asicdb_entries(acl_rules=rules,
+                                                                 table_name=table_name,
+                                                                 events=events,
+                                                                 ip_version=ip_version,
+                                                                 gnmi_connection=gnmi_connection)
+                        # TODO assert on validation
+                        logger.debug(f'Validation result (incremental ACL): {validation}')
+                        assert n_rules+1 == len(events)
                     except TimeoutError:
-                        logger.error("Timeout waiting for ACL rules to be created in ASIC DB")
-                    finally:
-                        stop_db_monitor(monitor_ctx)
+                        logger.error("Timeout waiting for ACL rules to be created in ASIC DB (incremental ACL)")
                 else:
                     logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
                     dut.command("config acl update incremental {}".format(dut_conf_file_path))
+            stop_db_monitor(monitor_ctx)
 
 
 @pytest.mark.reboot

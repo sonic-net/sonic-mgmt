@@ -97,8 +97,15 @@ def validate_acl_asicdb_entries(acl_rules, table_name, events, ip_version, gnmi_
             flag_mask = tcp_flags_to_bitmask(to_list(tcp_flags))
             rule_evt['SAI_ACL_ENTRY_ATTR_FIELD_TCP_FLAGS'] = f'{flag_mask}&mask:{hex(flag_mask)}'
 
-        logger.debug(f'Checking if rule_evt: {rule_evt} is in events')
-        if not rule_in_events(rule_evt, events, gnmi_connection):
+        sequence_id = None
+        if (
+            'config' in rule
+            and 'sequence-id' in rule['config']
+        ):
+            sequence_id = rule['config']['sequence-id']
+
+        logger.debug(f'Checking if rule_evt: {rule_evt} is in events sequence id {sequence_id}')
+        if not rule_in_events(sequence_id, rule_evt, events, gnmi_connection):
             logger.debug(f'Rule event: {rule_evt} not found in events')
             result = False
 
