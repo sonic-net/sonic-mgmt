@@ -143,33 +143,40 @@ def test_addcluster_workflow(duthost):
         'CABLE_LENGTH': set(),
         'BUFFER_PG': set(),
         'PORT_QOS_MAP': set(),
-        'PFC_WD': set()
+        'PFC_WD': set(),
+        'PORTCHANNEL_MEMBER': set(),
+        'DEVICE_NEIGHBOR': set()
     }
     for patch_entry in json_patch:
         path = patch_entry.get('path', '')
-        if path.startswith('/{ASICID}/PORT/'):
+        if path.startswith(f'/{ASICID}/PORT/'):
             port = path.split('/')[-1]
             ports_to_check.add(port)
-        elif path.startswith('/{ASICID}/PORTCHANNEL/'):
+        elif path.startswith(f'/{ASICID}/PORTCHANNEL/'):
             portchannel = path.split('/')[-1]
             portchannels_to_check.add(portchannel)
-        elif path.startswith('/{ASICID}/BGP_NEIGHBOR/'):
+        elif path.startswith(f'/{ASICID}/PORTCHANNEL_MEMBER/'):
+            entry = path.split('/')[-1]
+            config_entries_to_check['PORTCHANNEL_MEMBER'].add(f"PORTCHANNEL_MEMBER|{entry}")
+        elif path.startswith(f'/{ASICID}/BGP_NEIGHBOR/'):
             neighbor = path.split('/')[-1]
             bgp_neighbors_to_check.add(neighbor)
-        # Extract other configuration entries
-        elif path.startswith('/{ASICID}/DEVICE_NEIGHBOR_METADATA/'):
+        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR_METADATA/'):
             entry = path.split('/')[-1]
             config_entries_to_check['DEVICE_NEIGHBOR_METADATA'].add(f"DEVICE_NEIGHBOR_METADATA|{entry}")
-        elif path.startswith('/{ASICID}/CABLE_LENGTH/AZURE/'):
+        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR/'):
             entry = path.split('/')[-1]
-            config_entries_to_check['CABLE_LENGTH'].add(f"CABLE_LENGTH|AZURE|{entry}")
-        elif path.startswith('/{ASICID}/BUFFER_PG/'):
+            config_entries_to_check['DEVICE_NEIGHBOR'].add(f"DEVICE_NEIGHBOR|{entry}")
+        elif path.startswith(f'/{ASICID}/CABLE_LENGTH/AZURE/'):
+            entry = path.split('/')[-1]
+            config_entries_to_check['CABLE_LENGTH'].add(f"{entry}")
+        elif path.startswith(f'/{ASICID}/BUFFER_PG/'):
             entry = '|'.join(path.split('/')[-2:])
-            config_entries_to_check['BUFFER_PG'].add(f"BUFFER_PG|{entry}")
-        elif path.startswith('/{ASICID}/PORT_QOS_MAP/'):
+            config_entries_to_check['BUFFER_PG'].add(f"{entry}")
+        elif path.startswith(f'/{ASICID}/PORT_QOS_MAP/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PORT_QOS_MAP'].add(f"PORT_QOS_MAP|{entry}")
-        elif path.startswith('/{ASICID}/PFC_WD/'):
+        elif path.startswith(f'/{ASICID}/PFC_WD/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PFC_WD'].add(f"PFC_WD|{entry}")
 
@@ -260,8 +267,16 @@ def test_addcluster_workflow(duthost):
     # Step 12: Verify all addcluster.json changes are reflected in CONFIG_DB
     for table, entries in config_entries_to_check.items():
         for entry in entries:
-            redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
-            redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
-            pytest_assert(redis_value == entry,
-                          f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
-            logger.info(f"Verified {entry} exists in CONFIG_DB")
+            if table == 'CABLE_LENGTH':
+                redis_cmd = f'sonic-db-cli -n {ASICID} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
+                redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
+                cable_lengths = json.loads(redis_output.replace("'", '"'))
+
+                if entry not in cable_lengths:
+                    pytest.fail(f"Key {entry} missing in CONFIG_DB. Got: {cable_lengths}")
+            else:
+                redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
+                redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
+                pytest_assert(redis_value == entry,
+                            f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
+                logger.info(f"Verified {entry} exists in CONFIG_DB")
