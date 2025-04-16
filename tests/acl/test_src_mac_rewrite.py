@@ -87,7 +87,7 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
             try:
                 return int(pkt_count)
             except ValueError:
-                logger.warning(f"ACL counter for {table_name}|{rule_name} is not an integer: '{pkt_count}', returning 0")
+                logger.warning(f"ACL counter for {table_name}|{rule_name} is not integer: '{pkt_count}', returning 0")
                 return 0
 
     pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
