@@ -339,3 +339,6 @@ r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get 
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/22346
+r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
