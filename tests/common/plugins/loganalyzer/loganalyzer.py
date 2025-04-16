@@ -178,7 +178,7 @@ class LogAnalyzer:
         logging.info("Log errors will be saved in file: {}".format(file_path))
         if not isinstance(log_errors, str):  # so log_errors is a list of strings
             log_errors = '\n'.join(log_errors)
-        data = {BugHandlerConst.LOG_ERRORS_FILE_ROOT_ITEM: log_errors}
+        data = {"log_errors": log_errors}
         with open(file_path, "w+") as file:
             json.dump(data, file)
 
