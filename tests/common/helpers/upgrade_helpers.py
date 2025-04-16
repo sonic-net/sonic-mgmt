@@ -104,7 +104,7 @@ def check_services(duthost, tbinfo):
     """
     dut_min_uptime = 900 if 't2' in tbinfo['topo']['name'] else 300
     logging.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(dut_min_uptime, 30, 0, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(dut_min_uptime, 30, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     critical_services = [re.sub(r'(\d+)$', r'@\1', service) for service in duthost.critical_services]
