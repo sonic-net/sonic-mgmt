@@ -46,7 +46,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=24):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=8):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
