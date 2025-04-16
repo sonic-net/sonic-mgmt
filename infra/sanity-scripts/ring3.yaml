@@ -218,6 +218,7 @@ ROUTING: #Sridhar Santhanam
 
 TUNNEL: #Thushar Gowda
   t0-64:
+    mth64:
       - decap/test_decap.py
       - vxlan/test_vxlan_decap.py
 
