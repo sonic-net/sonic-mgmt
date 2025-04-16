@@ -2069,7 +2069,7 @@
 
 - conf-name: vms71-t1-7060x6-512-2
   group-name: vms71-3
-  topo: t1-isolated-d28u1
+  topo: t1-isolated-d56u2
   ptf_image_name: docker-ptf
   ptf: vms71-3
   ptf_ip: 10.64.247.126/23
