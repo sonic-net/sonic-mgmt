@@ -236,7 +236,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-O128S2', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5600-O128', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Arista-7060X6-16PE-384C-O128S2', 'Arista-7060X6-16PE-384C-O128S2-COPPER-LAB', 'Arista-7060X6-16PE-384C-O128S2-LAB']"
 
   - name: enable ComputeAI deployment
     set_fact:
