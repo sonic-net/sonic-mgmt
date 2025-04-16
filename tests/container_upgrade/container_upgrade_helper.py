@@ -33,6 +33,7 @@ service_list = [
     "telemetry"
 ]
 
+
 def parse_containers(container_string):
     containers = []
     container_versions = []
