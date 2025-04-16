@@ -88,6 +88,7 @@ def parallel_run(
         logger.info("process {} terminated with exit code {}".format(
             worker.name, worker.returncode)
         )
+        logger.info(f"[chunangli] on_terminate, worker= {worker.__dict__}")
 
     def force_terminate(workers, init_result):
         # Some processes cannot be terminated. Try to kill them and raise flag.
