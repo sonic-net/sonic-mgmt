@@ -331,6 +331,7 @@ t0-2vlans:
 
 t0-sonic:
   - bgp/test_bgp_fact.py
+  - bgp/test_bgp_peer_scale.py
   - bmp/test_frr_bmp_sanity.py
   - macsec/test_controlplane.py
   - macsec/test_dataplane.py
@@ -799,6 +800,8 @@ specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
     param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+  - name: bgp/test_bgp_peer_scale.py
+    param: "--neighbor_type=sonic"
 #  all the test modules under macsec directory
   - name: macsec
     param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
