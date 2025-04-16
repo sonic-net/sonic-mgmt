@@ -3,8 +3,9 @@ import logging
 import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.helpers.parallel import reset_ansible_local_tmp
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
+from ...helpers.parallel_new import parallel_run
 
 
 def pytest_addoption(parser):
