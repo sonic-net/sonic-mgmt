@@ -80,6 +80,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Arista-7050CX3-32S-S128",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Arista-7050QX32S-Q32",
         "topo": "t1",
         "owner": "Liping Xu",
@@ -97,6 +105,14 @@
     },
     {
         "hwsku": "Arista-7060CX-32S-D48C8",
+        "topo": "t0",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060CX-32S-Q32",
         "topo": "t0",
         "owner": "Liping Xu",
         "email": "xuliping@microsoft.com",

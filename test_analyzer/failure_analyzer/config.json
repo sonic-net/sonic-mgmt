@@ -179,7 +179,7 @@
                     "name": "M1",
                     "testbed_topology": ["m1-48"],
                     "threshold": 51,
-                    "included": true
+                    "included": false
                 },
                 {
                     "id": "dualtor",
