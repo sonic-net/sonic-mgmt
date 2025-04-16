@@ -4,7 +4,7 @@ Test BGP peer scaling by adding multiple BGP peers using loopback interfaces on 
 import logging
 import pytest
 from tests.bgp.bgp_helpers import configure_bgp_peer
-from tests.ip.ip_helpers import (
+from tests.common.helpers.ip_helpers import (
     configure_loopback,
     unconfigure_loopback,
     configure_static_route,
