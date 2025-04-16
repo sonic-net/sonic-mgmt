@@ -25,22 +25,22 @@ class SonicProcess(Process):
     This exception (including backtrace) can be logged in test log
     to provide better info of why a particular Process failed.
     """
-
     def __init__(self, *args, **kwargs):
-        super(SonicProcess, self).__init__(*args, **kwargs)
+        Process.__init__(self, *args, **kwargs)
         self._pconn, self._cconn = Pipe()
         self._exception = None
 
     def run(self):
         try:
-            if self._target:
-                self._target(*self._args, **self._kwargs)
+            logger.info("[chunangli] process started.")
+            Process.run(self)
             self._cconn.send(None)
+            logger.info("[chunangli] process finished.")
         except Exception as e:
+            logger.info(f"[chunangli] process error catched {e}.")
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
-        finally:
-            self._cconn.close()
+            raise e
 
     # for wait_procs
     def wait(self, timeout):
@@ -181,6 +181,7 @@ def parallel_run(
 
         # check if we have any processes that failed - have exitcode non-zero
         for worker in gone:
+            logger.info(f"[chunangl] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
             if worker.exitcode != 0:
                 failed_processes[worker.name] = {}
                 failed_processes[worker.name]['exit_code'] = worker.exitcode
@@ -189,8 +190,8 @@ def parallel_run(
     # In case of timeout force terminate spawned processes
     for worker in workers:
         if worker.is_alive():
-            logger.error('Process {} is alive, force terminate it.'.format(
-                worker.name
+            logger.error('Process {} is alive, exitcode={},force terminate it.'.format(
+                worker.name, worker.exitcode
             ))
             worker.terminate()
             # If sanity check process is killed, it still has init results.
