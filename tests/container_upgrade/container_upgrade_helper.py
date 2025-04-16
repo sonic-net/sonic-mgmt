@@ -5,7 +5,7 @@ import json
 from tests.common.utilities import wait_until, file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.system_utils.docker import load_docker_registry_info
-from tests.common.system_utils.docker import download_image
+from tests.common.system_utils.docker import download_image, tag_image
 from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
@@ -28,6 +28,10 @@ container_name_mapping = {
     "docker-auditd-watchdog": "auditd_watchdog",
 }
 
+service_list = [
+    "gnmi",
+    "telemetry"
+]
 
 def parse_containers(container_string):
     containers = []
@@ -121,17 +125,36 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "All critical services should be fully started!")
 
 
+def disable_features(duthost):
+    for service in service_list:
+        logger.info(f"Disabling {service} feature")
+        duthost.shell(f"config features state {service} disabled", module_ignore_errors=True)
+
+
+def enable_features(duthost):
+    for service in service_list:
+        logger.info(f"Enabling {service} feature")
+        duthost.shell(f"config features state {service} enabled", module_ignore_errors=True)
+
+
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
 
+    disable_features(duthost)
     registry = load_docker_registry_info(duthost, creds)
     for container, version, name in zip(env.containers, env.container_versions, env.container_names):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
+        # Tag the image to replace the old image
+        tag_image(duthost, f"{container}:latest", f"{registry.host}/{container}", version)
         parameters = env.parameters[container]
+        # Stop and remove existing container
+        duthost.shell(f"docker stop {name}", module_ignore_errors=True)
+        duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
+    enable_features(duthost)
 
 
 def store_results(request, test_results, env):
