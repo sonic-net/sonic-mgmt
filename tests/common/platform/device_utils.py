@@ -378,7 +378,7 @@ def verify_yang(duthost):
     release = get_current_sonic_version(duthost)
     # Skip yang validation when no release number found or old version
     if not release or release < '20220500':
-       return True
+        return True
 
     strict_yang_validation = True
     # Strict yang validation is supported from 202505
