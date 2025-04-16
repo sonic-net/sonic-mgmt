@@ -102,6 +102,12 @@ bfd/test_bfd.py::test_bfd_echo_mode:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14087"
       - "asic_type in ['vs']"
 
+bfd/test_bfd.py::test_bfd_multihop[ipv6]:
+  skip:
+    reason: "Test is skipped on Nvidia platforms due to https://github.com/sonic-net/sonic-mgmt/issues/17743"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17743 and asic_type in ['mellanox', 'nvidia']"
+
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test is not supported for platforms other than Cisco 8102/8101, Nvidia 4280/4600c/4700/5600. KVM platforms do not support bfd test"
