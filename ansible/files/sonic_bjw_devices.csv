@@ -95,7 +95,6 @@ bjw-pdu-127-166,10.150.127.166,Vertiv,Pdu,snmp,
 bjw-pdu-127-167,10.150.127.167,Vertiv,Pdu,snmp,
 bjw-can-7215-10,10.150.22.10/23,Nokia-7215,MgmtTsToRRouter,ssh,sonic
 bjw-can-7215-9,10.150.22.11/23,Nokia-7215,ConsoleServer,ssh,sonic
-bjw-can-4kts-1,10.150.22.12/23,Cisco-4300,ConsoleServer,ssh,
 bjw-can-e1031-2,10.150.22.13/23,Celestica-E1031-T48S4,ConsoleServer,ssh,sonic
 bjw-96cbe-1a,10.150.22.66/23,MX960,Server,,
 bjw-96cbe-1a-lc,10.150.22.67/23,MX960,Server,,

@@ -453,20 +453,20 @@ sonic_arista64_100:
       ansible_hostv6: 2603:10e2:140:3000::9d
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
-      serial: SSJ17450492
-      base_mac: 74:83:ef:0a:c9:5c
+      serial: JPN2448P62W
+      base_mac: b8:a1:b8:8d:14:50
       syseeprom_info:
         "0x21": "DCS-7260CX3-64"
-        "0x22": "ASY0250504C0"
-        "0x23": "SSJ17450492"
-        "0x24": "74:83:ef:0a:c9:5c"
+        "0x22": "ASY0250509D0"
+        "0x23": "JPN2448P62W"
+        "0x24": "b8:a1:b8:8d:14:50"
         "0x25": "2017/11/21 00:16:01"
         "0x26": "01"
         "0x27": "03.00"
         "0x28": "x86_64-arista_7260cx3_64"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
-        "0x2F": "SSJ17450492"
+        "0x2F": "JPN2448P62W"
     strtk5-a7170-acs-1:
       ansible_host: 10.212.69.123
       ansible_hostv6: 2603:10e2:140:3000::9c
