@@ -935,3 +935,63 @@ def initial_tsa_check_before_and_after_test(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for linecard in duthosts.frontend_nodes:
             executor.submit(run_tsb_on_linecard_and_verify, linecard)
+
+
+def configure_bgp_peer(
+    duthost,
+    neighbor_ip,
+    local_asn,
+    remote_asn,
+    afi="ipv4",
+    safi="unicast",
+    update_source_intf=None,
+    max_hop_count=10,
+):
+    """Configure a BGP peer with proper timers.
+
+    Args:
+        duthost: DUT host object
+        neighbor_ip: IP address of the BGP neighbor
+        local_asn: Local AS number
+        remote_asn: Remote AS number
+        afi: Address Family Identifier ("ipv4", "ipv6", or "l2vpn")
+        safi: Subsequent Address Family Identifier ("unicast", "multicast", "vpn", "evpn",
+              "flowspec", "labeled-unicast")
+        update_source_intf: (Optional) Interface name to use as update-source (e.g. 'Loopback0')
+        max_hop_count: (Optional) Maximum number of hops allowed for BGP peers (default: 10)
+    """
+    try:
+        # Validate AFI-SAFI combination
+        valid_combinations = {
+            "ipv4": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+            "ipv6": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+            "l2vpn": ["evpn"]
+        }
+
+        if afi not in valid_combinations or safi not in valid_combinations[afi]:
+            logging.error(f"Invalid AFI-SAFI combination: {afi}-{safi}")
+            return False
+
+        command = "vtysh -c 'configure terminal' " \
+                  f"-c 'router bgp {local_asn}' " \
+                  f"-c 'neighbor {neighbor_ip} remote-as {remote_asn}' " \
+                  f"-c 'neighbor {neighbor_ip} ebgp-multihop {max_hop_count}' " \
+                  f"-c 'neighbor {neighbor_ip} timers 3 10' " \
+                  f"-c 'neighbor {neighbor_ip} timers connect 10' "
+
+        if update_source_intf:
+            command += f"-c 'neighbor {neighbor_ip} update-source {update_source_intf}' "
+
+        command += f"-c 'address-family {afi} {safi}' " \
+                   f"-c 'neighbor {neighbor_ip} activate' " \
+                   "-c 'exit-address-family'"
+
+        result = duthost.shell(command)
+        if result['rc'] != 0:
+            logging.error("Failed to configure BGP peer. Error: %s", result['stderr'])
+            return False
+        return True
+
+    except Exception as e:
+        logging.error("Failed to configure BGP peer: %s", str(e))
+        return False

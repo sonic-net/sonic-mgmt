@@ -2565,13 +2565,17 @@ Totals               6450                 6449
         """
         self.command("config interface ip remove {} {}".format(port, ip))
 
-    def add_ip_addr_to_port(self, port, ip, gwaddr):
+    def add_ip_addr_to_port(self, port, ip, gwaddr=None):
         """
         Add ip addr on the port.
         :param port: port name
         :param ip: IP address
+        :param gwaddr: (Optional) Gateway address
         """
-        self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
+        cmd = "config interface ip add {} {}".format(port, ip)
+        if gwaddr:
+            cmd += " {}".format(gwaddr)
+        self.command(cmd)
 
     def remove_ip_addr_from_vlan(self, vlan, ip):
         """
