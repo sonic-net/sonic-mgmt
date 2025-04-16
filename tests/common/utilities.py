@@ -1090,11 +1090,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1102,10 +1102,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1464,6 +1466,25 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
 
 
 def cleanup_prev_images(duthost):
