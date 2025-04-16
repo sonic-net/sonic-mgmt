@@ -104,7 +104,7 @@ def validate_acl_asicdb_entries(acl_rules, table_name, events, ip_version, gnmi_
         ):
             sequence_id = rule['config']['sequence-id']
 
-        logger.debug(f'Checking if rule_evt: {rule_evt} is in events sequence id {sequence_id}')
+        logger.debug(f'rule_evt: {rule_evt}, sequence id {sequence_id}')
         if not rule_in_events(sequence_id, rule_evt, events, gnmi_connection):
             logger.debug(f'Rule event: {rule_evt} not found in events')
             result = False

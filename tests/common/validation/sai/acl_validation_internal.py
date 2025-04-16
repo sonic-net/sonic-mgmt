@@ -150,7 +150,6 @@ def rule_in_events(sequence_id, rule, events, gnmi_connection):
         # event and compare the range values.
         if 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE' in event and fetch_range:
             range_oid = event['SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE']
-            # FIXME: event is already in the format required.
             oid = None
             if isinstance(range_oid, str):
                 oid = range_oid[range_oid.find('oid:'):]
@@ -164,33 +163,8 @@ def rule_in_events(sequence_id, rule, events, gnmi_connection):
                                                                     range_oid_value['SAI_ACL_RANGE_ATTR_LIMIT'])
             else:
                 logger.debug(f'Event is already in the format required {event}')
-        logger.debug(f'searching in event (from ASIC_DB): {event}')
+        # logger.debug(f'searching in event (from ASIC_DB): {event}')
         if match_rule_to_event(rule, event):
             logger.debug('Found event for rule. Returning True')
             return True
-    logger.debug(f'Event for rule not found. Checking via get call. Sequence id is {sequence_id}')
-    # CAVEAT - if the rule is not found it is likely that the
-    # value returned through subscription was partial. Try a
-    # get here before returning false.
-    # calculate the rule number from the sequence id
-    # 9999 - sequence_id + 1
-    if sequence_id is not None:
-        rule_number = 9999 - int(sequence_id) + 1
-        logger.debug(f'rule number is {rule_number}')
-        for entry_oid, event in events.items():
-            logger.debug(f'double checking {entry_oid}, {event}')
-            if event.get('SAI_ACL_ENTRY_ATTR_PRIORITY'):
-                logger.debug(f'found SAI_ACL_ENTRY_ATTR_PRIORITY for {entry_oid}')
-                if event['SAI_ACL_ENTRY_ATTR_PRIORITY'] == str(rule_number):
-                    get_path = f'ASIC_DB/localhost/ASIC_STATE/{entry_oid}'
-                    gnmi_path = gnmi_client.get_gnmi_path(get_path)
-                    logger.debug(f'sending get request for path {get_path}')
-                    value = gnmi_client.get_request(gnmi_connection, gnmi_path)
-                    if value and len(value) > 0:
-                        value = value[0]
-                    logger.debug(f'found value {value} for get path {get_path}')
-                    logger.debug(f'matching rule {rule} against value {value}')
-                    if match_rule_to_event(rule, value):
-                        logger.debug('Found event for rule. Returning True')
-                        return True
-        return False
+    return False

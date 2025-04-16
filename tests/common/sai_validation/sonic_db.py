@@ -3,6 +3,7 @@ import concurrent.futures
 import queue
 import threading
 import time
+import pathlib
 
 from datetime import timedelta
 from enum import IntEnum
@@ -27,11 +28,13 @@ class MonitorContext:
     information required to stop gNMI subscription
     and cancel the thread.
     """
-    def __init__(self, stop_event, subscription_thread, cancel_thread, disabled=False):
+    def __init__(self, path, gnmi_conn, stop_event, subscription_thread, cancel_thread, disabled=False):
+        self.gnmi_connection = gnmi_conn
         self.sai_validation_disabled = disabled
         self.stop_event = stop_event
         self.subscription_thread = subscription_thread
         self.cancel_thread = cancel_thread
+        self.path = path
 
 
 def start_db_monitor(executor: ThreadPoolExecutor,
@@ -40,7 +43,7 @@ def start_db_monitor(executor: ThreadPoolExecutor,
                      event_queue: queue.Queue):
     if gnmi_conn is None:
         logger.debug("gNMI connection is None, disabling SAI validation.")
-        return MonitorContext(None, None, None, disabled=True)
+        return MonitorContext(None, None, None, None, None, disabled=True)
 
     logger.debug(f"Starting gNMI subscribe for path: {path}")
     call = gnmi_client.new_subscribe_call(gnmi_conn, [path], GnmiSubscriptionMode.STREAM)
@@ -49,7 +52,7 @@ def start_db_monitor(executor: ThreadPoolExecutor,
                                           call, stop_event, event_queue)
     cancel_thread = executor.submit(sonic_internal.cancel_on_event, call, stop_event)
     logger.debug("DB monitor started successfully.")
-    ctx = MonitorContext(stop_event, subscription_thread, cancel_thread)
+    ctx = MonitorContext(path, gnmi_conn, stop_event, subscription_thread, cancel_thread)
     return ctx
 
 
@@ -125,19 +128,11 @@ def wait_for_n_keys(ctx: MonitorContext, filter_path: str, event_queue: queue.Qu
             ev_map = event.get('value')
             for key_oid, value in ev_map.items():
                 if key_oid not in received_events:
-                    if filter_path is None:
-                        received_events[key_oid] = value
-                    elif key_oid.startswith(filter_path):
+                    if filter_path is None or key_oid.startswith(filter_path):
                         received_events[key_oid] = value
                 else:
-                    # if number of entries in value is greater than
-                    # or equal to previously received value,
-                    # then set this one
                     if len(value) >= len(received_events[key_oid]):
-                        if filter_path is None:
-                            received_events[key_oid] = value
-                        elif key_oid.startswith(filter_path):
-                            received_events[key_oid] = value
+                        received_events[key_oid] = value
         except queue.Empty:
             if timeout_seconds is None:
                 logger.debug("Queue is empty, but no timeout is set. Continuing to wait.")
@@ -145,6 +140,24 @@ def wait_for_n_keys(ctx: MonitorContext, filter_path: str, event_queue: queue.Qu
             else:
                 logger.error(f"Timeout reached waiting for {n} keys.")
                 raise TimeoutError(f"Timeout reached waiting for {n} keys.")
+
+        max_fields = 0
+        for key_oid, value in received_events.items():
+            if len(value) > max_fields:
+                max_fields = len(value)
+
+        for key_oid, value in received_events.items():
+            if len(value) < max_fields:
+                logger.debug(f"Key {key_oid} could have incomplete data perform gNMI get.")
+                # treating the gNMI path as PosixPath
+                p1 = pathlib.Path(ctx.path)
+                p2 = pathlib.Path(key_oid)
+                str_path = str(p1.joinpath(p2))
+                response = get_key(ctx.gnmi_connection, str_path)
+                if response:
+                    if response[0] and len(response[0]) > len(received_events[key_oid]):
+                        logger.debug(f"Updating key {key_oid} with gNMI get response.")
+                        received_events[key_oid] = response[0]
 
     logger.debug(f"Successfully received {len(received_events)} keys.")
     return received_events
