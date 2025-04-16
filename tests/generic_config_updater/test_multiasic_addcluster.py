@@ -278,7 +278,7 @@ def test_addcluster_workflow(duthost):
                 redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
                 redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
                 pytest_assert(redis_value == entry,
-                            f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
+                              f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
                 logger.info(f"Verified {entry} exists in CONFIG_DB")
 
     # Step 13: capture full running configuration after applying addcluster.json
