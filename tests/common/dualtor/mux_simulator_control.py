@@ -726,6 +726,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
     duthosts.shell('config save -y')
 
 
+@pytest.fixture
 def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
     duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
 ):
@@ -757,6 +758,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
     duthosts.shell('config save -y')
 
 
+@pytest.fixture
 def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts,
                                               mux_server_url, tbinfo, mux_config):    # noqa: F811
     """
