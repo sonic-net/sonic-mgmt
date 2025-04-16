@@ -8,7 +8,6 @@ import logging
 import pytest
 import ptf.testutils as testutils
 from ptf import mask
-from ptf.packet import Ether, VXLAN
 import ptf.packet as scapy
 from scapy.all import Ether
 from collections import defaultdict
@@ -46,6 +45,54 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 
 
+def check_rule_counters(duthost):
+    """
+    Check if Acl rule counters initialized
+
+    Args:
+        duthost: DUT host object
+    Returns:
+        Bool value
+    """
+    res = duthost.shell("aclshow -a")['stdout_lines']
+    if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        return False
+    else:
+        return True
+
+
+def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
+    """
+    Get ACL counter packets value.
+
+    Args:
+        duthost: DUT host object
+        table_name: ACL Table name
+        rule_name: ACL rule name
+        timeout: Timeout for ACL counters to update
+
+    Returns:
+        ACL counter value for packets as int, or 0 if not available
+    """
+    # Wait for orchagent to update the ACL counters
+    time.sleep(timeout)
+    result = duthost.show_and_parse('aclshow -a')
+
+    if not result:
+        pytest.fail("Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
+
+    for rule in result:
+        if table_name == rule.get('table name') and rule_name == rule.get('rule name'):
+            pkt_count = rule.get('packets count', '0')
+            try:
+                return int(pkt_count)
+            except ValueError:
+                logger.warning(f"ACL counter for {table_name}|{rule_name} is not an integer: '{pkt_count}', returning 0")
+                return 0
+
+    pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
+
+
 @pytest.fixture(scope='module')
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
@@ -75,6 +122,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
             upstream_port_ids.append(port_id)
 
     return ptf_src_port, upstream_port_ids, dut_port
+
 
 def setup_acl_table(duthost, prepare_test_port):
     table_name = ACL_TABLE_NAME
@@ -122,7 +170,7 @@ def setup_acl_rules(duthost, inner_src_ip, vni, action, new_src_mac):
         'vni': vni,
         'inner_src_ip': inner_src_ip,
         'action': action,
-        'new_src_mac' : new_src_mac
+        'new_src_mac': new_src_mac
         }
     dest_path = os.path.join(TMP_DIR, ACL_RULES_FILE)
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -154,6 +202,8 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
     outer_dst_mac = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
     outer_src_ip = "10.1.1.1"
     outer_dst_ip = "20.1.1.1"
+    table_name = ACL_TABLE_NAME
+    RULE_1 = 'rule_1'
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
@@ -186,12 +236,17 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
     expected_pkt.set_do_not_care_scapy(Ether, 'dst')
     expected_pkt.set_do_not_care_scapy(Ether, 'src')
 
+    count_before = get_acl_counter(duthost, table_name, RULE_1, timeout=0)
     # Send packet from server into the DUT
     testutils.send(ptfadapter, ptf_src_port, pkt)
-
     time.sleep(2)
-
     result = testutils.dp_poll(ptfadapter, exp_pkt=expected_pkt, port_number=ptf_src_port, timeout=2)
+    count_after = get_acl_counter(duthost, table_name, RULE_1)
+
+    logger.info("Verify Acl counter incremented {} > {}".format(count_after, count_before))
+    pytest_assert(count_after >= count_before + 1,
+                  "Unexpected results, counter_after {} > counter_before {}"
+                  .format(count_after, count_before))
     
     # Check and extract inner source MAC
     if result:
