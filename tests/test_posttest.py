@@ -55,7 +55,7 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     if not succeed:
         # Something unexpected happened.
         # We don't want to fail here because it's an util
-        logging.warn("Failed to retrieve feature status")
+        logging.warning("Failed to retrieve feature status")
         return
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:

@@ -68,7 +68,7 @@ def pytest_generate_tests(metafunc):
     for input_case in input_sad_cases.split(","):
         input_case = input_case.strip()
         if input_case.lower() not in SAD_CASE_LIST:
-            logging.warn(
+            logging.warning(
                 "Unknown SAD case ({}) - skipping it.".format(input_case))
             continue
         input_sad_list.append(input_case.lower())
