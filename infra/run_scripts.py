@@ -182,8 +182,12 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
         if topology and topology in data[category]:
             if 'all_pids' in data[category][topology]:
                 final_tests.extend(data[category][topology]['all_pids'])
-            if device_type is not None and device_type in data[category][topology]:
-                final_tests.extend(data[category][topology][device_type])
+            for pid_list in data[category][topology].keys():
+                if isinstance(pid_list, str):
+                    # Split the string by commas and strip whitespace
+                    pids_list = [item.strip() for item in pid_list.split(",")]
+                if device_type is not None and device_type in pids_list:
+                    final_tests.extend(data[category][topology][pid_list])
 
     # 5. Remove duplicates while preserving the order
     seen = set()
@@ -227,7 +231,6 @@ def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_
             print(tc)
     else:
         print("".join(tcs))
-
     return tcs
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files='',test_tag=None, device_type=None):

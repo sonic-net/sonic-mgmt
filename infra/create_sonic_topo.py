@@ -134,7 +134,7 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightening', 'siren','sfd', 'churchill-mono', 'carib'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightning', 'siren','sfd', 'churchill-mono', 'carib'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -645,10 +645,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('lab_connection_graph_crocodile.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
-    elif device_type == 'lightening':
-        ftp_client.put('lab_connection_graph_lightening.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('sonic_lab_links_lightening.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
-        ftp_client.put('sonic_lab_devices_lightening.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
+    elif device_type == 'lightning':
+        ftp_client.put('lab_connection_graph_lightning.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_lightning.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
+        ftp_client.put('sonic_lab_devices_lightning.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
@@ -980,8 +980,8 @@ def get_dut_platform(device_type):
         return 'sfd'
     elif device_type == 'crocodile':
         return 'crocodile'
-    elif device_type == 'lightening':
-        return 'lightening'
+    elif device_type == 'lightning':
+        return 'lightning'
     elif device_type == 'siren':
         return 'siren'
     elif device_type == 'churchill-mono':
@@ -1008,8 +1008,8 @@ def determine_base_topo(topo_type, device_type):
         ptf_intfcount = 32
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
-        elif device_type == 'lightening':
-            base_topo_file = 'testbed-lightening-t0.yaml'
+        elif device_type == 'lightning':
+            base_topo_file = 'testbed-lightning-t0.yaml'
         elif device_type == 'siren':
             base_topo_file = 'testbed-siren-t0.yaml'
         elif device_type in ['churchill-mono','carib']:
@@ -1021,8 +1021,8 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-sherman-t1.yaml'
         elif device_type in ['churchill-mono','carib']:
             base_topo_file = 'testbed-churchill-mono-t1.yaml'
-        elif device_type == 'lightening':
-            base_topo_file = 'testbed-lightening-t1.yaml'
+        elif device_type == 'lightning':
+            base_topo_file = 'testbed-lightning-t1.yaml'
         elif device_type == 'siren':
             base_topo_file = 'testbed-siren-t1.yaml'
         else:
@@ -1212,9 +1212,9 @@ def print_env_info(data, device_type, vEOS_count):
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    elif device_type == 'lightening':
-        print("Device name is lightening. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d lightening-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'lightning':
+        print("Device name is lightning. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d lightning-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'siren':
         print("Device name is siren. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d siren-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")

@@ -10,7 +10,7 @@
 # In other words, the hierarchy is:
 #     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> [list of tests]
 #
-# TOPOLOGY section will always include a 'all_topo' key, which serves as a base. 
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base.
 # PLATFORM section will always include a 'all_pids'
 #
 # Example:
@@ -67,8 +67,8 @@
 # - You now have your final test list!
 
 baseline:
-  all_topo:
-    all_pids:
+  t0-64: # T0-64 is the preferred topology for all tests
+    mth64: # MTH64 is the preferred platform for all tests.
       - bgp/test_bgp_fact.py
       #- decap/test_decap.py
       - fib/test_fib.py
@@ -86,8 +86,8 @@ baseline:
       - test_pretest.py
 
 ROUTING: #Sridhar Santhanam
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - bgp/test_4-byte_asn_community.py
       #- bgp/test_bgp_allow_list.py
       #- bgp/test_bgp_dual_asn.py
@@ -98,29 +98,20 @@ ROUTING: #Sridhar Santhanam
       - bgp/test_ipv6_nlri_over_ipv4.py
 
 FWD: #Rajendra Thirumurthi
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64,lightning:
       - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
       - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
       - route/test_default_route.py::test_default_route_set_src
       - route/test_route_flap.py
-  t0-64:
-    all_pids:
-      - route/test_default_route.py::test_default_route_with_bgp_flap
-      - crm/test_crm.py::test_crm_neighbor
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-  
-  t1-64-lag:
-    all_pids:
       - route/test_default_route.py::test_default_route_with_bgp_flap
       - crm/test_crm.py::test_crm_neighbor
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
 
 PLT: #Mridul Bajpai
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - platform_tests/cli/test_show_platform.py::test_show_platform_summary
       - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
       - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
@@ -129,8 +120,8 @@ PLT: #Mridul Bajpai
       - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 
 INFRA: #Anand Mehra
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - cisco/platform_tests/test_serviceability_packet_capture.py
       - container_checker/test_container_checker.py
       - container_hardening/test_container_hardening.py
@@ -143,8 +134,8 @@ INFRA: #Anand Mehra
       - system_health/test_system_health.py
 
 MGMT: #Anukul Verma / Bidipta Das
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - dns/static_dns/test_static_dns.py
       - generic_config_updater/test_aaa.py
       - generic_config_updater/test_ntp.py
@@ -154,25 +145,17 @@ MGMT: #Anukul Verma / Bidipta Das
       - ssh/test_ssh_limit.py
 
 L2: #Venkata Gouri Rajesh Etla / Bidipta Das
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - fdb/test_fdb.py
       - fdb/test_fdb_flush.py
       - arp/test_neighbor_mac.py
 
 PFC: #Alpesh Patel
-  all_topo:
-    all_pids:
+  t0-64:
+    mth64:
       - cisco/platform_tests/test_serviceability_pfc.py
       - pfcwd/test_pfc_config.py
-  t0-64:
-    all_pids:
-      - generic_config_updater/test_pfcwd_status.py
-      - generic_config_updater/test_pg_headroom_update.py
-      - cisco/qos/test_cpu_port_config.py
-      - cisco/qos/test_pg_profile_lookup.py
-  t1-64-lag:
-    all_pids:
       - generic_config_updater/test_pfcwd_status.py
       - generic_config_updater/test_pg_headroom_update.py
       - cisco/qos/test_cpu_port_config.py
