@@ -134,7 +134,7 @@ def setup_acl_table(duthost, prepare_test_port):
             "egress",
             dut_port
         )
-    
+
     logger.info("Creating ACL table {} for testing".format(table_name))
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestAclSrcMacRewrite")
     loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
@@ -159,7 +159,7 @@ def remove_acl_table(duthost):
             duthost.shell(cmd)
     except LogAnalyzerError:
         # Todo: cleanup
-        pytest.fail("Failed to remove ACL table {}".format(table_name))   
+        pytest.fail("Failed to remove ACL table {}".format(table_name))
 
 
 def setup_acl_rules(duthost, inner_src_ip, vni, action, new_src_mac):
@@ -247,7 +247,7 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
     pytest_assert(count_after >= count_before + 1,
                   "Unexpected results, counter_after {} > counter_before {}"
                   .format(count_after, count_before))
-    
+
     # Check and extract inner source MAC
     if result:
         actual_pkt = scapy.Ether(result.packet)
