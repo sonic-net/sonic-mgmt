@@ -516,6 +516,8 @@ def stop_pfc_storm(storm_handler):
     Stop sending PFC pause frames from fanout switch
     """
     storm_handler.stop_storm()
+    # Wait for PFC pause to stop
+    time.sleep(2)
 
 
 def run_ptf_test(ptfhost, test_case='', test_params={}):
