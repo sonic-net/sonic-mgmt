@@ -10,7 +10,7 @@ import datetime
 import subprocess
 import sys
 import re
-from run_scripts_remote import run_scripts_remote, handle_sim_failure
+from run_scripts_remote import SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 import pexpect
 import csv
 
@@ -461,7 +461,7 @@ def collect_result():
     com_f = open(COMMON_REPORT_PATH, "w")
     tc_f = open(NEW_SUMMARY_REPORT_PATH, 'w')
 
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
+    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "failure_reason": None}
     tc_details = {}
 
     ret = 0 
@@ -517,15 +517,22 @@ def collect_result():
             tc_details[script_name]['TC_INFO'].append(case_summary)
 
         sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
+
+        if sum["success_rate"] == 100:
+            sum["status"] = SUCCESS_STATUS
+        else:
+            sum["status"] = FAILURE_STATUS
+            sum["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
+
     except Exception as e:
         print("Exception! Failed to open result file!")
         sum["status"] = "failure"
+        sum["failure_reason"] = FAILURE_RESONS.NO_REPORT_FILE
         ret = 1
 
     print(f"result summary is: {sum}")
 
     test_data = {'script_data': list(tc_details.values())}
-
 
     json.dump(sum, sum_f)
     json.dump(sum, com_f)
@@ -535,7 +542,7 @@ def collect_result():
     com_f.close()
     tc_f.close()
 
-    return ret, ""
+    return ret, "", sum
 
 def upload_result():
     print("Uploading result to server")
@@ -626,7 +633,7 @@ def main():
         print(f"error at run_sanity! msg: {msg}")
         sys.exit(rc)
     
-    rc, msg = collect_result()
+    rc, msg, result_sum = collect_result()
     if rc != 0:
         print(f"error at collect_result! msg: {msg}")
     
@@ -634,6 +641,12 @@ def main():
     if rc != 0:
         print(f"error at upload_result! msg: {msg}")
         sys.exit(rc)
+    
+    if result_sum["status"] == FAILURE_STATUS:
+        print(f"some failure detected! Please check logs. Result summary: {result_sum}")
+        sys.exit(1)
+    
+    sys.exit(rc)
 
 
 if __name__ == '__main__':

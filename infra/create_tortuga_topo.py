@@ -389,7 +389,7 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
 
     # Populate results file with failure data
     if not int(sim_output):
-        handle_sim_failure("sim_failure")
+        handle_sim_failure(FAILURE_RESONS.SIM_BRINGUP_FAIL)
         sys.exit("Sim is not up. Exiting now")
 
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))

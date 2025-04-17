@@ -46,7 +46,7 @@ def handle_sim_failure(error_msg):
     COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
     # Include sim_status field to indicate failure
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : error_msg}
+    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status": FAILURE_STATUS, "failure_reason": error_msg}
 
     for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
         with open(file_path, "w") as output_file:

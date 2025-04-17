@@ -17,7 +17,7 @@ import csv
 import uuid
 
 import generate_spytest_html_report as html_report
-from run_scripts_remote import handle_sim_failure, run_scripts_remote
+from run_scripts_remote import SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 # import access_pg_db
 
 # Avoid hardcoded python exec through out and have in single place
@@ -35,7 +35,7 @@ NEW_SUMMARY_REPORT_PATH = "../../{}".format(NEW_SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 PARALLEL_LOG = "spytest_parallel.log"
 
-sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
+sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "success"}
 
 pattern = r"_mh"
 flag = False
@@ -827,10 +827,17 @@ def collect_result(sim_dir):
                     2,
                 )
                 sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
+                if sum["success_rate"] == 100:
+                    sum["status"] = SUCCESS_STATUS
+                else:
+                    sum["status"] = FAILURE_STATUS
+                    sum["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
             except ZeroDivisionError as e:
                 print("Test script seems to have skipped")
                 summary["SUCCESS_RATE"] = 0.00
                 sum["success_rate"] = "0.00"
+                sum["status"] = FAILURE_STATUS
+                sum["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
 
             log_report = f"dashboard_{summary['TEST_SUITE']}.html"
             summary['LOG_REPORT'] = log_report
@@ -838,7 +845,8 @@ def collect_result(sim_dir):
 
     except BaseException as e:
         print("Exception! Failed to open result file!", e.args)
-        sum["status"] = "failure"
+        sum["status"] = FAILURE_STATUS
+        sum["failure_reason"] = FAILURE_RESONS.NO_REPORT_FILE
         ret = 1
 
     print(f"After SIM {{sim_dir}} cumulative result summary is: {sum}")
@@ -1236,6 +1244,10 @@ def main():
     print(
         f"Successfully uploaded test result\n{url}"
     )
+
+    if sum["status"] == FAILURE_STATUS:
+        print(f"some failure detected! Please check logs. Result summary: {sum}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
