@@ -1601,6 +1601,15 @@ memory_checker/test_memory_checker.py:
       - "'sn4280' in platform"
 
 #######################################
+#####      metadata-scripts       #####
+#######################################
+metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
+  skip:
+    reason: "Only supported on T2 topology"
+    conditions:
+      - "'t2' not in topo_type"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls/test_mpls.py:

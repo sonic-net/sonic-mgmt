@@ -65,3 +65,46 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
         else:
             pytest_assert(not errors, "Failed executing postupgrade_actions. Errors: {}".format(errors))
     duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)
+
+
+def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process):
+
+    # Temp disregard this stderr for deprecation warning
+    SONIC_INSTALLER_STDERR = ["Warning: 'sonic_installer' command is deprecated and will be removed in the future",
+                              "Please use 'sonic-installer' instead"]
+
+    if not metadata_process:
+        duthost.shell("config bgp startup all")
+        return
+    base_path = os.path.dirname(__file__)
+    if "sonic_mgmt_int" in base_path:
+        metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
+        bgp_neighbor_path = os.path.join(base_path, "../../../sonic-metadata/scripts/bgp_neighbor")
+    else:
+        metadata_scripts_path = os.path.join(base_path, "../../sonic-metadata/scripts")
+        bgp_neighbor_path = os.path.join(base_path, "../../sonic-metadata/scripts/bgp_neighbor")
+    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
+                  .format(metadata_scripts_path))
+    pytest_assert(os.path.exists(bgp_neighbor_path), "SONiC Metadata bgp_neighbor script not found in {}"
+                  .format(bgp_neighbor_path))
+
+    logger.info("Step 1 Copy the script into DUT")
+    duthost.file(path="/tmp/anpscripts", state="absent")
+    duthost.file(path="/tmp/anpscripts", state="directory")
+    metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
+    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
+    if metadata_tar_stat["stat"]["exists"]:
+        duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
+        duthost.file(path="/host/metadata.tar.gz", state="absent")
+    else:
+        duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
+
+    duthost.command("chmod +x /tmp/anpscripts/bgp_neighbor")
+    result = duthost.command("/usr/bin/sudo /tmp/anpscripts/bgp_neighbor startup 0.0.0.0", module_ignore_errors=True)
+    logger.info("bgp_neighbor startup result: {}".format(str(result)))
+
+    if ('stderr' in result and result.get('stderr_lines') != SONIC_INSTALLER_STDERR) or result.get('failed'):
+        errors = result.get('stderr')
+        failed = result.get('failed')
+        pytest_assert(not errors and not failed, "Failed executing bgp_neighbor startup. Errors: {}".format(errors))
+    duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)

@@ -1,14 +1,17 @@
 import pytest
 import logging
 from utilities import boot_into_base_image, cleanup_prev_images, sonic_update_firmware
-from postupgrade_helper import run_postupgrade_actions
+from postupgrade_helper import run_postupgrade_actions, run_bgp_neighbor
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
+from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
-from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore, verify_dut_health
+from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore, \
+    verify_dut_health, verify_testbed_health
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot  # lgtm[py/unused-import]
@@ -42,7 +45,7 @@ def pytest_generate_tests(metafunc):
     if metafunc.config.getoption("multi_hop_upgrade_path"):
         # This pytest execution is for multi-hop upgrade path - don't parametrize for A->B upgrade
         return
-    
+
     # Parametrize for A->B upgrade
     base_image_list = metafunc.config.getoption("base_image_list")
     base_image_list = base_image_list.split(',')
@@ -92,20 +95,20 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
                        tbinfo, metadata_process, upgrade_type,
                        modify_reboot_script=None, allow_fail=False):
     """Sets up the test environment for an A->B upgrade test."""
-    logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+    logger.info("Test upgrade path from {} to {} on {}".format(from_image, to_image, duthost.hostname))
     cleanup_prev_images(duthost)
-    
+
     # Install and reboot into base image
     boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
-    logger.info("Upgrading to {}".format(to_image))
+    logger.info("Upgrading {} to {}".format(duthost.hostname, to_image))
     if metadata_process:
         sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
     else:
         install_sonic(duthost, to_image, tbinfo)
 
-    logger.info("Add pfc storm table to duthost.")
+    logger.info("Add pfc storm table to {}.".format(duthost.hostname))
     add_pfc_storm_table(duthost)
 
     if allow_fail and modify_reboot_script:
@@ -165,6 +168,45 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                         postboot_setup=upgrade_path_postboot_setup,
                         consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
+
+
+def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
+                         tbinfo, request, verify_testbed_health):            # noqa: F811
+    _, from_image, to_image, _, _ = upgrade_path_lists
+    # Only cold reboot is supported for T2
+    upgrade_type = REBOOT_TYPE_COLD
+    metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
+
+    def upgrade_path_preboot_setup(dut):
+        setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type)
+
+    def upgrade_path_postboot_setup(dut):
+        run_postupgrade_actions(dut, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_bgp_neighbor(dut, localhost, tbinfo, metadata_process)
+        patch_rsyslog(dut)
+
+    suphost = duthosts.supervisor_nodes[0]
+    upgrade_test_helper(suphost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type,
+                        get_advanced_reboot=None,               # Not needed as only cold reboot supported to T2
+                        advanceboot_loganalyzer=None,           # Not needed as only cold reboot supported to T2
+                        preboot_setup=lambda: upgrade_path_preboot_setup(suphost),
+                        postboot_setup=lambda: upgrade_path_postboot_setup(suphost),
+                        consistency_checker_provider=None,
+                        enable_cpa=False)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in duthosts.frontend_nodes:
+            executor.submit(upgrade_test_helper, dut, localhost, ptfhost, from_image,
+                            to_image, tbinfo, upgrade_type,
+                            get_advanced_reboot=None,           # Not needed as only cold reboot supported to T2
+                            advanceboot_loganalyzer=None,       # Not needed as only cold reboot supported to T2
+                            preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut),
+                            postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
+                            consistency_checker_provider=None,  # Not needed as only cold reboot supported to T2
+                            enable_cpa=False)
 
 
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,

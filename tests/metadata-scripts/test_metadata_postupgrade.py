@@ -1,6 +1,6 @@
 import logging
 import pytest
-from postupgrade_helper import run_postupgrade_actions
+from postupgrade_helper import run_postupgrade_actions, run_bgp_neighbor
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -13,3 +13,8 @@ logger = logging.getLogger(__name__)
 def test_postupgrade_actions(duthosts, localhost, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     run_postupgrade_actions(duthost, localhost, tbinfo, True, False)
+
+
+def test_bgp_neighbors(duthosts, localhost, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    run_bgp_neighbor(duthost, localhost, tbinfo, True)
