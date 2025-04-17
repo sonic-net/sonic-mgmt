@@ -190,6 +190,7 @@ r, ".* ERR swss#orchagen.*doCfgSensorsTableTask: ASIC sensors : unsupported oper
 r, ".* ERR syncd#.*process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
 r, ".* ERR pmon#xcvrd.*CMIS:.*no suitable app for the port appl.*"
 r, ".* ERR pmon#xcvrd.*: CMIS: Ethernet.*: FAILED.*"
+r, ".* ERR pmon#pcied.*: PCIe device status check : FAILED",
 r, ".* ERR syncd#.*shared/src/hld/npu/la_svi_port_base.cpp:.*Leaba_Err: Entry requested not found.*",
 r, ".* ERR syncd#.*process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*",
 r, ".* ERR syncd#.*src/hld/system/la_device_impl.cpp.*get_resource_usage API returned: status = Leaba_Err: Invalid parameter was supplied: la_status silicon_one::gr2.*"

@@ -9,7 +9,7 @@ simulation:
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v3.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v4.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@docker-ptf:~#
