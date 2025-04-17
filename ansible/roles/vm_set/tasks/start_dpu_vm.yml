@@ -1,0 +1,145 @@
+- name: Load topo variables
+  include_vars: "vars/topo_{{ topo }}.yml"
+  when: topo is defined
+
+- name: Filter VMs for specified topology
+  set_fact: DPU_hosts={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
+  when: topology['DPUs'] is defined and VM_base is defined
+
+- name: Create directory for vm images and vm disks
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ root_path }}/images"
+    - "{{ root_path }}/disks"
+
+- name: Check SONiC image
+  stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+  register: sonic_img_stat
+
+- name: Download SONiC image if no local file exists
+  block:
+
+  - name: Fail if skip_vsonic_image_downloading is true
+    fail:
+      msg: "Failed, no local SONiC image and skip_vsonic_image_downloading is true"
+    when: skip_vsonic_image_downloading
+
+  - name: Init vsonic_image_urls when vsonic_image_url value type is string
+    set_fact:
+      vsonic_image_urls:
+        - "{{ vsonic_image_url }}"
+    when: vsonic_image_url | type_debug == 'string'
+
+  - name: Init vsonic_image_urls when vsonic_image_url value type is list
+    set_fact:
+      vsonic_image_urls: "{{ vsonic_image_url }}"
+    when: vsonic_image_url | type_debug == 'list'
+
+  - name: Init working_image_urls list
+    set_fact:
+      working_image_urls: []
+
+  - name: Loop vsonic_image_urls to find out working URLs
+    include_tasks: probe_image_url.yml
+    loop: "{{ vsonic_image_urls }}"
+
+  - name: Fail if no working SONiC image download url is found
+    fail:
+      msg: [
+        "Failed, no working SONiC image download URL is found. There are 2 options to fix it:",
+        "  1. Fix vsonic_image_url defined in ansible/group_vars/vm_host/sonic.yml",
+        "  2. Manually put SONiC image to {{ root_path }}/images/{{ vsonic_image_filename }}",
+      ]
+    when: working_image_urls | length == 0
+
+  - name: Download SONiC image from the first URL in working_image_urls
+    get_url:
+      url: "{{ working_image_urls[0] }}"
+      dest: "{{ root_path }}/images/{{ vsonic_image_filename }}"
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Get downloaded SONiC image info
+    stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+    register: img_stat
+
+  when: not sonic_img_stat.stat.exists
+
+- name: Get downloaded SONiC image info
+  stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+  register: downloaded_sonic_img_stat
+
+- block:
+
+    - name: Rename file to have a .gz suffix
+      command: mv {{ root_path }}/images/{{ vsonic_image_filename }} {{ root_path }}/images/{{ vsonic_image_filename }}.gz
+
+    - name: Decompress file
+      command: gunzip {{ root_path }}/images/{{ vsonic_image_filename }}.gz
+
+  when: '"application/gzip" in downloaded_sonic_img_stat.stat.mimetype'
+
+- set_fact:
+    src_image_name: "{{ vsonic_image_filename }}"
+
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ DPU_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+    topo:         "{{ topology }}"
+
+- name: Default autostart to yes when it is not defined
+  set_fact:
+    autostart: yes
+  when: autostart is not defined
+
+- name: Default batch_size to 1 when it is not defined
+  set_fact:
+    batch_size: "{{ DPU_hosts|length }}"
+  when: batch_size is not defined
+
+- name: Default wait interval to 0 if it is not defined
+  set_fact:
+    interval: 0
+  when: interval is not defined
+
+- name: Start DPU VMs
+  include_tasks: start_vsonic_dpu_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
+    disk_image_dir: "{{ root_path }}/disks"
+    cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    backplane_tap: "{{ vm_name }}-back"
+  with_items: "{{ DPU_hosts }}"
+
+- set_fact:
+    kickstart_failed_vms: []
+
+- name: Kickstart DPU VMs
+  include_tasks: kickstart_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    hostname: "{{ vm_name }}"
+    mgmt_ip_address: "{{ hostvars[vm_name]['ansible_host'] }}"
+    serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
+    src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
+    disk_image_dir: "{{ root_path }}/disks"
+    cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
+    mgmt_tap:  "{{ vm_name }}-m"
+    backplane_tap: "{{ vm_name }}-back"
+  with_items: "{{ DPU_hosts }}"
+
+- block:
+    - name: Log all kickstart failed VMs
+      debug: msg="{{ kickstart_failed_vms }}"
+
+    - name: Fail if kickstart any VM failed
+      fail: msg="Please run start-vms again with -e 'respin_vms=["VMXXX"]' to retry the failed VMs"
+  when: kickstart_failed_vms | length > 0

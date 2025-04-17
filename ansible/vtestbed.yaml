@@ -122,8 +122,8 @@
   comment: Tests multi-asic virtual switch vm
 
 - conf-name: vms-kvm-t2
-  group-name: vms6-4
-  topo: t2-vs
+  group-name: vms6-4-m
+  topo: t2_2lc_min_ports-masic
   ptf_image_name: docker-ptf
   ptf: ptf-04
   ptf_ip: 10.250.0.109/24
@@ -131,12 +131,12 @@
   server: server_1
   vm_base: VM0100
   dut:
-    - vlab-t2-01
-    - vlab-t2-02
-    - vlab-t2-sup
+    - vlab-t2-1-1
+    - vlab-t2-1-2
+    - vlab-t2-1-sup
   inv_name: veos_vtb
   auto_recover: 'False'
-  comment: T2 Virtual chassis
+  comment: T2 Virtual chassis with Multi-ASIC LCs
 
 - conf-name: vms-kvm-t0-3
   group-name: vms6-6
@@ -351,3 +351,94 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-m1
+  group-name: vms6-2
+  topo: m1-48
+  ptf_image_name: docker-ptf
+  ptf: ptf-02
+  ptf_ip: 10.250.0.106/24
+  ptf_ipv6: fec0::ffff:afa:6/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-ciscovs-7nodes
+  group-name: vms9-1
+  topo: ciscovs-7nodes
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-c-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual cisco vs vm with 7 nodes
+
+- conf-name: vms-kvm-ciscovs-5nodes
+  group-name: vms9-1
+  topo: ciscovs-5nodes
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-c-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual cisco vs vm with 5 nodes
+
+- conf-name: vms-kvm-t1-smartswitch
+  group-name: vms6-1
+  topo: t1-smartswitch
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  inv_name: veos_vtb
+  auto_recover: False
+  comment: Tests virtual switch vm with a DPU
+
+- conf-name: vms-kvm-t1-smartswitch-ha
+  group-name: vms6-1
+  topo: t1-smartswitch-ha
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+    - vlab-02
+  inv_name: veos_vtb
+  auto_recover: False
+  comment: Tests t1-smartswitch-ha topo deployment with VMs
+
+- conf-name: vms-kvm-force10-7nodes
+  group-name: vms9-2
+  topo: force10-7nodes
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-c-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual force vs vm with 7 nodes

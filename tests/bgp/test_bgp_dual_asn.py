@@ -12,16 +12,17 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import update_routes
-from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
+from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import (
     create_checkpoint,
     delete_checkpoint,
     rollback_or_reload,
 )
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 pytestmark = [pytest.mark.topology("t0")]
 
@@ -71,7 +72,7 @@ def lo_intfs(duthost, tbinfo):
 
 @pytest.fixture(autouse=True)
 def setup_env(
-    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa:F811
 ):
     """
     Setup/teardown fixture for bgp speaker config
@@ -110,13 +111,13 @@ class BgpDualAsn:
         self.peer_addrs = []
         self.peer_addrs_v6 = []
 
-    def __gen_vlan_subnets(self, mg_facts):
+    def __gen_vlan_subnets(self, vlan_ipv4_entry, vlan_ipv6_entry):
         # Generate peer ipv4 addresses
         vlan_network = ipaddress.IPv4Interface(
             "%s/%s"
             % (
-                mg_facts["minigraph_vlan_interfaces"][0]["addr"],
-                mg_facts["minigraph_vlan_interfaces"][0]["prefixlen"],
+                vlan_ipv4_entry["addr"],
+                vlan_ipv4_entry["prefixlen"],
             )
         ).network
         peer_subnets = [
@@ -124,7 +125,7 @@ class BgpDualAsn:
             list(vlan_network.subnets())[1],
         ]
         logger.info(
-            "Generated two bgp speeker ip subnets: %s, %s"
+            "Generated two bgp speaker ip subnets: %s, %s"
             % (peer_subnets[0], peer_subnets[1])
         )
 
@@ -132,8 +133,8 @@ class BgpDualAsn:
         vlan_network_v6 = ipaddress.IPv6Interface(
             "%s/%s"
             % (
-                mg_facts["minigraph_vlan_interfaces"][1]["addr"],
-                mg_facts["minigraph_vlan_interfaces"][1]["prefixlen"],
+                vlan_ipv6_entry["addr"],
+                vlan_ipv6_entry["prefixlen"],
             )
         ).network
         peer_subnets_v6 = [
@@ -142,7 +143,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ipv6 subnets: %s, %s"
+            "Generated two bgp speaker ipv6 subnets: %s, %s"
             % (peer_subnets_v6[0], peer_subnets_v6[1])
         )
         return peer_subnets, peer_subnets_v6
@@ -158,7 +159,13 @@ class BgpDualAsn:
 
         self.local_asn = mg_facts["minigraph_bgp_asn"]
 
-        self.peer_subnets, self.peer_subnets_v6 = self.__gen_vlan_subnets(mg_facts)
+        vlan_interfaces = get_vlan_interface_list(duthost)
+        # pick up the first vlan to test
+        vlan_if_name = vlan_interfaces[0]
+        vlan_ipv4_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
+        vlan_ipv6_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
+
+        self.peer_subnets, self.peer_subnets_v6 = self.__gen_vlan_subnets(vlan_ipv4_entry, vlan_ipv6_entry)
         self.peer_addrs = [
             str(
                 ipaddress.IPv4Address(
@@ -197,7 +204,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ip: %s, %s, ipv6: %s, %s"
+            "Generated two bgp speaker ip: %s, %s, ipv6: %s, %s"
             % (
                 self.peer_addrs[0],
                 self.peer_addrs[1],
@@ -208,23 +215,19 @@ class BgpDualAsn:
 
         self.lo, self.lo6 = lo_intfs(duthost, tbinfo)
 
-        vlan_addr = mg_facts["minigraph_vlan_interfaces"][0]["addr"]
-        vlan_addr6 = mg_facts["minigraph_vlan_interfaces"][1]["addr"]
+        vlan_addr = vlan_ipv4_entry["addr"]
+        vlan_addr6 = vlan_ipv6_entry["addr"]
 
         # find two vlan member interfaces
         vlan_ports = []
         for i in range(0, 1):
             vlan_ports.append(
                 mg_facts["minigraph_ptf_indices"][
-                    mg_facts["minigraph_vlans"][
-                        mg_facts["minigraph_vlan_interfaces"][0]["attachto"]
-                    ]["members"][i]
+                    mg_facts["minigraph_vlans"][vlan_if_name]["members"][i]
                 ]
             )
         if "backend" in tbinfo["topo"]["name"]:
-            vlan_id = mg_facts["minigraph_vlans"][
-                mg_facts["minigraph_vlan_interfaces"][0]["attachto"]
-            ]["vlanid"]
+            vlan_id = mg_facts["minigraph_vlans"][vlan_if_name]["vlanid"]
             self.ptf_ports = [
                 ("eth%s" % _) + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
                 for _ in vlan_ports
@@ -367,6 +370,7 @@ def bgp_peer_range_add_config(
                 }
             ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -402,6 +406,7 @@ def bgp_peer_range_delete_config(
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ip_range_name)},
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ipv6_range_name)},
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

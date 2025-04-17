@@ -11,7 +11,6 @@ import os
 import six
 import scapy.all as scapyall
 import ptf.testutils as testutils
-from operator import itemgetter
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
@@ -38,7 +37,8 @@ class DualTorIO:
     """Class to conduct IO over ports in `active-standby` mode."""
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, vmhost, tbinfo,
-                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
+                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby,
+                 random_dst=None):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -53,6 +53,12 @@ class DualTorIO:
         self.tcp_sport = 1234
 
         self.cable_type = cable_type
+
+        if random_dst is None:
+            # if random_dst is not set, default to true for active standby dualtor.
+            self.random_dst = (self.cable_type == CableType.active_standby)
+        else:
+            self.random_dst = random_dst
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -108,7 +114,7 @@ class DualTorIO:
         # Inter-packet send-interval (minimum interval 3.5ms)
         if send_interval < 0.0035:
             if send_interval is not None:
-                logger.warn("Minimum packet send-interval is .0035s. \
+                logger.warning("Minimum packet send-interval is .0035s. \
                     Ignoring user-provided interval {}".format(send_interval))
             self.send_interval = 0.0035
         else:
@@ -213,7 +219,7 @@ class DualTorIO:
             arp_responder_conf['eth{}'.format(intf)] = [ip]
         with open("/tmp/from_t1.json", "w") as fp:
             json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
-        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json", force=True)
         self.ptfhost.shell("supervisorctl reread && supervisorctl update")
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")
@@ -390,8 +396,10 @@ class DualTorIO:
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = server_ip
-                packet[scapyall.IP].dst = dst_ips[vlan_intf] \
-                    if self.cable_type == CableType.active_active else self.random_host_ip()
+                if self.random_dst:
+                    packet[scapyall.IP].dst = self.random_host_ip()
+                else:
+                    packet[scapyall.IP].dst = dst_ips[vlan_intf]
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
@@ -784,16 +792,37 @@ class DualTorIO:
             logger.error("Sniffer failed to filter any traffic from DUT")
         else:
             # Find ranges of consecutive packets that have been duplicated
-            # All packets within the same consecutive range will have the same
-            # difference between the packet index and the sequence number
-            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda t: t[0] - t[1][0]):
-                group = list(map(itemgetter(1), grouper))
-                duplicate_start, duplicate_end = group[0], group[-1]
+            # All consecutive packets with the same payload will be grouped as one
+            # duplication group.
+            # For example, for the duplication list as the following:
+            # [(70, 1744253633.499116), (70, 1744253633.499151), (70, 1744253633.499186),
+            #  (81, 1744253635.49922), (81, 1744253635.499255)]
+            # two duplications will be reported:
+            # "duplications": [
+            #     {
+            #         "start_time": 1744253633.499116,
+            #         "end_time": 1744253633.499186,
+            #         "start_id": 70,
+            #         "end_id": 70,
+            #         "duplication_count": 3
+            #     },
+            #     {
+            #         "start_time": 1744253635.49922,
+            #         "end_time": 1744253635.499255,
+            #         "start_id": 81,
+            #         "end_id": 81,
+            #         "duplication_count": 2
+            #     }
+            # ]
+            for _, grouper in groupby(duplicate_packet_list, lambda d: d[0]):
+                duplicates = list(grouper)
+                duplicate_start, duplicate_end = duplicates[0], duplicates[-1]
                 duplicate_dict = {
                     'start_time': duplicate_start[1],
                     'end_time': duplicate_end[1],
                     'start_id': duplicate_start[0],
-                    'end_id': duplicate_end[0]
+                    'end_id': duplicate_end[0],
+                    'duplication_count': len(duplicates)
                 }
                 duplicate_ranges.append(duplicate_dict)
 

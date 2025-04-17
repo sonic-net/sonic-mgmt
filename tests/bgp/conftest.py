@@ -46,7 +46,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=24):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=8):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -488,6 +488,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         yield connections
 
     duthost.shell("sonic-clear arp")
+    duthost.shell('sudo config save -y')
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope="module")

@@ -16,3 +16,7 @@ class MultiDUTParams():
         self.duthost1 = None
         self.duthost2 = None
         self.multi_dut_ports = None
+        self.hw_platform = None
+        self.ingress_duthosts = []
+        self.egress_duthosts = []
+        self.flap_details = None

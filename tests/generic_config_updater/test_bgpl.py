@@ -7,10 +7,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', "m1", "m2", "m3"),
 ]
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -146,6 +148,7 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -170,6 +173,7 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
             "value": "down"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -212,6 +216,7 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -234,6 +239,7 @@ def bgpmon_tc1_remove(duthost):
             "path": "/BGP_MONITORS"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

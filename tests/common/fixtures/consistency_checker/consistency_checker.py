@@ -3,8 +3,10 @@ import logging
 import json
 import os
 import datetime
+from typing import List, Optional
 from collections import defaultdict
-from tests.common.fixtures.consistency_checker.constants import SUPPORTED_PLATFORMS_AND_VERSIONS
+from tests.common.fixtures.consistency_checker.constants import SUPPORTED_PLATFORMS_AND_VERSIONS, \
+    ConsistencyCheckQueryKey, ALL_ATTRIBUTES
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,7 @@ class ConsistencyChecker:
 
         return dict(results)
 
-    def check_consistency(self, keys=["*"]) -> dict:
+    def check_consistency(self, keys=None) -> dict:
         """
         Get the out-of-sync ASIC_DB and ASIC attributes. Differences are indicative of an error state.
         Same arg style as the get_objects function but returns a list of objects that don't match or couldn't
@@ -163,7 +165,7 @@ class ConsistencyChecker:
 
         :param keys: Optional list of glob search strings that correspond to the --key arg of sonic-db-dump.
                      sonic-db-dump doesn't take multiple keys, so a list is passed in to support multiple
-                     keys at the API level.
+                     keys at the API level. If not provided, then the default keys are used.
         :return: Dictionary containing the out-of-sync ASIC_DB and ASIC attributes.
 
         Example return val (matching):
@@ -186,11 +188,16 @@ class ConsistencyChecker:
                     "failedToQueryAsic": [
                         {"SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH": "Failed to query attribute value"}
                     ],
-                    "mismatchedAttributes": ["SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE"]
+                    "mismatchedAttributes": ["SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE"],
+                    "attributeNotImplemented": ["SAI_BUFFER_PROFILE_ATTR_POOL_ID"]
                 },
                 ...
             }
         """
+        if keys is None:
+            platform = self._duthost.facts['platform']
+            os_version = self._duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+            keys = self._get_consistency_checker_keys(platform, os_version)
 
         db_attributes = self._get_db_attributes(keys)
         asic_attributes = self._get_asic_attributes_from_db_results(db_attributes)
@@ -198,7 +205,8 @@ class ConsistencyChecker:
         inconsistencies = defaultdict(lambda: {
             "attributes": {},
             "failedToQueryAsic": [],
-            "mismatchedAttributes": []
+            "mismatchedAttributes": [],
+            "attributeNotImplemented": [],
         })
 
         for object in db_attributes:
@@ -231,23 +239,71 @@ class ConsistencyChecker:
                 if asic_query_success:
                     inconsistencies[object]["mismatchedAttributes"].append(attr)
                 else:
-                    inconsistencies[object]["failedToQueryAsic"].append({attr: asic_object[attr]["error"]})
+                    error = asic_object[attr]["error"]
+                    if "ATTR_NOT_IMPLEMENTED" in error:
+                        inconsistencies[object]["attributeNotImplemented"].append(attr)
+                    else:
+                        inconsistencies[object]["failedToQueryAsic"].append({attr: error})
 
         return dict(inconsistencies)
 
-    def _get_db_attributes(self, keys: list) -> dict:
+    def _get_consistency_checker_keys(self, platform, os_version) -> List[str]:
+        """
+        Get the keys for the given platform and OS version.
+
+        :param platform: Platform name
+        :param os_version: OS version
+        :return: List of keys
+        """
+
+        if platform not in SUPPORTED_PLATFORMS_AND_VERSIONS:
+            raise Exception(f"Unsupported platform: {platform}")
+
+        supported_versions = SUPPORTED_PLATFORMS_AND_VERSIONS[platform]
+        for version in supported_versions:
+            if version in os_version:
+                return supported_versions[version]
+
+        raise Exception(f"Unsupported OS version: {os_version}")
+
+    def _get_db_attributes(self, keys: List[ConsistencyCheckQueryKey]) -> dict:
         """
         Fetchs and merges the attributes of the objects returned by the search key from the DB.
         """
         db_attributes = {}
         for key in keys:
-            result = self._duthost.command(f"sonic-db-dump -k '{key}' -n ASIC_DB")
+            result = self._duthost.command(f"sonic-db-dump -k '{key.key}' -n ASIC_DB")
             if result['rc'] != 0:
                 raise Exception((f"Failed to fetch attributes for key '{key}' from ASIC_DB. "
                                  f"Return code: {result['rc']}, stdout: {result['stdout']}, "
                                  f"stderr: {result['stderr']}"))
 
             query_result = json.loads(result['stdout'])
+
+            # Filter for attributes that we want ...
+            objects_with_no_attrs = []
+            for object in query_result:
+
+                if "NULL" in query_result[object]["value"]:
+                    logger.debug(f"Ignoring attribute 'NULL' for object '{object}'")
+                    del query_result[object]["value"]["NULL"]
+
+                if ALL_ATTRIBUTES in key.attributes:
+                    logger.debug(f"Retaining all attributes for object '{object}'")
+                else:
+                    attributes_to_remove = set(query_result[object]["value"].keys()) - set(key.attributes)
+                    for attr in attributes_to_remove:
+                        logger.debug(f"Ignoring attribute '{attr}' for object '{object}'")
+                        del query_result[object]["value"][attr]
+
+                if len(query_result[object]["value"]) == 0:
+                    objects_with_no_attrs.append(object)
+
+            # ... then remove the objects that have no attributes left
+            for object in objects_with_no_attrs:
+                logger.debug(f"Ignoring empty object '{object}'")
+                del query_result[object]
+
             db_attributes.update(query_result)
 
         return db_attributes
@@ -304,6 +360,19 @@ class ConsistencyChecker:
 
 
 class ConsistencyCheckerProvider:
+
+    def __init__(self, libsairedis_url_template: Optional[str],
+                 python3_pysairedis_url_template:  Optional[str]) -> None:
+        """
+        The libsairedis_url_template and python3_pysairedis_url_template are optional URL templates that the
+        consistency checker can use to download the libsairedis and python3-pysairedis debs respectively.
+
+        :param libsairedis_url_template: Optional URL template for the libsairedis deb
+        :param python3_pysairedis_url_template: Optional URL template for the python3-pysairedis deb
+        """
+        self._libsairedis_url_template = libsairedis_url_template
+        self._python3_pysairedis_url_template = python3_pysairedis_url_template
+
     def is_consistency_check_supported(self, dut) -> bool:
         """
         Checks if the provided DUT is supported for consistency checking.
@@ -318,29 +387,56 @@ class ConsistencyCheckerProvider:
 
         current_version = dut.image_facts()['ansible_facts']['ansible_image_facts']['current']
         supported_versions = SUPPORTED_PLATFORMS_AND_VERSIONS[platform]
-        if any(v in current_version for v in supported_versions):
+        if any(v in current_version for v in supported_versions.keys()):
             return True
 
         return False
 
-    def get_consistency_checker(self, dut, libsairedis_download_url=None,
-                                python3_pysairedis_download_url=None) -> ConsistencyChecker:
+    def get_consistency_checker(self, dut) -> ConsistencyChecker:
         """
         Get a new instance of the ConsistencyChecker class.
 
         :param dut: SonicHost object
-        :param libsairedis_download_url: Optional URL that the consistency checker should use to download the
-               libsairedis deb
-        :param python3_pysairedis_download_url: Optional URL that the consistency checker should use to
-               download the python3-pysairedis deb
         :return ConsistencyChecker: New instance of the ConsistencyChecker class
         """
+
+        os_version = dut.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+
+        if self._libsairedis_url_template or self._python3_pysairedis_url_template:
+            if "202305" in os_version:
+                sonic_version_template_param = "202305"
+            elif "202311" in os_version:
+                sonic_version_template_param = "202311"
+            else:
+                raise Exception(f"Unsupported OS version: {os_version}")
+
+        libsairedis_download_url = self._libsairedis_url_template\
+            .format(sonic_version=sonic_version_template_param)\
+            if self._libsairedis_url_template else None
+
+        python3_pysairedis_download_url = self._python3_pysairedis_url_template\
+            .format(sonic_version=sonic_version_template_param)\
+            if self._python3_pysairedis_url_template else None
+
         return ConsistencyChecker(dut, libsairedis_download_url, python3_pysairedis_download_url)
 
 
 @pytest.fixture
-def consistency_checker_provider():
+def consistency_checker_provider(request):
     """
     Fixture that provides the ConsistencyCheckerProvider class.
+
+    :param request: pytest request object
     """
-    return ConsistencyCheckerProvider()
+
+    if not request.config.getoption("enable_consistency_checker"):
+        logger.info("Consistency checker is not enabled. Skipping check.")
+        return None
+
+    consistency_checker_libsairedis_url_template = request.config.getoption(
+        "consistency_checker_libsairedis_url_template")
+    consistency_checker_python3_pysairedis_url_template = request.config.getoption(
+        "consistency_checker_python3_pysairedis_url_template")
+
+    return ConsistencyCheckerProvider(consistency_checker_libsairedis_url_template,
+                                      consistency_checker_python3_pysairedis_url_template)

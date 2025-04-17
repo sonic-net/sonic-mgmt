@@ -211,12 +211,15 @@ def parallel_run(
                 p_exception = process['exception'][0]
                 p_traceback = process['exception'][1]
                 p_exitcode = process['exit_code']
-            pt_assert(
-                False,
-                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
-                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
+            # For analyzed matched syslog, don't need to log the traceback
+            if "analyze_logs" in process_name and "Match Messages" in str(p_exception):
+                failure_message = 'Got matched syslog in processes "{}" exit code:"{}"\n{}'.format(
+                    process_name, p_exitcode, p_exception
                 )
-            )
+            else:
+                failure_message = 'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback)
+            pt_assert(False, failure_message)
 
     logger.info(
         'Completed running processes for target "{}" in {} seconds'.format(
