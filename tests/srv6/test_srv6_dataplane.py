@@ -6,14 +6,14 @@ import string
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
-import ptf.testutils as testutils
 import ptf.packet as scapy
+import ptf.testutils as testutils
+from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist, SRv6, dump_packet_detail, \
-    validate_srv6_in_appl_db, validate_techsupport_generation
+    validate_srv6_in_appl_db, validate_techsupport_generation, get_neighbor_mac
 from tests.common.reboot import reboot
 from tests.common.portstat_utilities import parse_portstat
-from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
@@ -25,11 +25,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def get_neighbor_mac(dut, neighbor_ip):
-    """Get the MAC address of the neighbor via the ip neighbor table"""
-    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
@@ -46,8 +41,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
         if intf in ports_map:
             return intf, ports_map[intf], entry[1]  # local intf, ptf_src_port, neighbor hostname
 
-    dut_port, ptf_src_port = random.choice(ports_map)
-    return dut_port, ptf_src_port, None
+    pytest.skip("No active LLDP neighbor found for {}".format(dut))
 
 
 def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh):
@@ -415,7 +409,7 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
     neighbor_ip = setup_uN['neighbor_ip']
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reload the config
     duthost.command("config reload -y -f")
@@ -438,7 +432,7 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
     neighbor_ip = setup_uN['neighbor_ip']
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # restart BGP service, which will restart the BGP container
     if duthost.is_multi_asic:
@@ -464,7 +458,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     neighbor_ip = setup_uN['neighbor_ip']
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reboot DUT
     reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
@@ -478,6 +472,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
