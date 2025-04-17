@@ -4,13 +4,13 @@ import math
 import os
 import pickle
 import shutil
-import tempfile
 import signal
-import traceback
+import tempfile
 import time
-
+import traceback
 from multiprocessing import Process, Manager, TimeoutError, Queue
 from multiprocessing.pool import ThreadPool
+
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -43,6 +43,13 @@ class SonicProcess(Process):
             self._queue.put((self.name, (str(e), tb)))
             logger.info("[chunangli] process send data finished.")
             raise e
+
+    def wait(self, timeout):
+        return self.join(timeout=timeout)
+
+    # for wait_procs
+    def is_running(self):
+        return self.is_alive()
 
     def set_exception(self, exception):
         self._exception = exception
