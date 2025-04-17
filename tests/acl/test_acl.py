@@ -263,7 +263,6 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-
 def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
           tbinfo, ptfadapter, topo_scenario, vlan_name, is_macsec_enabled_for_test):
     """Gather all required test information from DUT and tbinfo.
