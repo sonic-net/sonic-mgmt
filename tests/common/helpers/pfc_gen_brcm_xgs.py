@@ -4,7 +4,6 @@
 Script to generate PFC storm.
 
 """
-import binascii
 import sys
 import optparse
 import logging
@@ -43,7 +42,10 @@ class FanoutPfcStorm():
         self.priority = priority
         self.switchChip = chipName
         self.os = os
-        self.intfToMmuPort, self.intfToPort = self._parseInterfaceMapFullSonic() if os == 'sonic' else self._parseInterfaceMapFull()
+        if os == 'sonic':
+            self.intfToMmuPort, self.intfToPort = self._parseInterfaceMapFullSonic()
+        else:
+            self.intfToMmuPort, self.intfToPort = self._parseInterfaceMapFull()
 
     def _shellCmd(self, cmd):
         output = ""
@@ -76,10 +78,14 @@ class FanoutPfcStorm():
         intfToMmuPort = {}
         intfToPort = {}
 
-        output = self._cliCmd(f"en\nshow platform trident interface map full")
+        output = self._cliCmd("en\nshow platform trident interface map full")
 
         for line in output.splitlines():
-            mo = re.search('Intf: (?P<intf>Ethernet\S+).{1,50}Port: {1,3}(?P<port>\S+).{1,100}P2M\[ {0,3}\d+\]: {1,3}(?P<mmu>\S+)', line)
+            mo = re.search(
+                 r'Intf: (?P<intf>Ethernet\S+).{1,50}Port: {1,3}(?P<port>\S+)'
+                 r'.{1,100}P2M\[ {0,3}\d+\]: {1,3}(?P<mmu>\S+)',
+                 line
+            )
             if mo is None:
                 continue
             intfToMmuPort[mo.group('intf')] = mo.group('mmu')
@@ -97,7 +103,7 @@ class FanoutPfcStorm():
             for info in output.split("Network interface Info:"):
                 mo = re.search(r"Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)", info)
                 if mo is None:
-                   continue
+                    continue
                 lPortToIntf[mo.group('lport')] = mo.group('intf')
                 intfTolPort[mo.group('intf')] = mo.group('lport')
             output = self._cliCmd("show portmap")
@@ -114,7 +120,7 @@ class FanoutPfcStorm():
             for info in output.split("Interface ID"):
                 mo = re.search(r"name=(?P<intf>Ethernet\d+)[\s\S]{1,100}port=(?P<lport>\S+)", info)
                 if mo is None:
-                   continue
+                    continue
                 lPortToIntf[mo.group('lport')] = mo.group('intf')
                 intfTolPort[mo.group('intf')] = mo.group('lport')
             output = self._cliCmd("show portmap")
@@ -218,7 +224,7 @@ def main():
     interfaces = options.interface.split(',')
 
     fs = FanoutPfcStorm(options.priority, options.chipName, options.os)
-    fsCleanup = SignalCleanup(fs, 'PFC_STORM_END')
+    SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
     for intf in interfaces:
@@ -229,10 +235,11 @@ def main():
 
     # wait forever until stop
     while True:
-       time.sleep(100)
+        time.sleep(100)
+
 
 def frontPanelIntfFromKernelIntfName(intf):
-   return intf.replace("et", "Ethernet").replace("_", "/")
+    return intf.replace("et", "Ethernet").replace("_", "/")
 
 
 if __name__ == "__main__":
