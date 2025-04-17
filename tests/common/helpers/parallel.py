@@ -2,6 +2,7 @@ import datetime
 import logging
 import math
 import os
+import pickle
 import shutil
 import tempfile
 import signal
@@ -36,6 +37,8 @@ class SonicProcess(Process):
             logger.info("[chunangli] process finished.")
         except Exception as e:
             logger.info(f"[chunangli] process error caught: {e}.")
+            serialized = pickle.dumps(e)
+            logger.info(f"[chunangli] Serialized size: {len(serialized) / 1024:.2f} KB")
             tb = traceback.format_exc()
             self._queue.put((self.name, (str(e), tb)))
             logger.info("[chunangli] process send data finished.")
