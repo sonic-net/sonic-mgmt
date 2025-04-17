@@ -1793,3 +1793,6 @@ mgmt:
       ansible_host: 10.150.22.15
       ansible_hostv6: 2404:f801:10:2200::a96:160f
       os: sonic
+    bjw2-can-4kts-1:
+      ansible_host: 10.150.22.12
+      ansible_hostv6: 2404:f801:10:2200::a96:160c
