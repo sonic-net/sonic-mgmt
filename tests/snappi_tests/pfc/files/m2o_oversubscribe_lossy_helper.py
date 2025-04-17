@@ -157,12 +157,12 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
         )[ingress_dut2.hostname][ingress_port2]['rx_drp']
         total_pkt_drop_ingress = pkt_drop_1_ingress + pkt_drop_2_ingress
         drop_percentage = (100 * total_pkt_drop_ingress) / total_rx_pkts
-        pytest_assert(abs(drop_percentage - 10) < 2, 'FAIL: Drop packets must be around 10 percent')
 
     else:
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
-        pytest_assert(abs(drop_percentage - 10) < 1, 'FAIL: Drop packets must be around 10 percent')
+
+    pytest_assert(abs(drop_percentage - 10) < 1, 'FAIL: Drop packets must be around 10 percent')
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossy_result(flow_stats,

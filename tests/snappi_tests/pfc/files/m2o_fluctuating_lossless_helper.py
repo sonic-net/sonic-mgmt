@@ -157,7 +157,7 @@ def run_m2o_fluctuating_lossless_test(api,
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,
                                            tx_port,
-                                           rx_port, duthost)
+                                           rx_port)
 
 
 def __gen_traffic(testbed_config,
@@ -407,7 +407,7 @@ def __gen_data_flow(testbed_config,
 
 def verify_m2o_fluctuating_lossless_result(rows,
                                            tx_port,
-                                           rx_port, duthost):
+                                           rx_port):
     """
     Verifies the required loss % from the Traffic Items Statistics
 
@@ -424,10 +424,4 @@ def verify_m2o_fluctuating_lossless_result(rows,
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
             background_loss += float(row.loss)
-    if duthost.facts['switch_type'] == "voq":
-        pytest_assert(
-            9 <= round(background_loss / 4) <= 11,
-            "Each Background Flow must have an avg of 10% loss"
-        )
-    else:
-        pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
+    pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
