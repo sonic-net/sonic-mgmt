@@ -213,6 +213,40 @@ def test_disable_rsyslog_rate_limit(duthosts):
             executor.submit(disable_rsyslog_rate_limit, duthost)
 
 
+def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
+    """
+    Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
+    """
+    pytest_require(("tgen" in (request.config.getoption("--topology") or "")),
+                   "Skip snappi metadata generation for non-tgen testbed")
+    metadata = {}
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for dut in duthosts:
+            executor.submit(collect_dut_info, dut, metadata)
+
+    for dut in duthosts:
+        dutinfo = metadata[dut.hostname]
+        asic_to_interface = {}
+        for asic in dut.asics:
+            interfaces = dut.show_interface(command="status", namespace=asic.namespace)["ansible_facts"]["int_status"]
+            asic_to_interface[asic.namespace] = list(interfaces.keys())
+        dutinfo.update({"asic_to_interface": asic_to_interface})
+        metadata[dut.hostname] = dutinfo
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    info = {tbname: metadata}
+    try:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
 def collect_dut_lossless_prio(dut):
     dut_asic = dut.asic_instance()
     config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
