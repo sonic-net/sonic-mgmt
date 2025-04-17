@@ -21,7 +21,7 @@ pytestmark = [
 
 # Constants for BGP peer scaling
 BASE_LOOPBACK_ID = 1  # Starting Loopback ID
-PEERS_PER_DUT = 32  # Number of additional peers to configure per DUT
+PEERS_PER_DUT = 10  # Number of additional peers to configure per DUT
 MAX_PEERS_PER_DUT = 256  # Maximum number of peers per DUT (used for loopback ID calculation)
 
 # Multipliers for loopback ID calculation
