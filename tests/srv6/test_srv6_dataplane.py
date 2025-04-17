@@ -3,10 +3,10 @@ import time
 import random
 import logging
 import string
-import scapy
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
+import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
@@ -41,8 +41,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
         if intf in ports_map:
             return intf, ports_map[intf], entry[1]  # local intf, ptf_src_port, neighbor hostname
 
-    dut_port, ptf_src_port = random.choice(ports_map)
-    return dut_port, ptf_src_port, None
+    pytest.skip("No active LLDP neighbor found for {}".format(dut))
 
 
 def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh):
