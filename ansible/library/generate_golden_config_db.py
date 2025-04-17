@@ -363,7 +363,7 @@ class GenerateGoldenConfigDBModule(object):
         config = self.update_dns_config(config)
 
         # To enable bmp feature
-        if self.check_version_for_bmp() is True:
+        if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
