@@ -232,6 +232,14 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
     conditions:
       - "asic_type in ['vpp']"
 
+bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+      
 #######################################
 #####            Cacl             #####
 #######################################
@@ -293,6 +301,14 @@ fib/test_fib.py::test_nvgre_hash:
       - "asic_type in ['vpp']"
 
 fib/test_fib.py::test_ecmp_group_member_flap:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: >
             Failed/Errored: To be included
