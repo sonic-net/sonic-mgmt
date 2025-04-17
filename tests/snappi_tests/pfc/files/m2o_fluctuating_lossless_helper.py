@@ -426,8 +426,8 @@ def verify_m2o_fluctuating_lossless_result(rows,
             background_loss += float(row.loss)
     if duthost.facts['switch_type'] == "voq":
         pytest_assert(
-            8 <= round(background_loss / 4) <= 12,
-            "Each Background Flow must have an avg of 10% loss (Allowed ±2%)"
+            9 <= round(background_loss / 4) <= 11,
+            "Each Background Flow must have an avg of 10% loss"
         )
     else:
         pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
