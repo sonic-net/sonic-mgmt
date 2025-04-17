@@ -178,8 +178,14 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
     if 'cisco-8000' in asic_type:
+        dscps_present = []
         for k, v in list(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME].items()):
             ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(v)
+            dscps_present.append(int(k))
+        # Fill in default-values in the map to be 1-1
+        for dscp in range(64):
+            if dscp not in dscps_present:
+                ret['inner_dscp_to_outer_dscp_map'][dscp] = dscp
     else:
         for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
             ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
@@ -510,6 +516,8 @@ def stop_pfc_storm(storm_handler):
     Stop sending PFC pause frames from fanout switch
     """
     storm_handler.stop_storm()
+    # Wait for PFC pause to stop
+    time.sleep(2)
 
 
 def run_ptf_test(ptfhost, test_case='', test_params={}):

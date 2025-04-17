@@ -20,9 +20,11 @@ acl/custom_acl_table/test_custom_acl_table.py:
 #######################################
 acl/null_route/test_null_route_helper.py:
   skip:
-    reason: "Skip running on dualtor testbed"
+    reason: "Skip running on dualtor/m1/m2/m3 testbed"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "'m1' in topo_type or 'm2' in topo_type or 'm3' in topo_type"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
@@ -718,6 +720,10 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_switchover_impact.py:
+  skip:
+    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
@@ -1088,6 +1094,13 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
       - "'t2' in topo_name"
+
+generic_config_updater/test_multiasic_addcluster.py:
+  skip:
+    reason: "Only supported on multi-asic system."
+    conditions:
+      - "(is_multi_asic is False)"
+      - "hwsku in ['Nokia-IXR7250E-36x400G']"
 
 generic_config_updater/test_multiasic_idf.py:
   skip:
@@ -1739,6 +1752,15 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
         - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
+
+#######################################
+#####     platform_tests          #####
+#######################################
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####     process_monitoring      #####
@@ -2609,12 +2631,6 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
       - "release in ['202411']"
-
-vxlan/test_vnet_decap.py:
-  skip:
-    reason: "test_vnet_decap are not ready to run on Cisco-8000 with branch 202411"
-    conditions:
-      - "(asic_type in ['cisco-8000'] and release in ['202411'])"
 
 vxlan/test_vnet_route_leak.py:
   skip:
