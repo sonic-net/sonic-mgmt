@@ -195,3 +195,10 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
     if asic_id:
         asic_arg = f"-n asic{asic_id}"
     duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cleanup(ptfhost):
+
+    yield
+    ptfhost.remove_ip_addresses()
