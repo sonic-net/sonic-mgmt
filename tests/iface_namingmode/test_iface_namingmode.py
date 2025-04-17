@@ -841,6 +841,15 @@ class TestConfigInterface():
 
             return admin_state == expected_state
 
+        def _lldp_exists(expected=True):
+            show_lldp_neighbor = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'.format(ifmode, test_intf)
+            )
+            logger.info('show_lldp_neighbor:\n{}'.format(show_lldp_neighbor['stdout']))
+            line = show_lldp_neighbor['stdout']
+            exists = bool(line)
+            return exists is expected
+
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} shutdown {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
@@ -854,6 +863,10 @@ class TestConfigInterface():
             pytest.fail()
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                       "Interface {} should be admin up".format(test_intf))
+
+        # Make sure LLDP neighbor is repopulated
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
+                      "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
                                     duthosts, enum_rand_one_per_hwsku_frontend_hostname):
