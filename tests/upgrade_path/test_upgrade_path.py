@@ -107,8 +107,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
 @pytest.mark.device_type('t2')
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
-                         tbinfo, request, verify_testbed_health,            # noqa: F811
-                         consistency_checker_provider):                     # noqa: F811
+                         tbinfo, request, verify_testbed_health):                     # noqa: F811
 
     _, from_image, to_image, _, _ = upgrade_path_lists
     upgrade_type = REBOOT_TYPE_COLD
