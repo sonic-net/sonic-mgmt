@@ -629,8 +629,6 @@ sonic_nvidia_sn5600:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x2035DFD1"
-  vars:
-    msft_an_enabled: True
 
 sonic_nvidia_sn5640:
   hosts:
@@ -655,8 +653,6 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x2035DFD1"
-  vars:
-    msft_an_enabled: True
 
 sonic_cisco_8122_O128:
   hosts:
