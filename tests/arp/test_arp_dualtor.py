@@ -184,7 +184,8 @@ def test_arp_update_for_failed_standby_neighbor(
 
 def test_standby_unsolicited_neigh_learning(
     config_dualtor_arp_responder, selected_mux_port, clear_neighbor_table,                      # noqa: F811
-    toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut     # noqa: F811
+    toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut,    # noqa: F811
+    setup_standby_ports_on_rand_unselected_tor                                                  # noqa: F811
 ):
     """
     Test the standby ToR's ability to perform unsolicited neighbor learning (GARP and unsolicited NA)
