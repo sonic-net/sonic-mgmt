@@ -44,6 +44,8 @@ def build_candidate_ports(duthost, tbinfo, ns):
         candidate_neigh_name = 'MX'
     elif tbinfo['topo']['type'] == 't1':
         candidate_neigh_name = 'T0'
+    elif tbinfo['topo']['type'] == 'm1':
+        candidate_neigh_name = 'M0'
     else:
         candidate_neigh_name = 'T1'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
