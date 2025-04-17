@@ -40,8 +40,8 @@ class SonicProcess(Process):
             logger.info(f"[chunangli] process error catched {e}.")
             tb = traceback.format_exc()
             logger.info(f"[chunangli] process send data, tb={tb}.")
-            # self._cconn.send((e, tb))
-            self._cconn.send(("match: 1933", ""))
+            self._cconn.send((str(e), tb))
+            # self._cconn.send(("match: 1933", ""))
             logger.info("[chunangli] process send data finished.")
             raise e
 
