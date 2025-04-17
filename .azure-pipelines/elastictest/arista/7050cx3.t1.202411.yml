@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms20-t1-7050cx3-3"
+    default: "vms20-t1-7050cx3-3,testbed-bjw2-can-t1-7050-3, testbed-bjw2-can-t1-7050-4 "
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
