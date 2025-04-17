@@ -63,17 +63,8 @@ def pause_arp_update(duthosts):
 
 
 @pytest.fixture(params=['IPv4', 'IPv6'])
-<<<<<<< HEAD
-def neighbor_ip(request, mux_config):       # noqa F811
-    """
-    Provide the neighbor IP used for testing
-
-    Randomly select an IP from the server IPs configured in the config DB MUX_CABLE table
-    """
-=======
-def selected_mux_port(request, mux_config):       # noqa: F811
+def selected_mux_port(request, mux_config):       # noqa F811
     """Randomly select a mux port for testing."""
->>>>>>> d4466560f9 ([dualtor-aa] Skip `test_arp_update_for_failed_standby_neighbor`)
     ip_version = request.param
     selected_intf = random.choice(list(mux_config.values()))
     neigh_ip = ip_interface(selected_intf["SERVER"][ip_version]).ip
@@ -141,13 +132,8 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
 
 
 def test_arp_update_for_failed_standby_neighbor(
-<<<<<<< HEAD
-    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,                        # noqa F811
+    config_dualtor_arp_responder, selected_mux_port, clear_neighbor_table,                  # noqa F811
     toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut # noqa F811
-=======
-    config_dualtor_arp_responder, selected_mux_port, clear_neighbor_table,                      # noqa: F811
-    toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut     # noqa: F811
->>>>>>> d4466560f9 ([dualtor-aa] Skip `test_arp_update_for_failed_standby_neighbor`)
 ):
     """
     Test the standby ToR's ability to recover from having a failed neighbor entry
@@ -197,8 +183,9 @@ def test_arp_update_for_failed_standby_neighbor(
 
 
 def test_standby_unsolicited_neigh_learning(
-    config_dualtor_arp_responder, selected_mux_port, clear_neighbor_table,                      # noqa: F811
-    toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut     # noqa: F811
+    config_dualtor_arp_responder, selected_mux_port, clear_neighbor_table,                      # noqa F811
+    toggle_all_simulator_ports_to_rand_selected_tor, rand_selected_dut, rand_unselected_dut,    # noqa F811
+    setup_standby_ports_on_rand_unselected_tor                                                  # noqa F811
 ):
     """
     Test the standby ToR's ability to perform unsolicited neighbor learning (GARP and unsolicited NA)
