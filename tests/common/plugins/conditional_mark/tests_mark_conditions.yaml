@@ -1532,11 +1532,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
         - "asic_type in ['cisco-8000']"
-   xfail:
-     reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
-     conditions:
-        - "'dualtor' in topo_name"
-        - https://github.com/sonic-net/sonic-mgmt/issues/8400
+        - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 #######################################
 #####     process_monitoring      #####
