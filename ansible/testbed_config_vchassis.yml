@@ -10,12 +10,6 @@
     meta: end_play
     when: is_vs_chassis is not defined or is_vs_chassis == false
 
-  - name: Check that variable testbed_name is defined
-    fail: msg="Define testbed_name variable with -e testbed_name=something"
-    when: testbed_name is not defined
-
-  - debug: msg="testbed_name = {{ testbed_name }}"
-
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
