@@ -1,9 +1,14 @@
 import logging
+
 import pytest
 
-from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.helpers.parallel import reset_ansible_local_tmp
+from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
+from ...helpers.parallel import parallel_run
+
+
+from ...helpers.parallel_new import parallel_run as parallel_ru1
 
 
 def pytest_addoption(parser):
@@ -98,6 +103,9 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
             "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
-    logging.info("Starting to analyse on all DUTs")
-    parallel_run(analyze_logs, [analyzers, markers], {'fail_test': fail_test, 'store_la_logs': store_la_logs},
-                 duthosts, timeout=240)
+    logging.info("[chunangli] Starting to analyse on all DUTs, use parallel_run_new")
+    rst = parallel_ru1(analyze_logs, [analyzers, markers],
+                       {'fail_test': fail_test, 'store_la_logs': store_la_logs},
+                       duthosts, timeout=300)
+
+    logging.info(f"[chunangli] parallel run result: {rst}")
