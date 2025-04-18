@@ -16,7 +16,7 @@ pytestmark = [
 
 def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
-    cmd_feature = "show feature status | awk '$1=="gnmi" || $1=="telemetry" {print $1, $2}'"
+    cmd_feature = 'show feature status | awk \'$1=="gnmi" || $1=="telemetry" {print $1, $2}\''
     logging.debug("show feature status command is: {}".format(cmd_feature))
     output = duthost.command(cmd_feature, module_ignore_errors=True)
 

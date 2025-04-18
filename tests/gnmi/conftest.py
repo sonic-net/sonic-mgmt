@@ -289,6 +289,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     rollback(duthost, SETUP_ENV_CP)
     recover_cert_config(duthost)
 
+
 @pytest.fixture(scope="module", autouse=True)
 def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     '''
