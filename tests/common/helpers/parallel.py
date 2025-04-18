@@ -5,11 +5,11 @@ import os
 import pickle
 import shutil
 import signal
-import sys
+# import sys
 import tempfile
 import time
 import traceback
-from multiprocessing import Process, Manager, TimeoutError, Queue
+from multiprocessing import Process, Manager, TimeoutError, SimpleQueue
 from multiprocessing.pool import ThreadPool
 
 from psutil import wait_procs
@@ -41,10 +41,11 @@ class SonicProcess(Process):
             serialized = pickle.dumps(e)
             logger.info(f"[chunangli] Serialized size: {len(serialized) / 1024:.2f} KB")
             tb = traceback.format_exc()
-            # self._queue.put((self.name, (str(e), tb)))
-            self._queue.put((self.name, ("match: 666", tb)))
+            self._queue.put((self.name, (str(e), tb)))
+            # self._queue.put((self.name, ("match: 666", tb)))
             logger.info("[chunangli] process send data finished.")
-            sys.exit(1)  # Ensure process exits with error code
+            self.set_exception(e)
+            # sys.exit(1)  # Ensure process exits with error code
         finally:
             logger.info(f"[chunangli] process {self.name} exiting run() cleanly")
 
@@ -88,11 +89,11 @@ def parallel_run(
             spawned processes.
     """
 
-    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}")
+    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}, use simpleQueue.")
 
     nodes = list(nodes_list)
     results = Manager().dict()
-    exception_queue = Queue()
+    exception_queue = SimpleQueue()
     workers = []
     failed_processes = {}
 
