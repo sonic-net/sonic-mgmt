@@ -37,7 +37,8 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
     image_version = device_info.get_sonic_version_info()
     build_version = image_version['build_version']
     if re.match(r'^internal-(\d{8})', build_version):
-        pytest_assert(gnmi_enabled or telemetry_enabled, "Internal image has neither gnmi nor telemetry feature enabled")
+        pytest_assert(gnmi_enabled or telemetry_enabled,
+                      "Internal image has neither gnmi nor telemetry feature enabled")
 
     if gnmi_enabled:
         cmd_feature = "docker images| grep 'docker-sonic-gnmi'"
