@@ -2,6 +2,7 @@ import datetime
 import logging
 import math
 import os
+import pickle
 import shutil
 import tempfile
 import signal
@@ -35,8 +36,12 @@ class SonicProcess(Process):
             Process.run(self)
             self._cconn.send(None)
         except Exception as e:
+            logger.info(f"[chunangli] e: {e}")
             tb = traceback.format_exc()
+            serialized = pickle.dumps(e)
+            logger.info(f"[chunangli] Serialized size: {len(serialized) / 1024:.2f} KB")
             self._cconn.send((e, tb))
+            logger.info("[chunangli] process send data finished.")
             raise e
 
     # for wait_procs
