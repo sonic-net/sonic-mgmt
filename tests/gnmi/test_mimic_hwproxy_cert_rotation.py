@@ -1,10 +1,11 @@
 import pytest
 import logging
-import json
 
-from tests.gnmi.conftest import setup_gnmi_rotated_server, create_revoked_cert_and_crl
+from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.gnmi.test_gnmi_countersdb import test_gnmi_queue_buffer_cnt
 from sonic_py_common import device_info
+from tests.common.helpers.assertions import pytest_assert
+
 
 import re
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 
 def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
