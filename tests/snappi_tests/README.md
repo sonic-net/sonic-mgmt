@@ -96,7 +96,7 @@ Please make sure that you have loaded the sonic docker image to be executed usin
 **Location:** `~/sonic-mgmt/tests`
 
 Run the following command to execute the pretest:
-- pytest --inventory ../ansible/snappi-sonic --host-pattern sonic-s6100-dut1 --testbed vms-snappi-sonic --testbed_file ../ansible/testbed.yaml --show-capture=stdout --log-cli-level info --showlocals -ra --allow_recover --skip_sanity --disable_loganalyzer test_pretest.py
+- python3 -m pytest --inventory ../ansible/snappi-sonic --host-pattern sonic-s6100-dut1 --testbed vms-snappi-sonic --testbed_file ../ansible/testbed.yaml --show-capture=stdout --log-cli-level info --showlocals -ra --allow_recover --skip_sanity --disable_loganalyzer test_pretest.py
 
 ## Step 7: Verify Pretest Output
 **File:** `~/sonic-mgmt/tests/metadata/vms-snappi-sonic.json`
