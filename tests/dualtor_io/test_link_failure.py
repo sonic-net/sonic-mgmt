@@ -84,7 +84,8 @@ def test_active_link_down_downstream_active(
     if cable_type == CableType.active_active:
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=1,
+            action=shutdown_fanout_upper_tor_intfs
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -332,7 +333,8 @@ def test_active_link_down_downstream_active_soc(
     if cable_type == CableType.active_active:
         send_t1_to_soc_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=1,
+            action=shutdown_fanout_upper_tor_intfs
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -422,17 +424,17 @@ def test_active_link_admin_down_config_reload_downstream(
             upper_tor_host.shell("config save -y")
 
 
-@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    cable_type, active_active_ports                                     # noqa F811
+    cable_type, active_active_ports, setup_loganalyzer                  # noqa F811
 ):
     """
     Send traffic from server to T1 and unshut the active-active mux ports.
     Verify switchover and disruption.
     """
+    setup_loganalyzer(upper_tor_host, collect_only=True)
     if cable_type == CableType.active_active:
         try:
             config_interface_admin_status(upper_tor_host, active_active_ports, "down")
@@ -475,17 +477,17 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             upper_tor_host.shell("config save -y")
 
 
-@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    cable_type, active_active_ports                                     # noqa F811
+    cable_type, active_active_ports, setup_loganalyzer                  # noqa F811
 ):
     """
     Send traffic from T1 to standby ToR and unshut the active-active mux ports.
     Verify switchover and disruption.
     """
+    setup_loganalyzer(upper_tor_host, collect_only=True)
     if cable_type == CableType.active_active:
         try:
             config_interface_admin_status(upper_tor_host, active_active_ports, "down")

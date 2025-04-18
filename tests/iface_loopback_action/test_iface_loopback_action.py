@@ -33,7 +33,7 @@ def test_loopback_action_basic(duthost, ptfadapter, ports_configuration):
     with allure.step("Configure the loopback action to {}".format(ACTION_DROP)):
         config_loopback_action(duthost, rif_interfaces, [ACTION_DROP] * intf_count)
     with allure.step("Verify the loopback action is configured to drop"):
-        with allure.step("Check the looback action is configured correctly with cli command"):
+        with allure.step("Check the loopback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, [ACTION_DROP] * intf_count)
         with allure.step("Check the loopback traffic should be dropped"):
             with allure.step("Clear the rif counter"):
@@ -45,7 +45,7 @@ def test_loopback_action_basic(duthost, ptfadapter, ports_configuration):
     with allure.step("Configure the loopback action to forward"):
         config_loopback_action(duthost, rif_interfaces, [ACTION_FORWARD] * intf_count)
     with allure.step("Verify the loopback action is configured to forward"):
-        with allure.step("Check the looback action is configured correctly with cli command"):
+        with allure.step("Check the loopback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, [ACTION_FORWARD] * intf_count)
         with allure.step("Check the loopback traffic should be forwarded"):
             with allure.step("Clear the rif counter"):
@@ -70,7 +70,7 @@ def test_loopback_action_port_flap(duthost, ptfadapter, ports_configuration):
     with allure.step("Startup the interfaces"):
         startup_rif_interfaces(duthost, rif_interfaces)
     with allure.step("Verify the loopback action is correct of port flap"):
-        with allure.step("Check the looback action is configured correctly with cli command"):
+        with allure.step("Check the loopback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, action_list)
         with allure.step("Check the loopback traffic"):
             with allure.step("Clear the rif counter"):
@@ -92,7 +92,7 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
     with allure.step("Configure the loopback action for {} to {}".format(rif_interfaces, action_list)):
         config_loopback_action(duthost, rif_interfaces, action_list)
     with allure.step("Verify the loopback action is correct before config reload"):
-        with allure.step("Check the looback action is configured correctly with cli command"):
+        with allure.step("Check the loopback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, action_list)
         with allure.step("Check the loopback traffic"):
             with allure.step("Clear the rif counter"):
@@ -120,7 +120,7 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
         # Wait for the rif counter to initialize
         wait_until(180, 10, 0, is_rif_counters_ready, duthost)
     with allure.step("Verify the loopback action is correct after config reload"):
-        with allure.step("Check the looback action is configured correctly with cli command"):
+        with allure.step("Check the loopback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, action_list)
         with allure.step("Check the loopback traffic"):
             with allure.step("Check all ip interfaces are up"):

@@ -22,7 +22,7 @@ LOCAL_LOG_GENERATOR_FILE = os.path.join(BASE_DIR, 'log_generator.py')
 REMOTE_LOG_GENERATOR_FILE = os.path.join('/tmp', 'log_generator.py')
 DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 # rsyslogd prints this log when rate-limiting reached
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*rate-limit-test>: begin to drop messages due to rate-limiting.*'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 
@@ -90,7 +90,7 @@ def test_syslog_rate_limit(rand_selected_dut):
     # Save configuration and reload, verify the configuration can be loaded
     logger.info('Persist syslog rate limit configuration to DB and do config reload')
     rand_selected_dut.command('config save -y')
-    config_reload(rand_selected_dut)
+    config_reload(rand_selected_dut, safe_reload=True)
 
     # database does not support syslog rate limit configuration persist
     verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])

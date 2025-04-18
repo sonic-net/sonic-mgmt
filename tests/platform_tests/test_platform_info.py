@@ -20,7 +20,8 @@ from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileCo
     mocker_factory, disable_thermal_policy  # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
@@ -113,6 +114,21 @@ def stop_pmon_sensord_task(ans_host):
         logging.info("sensord stopped successfully")
 
 
+def start_pmon_sensord_task(duthost):
+    sensord_running_status, sensord_pid = check_sensord_status(duthost)
+    if not sensord_running_status:
+        duthost.command("docker exec pmon supervisorctl restart lm-sensors")
+        time.sleep(3)
+        sensord_running_status, sensord_pid = check_sensord_status(duthost)
+        if sensord_running_status:
+            logging.info("sensord task started, pid = {}".format(sensord_pid))
+        else:
+            logging.error("Failed to start sensord task.")
+    else:
+        logging.info("sensord is running, pid = {}".format(sensord_pid))
+    return sensord_running_status, sensord_pid
+
+
 @pytest.fixture(scope="module")
 def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -179,9 +195,6 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    # For kvm testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-    if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
-        return
     assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
@@ -234,7 +247,7 @@ def check_all_psu_on(dut, psu_test_results):
                 power_off_psu_list.append(psu_info["index"])
 
     if power_off_psu_list:
-        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
+        logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
 
@@ -254,9 +267,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    # For kvm testbed, psu_num will return None
-    # Only physical testbeds need to check the psu number
-    if psu_num:
+    if psu_num is not None:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 

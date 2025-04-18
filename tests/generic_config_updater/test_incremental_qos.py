@@ -129,6 +129,9 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
                                      .format(interface))['stdout']
+        if cable_length == "0m":
+            pytest.skip("skip the test due to no buffer lossless pg")
+
         port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'
                                    .format(interface))['stdout']
 
@@ -237,7 +240,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)

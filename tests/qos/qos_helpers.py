@@ -2,7 +2,11 @@ from netaddr import IPNetwork
 from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa F401
 import re
 import os
-import random
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
@@ -148,27 +152,32 @@ def stop_pause(host_ans, pkt_gen_path):
     host_ans.host.shell(cmd)
 
 
-def get_active_vlan_members(host_ans):
+def get_all_vlans(host_ans):
     """
-    @Summary: Get all the active physical interfaces enslaved to a Vlan
+    @Summary: Get all vlans active on a DUT from the device's minigraph facts
     @param host_ans: Ansible host instance of the device
-    @return: Return the list of active physical interfaces
+    @return: Dictionary, mapping dictionaries representing each vlan's values to the vlan name
     """
     mg_facts = host_ans.minigraph_facts(
         host=host_ans.hostname)['ansible_facts']
     mg_vlans = mg_facts['minigraph_vlans']
 
-    if len(mg_vlans) != 1:
-        print('There should be only one Vlan at the DUT')
-        return None
+    return mg_vlans
 
+
+def get_active_vlan_members(host_ans, vlan):
+    """
+    @Summary: Get all the active physical interfaces enslaved to a Vlan
+    @param host_ans: Ansible host instance of the device
+    @param vlan: Dictionary containing a single vlan's `name`, `members` and `vlanid`
+    @return: Return the list of active physical interfaces
+    """
     """ Get all the Vlan memebrs """
-    vlan_intf = list(mg_vlans.keys())[0]
-    vlan_members = mg_vlans[vlan_intf]['members']
+    vlan_members = vlan['members']
     vlan_id = None
-    if 'type' in mg_vlans[vlan_intf] and mg_vlans[vlan_intf]['type'] is not None \
-            and 'Tagged' in mg_vlans[vlan_intf]['type']:
-        vlan_id = mg_vlans[vlan_intf]['vlanid']
+    if 'type' in vlan and vlan['type'] is not None \
+            and 'Tagged' in vlan['type']:
+        vlan_id = vlan['vlanid']
 
     """ Filter inactive Vlan members """
     active_intfs = get_active_intfs(host_ans)
@@ -177,54 +186,20 @@ def get_active_vlan_members(host_ans):
     return vlan_members, vlan_id
 
 
-def get_vlan_subnet(host_ans):
+def get_vlan_subnet(host_ans, vlan):
     """
     @Summary: Get Vlan subnet of a T0 device
     @param host_ans: Ansible host instance of the device
+    @param vlan: Dictionary containing a single vlan's `name`, `members` and `vlanid`
     @return: Return Vlan subnet, e.g., "192.168.1.1/24"
     """
     mg_facts = host_ans.minigraph_facts(
         host=host_ans.hostname)['ansible_facts']
-    mg_vlans = mg_facts['minigraph_vlans']
-
-    if len(mg_vlans) != 1:
-        print('There should be only one Vlan at the DUT')
-        return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
-    vlan_subnet = ansible_stdout_to_str(mg_vlan_intfs[0]['subnet'])
+    vlan_intf = [curr_intf for curr_intf in mg_vlan_intfs if curr_intf['attachto'] == vlan['name']][0]
+    vlan_subnet = ansible_stdout_to_str(vlan_intf['subnet'])
     return vlan_subnet
-
-
-def gen_testbed_t0(duthost):
-    """
-    @Summary: Generate a T0 testbed configuration
-    @param duthost: The object for interacting with DUT through ansible
-    @return: Return four values: DUT interfaces, PTF interfaces, PTF IP addresses, and PTF MAC addresses,
-    """
-
-    """ Get all the active physical interfaces enslaved to the Vlan """
-    """ These interfaces are actually server-faced interfaces at T0 """
-    vlan_members = get_active_vlan_members(duthost)
-
-    """ Get Vlan subnet """
-    vlan_subnet = get_vlan_subnet(duthost)
-
-    """ Generate IP addresses for servers in the Vlan """
-    vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
-
-    """ Generate MAC addresses 00:00:00:00:00:XX for servers in the Vlan """
-    vlan_mac_addrs = [5 * '00:' + format(k, '02x')
-                      for k in random.sample(list(range(1, 256)), len(vlan_members))]
-
-    """ Find correspoinding interfaces on PTF """
-    phy_intfs = get_phy_intfs(duthost)
-    phy_intfs.sort(key=natural_keys)
-    vlan_members.sort(key=natural_keys)
-    vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
-    ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
-
-    return vlan_members, ptf_intfs, vlan_ip_addrs, vlan_mac_addrs
 
 
 def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):      # noqa F811
@@ -262,3 +237,25 @@ def get_max_priority(testbed_type):
         return 8
     else:
         return 64
+
+
+def dutBufferConfig(duthost, dut_asic=None):
+    bufferConfig = {}
+    try:
+        ns_spec = ""
+        if dut_asic is not None:
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
+        bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
+    except Exception as err:
+        logger.info(err)
+    return bufferConfig

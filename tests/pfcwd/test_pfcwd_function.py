@@ -734,7 +734,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
         queues = [self.storm_hndle.pfc_queue_idx]
 
-        if dut.facts['asic_type'] == "mellanox":
+        extra_pfc_storm_timeout_needed = dut.facts['asic_type'] in ["mellanox", "cisco-8000"]
+        if extra_pfc_storm_timeout_needed:
             PFC_STORM_TIMEOUT = 30
             pfcwd_stats_before_test = check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx)
 
@@ -754,8 +755,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             if self.pfc_wd['fake_storm']:
                 PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-            if dut.facts['asic_type'] in ["mellanox", "cisco-8000"]:
-                # On Mellanox platform, more time is required for PFC storm being triggered
+            if extra_pfc_storm_timeout_needed:
+                # On Mellanox and Cisco platform, more time is required for PFC storm being triggered
                 # as PFC pause sent from Non-Mellanox leaf fanout is not continuous sometimes.
                 pytest_assert(wait_until(PFC_STORM_TIMEOUT, 2, 0,
                                         lambda: check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx) != pfcwd_stats_before_test),  # noqa: E501, E128
@@ -985,6 +986,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
         self.ports = setup_info['selected_test_ports']
+        rx_ports = {rp for pi in self.ports.values() for rp in
+                    (pi["rx_port"] if isinstance(pi["rx_port"], (list, tuple)) else [pi["rx_port"]])}
+        self.ports = {p: pi for p, pi in self.ports.items() if p not in rx_ports}
         selected_ports = list(self.ports.keys())[:2]
         self.test_ports_info = setup_info['test_ports']
         pytest_require(len(selected_ports) == 2, 'Pfcwd multi port test needs at least 2 ports')
@@ -1232,6 +1236,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def test_pfcwd_no_traffic(
             self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
             set_pfc_time_cisco_8000): # noqa F811
         """
         Verify the pfcwd is not triggered when no traffic is sent, even when pfc storm is active.

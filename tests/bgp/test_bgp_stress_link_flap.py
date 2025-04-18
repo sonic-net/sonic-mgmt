@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 'm1', 'm2', 'm3')
 ]
 
 stop_tasks = False

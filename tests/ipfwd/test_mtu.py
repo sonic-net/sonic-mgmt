@@ -7,7 +7,7 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2'),
+    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3'),
     pytest.mark.device_type('vs')
 ]
 

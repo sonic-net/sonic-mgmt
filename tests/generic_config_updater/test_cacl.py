@@ -9,6 +9,7 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table
@@ -20,7 +21,7 @@ from tests.common.utilities import wait_until
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 't1'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3', 't1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,14 @@ def get_iptable_rules(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_port_toggle(duthosts, tbinfo):
+def restore_test_env(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    yield
+
+
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo, restore_test_env):
     # set mux mode to manual on both TORs to avoid port state change during test
     if "dualtor" in tbinfo['topo']['name']:
         for dut in duthosts:
@@ -65,6 +73,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+
     original_iptable_rules = get_iptable_rules(duthost)
     original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)
@@ -166,7 +175,7 @@ def cacl_tc1_add_new_table(duthost, protocol):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -202,7 +211,7 @@ def cacl_tc1_add_duplicate_table(duthost, protocol):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -262,7 +271,7 @@ def cacl_tc1_replace_table_variable(duthost, protocol):
             }
         ]
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -309,7 +318,7 @@ def cacl_tc1_add_invalid_table(duthost, protocol):
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -327,7 +336,7 @@ def cacl_tc1_remove_unexisted_table(duthost):
             "path": "/ACL_RULE/SSH_ONLY_UNEXISTED"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -351,7 +360,7 @@ def cacl_tc1_remove_table(duthost, protocol):
             "path": "/ACL_TABLE/{}".format(table_name)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -413,7 +422,7 @@ def cacl_tc2_add_init_rule(duthost, protocol):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -471,7 +480,7 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -511,7 +520,7 @@ def cacl_tc2_replace_rule(duthost, protocol):
             "value": "8.8.8.8/32"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -554,7 +563,7 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -583,7 +592,7 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol):
             "path": "/ACL_TABLE/{}".format(table)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -612,7 +621,7 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol):
             "path": "/ACL_RULE/{}|TEST_DROP2".format(table)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -631,7 +640,7 @@ def cacl_tc2_remove_rule(duthost):
             "path": "/ACL_RULE"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -672,7 +681,7 @@ def cacl_external_client_add_new_table(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))

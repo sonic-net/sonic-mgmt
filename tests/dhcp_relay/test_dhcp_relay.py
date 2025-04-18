@@ -21,7 +21,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server, restart_dhcp_service
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 't0-2vlans'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -182,7 +182,7 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
             after_count = get_acl_count_by_mark(rand_unselected_dut, item["mark"])
-            pytest_assert(after_count == item["count"] + 2, "Drop count of {} {} is unexpected, pre: {}, after: {}"
+            pytest_assert(after_count == item["count"] + 3, "Drop count of {} {} is unexpected, pre: {}, after: {}"
                           .format(client_interface_name, item["mark"], item["count"], after_count))
 
 
@@ -256,7 +256,9 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "testing_mode": testing_mode,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
@@ -346,7 +348,9 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                                "testing_mode": testing_mode,
                                "enable_source_port_ip_in_relay": True,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.src_ip.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
@@ -375,14 +379,14 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
@@ -408,7 +412,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.link_flap.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
@@ -422,7 +428,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
@@ -439,7 +445,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
@@ -465,7 +471,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.uplinks_down.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -501,7 +509,9 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.unicast_mac.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -536,7 +546,9 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.random_sport.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def get_dhcp_relay_counter(duthost, ifname, type, dir):

@@ -47,6 +47,10 @@ FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 
+SERVER_FILE = 'platform_api_server.py'
+SERVER_PORT = 8000
+IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
 test_report = dict()
 
 
@@ -349,6 +353,42 @@ def verify_no_coredumps(duthost, pre_existing_cores):
                                                                                   coredumps_count))
 
 
+@handle_test_error
+def verify_yang(duthost):
+    """
+    Verify yang over running config
+    """
+    logging.info("Verify yang over running config")
+
+    # return release number of current sonic version such as '20191130'
+    def get_current_sonic_version(duthost):
+        os_version = duthost.shell('sonic_installer list 2>/dev/null | grep Current | cut -f2 -d " "')['stdout']
+        # os_version format:
+        # "SONiC-OS-20191130.89"
+        # "SONiC-OS-master.825947-534613c6d"
+        # "SONiC-OS-internal.121161804-317e9bb571"
+        version = os_version.split('-')[2].split('.')[0]
+        match = re.search(r"SONiC-OS-(\d{8})\.", version)
+        if match:
+            release = match.group(1)
+        else:
+            release = None
+        return release
+
+    release = get_current_sonic_version(duthost)
+    # Skip yang validation when no release number found or old version
+    if not release or release < '20220500':
+        return True
+
+    strict_yang_validation = False
+    # Strict yang validation is supported from 202505
+    if release > '20250500':
+        strict_yang_validation = True
+
+    if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
+        raise RebootHealthError("Yang validation failed")
+
+
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     global test_report
@@ -372,6 +412,7 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
+    verify_yang(duthost)
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))
@@ -980,6 +1021,53 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
+
+
+@pytest.fixture(scope='function')
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    res = localhost.wait_for(host=dut_ip,
+                             port=SERVER_PORT,
+                             state='started',
+                             delay=1,
+                             timeout=10,
+                             module_ignore_errors=True)
+    if res['failed'] is True:
+
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
+
+        supervisor_conf = [
+            '[program:platform_api_server]',
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
+                                                                                     else '2', SERVER_PORT),
+            'autostart=True',
+            'autorestart=True',
+            'stdout_logfile=syslog',
+            'stderr_logfile=syslog',
+        ]
+        dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
+        pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
+        duthost.copy(content='\n'.join(supervisor_conf), dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        src_path = os.path.join('common', 'helpers', 'platform_api', 'scripts', SERVER_FILE)
+        dest_path = os.path.join(os.sep, 'tmp', SERVER_FILE)
+        pmon_path = os.path.join(os.sep, 'opt', SERVER_FILE)
+        duthost.copy(src=src_path, dest=dest_path)
+        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
+
+        # Prepend an iptables rule to allow incoming traffic to the HTTP server
+        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+
+        # Reload the supervisor config and Start the HTTP server
+        duthost.command('docker exec -i pmon supervisorctl reread')
+        duthost.command('docker exec -i pmon supervisorctl update')
+
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
+        assert res['failed'] is False
 
 
 @pytest.fixture(scope='function')

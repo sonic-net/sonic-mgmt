@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list                                                                  # noqa: F401
+    lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
@@ -34,7 +34,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                                  tbinfo,
                                  get_snappi_ports,             # noqa: F811
                                  port_map,
-                                 multidut_port_info):          # noqa: F811
+                                 multidut_port_info,
+                                 disable_pfcwd):          # noqa: F811
 
     """
     Purpose of the test is to check if line-rate can be achieved.
@@ -78,20 +79,20 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
         for item in tmp_snappi_port_list:
             if (int(item['speed']) == (port_map[1] * 1000)):
                 snappi_port_list.append(item)
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
 
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
 
         snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
@@ -174,7 +175,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                                 tbinfo,
                                 get_snappi_ports,             # noqa: F811
                                 port_map,
-                                multidut_port_info):          # noqa: F811
+                                multidut_port_info,
+                                disable_pfcwd):          # noqa: F811
 
     """
     Purpose of the test is to check if line-rate can be achieved.
@@ -218,20 +220,20 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
         for item in tmp_snappi_port_list:
             if (int(item['speed']) == (port_map[1] * 1000)):
                 snappi_port_list.append(item)
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
 
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
 
         snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
@@ -315,7 +317,8 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                               tbinfo,
                               get_snappi_ports,             # noqa: F811
                               port_map,
-                              multidut_port_info):          # noqa: F811
+                              multidut_port_info,
+                              disable_pfcwd):          # noqa: F811
 
     """
     Purpose of the test is to check if line-rate can be achieved with single priority traffic.
@@ -358,20 +361,20 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
         for item in tmp_snappi_port_list:
             if (int(item['speed']) == (port_map[1] * 1000)):
                 snappi_port_list.append(item)
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
 
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                      testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                       testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
 
         snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
