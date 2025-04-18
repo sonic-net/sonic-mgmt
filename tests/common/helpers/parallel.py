@@ -5,6 +5,7 @@ import os
 import pickle
 import shutil
 import signal
+import sys
 import tempfile
 import time
 import traceback
@@ -42,7 +43,9 @@ class SonicProcess(Process):
             tb = traceback.format_exc()
             self._queue.put((self.name, (str(e), tb)))
             logger.info("[chunangli] process send data finished.")
-            raise e
+            sys.exit(1)  # Ensure process exits with error code
+        finally:
+            logger.info(f"[chunangli] process {self.name} exiting run() cleanly")
 
     def wait(self, timeout):
         return self.join(timeout=timeout)
