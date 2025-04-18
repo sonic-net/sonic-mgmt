@@ -37,7 +37,9 @@ ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
 OUTBOUND_DIR_LOOKUP = "dst_mac"
-
+METER_POLICY_V4 = "MeterPolicyV4"
+METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
+METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
@@ -62,7 +64,8 @@ ENI_CONFIG = {
         "eni_id": ENI_ID,
         "admin_state": State.STATE_ENABLED,
         "pl_underlay_sip": APPLIANCE_VIP,
-        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}"
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "v4_meter_policy_id": METER_POLICY_V4,
     }
 }
 
@@ -72,6 +75,7 @@ PE_VNET_MAPPING_CONFIG = {
         "underlay_ip": PE_PA,
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
     }
 }
 
@@ -79,6 +83,7 @@ VM1_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "underlay_ip": VM1_PA,
+        "metering_class_or": "2",
     }
 }
 
@@ -86,6 +91,8 @@ PE_SUBNET_ROUTE_CONFIG = {
     f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{PE_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "vnet": VNET1,
+        "metering_class_or": "2048",
+        "metering_class_and": "4095",
     }
 }
 
@@ -93,6 +100,8 @@ VM_SUBNET_ROUTE_CONFIG = {
     f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "vnet": VNET1,
+        "metering_class_or": "2048",
+        "metering_class_and": "4095",
     }
 }
 
@@ -135,5 +144,27 @@ ROUTE_GROUP1_CONFIG = {
 ENI_ROUTE_GROUP1_CONFIG = {
     f"DASH_ENI_ROUTE_TABLE:{ENI_ID}": {
         "group_id": ROUTE_GROUP1
+    }
+}
+
+METER_POLICY_V4_CONFIG = {
+    f"DASH_METER_POLICY_TABLE:{METER_POLICY_V4}": {
+        "ip_version": "ipv4"
+    }
+}
+
+METER_RULE1_V4_CONFIG = {
+    f"DASH_METER_RULE_TABLE:{METER_POLICY_V4}:1": {
+        "priority": "10",
+        "ip_prefix": f"{METER_RULE_V4_PREFIX1}",
+        "metering_class": 1,
+    }
+}
+
+METER_RULE2_V4_CONFIG = {
+    f"DASH_METER_RULE_TABLE:{METER_POLICY_V4}:2": {
+        "priority": "10",
+        "ip_prefix": f"{METER_RULE_V4_PREFIX2}",
+        "metering_class": 2,
     }
 }
