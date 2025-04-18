@@ -53,7 +53,10 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
             dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL_MEMBER', {}))
     sys_neigh = {}
     if switch_type == "voq":
-        voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
+        if len(duthosts) == 1:
+            voq_db = VoqDbCli(duthosts.frontend_nodes[0])
+        else:
+            voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
         for entry in voq_db.dump_neighbor_table():
             neigh_key = entry.split('|')
             neigh_ip = neigh_key[-1]
@@ -321,7 +324,7 @@ def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_
 @pytest.fixture(scope="module")
 def single_fib_for_duts(tbinfo, duthosts):
     # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
-    if tbinfo['topo']['type'] == "t2":
+    if tbinfo['topo']['type'] == "t2" and len(duthosts) > 1:
         if duthosts[0].facts['switch_type'] == "voq":
             return "single-fib-single-hop"
         else:
