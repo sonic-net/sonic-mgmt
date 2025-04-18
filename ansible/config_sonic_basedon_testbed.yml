@@ -742,16 +742,24 @@
             service: name=chrony state=restarted enabled=true
         when: chrony_service.status.LoadState != "not-found"
 
+      - name: Check if "config bmp" is supported
+        shell: "config -h | grep 'BMP-related configuration'"
+        register: bmp_support_check
+        ignore_errors: true
+        changed_when: false
+        failed_when: false
+
       - name: Enable bmp relevant config dump
         block:
           - name: execute cli "config bmp enable bgp-neighbor-table" to enable bgp-neighbor-table
-            shell: sudo config bmp enable bgp-neighbor-table
+            command: sudo config bmp enable bgp-neighbor-table
 
           - name: execute cli "config bmp enable bgp-rib-in-table" to enable bgp-rib-in-table
-            shell: sudo config bmp enable bgp-rib-in-table
+            command: sudo config bmp enable bgp-rib-in-table
 
           - name: execute cli "config bmp enable bgp-rib-out-table" to enable bgp-rib-out-table
-            shell: sudo config bmp enable bgp-rib-out-table
+            command: sudo config bmp enable bgp-rib-out-table
+        when: bmp_support_check.rc == 0
 
       - name: config static route for trex traffic passthrough
         become: true
