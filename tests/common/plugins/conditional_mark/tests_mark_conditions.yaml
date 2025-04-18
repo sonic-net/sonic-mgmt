@@ -2489,6 +2489,18 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
+telemetry/test_telemetry.py::test_virtualdb_table_streaming:
+  skip:
+    reason: "Skip due to community issue https://github.com/sonic-net/sonic-buildimage/issues/22201"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/22201
+
+telemetry/test_telemetry_cert_rotation.py:
+  skip:
+    reason: "Skip due to community issue https://github.com/sonic-net/sonic-buildimage/issues/22201"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/22201
+
 #######################################
 #####         pktgen              #####
 #######################################
