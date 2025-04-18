@@ -1107,10 +1107,12 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
     t1_vms = {}
     # T3 VMs per linecard(asic) - key is the dut index, and value is a list of T3 VMs
     t3_vms = {}
-
     for key, value in vms.items():
-        m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
-        dut_index = int(m.group(1))
+        if type(value['vlans'][0]) == int:
+            dut_index = 0
+        else:
+            m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
+            dut_index = int(m.group(1))
         if 'T1' in key:
             if dut_index not in t1_vms:
                 t1_vms[dut_index] = list()
@@ -1120,6 +1122,7 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
+
     route_set += generate_t2_routes(t1_vms, topo, ptf_ip, action)
     route_set += generate_t2_routes(t3_vms, topo, ptf_ip, action)
     send_routes_in_parallel(route_set)
