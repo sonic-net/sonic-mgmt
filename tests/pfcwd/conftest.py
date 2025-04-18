@@ -314,7 +314,7 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def clear_ptf_ip_addr(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
+def cleanup(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that remove ip address of ethX interface at ptf and clear arp at dut
     :param duthosts: dut instance
@@ -323,6 +323,5 @@ def clear_ptf_ip_addr(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostna
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    logger.info("Remove ip address of ethX interface at PTF")
-    ptfhost.script("./scripts/remove_ip.sh")
+    ptfhost.remove_ip_addresses()
     duthost.command("sonic-clear arp")
