@@ -113,8 +113,10 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+{% if props.nhipv4 is defined %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv4 }} description exabgp_v4
+{% endif %}
  neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv6 }} description exabgp_v6
  address-family ipv6
