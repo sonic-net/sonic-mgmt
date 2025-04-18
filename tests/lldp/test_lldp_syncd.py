@@ -38,6 +38,10 @@ def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     appl_db = []
     for asic in duthost.asics:
         appl_db.append(SonicDbCli(asic, APPL_DB))
+    duthost.facts['switch_type'] == "voq"
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if duthost.facts['switch_type'] == "voq" and not is_chassis:
+        appl_db.append(SonicDbCli(duthost, APPL_DB))
     # Cleanup code here
     return appl_db
 
@@ -83,6 +87,13 @@ def get_lldpctl_output(duthost):
                 resultDict["lldp"]["interface"].extend(
                     json.loads(result)["lldp"]["interface"]
                 )
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        if duthost.facts['switch_type'] == "voq" and not is_chassis:
+            result = duthost.shell(
+                "docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
+            resultDict["lldp"]["interface"].extend([
+                json.loads(result)["lldp"]["interface"]]
+            )
     else:
         result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
         resultDict = json.loads(result)
