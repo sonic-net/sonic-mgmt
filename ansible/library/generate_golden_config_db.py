@@ -362,7 +362,7 @@ class GenerateGoldenConfigDBModule(object):
         # update dns config
         config = self.update_dns_config(config)
 
-        # To enable bmp feature
+        # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
