@@ -85,7 +85,10 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
+    ip_ifaces = {}
+    for asic in duthost.asics:
+        ip_int = duthost.get_active_ip_interfaces(tbinfo, asic_index=asic.asic_index)
+        ip_ifaces.update(ip_int)
     port_list = []
     for iface in list(ip_ifaces.keys()):
         if iface.startswith("PortChannel"):
@@ -314,3 +317,10 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
     if asic_id:
         asic_arg = f"-n asic{asic_id}"
     duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cleanup(ptfhost):
+
+    yield
+    ptfhost.remove_ip_addresses()

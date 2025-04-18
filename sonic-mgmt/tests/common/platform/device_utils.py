@@ -353,6 +353,42 @@ def verify_no_coredumps(duthost, pre_existing_cores):
                                                                                   coredumps_count))
 
 
+@handle_test_error
+def verify_yang(duthost):
+    """
+    Verify yang over running config
+    """
+    logging.info("Verify yang over running config")
+
+    # return release number of current sonic version such as '20191130'
+    def get_current_sonic_version(duthost):
+        os_version = duthost.shell('sonic_installer list 2>/dev/null | grep Current | cut -f2 -d " "')['stdout']
+        # os_version format:
+        # "SONiC-OS-20191130.89"
+        # "SONiC-OS-master.825947-534613c6d"
+        # "SONiC-OS-internal.121161804-317e9bb571"
+        version = os_version.split('-')[2].split('.')[0]
+        match = re.search(r"SONiC-OS-(\d{8})\.", version)
+        if match:
+            release = match.group(1)
+        else:
+            release = None
+        return release
+
+    release = get_current_sonic_version(duthost)
+    # Skip yang validation when no release number found or old version
+    if not release or release < '20220500':
+        return True
+
+    strict_yang_validation = False
+    # Strict yang validation is supported from 202505
+    if release > '20250500':
+        strict_yang_validation = True
+
+    if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
+        raise RebootHealthError("Yang validation failed")
+
+
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     global test_report
@@ -376,6 +412,7 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
+    verify_yang(duthost)
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))

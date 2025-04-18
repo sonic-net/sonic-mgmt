@@ -107,7 +107,7 @@ def ntp_service_restarted(duthost, start_time):
         return False
 
     output = duthost.command(f"systemctl show {systemd_service} --timestamp unix -P ExecMainStartTimestamp")
-    return datetime.datetime.utcfromtimestamp(int(output['stdout'][1:])) > start_time
+    return int(output['stdout'][1:]) > start_time.timestamp()
 
 
 def ntp_server_tc1_add_config(duthost):

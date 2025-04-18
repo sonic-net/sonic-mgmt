@@ -41,6 +41,13 @@ def get_fec_oper_mode(duthost, interface):
     return fec_status[0].get('fec oper', '').lower()
 
 
+def check_intf_fec_mode(duthost, intf, exp_fec_mode):
+    post_fec = get_fec_oper_mode(duthost, intf)
+    if post_fec == exp_fec_mode:
+        return True
+    return False
+
+
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Verify the FEC operational mode is valid, for all the interfaces with
@@ -87,9 +94,8 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf),
                           "Interface {} did not come up after configuring FEC mode".format(intf))
             # Verify the FEC operational mode is restored
-            post_fec = get_fec_oper_mode(duthost, intf)
-            if not (post_fec == fec_mode):
-                pytest.fail("FEC status is not restored for interface {}".format(intf))
+            pytest_assert(wait_until(30, 2, 0, check_intf_fec_mode, duthost, intf, fec_mode),
+                          f"FEC status of Interface {intf} is not restored to {fec_mode}")
 
 
 def get_interface_speed(duthost, interface_name):

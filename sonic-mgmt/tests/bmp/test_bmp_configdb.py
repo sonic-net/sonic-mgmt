@@ -89,8 +89,3 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     table_name = 'bgp_rib_out_table'
     status = check_table_status(output, table_name)
     assert (status == 'true')
-
-    # disable all table to avoid further impact to other test cases
-    disable_bmp_neighbor_table(duthost)
-    disable_bmp_rib_in_table(duthost)
-    disable_bmp_rib_out_table(duthost)
