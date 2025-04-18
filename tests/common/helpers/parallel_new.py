@@ -3,10 +3,10 @@ import logging
 import math
 import os
 import pickle
+import queue
 import signal
 import traceback
 from multiprocessing import Process, Manager, SimpleQueue
-from queue import Empty
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
@@ -108,17 +108,17 @@ def parallel_run(
 
         running = alive
 
-        # Handle exceptions from children
-        try:
-            while True:
-                name, exc = exception_queue.get_nowait()
+        # This avoids relying on empty() and ensures you don’t miss any data from child processes.
+        while True:
+            try:
+                name, exc = exception_queue.get()
                 if exc:
                     failed_processes[name] = {
                         "exception": exc,
                         "exit_code": next((p.exitcode for p in running if p.name == name), -1)
                     }
-        except Empty:
-            pass
+            except queue.Empty:
+                break
 
     # Final cleanup
     for proc in running:
