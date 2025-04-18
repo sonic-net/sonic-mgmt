@@ -3,11 +3,8 @@ import logging
 
 from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.gnmi.test_gnmi_countersdb import test_gnmi_queue_buffer_cnt
-from sonic_py_common import device_info
 from tests.common.helpers.assertions import pytest_assert
 
-
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +31,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             elif feature == "telemetry" and state == "enabled":
                 telemetry_enabled = True
 
-    image_version = device_info.get_sonic_version_info()
-    build_version = image_version['build_version']
-    if re.match(r'^internal-(\d{8})', build_version):
+    if "internal" in duthost.os_version:
         pytest_assert(gnmi_enabled or telemetry_enabled,
                       "Internal image has neither gnmi nor telemetry feature enabled")
 
