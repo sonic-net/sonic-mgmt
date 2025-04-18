@@ -41,9 +41,9 @@ class SonicProcess(Process):
             serialized = pickle.dumps(e)
             logger.info(f"[chunangli] Serialized size: {len(serialized) / 1024:.2f} KB")
             tb = traceback.format_exc()
-            self._queue.put((self.name, (str(e), tb)))
-            # self._queue.put((self.name, ("match: 666", tb)))
-            logger.info("[chunangli] process send data finished.")
+            # self._queue.put((self.name, (str(e), tb)))
+            self._queue.put((self.name, ("match: 666", tb)))
+            logger.info("[chunangli] process send data 666 finished.")
             self.set_exception(e)
             # sys.exit(1)  # Ensure process exits with error code
         finally:
