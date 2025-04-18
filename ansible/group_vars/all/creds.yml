@@ -1,9 +1,9 @@
 eos_default_login: "admin"
 eos_default_password: ""
 eos_login: admin
-eos_password: 123456
+eos_password: "123456"
 eos_root_user: root
-eos_root_password: 123456
+eos_root_password: "123456"
 
 junos_default_login: "root"
 junos_default_password:  ""
