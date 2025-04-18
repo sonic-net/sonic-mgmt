@@ -134,7 +134,15 @@ PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1
 PYVXR_IPS="7.7.7.1"
 PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.1/32#41.216.0.2#3"
 
-# Add PortChannels for Group1: MLAG on [first, second] leaves and LAG on third leaf.
+# Add PortChannels for two leaves fabric.
+if [[ ${LENGTH} -eq 1 ]]; then
+  PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+  PYVXR_IPS="${PYVXR_IPS}#7.7.7.2"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#3"
+fi
+
+# Add PortChannels for three leaves fabric: MLAG on first and second leaves, and LAG on third leaf.
 if [[ ${LENGTH} -gt 1 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
@@ -143,7 +151,7 @@ if [[ ${LENGTH} -gt 1 ]]; then
   PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#3|7.7.7.3/32#41.216.0.4#3"
 fi
 
-# Add PortChannels for Group2: MLAG on [first, second] leaves and LAG on third leaf.
+# Add PortChannels for six leaves fabric: MLAG on fourth and fifth leaves, and LAG on sixth leaf.
 if [[ ${LENGTH} -gt 3 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel30|leaf3:${LAG_PORT1}#leaf4:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel40|leaf4:${LAG_PORT1}#leaf3:${LAG_PORT2}|10|false|eth1#eth2"
@@ -152,7 +160,7 @@ if [[ ${LENGTH} -gt 3 ]]; then
   PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.4/32#41.216.0.5#3|7.7.7.5/32#41.216.0.6#3|7.7.7.6/32#41.216.0.7#3"
 fi
 
-# Add PortChannels for Group3: MLAG on [first, second] leaves and LAG on third leaf.
+# Add PortChannels for nine leaves fabric: MLAG on seventh and eighth leaves, and LAG on nineth leaf.
 if [[ ${LENGTH} -gt 6 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel60|leaf6:${LAG_PORT1}#leaf7:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel70|leaf7:${LAG_PORT1}#leaf6:${LAG_PORT2}|10|false|eth1#eth2"
