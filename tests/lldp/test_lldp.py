@@ -1,9 +1,10 @@
 import logging
 import pytest
+import time
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from tests.common.helpers.dut_utils import get_program_info, kill_process_by_pid, is_container_running
-
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +30,44 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     container_name = asic.get_docker_name(feature_name)
     program_name = "orchagent"
 
-    logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
+    pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
+    assert pre_lldpctl_facts != 0, "Cannot get lldp neighbor information"
 
-    # disable feature autorestart. Feature is enabled/disabled at feature level and
-    # not per container namespace level.
-    duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
-    _, program_pid = get_program_info(duthost, container_name, program_name)
-    kill_process_by_pid(duthost, container_name, program_name, program_pid)
-    is_running = is_container_running(duthost, container_name)
-    pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
-    duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
+    if duthost.facts['switch_type'] == "voq":
+        """ VOQ type chassis does not support warm restart of orchagent. Use restart service here """
+        duthost.shell("sudo systemctl reset-failed")
+        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
+        # make sure all critical services are up
+        assert wait_until(600, 5, 30, duthost.critical_services_fully_started), \
+            "Not all critical services are fully started"
+        # wait for ports to be up and lldp neighbor information has been received by dut
+        assert wait_until(300, 20, 60,
+                          lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), \
+            "Cannot get all lldp entries"
+        # add delay here to make sure neighbor devices also have received lldp packets from dut and neighbor
+        # information has been updated properly
+        time.sleep(30)
+    else:
+        logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
+        # disable feature autorestart. Feature is enabled/disabled at feature level and
+        # not per container namespace level.
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
+        _, program_pid = get_program_info(duthost, container_name, program_name)
+        kill_process_by_pid(duthost, container_name, program_name, program_pid)
+        is_running = is_container_running(duthost, container_name)
+        pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
+        duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
     yield
+
+
+def get_num_lldpctl_facts(duthost, enum_frontend_asic_index):
+    internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=enum_frontend_asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
+    if not list(lldpctl_facts['lldpctl'].items()):
+        return 0
+    return len(lldpctl_facts['lldpctl'])
 
 
 def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
