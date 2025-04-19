@@ -18,9 +18,9 @@
         }
     },
     "t0-t1-5d-ixia": {
-        "lightening": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightening.yaml",
-            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_lightening.yaml"
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightning.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_lightning.yaml"
         },
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
@@ -42,9 +42,9 @@
         }
     },
     "t0-t1-5d-ixia_evpn_mh": {
-        "lightening": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightening.yaml",
-            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH_lightening.yaml"
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightning.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH_lightning.yaml"
         },
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
@@ -80,8 +80,8 @@
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/churchill_mono_sonic_t0_topo.yaml"
         },
-        "lightening": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t0_topo.yaml"
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightning_sonic_t0_topo.yaml"
         },
         "siren": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t0_topo.yaml"
@@ -99,8 +99,8 @@
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/carib_sonic_t1_topo.yaml"
         },
-        "lightening": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightening_sonic_t1_topo.yaml"
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/lightning_sonic_t1_topo.yaml"
         },
         "siren": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t1_topo.yaml"

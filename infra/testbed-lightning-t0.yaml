@@ -16,7 +16,7 @@ device_groups:
     - sonic_cisco
   sonic_cisco:
     host:
-    - lightening-01
+    - lightning-01
     vars:
       hwsku: Cisco-8122-O128S2
       iface_speed: '400000'
@@ -32,7 +32,7 @@ devices:
       username: root
     device_type: blank
     hwsku: null
-  lightening-01:
+  lightning-01:
     alias: null
     ansible:
       ansible_host: 192.168.122.240
@@ -91,25 +91,25 @@ testbed:
       ansible_hostv6: fc0b::1/64
       ansible_ssh_pass: root
       ansible_ssh_user: root
-    comment: Test ptf lightening
+    comment: Test ptf lightning
     credentials:
       password: root
       username: root
-    dut: lightening-01
+    dut: lightning-01
     group-name: sonic_cisco
     ptf: docker-ptf
-    ptf_image_name: docker-ptf-lightening
+    ptf_image_name: docker-ptf-lightning
     ptf_ip: 192.168.122.198/24
     ptf_ipv6: fc0b::1/64
     server: server_1
     topo: t0
     vm_base: VM0100
 testbed_config:
-  alias: lighteningtopologyTestbed
-  name: testbed-lightening-t0
+  alias: lightningtopologyTestbed
+  name: testbed-lightning-t0
   type: Physical
 topology:
-  lightening-01:
+  lightning-01:
     interfaces:
       Ethernet0:
         Bandwidth: 100000

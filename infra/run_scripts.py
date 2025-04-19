@@ -699,8 +699,8 @@ def main():
         dut_name = 'sfd'
     elif device_type == 'aaa14-t2':
         dut_name = 'aaa14-t2'
-    elif device_type == 'lightening':
-        dut_name = 'lightening-01'
+    elif device_type == 'lightning':
+        dut_name = 'lightning-01'
     elif device_type == 'siren':
         dut_name = 'siren-01'
     else:

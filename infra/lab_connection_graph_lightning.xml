@@ -1,43 +1,43 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="lightening-01" HwSku="Cisco-8122-O128S2" Type="DevSonic"/>
+      <Device Hostname="lightning-01" HwSku="Cisco-8122-O128S2" Type="DevSonic"/>
       <Device Hostname="nexus-5" HwSku="C9336C-FX2" Type="FanoutLeaf"/>
       <Device Hostname="sonic-ucs-m3-2" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="lightening-01" StartPort="Ethernet0"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/2" StartDevice="lightening-01" StartPort="Ethernet4"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/3" StartDevice="lightening-01" StartPort="Ethernet8"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/4" StartDevice="lightening-01" StartPort="Ethernet12"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/5" StartDevice="lightening-01" StartPort="Ethernet16"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/6" StartDevice="lightening-01" StartPort="Ethernet20"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/7" StartDevice="lightening-01" StartPort="Ethernet24"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/8" StartDevice="lightening-01" StartPort="Ethernet28"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/9" StartDevice="lightening-01" StartPort="Ethernet32"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/10" StartDevice="lightening-01" StartPort="Ethernet36"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/11" StartDevice="lightening-01" StartPort="Ethernet40"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/12" StartDevice="lightening-01" StartPort="Ethernet44"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/13" StartDevice="lightening-01" StartPort="Ethernet48"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/14" StartDevice="lightening-01" StartPort="Ethernet52"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/15" StartDevice="lightening-01" StartPort="Ethernet56"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/16" StartDevice="lightening-01" StartPort="Ethernet60"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/17" StartDevice="lightening-01" StartPort="Ethernet64"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/18" StartDevice="lightening-01" StartPort="Ethernet68"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/19" StartDevice="lightening-01" StartPort="Ethernet72"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/20" StartDevice="lightening-01" StartPort="Ethernet76"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/21" StartDevice="lightening-01" StartPort="Ethernet80"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/22" StartDevice="lightening-01" StartPort="Ethernet84"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/23" StartDevice="lightening-01" StartPort="Ethernet88"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/24" StartDevice="lightening-01" StartPort="Ethernet92"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/25" StartDevice="lightening-01" StartPort="Ethernet96"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/26" StartDevice="lightening-01" StartPort="Ethernet100"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/27" StartDevice="lightening-01" StartPort="Ethernet104"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/28" StartDevice="lightening-01" StartPort="Ethernet108"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/29" StartDevice="lightening-01" StartPort="Ethernet112"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/30" StartDevice="lightening-01" StartPort="Ethernet116"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/31" StartDevice="lightening-01" StartPort="Ethernet120"/>
-	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/32" StartDevice="lightening-01" StartPort="Ethernet124"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="lightning-01" StartPort="Ethernet0"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/2" StartDevice="lightning-01" StartPort="Ethernet4"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/3" StartDevice="lightning-01" StartPort="Ethernet8"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/4" StartDevice="lightning-01" StartPort="Ethernet12"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/5" StartDevice="lightning-01" StartPort="Ethernet16"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/6" StartDevice="lightning-01" StartPort="Ethernet20"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/7" StartDevice="lightning-01" StartPort="Ethernet24"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/8" StartDevice="lightning-01" StartPort="Ethernet28"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/9" StartDevice="lightning-01" StartPort="Ethernet32"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/10" StartDevice="lightning-01" StartPort="Ethernet36"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/11" StartDevice="lightning-01" StartPort="Ethernet40"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/12" StartDevice="lightning-01" StartPort="Ethernet44"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/13" StartDevice="lightning-01" StartPort="Ethernet48"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/14" StartDevice="lightning-01" StartPort="Ethernet52"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/15" StartDevice="lightning-01" StartPort="Ethernet56"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/16" StartDevice="lightning-01" StartPort="Ethernet60"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/17" StartDevice="lightning-01" StartPort="Ethernet64"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/18" StartDevice="lightning-01" StartPort="Ethernet68"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/19" StartDevice="lightning-01" StartPort="Ethernet72"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/20" StartDevice="lightning-01" StartPort="Ethernet76"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/21" StartDevice="lightning-01" StartPort="Ethernet80"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/22" StartDevice="lightning-01" StartPort="Ethernet84"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/23" StartDevice="lightning-01" StartPort="Ethernet88"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/24" StartDevice="lightning-01" StartPort="Ethernet92"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/25" StartDevice="lightning-01" StartPort="Ethernet96"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/26" StartDevice="lightning-01" StartPort="Ethernet100"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/27" StartDevice="lightning-01" StartPort="Ethernet104"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/28" StartDevice="lightning-01" StartPort="Ethernet108"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/29" StartDevice="lightning-01" StartPort="Ethernet112"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/30" StartDevice="lightning-01" StartPort="Ethernet116"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/31" StartDevice="lightning-01" StartPort="Ethernet120"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="nexus-5" EndPort="Ethernet1/32" StartDevice="lightning-01" StartPort="Ethernet124"/>
 	    <DeviceInterfaceLink BandWidth="10000" EndDevice="sonic-ucs-m3-2" EndPort="enp5s0f1" StartDevice="nexus-5" StartPort="Ethernet1/35/2"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
