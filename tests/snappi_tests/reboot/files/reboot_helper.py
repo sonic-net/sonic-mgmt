@@ -528,6 +528,21 @@ def get_convergence_for_reboot_test(duthost,
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
     snappi_api.set_control_state(cs)
     wait(TIMEOUT, "For Traffic To start")
+
+    def check_bgp_state():
+        req = snappi_api.metrics_request()
+        req.bgpv4.peer_names = []
+        bgpv4_metrics = snappi_api.get_metrics(req).bgpv4_metrics
+        assert bgpv4_metrics[-1].session_state == "up", \
+            "BGP v4 Session State is not UP"
+        logger.info("BGP v4 Session State is UP")
+        req.bgpv6.peer_names = []
+        bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
+        assert bgpv6_metrics[-1].session_state == "up", \
+            "BGP v6 Session State is not UP"
+        logger.info("BGP v6 Session State is UP")
+
+    check_bgp_state()
     ping_req = snappi_api.control_action()
     ping_req.protocol.ipv4.ping.requests.add(src_name='IPv4 3', dst_ip="1.1.1.1")
 
