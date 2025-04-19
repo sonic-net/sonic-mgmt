@@ -36,6 +36,12 @@ all:
         vm_host_75:
         vm_host_76:
         vm_host_77:
+        vm_host_91:
+        vm_host_92:
+        vm_host_93:
+        vm_host_94:
+        vm_host_95:
+        vm_host_96:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
@@ -105,6 +111,12 @@ all:
         vms_28:
         vms_29:
         vms_76:
+        vms_91:
+        vms_92:
+        vms_93:
+        vms_94:
+        vms_95:
+        vms_96:
         vms_svc_1:
         vms_svc_3:
         vms_svc_5:
@@ -172,6 +184,12 @@ all:
         server_28:
         server_29:
         server_76:
+        server_91:
+        server_92:
+        server_93:
+        server_94:
+        server_95:
+        server_96:
         server_svc_1:
         server_svc_3:
         server_svc_5:
@@ -400,6 +418,30 @@ vm_host_77:
   hosts:
     STR3-ACS-SERV-77:
       ansible_host: 10.3.146.212
+vm_host_91:
+  hosts:
+    STR5-ACS-SERV-91:
+      ansible_host: 10.64.247.191
+vm_host_92:
+  hosts:
+    STR5-ACS-SERV-92:
+      ansible_host: 10.64.247.192
+vm_host_93:
+  hosts:
+    STR5-ACS-SERV-93:
+      ansible_host: 10.64.247.193
+vm_host_94:
+  hosts:
+    STR5-ACS-SERV-94:
+      ansible_host: 10.64.247.194
+vm_host_95:
+  hosts:
+    STR5-ACS-SERV-95:
+      ansible_host: 10.64.247.195
+vm_host_96:
+  hosts:
+    STR5-ACS-SERV-96:
+      ansible_host: 10.64.247.196
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -14342,6 +14384,36 @@ vms_76:
     VM76071:
       ansible_host: 172.16.154.81
 
+vms_91:
+  hosts:
+    VM91000:
+      ansible_host: 172.16.181.10
+
+vms_92:
+  hosts:
+    VM92000:
+      ansible_host: 172.16.182.10
+
+vms_93:
+  hosts:
+    VM93000:
+      ansible_host: 172.16.183.10
+
+vms_94:
+  hosts:
+    VM94000:
+      ansible_host: 172.16.184.10
+
+vms_95:
+  hosts:
+    VM95000:
+      ansible_host: 172.16.185.10
+
+vms_96:
+  hosts:
+    VM96000:
+      ansible_host: 172.16.186.10
+
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
   vars:
@@ -14708,7 +14780,42 @@ server_77:
     host_var_file: host_vars/STR3-ACS-SERV-77.yml
   children:
     vm_host_77:
-
+server_91:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-91.yml
+  children:
+    vm_host_91:
+    vms_91:
+server_92:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-92.yml
+  children:
+    vm_host_92:
+    vms_92:
+server_93:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-93.yml
+  children:
+    vm_host_93:
+    vms_93:
+server_94:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-94.yml
+  children:
+    vm_host_94:
+    vms_94:
+server_95:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-95.yml
+  children:
+    vm_host_95:
+    vms_95:
+server_96:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-96.yml
+  children:
+    vm_host_96:
+    vms_96:
 server_tk5_6:
   vars:
     host_var_file: host_vars/STRTK5-SERV-06.yml
