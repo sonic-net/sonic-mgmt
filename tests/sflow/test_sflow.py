@@ -18,6 +18,8 @@ from tests.common import reboot
 from tests.common import config_reload
 from tests.common.utilities import wait_until
 
+SFLOW_RATE_DEFAULT = 512
+
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
 ]
@@ -33,7 +35,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
 
     feature_status, _ = duthost.get_feature_status()
     if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
-        pytest.skip("sflow feature is not eanbled")
+        pytest.skip("sflow feature is not enabled")
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     var['router_mac'] = duthost.facts['router_mac']
@@ -55,13 +57,14 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     config_dut_ports(duthost, var['test_ports'][0:2], vlan=1000)
 
     for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
-        port = interfaces['members'][0]
-        var['sflow_ports'][port] = {}
-        var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost, port)
-        var['sflow_ports'][port]['port_index'] = get_port_index(duthost, port)
-        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][interfaces['members'][0]]
-        var['sflow_ports'][port]['sample_rate'] = 512
+        for port in interfaces['members']:
+            var['sflow_ports'][port] = {}
+            var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost, port)
+            var['sflow_ports'][port]['port_index'] = get_port_index(duthost, port)
+            var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][port]
+            var['sflow_ports'][port]['sample_rate'] = SFLOW_RATE_DEFAULT
     var['portmap'] = json.dumps(var['sflow_ports'])
+    logger.info(f'var = {var}')
 
     udp_port = 6343
     for i in range(0, 2, 1):
@@ -108,6 +111,28 @@ def config_dut_ports(duthost, ports, vlan):
     duthost.command('config save -y')
     config_reload(duthost, config_source='config_db', wait=120)
     time.sleep(5)
+
+# ----------------------------------------------------------------------------------$
+
+
+def get_default_agent(duthost):
+    # get_default_agent function is used to get the agent ip selected by the hsflowd daemon.
+    # hsflowd.auto is the auto generated file by hsflowd daemon
+    hsflowd_autogen_file = '/etc/hsflowd.auto'
+    result = duthost.shell(
+        r"docker exec -i sflow sh -c 'test -f {} && echo exist'".format(hsflowd_autogen_file),
+        module_ignore_errors=True)['stdout'].strip()
+    if result != 'exist':
+        pytest.fail("{} file does not exist.".format(hsflowd_autogen_file))
+
+    selected_agent = duthost.shell(
+        "docker exec sflow grep -w 'agentIP' {} | cut -d '=' -f 2".format(hsflowd_autogen_file))['stdout'].strip()
+    if not selected_agent:
+        pytest.fail('agent variable not found in the hsflowd.auto file')
+    else:
+        logger.info('Selected hsflowd agent is : {}'.format(selected_agent))
+
+    return selected_agent
 
 # ----------------------------------------------------------------------------------
 
@@ -174,7 +199,7 @@ def config_sflow_interfaces(duthost, intf, **kwargs):
                       (kwargs['status'], intf))
     if 'sample_rate' in kwargs:
         duthost.shell('config sflow interface sample-rate %s %s' %
-                      (intf, kwargs['sample_rate']))
+                      (intf, str(kwargs['sample_rate'])))
 
 # ----------------------------------------------------------------------------------
 
@@ -209,7 +234,7 @@ def verify_show_sflow(duthost, status, **kwargs):
                 collector), show_sflow), "Number of Sflow collectors should be %s" % len(collector)
             for col in collector:
                 assert re.search(r"Name:\s+%s\s+IP addr:\s%s\s+UDP port:\s%s" % (
-                    var[col]['name'], var[col]['ip_addr'], var[col]['port']), show_sflow),\
+                    var[col]['name'], var[col]['ip_addr'], var[col]['port']), show_sflow), \
                     "col %s is not properly Configured" % col
 
 # ----------------------------------------------------------------------------------
@@ -234,6 +259,7 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 @pytest.fixture
 def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(**kwargs):
+        logger.info(f'The enabled sflow interface is: {kwargs}')
         params = {'testbed_type': tbinfo['topo']['name'],
                   'router_mac': var['router_mac'],
                   'dst_port': var['ptf_test_indices'][2],
@@ -264,19 +290,63 @@ def sflowbase_config(duthosts, rand_one_dut_hostname):
     duthost.shell("config sflow polling-interval 20")
     for port in var['sflow_ports']:
         config_sflow_interfaces(
-            duthost, port, status='enable', sample_rate='512')
+            duthost, port, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
     time.sleep(2)
     verify_show_sflow(duthost, status='up', collector=[
                       'collector0', 'collector1'])
     for intf in var['sflow_ports']:
-        verify_sflow_interfaces(duthost, intf, 'up', 512)
+        verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
 
 
 # ----------------------------------------------------------------------------------
 
+@pytest.fixture
+def selected_portchannel_members(duthost, tbinfo):
+    """
+    Get the sflow interface
+
+    Example:
+        {
+            'PortChannel101': {'name': 'PortChannel101', 'members': ['Ethernet224', 'Ethernet228'], 'namespace': ''},
+            'PortChannel102': {'name': 'PortChannel102', 'members': ['Ethernet232', 'Ethernet236'], 'namespace': ''},
+            'PortChannel103': {'name': 'PortChannel103', 'members': ['Ethernet240', 'Ethernet244'], 'namespace': ''},
+            'PortChannel104': {'name': 'PortChannel104', 'members': ['Ethernet248', 'Ethernet252'], 'namespace': ''}
+        }
+
+    Returns:
+        [['Ethernet224', 'Ethernet228'],
+         ['Ethernet232', 'Ethernet236'],
+         ['Ethernet240', 'Ethernet244'],
+         ['Ethernet248', 'Ethernet252']]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    portchannel_interfaces_list = [details['members'] for details in mg_facts["minigraph_portchannels"].values()]
+    if len(portchannel_interfaces_list) < 2:
+        pytest.skip("The test requires at least two portchannels with multiple members")
+    logger.info(f'The portchannel interface is: {portchannel_interfaces_list}')
+
+    return portchannel_interfaces_list
+
+
+@pytest.fixture
+def restore_sflow_interface_status_and_rate(duthost, selected_portchannel_members):
+
+    yield
+
+    logger.info(f'The restored sflow interface is: {selected_portchannel_members}')
+    for sflow_intf_list in selected_portchannel_members:
+        for intf in sflow_intf_list:
+            config_sflow_interfaces(duthost, intf, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
+            var['sflow_ports'][intf]['sample_rate'] = SFLOW_RATE_DEFAULT
+
+    var['portmap'] = json.dumps(var['sflow_ports'])
+
+# ----------------------------------------------------------------------------------
+
+
 class TestSflowCollector():
     """
-    Test Sflow with 2 collectors , adding or removibg collector and verify collector samples
+    Test Sflow with 2 collectors , adding or removing collector and verify collector samples
     """
 
     def test_sflow_config(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
@@ -288,10 +358,10 @@ class TestSflowCollector():
         duthost.command("config sflow interface disable all")
         for port in var['sflow_ports']:
             config_sflow_interfaces(
-                duthost, port, status='enable', sample_rate='512')
+                duthost, port, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
         verify_show_sflow(duthost, status='up', collector=['collector0'])
         for intf in var['sflow_ports']:
-            verify_sflow_interfaces(duthost, intf, 'up', 512)
+            verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         time.sleep(5)
         partial_ptf_runner(
             enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
@@ -347,7 +417,7 @@ class TestSflowCollector():
             "config sflow collector add collector2 192.168.0.5 ", module_ignore_errors=True)
         assert "Only 2 collectors can be configured, please delete one" in out['stdout']
 
-        # remove first collector and check DUT sends samples to collector 2 woth non default port number (6344)
+        # remove first collector and check DUT sends samples to collector 2 with non default port number (6344)
         config_sflow_collector(duthost, 'collector0', 'del')
         verify_show_sflow(duthost, status='up', collector=['collector1'])
         time.sleep(10)
@@ -381,7 +451,7 @@ class TestSflowPolling():
             polling_int=0,
             active_collectors="['collector0','collector1']")
 
-    def testDifferntPollingInt(self, duthost, partial_ptf_runner):
+    def testDifferentPollingInt(self, duthost, partial_ptf_runner):
         duthost.shell("config sflow polling-interval 60")
 
         verify_show_sflow(duthost, status='up', polling_int=60)
@@ -395,63 +465,70 @@ class TestSflowPolling():
 class TestSflowInterface():
     """
     Enable / Disable Sflow interfaces and check the samples are received only from  the intended interface
-    Test interfaceswith different sampling rates
+    Test interfaces with different sampling rates
     """
 
-    def testIntfRemoval(self, sflowbase_config, duthost, partial_ptf_runner):
-        sflow_int = sorted(var['sflow_ports'].keys())
-        config_sflow_interfaces(duthost, sflow_int[0], status='disable')
-        config_sflow_interfaces(duthost, sflow_int[1], status='disable')
+    def testIntfRemoval(self, sflowbase_config, duthost, partial_ptf_runner, selected_portchannel_members,
+                        restore_sflow_interface_status_and_rate):
+        disabled_sflow_intf_list = selected_portchannel_members[0]
+        enabled_sflow_intf_list = [intf for intf_list in selected_portchannel_members[1:] for intf in intf_list]
 
-        verify_sflow_interfaces(duthost, sflow_int[0], 'down', 512)
-        verify_sflow_interfaces(duthost, sflow_int[1], 'down', 512)
-        enabled_intf = sflow_int[2:]
-        for intf in enabled_intf:
-            verify_sflow_interfaces(duthost, intf, 'up', 512)
+        # Disable sflow for the interface in first portchannel
+        for intf in disabled_sflow_intf_list:
+            config_sflow_interfaces(duthost, intf, status='disable')
+            verify_sflow_interfaces(duthost, intf, 'down', SFLOW_RATE_DEFAULT)
+
+        # Enable sflow for the interface in other portchannel
+        for intf in enabled_sflow_intf_list:
+            verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
+
+        # Traffic test for the enabled sflow interfaces
         partial_ptf_runner(
-            enabled_sflow_interfaces=enabled_intf,
+            enabled_sflow_interfaces=enabled_sflow_intf_list,
             active_collectors="['collector0','collector1']")
 
-    def testIntfSamplingRate(self, sflowbase_config, duthost, ptfhost, partial_ptf_runner):
+    def testIntfSamplingRate(self, sflowbase_config, duthost, ptfhost, partial_ptf_runner, selected_portchannel_members,
+                             restore_sflow_interface_status_and_rate):
+        first_portchannel_members = selected_portchannel_members[0]
+        second_portchannel_members = selected_portchannel_members[1]
 
-        # re-add ports with different sampling rate
-        sflow_int = sorted(var['sflow_ports'].keys())
-        test_intf = sflow_int[0]
-        test_intf1 = sflow_int[1]
-        config_sflow_interfaces(
-            duthost, test_intf, status='enable', sample_rate=256)
-        config_sflow_interfaces(duthost, test_intf1,
-                                status='enable', sample_rate=1024)
+        # Set sflow rate for interface in first portchannel
+        for intf in first_portchannel_members:
+            config_sflow_interfaces(duthost, intf, status='enable', sample_rate=256)
+            var['sflow_ports'][intf]['sample_rate'] = 256
 
-        var['sflow_ports'][test_intf]['sample_rate'] = 256
-        var['sflow_ports'][test_intf1]['sample_rate'] = 1024
+        # Set sflow rate for interface in second portchannel
+        for intf in second_portchannel_members:
+            config_sflow_interfaces(duthost, intf, status='enable', sample_rate=1024)
+            var['sflow_ports'][intf]['sample_rate'] = 1024
+
         var['portmap'] = json.dumps(var['sflow_ports'])
-        for intf in sflow_int:
-            verify_sflow_interfaces(
-                duthost, intf, 'up', var['sflow_ports'][intf]['sample_rate'])
+        enabled_sflow_intf_list = [intf for intf_list in selected_portchannel_members for intf in intf_list]
+        for intf in enabled_sflow_intf_list:
+            verify_sflow_interfaces(duthost, intf, 'up', var['sflow_ports'][intf]['sample_rate'])
+
+        # Traffic test for the enabled sflow interfaces
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         time.sleep(2)
         partial_ptf_runner(
-            enabled_sflow_interfaces=sflow_int,
+            enabled_sflow_interfaces=enabled_sflow_intf_list,
             active_collectors="['collector0','collector1']")
 
-    def testIntfChangeSamplingRate(self, sflowbase_config, duthost, partial_ptf_runner, ptfhost):
+        # Revert sflow rate for interface in first portchannel
+        for intf in first_portchannel_members:
+            config_sflow_interfaces(duthost, intf, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
+            var['sflow_ports'][intf]['sample_rate'] = SFLOW_RATE_DEFAULT
 
-        sflow_int = sorted(var['sflow_ports'].keys())
-        test_intf = sflow_int[0]
-        test_intf1 = sflow_int[1]
-        # revert the sampling rate to 512 on both ports
-        config_sflow_interfaces(duthost, test_intf, sample_rate=512)
-        config_sflow_interfaces(duthost, test_intf1, sample_rate=512)
-        var['sflow_ports'][test_intf]['sample_rate'] = 512
-        var['sflow_ports'][test_intf1]['sample_rate'] = 512
+        # Revert sflow rate for interface in second portchannel
+        for intf in second_portchannel_members:
+            config_sflow_interfaces(duthost, intf, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
+            var['sflow_ports'][intf]['sample_rate'] = SFLOW_RATE_DEFAULT
+
+        # Traffic test for the enabled sflow interfaces
         var['portmap'] = json.dumps(var['sflow_ports'])
-        for intf in sflow_int:
-            verify_sflow_interfaces(
-                duthost, intf, 'up', var['sflow_ports'][intf]['sample_rate'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
-            enabled_sflow_interfaces=sflow_int,
+            enabled_sflow_interfaces=enabled_sflow_intf_list,
             active_collectors="['collector0','collector1']")
 
 # ------------------------------------------------------------------------------
@@ -461,7 +538,7 @@ class TestSflowInterface():
 class TestAgentId():
     """
     Add loopback0 ip as the agent id and check the samples are received with intended agent-id.
-    Remove agent-ip and check whether samples are received with previously cofigured agent ip.
+    Remove agent-ip and check whether samples are received with previously configured agent ip.
     Add eth0 ip as the agent ip and check the samples are received with intended agent-id.
     """
 
@@ -479,10 +556,11 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost, status='up', agent_id='default')
         time.sleep(5)
+        agent_ip = get_default_agent(duthost)
         # Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
             polling_int=20,
-            agent_id=var['mgmt_ip'],
+            agent_id=agent_ip,
             active_collectors="['collector0','collector1']")
 
     def testAddAgent(self, duthost, partial_ptf_runner):
@@ -515,7 +593,7 @@ class TestReboot():
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
                 duthost, intf)
-            verify_sflow_interfaces(duthost, intf, 'up', 512)
+            verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
@@ -562,7 +640,7 @@ class TestReboot():
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
                 duthost, intf)
-            verify_sflow_interfaces(duthost, intf, 'up', 512)
+            verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
@@ -584,7 +662,7 @@ class TestReboot():
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
                 duthost, intf)
-            verify_sflow_interfaces(duthost, intf, 'up', 512)
+            verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         partial_ptf_runner(

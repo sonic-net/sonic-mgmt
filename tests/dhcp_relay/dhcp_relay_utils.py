@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
     """Validate there is route on DUT to each DHCP server
     """
+    output = duthost.shell("show ip bgp sum", module_ignore_errors=True)
+    logger.info("bgp state: {}".format(output["stdout"]))
+    output = duthost.shell("show int po", module_ignore_errors=True)
+    logger.info("portchannel state: {}".format(output["stdout"]))
     default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
@@ -39,7 +43,7 @@ def restart_dhcp_service(duthost):
     def _is_dhcp_relay_ready():
         output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhcp | awk \'{print $2}\'',
                                module_ignore_errors=True)
-        return (not output['rc'] and output['stderr'] == '' and
+        return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
 
-    pytest_assert(wait_until(60, 1, 0, _is_dhcp_relay_ready), "dhcp_relay is not ready after restarting")
+    pytest_assert(wait_until(60, 1, 10, _is_dhcp_relay_ready), "dhcp_relay is not ready after restarting")

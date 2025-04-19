@@ -1,5 +1,10 @@
 - debug: msg="{{ device_info[inventory_hostname] }}"
 
+- name: get connection graph if defined for dut (ignore any errors)
+  conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+  delegate_to: localhost
+  ignore_errors: true
+
 - name: set login to tacacs if tacacs is defined
   set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_pass={{ fanout_tacacs_sonic_password }}
   when: >
@@ -64,3 +69,11 @@
         sonic/fanout_sonic_202311.yml
       when: dry_run is not defined and incremental is not defined
   when: "'2023' in fanout_sonic_version['build_version']"
+
+- name: deploy SONiC fanout with image version 202405 or 202411
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run with 2024 images
+      include_tasks:
+        sonic/fanout_sonic_202405.yml
+      when: dry_run is not defined and incremental is not defined
+  when: "'2024' in fanout_sonic_version['build_version']"

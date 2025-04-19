@@ -1,7 +1,9 @@
 import pytest
 import ipaddress
 import logging
-
+import psutil
+import threading
+import time
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -36,7 +38,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
     return None
 
 
-def get_upstream_neigh(tb, device_neigh_metadata):
+def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     """
     Get the information for upstream neighbors present in the testbed
 
@@ -54,21 +56,19 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if neigh_type not in neigh_name:
             continue
-        if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
-            continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
         for intf, intf_cfg in list(interfaces.items()):
             if 'Port-Channel' in intf:
-                if 'ipv4' in intf_cfg:
+                if 'ipv4' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv4'].split('/')[0] in nexthops:
                     ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
-                if 'ipv6' in intf_cfg:
+                if 'ipv6' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv6'].split('/')[0].lower() in nexthops:
                     ipv6_addr = interfaces[intf]['ipv6'].split('/')[0]
             elif 'Ethernet' in intf:
-                if 'ipv4' in intf_cfg:
+                if 'ipv4' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv4'].split('/')[0] in nexthops:
                     ipv4_addr = interfaces[intf]['ipv4']
-                if 'ipv6' in intf_cfg:
+                if 'ipv6' in intf_cfg and af in intf_cfg and interfaces[intf]['ipv6'].split('/')[0].lower() in nexthops:
                     ipv6_addr = interfaces[intf]['ipv6']
             else:
                 continue
@@ -113,9 +113,10 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     pytest_assert(nexthops is not None, "Default route has not nexthops")
     logging.info("nexthops in app_db {}".format(nexthops))
 
-    upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata)
+    upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata, af, nexthops)
     pytest_assert(upstream_neigh is not None,
                   "No upstream neighbors in the testbed")
+    upstream_neigh = {k: v for k, v in upstream_neigh.items() if any(upstream_neigh.get(k))}
 
     if af == 'ipv4':
         upstream_neigh_ip = set([upstream_neigh[neigh][0]
@@ -187,7 +188,46 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
                       "use link local address {} for nexthop".format(nh[0]))
 
 
+def get_memory_usage(process_name):
+    total_memory_usage = 0
+    for proc in psutil.process_iter():
+        try:
+            if proc.name().lower() == process_name.lower():
+                mem_info = proc.memory_info()
+                total_memory_usage += mem_info.rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    logging.debug(f"get_memory_usage for process {process_name} returns {total_memory_usage} bytes")
+    return total_memory_usage
+
+
+def monitor_memory(process_name, initial_memory, interval):
+    while True:
+        memory_usage = get_memory_usage(process_name)
+        logging.info("Monitor Memory usage for {}: {} bytes".format(process_name, memory_usage))
+        if memory_usage >= 2 * initial_memory:
+            pytest_assert(False,
+                          "{} exceeded double the initial memory usage: {} bytes".format(process_name, initial_memory))
+        time.sleep(interval)
+
+
 def test_default_route_with_bgp_flap(duthosts, tbinfo):
+    # Define bmp related processes
+    bmp_processes = ['openbmpd', 'bgpd']
+
+    # Get the initial memory usage of the bmp_processes
+    initial_memory = {}
+    for process_name in bmp_processes:
+        initial_memory[process_name] = get_memory_usage(process_name)
+
+    # Create and start the memory monitoring threads
+    bmp_monitor_threads = []
+    for process_name in bmp_processes:
+        bmp_thread = threading.Thread(target=monitor_memory, args=(process_name, initial_memory[process_name], 30))
+        bmp_thread.start()
+        bmp_monitor_threads.append(bmp_thread)
+
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
@@ -233,6 +273,10 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         duthost.command("sudo config bgp startup all")
         if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")
+
+        # Quit bmp memory monitor thread
+        for bmp_thread in bmp_monitor_threads:
+            bmp_thread.join()
 
 
 def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):

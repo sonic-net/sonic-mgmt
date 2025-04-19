@@ -12,9 +12,9 @@ def parse_output(output_lines):
     res = {}
     for line in output_lines:
         fields = line.split()
-        if len(fields) != 2:
+        if len(fields) < 2:
             continue
-        res[fields[0]] = fields[1]
+        res[fields[0]] = line.replace(fields[0], '').strip()
     return res
 
 
@@ -32,6 +32,36 @@ def parse_eeprom(output_lines):
     return res
 
 
+def parse_eeprom_hexdump(data):
+    # Define a regular expression to capture all required data
+    regex = re.compile(
+        r"EEPROM hexdump for port (\S+)\n"  # Capture port name
+        r"(?:\s+)?"  # Match and skip intermediate lines
+        r"((?:Lower|Upper) page \S+|\S+ dump)\n"  # Capture full page type string
+        r"((?:\s+[0-9a-fA-F]{8}(?: [0-9a-fA-F]{2}){8} (?: [0-9a-fA-F]{2}){8} .*\n)+)"  # Capture hex data block
+    )
+    # Dictionary to store parsed results
+    parsed_data = {}
+
+    # Find all matches in the data
+    matches = regex.findall(data)
+    for port, page_type, hex_data in matches:
+        if port not in parsed_data:
+            parsed_data[port] = {}
+
+        # Parse hex data block into individual hex values
+        hex_lines = hex_data.splitlines()
+        hex_values = [
+            value
+            for line in hex_lines
+            for value in line[9:56].split()  # Extract hex bytes from columns 9-56
+        ]
+
+        parsed_data[port][page_type] = hex_values
+
+    return parsed_data
+
+
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
     dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
@@ -47,15 +77,14 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
     return portmap, dev_conn
 
 
-def validate_transceiver_lpmode(output):
-    lines = output.strip().split('\n')
-    # Check if the header is present
-    if lines[0].replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
-        logging.error("Invalid output format: Header missing")
+def validate_transceiver_lpmode(sfp_lpmode, port):
+    lpmode = sfp_lpmode.get(port)
+    if lpmode is None:
+        logging.error(f"Interface {port} does not present in the show command")
         return False
-    for line in lines[2:]:
-        port, lpmode = line.strip().split()
-        if lpmode not in ["Off", "On"]:
-            logging.error("Invalid low-power mode {} for port {}".format(lpmode, port))
-            return False
+
+    if lpmode not in ["Off", "On"]:
+        logging.error("Invalid low-power mode {} for port {}".format(lpmode, port))
+        return False
+
     return True

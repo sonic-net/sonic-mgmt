@@ -341,7 +341,8 @@ def validate_dhcp_server_pkts(
     exp_msg_type,
     exp_net_mask,
     exp_gateway,
-    exp_lease_time=DHCP_DEFAULT_LEASE_TIME
+    exp_lease_time=DHCP_DEFAULT_LEASE_TIME,
+    options=None
 ):
     def is_expected_pkt(pkt):
         logging.info("validate_dhcp_server_pkts: %s" % repr(pkt))
@@ -358,6 +359,11 @@ def validate_dhcp_server_pkts(
             return False
         elif not match_expected_dhcp_options(pkt_dhcp_options, "message-type", exp_msg_type):
             return False
+        elif options:
+            pkt_dhcp_options = pkt[scapy.DHCP].options
+            for option_id, expected_value in options.items():
+                if not match_expected_dhcp_options(pkt_dhcp_options, int(option_id), expected_value):
+                    return False
         return True
     pytest_assert(len([pkt for pkt in pkts if is_expected_pkt(pkt)]) == 1,
                   "Didn't got dhcp packet with expected ip and xid")
@@ -405,7 +411,8 @@ def verify_discover_and_request_then_release(
         net_mask,
         refresh_fdb_ptf_port=None,
         exp_lease_time=DHCP_DEFAULT_LEASE_TIME,
-        release_needed=True
+        release_needed=True,
+        customized_options=None
 ):
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_mac_port_index).decode('utf-8')
     pkts_validator = validate_dhcp_server_pkts if expected_assigned_ip else validate_no_dhcp_server_pkts
@@ -415,7 +422,8 @@ def verify_discover_and_request_then_release(
         DHCP_MESSAGE_TYPE_OFFER_NUM,
         net_mask,
         exp_gateway,
-        exp_lease_time
+        exp_lease_time,
+        customized_options
     ] if expected_assigned_ip else [test_xid]
     discover_pkt = create_dhcp_client_packet(
         src_mac=client_mac,

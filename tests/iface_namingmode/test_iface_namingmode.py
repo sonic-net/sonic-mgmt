@@ -7,10 +7,10 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import redis_get_keys
+from tests.common.helpers.sonic_db import SonicDbCli
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', "t1-multi-asic")
 ]
 
 logger = logging.getLogger(__name__)
@@ -20,10 +20,14 @@ PORT_TOGGLE_TIMEOUT = 30
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
 
-def skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip('CLI command not supported')
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    if loganalyzer:
+        ignore_regex_list = [
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
+        ]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -41,7 +45,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=False)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
     up_ports = list(minigraph_facts['minigraph_ports'].keys())
     default_interfaces = list(port_alias_facts['port_name_map'].keys())
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
@@ -317,7 +321,7 @@ class TestShowInterfaces():
             if regex_int.match(line):
                 interfaces.append(regex_int.match(line).group(0))
 
-        assert(len(interfaces) > 0)
+        assert (len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
@@ -392,9 +396,9 @@ def test_show_pfc_counters(setup, setup_config_mode):
     per the configured naming mode
     """
     dutHostGuest, mode, ifmode = setup_config_mode
-    pfc_rx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters | sed -n "/Port Rx/,/^$/p"'
+    pfc_rx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters -d all | sed -n "/Port Rx/,/^$/p"'
                                 .format(ifmode))['stdout']
-    pfc_tx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters | sed -n "/Port Tx/,/^$/p"'
+    pfc_tx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters -d all | sed -n "/Port Tx/,/^$/p"'
                                 .format(ifmode))['stdout']
     logger.info('pfc_rx:\n{}'.format(pfc_rx))
     logger.info('pfc_tx:\n{}'.format(pfc_tx))
@@ -420,7 +424,7 @@ class TestShowPriorityGroup():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
+        pass
 
     def test_show_priority_group_persistent_watermark_headroom(self, setup, setup_config_mode):
         """
@@ -493,65 +497,65 @@ class TestShowPriorityGroup():
 
 class TestShowQueue():
 
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        skip_test_for_multi_asic(
-            duthosts, enum_rand_one_per_hwsku_frontend_hostname)
-
     def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
         """
-        dutHostGuest, mode, ifmode = setup_config_mode
-        queue_counter = dutHostGuest.shell(
-            r'SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC\|ALL"'.format(ifmode))['stdout']
-        logger.info('queue_counter:\n{}'.format(queue_counter))
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        buffer_queue_keys = redis_get_keys(duthost, 'CONFIG_DB', 'BUFFER_QUEUE|*')
-        interfaces = set()
+        for asic in duthost.asics:
+            dutHostGuest, mode, ifmode = setup_config_mode
+            queue_counter = dutHostGuest.shell(
+                r'SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC\|ALL"'.format(
+                    ifmode, asic.cli_ns_option
+                ))['stdout']
+            logger.info('queue_counter:\n{}'.format(queue_counter))
 
-        for key in buffer_queue_keys:
-            try:
-                fields = key.split("|")
-                # The format of BUFFER_QUEUE entries on VOQ chassis is
-                #   'BUFFER_QUEUE|<host name>|<asic-name>|Ethernet32|0-2'
-                # where 'host name' could be any host in the chassis, including those from other
-                # cards. This test only cares about local interfaces, so we can filter out the rest
-                if duthost.facts['switch_type'] == 'voq':
-                    hostname = fields[1]
-                    if hostname != duthost.hostname:
+            configDbCli = SonicDbCli(asic, "CONFIG_DB")
+            buffer_queue_keys = configDbCli.get_keys("BUFFER_QUEUE|*", raise_error_when_not_found=False)
+            interfaces = set()
+
+            for key in buffer_queue_keys:
+                try:
+                    fields = key.split("|")
+                    # The format of BUFFER_QUEUE entries on VOQ chassis is
+                    #   'BUFFER_QUEUE|<host name>|<asic-name>|Ethernet32|0-2'
+                    # where 'host name' could be any host in the chassis, including those from other
+                    # cards. This test only cares about local interfaces, so we can filter out the rest
+                    if duthost.facts['switch_type'] == 'voq':
+                        hostname = fields[1]
+                        if hostname != duthost.hostname:
+                            continue
+                    # The interface name is always the last but one field in the BUFFER_QUEUE entry key
+                    interfaces.add(fields[-2])
+                except IndexError:
+                    pass
+
+            # For the test to be valid, we should have at least one interface selected
+            assert (len(interfaces) > 0)
+
+            intfsChecked = 0
+            if mode == 'alias':
+                for intf in interfaces:
+                    alias = setup['port_name_map'][intf]
+                    assert (re.search(QUEUE_COUNTERS_RE_FMT.format(alias),
+                                      queue_counter) is not None) \
+                        and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_alias_map'][alias]),
+                             queue_counter) is None)
+                    intfsChecked += 1
+            elif mode == 'default':
+                for intf in interfaces:
+                    if intf not in setup['port_name_map']:
                         continue
-                # The interface name is always the last but one field in the BUFFER_QUEUE entry key
-                interfaces.add(fields[-2])
-            except IndexError:
-                pass
+                    assert (re.search(QUEUE_COUNTERS_RE_FMT.format(intf),
+                                      queue_counter) is not None) \
+                        and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_name_map'][intf]),
+                             queue_counter) is None)
+                    intfsChecked += 1
 
-        # For the test to be valid, we should have at least one interface selected
-        assert (len(interfaces) > 0)
-
-        intfsChecked = 0
-        if mode == 'alias':
-            for intf in interfaces:
-                alias = setup['port_name_map'][intf]
-                assert (re.search(QUEUE_COUNTERS_RE_FMT.format(alias),
-                                  queue_counter) is not None) \
-                    and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_alias_map'][alias]),
-                                   queue_counter) is None)
-                intfsChecked += 1
-        elif mode == 'default':
-            for intf in interfaces:
-                if intf not in setup['port_name_map']:
-                    continue
-                assert (re.search(QUEUE_COUNTERS_RE_FMT.format(intf),
-                                  queue_counter) is not None) \
-                    and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_name_map'][intf]),
-                                   queue_counter) is None)
-                intfsChecked += 1
-
-        # At least one interface should have been checked to have a valid result
-        assert(intfsChecked > 0)
+            # At least one interface should have been checked to have a valid result
+            assert (intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -560,8 +564,13 @@ class TestShowQueue():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
+
         queue_counter_intf = dutHostGuest.shell(
-            r'SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC\|ALL"'.format(ifmode, test_intf))
+            r'SONIC_CLI_IFACE_MODE={} sudo show queue counters {} {} | grep "UC\|MC\|ALL"'.format(
+                ifmode,
+                test_intf,
+                sample_intf["cli_ns_option"])
+            )
         logger.info('queue_counter_intf:\n{}'.format(queue_counter_intf))
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
@@ -725,8 +734,22 @@ class TestConfigInterface():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, tbinfo):
-        if tbinfo['topo']['type'] not in ['t2', 't1']:
+        if tbinfo['topo']['type'] not in ['t1']:
             pytest.skip('Unsupported topology')
+
+    def check_speed_change(self, duthost, asic_index, interface, change_speed):
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    interface)
+        speed = duthost.shell('SONIC_CLI_IFACE_MODE={}'.format(db_cmd))['stdout']
+        hwsku = duthost.facts['hwsku']
+        if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
+            if (
+                (int(speed) == 400000 and int(change_speed) <= 100000) or
+                (int(speed) == 100000 and int(change_speed) > 200000)
+            ):
+                return False
+        return True
 
     @pytest.fixture(scope='class', autouse=True)
     def reset_config_interface(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, sample_intf):
@@ -745,6 +768,7 @@ class TestConfigInterface():
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
         cli_ns_option = sample_intf['cli_ns_option']
+        asic_index = sample_intf['asic_index']
 
         yield
 
@@ -752,7 +776,8 @@ class TestConfigInterface():
             duthost.shell('config interface {} ip add {} {}'.format(cli_ns_option, interface, interface_ip))
 
         duthost.shell('config interface {} startup {}'.format(cli_ns_option, interface))
-        duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
+        if self.check_speed_change(duthost, asic_index, interface, native_speed):
+            duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
 
     def test_config_interface_ip(self, setup_config_mode, sample_intf):
         """
@@ -816,6 +841,15 @@ class TestConfigInterface():
 
             return admin_state == expected_state
 
+        def _lldp_exists(expected=True):
+            show_lldp_neighbor = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'.format(ifmode, test_intf)
+            )
+            logger.info('show_lldp_neighbor:\n{}'.format(show_lldp_neighbor['stdout']))
+            line = show_lldp_neighbor['stdout']
+            exists = bool(line)
+            return exists is expected
+
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} shutdown {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
@@ -829,6 +863,10 @@ class TestConfigInterface():
             pytest.fail()
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                       "Interface {} should be admin up".format(test_intf))
+
+        # Make sure LLDP neighbor is repopulated
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
+                      "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
                                     duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -852,16 +890,22 @@ class TestConfigInterface():
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
+        if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
+            pytest.skip(
+                "Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
+                    currently does not support\
+                    speed change from 100G to 400G and vice versa on runtime"
+            )
+
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    interface)
         out = dutHostGuest.shell(
             'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
             .format(ifmode, cli_ns_option, test_intf, configure_speed))
 
         if out['rc'] != 0:
             pytest.fail()
-
-        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
-            .format(duthost.asic_instance(asic_index).sonic_db_cli,
-                    interface)
 
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
@@ -916,22 +960,31 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
     if tbinfo['topo']['type'] not in ['t1', 't2']:
         pytest.skip('Unsupported topology')
 
-    skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
-
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-    show_int_neighbor = dutHostGuest.shell(
-        'SONIC_CLI_IFACE_MODE={} show interfaces neighbor expected'.format(ifmode))['stdout']
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    show_int_neighbor = {}
+
+    for asic in duthost.asics:
+        # In minigraph_neighbors, if there is no namespace it will have namespace: ''. Therefore we default to ''
+        asic_namespace = asic.namespace if asic.namespace else ''
+        show_int_neighbor[asic_namespace] = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show interfaces neighbor expected {}'.format(ifmode, asic.cli_ns_option))['stdout']
+
     logger.info('show_int_neighbor:\n{}'.format(show_int_neighbor))
 
     for key, value in list(minigraph_neighbors.items()):
         if 'server' not in value['name'].lower():
             if mode == 'alias':
                 assert re.search(r'{}\s+{}'
-                                 .format(setup['port_name_map'][key], value['name']), show_int_neighbor) is not None
+                                 .format(setup['port_name_map'][key], value['name']),
+                                 show_int_neighbor[value["namespace"]]) is not None
             elif mode == 'default':
-                assert re.search(r'{}\s+{}'.format(key, value['name']), show_int_neighbor) is not None
+                logger.info("key value name: {} - {}".format(key, value['name']))
+                assert re.search(r'{}\s+{}'.format(key, value['name']),
+                                 show_int_neighbor[value["namespace"]]) is not None
 
 
 class TestNeighbors():

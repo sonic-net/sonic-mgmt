@@ -20,7 +20,7 @@ from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports, parse_intf_status
 from bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_vm_name_list, get_bgp_neighbor_ip, \
     check_route_install_status, validate_route_propagate_status, operate_orchagent, get_t2_ptf_intfs, \
     get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
@@ -63,7 +63,7 @@ STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.004
 BGP_ROUTE_FLAP_TIMES = 5
-UPDATE_WITHDRAW_THRESHOLD = 2  # Use the threshold value defined in test_bgp_update_timer.py
+UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
 @pytest.fixture(scope="module")
@@ -114,7 +114,10 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
     if loganalyzer:
         ignoreRegex = [
             ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
-            "\\(.* minutes\\).*"
+            "\\(.* minutes\\).*",
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
+            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -285,6 +288,22 @@ def get_cfg_facts(duthost):
     return cfg_facts
 
 
+def check_interface_status(duthost, expected_oper='up'):
+    cfg_facts = duthost.get_running_config_facts()
+    up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == expected_oper]
+    output = duthost.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    for intf in up_ports:
+        if intf not in intf_status:
+            logging.info("Missing status for interface %s" % intf)
+            return False
+        if intf_status[intf]["oper"] != expected_oper:
+            logging.info("Oper status of interface {} is {}, expected {}".format(intf, intf_status[intf]["oper"],
+                                                                                 expected_oper))
+            return False
+    return True
+
+
 def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
     """
     Get ports that connects with T0 VM
@@ -304,6 +323,22 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     """
     cfg_t1 = deepcopy(cfg_facts)
     cfg_t1.pop('config_port_indices', None)
+    for loopback in cfg_t1['LOOPBACK_INTERFACE']:
+        loopback_items = loopback.split('|')
+        if len(loopback_items) == 2 and loopback_items[0] == 'Loopback0':
+            ipaddr = ipaddress.ip_address(loopback_items[1].split('/')[0])
+            if isinstance(ipaddr, ipaddress.IPv4Address):
+                router_id = str(ipaddr)
+                break
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    if 'BGP_GLOBALS' not in cfg_t1:
+        cfg_t1['BGP_GLOBALS'] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF] = {}
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['router_id'] = router_id
+        cfg_t1['BGP_GLOBALS'][USER_DEFINED_VRF]['local_asn'] = dut_asn
+    for bgp_neighbor in cfg_t1['BGP_NEIGHBOR']:
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
+        cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
     port_list = get_port_connected_with_vm(duthost, nbrhosts)
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -316,6 +351,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
     config_reload(duthost, safe_reload=True)
+    wait_until(120, 10, 0, check_interface_status, duthost)
 
 
 def setup_vrf(duthost, nbrhosts, tbinfo):
@@ -341,7 +377,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90)
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -603,8 +639,8 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
     Do reboot and wait critical services and ports up
     """
     with allure.step("Do {}".format(reboot_type)):
-        reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None,
-               wait_warmboot_finalizer=True)
+        reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True,
+               wait_for_bgp=True, wait_warmboot_finalizer=True)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "All critical services should be fully started!")
         pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
@@ -625,7 +661,8 @@ def param_reboot(request, duthost, localhost):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True)
+        wait_until(120, 10, 0, check_interface_status, duthost)
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
 
@@ -798,6 +835,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
                 config_reload(duthost, safe_reload=True)
+                wait_until(120, 10, 0, check_interface_status, duthost)
 
 
 def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,
@@ -1008,7 +1046,7 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
                 ptf_interfaces = get_t2_ptf_intfs(mg_facts)
                 retry_call(validate_bulk_traffic,
                            fargs=[tcpdump_helper, ptfadapter, traffic_data_ipv4_forward + traffic_data_ipv6_forward,
-                                  router_mac, ptf_interfaces, ptf_interfaces], tries=3, delay=2)
+                                  router_mac, ptf_interfaces, ptf_interfaces], tries=10, delay=2)
 
             with allure.step("Suspend orchagent process to simulate a route install delay"):
                 operate_orchagent(duthost)

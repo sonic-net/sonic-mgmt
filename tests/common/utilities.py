@@ -19,6 +19,7 @@ import copy
 import tempfile
 import uuid
 import paramiko
+import asyncio
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
@@ -167,6 +168,55 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
+async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    @summary: Same as wait_until but async
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True. If the condition function raises an
+        exception, log the error and keep waiting and polling.
+    """
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+                 (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        await asyncio.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        logger.debug("Time elapsed: %f seconds" % elapsed_time)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
+            check_result = False
+
+        if check_result:
+            logger.debug("%s is True, exit early with True" % condition.__name__)
+            return True
+        else:
+            logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
+            await asyncio.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        return False
+
+
 def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
     """
     @summary: Wait until tcp connection is ready or timeout
@@ -181,8 +231,14 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res or res.get('failed') is True:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
-                    (str(server_hostname), listening_port, timeout_s))
+        logger.warning(
+            "Failed to establish TCP connection to %s:%d, timeout=%d" % (
+                str(server_hostname),
+                listening_port,
+                timeout_s,
+            )
+        )
+
         return False
     return True
 
@@ -662,6 +718,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -1029,11 +1090,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1041,10 +1102,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1315,9 +1378,11 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
-    # Cleanup golden config because some other test or device recover may reload config with golden config
-    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+    try:
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    finally:
+        # Cleanup golden config because some other test or device recover may reload config with golden config
+        duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):
@@ -1358,3 +1423,72 @@ def run_show_features(duthosts, enum_dut_hostname):
                                     .format(cmd_key), module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))
+
+
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """Kills a process in the specified container by its pid.
+
+    Args:
+        duthost: Hostname of DUT.
+        container_name: A string shows container name.
+        program_name: A string shows process name.
+        program_pid: An integer represents the PID of a process.
+
+    Returns:
+        None.
+    """
+    if "20191130" in duthost.os_version:
+        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
+    else:
+        # If we used the command `supervisorctl stop <proc_name>' to stop process,
+        # Supervisord will treat the exit code of process as expected and it will not generate
+        # alerting message.
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' or 'supervisorctl stop' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
+def get_duts_from_host_pattern(host_pattern):
+    if ';' in host_pattern:
+        duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        duts = host_pattern.split(',')
+    return duts
+
+
+def get_iface_ip(mg_facts, ifacename):
+    for loopback in mg_facts['minigraph_lo_interfaces']:
+        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+            return loopback['addr']
+    return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
+
+
+def cleanup_prev_images(duthost):
+    logger.info("Cleaning up previously installed images on DUT")
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
+    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)

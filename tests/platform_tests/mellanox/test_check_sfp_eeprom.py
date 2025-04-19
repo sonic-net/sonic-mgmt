@@ -2,7 +2,8 @@ import pytest
 import allure
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
-from .util import parse_sfp_eeprom_infos, check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path, get_pciconf0_path
+from .util import check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path, get_pciconf0_path
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
@@ -54,10 +55,11 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
 
 
 @pytest.mark.parametrize("show_eeprom_cmd", SHOW_EEPOMR_CMDS)
-def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map):
+def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map,
+                                          port_list_with_flat_memory):
     """This test case is to check result of  transceiver eeprom with option -d is correct or not for every interface .
     It will do below checks for every available interface
-        1. Check if all expected keys exist in the the result
+        1. Check if all expected keys exist in the result
         2. When cable support dom, check the corresponding keys related to monitor exist,
            and the the corresponding value has correct format
     """
@@ -76,5 +78,6 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     if sfp_info_dict[intf] == "SFP EEPROM Not detected":
                         allure.step("{}: SFP EEPROM Not detected".format(intf))
                         continue
+                    is_flat_memory = True if intf in port_list_with_flat_memory[duthost.hostname] else False
                     check_sfp_eeprom_info(
-                        duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd)
+                        duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)

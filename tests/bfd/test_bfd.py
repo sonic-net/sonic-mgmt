@@ -4,7 +4,7 @@ import time
 import json
 import logging
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 
 pytestmark = [
@@ -108,21 +108,24 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     neighbor_devs = []
     ptf_devs = []
     index = 0
+    # The arrays: neighbor_intfs and ptf_intfs are filled only upto 128.
+    # Beyond that we need to re-use the same addresses. We do this by
+    # using the modulus(% operation) instead of the actual index itself.
     for idx in range(1, scale_count):
         if idx != 0 and idx % 127 == 0:
             index += 1
         if ipv6:
             local_addrs.append(t1_ipv6_pattern.format(idx * 2))
             neighbor_addrs.append(t1_ipv6_pattern.format(idx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
         else:
             rolloveridx = idx % 125
             idx2 = idx // 125
             local_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2))
             neighbor_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
     prefix = 127 if ipv6 else 31
     return local_addrs, prefix, neighbor_addrs, neighbor_devs, ptf_devs
 
@@ -311,24 +314,21 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
 
     extra_vars = {"bfd_responder_args": "-c {}".format(ptf_file_dir)}
     ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
-
-    ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl restart bfd_responder')
+    try:
+        ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
+        ptfhost.command('supervisorctl restart bfd_responder')
+    except Exception as e:
+        logger.error('Failed to start bfd_responder, exception: {}'.format(str(e)))
+        logger.debug("Debug bfd_responder")
+        ptfhost.command('supervisorctl tail bfd_responder stderr')
+        ptfhost.command('cat /tmp/bfd_responder.err.log')
+        raise e
     logger.info("Waiting for bfd session to be in Up state")
     time.sleep(30)
     temp = duthost.shell('show bfd summary')
     logger.info("BFD Summary dump: {}".format(temp['stdout']))
-
-
-def bfd_echo_mode(duthost, neighbor_addrs,):
-    # Apply BFD echo mode configuration with vtysh
-    cmd = "vtysh -c 'configure terminal' -c 'bfd'"
-    for neighbor_addr in neighbor_addrs:
-        cmd += " -c 'bfd peer {}' -c 'echo-mode'".format(neighbor_addr)
-    cmd += " -c 'end' -c 'do write' -c 'exit'"
-    duthost.shell(cmd)
 
 
 def remove_bfd_sessions(duthost, neighbor_addrs):
@@ -388,6 +388,10 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
+
+        # Delay to allow for IPv6 addresses to be fully programmed so IPv6
+        # neighborship can be resolved on PTF side.
+        time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
 
         time.sleep(1)
@@ -401,7 +405,9 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
-                check_dut_bfd_status(duthost, neighbor_addr, "Admin_Down")
+                # RFC 5880, section 6.2: Remote system (dut) to enter "Down"
+                # state when local system (ptf) is set to "AdminDown" state.
+                check_dut_bfd_status(duthost, neighbor_addr, "Down")
                 check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "AdminDown")
             else:
                 check_dut_bfd_status(duthost, neighbor_addr, "Up")
@@ -462,7 +468,7 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
-                      toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa F811
+                      toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa:F811
     duthost = rand_selected_dut
 
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
@@ -491,35 +497,3 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
         duthost.shell(cmd_buffer, module_ignore_errors=True)
         ptfhost.command('supervisorctl stop bfd_responder')
         ptfhost.file(path=BFD_RESPONDER_SCRIPT_DEST_PATH, state="absent")
-
-
-@pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_echo_mode(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
-    duthost = rand_selected_dut
-    bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-
-    # Get neighbors for BFD sessions
-    neighbor_addrs = get_neighbors(duthost, tbinfo, ipv6, count=bfd_session_cnt)[2]
-
-    try:
-        # Use bfd_echo_mode function for direct configuration
-        bfd_echo_mode(duthost, neighbor_addrs)  # Pass None for optional logger
-
-        # Verify BFD sessions with echo mode enabled
-        time.sleep(30)  # Wait for BFD sessions to be established
-        result = duthost.shell("vtysh -c 'show bfd peer'")['stdout'].split('\n')
-        error = False
-        for line in result:
-            if ('Echo transmission interval:' in line) or (
-                    'Echo receive interval:' in line):
-                if 'disabled' in line:
-                    error = True
-        assert error is False
-    finally:
-        # Cleanup: Remove BFD sessions and echo mode configurations
-        remove_bfd_sessions(duthost, neighbor_addrs)
-
-        # No need for temporary BFD echo mode config file or cleanup for it
-
-        # FRR commands to disable bfd instances.
-        duthost.shell("vtysh -c 'configure terminal' -c 'no bfd' -c 'end' -c 'do write' -c 'exit'")

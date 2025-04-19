@@ -4,16 +4,19 @@ import time
 import pytest
 import os
 import ptf.testutils as testutils
+from scapy.layers.l2 import Ether
+from scapy.contrib.mpls import MPLS
+from scapy.layers.l2 import Dot1Q
+from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest
+from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver  # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
-                                    DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
+    DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
 
-from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES    # noqa: F401
+from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES, STABILITY_BUFFER  # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -41,6 +44,8 @@ def build_candidate_ports(duthost, tbinfo, ns):
         candidate_neigh_name = 'MX'
     elif tbinfo['topo']['type'] == 't1':
         candidate_neigh_name = 'T0'
+    elif tbinfo['topo']['type'] == 'm1':
+        candidate_neigh_name = 'M0'
     else:
         candidate_neigh_name = 'T1'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -68,16 +73,24 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
     """
     config_vars = {}
     config_vars['acl_table_name'] = EVERFLOW_TABLE_NAME[ip_ver]
-    config_vars['rules'] = [{'qualifiers': {'input_interface': ','.join(list(candidate_ports.keys()))}}]
+    qualifiers = {"input_interface": ','.join(list(candidate_ports.keys()))}
+    # During our tests, we observed a lot of ICMPv6 neighbor solicitation packets that were sent to the DUT
+    # trying to resolve link-local IPv6 addresses. All of these packets were mirrored by the DUT. This overwhelmed
+    # the PTF container, causing the kernel to drop some packets. As a result, the IPv6 tests sometimes failed.
+    # To prevent this issue from happening, we restrict Everflow IPv6 mirroring to TCP packets.
+    if ip_ver == "ipv6":
+        qualifiers["ip"] = {"protocol": 6}  # Only mirror TCP packets
+    config_vars['rules'] = [{'qualifiers': qualifiers}]
     return config_vars
 
 
 @pytest.fixture(scope='module')
-def apply_mirror_session(setup_info):       # noqa F811
+def apply_mirror_session(setup_info, erspan_ip_ver):  # noqa F811
     mirror_session_info = BaseEverflowTest.mirror_session_info(
         EVERFLOW_SESSION_NAME, setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"])
     logger.info("Applying mirror session to DUT")
-    BaseEverflowTest.apply_mirror_config(setup_info[UP_STREAM]['everflow_dut'], mirror_session_info)
+    BaseEverflowTest.apply_mirror_config(setup_info[UP_STREAM]['everflow_dut'],
+                                         mirror_session_info, erspan_ip_ver=erspan_ip_ver)
     time.sleep(10)
     yield mirror_session_info
 
@@ -86,26 +99,29 @@ def apply_mirror_session(setup_info):       # noqa F811
 
 
 @pytest.fixture(scope='module')
-def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session):       # noqa F811
+def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session, erspan_ip_ver):  # noqa F811
     """
     Setup the route for mirror session destination ip and update monitor port list.
     Remove the route as part of cleanup.
     """
+    ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
     namespace = setup_info[UP_STREAM]['remote_namespace']
     tx_port = setup_info[UP_STREAM]["dest_port"][0]
     dest_port_ptf_id_list = [setup_info[UP_STREAM]["dest_port_ptf_id"][0]]
     remote_dut = setup_info[UP_STREAM]['remote_dut']
     remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
-        "vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"", namespace))
-    peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
-    everflow_utils.add_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
+        f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
+    peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
+    session_prefixes = apply_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+        else apply_mirror_session["session_prefixes_ipv6"]
+    everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
     time.sleep(5)
 
     yield (apply_mirror_session, BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list))
 
-    everflow_utils.remove_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
+    everflow_utils.remove_route(remote_dut, session_prefixes[0], peer_ip, namespace)
     remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
-        "vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"", namespace))
+        f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"no redistribute static\"", namespace))
 
 
 @pytest.fixture(scope='module', params=['ipv4', 'ipv6'])
@@ -114,7 +130,7 @@ def ip_ver(request):
 
 
 @pytest.fixture(scope='module')
-def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):     # noqa F811
+def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):  # noqa F811
     """
     Apply ACL rule for matching input_ports
     """
@@ -138,7 +154,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
                                                    dest=os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE))
     logger.info("Applying acl rule config to DUT")
     command = "acl-loader update full {} --table_name {} --session_name {}" \
-              .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE), table_name, EVERFLOW_SESSION_NAME)
+        .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE), table_name, EVERFLOW_SESSION_NAME)
     setup_info[UP_STREAM]['everflow_dut'].shell(cmd=command)
     ret = {
         "candidate_ports": candidate_ports,
@@ -146,6 +162,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
         "mirror_session_info": mirror_session_info,
         "monitor_port_ptf_ids": monitor_port_ptf_ids
     }
+    time.sleep(2)
 
     yield ret
 
@@ -153,8 +170,9 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     BaseEverflowTest.remove_acl_rule_config(setup_info[UP_STREAM]['everflow_dut'], table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, ip_ver):
-    if ip_ver == 'ipv4':
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, pkt_ip_ver,
+                            erspan_ip_ver=4):  # noqa F811
+    if pkt_ip_ver == 'ipv4':
         packet = testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
     else:
         packet = testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
@@ -167,7 +185,7 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
         dec_ttl = 2
 
     exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup,
-                                                             duthost, UP_STREAM, packet, dec_ttl)
+                                                             duthost, UP_STREAM, packet, dec_ttl, erspan_ip_ver)
     return packet, exp_packet
 
 
@@ -180,20 +198,17 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,                 # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver,        # noqa F811
-                                skip_traffic_test):                                             # noqa F811
+def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
     everflow_config = apply_acl_rule
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'],
                                                  everflow_config['mirror_session_info'],
-                                                 setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver)
+                                                 setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver,
+                                                 erspan_ip_ver)
     uplink_ports = everflow_config["monitor_port_ptf_ids"]
-
-    if skip_traffic_test:
-        return
 
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
     for port, ptf_idx in list(everflow_config['candidate_ports'].items()):
@@ -204,3 +219,56 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     for port, ptf_idx in list(everflow_config['unselected_ports'].items()):
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
+
+
+def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
+    """Verify that mirrored packets do not contain VLAN tags or unexpected fields."""
+    everflow_config = apply_acl_rule
+    packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'],
+                                                 everflow_config['mirror_session_info'],
+                                                 setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver,
+                                                 erspan_ip_ver)
+    uplink_ports = everflow_config["monitor_port_ptf_ids"]
+
+    # Send test packet
+    candidate_port, ptf_idx = list(everflow_config['candidate_ports'].items())[0]
+    logger.info(f"Sending test packet from candidate port {candidate_port}")
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, pkt=packet, port_id=ptf_idx)
+
+    # Capture mirrored packet
+    logger.info("Capturing mirrored packet to verify format")
+    res = testutils.verify_packet_any_port(ptfadapter,
+                                           pkt=exp_packet,
+                                           ports=uplink_ports,
+                                           timeout=5)
+
+    # Skip traffic test if the return value is true.
+    # See tests.conftest.pytest_runtest_call and tests.common.plugins.ptfadapter.dummy_testutils.wrapped
+    if res is True:
+        logger.info("Skipped. Ptf.testutils is set to DummyTestUtils to skip traffic test.")
+        return
+
+    port_idx, raw_captured_packet = res
+    # Ensure packet is not empty
+    assert raw_captured_packet, "Captured packet is empty or None"
+
+    captured_packet = Ether(raw_captured_packet)
+
+    # Debugging: Print packet summary if assertions fail
+    packet_summary = captured_packet.summary()
+
+    # Ensure no VLAN tag
+    assert not captured_packet.haslayer(Dot1Q), \
+        f"Mirrored packet should not contain VLAN tag: {packet_summary}"
+
+    # Check for unexpected MPLS headers
+    assert not captured_packet.haslayer(MPLS), \
+        f"Mirrored packet contains unexpected MPLS label: {packet_summary}"
+
+    # Check for unexpected VXLAN encapsulation
+    assert not captured_packet.haslayer(VXLAN), \
+        f"Mirrored packet should not have VXLAN encapsulation: {packet_summary}"
+
+    logger.info(f"Mirrored packet format verified: {packet_summary}")

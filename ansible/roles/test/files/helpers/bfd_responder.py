@@ -14,6 +14,9 @@ scapy2.conf.use_pcap = True
 
 IPv4 = '4'
 IPv6 = '6'
+BFD_FLAG_P_BIT = 5
+BFD_FLAG_F_BIT = 4
+UDP_BFD_PKT_LEN = 32
 
 
 def get_if(iff, cmd):
@@ -86,13 +89,21 @@ class BFDResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state = self.extract_bfd_info(
+        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state, bfd_flags = self.extract_bfd_info(
             data)
         if ip_dst not in self.sessions:
             return
         session = self.sessions[ip_dst]
         if bfd_state == 3:
+            # If packet is not initialized yet, ignore the received UP packet per RFC5880 FSM
+            # wait for DUT timeout and DUT will send DOWN BFD packet
+            if len(session["pkt"]) == 0:
+                return
+            # Respond with F bit if P bit is set
+            if (bfd_flags & (1 << BFD_FLAG_P_BIT)):
+                session["pkt"].payload.payload.payload.load.flags = (1 << BFD_FLAG_F_BIT)
             interface.send(session["pkt"])
+            session["pkt"].payload.payload.payload.load.flags = 0
             return
 
         if bfd_state == 2:
@@ -101,6 +112,7 @@ class BFDResponder(object):
         bfd_pkt_init = self.craft_bfd_packet(
             session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
         bfd_pkt_init.payload.payload.chksum = None
+        bfd_pkt_init.payload.payload.payload.load.flags = 0
         interface.send(bfd_pkt_init)
         bfd_pkt_init.payload.payload.payload.load.sta = 3
         bfd_pkt_init.payload.payload.chksum = None
@@ -114,20 +126,24 @@ class BFDResponder(object):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
+        # ignore the packet not for me or incomplete BFD packet
+        if ip_dst not in self.sessions or len(ether.payload.payload) < UDP_BFD_PKT_LEN:
+            return mac_src, mac_dst, ip_src, ip_dst, None, None, None
         ip_version = str(ether.payload.version)
         ip_priority_field = 'tos' if ip_version == IPv4 else 'tc'
         ip_priority = getattr(ether.payload, ip_priority_field)
-        bfdpkt = BFD(ether.payload.payload.payload.load)
+        bfdpkt = BFD(bytes(ether.payload.payload.payload.load))
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
+        bfd_flags = bfdpkt.flags
         if ip_priority != self.bfd_default_ip_priority:
             raise RuntimeError("Received BFD packet with incorrect priority value: {}".format(ip_priority))
         logging.debug('BFD packet info: sip {}, dip {}, priority {}'.format(ip_src, ip_dst, ip_priority))
-        return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
+        return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state, bfd_flags
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):
         ethpart = scapy2.Ether(data)
-        bfdpart = BFD(ethpart.payload.payload.payload.load)
+        bfdpart = BFD(bytes(ethpart.payload.payload.payload.load))
         bfdpart.my_discriminator = session["my_disc"]
         bfdpart.your_discriminator = bfd_remote_disc
         bfdpart.sta = bfd_state

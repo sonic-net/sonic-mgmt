@@ -11,6 +11,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import delete_running_config
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.config_reload import config_reload
 
 
@@ -54,6 +55,7 @@ def add_bbr_config_to_running_config(duthost, status):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -73,6 +75,7 @@ def config_bbr_by_gcu(duthost, status):
             "value": "{}".format(status)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -126,9 +129,14 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     return setup_info
 
 
-def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, setup, config_bbr_disabled):
+def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, setup, config_bbr_disabled, loganalyzer):
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+        ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
+            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
+        loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
+
     duthost.shell("sudo config save -y")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
     is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']
     pytest_assert(is_bbr_enabled == "", "BBR is not disabled when it should be.")

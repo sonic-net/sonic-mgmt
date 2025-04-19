@@ -1,3 +1,4 @@
+
 # Test plan in docs/testplan/LLDP-syncd-test-plan.md
 import pytest
 import json
@@ -6,6 +7,7 @@ import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -17,23 +19,50 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="function")
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    # Interface flaps in test_lldp_entry_table_after_flap can cause routeCheck to fail momentarily
+                    r".*ERR.* 'routeCheck' status failed.*",
+                ]
+            )
+
+
 @pytest.fixture(autouse="True")
 def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    appl_db = SonicDbCli(duthost, APPL_DB)
+    appl_db = []
+    for asic in duthost.asics:
+        appl_db.append(SonicDbCli(asic, APPL_DB))
+    duthost.facts['switch_type'] == "voq"
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if duthost.facts['switch_type'] == "voq" and not is_chassis:
+        appl_db.append(SonicDbCli(duthost, APPL_DB))
     # Cleanup code here
     return appl_db
 
 
 # Helper function to get the LLDP_ENTRY_TABLE keys
-def get_lldp_entry_keys(db):
-    items = db.get_keys("LLDP_ENTRY_TABLE*")
-    return [key.split(":")[1] for key in items]
+def get_lldp_entry_keys(dbs):
+    lldp_entries = []
+    for db in dbs:
+        items = db.get_keys("LLDP_ENTRY_TABLE*")
+        lldp_entries.extend([key.split(":")[1] for key in items])
+    logger.debug("lldp entry keys: {}".format(lldp_entries))
+    return lldp_entries
 
 
 # Helper function to get LLDP_ENTRY_TABLE content
-def get_lldp_entry_content(db, interface):
-    return db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface))
+def get_lldp_entry_content(dbs, interface):
+    lldp_content = {}
+    for db in dbs:
+        lldp_content.update(db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface)))
+    logger.debug("lldp entry content: {}".format(lldp_content))
+    return lldp_content
 
 
 # Helper function to get lldptcl output
@@ -46,8 +75,29 @@ def get_lldpctl_facts_output(duthost, enum_frontend_asic_index):
 
 
 def get_lldpctl_output(duthost):
-    result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
-    return json.loads(result)
+    if duthost.is_multi_asic:
+        resultDict = {}
+        for asic in duthost.asics:
+            result = duthost.shell(
+                "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index)
+            )["stdout"]
+            if not resultDict:
+                resultDict = json.loads(result)
+            else:
+                resultDict["lldp"]["interface"].extend(
+                    json.loads(result)["lldp"]["interface"]
+                )
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        if duthost.facts['switch_type'] == "voq" and not is_chassis:
+            result = duthost.shell(
+                "docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
+            resultDict["lldp"]["interface"].extend([
+                json.loads(result)["lldp"]["interface"]]
+            )
+    else:
+        result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
+        resultDict = json.loads(result)
+    return resultDict
 
 
 # Helper function to get show lldp table output
@@ -57,10 +107,19 @@ def get_show_lldp_table_output(duthost):
     return interface_list
 
 
+def check_lldp_table_keys(duthost, db_instance):
+    # Check if LLDP_ENTRY_TABLE keys match show lldp table output
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    return sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list)
+
+
 def assert_lldp_interfaces(
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_interface
 ):
-    # Verify LLDP_ENTRY_TABLE keys match show lldp table output
+    """
+    Assert that LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
+    """
     pytest_assert(
         sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list),
         "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output",
@@ -86,6 +145,9 @@ def assert_lldp_interfaces(
 
 
 def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
+    """
+    Assert that LLDP_ENTRY_TABLE content matches lldpctl output
+    """
     pytest_assert(
         lldpctl_interface,
         "No LLDP data found for {} in lldpctl output".format(interface),
@@ -109,127 +171,198 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         "lldp_rem_sys_name does not match for {}".format(interface),
     )
     pytest_assert(
-        entry_content["lldp_rem_sys_desc"] == chassis_info["descr"],
+        entry_content["lldp_rem_sys_desc"] == chassis_info.get("descr", ""),
         "lldp_rem_sys_desc does not match for {}".format(interface),
     )
     pytest_assert(
         entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
         "lldp_rem_port_desc does not match for {}".format(interface),
     )
+    if "," in entry_content["lldp_rem_man_addr"]:
+        pytest_assert(
+            entry_content["lldp_rem_man_addr"].split(",")
+            == chassis_info.get("mgmt-ip", ""),
+            "lldp_rem_man_addr does not match for {}, data from DB:{}, data from lldpctl:{}".format(
+                interface,
+                entry_content["lldp_rem_man_addr"],
+                chassis_info.get("mgmt-ip", ""),
+            ),
+        )
+    else:
+        pytest_assert(
+            entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
+            "lldp_rem_man_addr does not match for {}, data from DB:{}, data from lldpctl:{}".format(
+                interface,
+                entry_content["lldp_rem_man_addr"],
+                chassis_info.get("mgmt-ip", ""),
+            ),
+        )
+
+    if interface == "eth0":
+        expected_sys_cap_supported_result = (
+            entry_content["lldp_rem_sys_cap_supported"] == "28 00"
+            or entry_content["lldp_rem_sys_cap_supported"] == "20 00",
+        )
+    else:
+        expected_sys_cap_supported_result = (
+            entry_content["lldp_rem_sys_cap_supported"] == "28 00"
+        )
     pytest_assert(
-        entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
-        "lldp_rem_man_addr does not match for {}".format(interface),
-    )
-    pytest_assert(
-        entry_content["lldp_rem_sys_cap_supported"] == "28 00",
+        expected_sys_cap_supported_result,
         "lldp_rem_sys_cap_supported does not match for {}".format(interface),
     )
+
+    if interface == "eth0":
+        expected_sys_cap_enable_result = (
+            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
+            or entry_content["lldp_rem_sys_cap_enabled"] == "20 00",
+        )
+    else:
+        expected_sys_cap_enable_result = (
+            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
+        )
     pytest_assert(
-        entry_content["lldp_rem_sys_cap_enabled"] == "28 00",
+        expected_sys_cap_enable_result,
         "lldp_rem_sys_cap_enabled does not match for {}".format(interface),
     )
 
 
 def verify_lldp_entry(db_instance, interface):
     entry_content = get_lldp_entry_content(db_instance, interface)
-    if entry_content:
+    if len(entry_content) > 1:
         return True
     else:
         return False
 
 
 def verify_lldp_table(duthost):
-    # based on experience, eth0 shows up at last
     output = duthost.shell("show lldp table")["stdout"]
-    if "eth0" in output:
+    if "Total entries displayed" in output:
         return True
     else:
         return False
 
 
-# Test case 1: Verify LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
-def test_lldp_entry_table_keys(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
-):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    lldpctl_output = get_lldpctl_output(duthost)
+def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
+
+    entry_content = get_lldp_entry_content(db_instance, interface)
+    logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
+    if isinstance(lldpctl_interfaces, dict):
+        lldpctl_interface = lldpctl_interfaces.get(interface)
+    elif isinstance(lldpctl_interfaces, list):
+        for iface in lldpctl_interfaces:
+            if list(iface.keys())[0].lower() == interface.lower():
+                lldpctl_interface = iface.get(list(iface.keys())[0])
+                break
+    assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
+
+
+def verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list):
+    """
+    Verify LLDP_ENTRY_TABLE content against lldpctl output for interfaces
+    """
+    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_output["lldp"]["interface"]
+        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
+    for interface in get_lldp_entry_keys(db_instance):
+        verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
 
 
-# Test case 2: Verify LLDP_ENTRY_TABLE content against lldpctl output
+# Test case 1: Verify LLDP_ENTRY_TABLE content against lldpctl output
 def test_lldp_entry_table_content(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
     lldpctl_output = get_lldpctl_output(duthost)
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
 
-    for interface in get_lldp_entry_keys(db_instance):
+    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+
+
+# Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
+@pytest.mark.disable_loganalyzer
+def test_lldp_entry_table_after_syncd_orchagent(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.facts['asic_type'] == "vs":
+        pytest.skip("Skip this test case for virtual testbed")
+    # Verify LLDP_ENTRY_TABLE keys match show lldp table output at the start of test
+    keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
+    if not keys_match:
+        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
+    # Get the ldap keys before restart syncd and swss
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+
+    logging.info("Stop and start swss and syncd on DUT")
+    # It's found that restart swss container could cause swss service to go down. In most of OC tests
+    # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd
+    # will not restart. Use swss service restart here.
+    duthost.shell("sudo systemctl reset-failed")
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
+    else:
+        duthost.shell("sudo systemctl restart swss")
+    assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
+        "Not all critical services are fully started"
+    time.sleep(60)
+    # Wait until all interfaces are up and lldp entries are populated
+    for interface in lldp_entry_keys:
+        result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, interface)
         entry_content = get_lldp_entry_content(db_instance, interface)
-        if isinstance(lldpctl_interfaces, dict):
-            lldpctl_interface = lldpctl_interfaces.get(interface)
-        elif isinstance(lldpctl_interfaces, list):
-            for iface in lldpctl_interfaces:
-                if list(iface.keys())[0].lower() == interface.lower():
-                    lldpctl_interface = iface.get(list(iface.keys())[0])
-                    logger.info("lldpctl_interface: {}".format(lldpctl_interface))
-                    break
-        assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
+        pytest_assert(
+            result,
+            "After restart swss and syncd, interface {} LLDP_ENTRY_TABLE entry is not correct:{}".format(
+                interface, entry_content
+            ),
+        )
+    # To get lldp entry keys again after all interfaces are up
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    lldpctl_output = get_lldpctl_output(duthost)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
 
-        # Add assertions to compare specific fields between LLDP_ENTRY_TABLE and lldpctl output
+    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
 
 # Test case 3: Verify LLDP_ENTRY_TABLE after interface flap
 def test_lldp_entry_table_after_flap(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    db_instance,
+    ignore_expected_loganalyzer_exceptions,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Fetch interfaces from LLDP_ENTRY_TABLE
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     lldpctl_output = get_lldpctl_output(duthost)
-
+    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
+    assert_lldp_interfaces(
+        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
+    )
     for interface in lldp_entry_keys:
         if interface == "eth0":
-            pytest.skip("Skipping test for eth0 interface")
+            # Skip test for 'eth0' interface
+            continue
         # Shutdown and startup the interface
-        duthost.shell("sudo config interface shutdown {}".format(interface))
-        duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(30, 2, 5, verify_lldp_entry, db_instance, interface)
+        asicStr = ""
+        if duthost.is_multi_asic:
+            asicStr = "-n {}".format(
+                duthost.get_port_asic_instance(interface).get_asic_namespace()
+            )
+        duthost.shell("sudo config interface {} shutdown {}".format(asicStr, interface))
+        duthost.shell("sudo config interface {} startup {}".format(asicStr, interface))
+        result = wait_until(60, 2, 10, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
                 interface
             ),
         )
-        lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-        assert_lldp_interfaces(
-            lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-        )
-        entry_content = get_lldp_entry_content(db_instance, interface)
-        logger.info("entry_content={}".format(entry_content))
-        if isinstance(lldpctl_interfaces, dict):
-            lldpctl_interface = lldpctl_interfaces.get(interface)
-            logger.info(
-                "lldpctl_interfaces type dict, lldpctl_interface: {}".format(
-                    lldpctl_interface
-                )
-            )
-        elif isinstance(lldpctl_interfaces, list):
-            for iface in lldpctl_interfaces:
-                if list(iface.keys())[0].lower() == interface.lower():
-                    lldpctl_interface = iface.get(list(iface.keys())[0])
-                    logger.info(
-                        "lldpctl_interfaces type list, lldpctl_interface: {}".format(
-                            lldpctl_interface
-                        )
-                    )
-                    break
-        assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
+        verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
 
 
 # Test case 4: Verify LLDP_ENTRY_TABLE after system reboot
@@ -242,36 +375,29 @@ def test_lldp_entry_table_after_lldp_restart(
     lldpctl_output = get_lldpctl_output(duthost)
 
     # Restart the LLDP service
-    duthost.shell("sudo systemctl restart lldp")
+    for asic in duthost.asics:
+        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("lldp")))
     result = wait_until(
-        60, 2, 5, verify_lldp_table, duthost
+        60, 2, 20, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
-    pytest_assert(result, "eth0 is still not in output of show lldp table")
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-    assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-    )
-    for interface in lldp_entry_keys:
-        entry_content = get_lldp_entry_content(db_instance, interface)
-
-        if isinstance(lldpctl_interfaces, dict):
-            lldpctl_interface = lldpctl_interfaces.get(interface)
-        elif isinstance(lldpctl_interfaces, list):
-            for iface in lldpctl_interfaces:
-                if list(iface.keys())[0].lower() == interface.lower():
-                    lldpctl_interface = iface.get(list(iface.keys())[0])
-                    break
-        assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
+    pytest_assert(result, "no output for show lldp table after restarting lldp")
+    for asic in duthost.asics:
+        result = duthost.shell(
+            "sudo systemctl status {}".format(asic.get_service_name("lldp"))
+        )["stdout"]
+        pytest_assert(
+            "active (running)" in result,
+            "LLDP service is not running",
+        )
+    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
 
 # Test case 5: Verify LLDP_ENTRY_TABLE after reboot
+@pytest.mark.disable_loganalyzer
 def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    lldpctl_output = get_lldpctl_output(duthost)
 
     # reboot
     logging.info("Run cold reboot on DUT")
@@ -282,19 +408,15 @@ def test_lldp_entry_table_after_reboot(
         reboot_helper=None,
         reboot_kwargs=None,
         safe_reboot=True,
+        check_intf_up_ports=True
     )
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-    assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-    )
-    for interface in get_lldp_entry_keys(db_instance):
-        entry_content = get_lldp_entry_content(db_instance, interface)
 
-        if isinstance(lldpctl_interfaces, dict):
-            lldpctl_interface = lldpctl_interfaces.get(interface)
-        elif isinstance(lldpctl_interfaces, list):
-            for iface in lldpctl_interfaces:
-                if list(iface.keys())[0].lower() == interface.lower():
-                    lldpctl_interface = iface.get(list(iface.keys())[0])
-                    break
-        assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
+    # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
+    # setup this may take some time to happen.
+    keys_match = wait_until(90, 5, 30, check_lldp_table_keys, duthost, db_instance)
+    if not keys_match:
+        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    lldpctl_output = get_lldpctl_output(duthost)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)

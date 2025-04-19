@@ -1,0 +1,9 @@
+{
+	"testcases": [
+		"auditd/test_auditd.py",
+		"gnmi/test_gnmi.py",
+		"gnmi/test_gnmi_configdb.py",
+		"gnmi/test_gnmi_appldb.py",
+		"telemetry/test_telemetry.py::test_config_db_parameters"
+	]
+}

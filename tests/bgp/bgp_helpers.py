@@ -13,10 +13,14 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
+    DEFAULT_ASIC_ID
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.constants import TS_NORMAL
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -218,6 +222,22 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 
+def is_neighbor_sessions_established(duthost, neighbors):
+    is_established = True
+
+    # handle both multi-asic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
+
+    return is_established
+
+
 @pytest.fixture(scope='module')
 def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     """
@@ -288,7 +308,7 @@ def update_routes(action, ptfip, port, route):
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
     logging.info('Post url={}, data={}'.format(url, data))
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -840,8 +860,69 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
             log_dir, LOCAL_PCAP_FILE_TEMPLATE % request.node.name
         )
     else:
-        local_pcap_file = tempfile.NamedTemporaryFile()
+        local_pcap_file = tempfile.NamedTemporaryFile(delete=False)
         local_pcap_filename = local_pcap_file.name
     duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
     duthost.file(path=bgp_pcap, state="absent")
     return local_pcap_filename
+
+
+def get_tsa_chassisdb_config(duthost):
+    """
+    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def get_sup_cfggen_tsa_value(suphost):
+    """
+    @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def verify_dut_configdb_tsa_value(duthost):
+    """
+    @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_config = list()
+    tsa_enabled = False
+    for asic_index in duthost.get_frontend_asic_ids():
+        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
+        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
+                               format(prefix))['stdout']
+        tsa_config.append(output)
+    if 'true' in tsa_config:
+        tsa_enabled = True
+
+    return tsa_enabled
+
+
+def initial_tsa_check_before_and_after_test(duthosts):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            # Initially make sure both supervisor and line cards are in BGP operational normal state
+            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
+                duthost.shell('TSB')
+                duthost.shell('sudo config save -y')
+                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
+                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+
+    def run_tsb_on_linecard_and_verify(lc):
+        if verify_dut_configdb_tsa_value(lc) is not False or get_tsa_chassisdb_config(lc) != 'false' or \
+                get_traffic_shift_state(lc, cmd='TSC no-stats') != TS_NORMAL:
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
+            # Ensure that the DUT is not in maintenance already before start of the test
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                          "DUT is not in normal state")
+
+    # Issue TSB on the line card before proceeding further
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(run_tsb_on_linecard_and_verify, linecard)
