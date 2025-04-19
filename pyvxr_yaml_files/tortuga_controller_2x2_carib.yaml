@@ -5,7 +5,7 @@ simulation:
   skip_auto_bringup: false
   slurm_flags:
     pending_timeout: 60
-    hours: 30
+    hours: 20
     partition: regression
     cluster: rch-slurm-m1
 
