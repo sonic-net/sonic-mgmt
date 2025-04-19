@@ -24,7 +24,7 @@ loopback_down_start_timer = 0
 loopback_up_time = 0
 
 
-def run_reboot_test(cvg_api,
+def run_reboot_test(snappi_api,
                     duthost,
                     localhost,
                     tgen_ports,
@@ -33,7 +33,7 @@ def run_reboot_test(cvg_api,
     """
     Run Local link failover test
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         localhost (pytest fixture): localhost handle
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
@@ -44,13 +44,13 @@ def run_reboot_test(cvg_api,
     duthost_bgp_config(duthost, tgen_ports)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api)
+    tgen_bgp_config = __tgen_bgp_config(snappi_api)
 
     """
         Run the convergence test by flapping all the rx
         links one by one and calculate the convergence valuess
     """
-    get_convergence_for_reboot_test(duthost, localhost, cvg_api,
+    get_convergence_for_reboot_test(duthost, localhost, snappi_api,
                                     tgen_bgp_config, reboot_type, )
 
 
@@ -175,19 +175,19 @@ def duthost_bgp_config(duthost, tgen_ports):
         json.dump(config_db, fp, indent=4)
     duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
     logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthost.hostname))
-    pytest_assert('Error' not in duthost.shell("sudo config reload -f -y \n")['stderr'],
+    pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/config_db.json -f -y \n")['stderr'],
                   'Error while reloading config in {} !!!!!'.format(duthost.hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
 
-def get_flow_stats(cvg_api, name):
+def get_flow_stats(snappi_api, name):
     """
     Args:
-        cvg_api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = cvg_api.convergence_request()
-    request.metrics.flow_names = [name]
-    return cvg_api.get_results(request).flow_metric
+    req = snappi_api.metrics_request()
+    req.flow.flow_names = []
+    return snappi_api.get_metrics(req).flow_metrics
 
 
 def get_macs(mac, count, offset=1):
@@ -220,15 +220,15 @@ def get_ip_addresses(ip, count, type='ipv4'):
     return ip_list
 
 
-def __tgen_bgp_config(cvg_api, ):
+def __tgen_bgp_config(snappi_api, ):
     """
     Creating  BGP config on TGEN
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
     """
-    conv_config = cvg_api.convergence_config()
-    cvg_api.enable_scaling(True)
-    config = conv_config.config
+    config = snappi_api.config()
+    snappi_api.enable_scaling(True)
+
     p1, p2, p3 = (
         config.ports.port(name="t1", location=temp_tg_port[1]['location'])
         .port(name="server2", location=temp_tg_port[2]['location'])
@@ -245,9 +245,9 @@ def __tgen_bgp_config(cvg_api, ):
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = "speed_100_gbps"
+    layer1.speed = temp_tg_port[1]['speed']
     layer1.auto_negotiate = False
 
     conf_values = dict()
@@ -264,7 +264,7 @@ def __tgen_bgp_config(cvg_api, ):
         # server1
         d1 = config.devices.device(name='Server_1_{}'.format(i - 1))[-1]
         eth_1 = d1.ethernets.add()
-        eth_1.port_name = p3.name
+        eth_1.connection.port_name = p3.name
         eth_1.name = 'Ethernet 1_{}'.format(i - 1)
         eth_1.mac = conf_values['server_1_mac'][i - 1]
         ipv4_1 = eth_1.ipv4_addresses.add()
@@ -280,7 +280,7 @@ def __tgen_bgp_config(cvg_api, ):
         # server2
         d2 = config.devices.device(name='Server_2_{}'.format(i - 1))[-1]
         eth_2 = d2.ethernets.add()
-        eth_2.port_name = p2.name
+        eth_2.connection.port_name = p2.name
         eth_2.name = 'Ethernet 2_{}'.format(i - 1)
         eth_2.mac = conf_values['server_2_mac'][i - 1]
         ipv4_2 = eth_2.ipv4_addresses.add()
@@ -297,7 +297,7 @@ def __tgen_bgp_config(cvg_api, ):
     # T1
     d3 = config.devices.device(name="T1")[-1]
     eth_3 = d3.ethernets.add()
-    eth_3.port_name = lag3.name
+    eth_3.connection.port_name = lag3.name
     eth_3.name = 'Ethernet 3'
     eth_3.mac = "00:14:01:00:00:01"
     ipv4_3 = eth_3.ipv4_addresses.add()
@@ -369,37 +369,37 @@ def __tgen_bgp_config(cvg_api, ):
     createTrafficItem("IPv6_2-T1", ipv6_2_names, [route_range2.name])
     createTrafficItem("T1-IPv4_1", [route_range1.name], ipv4_1_names)
     createTrafficItem("T1-IPv6_2", [route_range2.name], ipv6_2_names)
-    return conv_config
+    return config
 
 
-def ping_loopback_if(cvg_api, ping_req):
+def ping_loopback_if(snappi_api, ping_req):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         ping_req : ping_req, snappi API object
 
     """
-    return cvg_api.send_ping(ping_req).responses
+    return snappi_api.set_control_action(ping_req).response.protocol.ipv4.ping.responses
 
 
-def get_bgpv4_metrics(cvg_api, bgp_req):
+def get_bgpv4_metrics(snappi_api, bgp_req):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_req : ping_req, snappi API object
 
     """
-    return cvg_api.get_results(bgp_req).bgpv4_metrics
+    return snappi_api.get_metrics(bgp_req).bgpv4_metrics
 
 
-def wait_for_bgp_and_lb_soft(cvg_api, ping_req, ):
+def wait_for_bgp_and_lb_soft(snappi_api, ping_req, ):
     """
     Method for when reboot type is Soft.  Check for Loopback I/F to go
     down then take timestamp.Then check for LoopBack I/F state to change
     from down to up and record timestamp.
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         ping_req : ping_req, snappi API
 
     """
@@ -408,7 +408,7 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req, ):
 
     found_lb_state = False
     while True:
-        responses = ping_loopback_if(cvg_api, ping_req)
+        responses = ping_loopback_if(snappi_api, ping_req)
         if not found_lb_state and not responses[-1].result in "success":
             loopback_down_start_timer = time.time()
             found_lb_state = True
@@ -420,7 +420,7 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req, ):
     # time
     found_lb_state = False
     while True:
-        responses = ping_loopback_if(cvg_api, ping_req)
+        responses = ping_loopback_if(snappi_api, ping_req)
         if not found_lb_state and responses[-1].result in "success":
             loopback_up_start_timer = time.time()
             # found_lb_state = True
@@ -429,14 +429,14 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req, ):
             break
 
 
-def wait_for_bgp_and_lb(cvg_api, ping_req, ):
+def wait_for_bgp_and_lb(snappi_api, ping_req, ):
     """
     Method to wait for BGP and Loopback state to change from up to down
     take timestamp of event. Then wait for BGP and Loopback state to
     change from down to up and take timestamp of event.
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         ping_req : ping_req, snappi API
     """
     global loopback_down_start_timer
@@ -444,14 +444,14 @@ def wait_for_bgp_and_lb(cvg_api, ping_req, ):
     global bgp_down_start_timer
     global bgp_up_start_timer
 
-    bgp_req = cvg_api.convergence_request()
+    bgp_req = snappi_api.metrics_request()
     bgp_req.bgpv4.peer_names = []
 
     found_bgp_state = False
     found_lb_state = False
     while True:
-        bgpv4_metrics = get_bgpv4_metrics(cvg_api, bgp_req)
-        responses = ping_loopback_if(cvg_api, ping_req)
+        bgpv4_metrics = get_bgpv4_metrics(snappi_api, bgp_req)
+        responses = ping_loopback_if(snappi_api, ping_req)
         if not found_bgp_state and bgpv4_metrics[-1].session_state in "down":
             bgp_down_start_timer = time.time()
             found_bgp_state = True
@@ -473,8 +473,8 @@ def wait_for_bgp_and_lb(cvg_api, ping_req, ):
     found_bgp_state = False
     found_lb_state = False
     while True:
-        bgpv4_metrics = get_bgpv4_metrics(cvg_api, bgp_req)
-        responses = ping_loopback_if(cvg_api, ping_req)
+        bgpv4_metrics = get_bgpv4_metrics(snappi_api, bgp_req)
+        responses = ping_loopback_if(snappi_api, ping_req)
         if not found_bgp_state and bgpv4_metrics[-1].session_state in "up":
             bgp_up_start_timer = time.time()
             found_bgp_state = True
@@ -495,7 +495,7 @@ def wait_for_bgp_and_lb(cvg_api, ping_req, ):
 
 def get_convergence_for_reboot_test(duthost,
                                     localhost,
-                                    cvg_api,
+                                    snappi_api,
                                     bgp_config,
                                     reboot_type,
                                     ):
@@ -503,7 +503,7 @@ def get_convergence_for_reboot_test(duthost,
     Args:
         duthost (pytest fixture): duthost fixture
         localhost (pytest fixture): localhost handle
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         reboot_type: Type of reboot
     """
@@ -512,48 +512,47 @@ def get_convergence_for_reboot_test(duthost,
     global loopback_up_start_timer
     global loopback_down_start_timer
     table, dp = [], []
-    bgp_config.rx_rate_threshold = 90
-    cvg_api.set_config(bgp_config)
-    logger.info('Starting Traffic')
-    cs = cvg_api.convergence_state()
+    bgp_config.events.cp_events.enable = True
+    bgp_config.events.dp_events.enable = True
+    bgp_config.events.dp_events.rx_rate_threshold = 90
+    snappi_api.set_config(bgp_config)
     flow_names = ["IPv4_1-IPv4_2", "IPv6_2-IPv6_1", "IPv4_1-T1",
                   "IPv6_2-T1", "T1-IPv4_1", "T1-IPv6_2"]
-    cs.transmit.flow_names = flow_names
     logger.info('Starting Protocol')
-    time.sleep(10)
-    cs.protocol.state = cs.protocol.START
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.START
+    snappi_api.set_control_state(cs)
+    wait(TIMEOUT, "For Protocols To start")
     logger.info('Starting Traffic')
-    cs.transmit.state = cs.transmit.START
-    cvg_api.set_state(cs)
-    wait(TIMEOUT - 10, "For Traffic To start")
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    snappi_api.set_control_state(cs)
+    wait(TIMEOUT, "For Traffic To start")
+    ping_req = snappi_api.control_action()
+    ping_req.protocol.ipv4.ping.requests.add(src_name='IPv4 3', dst_ip="1.1.1.1")
 
-    ping_req = cvg_api.ping_request()
-    p1 = ping_req.endpoints.ipv4()[-1]
-    p1.src_name = 'IPv4 3'
-    p1.dst_ip = "1.1.1.1"
     logger.info("Issuing a {} reboot on the dut {}".format(
         reboot_type, duthost.hostname))
     Thread(target=reboot, args=([duthost, localhost, reboot_type])).start()
     reboot_type_lists = ['warm', 'cold', 'fast']
     if reboot_type in reboot_type_lists:
-        wait_for_bgp_and_lb(cvg_api, ping_req, )
+        wait_for_bgp_and_lb(snappi_api, ping_req, )
     else:
         # soft-reboot
-        wait_for_bgp_and_lb_soft(cvg_api, ping_req)
+        wait_for_bgp_and_lb_soft(snappi_api, ping_req)
     bgp_up_time = bgp_up_start_timer - bgp_down_start_timer
     loopback_up_time = loopback_up_start_timer - loopback_down_start_timer
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(360, 10, 1,
                              duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    request = cvg_api.convergence_request()
-    request.convergence.flow_names = flow_names
-    convergence_metrics = cvg_api.get_results(request).flow_convergence
+    request = snappi_api.metrics_request()
+    request.convergence.flow_names = []  # flow_names
+    convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
     for i, metrics in zip(flow_names, convergence_metrics):
         if reboot_type == "warm":
-            request.metrics.flow_names = [i]
-            flow = cvg_api.get_results(request).flow_metric
+            request.flow.flow_names = [i]
+            flow = snappi_api.get_metrics(request).flow_metrics
             if flow[0].frames_tx_rate != flow[0].frames_tx_rate:
                 logger.info("Some Loss Observed in Traffic Item {}".format(i))
                 dp.append(metrics.data_plane_convergence_us / 1000)
@@ -565,8 +564,8 @@ def get_convergence_for_reboot_test(duthost,
                 logger.info('DP/DP Convergence Time (ms) of {} : '
                             '{}'.format(i, 0))
         else:
-            request.metrics.flow_names = [i]
-            flow = cvg_api.get_results(request).flow_metric
+            request.flow.flow_names = [i]
+            flow = snappi_api.get_metrics(request).flow_metric
             assert int(flow[0].frames_tx_rate) != 0, \
                 "No Frames sent for traffic item: {}".format(i)
             assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, \
