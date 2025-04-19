@@ -273,3 +273,53 @@ def setup_and_cleanup_protos():
     # Run tests, then clean up
     yield
     cleanup_generated_files()
+
+
+@pytest.fixture(scope="function")
+def grpc_channel(duthosts, rand_one_dut_hostname):
+    """
+    Fixture to set up a gRPC channel with secure credentials.
+    """
+    import grpc
+    import logging
+    import pytest
+    from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get DUT gRPC server address and port
+    ip = duthost.mgmt_ip
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    port = env.gnmi_port
+    target = f"{ip}:{port}"
+
+    # Load the TLS certificates
+    with open("gnmiCA.pem", "rb") as f:
+        root_certificates = f.read()
+    with open("gnmiclient.crt", "rb") as f:
+        client_certificate = f.read()
+    with open("gnmiclient.key", "rb") as f:
+        client_key = f.read()
+
+    # Create SSL credentials
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=root_certificates,
+        private_key=client_key,
+        certificate_chain=client_certificate,
+    )
+
+    # Create gRPC channel
+    logging.info("Creating gRPC secure channel to %s", target)
+    channel = grpc.secure_channel(target, credentials)
+
+    try:
+        grpc.channel_ready_future(channel).result(timeout=10)
+        logging.info("gRPC channel is ready")
+    except grpc.FutureTimeoutError as e:
+        logging.error("Error: gRPC channel not ready: %s", e)
+        pytest.fail("Failed to connect to gRPC server")
+
+    yield channel
+
+    # Close the channel
+    channel.close()
