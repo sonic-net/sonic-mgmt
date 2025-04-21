@@ -68,8 +68,16 @@ def verify_tcp_port(localhost, ip, port):
 
 
 def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
-                  module_ignore_errors=True)
+    res = duthost.shell("cat /usr/local/yang-models/sonic-gnmi.yang | grep role",
+                        module_ignore_errors=True)['stdout']
+
+    # set role mapping according to yang model:
+    #     in old yang module role is a string, in new yang model role is a list
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role)
+    if "leaf-list role" in res:
+        command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
