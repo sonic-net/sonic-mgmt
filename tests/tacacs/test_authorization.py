@@ -707,7 +707,7 @@ def test_tacacs_authorization_commands_during_login(
             logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
             pytest_assert(False, "Device execute {} commands during login,\
                            please check and remove unecessary login commands: {}".format(count, res))
-            
+
 
 def test_send_remote_address(
                             ptfhost,
