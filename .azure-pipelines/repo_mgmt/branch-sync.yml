@@ -26,6 +26,11 @@ parameters:
         SOURCE_BRANCH: "202412"
         TARGET_BRANCH: "internal-202412"
         PUSH_BRANCH: "internal-202412"
+      Chassis_202503:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202503"
+        TARGET_BRANCH: "internal-202503-chassis"
+        PUSH_BRANCH: "internal-202503-chassis"
     displayName: "Branches to sync and merge"
 
 stages:
