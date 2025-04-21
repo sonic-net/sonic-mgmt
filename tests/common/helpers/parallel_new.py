@@ -21,20 +21,21 @@ class SonicProcess(Process):
 
     def run(self):
         try:
-            logger.info(f"[{self.name}] process started.")
+            logger.info(f"[chunangli][{self.name}] process started.")
             if self._target:
                 self._target(*self._args, **self._kwargs)
             self._queue.put((self.name, None))  # No exception
-            logger.info(f"[{self.name}] process finished.")
+            logger.info(f"[chunangli][{self.name}] process finished.")
         except Exception as e:
             serialized = pickle.dumps(e)
-            logger.info(f"[{self.name}] Serialized exception size: {len(serialized) / 1024:.2f} KB")
+            logger.info(f"[chunangli][{self.name}] Serialized exception size: {len(serialized) / 1024:.2f} KB")
             tb = traceback.format_exc()
-            self._queue.put((self.name, (str(e), tb)))
-            logger.error(f"[{self.name}] exception: {e}\n{tb}")
+            self._queue.put((self.name, ("match: 66", tb)))
+            logger.info(f"[chunangli][{self.name}] Send small message done.")
+            logger.error(f"[chunangli][{self.name}] exception: {e}\n{tb}")
             self._exception = e
         finally:
-            logger.info(f"[{self.name}] exiting run()")
+            logger.info(f"[chunangli][{self.name}] exiting run()")
 
     @property
     def exception(self):
@@ -44,7 +45,7 @@ class SonicProcess(Process):
 def parallel_run(
         target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None
 ):
-    logger.info(f"Running target '{target.__name__}' with timeout={timeout}")
+    logger.info(f"[chunangli]Running target '{target.__name__}' with timeout={timeout}")
 
     results = Manager().dict()
     exception_queue = SimpleQueue()
@@ -68,23 +69,23 @@ def parallel_run(
             queue=exception_queue,
         )
         proc.start()
-        logger.info(f"Started {proc.name} with PID {proc.pid}")
+        logger.info(f"[chunangli]Started {proc.name} with PID {proc.pid}")
         return proc
 
     def force_terminate(proc):
         if proc.is_alive():
-            logger.warning(f"Force killing {proc.name} (pid={proc.pid})")
+            logger.warning(f"[chunangli]Force killing {proc.name} (pid={proc.pid})")
             try:
                 os.kill(proc.pid, signal.SIGKILL)
             except Exception as e:
-                logger.error(f"Failed to kill {proc.name}: {e}")
+                logger.error(f"[chunangli]Failed to kill {proc.name}: {e}")
 
     nodes = list(nodes_list)
     running = []
 
     while tasks_done < total_tasks:
         if total_timeout and (datetime.datetime.now() - start_time).total_seconds() > total_timeout:
-            logger.error(f"Timeout reached: {total_timeout} seconds")
+            logger.error(f"[chunangli]Timeout reached: {total_timeout} seconds")
             break
 
         # Launch up to concurrent_tasks
@@ -122,7 +123,7 @@ def parallel_run(
 
     # Final cleanup
     for proc in running:
-        logger.warning(f"Cleaning up {proc.name}, still alive? {proc.is_alive()}")
+        logger.warning(f"[chunangli]Cleaning up {proc.name}, still alive? {proc.is_alive()}")
         force_terminate(proc)
 
     if failed_processes:
@@ -137,6 +138,6 @@ def parallel_run(
                       )
 
     duration = datetime.datetime.now() - start_time
-    logger.info(f"Completed all processes in {duration.total_seconds()} seconds")
+    logger.info(f"[chunangli]Completed all processes in {duration.total_seconds()} seconds")
 
     return dict(results)
