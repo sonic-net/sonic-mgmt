@@ -90,6 +90,12 @@ class MultiAsicSonicHost(object):
         ):
             service_list.append("mux")
 
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+            service_list.append("dhcp_relay")
+
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+            service_list.append("dhcp_server")
+
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
