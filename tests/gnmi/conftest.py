@@ -217,14 +217,18 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def update_gnmi_configdb(duthost, localhost):
+def _update_gnmi_configdb(duthost, localhost):
     local_command = "sudo sonic-cfggen -d -v GNMI \
                         {'certs': {'ca_crt': '/etc/sonic/telemetry/gnmiCA.pem', \
                         'server_crt': '/etc/sonic/telemetry/gnmiserver.crt', \
                         'server_key': '/etc/sonic/telemetry/gnmiserver.key'}, \
                         'gnmi': {'log_level': '10', 'port': '50052'}}"
     localhost.shell(local_command)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def update_gnmi_configdb(duthost, localhost):
+    _update_gnmi_configdb(duthost, localhost)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -237,9 +241,10 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     # Check if GNMI is enabled on the device
     pyrequire(
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
-        "Test was not supported on devices which do not support GNMI!")
+        "Test was not supported on devices which do not support GNMI!"
+    )
 
-    update_gnmi_configdb(duthost, localhost)
+    _update_gnmi_configdb(duthost, localhost)
 
     # Create server CSR
     local_command = "openssl req \
@@ -269,6 +274,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+
     # Copy CA certificate and client certificate over to the PTF
     ptfhost.copy(src='gnmiCA.pem', dest='/root/')
     ptfhost.copy(src='gnmiclient.crt', dest='/root/')
@@ -277,6 +283,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     create_checkpoint(duthost, SETUP_ENV_CP)
 
     yield
+
     # Delete all created certs
     local_command = "rm \
                         extfile.cnf \

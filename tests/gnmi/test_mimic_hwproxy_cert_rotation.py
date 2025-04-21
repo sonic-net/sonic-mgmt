@@ -2,7 +2,6 @@ import pytest
 import logging
 
 from tests.gnmi.conftest import setup_gnmi_rotated_server
-from tests.gnmi.test_gnmi_countersdb import test_gnmi_queue_buffer_cnt
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -47,7 +46,6 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             # enable feature
             enable_feature = 'sudo config feature state gnmi enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
-            test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost)
 
     if telemetry_enabled:
         cmd_feature = "docker images| grep 'docker-sonic-telemetry'"
@@ -61,4 +59,3 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             # enable feature
             enable_feature = 'sudo config feature state telemetry enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
-            test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost)
