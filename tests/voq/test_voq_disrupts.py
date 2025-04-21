@@ -169,6 +169,8 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
         nbrhosts: nbrhosts fixture
         nbr_macs: nbr_macs fixture
     """
+    if len(duthosts) == 1:
+        pytest.skip("Test only applicable for modular chassis")
     logger.info("=" * 80)
     logger.info("Precheck")
     logger.info("-" * 80)
