@@ -39,7 +39,10 @@ class SonicProcess(Process):
         except Exception as e:
             logger.info(f"[chunangli] process error catched {e}.")
             tb = traceback.format_exc()
-            self._cconn.send((e, tb))
+            logger.info(f"[chunangli] process send data, tb={tb}.")
+            # self._cconn.send((e, tb))
+            self._cconn.send(("match: 6", ""))
+            logger.info("[chunangli] process send data finished.")
             raise e
 
     # for wait_procs
@@ -181,7 +184,7 @@ def parallel_run(
 
         # check if we have any processes that failed - have exitcode non-zero
         for worker in gone:
-            logger.info(f"[chunangl] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            logger.info(f"[chunangli] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
             if worker.exitcode != 0:
                 failed_processes[worker.name] = {}
                 failed_processes[worker.name]['exit_code'] = worker.exitcode
