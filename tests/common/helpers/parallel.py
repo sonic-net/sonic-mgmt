@@ -2,16 +2,14 @@ import datetime
 import logging
 import math
 import os
-import pickle
 import shutil
-import signal
-# import sys
 import tempfile
-import time
+import signal
 import traceback
-from multiprocessing import Process, Manager, TimeoutError, SimpleQueue
-from multiprocessing.pool import ThreadPool
+import time
 
+from multiprocessing import Process, Manager, Pipe, TimeoutError
+from multiprocessing.pool import ThreadPool
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -21,34 +19,30 @@ logger = logging.getLogger(__name__)
 
 class SonicProcess(Process):
     """
-    Wrapper class around multiprocessing.Process that captures exceptions
-    and sends them to the parent process using a Queue.
+    Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
+    an exception when run.
+
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
     """
-    def __init__(self, *args, queue=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._queue = queue
+    def __init__(self, *args, **kwargs):
+        Process.__init__(self, *args, **kwargs)
+        self._pconn, self._cconn = Pipe()
         self._exception = None
 
     def run(self):
         try:
             logger.info("[chunangli] process started.")
-            if self._target:
-                self._target(*self._args, **self._kwargs)
-            self._queue.put((self.name, None))  # No exception occurred
+            Process.run(self)
+            self._cconn.send(None)
             logger.info("[chunangli] process finished.")
         except Exception as e:
-            logger.info(f"[chunangli] process error caught: {e}.")
-            serialized = pickle.dumps(e)
-            logger.info(f"[chunangli] Serialized size: {len(serialized) / 1024:.2f} KB")
+            logger.info(f"[chunangli] process error catched {e}.")
             tb = traceback.format_exc()
-            # self._queue.put((self.name, (str(e), tb)))
-            self._queue.put((self.name, ("match: 666", tb)))
-            logger.info("[chunangli] process send data 666 finished.")
-            self.set_exception(e)
-            # sys.exit(1)  # Ensure process exits with error code
-        finally:
-            logger.info(f"[chunangli] process {self.name} exiting run() cleanly")
+            self._cconn.send((e, tb))
+            raise e
 
+    # for wait_procs
     def wait(self, timeout):
         return self.join(timeout=timeout)
 
@@ -56,11 +50,10 @@ class SonicProcess(Process):
     def is_running(self):
         return self.is_alive()
 
-    def set_exception(self, exception):
-        self._exception = exception
-
     @property
     def exception(self):
+        if self._pconn.poll():
+            self._exception = self._pconn.recv()
         return self._exception
 
 
@@ -89,29 +82,27 @@ def parallel_run(
             spawned processes.
     """
 
-    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}, use simpleQueue.")
+    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}")
 
-    nodes = list(nodes_list)
-    results = Manager().dict()
-    exception_queue = SimpleQueue()
-    workers = []
-    failed_processes = {}
+    nodes = [node for node in nodes_list]
 
-    start_time = datetime.datetime.now()
-    tasks_done = 0
-    tasks_running = 0
-    total_tasks = len(nodes)
-    total_timeout = timeout * math.ceil(len(nodes) / float(concurrent_tasks)) if timeout else None
-
+    # Callback API for wait_procs
     def on_terminate(worker):
-        logger.info("process {} terminated with exit code {}".format(worker.name, worker.exitcode))
+        logger.info("process {} terminated with exit code {}".format(
+            worker.name, worker.returncode)
+        )
         logger.info(f"[chunangli] on_terminate, worker= {worker.__dict__}")
 
     def force_terminate(workers, init_result):
+        # Some processes cannot be terminated. Try to kill them and raise flag.
         running_processes = [worker for worker in workers if worker.is_alive()]
-        if running_processes:
-            logger.info('Found processes still running: {}. Try to kill them.'.format(str(running_processes)))
+        if len(running_processes) > 0:
+            logger.info(
+                'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
+            )
             for p in running_processes:
+                # If sanity check process is killed, it still has init results.
+                # set its failed to True.
                 if init_result:
                     init_result['failed'] = True
                     results[list(results.keys())[0]] = init_result
@@ -120,45 +111,66 @@ def parallel_run(
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
-                    logger.error(f"Unable to kill {p.pid}:{p.name}, error:{err}")
+                    logger.error("Unable to kill {}:{}, error:{}".format(
+                        p.pid, p.name, err
+                    ))
+
                     pt_assert(
                         False,
-                        f"""Processes running target "{target.__name__}" could not be terminated.
-                               Unable to kill {p.pid}:{p.name}, error:{err}"""
+                        """Processes running target "{}" could not be terminated.
+                        Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
 
+    workers = []
+    results = Manager().dict()
+    start_time = datetime.datetime.now()
+    tasks_done = 0
+    total_tasks = len(nodes)
+    tasks_running = 0
+    total_timeout = timeout * math.ceil(
+        len(nodes)/float(concurrent_tasks)
+    ) if timeout else None
+    failed_processes = {}
+
     while tasks_done < total_tasks:
-        if total_timeout and (datetime.datetime.now() - start_time).seconds > total_timeout:
-            logger.error(f'Process execution time exceeds {total_timeout} seconds.')
-            break
+        # If execution time of processes exceeds timeout, need to force
+        # terminate them all.
+        if total_timeout is not None:
+            if (datetime.datetime.now() - start_time).seconds > total_timeout:
+                logger.error('Process execution time exceeds {} seconds.'.format(
+                    str(total_timeout)
+                ))
+                break
 
         while len(nodes) and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
+            # For sanity check process, initial results in case of timeout.
             if init_result:
                 init_result["host"] = node.hostname
                 results[node.hostname] = init_result
             kwargs['node'] = node
             kwargs['results'] = results
-            process_name = f"{target.__name__}--{node}"
+            process_name = "{}--{}".format(target.__name__, node)
             worker = SonicProcess(
-                name=process_name,
-                target=target,
-                args=args,
-                kwargs=kwargs,
-                queue=exception_queue,
-            )
+                        name=process_name, target=target, args=args,
+                        kwargs=kwargs
+                    )
             worker.start()
             tasks_running += 1
-            logger.debug(f'Started process {worker.pid} running target "{process_name}"')
+            logger.debug('Started process {} running target "{}"'.format(
+                worker.pid, process_name
+            ))
             workers.append(worker)
 
         gone, alive = wait_procs(workers, timeout=timeout, callback=on_terminate)
         workers = alive
 
-        logger.debug(f"task completed {len(gone)}, running {len(alive)}")
+        logger.debug("task completed {}, running {}".format(
+            len(gone), len(alive)
+        ))
 
         if len(gone) == 0:
-            logger.debug("all processes have timed out")
+            logger.debug("all processes have timedout")
             tasks_running -= len(workers)
             tasks_done += len(workers)
             force_terminate(workers, init_result)
@@ -167,43 +179,58 @@ def parallel_run(
             tasks_running -= len(gone)
             tasks_done += len(gone)
 
-        # Handle any exceptions returned by subprocesses
-        while not exception_queue.empty():
-            name, exc = exception_queue.get()
-            if exc:
-                failed_processes[name] = {
-                    "exit_code": next((p.exitcode for p in gone if p.name == name), -1),
-                    "exception": exc
-                }
+        # check if we have any processes that failed - have exitcode non-zero
+        for worker in gone:
+            logger.info(f"[chunangl] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            if worker.exitcode != 0:
+                failed_processes[worker.name] = {}
+                failed_processes[worker.name]['exit_code'] = worker.exitcode
+                failed_processes[worker.name]['exception'] = worker.exception
 
-    # Final cleanup
+    # In case of timeout force terminate spawned processes
     for worker in workers:
         if worker.is_alive():
-            logger.error(f'Process {worker.name} is alive, exitcode={worker.exitcode}, force terminating it.')
+            logger.error('Process {} is alive, exitcode={},force terminate it.'.format(
+                worker.name, worker.exitcode
+            ))
             worker.terminate()
+            # If sanity check process is killed, it still has init results.
+            # set its failed to True.
             if init_result:
                 init_result['failed'] = True
                 results[list(results.keys())[0]] = init_result
             else:
                 results[worker.name] = {'failed': True}
 
-    force_terminate(workers, init_result)
-
-    if failed_processes:
-        for process_name, process in failed_processes.items():
-            p_exception = process['exception'][0]
-            p_traceback = process['exception'][1]
-            p_exitcode = process['exit_code']
-            pt_assert(
-                False,
-                f'Processes "{list(failed_processes.keys())}" failed with exit code "{p_exitcode}"\n'
-                f'Exception:\n{p_exception}\nTraceback:\n{p_traceback}'
-            )
-
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
 
-    logger.info(f'Completed running processes for target "{target.__name__}" in {delta_time} seconds')
+    # force terminate any workers still running
+    force_terminate(workers, init_result)
+
+    # if we have failed processes, we should log the exception and exit code
+    # of each Process and fail
+    if len(list(failed_processes.keys())):
+        for process_name, process in list(failed_processes.items()):
+            p_exitcode = ""
+            p_exception = ""
+            p_traceback = ""
+            if 'exception' in process and process['exception']:
+                p_exception = process['exception'][0]
+                p_traceback = process['exception'][1]
+                p_exitcode = process['exit_code']
+            pt_assert(
+                False,
+                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
+                )
+            )
+
+    logger.info(
+        'Completed running processes for target "{}" in {} seconds'.format(
+            target.__name__, str(delta_time)
+        )
+    )
 
     return dict(results)
 
