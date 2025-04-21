@@ -76,6 +76,7 @@ FWD:
       - route/test_duplicate_route.py
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+      - ipfwd/test_dip_sip.py
 
 PLT:
   t0-64:
