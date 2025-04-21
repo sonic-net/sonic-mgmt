@@ -40,10 +40,10 @@
 {% else %}
   <memory unit='GiB'>4</memory>
   <currentMemory unit='GiB'>8</currentMemory>
-  <vcpu placement='static'>32</vcpu>
+  <vcpu placement='static'>6</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
-    <topology sockets='1' dies='1' cores='16' threads='2'/>
+    <topology sockets='1' dies='1' cores='6' threads='1'/>
   </cpu>
 {% endif %}
   <cpu mode='host-model' check='partial'/>
