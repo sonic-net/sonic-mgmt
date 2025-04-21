@@ -7,7 +7,6 @@ import logging
 import snappi
 import sys
 import random
-import subprocess
 import snappi_convergence
 from tests.common.helpers.assertions import pytest_require
 from ipaddress import ip_address, IPv4Address, IPv6Address
@@ -19,7 +18,7 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-from tests.common.snappi_tests.uhd.uhd_helpers import *
+
 
 logger = logging.getLogger(__name__)
 
@@ -1305,21 +1304,19 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     Yields:
     """
-    logger.info("Configuring UHD connect")
-    uhdConnect_ip = tbinfo['uhd_ip']
+
+    uhdConnect_ip = tbinfo[None][0]
 
     num_cps_cards = 8
-    num_tcpbg_cards = 4
+    num_tcpbg_cards = 0
     num_udpbg_cards = 0
     num_dpus = 1
-    dpu_ports_list = [5,6]
 
     cards_dict = {
         'num_cps_cards': num_cps_cards,
         'num_tcpbg_cards': num_tcpbg_cards,
         'num_udpbg_cards': num_udpbg_cards,
-        'num_dpus': num_dpus,
-        'dpu_ports_list': dpu_ports_list
+        'num_dpus': num_dpus
     }
 
 
@@ -1327,8 +1324,7 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     subnet_mask = 10
     ip_list = create_uhdIp_list(subnet_mask)
-
-    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict)
+    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict['num_dpus'])
 
     connections_list = []
     arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)
@@ -1344,7 +1340,7 @@ def config_uhd_connect(request, duthost, tbinfo):
         'Content-Type': 'application/json'
     }
     file_name = "smartswitch.json"
-    file_location="/var/src/sonic-mgmt/tests/snappi_tests/dash"
+    file_location="/var/AzDevOps/sonic-mgmt/tests/snappi_tests/dash"
     url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)
     json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
