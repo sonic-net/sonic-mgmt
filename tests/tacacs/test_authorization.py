@@ -715,7 +715,7 @@ def test_send_remote_address(
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
                             check_tacacs,  # noqa: F811
-                            rw_user_client):
+                            remote_rw_user_client):
     """
         Verify TACACS+ send remote address to server.
     """
@@ -728,7 +728,7 @@ def test_send_remote_address(
     ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
 
     # Send a authorization packet to TACACS server
-    ssh_run_command(rw_user_client, "show version")
+    ssh_run_command(remote_rw_user_client, "show version")
 
     # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
 
