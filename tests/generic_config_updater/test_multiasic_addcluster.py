@@ -196,6 +196,36 @@ def test_addcluster_workflow(duthost):
         result = duthost.shell(f"show interface status {port}", module_ignore_errors=False)["stdout"]
         pytest_assert("up" in result, f"{port} is not up")
 
+    # Step 9.1: Check ports are bound to MIRROR ACL tables
+    logger.info("Checking ports binding in MIRROR ACL tables")
+    result = duthost.shell("show acl table", module_ignore_errors=False)["stdout"]
+
+    # Parse ACL table output to get MIRROR type tables and their bindings
+    current_table = None
+    mirror_bindings = set()
+
+    for line in result.splitlines():
+        if not line.strip() or '----' in line:
+            continue
+
+        # If line starts with name, it's a new table entry
+        if not line.startswith(' '):
+            fields = [f for f in line.split() if f]
+            if len(fields) >= 2 and fields[1] in ('MIRROR', 'MIRRORV6'):
+                current_table = fields[0]
+        # If line starts with space and we're in a MIRROR table, it's a binding
+        elif current_table:
+            port = line.strip()
+            if port:
+                mirror_bindings.add(port)
+
+        # Check if all ports_to_check are in mirror_bindings
+        for port in ports_to_check:
+            pytest_assert(port in mirror_bindings,
+                          f"Port {port} is not bound to any MIRROR ACL table. "
+                          f"Current bindings: {sorted(mirror_bindings)}")
+            logger.info(f"Verified port {port} is bound to MIRROR ACL table")
+
     # Step 10: Check PortChannel exists
     if portchannels_to_check:
         result = duthost.shell(f"show interfaces portchannel -n {ASICID}", module_ignore_errors=False)["stdout"]
