@@ -1,23 +1,31 @@
-[sonic_dell64_40]
-sonic-s6100-dut1     ansible_host=10.251.0.233
-sonic-s6100-dut2     ansible_host=10.251.0.234
+[str3-8102-07]
+str3-8102-07     ansible_host=10.1.155.78
 
-[sonic_dell64_40:vars]
-hwsku="Force10-S6100"
-iface_speed='40000'
+[str3-8102-07:vars]
+hwsku="Cisco-8102-28FH-DPU-O-T1"
+iface_speed='400000'
+ansible_connection=ssh                     # actually default mode smart is OK
+ansible_ssh_user=cisco
+ansible_ssh_pass=cisco123                      # or ansible_ssh_pass=vagrant
+ansible_host=10.36.78.120
 
 [Server_6]
-snappi-sonic          ansible_host=10.251.0.234   os=snappi
+snappi_sonic          ansible_host='10.1.155.29'    os=snappi
+uhd_connect           ansible_host='10.1.155.57'   os=snappi
 
 [sonic:children]
-sonic_dell64_40
+str3-8102-07
 
 [sonic:vars]
-mgmt_subnet_mask_length='23'
+mgmt_subnet_mask_length='22'
+snappi_sonic_ptf     ansible_host='10.1.155.19'
 
-[snappi-sonic:children]
+[snappi_sonic:children]
 sonic
-snappi_chassis
 
 [ptf]
-snappi-sonic-ptf     ansible_host='10.251.0.232'
+snappi_sonic_ptf     ansible_host='10.1.155.19'
+snappi_sonic_ixl     ansible_host='10.1.155.35'
+
+[ptf:vars]
+snappi_sonic_ixl     ansible_host='10.1.155.35'

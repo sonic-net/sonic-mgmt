@@ -7,8 +7,6 @@ import logging
 import snappi
 import sys
 import random
-import snappi_convergence
-import pdb
 
 from tests.common.helpers.assertions import pytest_require
 from ipaddress import ip_address, IPv4Address, IPv6Address
@@ -18,14 +16,8 @@ from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_pe
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
-from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
-    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
-    pfcQueueValueDict          # noqa: F401
-
 
 logger = logging.getLogger(__name__)
-
-
 
 
 @pytest.fixture(scope="module")
@@ -87,11 +79,10 @@ def config_snappi_ixl(request, duthosts, tbinfo):
 
     Yields:
     """
-
     snappi_ixl_params = {}
 
     chassis_ip = tbinfo['chassis_ip']
-    gw_ip = tbinfo['gw_ip']
+    gw_ip = tbinfo['ixl_gateway']
 
     test_filename = "dash_cps"
     initial_cps_obj = 1000000
