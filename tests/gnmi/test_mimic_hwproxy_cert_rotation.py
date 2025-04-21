@@ -4,7 +4,6 @@ import logging
 from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
 
-
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -14,9 +13,15 @@ pytestmark = [
 
 def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
-    cmd_feature = 'show feature status | awk \'$1=="gnmi" || $1=="telemetry" {print $1, $2}\''
+
+    # Use bash -c to run the pipeline properly
+    cmd_feature = (
+        'bash -c \'show feature status | awk "$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}"\''
+    )
     logging.debug("show feature status command is: {}".format(cmd_feature))
-    output = duthost.command(cmd_feature, module_ignore_errors=True)
+
+    result = duthost.command(cmd_feature, module_ignore_errors=True)
+    output = result["stdout"]
 
     gnmi_enabled = False
     telemetry_enabled = False
@@ -31,13 +36,15 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
                 telemetry_enabled = True
 
     if "internal" in duthost.os_version:
-        pytest_assert(gnmi_enabled or telemetry_enabled,
-                      "Internal image has neither gnmi nor telemetry feature enabled")
+        pytest_assert(
+            gnmi_enabled or telemetry_enabled,
+            "Internal image has neither gnmi nor telemetry feature enabled"
+        )
 
     if gnmi_enabled:
-        cmd_feature = "docker images| grep 'docker-sonic-gnmi'"
+        cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
         result = duthost.command(cmd_feature, module_ignore_errors=True)
-        if result.stdout.strip():
+        if result["stdout"].strip():
             # disable feature
             disable_feature = 'sudo config feature state gnmi disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
@@ -48,9 +55,9 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             duthost.command(enable_feature, module_ignore_errors=True)
 
     if telemetry_enabled:
-        cmd_feature = "docker images| grep 'docker-sonic-telemetry'"
+        cmd_feature = "docker images | grep 'docker-sonic-telemetry'"
         result = duthost.command(cmd_feature, module_ignore_errors=True)
-        if result.stdout.strip():
+        if result["stdout"].strip():
             # disable feature
             disable_feature = 'sudo config feature state telemetry disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
