@@ -727,10 +727,10 @@ def test_send_remote_address(
     # Clean tacacs log
     ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
 
-    exit_code, stdout_stream, stderr_stream = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
-    pytest_assert(exit_code == 0)
+    # Send a authorization packet to TACACS server
+    ssh_run_command(rw_user_client, "show version")
 
     # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
-    stdout = stdout_stream.readlines()
+    stdout = duthost.shell("echo $SSH_CONNECTION")["stdout"]
     remote_address = stdout[0].split(" ")[0]
     check_server_received(ptfhost, remote_address)
