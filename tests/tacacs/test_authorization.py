@@ -707,3 +707,30 @@ def test_tacacs_authorization_commands_during_login(
             logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
             pytest_assert(False, "Device execute {} commands during login,\
                            please check and remove unecessary login commands: {}".format(count, res))
+            
+
+def test_send_remote_address(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
+    """
+        Verify TACACS+ send remote address to server.
+    """
+    
+    # per-command accounting message also send remote address
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
+    
+    # Clean tacacs log
+    ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
+
+    exit_code, stdout_stream, stderr_stream = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    pytest_assert(exit_code == 0)
+
+    # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    stdout = stdout_stream.readlines()
+    remote_address = stdout[0].split(" ")[0]
+    check_server_received(ptfhost, remote_address)
