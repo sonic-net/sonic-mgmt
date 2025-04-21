@@ -141,6 +141,15 @@ class LogAnalyzer:
         else:
             logging.info(f"[chunangli] check match number. total_match={result['total']['match']}, "
                          f"expected_missing_match={result['total']['expected_missing_match']}")
+
+            if result['total']['match'] == 0:
+                result['total']['match'] = 2000
+                dict1 = {}
+                for i in range(2000):
+                    dict1[i] = ("2025 Apr 20 17:54:51.218839 bjw-can-7260-12 ERR syncd#syncd: :- collectData: "
+                                "Failed to get stats of Port Counter 0x100000042: -2")
+                result['match_messages'] = dict1
+
             result_str = self._results_repr(result)
             if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
                 logging.info("[chunangli] raise LogAnalyzerError.")
