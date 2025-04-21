@@ -3,6 +3,7 @@ import shutil
 import logging
 import os
 import glob
+import grpc
 
 from grpc_tools import protoc
 
@@ -11,6 +12,8 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
@@ -280,11 +283,6 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     """
     Fixture to set up a gRPC channel with secure credentials.
     """
-    import grpc
-    import logging
-    import pytest
-    from tests.common.helpers.gnmi_utils import GNMIEnvironment
-
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
