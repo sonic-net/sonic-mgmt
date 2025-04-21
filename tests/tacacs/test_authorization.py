@@ -714,7 +714,7 @@ def test_send_remote_address(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
+                            check_tacacs,  # noqa: F811
                             rw_user_client):
     """
         Verify TACACS+ send remote address to server.
