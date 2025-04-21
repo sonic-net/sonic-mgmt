@@ -4,6 +4,7 @@ Check SFP status and configure SFP using sfputil.
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
 https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
+import ast
 import logging
 import time
 import copy
@@ -19,8 +20,8 @@ from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
-    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+from tests.common.platform.transceiver_utils import is_sw_control_enabled, is_unsupported_module, \
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled, skip_on_unsupported_module
 
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -186,6 +187,22 @@ def get_transceiver_info(duthost, enum_frontend_asic_index, logical_intf):
     cmd = "sonic-db-cli {} STATE_DB HGETALL 'TRANSCEIVER_INFO|{}'".format(namespace_cmd_opt, logical_intf)
     xcvr_info_output = duthost.command(cmd)["stdout"]
     return xcvr_info_output
+
+
+def get_port_info(duthost, enum_frontend_asic_index, logical_intf):
+    """Get transceiver information for a port as a dictionary."""
+    transceiver_info = get_transceiver_info(duthost, enum_frontend_asic_index, logical_intf)
+    if not transceiver_info:
+        raise ValueError(f"No transceiver info found for interface {logical_intf}")
+
+    cleaned_info = transceiver_info.replace('\x00', '')
+    try:
+        port_info = ast.literal_eval(cleaned_info)
+        if not isinstance(port_info, dict):
+            raise ValueError(f"Unexpected transceiver info format for interface {logical_intf}")
+        return port_info
+    except (ValueError, SyntaxError) as e:
+        raise ValueError(f"Failed to parse transceiver info for interface {logical_intf}: {str(e)}")
 
 
 def is_cmis_module(duthost, enum_frontend_asic_index, logical_intf):
@@ -363,8 +380,13 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
         pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
     physical_port_index_map = get_physical_port_indices(duthost, conn_graph_facts["device_conn"][duthost.hostname])
+    supported_module = False
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
+            port_info = get_port_info(duthost, enum_frontend_asic_index, intf)
+            if is_unsupported_module(port_info, intf):
+                continue
+            supported_module = True
             expected_state = 'OK'
             intf_index = physical_port_index_map[intf]
             if cmd_sfp_error_status == "sudo sfputil show error-status --fetch-from-hardware"\
@@ -377,7 +399,9 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                 continue
             assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_error_status)
             assert parsed_presence[intf] == expected_state, \
-                f"Interface {intf}'s error status is not {expected_state}, actual state is:{parsed_presence[intf]}."
+                f"Interface {intf}'s error status is not {expected_state}, actual state is: {parsed_presence[intf]}."
+    if not supported_module:
+        skip_on_unsupported_module()
 
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
