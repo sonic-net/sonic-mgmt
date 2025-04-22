@@ -600,6 +600,7 @@
         copy: src=golden_config_db/smartswitch_t1.json
               dest=/tmp/smartswitch.json
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Create dns config
@@ -777,14 +778,16 @@
         copy: src=golden_config_db/smartswitch_dpu_extra.json
               dest=/tmp/dpu_extra.json
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
-          host_username: "{{ dpu_username | default('admin') }}"
-          host_password: "{{ dpu_password | default('password') }}"
+          host_username: "{{ sonic_login }}"
+          host_passwords: "{{ sonic_default_passwords }}"
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Configure TACACS
