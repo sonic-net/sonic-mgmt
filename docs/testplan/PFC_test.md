@@ -113,11 +113,11 @@ The reserved multicast address 01-80-C2-00-00-01 is used as the destination MAC 
 
 Save the PFC test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
 
-| Label                          | Example Value      |
-| ------------------------------ | ------------------ |
-| `METRIC_LABEL_DEVICE_ID`       | switch-A           |
-| `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8          |
+| User Interface Label                   | Label Key in DB          | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`               | device.id                | switch-A            |
+| `METRIC_LABEL_DEVICE_PORT_ID`          | device.port.id           | Ethernet8           |
 
-| Metric Name                    | Example Value      |
-| ------------------------------ | ------------------ |
-| `METRIC_NAME_PFC_LOSSY`        | FINAL_STATUS.PASS  |
+| User Interface Metric Name             | Metric Name in DB        | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_NAME_PFC_LOSSY`                | pfc.lossy                | FINAL_STATUS.PASS   |
