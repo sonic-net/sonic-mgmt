@@ -47,7 +47,7 @@ class TestNeighborMacNoPtf:
         # these routes are present only on multi asic device, on single asic platform they will be zero
         internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
         if asichost.sonichost.facts['switch_type'] == 'voq':
-            #voq inband_ip's
+            # voq inband_ip's
             internal += self.count_routes(asichost, "3")
         allroutes = self.count_routes(asichost, "")
         logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}"
