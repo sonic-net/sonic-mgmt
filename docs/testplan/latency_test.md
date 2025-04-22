@@ -1,12 +1,10 @@
 # SONiC Switch Latency Test
 
-## Table of Contents
-
 - [SONiC Switch Latency Test](#sonic-switch-latency-test)
-  - [Table of Contents](#table-of-contents)
   - [Test Objective](#test-objective)
   - [Test Setup](#test-setup)
-  - [Test Steps](#test-steps)
+  - [Test Case 1: Full-mesh Latency Test](#test-case-1-full-mesh-latency-test)
+  - [Test case 2: Latency Test with Oversubscribed Port](#test-case-2-latency-test-with-oversubscribed-port)
   - [Metrics Processing](#metrics-processing)
 
 ## Test Objective
@@ -15,28 +13,61 @@ This test aims to measure the latency introduced by a switch under the fully loa
 
 ## Test Setup
 
-The test is designed to be topology-agnostic, meaning it does not assume or impose a specific network connection. The only requirement is that the DUT is fully connected to handle full traffic loads under stress. Plus all traffic generators in the testbed must be time synchronized.
-
 > **Notice**: Currently, we are testing exclusively in store-and-forward mode.
 
-## Test Steps
+1. **Maximize Traffic Load on DUT**
 
-1. Switch wiring: All DUT ports are connected to traffic generators, directly or indirectly.
+   This test uses all traffic generator ports defined in the test topology to generate the maximum possible traffic volume, stressing the DUT to capture its latency behavior under full load.
 
-2. Following the steps outlined in the snappi BGP test plan and IPv6 route scaling test plan, establish the required IPv6 BGP sessions and IPv6 routes.
-3. Configure traffic items on the traffic generators to ensure that every port of the DUT receives traffic flow, and every route on the DUT is executed. For example, For each of the four traffic generators: define two topologies, each containing four **physical** ports. Configure and bring up Layer 2 and Layer 3 protocols for both topologies. Define two uni-directional traffic items in IXIA-1, one traffic item is destined for IXIA-2, the other traffic item is destined for IXIA-4, both of them are full mesh. Set each traffic item’s rate to 60% of the line rate, with a packet size of 1024 bytes. Define two uni-directional traffic items in IXIA-2, one traffic item is destined for IXIA-1, the other traffic item is destined for IXIA-3.  So on and so forth.
+   - **Switch wiring**: All DUT ports must be connected to traffic generators—either directly or through intermediary devices.
 
-4. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics and compare latency differences between the two traffic items sourced from each traffic generator.
+2. **Establish BGP Sessions and Routes**
 
-5. Repeat the test with frame size 64 bytes, 1024 bytes, 4096 bytes, and 8192 bytes to analyze how packet size impacts latency.
+   Follow the steps outlined in the multi-tier BGP test plan to:
+   - Set up the necessary IPv6 BGP sessions
+   - Advertise the desired IPv6 routes
 
-6. Increase each traffic item's rate from 60% to 70%, 80%, and 90% of the line rate, respectively. Repeat the above three steps. Observe how latency changes in relation to packet loss. Note: Latency measurements may be skewed due to packet loss, as lost packets are counted as having infinite latency. This issue should be addressed to ensure accurate results.
+3. **Configure Traffic Flows**
 
-## Oversubscription Test Case
+   Set up traffic items on the traffic generators to ensure:
+   - Every DUT port receives traffic
+   - Every route on the DUT is exercised
+
+   For example:
+   - For each of the four traffic generators, define two topologies, each containing four **physical** ports.
+   - Configure and enable Layer 2 and Layer 3 protocols for both topologies.
+   - In IXIA-1, define two uni-directional traffic items:
+     - One targeting IXIA-2
+     - One targeting IXIA-4
+     - Both set to full mesh mode
+     - Each at 60% line rate, with a packet size of 1024 bytes
+
+   - Similarly, in IXIA-2, define traffic items targeting IXIA-1 and IXIA-3.
+   - Repeat the pattern across all traffic generators to establish a robust traffic matrix.
+
+## Test Case 1: Full-mesh Latency Test
+
+1. **Baseline Latency Measurement**
+   - Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics.
+   - Record latency statistics from each traffic item.
+   - Compare latency differences between the two traffic items sourced from each traffic generator.
+2. **Packet Size Variation**
+   - Repeat the baseline test using different frame sizes: 64 bytes, 1024 bytes, 4096 bytes, and 8192 bytes.
+   - Analyze how packet size affects latency.
+3. **Traffic Rate Scaling**
+   - Increase each traffic item’s rate from 60% to 70%, 80%, and 90% of the line rate.
+   - For each traffic rate, repeat the baseline and packet size variation tests.
+   - Observe how latency and packet loss change with increased traffic load.
+4. **RFC2889 Mode Evaluation**
+   - Enable the RFC2889 flag in the traffic generator settings.
+   - Repeat all previous tests under this mode.
+   - Measure whether this setting has any impact on latency or packet loss.
+
+## Test case 2: Latency Test with an Oversubscribed Port
 
 This test is conducted in a one-tier network to evaluate latency under an oversubscribed state.
 
-1. Assume the DUT has X ports connected to traffic generators. Assume the DUT has X ports connected to traffic generators. Randomly select one port on a traffic generator as the Rx port, and designate the remaining (X-1) ports as Tx ports.
+1. Assume the DUT has X ports connected to traffic generators. Assume the DUT has X ports connected to traffic generators. Select the last port on a traffic generator as the Rx port, and designate the remaining (X-1) ports as Tx ports.
 2. Define (X-1) traffic items, each assigned to a different Tx port, using a frame size of 86 bytes. Set each traffic stream's rate to `(line_rate × 110%) / X` to create an oversubscribed condition.
 3. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics.
 4. Repeat the test with frame size 1024 bytes, 4096 bytes, and 8192 bytes.
@@ -48,21 +79,21 @@ Latency data is collected and stored periodically. The diagram below illustrates
 
 ![metrics](./datapoints.png)
 
-For each of the above results, save the latency figures in nanoseconds to a database via the telemetry interface provided by the SONiC team. An example of how to use the interface is provided in telemetry folder. The metrics are stored as data points in our database.
+For each of the above results, report the latency figures in nanoseconds to a database via the telemetry FinalMetricsReporter provided by the SONiC team. An example of how to use the interface is provided in telemetry folder. The metrics are stored as data points in our database.
 
-| Label                                 | Example Value  |
-| ------------------------------------- | -------------- |
-| `METRIC_LABEL_DEVICE_ID`              | switch-A       |
-| `METRIC_LABEL_DEVICE_INGRESS_PORT_ID` | Ethernet8      |
-| `METRIC_LABEL_DEVICE_EGRESS_PORT_ID`  | Ethernet257    |
-| `METRIC_LABEL_TRAFFIC_RATE`           | 50             |
-| `METRIC_LABEL_TRAFFIC_PACKET_SIZE`    | 4096           |
-| `METRIC_LABEL_TRAFFIC_RFC2889_FLAG`   | ON             |
+| User Interface Label                     | Label Key in DB          | Example Value       |
+| ---------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`                 | device.id                | switch-A            |
+| `METRIC_LABEL_DEVICE_INGRESS_PORT_ID`    | device.port.id           | Ethernet8           |
+| `METRIC_LABEL_DEVICE_EGRESS_PORT_ID`     | device.queue.id          | Ethernet257         |
+| `METRIC_LABEL_DEVICE_TG_TRAFFIC_RATE`    | tg.traffic_rate          | 50                  |
+| `METRIC_LABEL_DEVICE_TG_FRAME_BYTES`     | tg.frame_bytes           | 4096                |
+| `METRIC_LABEL_DEVICE_TG_RFC2889_ENABLED` | tg.rfc2889.enabled       | FLAG.ON             |
 
-| Metric Name                           | Example Value  |
-| ------------------------------------- | -------------- |
-| `METRIC_NAME_MIN_LATENCY`             | 5891           |
-| `METRIC_NAME_MAX_LATENCY`             | 7620           |
-| `METRIC_NAME_AVG_LATENCY`             | 6387           |
+| User Interface Metric Name               | Metric Name in DB        | Example Value       |
+| ---------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_NAME_LATENCY_L3_MIN_NS`          | latency.l3.min.ns        | 5891                |
+| `METRIC_NAME_LATENCY_L3_MAX_NS`          | latency.l3.max.ns        | 7620                |
+| `METRIC_NAME_LATENCY_L3_AVG_NS`          | latency.l3.avg.ns        | 6387                |
 
 Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
