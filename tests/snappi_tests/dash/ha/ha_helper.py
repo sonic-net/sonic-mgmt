@@ -1,8 +1,13 @@
+from tabulate import tabulate
+from tests.common.utilities import (wait, wait_until)
+from tests.common.helpers.assertions import pytest_assert
 import snappi
 import ipaddress
 import re
 import macaddress
 import time
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,13 +51,91 @@ MAC_L_START = macaddress.MAC('00:1A:C5:00:00:01')
 MAC_R_START = macaddress.MAC('00:1B:6E:00:00:01')
 
 
-def run_ha_test(duthost, localhost, conn_graph_facts, fanout_graph_facts, get_snappi_ports,
-                ha_test_case, config_snappi_ixl):
+def run_ha_test(duthost, localhost, ha_test_case, config_snappi_ixl):
 
     test_type_dict = config_snappi_ixl['test_type_dict']
     connection_dict = config_snappi_ixl['connection_dict']
 
-    main(connection_dict, test_type_dict['cps'], test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
+    # Configure SmartSwitch
+    duthost_ha_config(duthost, ha_test_case)
+
+
+    # Configure IxLoad traffic
+    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'], test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
+
+    # Traffic Starts
+    if ha_test_case == 'cps':
+        api = run_cps_search(api, initial_cps_value)
+        #cs.app.state = 'stop' #cs.app.state.START
+        #api.set_control_state(cs)
+        print("Test Ending")
+
+    #ha_switchTraffic(duthost, ha_test_case)
+
+    return
+
+
+def dpu_config(duthost, ha_test_case):
+
+    pass
+
+
+def ha_switchTraffic(duthost, ha_test_case):
+
+    import pdb; pdb.set_trace()
+    # Moves traffic to DPU2
+    ha_switch_config = (
+        "vtysh "
+        "-c 'configure' "
+        "-c 'ip route 221.0.0.1/32 18.0.202.1 10' "
+        "-c 'ip route 221.0.0.1/32 18.2.202.1 1' "
+        "-c 'exit' "
+    )
+    logger.info("HA switch shell 1")
+    duthost.shell(ha_switch_config)
+
+    # Sets traffic back to DPU0
+    pdb.set_trace()
+    ha_switch_config = (
+        "vtysh "
+        "-c 'configure' "
+        "-c 'no ip route 221.0.0.1/32 18.2.202.1 1' "
+        "-c 'ip route 221.0.0.1/32 18.0.202.1 1' "
+        "-c 'exit' "
+    )
+    logger.info("HA switch shell 4")
+    duthost.shell(ha_switch_config)
+
+    pdb.set_trace()
+
+    return
+
+
+def duthost_ha_config(duthost, ha_test_case):
+
+
+    # Smartswitch configure
+    """
+    logger.info('Cleaning up config')
+    duthost.command("sudo cp {} {}".
+                    format("/etc/sonic/config_db_backup.json",
+                           "/etc/sonic/config_db.json"))
+    duthost.shell("sudo config reload -y \n")
+    logger.info("Wait until all critical services are fully started")
+    pytest_assert(wait_until(360, 10, 1,
+                             duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
+    """
+
+    # Install Static Routes
+    logger.info('Configuring static routes')
+    duthost.shell('sudo arp -s 220.0.1.2 80:09:02:02:00:01')
+    duthost.shell('sudo arp -s 220.0.2.2 80:09:02:02:00:02')
+    duthost.shell('sudo arp -s 220.0.3.2 80:09:02:02:00:03')
+    duthost.shell('sudo arp -s 220.0.4.2 80:09:02:02:00:04')
+
+    # Load DPUs
+
 
     return
 
@@ -88,7 +171,7 @@ def assignPorts(api, ports_list):
                 res = api.ixload_configure("post", portListUrl, paramDict)
             except Exception as e:
                 # Handle any exception
-                print(f"An error occurred: {e}")
+                logger.info(f"An error occurred: {e}")
 
 
     return
@@ -180,7 +263,7 @@ def edit_l1_settings(api):
             res = api.ixload_configure("patch", portl1_url, params)
         except Exception as e:
             # Handle any exception
-            print(f"An error occurred: {e}")
+            logger.info(f"An error occurred: {e}")
 
     return
 
@@ -241,7 +324,7 @@ def set_rangeList(api):
             res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)
         except Exception as e:
             # Handle any exception
-            print(f"An error occurred: {e}")
+            logger.info(f"An error occurred: {e}")
 
     s_res_results = []
     for i, sid in enumerate(server_objectIDs):
@@ -250,7 +333,7 @@ def set_rangeList(api):
             res1 = api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)
         except Exception as e:
             # Handle any exception
-            print(f"An error occurred: {e}")
+            logger.info(f"An error occurred: {e}")
 
     return
 
@@ -264,7 +347,7 @@ def set_trafficMapProfile(api):
         res = api.ixload_configure("patch", destination_url, portMapPolicy_json)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     # meshType
     meshType_json = {'meshType': 'vlanRangePairs'}
@@ -274,7 +357,7 @@ def set_trafficMapProfile(api):
         res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     return
 
@@ -290,7 +373,7 @@ def set_tcpCustom(api):
         res = api.ixload_configure("patch", tcp_agent_url, param_json)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     return
 
@@ -329,14 +412,14 @@ def set_timelineCustom(api, initial_cps_value):
         res = api.ixload_configure("patch", activityList_url, activityList_json)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
     """
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     return
 
@@ -349,23 +432,16 @@ def run_cps_search(api, initial_cps_value):
     test_value = initial_cps_value
     activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
     releaseConfig_url = "ixload/test/operations/abortAndReleaseConfigWaitFinish"
+    testRuns = []
 
     while ((MAX_CPS - MIN_CPS) > threshold):
         test_result = ""
-        print(
+        logger.info(
             "----Test Iteration %d------------------------------------------------------------------"
             % test_iteration)
         old_value = test_value
-        print("Testing CPS Objective = %d" % test_value)
-        """
-        activityList_json = {
-            'constraintType': 'ConnectionRateConstraint',
-            'constraintValue': 6000000,
-            'enableConstraint': True,
-            'userObjectiveType': 'simulatedUsers',
-            'userObjectiveValue': ENI_COUNT*250000
-        }
-        """
+        logger.info("Testing CPS Objective = %d" % test_value)
+        cps_objective_value = test_value
         activityList_json = {
             'constraintType': 'ConnectionRateConstraint',
             'constraintValue': test_value,
@@ -373,21 +449,21 @@ def run_cps_search(api, initial_cps_value):
             'userObjectiveType': 'simulatedUsers',
             'userObjectiveValue': 64500
         }
-        print("Updating CPS objective value settings...")
+        logger.info("Updating CPS objective value settings...")
         try:
             # Code that may raise an exception
             res = api.ixload_configure("patch", activityList_url, activityList_json)
         except Exception as e:
             # Handle any exception
-            print(f"An error occurred: {e}")
-        print("CPS objective value updated.")
+            logger.info(f"An error occurred: {e}")
+        logger.info("CPS objective value updated.")
 
-        print("Applying config...")
-        print("Starting Traffic")
+        logger.info("Applying config...")
+        logger.info("Starting Traffic")
         cs = api.control_state()
         cs.app.state = 'start'  # cs.app.state.START
         response1 = api.set_control_state(cs)
-        print(response1)
+        logger.info(response1)
         req = api.metrics_request()
 
         # HTTP client
@@ -398,17 +474,14 @@ def run_cps_search(api, initial_cps_value):
         # req.httpclient.all_stats = True # for  all stats
 
         res = api.get_metrics(req).httpclient_metrics
-        print("**** res = {} ****".format(res))
         stats_client.append(res)
         time.sleep(60)
 
         res = api.get_metrics(req).httpclient_metrics
-        print("**** res = {} ****".format(res))
         stats_client.append(res)
         time.sleep(60)
 
         res = api.get_metrics(req).httpclient_metrics
-        print("**** res = {} ****".format(res))
         stats_client.append(res)
         time.sleep(60)
 
@@ -417,7 +490,7 @@ def run_cps_search(api, initial_cps_value):
         # req1.httpserver.stat_name = ["TCP Connections in ESTABLISHED State", "TCP FIN Received","HTTP Bytes Received"]
         # #req1.httpserver.all_stats=True # for all stats - True
         # res1 = api.get_metrics(req1).httpserver_metrics
-        # print("#### res1 = {} ####".format(res1))
+        # logger.info("#### res1 = {} ####".format(res1))
 
         cps_max = 0
         client_stat_values = []
@@ -426,7 +499,6 @@ def run_cps_search(api, initial_cps_value):
             client_stat_values += tmp
             client_stat_values = [int(item) for item in client_stat_values]
         cps_max = max(client_stat_values)
-        print("Max value from test run{}: {}".format(test_iteration, cps_max))
 
         if cps_max < test_value:
             test = False
@@ -434,37 +506,44 @@ def run_cps_search(api, initial_cps_value):
             test = True
 
         if test:
-            print('Test Iteration Pass')
+            logger.info('Test Iteration Pass')
             test_result = "Pass"
             MIN_CPS = test_value
             test_value = (MAX_CPS + MIN_CPS) / 2
         else:
-            print('Test Iteration Fail')
+            logger.info('Test Iteration Fail')
             test_result = "Fail"
             MAX_CPS = test_value
             test_value = (MAX_CPS + MIN_CPS) / 2
-        print("Iteration Ended...")
-        print('MIN_CPS = %d' % MIN_CPS)
-        print('Current MAX_CPS = %d' % MAX_CPS)
-        print('Previous CPS Objective value = %d' % old_value)
-        print(' ')
+
+        columns = ['#Run','CPS Objective','Max CPS', 'Test Result']
+        testRuns.append([test_iteration, cps_objective_value, cps_max, test_result])
+        table = tabulate(testRuns, headers=columns, tablefmt='psql')
+        logger.info(table)
+
+        logger.info("Iteration Ended...")
+        logger.info('MIN_CPS = %d' % MIN_CPS)
+        logger.info('Current MAX_CPS = %d' % MAX_CPS)
+        logger.info('Previous CPS Objective value = %d' % old_value)
+        logger.info(' ')
         test_iteration += 1
-        print("Releasing config...")
+        logger.info("Releasing config...")
         try:
             # Code that may raise an exception
             param = {}
             res = api.ixload_configure("post", releaseConfig_url, param)
         except Exception as e:
             # Handle any exception
-            print(f"An error occurred: {e}")
-        print("Releasing config completed..")
+            logger.info(f"An error occurred: {e}")
+        logger.info("Releasing config completed..")
 
-        print("Changing app state to stop")
+        logger.info("Changing app state to stop")
         cs.app.state = 'stop'  # cs.app.state.START
         api.set_control_state(cs)
 
-    return
+    return api
 
+"""
 def test_saveAs(api, test_filename):
 
     saveAs_operation = 'ixload/test/operations/saveAs'
@@ -480,9 +559,10 @@ def test_saveAs(api, test_filename):
         res = api.ixload_configure("post", saveAs_operation, paramDict)
     except Exception as e:
         # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     return
+"""
 
 def main(connection_dict, test_type, test_filename, initial_cps_value):
 
@@ -491,7 +571,7 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = connection_dict['chassis_ip']
-    api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version="10.10.100.2")
+    api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version="11.00.0.292")
     config = api.config()
 
     port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]
@@ -569,11 +649,11 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
             vlan2.count = 1
             vlan2.tpid = "x8100"
 
-    print("Net Traffic completed:")
+    logger.info("Net Traffic completed:")
     #eth.connection.port_name = "p1"
     #eth2.connection.port_name = "p2"
     # tcp/http client settings
-    print("Configuring TCP client settings")
+    logger.info("Configuring TCP client settings")
     (t1,) = d1.tcps.tcp(name="Tcp1")
     t1.ip_interface_name = ip1.name
     t1.adjust_tcp_buffers = False
@@ -606,10 +686,10 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     t1.packet_timestamps = True
     t1.explicit_congestion_notification = False
     t1.fragment_reassembly_timer = 30
-    print("TCP completed")
+    logger.info("TCP completed")
 
     # http
-    print("Configuring HTTP client settings")
+    logger.info("Configuring HTTP client settings")
     (http_1,) = d1.https.http(name="HTTP1")
     http_1.tcp_name = t1.name  # UDP configs can be mapped http.transport = udp_1.name
     http_1.url_stats_count = 10
@@ -634,18 +714,17 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
 
     (get_a, delete_a) = http_client.methods.method().method()
     (get1,) = get_a.get.get()
-    #get1.destination = "Traffic2_HTTPServer1:80"
     get1.destination = "Traffic2_http_server1:80"
     get1.page = "./1b.html"
     get1.name_value_args = ""
     #(delete1,) = delete_a.delete.delete()
     #delete1.destination = "Traffic2_Http1Server1:80"
     #delete1.page = "./1b.html"
-    print("HTTP client completed")
+    logger.info("HTTP client completed")
 
     # tcp/http server settings
     # tcp
-    print("Configuring TCP server settings")
+    logger.info("Configuring TCP server settings")
     (t2,) = d2.tcps.tcp(name="Tcp2")
     t2.ip_interface_name = ip2.name
     t2.adjust_tcp_buffers = False
@@ -654,10 +733,10 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     t2.time_wait_recycle = False
     t2.time_wait_rfc1323_strict = True
     t2.keep_alive_time = 600
-    print("TCP server completed")
+    logger.info("TCP server completed")
 
     # http
-    print("Configuring HTTP server settings")
+    logger.info("Configuring HTTP server settings")
     (http_2,) = d2.https.http(name="HTTP2")
     http_2.tcp_name = t2.name  # UDP configs can be mapped http.transport = udp_2.name
     http_2.enable_tos = False
@@ -673,12 +752,12 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     http_server.maximum_response_delay = 0
     http_server.minimum_response_delay = 0
     http_server.url_page_size = 1024
-    print("HTTP server completed")
+    logger.info("HTTP server completed")
 
     ## Traffic Profile
-    print("Configuring Traffic Profile settings")
+    logger.info("Configuring Traffic Profile settings")
     (tp1,) = config.trafficprofile.trafficprofile()
-    # # # # # traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
+    #traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
     tp1.app = [http_client.name,
                    http_server.name]  # traffic_profile_cps.app - "app" using it for reference can be some generic name for traffic profile on which traffic has to flow
     tp1.objective_type = ["connection_per_sec", "simulated_user"]
@@ -702,11 +781,11 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     segment2.target = ENI_COUNT*250000
     # tp1.timeline = [segment1.name, segment2.name]
     #tp1.timeline = ['Timeline5']
-    print("Traffic profile completed")
+    logger.info("Traffic profile completed")
 
-    # ## Traffic Maps
+    ### Traffic Maps
     """
-    print("Configuring Traffic Maps settings")
+    logger.info("Configuring Traffic Maps settings")
     tm1 = tp1.trafficmap.trafficmap()
     tm1[0].port_map_policy_name  = "custom"
     cust1 = tm1[0].custom.custom()
@@ -715,19 +794,19 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     mt1.vlan_range_pairs.enable = True
     #mt1.vlan_range_pairs.destination_id = 2
     end_trafficmaps_time = time.time()
-    print("Traffic map completed: {}".format(end_trafficmaps_time - start_time))
+    logger.info("Traffic map completed: {}".format(end_trafficmaps_time - start_time))
     """
 
     ##### Set config
-    print("Configuring custom settings")
+    logger.info("Configuring custom settings")
     time_custom_time = time.time()
     response = api.set_config(config)
     port = connection_dict['port']
 
     time_custom_finish = time.time()
-    print("Custom settings completed: {}".format(time_custom_finish - time_custom_time))
+    logger.info("Custom settings completed: {}".format(time_custom_finish - time_custom_time))
 
-    print("Configuring custom port settings")
+    logger.info("Configuring custom port settings")
     """
     ports_list = {
         'Traffic1@Network1': [(1,1,1), (1,2,1), (1,3,1), (1,4,1), (1,5,1), (1,6,1), (1,7,1), (1,8,1)],
@@ -742,53 +821,49 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     time_assignPort_time = time.time()
     assignPorts(api,ports_list)
     time_assignPort_finish = time.time()
-    print("Custom port settings completed: {}".format(time_assignPort_finish - time_assignPort_time))
+    logger.info("Custom port settings completed: {}".format(time_assignPort_finish - time_assignPort_time))
 
-    print("Configuring port L1 settings")
+    logger.info("Configuring port L1 settings")
     time_customl1_time = time.time()
     edit_l1_settings(api)
     time_customl1_finished = time.time()
-    print("Custom port L1 settings completed: {}".format(time_customl1_finished - time_customl1_time))
+    logger.info("Custom port L1 settings completed: {}".format(time_customl1_finished - time_customl1_time))
 
     # Here adjust Double Increment and vlanRange unique number
-    print("Configuring rangeList settings for client and server")
+    logger.info("Configuring rangeList settings for client and server")
     test_rangeList_time = time.time()
     #set_rangeList(api)
     test_rangeList_finish_time = time.time()
-    print("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
+    logger.info("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
 
     # Adjust Traffic Profile
-    print("Custom trafficmaps")
+    logger.info("Custom trafficmaps")
     test_trafficmaps_time = time.time()
     set_trafficMapProfile(api)
     test_trafficmaps_finish = time.time()
-    print("Finished traffic maps configuration {}".format(test_trafficmaps_finish - test_trafficmaps_time))
+    logger.info("Finished traffic maps configuration {}".format(test_trafficmaps_finish - test_trafficmaps_time))
 
     # Set custom TCP parameters
-    print("Custom TCP settings")
+    logger.info("Custom TCP settings")
     test_tcp_time = time.time()
     set_tcpCustom(api)
     test_tcp_finish_time = time.time()
-    print("Finished TCP configuration {}".format(test_tcp_finish_time - test_tcp_time))
+    logger.info("Finished TCP configuration {}".format(test_tcp_finish_time - test_tcp_time))
 
 
-    print("Custom timeline settings")
+    logger.info("Custom timeline settings")
     test_timeline_time = time.time()
     set_timelineCustom(api, initial_cps_value)
     test_timeline_finish = time.time()
-    print("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
+    logger.info("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
 
     # save file
-    print("Saving Test File")
+    logger.info("Saving Test File")
     test_save_time = time.time()
-    test_saveAs(api, test_filename)
+    #test_saveAs(api, test_filename)
     test_save_finish_time = time.time()
-    print("Finished saving: {}".format(test_save_finish_time - test_save_time))
-
-    # Traffic Starts
-    cs = run_cps_search(api, initial_cps_value)
-    #cs.app.state = 'stop' #cs.app.state.START
-    #api.set_control_state(cs)
+    #logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
     main_finish_time = time.time()
-    print("Main app finished in {}".format(main_finish_time-main_start_time))
-    print("Test Ending")
+    logger.info("Ixload configuration app finished in {}".format(main_finish_time - main_start_time))
+
+    return api, config, initial_cps_value

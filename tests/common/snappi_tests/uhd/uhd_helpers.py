@@ -7,7 +7,7 @@ ipp = ipaddress.ip_address
 maca = macaddress.MAC
 
 ENI_START = 1
-ENI_COUNT = 64# 64
+ENI_COUNT = 256# 64
 ENI_MAC_STEP = '00:00:00:18:00:00'
 ENI_STEP = 1
 ENI_L2R_STEP = 1000
@@ -164,8 +164,9 @@ def create_profiles():
         ]
     }
 
-def create_front_panel_ports(count, num_dpus):
+def create_front_panel_ports(count, cards_dict):
 
+    ### IxL Front Panel
     fp_list = []
     front_panel_port = 9
     channel = 1
@@ -189,20 +190,95 @@ def create_front_panel_ports(count, num_dpus):
                 channel = 1
                 front_panel_port += 1
 
+
+
+    ### IxN Front Panel
+    ixn_dict = {
+            "name": "ixnetwork_port_group_1A", "choice": "port_group",
+            "port_group": {
+                "ports": [
+                    {"front_panel_port": 31, "channel": 1, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
+                    {"front_panel_port": 31, "channel": 3, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
+                ]
+            }
+    }
+    fp_list.append(ixn_dict)
+    ixn_dict = {
+            "name": "ixnetwork_port_group_1B", "choice": "port_group",
+            "port_group": {
+                "ports": [
+                    {"front_panel_port": 31, "channel": 5, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
+                    {"front_panel_port": 31, "channel": 7, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
+
+                ]
+            }
+    }
+    fp_list.append(ixn_dict)
+    ixn_dict = {
+            "name": "ixnetwork_port_group_2A", "choice": "port_group",
+            "port_group": {
+                "ports": [
+                    {"front_panel_port": 32, "channel": 1, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
+                    {"front_panel_port": 32, "channel": 3, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
+                ]
+            }
+    }
+    fp_list.append(ixn_dict)
+    ixn_dict = {
+            "name": "ixnetwork_port_group_2B", "choice": "port_group",
+            "port_group": {
+                "ports": [
+                    {"front_panel_port": 32, "channel": 5, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
+                    {"front_panel_port": 32, "channel": 7, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
+                ]
+            }
+    }
+    fp_list.append(ixn_dict)
+
+
+    ### IxL Front Panel DPU
     # TODO add num_dpuPorts then build this part
-    dpu_port_1 = {"name": "dpu_port_1", "choice": "front_panel_port",
-        "front_panel_port": {"front_panel_port": 28, "layer_1_profile_name": "manual_RS_400"}}
-    #dpu_port_2 = {"name": "dpu_port_2", "choice": "front_panel_port",
-    #              "front_panel_port": {"front_panel_port": 27, "layer_1_profile_name": "manual_RS_400"}}
+    dpu_port_1 = {"name": "dpu_port_ixl_1", "choice": "port_group",
+        "port_group":
+        {
+            "ports": [
+            {
+            "front_panel_port": cards_dict['dpu_ports_list'][0], "layer_1_profile_name": "autoneg_400",
+            "switchover_port": {"front_panel_port": cards_dict['dpu_ports_list'][1], "layer_1_profile_name": "autoneg_400"}
+            }
+            ]
+        }
+    }
 
     fp_list.append(dpu_port_1)
-    #fp_list.append(dpu_port_2)
+
+    ### IxN Front Panel DPU
+    ixn_dpu_dict = {
+            "name": "dpu_port_group", "choice": "port_group",
+            "port_group": {
+                "ingress_distribution": "copy",
+                "ports": [
+                    {"front_panel_port": 2, "layer_1_profile_name": "autoneg"},
+                    {"front_panel_port": 1, "layer_1_profile_name": "autoneg"}
+                ]
+            }
+    }
+    fp_list.append(ixn_dpu_dict)
+    ixn_dpu_dict = {"name": "dpu_port_1", "choice": "front_panel_port",
+         "front_panel_port": {"front_panel_port": 22, "layer_1_profile_name": "autoneg"}}
+    fp_list.append(ixn_dpu_dict)
+    ixn_dpu_dict = {"name": "dpu_port_2", "choice": "front_panel_port",
+         "front_panel_port": {"front_panel_port": 21, "layer_1_profile_name": "autoneg"}
+    }
+    fp_list.append(ixn_dpu_dict)
+
 
     return fp_list
 
 def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
 
     connections_list = []
+    num_cps_cards = cards_dict['num_cps_cards']
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
 
     """
@@ -213,7 +289,6 @@ def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
         else:
             first_tcpbg_card = 0
     """
-    num_cps_cards = cards_dict['num_cps_cards']
 
     card_temp = 0
     for eni, ip in enumerate(ip_list):
@@ -246,6 +321,31 @@ def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
         )
 
         connections_list.append(arp_bypass_dict)
+
+
+    ### IxN
+    arp_bypass_dict = {
+            "name": "ARP Bypass 2A","functions": [{"choice": "connect_arp","connect_arp": {}}],
+            "endpoints": [
+                {"choice": "front_panel","front_panel": {"port_name": "ixnetwork_port_group_1A","vlan": {"choice": "vlan_range","vlan_range":   {"start":    1,"count": 16}}}},
+                {"choice": "front_panel","front_panel": {"port_name": "ixnetwork_port_group_2A","vlan": {"choice": "vlan_range","vlan_range":   {"start": 1001,"count": 16}}}}
+            ]
+    }
+    connections_list.append(arp_bypass_dict)
+
+    arp_bypass_dict = {
+        "name": "ARP Bypass 2B", "functions": [{"choice": "connect_arp", "connect_arp": {}}],
+        "endpoints": [
+            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1B",
+                                                      "vlan": {"choice": "vlan_range",
+                                                               "vlan_range": {"start": 17, "count": 16}}}},
+            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2B",
+                                                      "vlan": {"choice": "vlan_range",
+                                                               "vlan_range": {"start": 1017, "count": 16}}}}
+        ]
+
+    }
+    connections_list.append(arp_bypass_dict)
 
     return connections_list
 
@@ -282,7 +382,9 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
         #client_cps_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
         server_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
 
-        dpu_port = 1 if server_vlan <= 128 else 2
+        # TODO needed when there are multiple DPU Ports
+        #dpu_port = 1 if server_vlan <= 128 else 2
+        dpu_port = 1
 
         # Server side
         """
@@ -300,16 +402,23 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
 
         client_role,server_role = find_testrole(test_role,server_vlan)
 
+        # TODO VNIs need to be +1000 for production
+        production = True # turn ON for now
+        if production == True:
+            vni_index = 1000
+        else:
+            vni_index = 0
+
         server_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
             "vlan_endpoint_settings": {
                 "outgoing_vxlan_header": {
                     "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:01"},
-                    "dst_mac": {"choice": "mac", "mac": "94:6d:ae:8b:9b:14"},
+                    "dst_mac": {"choice": "mac", "mac": "24:d5:e4:32:4e:10"},
                     "src_ip": {"choice": "ipv4", "ipv4": "221.1.0.{}".format(overlay_ip_addr)},
                     "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.{}".format(lb_ip)},
                 }
             },
-            "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": server_vlan}, "protocols": {"accept": ["tcp"]},
+            "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": server_vlan + vni_index}, "protocols": {"accept": ["tcp"]},
                                         "routing_method": "ip_routing",
                                         "ip_routing": {"destination_ips": {"choice": "ipv4", "ipv4": "{}".format(ip_list[eni]['ip_server'])}}}
         }}
@@ -318,15 +427,16 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
             {"choice": "front_panel","front_panel": {"port_name": "Ixload_port_{}{}".format(server_card, server_role),"vlan": {"choice": "vlan","vlan": server_vlan}},"tags": ["vlan"]},
         )
         server_dict_temp['endpoints'].append(
-            {"choice": "front_panel","front_panel": {"port_name": "dpu_port_{}".format(dpu_port)},"tags": ["vxlan"]}
+            {"choice": "front_panel","front_panel": {"port_name": "dpu_port_ixl_{}".format(dpu_port)},"tags": ["vxlan"]}
         )
 
         ## Client Side
+        # TODO vni_index
         client_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
             "vlan_endpoint_settings": {
                 "outgoing_vxlan_header": {
                     "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:02"},
-                    "dst_mac": {"choice": "mac", "mac": "94:6d:ae:8b:9b:14"},
+                    "dst_mac": {"choice": "mac", "mac": "24:d5:e4:32:4e:10"},
                     "src_ip": {"choice": "ipv4", "ipv4": "221.2.0.{}".format(overlay_ip_addr)},
                     "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.{}".format(lb_ip)},
                 }
@@ -345,12 +455,144 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
             {"choice": "front_panel","front_panel": {"port_name": "Ixload_port_{}{}".format(client_card, client_role),"vlan": {"choice": "vlan","vlan": client_vlan}},"tags": ["vlan"]},
         )
         client_dict_temp['endpoints'].append(
-            {"choice": "front_panel","front_panel": {"port_name": "dpu_port_{}".format(dpu_port)},"tags": ["vxlan"]}
+            {"choice": "front_panel","front_panel": {"port_name": "dpu_port_ixl_{}".format(dpu_port)},"tags": ["vxlan"]}
         )
 
         # Add server and client settings to connections_list
         connections_list.append(server_dict_temp)
         connections_list.append(client_dict_temp)
+
+
+    ### IxN
+    ixn_dict = {
+        "name": "IxNetwork VLAN to DUT VXLAN 1A",
+        "functions": [
+            {
+                "choice": "connect_vlan_vxlan",
+                "connect_vlan_vxlan": {
+                    "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": 1}, "protocols": {"accept": ["udp"]},
+                                                "routing_method": "ip_routing",
+                                                "ip_routing": {"destination_ips": {"choice": "ipv4_range",
+                                                                                   "ipv4_range": {"start": "1.1.0.1",
+                                                                                                  "step": "0.64.0.0",
+                                                                                                  "count": 16}}}},
+                    "vlan_endpoint_settings": {
+                        "outgoing_vxlan_header": {
+                            "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:01"},
+                            "dst_mac": {"choice": "mac", "mac": "00:0b:00:01:03:20"},
+                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.1.0.0"}},
+                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
+                        }
+                    }
+                }
+            }
+        ],
+        "endpoints": [
+            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1A",
+                                                      "vlan": {"choice": "vlan_range",
+                                                               "vlan_range": {"start": 1, "count": 16}}},
+             "tags": ["vlan"]},
+            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_1"}, "tags": ["vxlan"]}
+        ]
+
+    }
+    connections_list.append(ixn_dict)
+
+    ixn_dict = {
+        "name": "IxNetwork VLAN to DUT VXLAN 1B",
+        "functions": [
+            {
+                "choice": "connect_vlan_vxlan",
+                "connect_vlan_vxlan": {
+                    "vxlan_endpoint_settings": {"vni": {"choice": "vni","vni":  1}, "protocols": {"accept": ["udp"]}, "routing_method": "ip_routing",
+                                                "ip_routing": {"destination_ips": {"choice": "ipv4_range","ipv4_range":  {"start": "5.1.0.1","step": "0.64.0.0","count": 16}}}},
+                    "vlan_endpoint_settings": {
+                        "outgoing_vxlan_header": {
+                            "src_mac": {"choice": "mac","mac": "80:09:02:01:00:01"},
+                            "dst_mac": {"choice": "mac","mac": "00:0b:00:01:03:20"},
+                            "src_ip": {"choice": "ipv4_range","ipv4_range":  {"start": "221.1.0.16"}},
+                            "dst_ip": {"choice": "ipv4","ipv4": "221.0.0.1"}
+                        }
+                    }
+                }
+            }
+        ],
+        "endpoints": [
+            {"choice": "front_panel","front_panel": {"port_name": "ixnetwork_port_group_1B","vlan": {"choice": "vlan_range","vlan_range":   {"start": 17,"count": 16}}},"tags": ["vlan"]},
+            {"choice": "front_panel","front_panel": {"port_name": "dpu_port_2"},"tags": ["vxlan"]}
+        ]
+    }
+    connections_list.append(ixn_dict)
+
+    ixn_dict = {
+        "name": "IxNetwork VLAN to DUT VXLAN 2A",
+        "functions": [
+            {
+                "choice": "connect_vlan_vxlan",
+                "connect_vlan_vxlan": {
+                    "vxlan_endpoint_settings": {
+                        "vni": {"choice": "vni_range", "vni_range": {"start": 1001, "count": 16}},
+                        "protocols": {"accept": ["udp"], "routing_method": "ip_routing",
+                                      "ip_routing": {"destination_ips": {"choice": "ipv4_range",
+                                                                         "ipv4_range": {"start": "1.0.0.0",
+                                                                                        "step": "0.64.0.0", "count": 16,
+                                                                                        "subnet_bits": 10}}}}},
+                    "vlan_endpoint_settings": {
+                        "outgoing_vxlan_header": {
+                            "src_mac": {"choice": "mac", "mac": "80:09:02:02:00:01"},
+                            "dst_mac": {"choice": "mac", "mac": "00:0c:00:02:03:20"},
+                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.2.0.0"}},
+                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
+                        }
+                    }
+                }
+            }
+        ],
+        "endpoints": [
+            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2A",
+                                                      "vlan": {"choice": "vlan_range",
+                                                               "vlan_range": {"start": 1001, "count": 16}}},
+             "tags": ["vlan"]},
+            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_1"}, "tags": ["vxlan"]}
+        ]
+
+    }
+    connections_list.append(ixn_dict)
+
+    ixn_dict = {
+        "name": "IxNetwork VLAN to DUT VXLAN 2B",
+        "functions": [
+            {
+                "choice": "connect_vlan_vxlan",
+                "connect_vlan_vxlan": {
+                    "vxlan_endpoint_settings": {
+                        "vni": {"choice": "vni_range", "vni_range": {"start": 1017, "count": 16}},
+                        "protocols": {"accept": ["udp"], "routing_method": "ip_routing",
+                                      "ip_routing": {"destination_ips": {"choice": "ipv4_range",
+                                                                         "ipv4_range": {"start": "5.0.0.0",
+                                                                                        "step": "0.64.0.0", "count": 16,
+                                                                                        "subnet_bits": 10}}}}},
+                    "vlan_endpoint_settings": {
+                        "outgoing_vxlan_header": {
+                            "src_mac": {"choice": "mac", "mac": "80:09:02:02:00:01"},
+                            "dst_mac": {"choice": "mac", "mac": "00:0c:00:02:03:20"},
+                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.2.0.16"}},
+                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
+                        }
+                    }
+                }
+            }
+        ],
+        "endpoints": [
+            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2B",
+                                                      "vlan": {"choice": "vlan_range",
+                                                               "vlan_range": {"start": 1017, "count": 16}}},
+             "tags": ["vlan"]},
+            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_2"}, "tags": ["vxlan"]}
+        ]
+
+    }
+    connections_list.append(ixn_dict)
 
     return connections_list
 
