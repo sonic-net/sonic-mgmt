@@ -63,7 +63,6 @@ FWD:
       - cacl/test_cacl_function.py
       - cacl/test_ebtables_application.py
       - crm/test_crm.py::test_crm_neighbor
-      - crm/test_crm.py::test_crm_neighbor
       - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
       - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
       - route/test_default_route.py::test_default_route_set_src
@@ -73,8 +72,6 @@ FWD:
       - route/test_route_flap.py
       - route/test_duplicate_route.py
       - route/test_static_route.py
-      - route/test_duplicate_route.py
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
       - ipfwd/test_dip_sip.py
 
