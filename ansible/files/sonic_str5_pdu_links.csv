@@ -1,1 +1,3 @@
 StartDevice,StartPort,EndDevice,EndPort
+pdu-85,3,str5-7060x6-512-3,PSU1
+pdu-86,3,str5-7060x6-512-3,PSU2
