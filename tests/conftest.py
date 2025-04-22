@@ -5,6 +5,7 @@ import logging
 import getpass
 import random
 from concurrent.futures import as_completed
+import re
 
 import pytest
 import yaml
@@ -50,7 +51,8 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -278,7 +280,8 @@ def enhance_inventory(request, tbinfo):
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
 
     if request.config.getoption("trim_inv"):
-        trim_inventory(inv_files, tbinfo)
+        target_hostname = get_target_hostname(request)
+        trim_inventory(inv_files, tbinfo, target_hostname)
 
     try:
         logger.info(f"Inventory file: {inv_files}")
@@ -483,8 +486,27 @@ def duthost(duthosts, request):
     return duthost
 
 
+@pytest.fixture(scope="session")
+def enable_nat_for_dpuhosts(duthosts, ansible_adhoc, request):
+    """
+    @summary: fixture to enable nat for dpuhost.
+    @param duthosts: fixture to get DUT hosts
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param request: request parameters for duthost test fixture
+    """
+    dpuhost_names = get_specified_dpus(request)
+    if dpuhost_names:
+        logging.info(f"dpuhost_names: {dpuhost_names}")
+        for duthost in duthosts:
+            if not is_enabled_nat_for_dpu(duthost, request):
+                dpu_name_ssh_port_dict = get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc)
+                enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request)
+
+
 @pytest.fixture(name="dpuhosts", scope="session")
-def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_nat_for_dpuhosts):
     """
     @summary: fixture to get DPU hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -1428,6 +1450,29 @@ def get_testbed_metadata(request):
     return metadata.get(tbname)
 
 
+def get_snappi_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError:
+        return None
+
+    return metadata.get(tbname)
+
+
 def generate_port_lists(request, port_scope, with_completeness_level=False):
     empty = [encode_dut_port_name('unknown', 'unknown')]
     if 'ports' in port_scope:
@@ -1845,6 +1890,9 @@ def pytest_generate_tests(metafunc):        # noqa: E302
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'tgen_port_info' in metafunc.fixturenames:
+        metafunc.parametrize('tgen_port_info', generate_skeleton_port_info(metafunc), indirect=True)
+
     if 'vlan_name' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             if tbinfo['topo']['name'] == 'm0-2vlan':
@@ -1884,6 +1932,62 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
                 else:
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
+
+def generate_skeleton_port_info(request):
+    """
+    Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
+
+    ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
+    """
+    dut_info = get_snappi_testbed_metadata(request) or []
+    available_interfaces = {}
+    matrix = {}
+    for index, linecard in enumerate(dut_info):
+        interface_to_asic = {}
+        for asic in dut_info[linecard]["asic_to_interface"]:
+            for interface in dut_info[linecard]["asic_to_interface"][asic]:
+                interface_to_asic[interface] = asic
+
+        available_interfaces[linecard] = [dut_info[linecard]['intf_status'][interface]
+                                          for interface in dut_info[linecard]['intf_status']
+                                          if dut_info[linecard]['intf_status'][interface]["admin_state"] == "up"]
+
+        for interface in available_interfaces[linecard]:
+            for key, value in dut_info[linecard]["asic_to_interface"].items():
+                if interface['name'] in value:
+                    interface['asic'] = key
+
+        for interface in available_interfaces[linecard]:
+            speed = float(re.match(r"([\d.]+)", interface['speed']).group(0))
+            asic = interface['asic']
+            if (speed not in matrix):
+                matrix[speed] = {}
+            if (linecard not in matrix[speed]):
+                matrix[speed][linecard] = {}
+            if (asic not in matrix[speed][linecard]):
+                matrix[speed][linecard][asic] = 1
+            else:
+                matrix[speed][linecard][asic] += 1
+
+    def build_params(speed, category):
+        return f"{speed}-{category}"
+
+    flattened_list = set()
+
+    for speed, linecards in matrix.items():
+        if len(linecards) >= 2:
+            flattened_list.add(build_params(speed, 'multiple_linecard_multiple_asic'))
+
+        for linecard, asic_list in linecards.items():
+            if len(asic_list) >= 2:
+                flattened_list.add(build_params(speed, 'single_linecard_multiple_asic'))
+
+            for asics, port_count in asic_list.items():
+                if int(port_count) >= 2:
+                    flattened_list.add(build_params(speed, 'single_linecard_single_asic'))
+
+    return list(flattened_list)
 
 
 def get_autoneg_tests_data():

@@ -249,6 +249,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s100G_ports += [x for x in range(23, 27)]
 
             port_alias_to_name_map = _port_alias_to_name_map_50G(all_ports, s100G_ports)
+        elif hwsku == "Arista-7050CX3-32S-S128":
+            for i in range(1, 33):
+                for j in range(1, 5):
+                    port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 4 + j - 1)
         elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB",
                        "Arista-7260CX3-D108C8-CSI", "Arista-7260CX3-D108C10"]:
             # All possible breakout 50G port numbers:
@@ -345,7 +349,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["twod5GigE%d" % i] = "Ethernet%d" % i
             for i in range(48, 54):
                 port_alias_to_name_map["twenty5GigE%d" % i] = "Ethernet%d" % i
-        elif hwsku == "Nokia-IXR7250E-36x400G" or hwsku == "Nokia-IXR7250E-36x100G":
+        elif hwsku in ["Nokia-IXR7250E-36x400G", "Nokia-IXR7250E-36x100G", "Nokia-IXR7250-X3B"]:
             for i in range(1, 37):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = sonic_name
@@ -378,7 +382,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(20, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
-        elif hwsku == "Cisco-8101-C64":
+        elif hwsku in ["Cisco-8101-C64", "Cisco-8101-V64"]:
             for i in range(0, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
