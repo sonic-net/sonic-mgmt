@@ -93,10 +93,14 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
+
   - name: determine whether to sort port_alias by index
     set_fact:
       sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
@@ -581,6 +585,11 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
+      - name: Preload minigraph to flush config_db for Virtual Chassis
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "'t2' in topo and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
@@ -733,6 +742,25 @@
             service: name=chrony state=restarted enabled=true
         when: chrony_service.status.LoadState != "not-found"
 
+      - name: Check if "config bmp" is supported
+        shell: "config -h | grep 'BMP-related configuration'"
+        register: bmp_support_check
+        ignore_errors: true
+        changed_when: false
+        failed_when: false
+
+      - name: Enable bmp relevant config dump
+        block:
+          - name: execute cli "config bmp enable bgp-neighbor-table" to enable bgp-neighbor-table
+            command: sudo config bmp enable bgp-neighbor-table
+
+          - name: execute cli "config bmp enable bgp-rib-in-table" to enable bgp-rib-in-table
+            command: sudo config bmp enable bgp-rib-in-table
+
+          - name: execute cli "config bmp enable bgp-rib-out-table" to enable bgp-rib-out-table
+            command: sudo config bmp enable bgp-rib-out-table
+        when: bmp_support_check.rc == 0
+
       - name: config static route for trex traffic passthrough
         become: true
         command: "{{ item }}"
@@ -744,6 +772,20 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          host_username: "{{ dpu_username | default('admin') }}"
+          host_password: "{{ dpu_password | default('password') }}"
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Configure TACACS
         become: true
