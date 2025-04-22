@@ -720,9 +720,9 @@ def test_send_remote_address(
         Verify TACACS+ send remote address to server.
     """
 
-    # per-command accounting message also send remote address
+    # Set accounting to local because per-command accounting TACACS request also send remote address
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting local')
 
     # Clean tacacs log
     ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
