@@ -1,4 +1,6 @@
 import pytest
+import os
+import yaml
 import logging
 import time
 import re
@@ -17,6 +19,8 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
+HWSKU_DIR_PREFIX = "/usr/share/sonic/device/"
+BCM_CONFIG_SUFFIX = "config.bcm"
 
 pytestmark = [
     pytest.mark.topology("any", "t1-multi-asic"),
@@ -58,6 +62,55 @@ def get_route_scale_per_role(tbinfo, ip_version):
     return set_num_routes
 
 
+def get_l3_alpm_template_from_config_bcm(duthost, platform, hwsku):
+    hwsku_dir = os.path.join(
+        HWSKU_DIR_PREFIX,
+        platform,
+        hwsku
+    )
+
+    def _find_config_bcm_file_on_dut(duthost, directory):
+        list_cmd = f"ls {hwsku_dir}/*{BCM_CONFIG_SUFFIX} 2>/dev/null"
+        result = duthost.shell(list_cmd)
+        if result["rc"] == 0:
+            return result["stdout_lines"][0]
+        else:
+            return None
+
+    def _deep_get(d, keys):
+        for key in keys:
+            if isinstance(d, dict):
+                d = d.get(key)
+            else:
+                return None
+        return d
+
+    config_bcm_file_name = _find_config_bcm_file_on_dut(duthost, hwsku_dir)
+    if config_bcm_file_name is None:
+        raise RuntimeError(
+            "Unable to find config.bcm file in {}".format(hwsku_dir)
+        )
+    logging.info("config.bcm file:{}".format(config_bcm_file_name))
+
+    copy_file = duthost.fetch(src=os.path.join(hwsku_dir, config_bcm_file_name), dest="/tmp/", flat=True)
+    # Read the config.bcm file and find the l3_alpm_template variable
+    try:
+        with open(copy_file['dest'], 'r') as f:
+            # Skip commented lines
+            content = ''.join(
+                line for line in f if not line.strip().startswith('#')
+            )
+            # Parse YAML and return value if present
+            for doc in yaml.safe_load_all(content):
+                if isinstance(doc, dict) and 'bcm_device' in doc:
+                    logging.info("doc.get('bcm_device') : {}".format(doc.get('bcm_device')))
+                    return _deep_get(doc, ['bcm_device', 0, 'global', 'l3_alpm_template'])
+    except (yaml.YAMLError, OSError) as e:
+        raise RuntimeError(f"Error reading or parsing {config_bcm_file_name}: {e}")
+
+    return None
+
+
 @pytest.fixture
 def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
@@ -69,14 +122,25 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     asic = duthost.facts["asic_type"]
+    platform = duthost.facts["platform"]
+    hwsku = duthost.facts["hwsku"]
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
-        alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
-        alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
-        logger.info("Checking config: {}".format(alpm_enable))
-        pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
+        if "7060x6_64pe" in platform:
+            # For all TH5 family devices, l3_alpm_template is set in config.bcm
+            # * 1 - Combined (By default)
+            # * 2 - Parallel
+            pytest_assert(
+                get_l3_alpm_template_from_config_bcm(duthost, platform, hwsku) == 1,
+                "l3_alpm_template is not set for route scaling"
+            )
+        else:
+            broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+            alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
+            alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
+            logger.info("Checking config: {}".format(alpm_enable))
+            pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
 
 @pytest.fixture(autouse=True)
