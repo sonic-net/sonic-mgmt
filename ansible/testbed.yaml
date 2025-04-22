@@ -1242,7 +1242,7 @@
 
 - conf-name: vmsvc1-t2-7250x3b-1
   group-name: svc1-5
-  topo: t2_2lc_min_ports-masic
+  topo: t2_single_node_min
   ptf_image_name: docker-ptf
   ptf: svc1-5
   ptf_ip: 10.206.144.138/24
@@ -1258,7 +1258,7 @@
 
 - conf-name:  vmsvc1-t2-7250x3b-2
   group-name: svc1-6
-  topo: t2
+  topo: t2_single_node_max
   ptf_image_name: docker-ptf
   ptf: svc1-6
   ptf_ip: 10.206.144.139/24
