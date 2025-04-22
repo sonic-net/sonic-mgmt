@@ -71,3 +71,7 @@ mux_simulator_http_port:
 
     # On strtk5-server-7
     tbtk5-dualtor-4600-1: 8080
+
+    # On server_bjw2_1
+    testbed-bjw2-can-dual-t0-8101c1-1: 8080
+    testbed-bjw2-can-dual-t0-8101c1-2: 8082

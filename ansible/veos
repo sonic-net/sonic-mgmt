@@ -11460,6 +11460,22 @@ vms_bjw2_1:
       ansible_host: 172.16.203.201
     VM81202:
       ansible_host: 172.16.203.202
+    VM81203:
+      ansible_host: 172.16.203.203
+    VM81204:
+      ansible_host: 172.16.203.204
+    VM81205:
+      ansible_host: 172.16.203.205
+    VM81206:
+      ansible_host: 172.16.203.206
+    VM81207:
+      ansible_host: 172.16.203.207
+    VM81208:
+      ansible_host: 172.16.203.208
+    VM81209:
+      ansible_host: 172.16.203.209
+    VM81210:
+      ansible_host: 172.16.203.210
 
 vms_bjw2_2:
   hosts:
@@ -11751,6 +11767,14 @@ vms_bjw2_2:
       ansible_host: 172.16.204.153
     VM82154:
       ansible_host: 172.16.204.154
+    VM82155:
+      ansible_host: 172.16.204.155
+    VM82156:
+      ansible_host: 172.16.204.156
+    VM82157:
+      ansible_host: 172.16.204.157
+    VM82158:
+      ansible_host: 172.16.204.158
 
 vms_bjw2_3:
   hosts:
