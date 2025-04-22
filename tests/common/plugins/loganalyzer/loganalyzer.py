@@ -163,7 +163,6 @@ class LogAnalyzer:
                 err_parse = 'Log Analyzer failed parsing expected messages\n'
                 logging.info("[chunangli] raise LogAnalyzerError.")
                 raise LogAnalyzerError(err_parse + result_str)
-                logging.info("[chunangli] raise LogAnalyzerError finished.")
 
             # if the number of expected matches is provided
             logging.info(f"[chunangli] if the number of expected matches is provided. "

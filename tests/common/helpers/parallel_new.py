@@ -2,142 +2,147 @@ import datetime
 import logging
 import math
 import os
-import pickle
-import queue
 import signal
 import traceback
-from multiprocessing import Process, Manager, SimpleQueue
-
-from tests.common.helpers.assertions import pytest_assert as pt_assert
+from multiprocessing import Process, Manager, Queue
 
 logger = logging.getLogger(__name__)
 
 
 class SonicProcess(Process):
-    def __init__(self, *args, queue=None, **kwargs):
+    """
+    Wrapper around multiprocessing.Process that captures exceptions and sends them through a Queue.
+    """
+
+    def __init__(self, *args, exception_queue: Queue = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self._queue = queue
-        self._exception = None
+        self.exception_queue = exception_queue
 
     def run(self):
         try:
-            logger.info(f"[chunangli][{self.name}] process started.")
-            if self._target:
-                self._target(*self._args, **self._kwargs)
-            self._queue.put((self.name, None))  # No exception
-            logger.info(f"[chunangli][{self.name}] process finished.")
+            logger.info("[SonicProcess] Process started: %s", self.name)
+            super().run()
+            if self.exception_queue:
+                self.exception_queue.put((self.name, None))
+            logger.info("[SonicProcess] Process finished: %s", self.name)
         except Exception as e:
-            serialized = pickle.dumps(e)
-            logger.info(f"[chunangli][{self.name}] Serialized exception size: {len(serialized) / 1024:.2f} KB")
             tb = traceback.format_exc()
-            self._queue.put((self.name, ("match: 66", tb)))
-            logger.info(f"[chunangli][{self.name}] Send small message done.")
-            logger.error(f"[chunangli][{self.name}] exception: {e}\n{tb}")
-            self._exception = e
-        finally:
-            logger.info(f"[chunangli][{self.name}] exiting run()")
-
-    @property
-    def exception(self):
-        return self._exception
+            logger.error("[SonicProcess] Exception in process %s: %s", self.name, tb)
+            if self.exception_queue:
+                self.exception_queue.put((self.name, (e, tb)))
+            raise
 
 
-def parallel_run(
-        target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None
-):
-    logger.info(f"[chunangli]Running target '{target.__name__}' with timeout={timeout}")
+def wait_procs(workers, timeout=None, callback=None):
+    gone, alive = [], []
+    # start = datetime.datetime.now()
 
-    results = Manager().dict()
-    exception_queue = SimpleQueue()
-    failed_processes = {}
+    for p in workers:
+        p.join(timeout)
+        if not p.is_alive():
+            gone.append(p)
+            if callback:
+                callback(p)
+        else:
+            alive.append(p)
 
-    start_time = datetime.datetime.now()
-    tasks_done = 0
-    total_tasks = len(nodes_list)
-    total_timeout = timeout * math.ceil(total_tasks / concurrent_tasks) if timeout else None
+    return gone, alive
 
-    def launch_process(node):
-        nonlocal args, kwargs
-        process_name = f"{target.__name__}--{node}"
-        kwargs['node'] = node
-        kwargs['results'] = results
-        proc = SonicProcess(
-            name=process_name,
-            target=target,
-            args=args,
-            kwargs=kwargs,
-            queue=exception_queue,
-        )
-        proc.start()
-        logger.info(f"[chunangli]Started {proc.name} with PID {proc.pid}")
-        return proc
 
-    def force_terminate(proc):
-        if proc.is_alive():
-            logger.warning(f"[chunangli]Force killing {proc.name} (pid={proc.pid})")
-            try:
-                os.kill(proc.pid, signal.SIGKILL)
-            except Exception as e:
-                logger.error(f"[chunangli]Failed to kill {proc.name}: {e}")
+def parallel_run(target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None):
+    logger.info("[parallel_run] Function: %s, Timeout: %s", target.__name__, timeout)
 
     nodes = list(nodes_list)
-    running = []
+    workers = []
+    results = Manager().dict()
+    start_time = datetime.datetime.now()
+    tasks_done = 0
+    total_tasks = len(nodes)
+    tasks_running = 0
+    total_timeout = timeout * math.ceil(len(nodes) / float(concurrent_tasks)) if timeout else None
+    failed_processes = {}
+    exception_queue = Queue()
+
+    def on_terminate(worker):
+        logger.info("[on_terminate] Process %s terminated with exit code %s", worker.name, worker.exitcode)
+
+    def force_terminate(workers):
+        running = [p for p in workers if p.is_alive()]
+        if running:
+            logger.warning("[force_terminate] Killing running processes: %s", running)
+            for p in running:
+                if init_result:
+                    init_result['failed'] = True
+                    results[list(results.keys())[0]] = init_result
+                else:
+                    results[p.name] = {'failed': True}
+                try:
+                    os.kill(p.pid, signal.SIGKILL)
+                except OSError as e:
+                    logger.error("[force_terminate] Unable to kill %s: %s", p.name, e)
 
     while tasks_done < total_tasks:
-        if total_timeout and (datetime.datetime.now() - start_time).total_seconds() > total_timeout:
-            logger.error(f"[chunangli]Timeout reached: {total_timeout} seconds")
+        if total_timeout and (datetime.datetime.now() - start_time).seconds > total_timeout:
+            logger.error("[parallel_run] Execution time exceeds timeout: %s", total_timeout)
             break
 
-        # Launch up to concurrent_tasks
-        while len(nodes) > 0 and len(running) < concurrent_tasks:
+        while nodes and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
             if init_result:
-                node_result = init_result.copy()
-                node_result['host'] = node.hostname
-                results[node.hostname] = node_result
-            proc = launch_process(node)
-            running.append(proc)
+                init_result["host"] = getattr(node, 'hostname', str(node))
+                results[str(node)] = init_result
+            kwargs['node'] = node
+            kwargs['results'] = results
+            pname = f"{target.__name__}--{node}"
+            worker = SonicProcess(
+                name=pname, target=target, args=args, kwargs=kwargs,
+                exception_queue=exception_queue
+            )
+            worker.start()
+            tasks_running += 1
+            workers.append(worker)
 
-        # Check for completed processes
-        alive = []
-        for proc in running:
-            proc.join(timeout=0)
-            if proc.is_alive():
-                alive.append(proc)
-            else:
-                tasks_done += 1
+        gone, alive = wait_procs(workers, timeout=timeout, callback=on_terminate)
+        workers = alive
+        tasks_done += len(gone)
+        tasks_running -= len(gone)
 
-        running = alive
-
-        # This avoids relying on empty() and ensures you don’t miss any data from child processes.
-        while True:
+        for _ in range(len(gone)):
             try:
-                name, exc = exception_queue.get()
+                name, exc = exception_queue.get(timeout=1)
                 if exc:
                     failed_processes[name] = {
                         "exception": exc,
-                        "exit_code": next((p.exitcode for p in running if p.name == name), -1)
+                        "exit_code": next((p.exitcode for p in gone if p.name == name), -1)
                     }
-            except queue.Empty:
-                break
+            except Exception as e:
+                logger.warning("[parallel_run] Exception queue timeout or error: %s", e)
 
-    # Final cleanup
-    for proc in running:
-        logger.warning(f"[chunangli]Cleaning up {proc.name}, still alive? {proc.is_alive()}")
-        force_terminate(proc)
+        if not gone and workers:
+            logger.warning("[parallel_run] All processes timed out")
+            force_terminate(workers)
+            tasks_done += len(workers)
+            tasks_running -= len(workers)
+            workers.clear()
+
+    for worker in workers:
+        if worker.is_alive():
+            logger.error("[parallel_run] Process still alive: %s", worker.name)
+            worker.terminate()
+            if init_result:
+                init_result['failed'] = True
+                results[list(results.keys())[0]] = init_result
+            else:
+                results[worker.name] = {'failed': True}
+
+    force_terminate(workers)
 
     if failed_processes:
         for name, info in failed_processes.items():
-            pt_assert(False,
-                      f"""
-                                Process '{name}' failed with exit code {info['exit_code']}
-                                Exception: {info['exception'][0]}
-                                Traceback:
-                                {info['exception'][1]}
-                                """
-                      )
+            exc, tb = info['exception']
+            exit_code = info['exit_code']
+            raise RuntimeError(
+                f"Process '{name}' failed with exit code {exit_code}\nException: {exc}\nTraceback:\n{tb}")
 
-    duration = datetime.datetime.now() - start_time
-    logger.info(f"[chunangli]Completed all processes in {duration.total_seconds()} seconds")
-
+    logger.info("[parallel_run] Completed in %s", datetime.datetime.now() - start_time)
     return dict(results)
