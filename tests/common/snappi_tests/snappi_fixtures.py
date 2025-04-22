@@ -1364,8 +1364,6 @@ def config_uhd_connect(request, duthost, tbinfo):
     result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)
 
     return
-=======
-
 
 
 # Add static routes using CLI WAY.
