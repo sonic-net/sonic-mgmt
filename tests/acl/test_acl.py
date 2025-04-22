@@ -530,13 +530,14 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
+def stage(request, duthosts, rand_one_dut_hostname, tbinfo, is_macsec_enabled_for_test):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
         request: A fixture to interact with Pytest data.
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        is_macsec_enabled_for_test: flag for macsec topology selected for run.
 
     Returns:
         str: The ACL stage to be tested.
@@ -548,6 +549,11 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
         or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
+
+    # Skip ACL egress tests when run on macsec enabled toplogy with braodcom DNX
+    if request.param == "egress" and is_macsec_enabled_for_test and \
+                  duthost.facts.get("platform_asic") == "broadcom-dnx":
+        pytest.skip("Egress ACLs not supported with MACSEC on \"{}\" ASICs".format(duthost.facts["asic_type"]))
 
     return request.param
 
