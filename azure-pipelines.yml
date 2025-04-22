@@ -93,7 +93,7 @@ stages:
           python - <<EOF
           import random
           tag = 'latest'
-          if random.random() < 0.3:
+          if random.random() < 0.7:
             tag = 'py3only'
           print(f"##vso[task.setvariable variable=tag_value;isOutput=true]{tag}")
           EOF
