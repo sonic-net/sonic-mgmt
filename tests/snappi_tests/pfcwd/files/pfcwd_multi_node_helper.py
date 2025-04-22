@@ -75,14 +75,19 @@ def run_pfcwd_multi_node_test(api,
     pfcwd_to_be_configured = set()
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    rx_port_id_list = [rx_port["port_id"]]
     egress_duthost = rx_port['duthost']
     # Add the port to the set of ports to be configured for PFC
     pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
-    tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    if pattern == 'all to all':
+        tx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        pfcwd_to_be_configured.add((rx_port['duthost'], rx_port['asic_value']))
+    elif pattern == 'many to one':
+        tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"]]
     # add ingress DUT into the set
     pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
     pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
