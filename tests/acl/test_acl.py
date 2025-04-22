@@ -552,7 +552,7 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo, is_macsec_enabled_fo
 
     # Skip ACL egress tests when run on macsec enabled toplogy with braodcom DNX
     if request.param == "egress" and is_macsec_enabled_for_test and \
-                  duthost.facts.get("platform_asic") == "broadcom-dnx":
+            duthost.facts.get("platform_asic") == "broadcom-dnx":
         pytest.skip("Egress ACLs not supported with MACSEC on \"{}\" ASICs".format(duthost.facts["asic_type"]))
 
     return request.param
