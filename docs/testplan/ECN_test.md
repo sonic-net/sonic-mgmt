@@ -5,8 +5,9 @@
   - [Test Objective](#test-objective)
   - [Test Setup](#test-setup)
   - [Test Cases](#test-cases)
-    - [ECN marking at egress](#ecn-marking-at-egress)
-    - [ECN marking accuracy](#ecn-marking-accuracy)
+    - [ECN Marking at Egress – Lossy Queue Scenario](#ecn-marking-at-egress--lossy-queue-scenario)
+    - [ECN Marking at Egress – Lossless Queue Scenario](#ecn-marking-at-egress--lossless-queue-scenario)
+    - [ECN marking accuracy – Lossless Queue Scenario](#ecn-marking-accuracy--lossless-queue-scenario)
   - [Metrics](#metrics)
 
 ## Overview
@@ -44,26 +45,29 @@ The test aims to validate the ECN behaviors of the SONiC DUT based on the Random
 
 ## Test Setup
 
-In multi-tier networks, traffic often traverses multiple switches — for example, from a leaf to a spine and then to another leaf. Congestion can occur at any point along this path, and dynamic path selection mechanisms like ECMP can further complicate matters by shifting traffic across different links and switches. As a result, the test framework cannot reliably isolate or guarantee the exact point of congestion. In contrast, single-tier networks offer a simpler and more controlled environment. Traffic typically flows through a single switch, making the congestion point predictable and well-defined. This allows ECN-CE markings to be accurately attributed to a specific queue, resulting in reliable and verifiable test outcomes.
+In multi-tier network architectures, traffic often traverses multiple switches — for example, from a leaf switch to a spine switch, then to another leaf. Congestion can occur at any point along this path, and dynamic path selection mechanisms like ECMP (Equal-Cost Multi-Path) introduce further variability by distributing flows across different links and devices. Because of this variability, the test framework cannot reliably isolate or guarantee the exact point of congestion. This uncertainty makes it difficult to attribute ECN-CE (Congestion Experienced) markings to a specific queue or switch.
 
-To test every port on the switch, full connectivity is necessary to ensure complete coverage of all DUT ports.
+In contrast, single-tier networks provide a more controlled and predictable environment. Traffic typically flows through a single switch, making the congestion point deterministic. This simplifies validation: ECN-CE markings can be reliably traced back to a specific queue on the DUT, resulting in clear and verifiable test outcomes.
 
-## Test Cases
+**Port and Queue Coverage**
+To thoroughly test ECN behavior across the switch, full connectivity is required. This ensures all ports on the DUT are exercised, allowing congestion to be induced and ECN behavior to be validated across every port and queue.
 
-### ECN marking at egress
+**Queue and WRED Configuration**
+To properly test ECN behavior, the test must account for the ECN marking configuration applied to each queue. This includes retrieving:
 
-This test case aims to verify the DUT’s dequeue based ECN marking behavior (Egress marking). Below are the test steps.
+- The WRED thresholds: 𝐾max, 𝐾min and 𝑃max
+- Queue index and traffic class to queue mappings
 
-1. Retrieve the queue index, priority to queue mappings, 𝐾max, 𝐾min and 𝑃max configurations of the DUT's first port from config_DB. For example:
+These parameters are available in the CONFIG_DB. For example:
 
-    ```json
+```json
     "QUEUE": {
         "Ethernet0|0": {
             "scheduler": "scheduler.0"
         },
         "Ethernet0|1": {
             "scheduler": "scheduler.1",
-            "wred_profile": "AZURE_WRED"
+            "wred_profile": "AZURE_LOSSY"
         },
         "Ethernet0|2": {
             "scheduler": "scheduler.2"
@@ -82,33 +86,81 @@ This test case aims to verify the DUT’s dequeue based ECN marking behavior (Eg
         }
     },
     "WRED_PROFILE": {
-      "AZURE_WRED": {
-          "ecn": "ecn_all",
-          "red_drop_probability": "5",
-          "red_max_threshold": "51000",
-          "red_min_threshold": "50000",
-          "wred_red_enable": "true"
-      }
+        "AZURE_LOSSLESS": {
+            "ecn": "ecn_all",
+            "green_drop_probability": "5",
+            "green_max_threshold": "2097152",
+            "green_min_threshold": "1048576",
+            "red_drop_probability": "5",
+            "red_max_threshold": "2097152",
+            "red_min_threshold": "1048576",
+            "wred_green_enable": "true",
+            "wred_red_enable": "true",
+            "wred_yellow_enable": "true",
+            "yellow_drop_probability": "5",
+            "yellow_max_threshold": "2097152",
+            "yellow_min_threshold": "1048576"
+        },
+        "AZURE_LOSSY": {
+            "ecn": "ecn_all",
+            "red_drop_probability": "5",
+            "red_max_threshold": "51000",
+            "red_min_threshold": "50000",
+            "wred_red_enable": "true"
+        }
     }
-    ```
+```
 
-2. Pause the egress traffic of the port on the DUT by using RPC `sai_thrift_port_tx_disable()`.
-3. Test data traffic: Identify the traffic generator and its corresponding port connected to the DUT port under test — this serves as the Rx port for the traffic flow. Then, on a separator traffic generator that is not connected to the DUT port, pick a Tx port on the generator to send traffic. Define a traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT. The number of packets should be fixed at 2 × 𝐾max, with each packet being 1KB in size.
-4. Start packet capture on the traffic generator Rx port.
-5. From the traffic generator Tx port, send 2 × 𝐾max data packets to the receiver,  ensuring the packets are mapped to the right priority on the DUT.
-6. Once all the test data packets are transmitted, stop pausing the egress traffic of the DUT port.
-7. Stop the packet capture after all packets are received.
-8. Verify the following:
+## Test Cases
+
+### ECN Marking at Egress – Lossy Queue Scenario
+
+This test aims to verify that ECN-CE marks are correctly applied on packets exiting lossy queues when congestion occurs. The steps are as follows:
+
+1. **Test Port Selection**
+   - Choose the first Ethernet port on the DUT as the port under test.
+   - Identify the connected traffic generator port — this will serve as the Rx port.
+   - Select two additional traffic generator ports to serve as Tx ports.
+
+2. **Traffic Configuration**
+   - Define two unidirectional traffic flows, each originating from one Tx port and targeting the Rx port.
+   - Set each traffic flow to operate at 60% of the line rate.
+   - Assign DSCP values to the flows to ensure they map to the intended lossy queue on the DUT.
+
+3. **Start Packet Capture**
+   - Initiate packet capture on the traffic generator's Rx port to monitor ECN-CE markings.
+
+4. **Traffic Execution**
+   - Start the data traffic and run the test for 1 minute.
+   - Stop traffic and packet capture afterward.
+
+5. **Validation Criteria**
+   - The **first** data packet received should have the ECN-CE mark set.
+   - The **last** data packet received should **not** have the ECN-CE mark.
+
+6. Move to the next DUT port and repeat the above steps until all ports have been tested. To improve efficiency, we can test the same logical port across all physical port concurrently.
+
+### ECN Marking at Egress – Lossless Queue Scenario
+
+This test case aims to validate ECN marking on egress traffic from lossless queues under congestion. Ensure that marking reflects the configured ECN thresholds. Below are the test steps.
+
+1. Start PFC PAUSE storm to fully block the lossless priority at the DUT.
+2. Test data traffic: Identify the traffic generator and its corresponding port connected to the DUT port under test — this serves as the Rx port for the traffic flow. Then, on a separator traffic generator that is not connected to the DUT port, pick a Tx port on the generator to send traffic. Define a traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT. The number of packets should be fixed at 2 × 𝐾max, with each packet being 1KB in size.
+3. Start packet capture on the traffic generator Rx port.
+4. From the traffic generator Tx port, send 2 × 𝐾max data packets to the receiver,  ensuring the packets are mapped to the right priority on the DUT.
+5. Once all the test data packets are transmitted, stop pausing the egress traffic of the DUT port.
+6. Stop the packet capture after all packets are received.
+7. Verify the following:
    - traffic generator Rx port must receive 2 × 𝐾max test data packets.
    - The first test data packet received should be ECN marked.
    - When the number of packets in a queue is below 𝐾min, no packets are marked. Therefore, the last test data packet received should not be ECN-marked.
-9. Move to the next DUT port and repeat the above steps until all ports have been tested. To improve efficiency, we can test the same logical port across all physical port concurrently.
+8. Move to the next DUT port and repeat the above steps until all ports have been tested. To improve efficiency, we can test the same logical port across all physical port concurrently.
 
-### ECN marking accuracy
+### ECN marking accuracy – Lossless Queue Scenario
 
 This test aims to verify the ECN marking accuracy on the DUT by comparing the actual ECN marking probability with the theoretical value. The steps are as follows:
 
-1. Follow the first seven steps of the previous test case, with the only change being that (𝐾max + 10) packets are sent instead of 2 × 𝐾max.
+1. Follow the first six steps of the previous test case, with the only change being that (𝐾max + 10) packets are sent instead of 2 × 𝐾max.
 2. Verify the following:
    - All (𝐾max + 10) packets must be received at the Rx port.
    - According to the egress ECN marking algorithm, the queue length associated with the data packet i (i = 1, 2, … 𝐾max + 10) should be (𝐾max + 10 – i) KB.
