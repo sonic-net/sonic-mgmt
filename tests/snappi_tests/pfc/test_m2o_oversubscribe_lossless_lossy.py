@@ -4,7 +4,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
-    get_snappi_ports_multi_dut, is_snappi_multidut, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd                                                           # noqa: F401
@@ -12,15 +12,14 @@ from tests.snappi_tests.pfc.files.m2o_oversubscribe_lossless_lossy_helper import
      run_pfc_m2o_oversubscribe_lossless_lossy_test
     )                                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams            # noqa: F401
-from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info  # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict        # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
-    yield (2, 1)
+    yield (1, 2)
 
 
 def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: F811
@@ -32,7 +31,7 @@ def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: 
                                           get_snappi_ports,             # noqa: F811
                                           tbinfo,
                                           disable_pfcwd,                # noqa: F811
-                                          setup_ports_and_dut):         # noqa: F811
+                                          tgen_port_info):         # noqa: F811
 
     """
     Run PFC Oversubscribe Lossless Lossy for many to one traffic pattern
@@ -62,7 +61,11 @@ def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: 
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    multidut_port_info = tgen_port_info
+    logger.info('Ports:{}'.format(multidut_port_info))
+
+    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, multidut_port_info, snappi_api, setup=True)
 
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
@@ -72,7 +75,8 @@ def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_pfc_m2o_oversubscribe_lossless_lossy_test(api=snappi_api,
+    try:
+        run_pfc_m2o_oversubscribe_lossless_lossy_test(api=snappi_api,
                                                   testbed_config=testbed_config,
                                                   port_config_list=port_config_list,
                                                   conn_data=conn_graph_facts,
@@ -83,4 +87,5 @@ def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: 
                                                   bg_prio_list=bg_prio_list,
                                                   prio_dscp_map=prio_dscp_map,
                                                   snappi_extra_params=snappi_extra_params)
-    cleanup_config(duthosts, snappi_ports)
+    finally:
+        cleanup_config(duthosts, snappi_ports)
