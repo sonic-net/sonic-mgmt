@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_POLL = 2
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
@@ -107,7 +108,7 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
-                        timeout=-1):
+                        timeout=-1, polling_interval=10, sync_count=0):
     """ Generate the py_gnmicli command line based on the given params.
     t                      --target: gNMI target; required
     p                      --port: port of target; required
