@@ -112,15 +112,15 @@ Expected Outcome:
 
 Save the failure test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
 
-| Label                                       | Example Value                 |
-| ------------------------------------------- | ----------------------------- |
-| `METRIC_LABEL_DEVICE_ID`                    | switch-A                      |
+| User Interface Label                                 | Label Key in DB                         | Example Value       |
+| ---------------------------------------------------- | --------------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`                             | device.id                               | switch-A            |
 
-| Metric Name                                 | Example Value                 |
-| ------------------------------------------- | ----------------------------- |
-| `METRIC_NAME_FAILURE_TEST_SINGLE_LINK`      | failure_test.single_link      |
-| `METRIC_NAME_FAILURE_TEST_ALL_LINKS`        | failure_test.all_links        |
-| `METRIC_NAME_FAILURE_TEST_CONTAINER`        | failure_test.container        |
-| `METRIC_NAME_FAILURE_TEST_DUT_REBOOT`       | failure_test.DUT_reboot       |
-| `METRIC_NAME_FAILURE_TEST_NEIGHBOR_REBOOT`  | failure_test.neighbor_reboot  |
-| `METRIC_NAME_FAILURE_TEST_ROUTE_WITHDRAWAL` | failure_test.route_withdrawal |
+| User Interface Metric Name                           | Metric Name in DB                       | Example Value       |
+| ---------------------------------------------------- | --------------------------------------- | ------------------- |
+| `METRIC_NAME_FAILURE_TEST_SINGLE_LINK_DOWN`          | failure_test.single_link_down           | FINAL_STATUS.PASS   |
+| `METRIC_NAME_FAILURE_TEST_ALL_LINKS_DOWN`            | failure_test.all_links_down             | FINAL_STATUS.PASS   |
+| `METRIC_NAME_FAILURE_TEST_CONTAINER_CRIPPLE`         | failure_test.container_cripple          | FINAL_STATUS.FAIL   |
+| `METRIC_NAME_FAILURE_TEST_DUT_REBOOT`                | failure_test.DUT_reboot                 | FINAL_STATUS.PASS   |
+| `METRIC_NAME_FAILURE_TEST_NEIGHBOR_REBOOT`           | failure_test.neighbor_reboot            | FINAL_STATUS.PASS   |
+| `METRIC_NAME_FAILURE_TEST_ROUTE_WITHDRAWAL`          | failure_test.route_withdrawal           | FINAL_STATUS.FAIL   |
