@@ -141,23 +141,27 @@ def wait_for_n_keys(ctx: MonitorContext, filter_path: str, event_queue: queue.Qu
                 logger.error(f"Timeout reached waiting for {n} keys.")
                 raise TimeoutError(f"Timeout reached waiting for {n} keys.")
 
-        max_fields = 0
-        for key_oid, value in received_events.items():
-            if len(value) > max_fields:
-                max_fields = len(value)
+    logger.debug('Receive complete, fetching incomplete events')
 
-        for key_oid, value in received_events.items():
-            if len(value) < max_fields:
-                logger.debug(f"Key {key_oid} could have incomplete data perform gNMI get.")
-                # treating the gNMI path as PosixPath
-                p1 = pathlib.Path(ctx.path)
-                p2 = pathlib.Path(key_oid)
-                str_path = str(p1.joinpath(p2))
-                response = get_key(ctx.gnmi_connection, str_path)
-                if response:
-                    if response[0] and len(response[0]) > len(received_events[key_oid]):
-                        logger.debug(f"Updating key {key_oid} with gNMI get response.")
-                        received_events[key_oid] = response[0]
+    max_fields = 0
+    for key_oid, value in received_events.items():
+        if len(value) > max_fields:
+            max_fields = len(value)
+
+    logger.debug(f"Max fields for filter path {filter_path} is {max_fields}")
+
+    for key_oid, value in received_events.items():
+        if len(value) < max_fields:
+            logger.debug(f"Key {key_oid} could have incomplete data perform gNMI get.")
+            # treating the gNMI path as PosixPath
+            p1 = pathlib.Path(ctx.path)
+            p2 = pathlib.Path(key_oid)
+            str_path = str(p1.joinpath(p2))
+            response = get_key(ctx.gnmi_connection, str_path)
+            if response:
+                if response[0] and len(response[0]) > len(received_events[key_oid]):
+                    logger.debug(f"Updating key {key_oid} with gNMI get response.")
+                    received_events[key_oid] = response[0]
 
     logger.debug(f"Successfully received {len(received_events)} keys.")
     return received_events
