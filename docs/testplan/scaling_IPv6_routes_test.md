@@ -8,6 +8,7 @@
     - [One BGP Session Flap and Traffic Convergence Test](#one-bgp-session-flap-and-traffic-convergence-test)
     - [All BGP Sessions Down and Up Test](#all-bgp-sessions-down-and-up-test)
     - [Nexthop Reduction and Restoration Test](#nexthop-reduction-and-restoration-test)
+  - [Metrics](#metrics)
 
 ## Test Objective
 
@@ -15,23 +16,15 @@ This test aims to evaluate SONiC switches’ ability to handle scaling number of
 
 ## Test Setup
 
-This test builds upon the **SONiC Switch BGP IPv6 Test**. Before running this test, ensure that the **SONiC Switch BGP IPv6 Test** has been completed up to step 3.
+This test builds upon the **SONiC Switch BGP IPv6 Test**. Before running this test, ensure that the test setup in **SONiC Switch BGP IPv6 Test** has been completed.
+
+Next, define a unidirectional traffic item and distribute the traffic destinations evenly across all traffic generators. Configure the traffic rate so that each Tx/Rx port on the DUT operates near its line-rate capacity. Start the traffic and verify the interface counters on the switches to ensure the traffic behaves as expected.
 
 ## Test Steps
 
-1. Execute "SONiC Switch BGP IPv6 Test" till step 3.
+1. Validate the DUT’s ability to distribute traffic evenly across multiple equal-cost paths.
 
-2. On each neighboring switch: Configure a vlan, assign `4*X/Y` IPv6 addresses with the specified prefix length and add all the Ethernet ports connected to a traffic generator to the vlan.
-
-3. Monitor the BGP route learning on the DUT by running `show ipv6 route bgp`. Verify that the DUT successfully learns and installs all routes.
-
-4. Using traffic generator's application or web interface, create one topology per traffic generator. In each topology, add the Ethernet ports connected to its neighboring T0, apply IPv6 protocol to emulate `4*X/Y` IPv6 hosts with the specified prefix length.
-
-5. On each traffic generator, define a unidirectional traffic item at 100% line rate. Distribute traffic destinations evenly across all traffic generators. Start the traffic and verify interface counters on the switches to ensure expected behavior.
-
-6. Validate the DUT’s ability to distribute traffic evenly across multiple equal-cost paths.
-
-7. Scale up the total number of routes by 10 times. Repeat steps 3 through 6 to analyze the impact of route scaling on performance.
+2. Scale up the total number of routes by 10 times. Repeat the test to analyze the impact of route scaling on performance.
 
 ## Key Test Cases
 
@@ -75,12 +68,12 @@ The objective of this test is to evaluate the impact of nexthop reduction and re
 
 Save the route restoration time info to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
 
-| Label                                          | Example Value       |
-| ---------------------------------------------- | ------------------- |
-| `METRIC_LABEL_DEVICE_ID`                       | switch-A            |
+| User Interface Label                                 | Label Key in DB                         | Example Value       |
+| ---------------------------------------------------- | --------------------------------------- | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`                             | device.id                               | switch-A            |
 
-| Metric Name                                    | Example Value       |
-| ---------------------------------------------- | ------------------- |
-| `METRIC_NAME_ROUTE_RECOVERY_PORT_RESTART`      | 35                  |
-| `METRIC_NAME_ROUTE_RECOVERY_CONTAINER_RESTART` | 243                 |
-| `METRIC_NAME_ROUTE_RECOVERY_NEXTHOP_CHANGE`    | 189                 |
+| User Interface Metric Name                           | Metric Name in DB                       | Example Value       |
+| ---------------------------------------------------- | --------------------------------------- | ------------------- |
+| `METRIC_NAME_ROUTE_RECOVERY_TIME_PORT_RESTART`       | route.recovery_time.port_restart        | 35                  |
+| `METRIC_NAME_ROUTE_RECOVERY_TIME_CONTAINER_RESTART`  | route.recovery_time.container_restart   | 243                 |
+| `METRIC_NAME_ROUTE_RECOVERY_TIME_NEXTHOP_CHANGE`     | route.recovery_time.nexthop_change      | 189                 |
