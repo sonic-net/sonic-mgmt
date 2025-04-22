@@ -1202,7 +1202,7 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
- gnmi/test_gnoi_os.py:
+gnmi/test_gnoi_os.py:
   skip:
     reason: "GNMI cert name to role mapping change from single role to role list"
     conditions_logical_operator: or
