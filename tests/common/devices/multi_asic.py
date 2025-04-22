@@ -75,6 +75,8 @@ class MultiAsicSonicHost(object):
                     a_asic_name = a_asic_line.split("|")[1]
                     a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                     active_asics.append(a_asic_instance)
+            else:
+                active_asics = []
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
@@ -87,6 +89,12 @@ class MultiAsicSonicHost(object):
             "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
+
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+            service_list.append("dhcp_relay")
+
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+            service_list.append("dhcp_server")
 
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
@@ -884,3 +892,17 @@ class MultiAsicSonicHost(object):
             return self.command(f"sudo config interface -n {asic_ns} startup {port}")
         else:
             return self.command(f"sudo config interface startup {port}")
+
+    def yang_validate(self, strict_yang_validation=True):
+        """
+        Validate yang over running config
+        """
+        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        if output['rc'] != 0:
+            return False
+        if strict_yang_validation:
+            for line in output['stdout_lines']:
+                if "Note: Below table(s) have no YANG models:" in line:
+                    logger.info(line)
+                    return False
+        return True

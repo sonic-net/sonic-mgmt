@@ -8,7 +8,6 @@ parameters:
     default: ""
 
   - name: PREPARE_TIME
-    type: number
     default: 30
 
 steps:
@@ -17,13 +16,15 @@ steps:
 
     sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
-    TEST_SCRIPTS=$(echo '$(TEST_SCRIPTS)' | jq -r -c '."${{ parameters.TOPOLOGY }}_checker"')
-
-    if [[ $? -ne 0 || -z "$TEST_SCRIPTS" ]]; then
+    echo "$TEST_SCRIPTS" > /tmp/ts.json
+    echo "TEST_SCRIPTS value from file:"
+    cat /tmp/ts.json
+    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
+    rm /tmp/ts.json
+    if [[ -z "$TEST_SCRIPTS" ]]; then
       echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
       exit 1
     fi
-
     SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
     echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
   displayName: "Get ${{ parameters.TOPOLOGY }} test scripts"
@@ -75,6 +76,6 @@ steps:
       exit 1
     fi
 
-    echo "$INSTANCE_NUMBER"
-    echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER]$INSTANCE_NUMBER"
+    INSTANCE_NUMBER=$(echo $INSTANCE_NUMBER | tr -d '\r' | tr -d ' ')
+    echo -n "##vso[task.setvariable variable=INSTANCE_NUMBER; isOutput=true]$INSTANCE_NUMBER"
   displayName: "Calculate instance number"

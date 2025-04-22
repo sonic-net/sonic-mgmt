@@ -27,7 +27,9 @@ __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
 INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+MSFT_REPO_FLAG = "msft"
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
+GITHUB_SONIC_MGMT_REPO_MSFT = "https://github.com/Azure/sonic-mgmt.msft"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
@@ -177,6 +179,23 @@ def run_cmd(cmd):
     return stdout, stderr, return_code
 
 
+def get_trigger_type(tp_type: str, build_reason: str):
+    # 1. NIGHTLY type(only nightly test from pipeline)
+    if tp_type.upper() == "NIGHTLY":
+        return "NightlyTest"
+
+    # 2. PR type(pr test or baseline test)
+    # check build reason
+    if build_reason.upper() == "BASELINETEST":
+        return "BaselineTest"
+
+    if build_reason.upper() == "PULLREQUEST":
+        return "PRTest"
+
+    # Else, return None, no impact
+    return None
+
+
 class TestPlanManager(object):
 
     def __init__(self, scheduler_url, frontend_url, client_id, managed_identity_id):
@@ -249,6 +268,7 @@ class TestPlanManager(object):
         retry_cases_include = parse_list_from_str(kwargs.get("retry_cases_include", None))
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
+        build_reason = kwargs.get("build_reason", "PullRequest")
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -276,7 +296,11 @@ class TestPlanManager(object):
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
-        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
+
+        if MSFT_REPO_FLAG in repo_name:
+            sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO_MSFT
+
+        elif kwargs.get("source_repo") in INTERNAL_REPO_LIST:
             sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
 
         # If triggered by mgmt repo, use pull request id as the code base
@@ -341,7 +365,8 @@ class TestPlanManager(object):
                 "requester": kwargs.get("requester", "Pull Request"),
                 "source_repo": kwargs.get("source_repo"),
                 "pull_request_id": pr_id,
-                "build_id": build_id
+                "build_id": build_id,
+                "type": get_trigger_type(test_plan_type, build_reason)
             },
             "extra_params": {},
             "priority": 10
@@ -988,13 +1013,22 @@ if __name__ == "__main__":
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
-            repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
+            build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
+            build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
+            branch_name = os.environ.get("SYSTEM_PULLREQUEST_TARGETBRANCH") if build_reason.upper() == "PULLREQUEST" \
+                else os.environ.get("BUILD_SOURCEBRANCHNAME")
 
-            test_plan_prefix = f"{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}".replace(' ', '_')
+            # Only pr test show pr id
+            pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
+
+            # Only pr test and baseline test show repo and branch
+            source_repo_info = f"{repo_name}_{branch_name}_" if args.test_plan_type == "PR" else ""
+
+            test_plan_prefix = (f"{build_repo_provider}_{build_reason}_{source_repo_info}{pr_info}"
+                                f"BUILD_{build_id}_JOB_{job_name}").replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
@@ -1052,6 +1086,7 @@ if __name__ == "__main__":
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                    build_reason=build_reason
                 )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
