@@ -210,7 +210,7 @@ class SonicHost(AnsibleHostBase):
                 self.get_asics_present_from_inventory,
                 lambda: self._get_platform_asic(facts["platform"])
             ],
-            timeout=120,
+            timeout=180,
             thread_count=5
         )
 
@@ -418,6 +418,42 @@ class SonicHost(AnsibleHostBase):
         im = self.host.options['inventory_manager']
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
+
+    def is_smartswitch(self):
+        """Check if the current node is a SmartSwitch
+
+        Returns:
+            True if the current node is a SmartSwitch, else False
+        """
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "SmartSwitch" and
+            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["type"] != "SmartSwitchDPU"
+        ):
+            return True
+
+        return False
+
+    def is_dpu(self):
+        """Check if the current node is a DPU
+
+        Returns:
+            True if the current node is a DPU, else False
+        """
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
+            config_facts["DEVICE_METADATA"]["localhost"]["type"] == "SmartSwitchDPU"
+        ):
+            return True
+
+        return False
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
@@ -1666,11 +1702,11 @@ Totals               6450                 6449
         For example, part of the output of command 'show interface status':
 
         admin@str-msn2700-02:~$ show interface status
-              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa E501
-        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa E501
-              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa E501
+              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa: E501
+        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa: E501
+              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa: E501
         ...
 
         The parsed example will be like:
