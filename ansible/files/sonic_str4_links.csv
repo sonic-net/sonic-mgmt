@@ -8,8 +8,6 @@ str4-7060x6-pe64-root,Ethernet20/1,str4-sn5640-fan-1,Ethernet496,800000,"3005-30
 str4-7060x6-pe64-root,Ethernet4/1,str4-8122-fanout-03,etp63a,400000,"357-486",Trunk,off
 str4-7060x6-pe64-root,Ethernet2/1,str4-7060x6-64pe-fan-2,Ethernet496,100000,"3400-3647,3656-3657",Trunk,off
 str4-7060x6-pe64-root,Ethernet3/1,str4-7060x6-64pe-fan-3,Ethernet496,100000,"487-744",Trunk,off
-str4-7060x6-pe64-root,Ethernet7/1,str4-7060x6-64pe-fan-7,Ethernet496,800000,"3700-3947,3956-3957",Trunk,off
-str4-7060x6-pe64-root,Ethernet8/1,str4-7060x6-64pe-fan-8,Ethernet496,800000,"1000-1223,1232-1233",Trunk,off
 str4-7060x6-pe64-root,Ethernet9/1,str4-7060x6-64pe-fan-9,Ethernet496,400000,"1467-1596",Trunk,off
 str4-7060x6-pe64-root,Ethernet15/1,str4-7060x6-64pe-fan-10,Ethernet496,800000,"2000-2247,2256-2257",Trunk,off
 str4-7060x6-pe64-root,Ethernet17/1,str4-7060x6-64pe-fan-11,Ethernet496,800000,"2747-2996",Trunk,off
