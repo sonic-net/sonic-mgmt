@@ -11,7 +11,11 @@
 
 ## Overview
 
-In a traditional TCP/IP network, congestion is typically detected through packet loss. When network congestion occurs, routers and switches begin dropping packets as their buffers become full, signaling to the sender that the network is overloaded. Relying solely on packet loss as a congestion signal has several limitations. First, packet loss is a relatively late indicator of congestion. By the time packets are being dropped, the network is already experiencing significant stress, which can degrade application performance and increase latency. Second, not all packet loss is caused by congestion. In wireless networks, for example, packets may be lost due to interference, signal attenuation, or hardware errors, which can lead to false congestion signals and unnecessary reduction in transmission rates. This can significantly degrade throughput in environments where losses are not congestion-related. Third, packet loss-based detection lacks granularity and control. It provides little insight into the severity or location of congestion, making it difficult for senders to respond optimally. Moreover, it does not offer early warnings or predictive cues that could enable proactive congestion avoidance.
+In a traditional TCP/IP network, congestion is typically detected through packet loss. When network congestion occurs, routers and switches begin dropping packets as their buffers become full, signaling to the sender that the network is overloaded. Relying solely on packet loss as a congestion signal has several limitations.
+
+- First, packet loss is a relatively late indicator of congestion. By the time packets are being dropped, the network is already experiencing significant stress, which can degrade application performance and increase latency.
+- Second, not all packet loss is caused by congestion. In wireless networks, for example, packets may be lost due to interference, signal attenuation, or hardware errors, which can lead to false congestion signals and unnecessary reduction in transmission rates. This can significantly degrade throughput in environments where losses are not congestion-related.
+- Third, packet loss-based detection lacks granularity and control. It provides little insight into the severity or location of congestion, making it difficult for senders to respond optimally. Moreover, it does not offer early warnings or predictive cues that could enable proactive congestion avoidance.
 
 Because of these limitations, modern networks increasingly supplement or replace packet loss-based congestion detection with more proactive and informative mechanisms — ECN. Explicit Congestion Notification (ECN) is an enhancement to TCP/IP congestion control that allows congestion to be signaled without dropping packets. Instead of relying on packet loss, ECN uses marking within the IP header to indicate congestion. The process works as follows:
 
@@ -32,7 +36,7 @@ Together, these parameters allow RED to provide early, gradual congestion signal
 - When the queue length exceeds Kmax, the marking probability reaches 100%.
 - Otherwise, the marking probability follows the formula: Marking Probability = (queue_length − 𝐾min)/(𝐾max − 𝐾min) × 𝑃max
 
-The figure in ECN-test-plan.md illustrates the theoretical ECN marking probability as a function of queue length. Commodity switches can implement RED at ingress (when packets are enqueued into the switch buffer) or at egress (when packets are dequeued from the buffer). Compared to ingress RED/ECN, egress RED/ECN provides lower feedback delay, leading to faster congestion response.
+The figure in [ECN-test-plan.md](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/ECN-test-plan.md) illustrates the theoretical ECN marking probability as a function of queue length. Commodity switches can implement RED at ingress (when packets are enqueued into the switch buffer) or at egress (when packets are dequeued from the buffer). Compared to ingress RED/ECN, egress RED/ECN provides lower feedback delay, leading to faster congestion response.
 
 ## Test Objective
 
@@ -58,9 +62,8 @@ This test case aims to verify the DUT’s dequeue based ECN marking behavior (Eg
             "scheduler": "scheduler.0"
         },
         "Ethernet0|1": {
-            "scheduler": "scheduler.1"
+            "scheduler": "scheduler.1",
             "wred_profile": "AZURE_WRED"
-
         },
         "Ethernet0|2": {
             "scheduler": "scheduler.2"
@@ -92,7 +95,7 @@ This test case aims to verify the DUT’s dequeue based ECN marking behavior (Eg
 2. Pause the egress traffic of the port on the DUT by using RPC `sai_thrift_port_tx_disable()`.
 3. Test data traffic: Identify the traffic generator and its corresponding port connected to the DUT port under test — this serves as the Rx port for the traffic flow. Then, on a separator traffic generator that is not connected to the DUT port, pick a Tx port on the generator to send traffic. Define a traffic flows at line rate, ensuring their DSCP values align with the priority settings on the DUT. The number of packets should be fixed at 2 × 𝐾max, with each packet being 1KB in size.
 4. Start packet capture on the traffic generator Rx port.
-5. From the traffic generator Tx port, send 2 × 𝐾max data packets to the receiver,  ensuring the packets are mapped to the right priority on the DUT..
+5. From the traffic generator Tx port, send 2 × 𝐾max data packets to the receiver,  ensuring the packets are mapped to the right priority on the DUT.
 6. Once all the test data packets are transmitted, stop pausing the egress traffic of the DUT port.
 7. Stop the packet capture after all packets are received.
 8. Verify the following:
@@ -121,12 +124,12 @@ This test aims to verify the ECN marking accuracy on the DUT by comparing the ac
 
 Save the ECN test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
 
-| Label                               | Example Value      |
-| ----------------------------------- | ------------------ |
-| `METRIC_LABEL_DEVICE_ID`            | switch-A           |
-| `METRIC_LABEL_DEVICE_PORT_ID`       | Ethernet8          |
+| User Interface Label                   | Label Key in DB          | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`               | device.id                | switch-A            |
+| `METRIC_LABEL_DEVICE_PORT_ID`          | device.port.id           | Ethernet8           |
 
-| Metric Name                         | Example Value      |
-| ----------------------------------- | ------------------ |
-| `METRIC_NAME_ECN_EGRESS_MARKING`    | FINAL_STATUS.PASS  |
-| `METRIC_NAME_ECN_ACCURACY_MARKING`  | FINAL_STATUS.FAIL  |
+| User Interface Metric Name             | Metric Name in DB        | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_NAME_ECN_EGRESS_MARKING`       | ecn.egress_marking       | FINAL_STATUS.PASS   |
+| `METRIC_NAME_ECN_ACCURACY_MARKING`     | ecn.accuracy_marking     | FINAL_STATUS.FAIL   |
