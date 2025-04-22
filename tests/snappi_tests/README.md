@@ -155,14 +155,14 @@ Make sure the DUT is properly configured using the `minigraph.xml` file:
 ✅ This ensures the DUT interfaces are correctly initialized before running tests.
 
 ## Step 10: Apply Fanout Speed Mode Changes (Optional)
-To enable **fanout speed mode**, apply the changes introduced in **PR#111111**.
+To enable **fanout speed mode**, apply the changes introduced in **PR#14026**.
 
 - ⚙️ These changes are required to handle fanout port speed configurations correctly
 - 🔄 Update the port naming convention as per the new format:
   - **Old Format:** `CardX/PortY`
   - **New Format:** `PortX.Y`
 
-📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode.
+📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode. These changes are inluced in 202405 branch. 
 
 ## Step 11: Custom Ixia API Server Credentials
 
