@@ -149,9 +149,6 @@ str3-7060x6-64pe-3,10.64.246.20/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-4,10.64.246.64/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-5,10.3.146.188/24,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
 str3-7060x6-64pe-6,10.3.146.189/24,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
-str3-7060x6-64pe-th5p-1,10.64.246.35/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
-str3-7060x6-64pe-fan-3,10.3.146.216/24,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
-str3-7060x6-64pe-th5p-fan-1,10.64.246.36/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str3-8102-07,10.3.146.173/23,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
 str3-8102-smartswitch-02,10.3.146.224/24,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
 str3-msn4700-fanout-05,10.3.146.151/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
