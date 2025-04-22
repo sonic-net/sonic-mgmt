@@ -70,7 +70,7 @@ In this multi-tier network architecture, BGP sessions are established between T0
 
 - Many-to-Many Connectivity: Each T0 switch connects to multiple T1 switches via multiple physical links, ensuring load balancing and redundancy.
 - No Direct Connectivity Between Same-Tier Devices: T0 switches do not have direct connections to other T0 switches, and T1 switches do not directly connect to other T1 switches. This enforces a strict hierarchical routing model where all traffic between T0 switches must traverse a T1 switch.
-- BGP Session Distribution: Assume each T1 switch has X logical ports available for BGP peering. Suppose there are Y T0 switches in the network. In this case, each T0 switch establishes X/Y BGP sessions with T1 switches to evenly distribute the session load and optimize routing efficiency.
+- BGP Session Distribution: Assume a T1 switch has X logical ports connected to a T0 switch. We establish X BGP sessions—one per port—between the two switches to evenly distribute the session load and enhance routing efficiency.
 
 This topology ensures that traffic is always routed through a T1 switch, providing a structured, predictable, and scalable routing environment.
 
