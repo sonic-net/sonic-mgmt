@@ -996,6 +996,10 @@ fib/test_fib.py::test_nvgre_hash:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+  xfail:
+    reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
+    conditions:
+      - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
@@ -1140,6 +1144,20 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           gnmi              #####
 #######################################
+gnmi/test_gnmi.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_appldb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -1147,12 +1165,34 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
+
+gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_smartswitch.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_killprocess.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
   skip:
@@ -1161,6 +1201,27 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
+
+gnmi/test_gnoi_os.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system_grpc.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 #######################################
 #####           hash              #####
@@ -1736,11 +1797,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
         - "asic_type in ['cisco-8000']"
         - "release in ['202412']"
-   xfail:
-     reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
-     conditions:
-        - "'dualtor' in topo_name"
-        - https://github.com/sonic-net/sonic-mgmt/issues/8400
+        - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
    skip:
