@@ -108,12 +108,12 @@ This test does not assume or enforce a specific QoS configuration; any QoS confi
 
 Save the QoS DWRR test result to a database via the final metrics reporter interface provided by the SONiC team in `test_reporting` folder. An example of how to use the interface is provided in `telemetry` folder.
 
-| Label                          | Example Value      |
-| ------------------------------ | ------------------ |
-| `METRIC_LABEL_DEVICE_ID`       | switch-A           |
-| `METRIC_LABEL_DEVICE_PORT_ID`  | Ethernet8          |
-| `METRIC_LABEL_DEVICE_QUEUE_ID` | UC1                |
+| User Interface Label                   | Label Key in DB          | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_LABEL_DEVICE_ID`               | device.id                | switch-A            |
+| `METRIC_LABEL_DEVICE_PORT_ID`          | device.port.id           | Ethernet8           |
+| `METRIC_LABEL_DEVICE_QUEUE_ID`         | device.queue.id          | MC1                 |
 
-| Metric Name                    | Example Value      |
-| ------------------------------ | ------------------ |
-| `METRIC_NAME_QOS_DWRR`         | FINAL_STATUS.PASS  |
+| User Interface Metric Name             | Metric Name in DB        | Example Value       |
+| -------------------------------------- | ------------------------ | ------------------- |
+| `METRIC_NAME_QOS_DWRR`                 | qos.dwrr                 | FINAL_STATUS.PASS   |
