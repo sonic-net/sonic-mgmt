@@ -6,15 +6,16 @@ The purpose of this document is to state the requirement for SAI validation for 
 
 ## High Level Design Document
 
-| Rev      | Date        | Author                   | Change Description            |
-|----------|-------------|--------------------------|-------------------------------|
-| Draft    | 14-08-2024  | Sai Kiran Gummaraj       | Initial version               |
+| Rev      | Date        | Author                   | Change Description                  |
+|----------|-------------|--------------------------|-------------------------------------|
+| Draft    | 14-08-2024  | Sai Kiran Gummaraj       | Initial version based on Redis-py   |
+| 0.1      | 15-03-2025  | Sai Kiran Gummaraj       | Updated to use gNMI instead of Redis|
 
 ## Introduction
 
 SONiC tests in the [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) repositry are Pytest modules running in the sonic-mgmt container on the developer/CI/test environment and PTF tests running from the PTF container on the testbed server. As part of the setup and tear down activities the tests make configuration changes to SONiC, run the tests and verify if the tests ran successfully by making additional configuration checks and finally tear down the configuration changes. The tests use command line utilities on the DUT like `config`, `sonic-db-cli` or `redis-cli` to set and get configuration values. In some cases tests export / dump the contents of the database to examine its results and verify if tests ran successfully. These configuration changes are propogated to the ASIC through ASIC_DB. The aim of this design document is to identify a mechanism for tests to validate the configuration changes against ASIC_DB entries or SAI object types.
 
-*NOTE*: SONiC configuration is stored inside a Redis instance running inside the `database` container on the SONiC device. There are several database instances used for storing different kind of configuration elements such as configuration, states, counters, ASIC state etc. Each of these databases run as a Redis instance and are accessed via a Redis database ID. The IDs for the different available database are configured here [https://github.com/sonic-net/sonic-buildimage/blob/master/dockers/docker-database/database_config.json.j2](https://github.com/sonic-net/sonic-buildimage/blob/master/dockers/docker-database/database_config.json.j2).
+*NOTE*: SONiC configuration is stored inside a Redis instance running inside the `database` container on the SONiC device. There are several database instances used for storing different kind of configuration elements such as configuration, states, counters, ASIC state etc. Each of these databases run as a Redis instance.
 
 ## Design Choices
 
@@ -44,7 +45,12 @@ Currently the tests connect to the database by using Ansible (SSH) to run comman
 
 ### Approaches to redesign
 
-The following sections illustrates and evaluates different design strategies for implementing SAI validation.
+The following sections illustrates and evaluates different design strategies for implementing SAI validation. The approaches include:
+
+- Enhance current library
+- Use Redis-py library (Copy to DUT)
+- Use Redis-py library (Connect remotely)
+- Use SONiC gNMI Server
 
 ### Enhance current library
 
@@ -135,6 +141,97 @@ if __name__ == '__main__':
 **Drawbacks**
 
 - Requires opening port in firewalls (if closed in the test environment)
+
+## Use SONiC gNMI Server
+
+This approach outlines the design of the pytest fixtures (`setup_gnmi_server`, `setup_connection`, and `gnmi_connection`) used by sonic-mgmt test cases to establish a gNMI connection for interacting with the SONiC database. The primary purpose of these fixtures is to provide a managed gNMI client for validating the ASIC database state. This design handles conditional setup based on pytest command-line options for disabling SAI validation and enabling insecure gNMI connections.
+
+![SAI validation using gNMI](images/new_design.png)
+
+### Current features
+
+* Provide pytest fixtures for easy and consistent gNMI connection setup across test sessions.
+* Support both secure (TLS) and insecure gNMI connections based on the `--gnmi_insecure` option.
+* Manage the creation and cleanup of gNMI certificates for secure connections.
+* Provide a session-scoped gNMI connection fixture (`gnmi_connection`) for use in test cases.
+* Ensure proper closing of the gNMI channel after the test session.
+* Disable SAI validation based on the `--disable_sai_validation` pytest option
+
+### Setup Instructions
+
+The gNMI connection setup is managed through three pytest fixtures:
+
+* **`setup_gnmi_server` (Session-scoped):**
+    * Determines whether SAI validation is disabled based on the `--disable_sai_validation` pytest option. If disabled, it yields the `duthost` object and `None` for the certificate path.
+    * Checks the `--gnmi_insecure` option. If enabled, it logs this and yields `duthost` and `None`.
+    * If neither option is set, it proceeds with secure gNMI setup:
+        * Defines a temporary certificate path (`/tmp/gnmi_certificates`).
+        * Calls `gnmi_setup.create_certificates` to generate necessary certificates.
+        * Calls `gnmi_setup.copy_certificates_to_dut` to transfer the certificates to the Device Under Test (DUT).
+        * Calls `gnmi_setup.apply_certs` on the DUT.
+        * Yields the `duthost` object and the `cert_path`.
+        * After the test session, it calls `gnmi_setup.remove_certs` to clean up the certificates on the DUT.
+    * This fixture primarily manages the certificate setup on the DUT based on the test configuration.
+
+* **`setup_connection` (Session-scoped):**
+    * Receives the output of `setup_gnmi_server` (`duthost`, `cert_path`).
+    * Checks the `--disable_sai_validation` option. If enabled, it yields `None`.
+    * Checks the `--gnmi_insecure` option.
+    * If `--gnmi_insecure` is set, it calls `create_gnmi_stub` (from `gnmi_client`) with `secure=False` to establish an insecure gNMI connection to the DUT's management IP and the port specified by the `--gnmi_port` option. It yields the `gnmi_connection` object.
+    * If `--gnmi_insecure` is not set (implying secure connection), it constructs the paths to the root certificate, client certificate, and client key using the `cert_path` obtained from `setup_gnmi_server`. It then calls `create_gnmi_stub` with `secure=True` and the certificate paths to establish a secure gNMI connection. It yields the `gnmi_connection` object.
+    * After the test session, it closes the gRPC channel associated with the `gnmi_connection`.
+    * This fixture is responsible for creating the actual gNMI client stub based on the configuration and certificate information.
+
+* **`gnmi_connection` (Session-scoped):**
+    * Simply receives the `gnmi_connection` object yielded by `setup_connection`.
+    * Yields this `gnmi_connection` object, making it available for injection into test functions.
+    * This fixture acts as a direct provider of the established gNMI connection to the tests.
+
+The typical flow in a test case would be:
+
+1.  Declare `gnmi_connection` as an argument in the test function. pytest will automatically inject the session-scoped gNMI client provided by this fixture.
+2.  The test case then uses the functions defined in the previously described API (e.g., `start_db_monitor`, `wait_for_n_keys`, `get_key`) with the injected `gnmi_connection` to interact with the SONiC database.
+
+### Error Handling
+
+* The fixtures rely on the error handling within the imported `gnmi_setup` and `gnmi_client` modules.
+* The fixtures log information about whether SAI validation is disabled or if insecure gNMI mode is enabled.
+* If certificate creation, copying, or application fails within `setup_gnmi_server`, exceptions raised by the `gnmi_setup` functions will propagate, likely causing the test session to fail.
+* If the gNMI connection fails to be established in `setup_connection` (e.g., due to incorrect IP or port), the `create_gnmi_stub` function is expected to raise an exception, which will also lead to test failure.
+* Test cases should handle the possibility of `gnmi_connection` being `None` (when SAI validation is disabled) to avoid errors.
+
+### Integration into Test cases
+
+Integration with Test Cases
+
+Test cases integrate with these fixtures by simply including `gnmi_connection` as an argument:
+
+```python
+def test_something(gnmi_connection):
+    if gnmi_connection is None:
+        pytest.skip("SAI validation is disabled")
+
+    executor = ThreadPoolExecutor(max_workers=2)
+    event_queue = queue.Queue()
+    monitor_context = start_db_monitor(executor, gnmi_connection, "SOME_DB_PATH", event_queue)
+    # ... rest of the test logic using monitor_context and gnmi_connection ...
+    stop_db_monitor(monitor_context)
+    executor.shutdown(wait=False)
+
+### Advantages and Drawbacks
+
+Advantages
+- There is no need to expose the Redis server port
+- gNMI provides methods equivalent to Redis for getting, setting and subscribing to sonic db changes
+- Data other than sonic db can be accessed via gNMI
+
+Disadvantages
+- Have to rely on gNMI Paths for subscription which may not provide the required granularity like Redis
+- SONiC gNMI server does not support required levels of subscription for some cases. For instance `ASIC_DB/localhost/ASIC_STATE/SAI_OBJECT_TYPE_ACL_ENTRY:*` cannot be subscribed. Instead `ASIC_DB/localhost/ASIC_STATE` must be subscribed and have to filter events
+
+### Known Issues
+
+- For certain cases SONiC gNMI server does not send all expected events.
 
 ## Test and SAI object types
 
