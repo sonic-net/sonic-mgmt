@@ -1,12 +1,11 @@
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import (wait, wait_until)  # noqa F401
+from tests.common.helpers.assertions import pytest_assert  # noqa F401
 import snappi
 import ipaddress
 import re
 import macaddress
 import time
-
 
 import logging
 
@@ -16,7 +15,7 @@ ipp = ipaddress.ip_address
 maca = macaddress.MAC
 
 ENI_START = 1
-ENI_COUNT = 1# 64
+ENI_COUNT = 1  # 64
 ENI_MAC_STEP = '00:00:00:18:00:00'
 ENI_STEP = 1
 ENI_L2R_STEP = 1000
@@ -31,18 +30,17 @@ ACL_RULES_NSG = 1000  # 1000
 ACL_TABLE_COUNT = 5
 
 IP_PER_ACL_RULE = 25  # 128
-IP_MAPPED_PER_ACL_RULE = IP_PER_ACL_RULE # 40
-IP_ROUTE_DIVIDER_PER_ACL_RULE = 64 # 8, must be a power of 2 number
+IP_MAPPED_PER_ACL_RULE = IP_PER_ACL_RULE  # 40
+IP_ROUTE_DIVIDER_PER_ACL_RULE = 64  # 8, must be a power of 2 number
 
 IP_STEP1 = int(ipp('0.0.0.1'))
-#IP_STEP2 = int(ipp('0.0.1.0'))
-#IP_STEP3 = int(ipp('0.1.0.0'))
-#IP_STEP4 = int(ipp('1.0.0.0'))
-IP_STEP_ENI = int(ipp('0.64.0.0')) # IP_STEP4
-IP_STEP_NSG = int(ipp('0.2.0.0')) # IP_STEP3 * 4
-IP_STEP_ACL = int(ipp('0.0.0.50')) # IP_STEP2 * 2
+# IP_STEP2 = int(ipp('0.0.1.0'))
+# IP_STEP3 = int(ipp('0.1.0.0'))
+# IP_STEP4 = int(ipp('1.0.0.0'))
+IP_STEP_ENI = int(ipp('0.64.0.0'))  # IP_STEP4
+IP_STEP_NSG = int(ipp('0.2.0.0'))  # IP_STEP3 * 4
+IP_STEP_ACL = int(ipp('0.0.0.50'))  # IP_STEP2 * 2
 IP_STEPE = int(ipp('0.0.0.2'))
-
 
 IP_L_START = ipaddress.ip_address('1.1.0.1')
 IP_R_START = ipaddress.ip_address('1.4.0.1')
@@ -59,18 +57,18 @@ def run_ha_test(duthost, localhost, ha_test_case, config_snappi_ixl):
     # Configure SmartSwitch
     duthost_ha_config(duthost, ha_test_case)
 
-
     # Configure IxLoad traffic
-    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'], test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
+    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'],
+                                          test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
 
     # Traffic Starts
     if ha_test_case == 'cps':
         api = run_cps_search(api, initial_cps_value)
-        #cs.app.state = 'stop' #cs.app.state.START
-        #api.set_control_state(cs)
+        # cs.app.state = 'stop' #cs.app.state.START
+        # api.set_control_state(cs)
         print("Test Ending")
 
-    #ha_switchTraffic(duthost, ha_test_case)
+    # ha_switchTraffic(duthost, ha_test_case)
 
     return
 
@@ -82,7 +80,6 @@ def dpu_config(duthost, ha_test_case):
 
 def ha_switchTraffic(duthost, ha_test_case):
 
-    import pdb; pdb.set_trace()
     # Moves traffic to DPU2
     ha_switch_config = (
         "vtysh "
@@ -91,11 +88,11 @@ def ha_switchTraffic(duthost, ha_test_case):
         "-c 'ip route 221.0.0.1/32 18.2.202.1 1' "
         "-c 'exit' "
     )
+
     logger.info("HA switch shell 1")
     duthost.shell(ha_switch_config)
 
     # Sets traffic back to DPU0
-    pdb.set_trace()
     ha_switch_config = (
         "vtysh "
         "-c 'configure' "
@@ -106,13 +103,10 @@ def ha_switchTraffic(duthost, ha_test_case):
     logger.info("HA switch shell 4")
     duthost.shell(ha_switch_config)
 
-    pdb.set_trace()
-
     return
 
 
 def duthost_ha_config(duthost, ha_test_case):
-
 
     # Smartswitch configure
     """
@@ -136,7 +130,6 @@ def duthost_ha_config(duthost, ha_test_case):
 
     # Load DPUs
 
-
     return
 
 
@@ -152,7 +145,8 @@ def assignPorts(api, ports_list):
     portListPerCommunity = ports_list
     for communityName in portListPerCommunity:
         if communityName not in communityNameList:
-            errorMsg = "Error while executing assignPorts operation. Invalid NetTraffic name: %s. This NetTraffic is not defined in the loaded rxf." % communityName
+            errorMsg = ("Error while executing assignPorts operation. Invalid NetTraffic name: %s. "
+                        "This NetTraffic is not defined in the loaded rxf.") % communityName
             raise Exception(errorMsg)
 
     for community in communityList:
@@ -168,14 +162,12 @@ def assignPorts(api, ports_list):
             paramDict = {"chassisId": chassisId, "cardId": cardId, "portId": portId}
             try:
                 # Code that may raise an exception
-                res = api.ixload_configure("post", portListUrl, paramDict)
+                res = api.ixload_configure("post", portListUrl, paramDict)  # noqa: F841
             except Exception as e:
                 # Handle any exception
                 logger.info(f"An error occurred: {e}")
 
-
     return
-
 
 
 def build_node_ips(count, vpc, nodetype="client"):
@@ -190,10 +182,9 @@ def build_node_ips(count, vpc, nodetype="client"):
 def build_node_macs(count, vpc, nodetype="client"):
 
     if nodetype in "client":
-        #m = maca(int(MAC_R_START) + int(maca('00-00-00-30-00-00')) * (vpc - 1) + (int(maca(ACL_TABLE_MAC_STEP)) * count))
-        m = maca(int(MAC_R_START) + int(maca('00-00-00-18-00-00')) * (vpc - 1) + (int(maca(ACL_TABLE_MAC_STEP)) * count))
+        m = maca(int(MAC_R_START) + int(maca('00-00-00-18-00-00')) * (vpc - 1) +
+                 (int(maca(ACL_TABLE_MAC_STEP)) * count))
     if nodetype in "server":
-        #m = maca(int(MAC_L_START) + int(maca('00-00-00-30-00-00')) * (vpc - 1))
         m = maca(int(MAC_L_START) + int(maca('00-00-00-18-00-00')) * (vpc - 1))
 
     return str(m).replace('-', ':')
@@ -211,7 +202,6 @@ def build_node_vlan(index, nodetype="client"):
 
     if nodetype == 'client':
         vlan = ENI_L2R_STEP + index + 1
-        #vlan = ENI_L2R_STEP + index
     else:
         ENI_STEP = 1
         if hero_b2b is True:
@@ -249,6 +239,7 @@ def create_ip_list():
 
     return ip_list
 
+
 def edit_l1_settings(api):
 
     params = {'useIEEEDefaults': 'false',
@@ -260,7 +251,7 @@ def edit_l1_settings(api):
         portl1_url = "ixload/test/activeTest/communityList/{}/network/portL1Settings".format(i)
         try:
             # Code that may raise an exception
-            res = api.ixload_configure("patch", portl1_url, params)
+            res = api.ixload_configure("patch", portl1_url, params)  # noqa: F841
         except Exception as e:
             # Handle any exception
             logger.info(f"An error occurred: {e}")
@@ -283,6 +274,7 @@ def find_test_role(test_type, server_vlan):
 
     return test_role
 
+
 def get_objectIDs(api, url):
 
     objectIDs = []
@@ -293,6 +285,7 @@ def get_objectIDs(api, url):
 
     return objectIDs
 
+
 def set_rangeList(api):
     """
     Adjust both rangeList, macRange, and vlanRange as needed
@@ -301,7 +294,7 @@ def set_rangeList(api):
 
     serverList_url = "ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList"
 
-   # get all the IDs
+    # get all the IDs
     client_objectIDs = get_objectIDs(api, clientList_url)
     server_objectIDs = get_objectIDs(api, serverList_url)
 
@@ -315,27 +308,26 @@ def set_rangeList(api):
     }
     vlan_dict = {'uniqueCount': 1}
 
-    c_res_results = []
-    for i,cid in enumerate(client_objectIDs):
+    for i, cid in enumerate(client_objectIDs):
         try:
             # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)
-            res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)
-            res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)
+            res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
+            res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
+            res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)  # noqa: F841
         except Exception as e:
             # Handle any exception
             logger.info(f"An error occurred: {e}")
 
-    s_res_results = []
     for i, sid in enumerate(server_objectIDs):
         try:
             # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)
+            res1 = api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)  # noqa: F841
         except Exception as e:
             # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     return
+
 
 def set_trafficMapProfile(api):
 
@@ -354,35 +346,37 @@ def set_trafficMapProfile(api):
     submapsIpv4_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0/customPortMap/submapsIPv4/0"
     try:
         # Code that may raise an exception
-        res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)
+        res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)  # noqa: F841
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
+
 
 def set_tcpCustom(api):
 
     tcp_agent_url = "ixload/test/activeTest/communityList/0/activityList/0/agent"
-    #url = "{}/{}".format(base_url, tcp_agent_url)
+    # url = "{}/{}".format(base_url, tcp_agent_url)
 
     param_json = {'maxPersistentRequests': 1}
-    #response = requests.patch(url, json=param_json)
+    # response = requests.patch(url, json=param_json)
     try:
         # Code that may raise an exception
-        res = api.ixload_configure("patch", tcp_agent_url, param_json)
+        res = api.ixload_configure("patch", tcp_agent_url, param_json)  # noqa: F841
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
 
+
 def set_timelineCustom(api, initial_cps_value):
 
-    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
+    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"  # noqa: F841
     timelineObjectives_url = "ixload/test/activeTest/communityList/0/activityList/0/timeline"
-    #url_activityList = "{}/{}".format(base_url, activityList_url)
-    #url_timeline = "{}/{}".format(base_url, timelineObjectives_url)
+    # url_activityList = "{}/{}".format(base_url, activityList_url)
+    # url_timeline = "{}/{}".format(base_url, timelineObjectives_url)
 
     """
     activityList_json = {
@@ -393,7 +387,7 @@ def set_timelineCustom(api, initial_cps_value):
         'userObjectiveValue': ENI_COUNT*250000
     }
     """
-    activityList_json = {
+    activityList_json = {  # noqa: F841
         'constraintType': 'ConnectionRateConstraint',
         'constraintValue': initial_cps_value,
         'enableConstraint': True,
@@ -405,7 +399,7 @@ def set_timelineCustom(api, initial_cps_value):
         'rampUpValue': 1000000,
         'sustainTime': 180
     }
-    #response = requests.patch(url_activityList, json=activityList_json)
+    # response = requests.patch(url_activityList, json=activityList_json)
     """
     try:
         # Code that may raise an exception
@@ -416,12 +410,13 @@ def set_timelineCustom(api, initial_cps_value):
     """
     try:
         # Code that may raise an exception
-        res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)
+        res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
+
 
 def run_cps_search(api, initial_cps_value):
 
@@ -470,8 +465,9 @@ def run_cps_search(api, initial_cps_value):
         stats_client = []
         req.choice = "httpclient"
         req.httpclient.stat_name = ["Connection Rate"]
-        # req.httpclient.stat_name = ["HTTP Simulated Users", "HTTP Concurrent Connections", "HTTP Connect Time (us)", "TCP Connections Established", "HTTP Bytes Received"]
-        # req.httpclient.all_stats = True # for  all stats
+        # req.httpclient.stat_name = ["HTTP Simulated Users", "HTTP Concurrent Connections", "HTTP Connect Time (us)",
+        # "TCP Connections Established", "HTTP Bytes Received"]
+        # req.httpclient.all_stats = True # for all stats
 
         res = api.get_metrics(req).httpclient_metrics
         stats_client.append(res)
@@ -516,7 +512,7 @@ def run_cps_search(api, initial_cps_value):
             MAX_CPS = test_value
             test_value = (MAX_CPS + MIN_CPS) / 2
 
-        columns = ['#Run','CPS Objective','Max CPS', 'Test Result']
+        columns = ['#Run', 'CPS Objective', 'Max CPS', 'Test Result']
         testRuns.append([test_iteration, cps_objective_value, cps_max, test_result])
         table = tabulate(testRuns, headers=columns, tablefmt='psql')
         logger.info(table)
@@ -543,6 +539,7 @@ def run_cps_search(api, initial_cps_value):
 
     return api
 
+
 """
 def test_saveAs(api, test_filename):
 
@@ -564,9 +561,10 @@ def test_saveAs(api, test_filename):
     return
 """
 
+
 def main(connection_dict, test_type, test_filename, initial_cps_value):
 
-    ####### Start Here ######
+    # Start Here ######
     main_start_time = time.time()
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
@@ -574,8 +572,8 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version="11.00.0.292")
     config = api.config()
 
-    port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]
-    port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]
+    port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]  # noqa: F841
+    port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]  # noqa: F841
 
     # client/server IP ranges created here
     ip_list = create_ip_list()
@@ -586,13 +584,11 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     time_device_finish = time.time()
     print("Devices completed: {}".format(time_device_finish - time_device_time))
 
-
     print("Building Network traffic")
-    #for eni in range(ENI_COUNT):
-    for eni, eni_info  in enumerate(ip_list):
+    for eni, eni_info in enumerate(ip_list):
         test_role = find_test_role(test_type, eni_info['vlan_server'])
 
-        ####### client ######
+        # client ######
         if test_role == 'cps' or test_role == 'all':
             de_tmp = "d1.e1"
             d1.name = de_tmp
@@ -621,8 +617,7 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
             vlan.count = 1
             vlan.tpid = "x8100"
 
-
-            ###### SERVER ######
+            # SERVER ######
             de_tmp_server = "d2.e2"
             d2.name = de_tmp_server
 
@@ -650,8 +645,7 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
             vlan2.tpid = "x8100"
 
     logger.info("Net Traffic completed:")
-    #eth.connection.port_name = "p1"
-    #eth2.connection.port_name = "p2"
+
     # tcp/http client settings
     logger.info("Configuring TCP client settings")
     (t1,) = d1.tcps.tcp(name="Tcp1")
@@ -717,9 +711,9 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     get1.destination = "Traffic2_http_server1:80"
     get1.page = "./1b.html"
     get1.name_value_args = ""
-    #(delete1,) = delete_a.delete.delete()
-    #delete1.destination = "Traffic2_Http1Server1:80"
-    #delete1.page = "./1b.html"
+    # (delete1,) = delete_a.delete.delete()
+    # delete1.destination = "Traffic2_Http1Server1:80"
+    # delete1.page = "./1b.html"
     logger.info("HTTP client completed")
 
     # tcp/http server settings
@@ -754,36 +748,35 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     http_server.url_page_size = 1024
     logger.info("HTTP server completed")
 
-    ## Traffic Profile
+    # Traffic Profile
     logger.info("Configuring Traffic Profile settings")
     (tp1,) = config.trafficprofile.trafficprofile()
-    #traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
-    tp1.app = [http_client.name,
-                   http_server.name]  # traffic_profile_cps.app - "app" using it for reference can be some generic name for traffic profile on which traffic has to flow
+    # traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
+    tp1.app = [http_client.name, http_server.name]
     tp1.objective_type = ["connection_per_sec", "simulated_user"]
     tp1.objective_value = [6000000, ENI_COUNT*250000]
     (obj_type,) = tp1.objectives.objective()
     obj_type.connection_per_sec.enable_controlled_user_adjustment = True
-    obj_type.connection_per_sec.sustain_time=14
-    obj_type.connection_per_sec.ramp_down_time=12
+    obj_type.connection_per_sec.sustain_time = 14
+    obj_type.connection_per_sec.ramp_down_time = 12
     obj_type.connection_per_sec.time_to_first_iter = 3
     obj_type.connection_per_sec.iteration = 4
     (segment1, segment2) = tp1.segment.segment().segment()
     segment1.name = "Linear segment1"
     segment1.start = 0
     segment1.duration = 10
-    #segment1.rate = int((ENI_COUNT*25000)*.10)
+    # segment1.rate = int((ENI_COUNT * 25000) * .10)
     # segment1.target = 100
     segment2.name = "Linear segment2"
-    #segment2.start = 0
+    # segment2.start = 0
     segment2.duration = 1000
     segment2.rate = 10
     segment2.target = ENI_COUNT*250000
     # tp1.timeline = [segment1.name, segment2.name]
-    #tp1.timeline = ['Timeline5']
+    # tp1.timeline = ['Timeline5']
     logger.info("Traffic profile completed")
 
-    ### Traffic Maps
+    # Traffic Maps
     """
     logger.info("Configuring Traffic Maps settings")
     tm1 = tp1.trafficmap.trafficmap()
@@ -797,10 +790,10 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     logger.info("Traffic map completed: {}".format(end_trafficmaps_time - start_time))
     """
 
-    ##### Set config
+    # Set config
     logger.info("Configuring custom settings")
     time_custom_time = time.time()
-    response = api.set_config(config)
+    response = api.set_config(config)  # noqa: F841
     port = connection_dict['port']
 
     time_custom_finish = time.time()
@@ -814,12 +807,12 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     }
     """
     ports_list = {
-        'Traffic1@Network1': [(1,1,1)],
-        'Traffic2@Network2': [(1,1,2)]
+        'Traffic1@Network1': [(1, 1, 1)],
+        'Traffic2@Network2': [(1, 1, 2)]
     }
 
     time_assignPort_time = time.time()
-    assignPorts(api,ports_list)
+    assignPorts(api, ports_list)
     time_assignPort_finish = time.time()
     logger.info("Custom port settings completed: {}".format(time_assignPort_finish - time_assignPort_time))
 
@@ -832,7 +825,7 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     # Here adjust Double Increment and vlanRange unique number
     logger.info("Configuring rangeList settings for client and server")
     test_rangeList_time = time.time()
-    #set_rangeList(api)
+    # set_rangeList(api)
     test_rangeList_finish_time = time.time()
     logger.info("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
 
@@ -850,7 +843,6 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     test_tcp_finish_time = time.time()
     logger.info("Finished TCP configuration {}".format(test_tcp_finish_time - test_tcp_time))
 
-
     logger.info("Custom timeline settings")
     test_timeline_time = time.time()
     set_timelineCustom(api, initial_cps_value)
@@ -859,10 +851,10 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
 
     # save file
     logger.info("Saving Test File")
-    test_save_time = time.time()
-    #test_saveAs(api, test_filename)
-    test_save_finish_time = time.time()
-    #logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
+    test_save_time = time.time()  # noqa: F841
+    # test_saveAs(api, test_filename)
+    test_save_finish_time = time.time()  # noqa: F841
+    # logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
     main_finish_time = time.time()
     logger.info("Ixload configuration app finished in {}".format(main_finish_time - main_start_time))
 

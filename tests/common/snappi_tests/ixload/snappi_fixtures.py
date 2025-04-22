@@ -2,20 +2,7 @@
 This module contains the snappi fixture in the snappi_tests directory.
 """
 import pytest
-import time
 import logging
-import snappi
-import sys
-import random
-
-from tests.common.helpers.assertions import pytest_require
-from ipaddress import ip_address, IPv4Address, IPv6Address
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet
-from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
-from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
-from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +55,7 @@ def snappi_ixl_serv_start(duthosts, rand_one_dut_hostname):
     print(100*'2')
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_ixl_server']['rest_port'])
+
 
 @pytest.fixture(autouse=True, scope="module")
 def config_snappi_ixl(request, duthosts, tbinfo):

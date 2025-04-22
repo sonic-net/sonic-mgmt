@@ -8,6 +8,7 @@ import snappi
 import sys
 import random
 import subprocess
+import json
 import snappi_convergence
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
@@ -20,7 +21,7 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-from tests.common.snappi_tests.uhd.uhd_helpers import *
+from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
 
 logger = logging.getLogger(__name__)
 
@@ -915,7 +916,7 @@ def create_ip_list(value, count, mask=32, incr=0):
             incr: increment value of the ip
     '''
     if sys.version_info.major == 2:
-        value = unicode(value)          # noqa: F821
+        value = unicode(value)          # noqa: F821, F405
 
     ip_list = [value]
     for i in range(1, count):
@@ -1300,8 +1301,6 @@ def check_fabric_counters(duthost):
                 pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
-DEST_TO_GATEWAY_MAP = {}
-
 
 @pytest.fixture(autouse=True, scope="module")
 def config_uhd_connect(request, duthost, tbinfo):
@@ -1320,8 +1319,7 @@ def config_uhd_connect(request, duthost, tbinfo):
     num_tcpbg_cards = 4
     num_udpbg_cards = 0
     num_dpus = 1
-    #dpu_ports_list = [5]
-    dpu_ports_list = [5,6]
+    dpu_ports_list = [5, 6]
 
     cards_dict = {
         'num_cps_cards': num_cps_cards,
@@ -1331,39 +1329,43 @@ def config_uhd_connect(request, duthost, tbinfo):
         'dpu_ports_list': dpu_ports_list
     }
 
-
     total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
 
     subnet_mask = 10
-    ip_list = create_uhdIp_list(subnet_mask)
+    ip_list = create_uhdIp_list(subnet_mask)  # noqa: F405
 
-    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict)
+    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict)  # noqa: F405
 
     connections_list = []
-    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)
-    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypass_list)
+    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)  # noqa: F405
+    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict,  # noqa: F405
+                                          arp_bypass_list)  # noqa: F405
 
     config = {
-        "profiles": create_profiles(),
+        "profiles": create_profiles(),  # noqa: F405
         "front_panel_ports": fp_ports_list,
         "connections": connections_list
     }
 
-    headers = {
+    headers = {  # noqa: F841
         'Content-Type': 'application/json'
     }
     file_name = "smartswitch.json"
-    file_location="/var/src/sonic-mgmt/tests/snappi_tests/dash"
-    url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)
+    file_location = "/var/src/sonic-mgmt/tests/snappi_tests/dash"
+    url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)  # noqa: F841
     json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
-    uhdConf_cmd = 'curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   https://{}/connect/api/v1/config'.format(file_location, file_name, uhdConnect_ip)
+    uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
+                   'https://{}/connect/api/v1/config').format(file_location, file_name, uhdConnect_ip)
     result = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
 
     rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
-    result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)
+    result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
 
     return
+
+
+DEST_TO_GATEWAY_MAP = {}
 
 
 # Add static routes using CLI WAY.

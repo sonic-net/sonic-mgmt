@@ -1,17 +1,14 @@
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.snappi_tests.dash.ha.ha_helper import *
-from tests.common.snappi_tests.ixload.snappi_fixtures import config_snappi_ixl
-from tests.common.snappi_tests.snappi_fixtures import config_uhd_connect
+from tests.common.helpers.assertions import pytest_assert, pytest_require  # noqa F401
+from tests.snappi_tests.dash.ha.ha_helper import *  # noqa F401,F403
+from tests.common.snappi_tests.ixload.snappi_fixtures import config_snappi_ixl  # noqa F401
+from tests.common.snappi_tests.snappi_fixtures import config_uhd_connect  # noqa F401
 
-import time
 import pytest
-import snappi
-import requests
-import json
+import snappi  # noqa F401
+import requests  # noqa F401
+import json  # noqa F401
 import ipaddress
-import os
 import macaddress
-import time
 
 
 SNAPPI_POLL_DELAY_SEC = 2
@@ -21,18 +18,19 @@ maca = macaddress.MAC
 
 
 pytestmark = [pytest.mark.topology('snappi')]
+
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ha_test_case', ['cps'])
 def test_cps_baby_hero(
                        duthost,
                        localhost,
                        ha_test_case,
-                       config_snappi_ixl,
-                       config_uhd_connect,
+                       config_snappi_ixl,  # noqa F811
+                       config_uhd_connect,  # noqa F811
 ): # noqa F811
 
-
-    run_ha_test(
+    run_ha_test(  # noqa F405
                 duthost,
                 localhost,
                 ha_test_case,
