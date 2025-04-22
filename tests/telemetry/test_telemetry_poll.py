@@ -43,13 +43,11 @@ def test_poll_mode_no_table_or_key(duthosts, enum_rand_one_per_hwsku_hostname, p
     Test poll mode from APPL_DB and query a non existing table and key, ensure no errors
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     logger.info('Start telemetry poll mode testing')
-    dut_ip = duthost.mgmt_ip
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=5,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB", sync_count=5,
-                              update_count=0, timeout=30)
+                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
+                              sync_count=5, update_count=0, timeout=30)
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -68,13 +66,11 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     After that, begin querying again and put the key and ensure no errors and new data
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     logger.info('Start telemetry poll mode testing')
-    dut_ip = duthost.mgmt_ip
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB", sync_count=0,
-                              update_count=5, timeout=30)
+                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
+                              sync_count=0, update_count=5, timeout=30)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -87,8 +83,8 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB", sync_count=0,
-                              update_count=10, timeout=30)
+                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
+                              sync_count=0, update_count=10, timeout=30)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -115,14 +111,12 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     After that, delete both and ensure no errors and delete notifications
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     logger.info('Start telemetry poll mode testing')
-    dut_ip = duthost.mgmt_ip
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB", sync_count=0,
-                              update_count=10, timeout=30)
-    modify_fake_appdb_table(duthost, True, 2) # Add both tables data
+                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
+                              sync_count=0, update_count=10, timeout=30)
+    modify_fake_appdb_table(duthost, True, 2)  # Add both tables data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -134,8 +128,8 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB", sync_count=6,
-                              update_count=0, timeout=30)
+                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
+                              sync_count=6, update_count=0, timeout=30)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
