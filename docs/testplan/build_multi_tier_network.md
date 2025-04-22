@@ -308,67 +308,67 @@ The key to setting up BGP is configuring proper peering relationships — whethe
 
 ### Configure T0 switches
 
-1. Set up the ports on the DUT that are connected to the traffic generators. For example,
+1. Set up the ports on the DUT that are connected to the traffic generators. For example:
 
-```json
-"PORT": {
-    "Ethernet0": {
-        "admin_status": "up",
-        "alias": "Ethernet1/1",
-        "description": "Servers0:eth0",
-        "fec": "rs",
-        "index": "1",
-        "lanes": "17",
-        "mtu": "9100",
-        "pfc_asym": "off",
-        "speed": "100000",
-        "subport": "1",
-        "tpid": "0x8100"
+    ```json
+    "PORT": {
+        "Ethernet0": {
+            "admin_status": "up",
+            "alias": "Ethernet1/1",
+            "description": "Servers0:eth0",
+            "fec": "rs",
+            "index": "1",
+            "lanes": "17",
+            "mtu": "9100",
+            "pfc_asym": "off",
+            "speed": "100000",
+            "subport": "1",
+            "tpid": "0x8100"
+        }
     }
-}
-```
+    ```
 
 2. Assign the IPv6 interface for BGP peering:
 
-```json
-"INTERFACE": {
-    "Ethernet0": {},
-    "Ethernet0|2001:db8::1:0:10/120": {}
-}
-```
+    ```json
+    "INTERFACE": {
+        "Ethernet0": {},
+        "Ethernet0|2001:db8::1:0:10/120": {}
+    }
+    ```
 
-3. Configure the traffic generator as a BGP neighbor on the switch.
+3. Configure the traffic generator as a BGP neighbor on the switch:
 
-```json
-"BGP_NEIGHBOR": {
-    "2001:db8::1:0:1": {
-        "admin_status": "up",
-        "asn": 63001,
-        "holdtime": "10",
-        "keeplive": "3",
-        "local_addr": "2001:db8::1:0:10",
-        "name": "IXIA1-0",
-        "nhopself": "0",
-        "rrclient": "0"
+    ```json
+    "BGP_NEIGHBOR": {
+        "2001:db8::1:0:1": {
+            "admin_status": "up",
+            "asn": 63001,
+            "holdtime": "10",
+            "keeplive": "3",
+            "local_addr": "2001:db8::1:0:10",
+            "name": "IXIA1-0",
+            "nhopself": "0",
+            "rrclient": "0"
+        }
     }
-},
-"DEVICE_NEIGHBOR": {
-    "Ethernet0": {
-        "name": "IXIA1-0",
-        "port": "Ethernet0"
+    "DEVICE_NEIGHBOR": {
+        "Ethernet0": {
+            "name": "IXIA1-0",
+            "port": "Ethernet0"
+        }
+    },
+    "DEVICE_NEIGHBOR_METADATA": {
+        "IXIA1-0": {
+            "cluster": "StressTest",
+            "deployment_id": "1",
+            "hwsku": "ABCDEFG",
+            "lo_addr": "10.3.145.9/32",
+            "mgmt_addr": "10.3.145.9/32",
+            "type": "TG"
+        }
     }
-},
-"DEVICE_NEIGHBOR_METADATA": {
-    "IXIA1-0": {
-        "cluster": "StressTest",
-        "deployment_id": "1",
-        "hwsku": "ABCDEFG",
-        "lo_addr": "10.3.145.9/32",
-        "mgmt_addr": "10.3.145.9/32",
-        "type": "TG"
-    }
-}
-```
+    ```
 
 ### Configure Traffic Generators
 
