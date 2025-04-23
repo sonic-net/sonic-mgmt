@@ -2573,6 +2573,12 @@ upgrade_path:
     conditions:
       - "asic_type in ['vs']"
 
+upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
+  skip:
+    reason: "Only supported on T2 topology"
+    conditions:
+      - "'t2' not in topo_type"
+
 #######################################
 #####            vlan             #####
 #######################################
