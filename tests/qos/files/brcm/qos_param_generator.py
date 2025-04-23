@@ -1091,6 +1091,7 @@ class QosParamBroadcom(object):
         # for "TH" asic, prefer pipe 3, since its ingress port and egress port are in same mmu slice
         # so sort pipe by reverse order, and then pipe 3 will be selected first
         pipes.sort(reverse=True)
+        test_ports = None
         for pipe in pipes:
             test_ports = self.pick_test_ports(pipe)
             if len(test_ports) >= total_test_port_number + 1:
