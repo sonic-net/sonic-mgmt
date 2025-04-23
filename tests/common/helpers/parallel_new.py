@@ -125,6 +125,14 @@ def parallel_run(
 
         logger.debug(f"[chunangli] task completed {len(gone)}, running {len(alive)}")
 
+        for worker in alive:
+            logger.info(f"[chunangli] alive worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            if worker.exitcode != 0:
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker.exception
+                }
+
         if not gone:
             logger.debug("[chunangli] all processes have timed out")
             tasks_running -= len(workers)
@@ -136,7 +144,7 @@ def parallel_run(
             tasks_done += len(gone)
 
         for worker in gone:
-            logger.info(f"[chunangli] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            logger.info(f"[chunangli] gone worker.name={worker.name}, worker.exitcode={worker.exitcode}")
             if worker.exitcode != 0:
                 failed_processes[worker.name] = {
                     'exit_code': worker.exitcode,
