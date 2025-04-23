@@ -210,8 +210,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                get_snappi_ports,         # noqa: F811
                                                tbinfo,              # noqa: F811
                                                setup_ports_and_dut,          # noqa: F811
-                                               disable_pfcwd,                # noqa: F811
-                                               reboot_duts):                 # noqa: F811
+                                               reboot_duts,                  # noqa: F811
+                                               disable_pfcwd):               # noqa: F811
     """
     Test if PFC can pause a single lossless priority even after various types of reboot in multidut setup
 
@@ -269,8 +269,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                                               get_snappi_ports,             # noqa: F811
                                               tbinfo,                       # noqa: F811
                                               setup_ports_and_dut,          # noqa: F811
-                                              disable_pfcwd,                # noqa: F811
-                                              reboot_duts):                 # noqa: F811
+                                              reboot_duts,                  # noqa: F811
+                                              disable_pfcwd):               # noqa: F811
     """
     Test if PFC can pause multiple lossless priorities even after various types of reboot in multidut setup
 
