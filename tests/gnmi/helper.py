@@ -107,11 +107,6 @@ def apply_cert_config(duthost):
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
-    # Check if sonic-gnmi.yang is updated
-    res = duthost.shell("cat /usr/local/yang-models/sonic-gnmi.yang | grep role",
-                        module_ignore_errors=True)['stdout']
-    if "leaf-list role" not in res:
-        pytest.skip("sonic-gnmi.yang is not updated, skip this test")
     # Setup gnmi client cert common name
     role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnoi_readwrite"
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
