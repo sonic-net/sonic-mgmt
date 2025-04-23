@@ -43,7 +43,7 @@ class GNMIEnvironment(object):
                 self.gnmi_config_table = "TELEMETRY"
                 self.gnmi_container = "telemetry"
                 self.gnmi_program = "telemetry"
-                self.gnmi_port = 50051
+                self.gnmi_port = 9339
                 return
             else:
                 pytest.fail("Telemetry is not running")

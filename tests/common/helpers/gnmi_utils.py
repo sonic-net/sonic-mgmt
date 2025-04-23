@@ -59,7 +59,7 @@ class GNMIEnvironment(object):
                 else:
                     self.gnmi_program = "gnmi-native"
                 self.gnmi_process = "telemetry"
-                self.gnmi_port = 50051
+                self.gnmi_port = 9339
                 return True
             else:
                 pytest.fail("Telemetry is not running")

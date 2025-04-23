@@ -1,0 +1,12 @@
+- conf-name: marvell-testbed
+  group-name: marvell
+  topo: t0
+  ptf_image_name: ptf-sai-1
+  ptf: ptf-1
+  ptf_ip: 10.20.0.104
+  server: server-1
+  dut:
+    - sonic-marvell
+  comment: Testbed for Marvell switch
+  sonic_hwsku: dbmvtx9180_64x100G
+

@@ -39,6 +39,7 @@ def load_new_cfg(duthost, data):
 def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
     cnt = 0
     for i in range(MAX_UC_CNT):
+        import pdb; pdb.set_trace()
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
@@ -128,13 +129,14 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
-        COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    import pdb; pdb.set_trace()
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x openconfig-interfaces:interfaces/interface[name=Ethernet0]/state/counters \
+        -o "ndastreamingservertest" --notls'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
-    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+    inerrors_match = re.search("in-errors", result)
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
@@ -214,6 +216,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
+    import pdb; pdb.set_trace()
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
                               method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
@@ -237,6 +240,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
+    import pdb; pdb.set_trace()
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]

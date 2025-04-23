@@ -103,8 +103,31 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
     for r in range(repeat):
         duthost.shell("logger -p {} -t {} {} {}".format(priority, tag, log, r))
 
-
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
+                        subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
+                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
+                        timeout=-1):
+    """
+    Generate a valid py_gnmicli command line based on the given params.
+    """
+
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    ns = ""
+    if namespace is not None:
+        ns = "/{}".format(namespace)
+
+    # Basic py_gnmicli command
+    cmd = f'python {gnxi_path}gnmi_cli_py/py_gnmicli.py ' \
+          f'-g -t {duthost.mgmt_ip} -p {env.gnmi_port} -m {method} -x {xpath}{ns} -o ndastreamingservertest -n'
+
+    # Append subscription-specific flags if in subscribe mode
+    if method == METHOD_SUBSCRIBE:
+        cmd += f' --subscribe_mode {subscribe_mode} --submode {submode} ' \
+               f'--interval {intervalms} --update_count {update_count}'
+
+    return cmd
+
+def generate_client_cli1(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
                         timeout=-1):

@@ -14,6 +14,7 @@ import time
 import subprocess
 import threading
 
+
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
@@ -34,6 +35,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
+from tests.common.errors import RunAnsibleModuleFail
+
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
@@ -2957,20 +2960,20 @@ def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def gnxi_path(ptfhost):
     """
-    gnxi's location is updated from /gnxi to /root/gnxi
-    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
-    But old docker-ptf images don't have this update,
-    test case will fail for these docker-ptf images,
-    because it should still call /gnxi files.
-    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
-    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
+    Determine the correct gnxi path based on the docker-ptf image version.
+    Newer images use /root/gnxi, older ones use /gnxi.
     """
-    path_exists = ptfhost.stat(path="/root/gnxi/")
-    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
-        gnxipath = "/root/gnxi/"
-    else:
-        gnxipath = "/gnxi/"
-    return gnxipath
+    preferred_path = "/root/gnxi/"
+    fallback_path = "/gnxi/"
+
+    try:
+        result = ptfhost.stat(path=preferred_path)
+        if result["stat"].get("exists") and result["stat"].get("isdir"):
+            return preferred_path
+    except RunAnsibleModuleFail:
+        logger.warning(f"Permission denied or path not found: {preferred_path}. Falling back to {fallback_path}")
+
+    return fallback_path
 
 
 def pytest_collection_modifyitems(config, items):

@@ -1,0 +1,4 @@
+skip_criteria:
+  - name: marvell
+    conditions:
+      - "FalseCondition"
