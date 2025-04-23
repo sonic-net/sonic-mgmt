@@ -398,7 +398,7 @@ def test_mem_spike(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, None))
     client_thread.start()

@@ -111,9 +111,11 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 def generate_client_cli(duthost, method="get",
                         xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode="STREAM", submode="SAMPLE",
-                        intervalms=10000, update_count=3, streaming_duration=10):
+                        intervalms=10000, update_count=3, streaming_duration=10,
+                        create_connections=1):
     """
-    Generate a gnmi_cli command string using OpenConfig's Go-based gnmi_cli.
+    Generate gnmi_cli command(s) using OpenConfig's Go-based gnmi_cli.
+    If create_connections > 1, returns a list of parallel commands.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     ip_port = f"{duthost.mgmt_ip}:{env.gnmi_port}"
@@ -130,9 +132,11 @@ def generate_client_cli(duthost, method="get",
         else:
             path_elems.append(f'      elem: <name: "{part}" >\n')
 
+    commands = []
+
     if method.lower() == "get":
         proto_str = f'path: <\n{"".join(path_elems)}    >\nencoding: JSON_IETF'
-        cmd = (
+        base_cmd = (
             f'gnmi_cli -get '
             f'-address {ip_port} '
             f'-insecure '
@@ -154,7 +158,7 @@ def generate_client_cli(duthost, method="get",
             f'  encoding: JSON_IETF\n'
             f'>'
         )
-        cmd = (
+        base_cmd = (
             f'gnmi_cli '
             f'-address {ip_port} '
             f'-insecure '
@@ -166,7 +170,12 @@ def generate_client_cli(duthost, method="get",
     else:
         raise ValueError(f"Unsupported method: {method}")
 
-    return cmd
+    # Create N copies of the command (simulate multiple clients)
+    for i in range(create_connections):
+        commands.append(base_cmd)
+
+    # Return a single string if only 1 connection, else a list
+    return commands[0] if create_connections == 1 else commands
 
 
 def unarchive_telemetry_certs(duthost):
