@@ -39,7 +39,9 @@ class SonicProcess(Process):
             logger.info(f"[chunangli] process sending traceback: {tb}.")
             self._queue.put((str(e), tb))
             logger.info("[chunangli] process traceback sent.")
-            raise e
+            import sys
+            logger.info("[chunangli] sys.exit(1) : Ensure process terminates here.")
+            sys.exit(1)  # Ensure process terminates here
 
     def wait(self, timeout):
         return self.join(timeout=timeout)
