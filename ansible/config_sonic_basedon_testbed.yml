@@ -600,6 +600,7 @@
         copy: src=golden_config_db/smartswitch_t1.json
               dest=/tmp/smartswitch.json
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Create dns config
@@ -742,16 +743,24 @@
             service: name=chrony state=restarted enabled=true
         when: chrony_service.status.LoadState != "not-found"
 
+      - name: Check if "config bmp" is supported
+        shell: "config -h | grep 'BMP-related configuration'"
+        register: bmp_support_check
+        ignore_errors: true
+        changed_when: false
+        failed_when: false
+
       - name: Enable bmp relevant config dump
         block:
           - name: execute cli "config bmp enable bgp-neighbor-table" to enable bgp-neighbor-table
-            shell: sudo config bmp enable bgp-neighbor-table
+            command: sudo config bmp enable bgp-neighbor-table
 
           - name: execute cli "config bmp enable bgp-rib-in-table" to enable bgp-rib-in-table
-            shell: sudo config bmp enable bgp-rib-in-table
+            command: sudo config bmp enable bgp-rib-in-table
 
           - name: execute cli "config bmp enable bgp-rib-out-table" to enable bgp-rib-out-table
-            shell: sudo config bmp enable bgp-rib-out-table
+            command: sudo config bmp enable bgp-rib-out-table
+        when: bmp_support_check.rc == 0
 
       - name: config static route for trex traffic passthrough
         become: true
@@ -769,14 +778,16 @@
         copy: src=golden_config_db/smartswitch_dpu_extra.json
               dest=/tmp/dpu_extra.json
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
-          host_username: "{{ dpu_username | default('admin') }}"
-          host_password: "{{ dpu_password | default('password') }}"
+          host_username: "{{ sonic_login }}"
+          host_passwords: "{{ sonic_default_passwords }}"
         become: true
+        # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Configure TACACS

@@ -57,23 +57,41 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
         **pl.APPLIANCE_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
-        **pl.ENI_CONFIG,
-        **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG
     }
     logger.info(base_config_messages)
 
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index)
 
-    route_messages = {
+    route_and_mapping_messages = {
+        **pl.PE_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **pl.VM_SUBNET_ROUTE_CONFIG
     }
-    logger.info(route_messages)
-    apply_messages(localhost, duthost, ptfhost, route_messages, dpu_index)
+    logger.info(route_and_mapping_messages)
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpu_index)
+
+    meter_rule_messages = {
+        **pl.METER_RULE1_V4_CONFIG,
+        **pl.METER_RULE2_V4_CONFIG,
+    }
+    logger.info(meter_rule_messages)
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpu_index)
+
+    logger.info(pl.ENI_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpu_index)
 
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
+
+    yield
+
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpu_index, False)
 
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
