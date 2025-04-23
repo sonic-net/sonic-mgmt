@@ -37,10 +37,10 @@ class SonicProcess(Process):
             logger.info(f"[chunangli] process error caught: {e}.")
             tb = traceback.format_exc()
             logger.info(f"[chunangli] process sending traceback: {tb}.")
+            self._queue.put(("matched: 6", tb))
+            logger.info("[chunangli] process small data sent.")
             # self._queue.put((str(e), tb))
             # logger.info("[chunangli] process traceback sent.")
-            self._exception = (str(e), tb)
-            logger.info("[chunangli] directly assign the self.exception.")
             import sys
             logger.info("[chunangli] sys.exit(1) : Ensure process terminates here.")
             sys.exit(1)  # Ensure process terminates here
@@ -53,12 +53,11 @@ class SonicProcess(Process):
 
     @property
     def exception(self):
-        # logger.info("[chunangli] process catch exception.")
-        # if not self._queue.empty():
-        #     logger.info("[chunangli] process get from not emptry Queue.")
-        #     self._exception = self._queue.get()
-        #     logger.info("[chunangli] process get from not emptry Queue finished.")
-        logger.info("[chunangli] directly return the self.exception.")
+        logger.info("[chunangli] process catch exception.")
+        if not self._queue.empty():
+            logger.info("[chunangli] process get from not emptry Queue.")
+            self._exception = self._queue.get()
+            logger.info("[chunangli] process get from not emptry Queue finished.")
         return self._exception
 
 
