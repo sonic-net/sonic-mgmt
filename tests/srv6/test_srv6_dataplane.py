@@ -472,7 +472,6 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
@@ -482,8 +481,11 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
 
-    # get the RX_DROP counter before traffic test
-    before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+    # get the drop counter before traffic test
+    if duthost.facts["asic_type"] == "broadcom":
+        before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+    elif duthost.facts["asic_type"] == "mellanox":
+        before_count = duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0]
 
     # inject a number of packets with random payload
     pkt_count = 100
@@ -516,5 +518,9 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
 
     # verify that the RX_DROP counter is incremented
-    after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
-    assert after_count >= (before_count + pkt_count), "RX_DROP counter is not incremented as expected"
+    if duthost.facts["asic_type"] == "broadcom":
+        after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+        assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
+    elif duthost.facts["asic_type"] == "mellanox":
+        after_count = duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0]
+        assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
