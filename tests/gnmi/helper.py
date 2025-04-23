@@ -68,15 +68,7 @@ def verify_tcp_port(localhost, ip, port):
 
 
 def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
-    res = duthost.shell("cat /usr/local/yang-models/sonic-gnmi.yang | grep role",
-                        module_ignore_errors=True)['stdout']
-
-    # set role mapping according to yang model:
-    #     in old yang module role is a string, in new yang model role is a list
-    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role)
-    if "leaf-list role" in res:
-        command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
-
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
     duthost.shell(command, module_ignore_errors=True)
 
 
@@ -115,6 +107,11 @@ def apply_cert_config(duthost):
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
+    # Check if sonic-gnmi.yang is updated
+    res = duthost.shell("cat /usr/local/yang-models/sonic-gnmi.yang | grep role",
+                        module_ignore_errors=True)['stdout']
+    if "leaf-list role" not in res:
+        pytest.skip("sonic-gnmi.yang is not updated, skip this test")
     # Setup gnmi client cert common name
     role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnoi_readwrite"
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
