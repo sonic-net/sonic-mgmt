@@ -7,7 +7,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, disable_pfcwd                                                       # noqa: F401
+    lossless_prio_list, disable_pfcwd                                                                # noqa: F401
 from tests.snappi_tests.pfc.files.m2o_fluctuating_lossless_helper import run_m2o_fluctuating_lossless_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
@@ -19,16 +19,16 @@ def number_of_tx_rx_ports():
     yield (1, 2)
 
 
-def test_m2o_fluctuating_lossless(snappi_api,                  # noqa: F811
-                                  conn_graph_facts,            # noqa: F811
-                                  fanout_graph_facts_multidut,          # noqa: F811
+def test_m2o_fluctuating_lossless(snappi_api,                   # noqa: F811
+                                  conn_graph_facts,             # noqa: F811
+                                  fanout_graph_facts_multidut,  # noqa: F811
                                   duthosts,
                                   prio_dscp_map,                # noqa: F811
                                   lossless_prio_list,           # noqa: F811
-                                  get_snappi_ports,   # noqa: F811
-                                  tbinfo,              # noqa: F811
-                                  disable_pfcwd,         # noqa: F811
-                                  tgen_port_info):  # noqa: F811
+                                  get_snappi_ports,             # noqa: F811
+                                  tbinfo,                       # noqa: F811
+                                  disable_pfcwd,                # noqa: F811
+                                  tgen_port_info):              # noqa: F811
 
     """
     Run PFC Fluctuating Lossless Traffic Congestion with many to one traffic pattern
@@ -74,16 +74,18 @@ def test_m2o_fluctuating_lossless(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     try:
-        run_m2o_fluctuating_lossless_test(api=snappi_api,
-                                      testbed_config=testbed_config,
-                                      port_config_list=port_config_list,
-                                      conn_data=conn_graph_facts,
-                                      fanout_data=fanout_graph_facts_multidut,
-                                      dut_port=snappi_ports[0]['peer_port'],
-                                      pause_prio_list=pause_prio_list,
-                                      test_prio_list=test_prio_list,
-                                      bg_prio_list=bg_prio_list,
-                                      prio_dscp_map=prio_dscp_map,
-                                      snappi_extra_params=snappi_extra_params)
+        run_m2o_fluctuating_lossless_test(
+            api=snappi_api,
+            testbed_config=testbed_config,
+            port_config_list=port_config_list,
+            conn_data=conn_graph_facts,
+            fanout_data=fanout_graph_facts_multidut,
+            dut_port=snappi_ports[0]['peer_port'],
+            pause_prio_list=pause_prio_list,
+            test_prio_list=test_prio_list,
+            bg_prio_list=bg_prio_list,
+            prio_dscp_map=prio_dscp_map,
+            snappi_extra_params=snappi_extra_params
+        )
     finally:
         cleanup_config(duthosts, snappi_ports)

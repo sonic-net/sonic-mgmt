@@ -74,16 +74,18 @@ def test_m2o_oversubscribe_lossless(snappi_api,                              # n
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     try:
-        run_m2o_oversubscribe_lossless_test(api=snappi_api,
-                                        testbed_config=testbed_config,
-                                        port_config_list=port_config_list,
-                                        conn_data=conn_graph_facts,
-                                        fanout_data=fanout_graph_facts_multidut,
-                                        dut_port=snappi_ports[0]['peer_port'],
-                                        pause_prio_list=pause_prio_list,
-                                        test_prio_list=test_prio_list,
-                                        bg_prio_list=bg_prio_list,
-                                        prio_dscp_map=prio_dscp_map,
-                                        snappi_extra_params=snappi_extra_params)
+        run_m2o_oversubscribe_lossless_test(
+            api=snappi_api,
+            testbed_config=testbed_config,
+            port_config_list=port_config_list,
+            conn_data=conn_graph_facts,
+            fanout_data=fanout_graph_facts_multidut,
+            dut_port=snappi_ports[0]['peer_port'],
+            pause_prio_list=pause_prio_list,
+            test_prio_list=test_prio_list,
+            bg_prio_list=bg_prio_list,
+            prio_dscp_map=prio_dscp_map,
+            snappi_extra_params=snappi_extra_params
+        )
     finally:
         cleanup_config(duthosts, snappi_ports)
