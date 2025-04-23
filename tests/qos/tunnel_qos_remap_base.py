@@ -402,6 +402,8 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     asic = rand_selected_dut.get_asic_name()
     if 'spc' in asic:
+        # Disable Mellanox packet aging. We don't need to cleanup as there is an autoused fixture
+        # disable_packet_aging to handle this.
         logger.info("Disable Mellanox packet aging")
         rand_selected_dut.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
         rand_selected_dut.command("docker cp /tmp/packets_aging.py syncd:/")
@@ -413,11 +415,6 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
-
-    if 'spc' in asic:
-        logger.info("Enable Mellanox packet aging")
-        rand_selected_dut.command("docker exec syncd python /packets_aging.py enable")
-        rand_selected_dut.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def _update_mux_feature(duthost, state):
