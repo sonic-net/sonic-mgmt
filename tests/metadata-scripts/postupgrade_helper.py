@@ -77,7 +77,7 @@ def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process):
         duthost.shell("config bgp startup all")
         return
     base_path = os.path.dirname(__file__)
-    if "sonic_mgmt_int" in base_path:
+    if "sonic-mgmt-int" in base_path:
         metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
         bgp_neighbor_path = os.path.join(base_path, "../../../sonic-metadata/scripts/bgp_neighbor")
     else:
