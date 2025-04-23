@@ -1,64 +1,173 @@
+import datetime
 import logging
+import math
+import os
+import signal
 import traceback
-from multiprocessing import Process, Queue
+from multiprocessing import Manager, Process, Queue
+
+from psutil import wait_procs
+
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
 
 class SonicProcess(Process):
-    def __init__(self, *args, exception_queue=None, **kwargs):
+    """
+    Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
+    an exception when run.
+
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
+    """
+
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.exception_queue = exception_queue
+        self._queue = Queue()
+        self._exception = None
 
     def run(self):
         try:
-            logger.info(f"[chunangli][{self.name}] Process started.")
+            logger.info("[chunangli] process started.")
             super().run()
-            if self.exception_queue:
-                self.exception_queue.put((self.name, None))
+            self._queue.put(None)
+            logger.info("[chunangli] process finished.")
         except Exception as e:
+            logger.info(f"[chunangli] process error caught: {e}.")
             tb = traceback.format_exc()
-            logger.error(f"[chunangli][{self.name}] Caught exception: {e}")
-            if self.exception_queue:
-                self.exception_queue.put((self.name, (repr(e), tb)))
-        finally:
-            if self.exception_queue:
-                self.exception_queue.close()
-                self.exception_queue.cancel_join_thread()
-            logger.info(f"[chunangli][{self.name}] Process exiting.")
+            logger.info(f"[chunangli] process sending traceback: {tb}.")
+            self._queue.put((str(e), tb))
+            logger.info("[chunangli] process traceback sent.")
+            raise e
+
+    def wait(self, timeout):
+        return self.join(timeout=timeout)
+
+    def is_running(self):
+        return self.is_alive()
+
+    @property
+    def exception(self):
+        if not self._queue.empty():
+            self._exception = self._queue.get()
+        return self._exception
 
 
-def parallel_run(target_func, items, timeout=10):
-    processes = []
-    exception_queue = Queue()
+def parallel_run(
+        target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None
+):
+    logger.info(f"[chunangli] parallel run function: {target.__name__}, timeout: {timeout}")
+
+    nodes = [node for node in nodes_list]
+
+    def on_terminate(worker):
+        logger.info("[chunangli] process {} terminated with exit code {}".format(
+            worker.name, worker.exitcode)
+        )
+        logger.info(f"[chunangli] on_terminate, worker= {worker.__dict__}")
+
+    def force_terminate(workers, init_result):
+        running_processes = [worker for worker in workers if worker.is_alive()]
+        if running_processes:
+            logger.info(
+                '[chunangli] Found processes still running: {}. Try to kill them.'.format(str(running_processes))
+            )
+            for p in running_processes:
+                if init_result:
+                    init_result['failed'] = True
+                    results[list(results.keys())[0]] = init_result
+                else:
+                    results[p.name] = {'failed': True}
+                try:
+                    os.kill(p.pid, signal.SIGKILL)
+                except OSError as err:
+                    logger.error(f"[chunangli] Unable to kill {p.pid}:{p.name}, error:{err}")
+                    pt_assert(
+                        False,
+                        f"""[chunangli] Processes running target \"{target.__name__}\" could not be terminated.
+                        Unable to kill {p.pid}:{p.name}, error:{err}"""
+                    )
+
+    workers = []
+    results = Manager().dict()
+    start_time = datetime.datetime.now()
+    tasks_done = 0
+    total_tasks = len(nodes)
+    tasks_running = 0
+    total_timeout = timeout * math.ceil(len(nodes) / float(concurrent_tasks)) if timeout else None
     failed_processes = {}
 
-    for i in items:
-        proc = SonicProcess(
-            name=f"worker-{i}",
-            target=target_func,
-            args=(i,),
-            exception_queue=exception_queue
-        )
-        proc.start()
-        processes.append(proc)
+    while tasks_done < total_tasks:
+        if total_timeout and (datetime.datetime.now() - start_time).seconds > total_timeout:
+            logger.error(f"[chunangli] Process execution time exceeds {total_timeout} seconds.")
+            break
 
-    # Wait for all to finish with timeout
-    for proc in processes:
-        proc.join(timeout)
-        if proc.is_alive():
-            logger.warning(f"[chunangli][{proc.name}] Timed out — killing.")
-            proc.terminate()
-            proc.join()
+        while nodes and tasks_running < concurrent_tasks:
+            node = nodes.pop(0)
+            if init_result:
+                init_result["host"] = node.hostname
+                results[node.hostname] = init_result
+            kwargs['node'] = node
+            kwargs['results'] = results
+            process_name = f"{target.__name__}--{node}"
+            worker = SonicProcess(name=process_name, target=target, args=args, kwargs=kwargs)
+            worker.start()
+            tasks_running += 1
+            logger.debug(f"[chunangli] Started process {worker.pid} running target \"{process_name}\"")
+            workers.append(worker)
 
-    # Drain exception queue
-    while not exception_queue.empty():
-        name, exc = exception_queue.get()
-        if exc:
-            failed_processes[name] = {
-                "exception": exc[0],
-                "traceback": exc[1]
-            }
+        gone, alive = wait_procs(workers, timeout=timeout, callback=on_terminate)
+        workers = alive
 
-    logger.info(f"[chunangli]Failed processes: {failed_processes}")
-    return failed_processes
+        logger.debug(f"[chunangli] task completed {len(gone)}, running {len(alive)}")
+
+        if not gone:
+            logger.debug("[chunangli] all processes have timed out")
+            tasks_running -= len(workers)
+            tasks_done += len(workers)
+            force_terminate(workers, init_result)
+            workers.clear()
+        else:
+            tasks_running -= len(gone)
+            tasks_done += len(gone)
+
+        for worker in gone:
+            logger.info(f"[chunangli] worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            if worker.exitcode != 0:
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker.exception
+                }
+
+    for worker in workers:
+        if worker.is_alive():
+            logger.error(f"[chunangli] Process {worker.name} is alive, exitcode={worker.exitcode}, force terminate it.")
+            worker.terminate()
+            if init_result:
+                init_result['failed'] = True
+                results[list(results.keys())[0]] = init_result
+            else:
+                results[worker.name] = {'failed': True}
+
+    end_time = datetime.datetime.now()
+    delta_time = end_time - start_time
+
+    force_terminate(workers, init_result)
+
+    if failed_processes:
+        for process_name, process in failed_processes.items():
+            p_exitcode = process.get('exit_code', '')
+            p_exception = process.get('exception', ('', ''))[0]
+            p_traceback = process.get('exception', ('', ''))[1]
+            pt_assert(
+                False,
+                f"[chunangli] Processes \"{list(failed_processes.keys())}\" failed with "
+                f"exit code \"{p_exitcode}\"\nException:\n{p_exception}\nTraceback:\n{p_traceback}"
+            )
+
+    logger.info(
+        f"[chunangli] Completed running processes for target \"{target.__name__}\" in {delta_time} seconds"
+    )
+
+    return dict(results)
