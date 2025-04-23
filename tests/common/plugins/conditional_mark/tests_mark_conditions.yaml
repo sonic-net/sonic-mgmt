@@ -1367,6 +1367,10 @@ hash/test_generic_hash.py::test_nexthop_flap:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: "Flaky hashing behavior using specific combination of hash field and algorithm."
+    conditions:
+      - "'isolated' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
   skip:
