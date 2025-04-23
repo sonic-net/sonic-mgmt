@@ -1590,6 +1590,12 @@ lldp/test_lldp.py::test_lldp_neighbor:
     conditions:
       - "'standalone' in topo_name"
 
+lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
+  skip:
+    reason: "Skipped due to https://github.com/sonic-net/sonic-buildimage/issues/22291"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22291"
+
 #######################################
 #####           macsec            #####
 #######################################
