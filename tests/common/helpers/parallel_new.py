@@ -49,8 +49,11 @@ class SonicProcess(Process):
 
     @property
     def exception(self):
+        logger.info("[chunangli] process catch exception.")
         if not self._queue.empty():
+            logger.info("[chunangli] process get from not emptry Queue.")
             self._exception = self._queue.get()
+            logger.info("[chunangli] process get from not emptry Queue finished.")
         return self._exception
 
 
