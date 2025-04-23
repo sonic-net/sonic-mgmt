@@ -1,57 +1,58 @@
 FROM debian:bullseye
 
-# Install system tools and dependencies
+# Install basic system tools, Go, and Python dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-subnettree \
     iproute2 \
     iputils-ping \
     net-tools \
-    procps \
     tcpdump \
+    procps \
     curl \
     bash \
     vim \
+    git \
+    sshpass \
+    sudo \
+    python3-setuptools \
+    openssh-client \
     wget \
     tar \
-    make \
-    gcc \
-    unzip \
-    ca-certificates \
     && apt-get clean
 
-# Make `python` point to `python3`
+# Install Python libraries for PTF testing
+RUN pip3 install --upgrade pip && \
+    pip3 install \
+    ptf \
+    scapy \
+    pytest \
+    six \
+    paramiko \
+    retrying \
+    PyYAML
+
+# Link python3 to python
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
-# Install Go 1.23.4 manually
-RUN wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz && \
-    rm go1.23.4.linux-amd64.tar.gz
+# Install Go
+RUN wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz && \
+    rm go1.22.0.linux-amd64.tar.gz
 
-# Set Go environment variables
-ENV PATH="/usr/local/go/bin:$PATH"
+ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/go"
 
-# Install Python packages including grpcio-tools for proto compilation
-RUN pip3 install --upgrade pip && \
-    pip3 install pygnmi scapy pytest netmiko paramiko grpcio grpcio-tools
+# Clone and build gnmi_cli from openconfig/gnmi
+# Clone and build gnmi_cli from openconfig/gnmi
+RUN git clone https://github.com/openconfig/gnmi.git /root/gnmi && \
+    cd /root/gnmi && \
+    go mod tidy && \
+    go build -o /usr/bin/gnmi_cli ./cmd/gnmi_cli
 
-# Copy pre-cloned gnxi directory into the image
-COPY ../gnxi /root/gnxi
-
-# Compile gNMI protos for py_gnmicli
-RUN python3 -m grpc_tools.protoc \
-    -I/root/gnxi/oc_config_validate/oc_config_validate/gnmi \
-    --python_out=/root/gnxi/gnmi_cli_py \
-    --grpc_python_out=/root/gnxi/gnmi_cli_py \
-    gnmi.proto gnmi_ext.proto
-
-# Copy your PTF test files into the container
+# Copy ptftests (your tests) into the container
 COPY . /root/ptftests
+RUN touch /root/ptftests/__init__.py
 
-# Set working directory for tests
 WORKDIR /root/ptftests
-
-# Keep container running
-CMD [ "bash" ]
-

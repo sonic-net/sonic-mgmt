@@ -118,28 +118,47 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """Run pyclient from ptfdocker and show gnmi server outputself.
+def test_telemetry_output(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+                          setup_streaming_telemetry):
+    """
+    Run gnmi_cli from ptfhost and verify GNMI server output.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+
     if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    logger.info('start telemetry output testing')
+        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+
+    logger.info("Start telemetry output testing")
     dut_ip = duthost.mgmt_ip
-    import pdb; pdb.set_trace()
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x openconfig-interfaces:interfaces/interface[name=Ethernet0]/state/counters \
-        -o "ndastreamingservertest" --notls'.format(dut_ip, env.gnmi_port)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
+
+    # gNMI CLI proto text with proper escaping for shell-safe formatting
+    proto_str = (
+        'path: <'
+        'elem: <name: \\"interfaces\\" > '
+        'elem: <name: \\"interface\\" key: <key: \\"name\\" value: \\"Ethernet0\\" > > '
+        'elem: <name: \\"state\\" > '
+        'elem: <name: \\"counters\\" > '
+        '> encoding: JSON_IETF'
+    )
+
+    cmd = (
+        f'gnmi_cli -get '
+        f'-address {dut_ip}:{env.gnmi_port} '
+        f'-insecure '
+        f'-target ndastreamingservertest '
+        f'-proto "{proto_str}"'
+    )
+
+    logger.info(f"Executing: {cmd}")
+    result = ptfhost.shell(cmd)['stdout']
+    logger.info("GNMI Server output:")
+    logger.info(result)
+
+    # Validate response
     inerrors_match = re.search("in-errors", result)
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
-
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
