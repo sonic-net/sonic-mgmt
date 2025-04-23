@@ -203,7 +203,26 @@ def test_addcluster_workflow(duthost):
     # Parse ACL table output to get MIRROR type tables and their bindings
     current_table = None
     mirror_bindings = set()
-
+    """ Example output:
+    admin@bjw-can-7250-lc2-1:~$ show acl table
+    Name        Type       Binding         Description    Stage    Status
+    ----------  ---------  --------------  -------------  -------  --------------------------------------
+    NTP_ACL     CTRLPLANE  NTP             NTP_ACL        ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    SNMP_ACL    CTRLPLANE  SNMP            SNMP_ACL       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    SSH_ONLY    CTRLPLANE  SSH             SSH_ONLY       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    DATAACL     L3         Ethernet48      DATAACL        ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    EVERFLOW    MIRROR     Ethernet48      EVERFLOW       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    EVERFLOWV6  MIRRORV6   Ethernet48      EVERFLOWV6     ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    """
     for line in result.splitlines():
         if not line.strip() or '----' in line:
             continue
