@@ -3,13 +3,13 @@ import logging
 import math
 import os
 import shutil
-import tempfile
 import signal
-import traceback
+import tempfile
 import time
-
+import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -40,8 +40,8 @@ class SonicProcess(Process):
             logger.info(f"[chunangli] process error catched {e}.")
             tb = traceback.format_exc()
             logger.info(f"[chunangli] process send data, tb={tb}.")
-            # self._cconn.send((e, tb))
-            self._cconn.send(("match: 6", ""))
+            self._cconn.send((e, tb))
+            # self._cconn.send(("match: 6", ""))
             logger.info("[chunangli] process send data finished.")
             raise e
 
@@ -171,6 +171,14 @@ def parallel_run(
         logger.debug("task completed {}, running {}".format(
             len(gone), len(alive)
         ))
+
+        for worker in alive:
+            logger.info(f"[chunangli] alive worker.name={worker.name}, worker.exitcode={worker.exitcode}")
+            if worker.exitcode != 0:
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker.exception
+                }
 
         if len(gone) == 0:
             logger.debug("all processes have timedout")

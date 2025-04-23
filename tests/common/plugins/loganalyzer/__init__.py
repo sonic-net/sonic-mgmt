@@ -100,15 +100,15 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
             "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
-    # logging.info("Starting to analyse on all DUTs")
-    # rst = parallel_run(analyze_logs, [analyzers, markers],
-    #                    {'fail_test': fail_test, 'store_la_logs': store_la_logs},
-    #                    duthosts, timeout=300)
-
-    from ...helpers.parallel_new import parallel_run as parallel_new
-
-    rst = parallel_new(analyze_logs, [analyzers, markers],
+    logging.info("Starting to analyse on all DUTs")
+    rst = parallel_run(analyze_logs, [analyzers, markers],
                        {'fail_test': fail_test, 'store_la_logs': store_la_logs},
                        duthosts, timeout=300)
+
+    # from ...helpers.parallel_new import parallel_run as parallel_new
+    #
+    # rst = parallel_new(analyze_logs, [analyzers, markers],
+    #                    {'fail_test': fail_test, 'store_la_logs': store_la_logs},
+    #                    duthosts, timeout=300)
 
     logging.info(f"[chunangli] parallel run result: {rst}")
