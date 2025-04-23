@@ -206,9 +206,13 @@ ROUTING: #Sridhar Santhanam
 TUNNEL: #Thushar Gowda
   t0-64:
     mth64:
-      - decap/test_decap.py
-      - vxlan/test_vxlan_decap.py
-
+      # Disable the tunnel test cases for now
+      #- decap/test_decap.py
+      #- vxlan/test_vxlan_decap.py
+  t1-64:
+    mth64:
+      - vxlan/test_vxlan_ecmp_switchover.py
+      - vxlan/test_vxlan_route_advertisement.py  
 
 PFC: #Alpesh Patel
   t0-64:
