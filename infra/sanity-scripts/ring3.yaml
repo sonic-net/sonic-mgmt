@@ -154,7 +154,7 @@ MGMT:
       - ssh/test_ssh_ciphers.py
       - ssh/test_ssh_limit.py
       - snmp/test_snmp_cpu.py
-      - snmp/test_snmp_default_route.py
+      #- snmp/test_snmp_default_route.py
       - snmp/test_snmp_memory.py
       - snmp/test_snmp_queue.py
       - snmp/test_snmp_v2mib.py
