@@ -1995,7 +1995,7 @@
 
 - conf-name: vms74-t0-7060x6-3
   group-name: vms74-1
-  topo: t0-isolated-d16u16s2
+  topo: t0-isolated-v6-d16u16s2
   ptf_image_name: docker-ptf
   ptf: vms74-1
   ptf_ip: 10.64.247.120/23
