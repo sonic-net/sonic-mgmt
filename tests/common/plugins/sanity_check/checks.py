@@ -161,6 +161,7 @@ def check_interfaces(duthosts):
         results[dut.hostname] = check_result
     return _check
 
+
 @pytest.fixture(scope="module")
 def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
@@ -199,8 +200,10 @@ def check_bgp(duthosts, tbinfo):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                num_v4_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items()) if neigh_detail['ip_version'] == 4])
-                num_v6_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items()) if neigh_detail['ip_version'] == 6])
+                num_v4_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 4])
+                num_v6_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 6])
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
