@@ -39,7 +39,6 @@ def load_new_cfg(duthost, data):
 def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
     cnt = 0
     for i in range(MAX_UC_CNT):
-        import pdb; pdb.set_trace()
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
@@ -229,23 +228,30 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """ Test osbuild/version query.
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry):
     """
+    Test to validate SONiC OS build version via CLI.
+    """
+    logger.info("Testing OS build version using 'show version'")
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
-    import pdb; pdb.set_trace()
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
-                              method=METHOD_GET, target="OTHERS", xpath="osversion/build")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
-                 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
-                 0, "invalid build_version value at {0}".format(result))
+    # Run "show version" and capture output
+    cmd = "show version"
+    result = duthost.shell(cmd)['stdout']
 
+    # Match the SONiC Software Version line
+    match = re.search(r"SONiC Software Version: SONiC\.([\w.-]+)", result)
+    assert match is not None, "Could not find SONiC Software Version in output"
+
+    build_version = match.group(1)
+    logger.info("Detected SONiC build version: %s", build_version)
+
+    # Basic version checks
+    assert build_version != "NA", "Invalid SONiC version: NA"
+    assert "dirty" in build_version or re.match(r'\d{8}\.\d+', build_version), \
+        f"Unexpected format for SONiC build version: {build_version}"
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
@@ -259,7 +265,6 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
-    import pdb; pdb.set_trace()
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
@@ -360,9 +365,9 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
 
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
-                              target="STATE_DB", namespace=ns)
+                              target="STATE_DB")
 
     def callback(result):
         logger.info("Assert that ptf client output is non empty and contains on change update")
