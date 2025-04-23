@@ -180,3 +180,9 @@ x86_64-8122_64eh_o-r0:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
+
+x86_64-8101_32fh_o_c01-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
