@@ -124,7 +124,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
                               max_sync_count=-1, update_count=10, timeout=30)
-    modify_fake_appdb_table(duthost, True, 2) # Add both tables data
+    modify_fake_appdb_table(duthost, True, 2)  # Add both tables data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -170,7 +170,7 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     logger.info('Start telemetry poll mode testing')
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",
+                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",  # noqa: W605
                               max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
 
@@ -190,7 +190,7 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",
+                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",  # noqa: W605
                               max_sync_count=-1, update_count=10, timeout=60, namespace=namespace)
 
     def callback(show_gnmi_out):
@@ -226,7 +226,7 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
     logger.info('Start telemetry poll mode testing')
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",
+                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"", target="APPL_DB",  # noqa: W605
                               max_sync_count=-1, update_count=5, timeout=30)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)

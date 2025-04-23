@@ -135,11 +135,8 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
 
     if subscribe_mode == SUBSCRIBE_MODE_POLL:
-        cmd += " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}".format(
-                subscribe_mode,
-                polling_interval,
-                update_count, max_sync_count,
-                timeout)
+        poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
+        cmd += poll_cmd.format(subscribe_mode, polling_interval, update_count, max_sync_count, timeout)
         return cmd
 
     if method == METHOD_SUBSCRIBE:
