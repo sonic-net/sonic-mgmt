@@ -2112,36 +2112,6 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
-- conf-name: vms70-t0-7060x6-th5rs-1
-  group-name: vms70-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms70-4
-  ptf_ip: 10.64.247.98/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f762/64
-  server: server_70
-  vm_base: VM70161
-  dut:
-  - str4-7060x6-64pe-th5rs-1
-  inv_name: str4
-  auto_recover: 'True'
-  comment: dashuaizhang
-
-- conf-name: vms73-t1-7060x6-th5rs-2
-  group-name: vms73-1
-  topo: t1-isolated-d28u1
-  ptf_image_name: docker-ptf
-  ptf: vms73-1
-  ptf_ip: 10.64.247.99/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f763/64
-  server: server_73
-  vm_base: VM73000
-  dut:
-  - str4-7060x6-64pe-th5rs-2
-  inv_name: str4
-  auto_recover: 'True'
-  comment: dashuaizhang
-
 - conf-name: vms71-t0-7060x6-16pe-384c-1
   group-name: vms71-4
   topo: t0-isolated-d96u32s2
@@ -4197,7 +4167,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.131/17
 
-- conf-name: testbed-bjw2-can-dual-t0-8101c1-1
+- conf-name: bjw2-can-dual-t0-8101c1-1
   group-name: bjw2-1-t
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
@@ -4215,7 +4185,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.132/17
 
-- conf-name: testbed-bjw2-can-dual-t0-8101c1-2
+- conf-name: bjw2-can-dual-t0-8101c1-2
   group-name: bjw2-1-u
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
