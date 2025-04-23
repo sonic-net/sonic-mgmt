@@ -335,9 +335,11 @@ def disable_packet_aging(duthosts):
     for duthost in duthosts:
         asic = duthost.get_asic_name()
         if 'spc' in asic:
+            # Ignore errors if the script is not found in syncd container as it may be removed
+            # by swap_syncd
             logger.info("Enable Mellanox packet aging")
-            duthost.command("docker exec syncd python /packets_aging.py enable")
-            duthost.command("docker exec syncd rm -rf /packets_aging.py")
+            duthost.command("docker exec syncd python /packets_aging.py enable", module_ignore_errors=True)
+            duthost.command("docker exec syncd rm -rf /packets_aging.py", module_ignore_errors=True)
 
 
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
@@ -402,8 +404,6 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     asic = rand_selected_dut.get_asic_name()
     if 'spc' in asic:
-        # Disable Mellanox packet aging. We don't need to cleanup as there is an autoused fixture
-        # disable_packet_aging to handle this.
         logger.info("Disable Mellanox packet aging")
         rand_selected_dut.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
         rand_selected_dut.command("docker cp /tmp/packets_aging.py syncd:/")
@@ -415,6 +415,11 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
+
+    if 'spc' in asic:
+        logger.info("Enable Mellanox packet aging")
+        rand_selected_dut.command("docker exec syncd python /packets_aging.py enable")
+        rand_selected_dut.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def _update_mux_feature(duthost, state):
