@@ -14,6 +14,10 @@ METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
+SUBSCRIBE_MODE_ONCE = 1
+SUBSCRIBE_MODE_POLL = 2
+
+SUBMODE_TARGET_DEFINED = 0
 
 EVENT_REGEX = "json_ietf_val: \"(.*)\""
 ON_CHANGE_REGEX = "json_ietf_val:\"({.*?})\""
@@ -103,66 +107,65 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
     for r in range(repeat):
         duthost.shell("logger -p {} -t {} {} {}".format(priority, tag, log, r))
 
-def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
-                        subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
-                        timeout=-1):
+
+def generate_client_cli(duthost, method="get",
+                        xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
+                        subscribe_mode="STREAM", submode="SAMPLE",
+                        intervalms=10000, update_count=3, streaming_duration=10):
     """
-    Generate a valid py_gnmicli command line based on the given params.
-    """
-
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    ns = ""
-    if namespace is not None:
-        ns = "/{}".format(namespace)
-
-    # Basic py_gnmicli command
-    cmd = f'python {gnxi_path}gnmi_cli_py/py_gnmicli.py ' \
-          f'-g -t {duthost.mgmt_ip} -p {env.gnmi_port} -m {method} -x {xpath}{ns} -o ndastreamingservertest -n'
-
-    # Append subscription-specific flags if in subscribe mode
-    if method == METHOD_SUBSCRIBE:
-        cmd += f' --subscribe_mode {subscribe_mode} --submode {submode} ' \
-               f'--interval {intervalms} --update_count {update_count}'
-
-    return cmd
-
-def generate_client_cli1(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
-                        subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
-                        timeout=-1):
-    """ Generate the py_gnmicli command line based on the given params.
-    t                      --target: gNMI target; required
-    p                      --port: port of target; required
-    m                      --mode: get/susbcribe; default get
-    x                      --xpath: gnmi path, table name; required
-    xt                     --xpath_target: gnmi path prefix, db name
-    o                      --host_override, targets hostname for certificate CN
-    subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
-    submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
-    interval:              sample interval in milliseconds, default 10000ms
-    update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
-    create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
-    filter_event_regex:    Regex to filter event when querying events path
-    namespace:             namespace for multi-asic
-    timeout:               Subscription duration in seconds; After X seconds, request terminates; default none
+    Generate a gnmi_cli command string using OpenConfig's Go-based gnmi_cli.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    ns = ""
-    if namespace is not None:
-        ns = "/{}".format(namespace)
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
+    ip_port = f"{duthost.mgmt_ip}:{env.gnmi_port}"
 
-    if method == METHOD_SUBSCRIBE:
-        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
-                subscribe_mode,
-                submode, intervalms,
-                update_count, create_connections)
-        if filter_event_regex != "":
-            cmd += " --filter_event_regex {}".format(filter_event_regex)
-        if timeout > 0:
-            cmd += " --timeout {}".format(timeout)
+    # Build gNMI path elements
+    path_elems = []
+    for part in xpath.strip("/").split("/"):
+        if "[" in part and "]" in part:
+            name, keyval = part.split("[", 1)
+            key, val = keyval.strip("]").split("=")
+            path_elems.append(
+                f'      elem: <name: "{name}" key: <key: "{key}" value: "{val}" > >\n'
+            )
+        else:
+            path_elems.append(f'      elem: <name: "{part}" >\n')
+
+    if method.lower() == "get":
+        proto_str = f'path: <\n{"".join(path_elems)}    >\nencoding: JSON_IETF'
+        cmd = (
+            f'gnmi_cli -get '
+            f'-address {ip_port} '
+            f'-insecure '
+            f'-target {target} '
+            f"-proto '{proto_str}'"
+        )
+    elif method.lower() == "subscribe":
+        proto_str = (
+            f'subscribe: <\n'
+            f'  prefix: <\n'
+            f'    target: "{target}"\n'
+            f'  >\n'
+            f'  subscription: <\n'
+            f'    path: <\n{"".join(path_elems)}    >\n'
+            f'    mode: {submode}\n'
+            f'    sample_interval: {intervalms * 1000000}\n'
+            f'  >\n'
+            f'  mode: {subscribe_mode}\n'
+            f'  encoding: JSON_IETF\n'
+            f'>'
+        )
+        cmd = (
+            f'gnmi_cli '
+            f'-address {ip_port} '
+            f'-insecure '
+            f"-proto '{proto_str}' "
+            f'-query_type s '
+            f'-count {update_count} '
+            f'-streaming_duration {streaming_duration}s'
+        )
+    else:
+        raise ValueError(f"Unsupported method: {method}")
+
     return cmd
 
 

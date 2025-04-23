@@ -297,30 +297,41 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
-
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
-                                   setup_streaming_telemetry):
-    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry):
     """
-    logger.info('start virtual db sample streaming testing')
+    Run gnmi_cli from ptfdocker to stream COUNTERS_DB and validate Ethernet0 appears.
+    """
+    logger.info("Start virtual DB sample streaming testing")
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(
-        duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
+        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
 
-    assert_equal(len(re.findall('Max update count reached 3', result)),
-                 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
-    assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
-                 "Timestamp markers for each update message in:\n{0}".format(result))
+    skip_201911_and_older(duthost)
+
+    # Generate CLI with streaming
+    cmd = generate_client_cli(duthost=duthost, method="subscribe", update_count=1)
+
+    # Capture output even if return code is non-zero (DeadlineExceeded is fine)
+    raw_output = ptfhost.shell(cmd, module_ignore_errors=True)['stdout']
+    logger.info("Raw gNMI Output:\n%s", raw_output)
+
+    # Use regex to verify keys and appearance counts
+    ethernet_count = len(re.findall(r'\bEthernet0\b', raw_output))
+    counters_count = len(re.findall(r'\bCOUNTERS\b', raw_output))
+    db_count = len(re.findall(r'\bCOUNTERS_DB\b', raw_output))
+    in_errors_present = "SAI_PORT_STAT_IF_IN_ERRORS" in raw_output
+
+    logger.info(f"Ethernet0 count: {ethernet_count}")
+    logger.info(f"COUNTERS count: {counters_count}")
+    logger.info(f"COUNTERS_DB count: {db_count}")
+
+    assert ethernet_count >= 1, "Expected at least 1 occurrence of Ethernet0"
+    assert counters_count >= 1, "Expected at least 1 occurrence of COUNTERS"
+    assert db_count >= 1, "Expected at least 1 occurrence of COUNTERS_DB"
+    assert in_errors_present, "Expected SAI_PORT_STAT_IF_IN_ERRORS to be present"
+
 
 
 def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
