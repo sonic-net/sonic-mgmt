@@ -128,7 +128,8 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
 def disable_features(duthost):
     for service in existing_service_list:
         logger.info(f"Disabling {service} feature")
-        duthost.shell(f"config features state {service} disabled", module_ignore_errors=True)
+        duthost.shell(f"config feature state {service} disabled", module_ignore_errors=True)
+    duthost.shell("config save -y", module_ignore_errors=True)
 
 
 def pull_run_dockers(duthost, creds, env):
