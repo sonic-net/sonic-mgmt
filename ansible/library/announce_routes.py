@@ -1357,7 +1357,7 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
-    tor_default_route = topo_name in ["t1-isolated-d128"]
+    tor_default_route = "t1-isolated" in topo_name
 
     topo_type = get_topo_type(topo_name)
 
