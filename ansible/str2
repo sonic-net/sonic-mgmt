@@ -2500,15 +2500,15 @@ sonic_cisco_8101:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     str2-8101-06:
       ansible_host: 10.3.146.184
@@ -2532,15 +2532,15 @@ sonic_cisco_8101:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
 
 sonic_cisco_8101_tornado:

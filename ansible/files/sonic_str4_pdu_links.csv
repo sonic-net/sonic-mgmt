@@ -9,14 +9,6 @@ pdu-96,47,str4-7060x6-64pe-th5p-1,PSU1
 pdu-97,43,str4-7060x6-64pe-th5p-1,PSU2
 pdu-96,48,str4-7060x6-64pe-fan-3,PSU1
 pdu-97,48,str4-7060x6-64pe-fan-3,PSU2
-pdu-96,24,str4-7060x6-64pe-th5rs-1,PSU1
-pdu-97,24,str4-7060x6-64pe-th5rs-1,PSU2
-pdu-96,21,str4-7060x6-64pe-fan-7,PSU1
-pdu-97,21,str4-7060x6-64pe-fan-7,PSU2
-pdu-96,22,str4-7060x6-64pe-th5rs-2,PSU1
-pdu-97,22,str4-7060x6-64pe-th5rs-2,PSU2
-pdu-96,19,str4-7060x6-64pe-fan-8,PSU1
-pdu-97,19,str4-7060x6-64pe-fan-8,PSU2
 pdu-115,47,str4-7060x6-64pe-th5p-fan-1,PSU1
 pdu-116,47,str4-7060x6-64pe-th5p-fan-1,PSU2
 pdu-119,24,str4-7060x6-64pe-7,PSU1
@@ -68,3 +60,7 @@ pdu-95,24,str4-7060x6-512-2,PSU1
 pdu-94,23,str4-7060x6-512-2,PSU2
 pdu-95,20,str4-7060x6-512-fan-2,PSU1
 pdu-94,20,str4-7060x6-512-fan-2,PSU2
+pdu-92,8,str4-acs-serv-100,PSU1
+pdu-93,8,str4-acs-serv-100,PSU2
+pdu-92,9,str4-acs-serv-101,PSU1
+pdu-93,9,str4-acs-serv-101,PSU2

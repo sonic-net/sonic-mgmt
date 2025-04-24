@@ -5,8 +5,8 @@ pdu-104,11,str-a7050-acs-3,PSU1
 pdu-105,11,str-a7050-acs-3,PSU2
 pdu-109,18,str-a7060cx-acs-1,PSU1
 pdu-109,17,str-a7060cx-acs-1,PSU2
-pdu-107,21,str-a7060cx-acs-10,PSU1
-pdu-108,21,str-a7060cx-acs-10,PSU2
+pdu-107,27,str-a7060cx-acs-10,PSU1
+pdu-108,27,str-a7060cx-acs-10,PSU2
 pdu-105,32,str-agc7648-acs-1,PSU1
 pdu-110,39,str-dx010-acs-1,PSU1
 pdu-110,40,str-dx010-acs-1,PSU2
