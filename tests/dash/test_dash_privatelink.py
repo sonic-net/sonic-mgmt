@@ -24,6 +24,15 @@ Test prerequisites:
 """
 
 
+@pytest.fixture(scope="module")
+def use_pkt_alt_attrs(duthost):
+    hwsku = duthost.sonichost._facts["hwsku"]
+    if hwsku == "Cisco-8102-28FH-DPU-O-T1":
+        return True
+    else:
+        return False
+
+
 @pytest.fixture(scope="module", autouse=True)
 def add_npu_static_routes(duthost, dpu_ip, dash_pl_config, skip_config, skip_cleanup):
     if not skip_config:
@@ -86,7 +95,6 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config):
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index)
 
     yield
-
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpu_index, False)
@@ -100,8 +108,8 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, outer_encap=encap_proto)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, use_pkt_alt_attrs)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, use_pkt_alt_attrs)
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)

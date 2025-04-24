@@ -14,7 +14,7 @@ VM_CA_SUBNET = "10.0.0.0/16"
 PE_PA = "101.1.2.3"  # private endpoint physical address
 PE_CA = "10.2.0.100"  # private endpoint customer address
 PE_CA_SUBNET = "10.2.0.0/16"
-PL_ENCODING_IP = "::56b2:0:ff71:0:0"
+PL_ENCODING_IP = "::d107:64:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
 PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
@@ -22,10 +22,11 @@ PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
 APPLIANCE_ID = "100"
+LOCAL_REGION_ID = "100"
 VM_VNI = "4321"
 ENCAP_VNI = 100
 VNET1 = "Vnet1"
-VNET1_VNI = "45654"
+VNET1_VNI = "2001"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
 ENI_MAC = "F4:93:9F:EF:C4:7E"
 ENI_MAC_STRING = ENI_MAC.replace(":", "")
@@ -45,6 +46,7 @@ APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
+        "local_region_id": LOCAL_REGION_ID,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP
     }
 }
