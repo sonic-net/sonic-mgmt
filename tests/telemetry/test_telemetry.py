@@ -240,6 +240,21 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, se
     # Run "show version" and capture output
     cmd = "show version"
     result = duthost.shell(cmd)['stdout']
+<<<<<<< HEAD
+=======
+
+    # Match the SONiC Software Version line
+    match = re.search(r"SONiC Software Version: SONiC\.([\w.-]+)", result)
+    assert match is not None, "Could not find SONiC Software Version in output"
+
+    build_version = match.group(1)
+    logger.info("Detected SONiC build version: %s", build_version)
+
+    # Basic version checks
+    assert build_version != "NA", "Invalid SONiC version: NA"
+    assert "dirty" in build_version or re.match(r'\d{8}\.\d+', build_version), \
+        f"Unexpected format for SONiC build version: {build_version}"
+>>>>>>> 0fe67d4c8 (Sonic tests on MARVELL switch)
 
     # Match the SONiC Software Version line
     match = re.search(r"SONiC Software Version: SONiC\.([\w.-]+)", result)
@@ -253,54 +268,42 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, se
     assert "dirty" in build_version or re.match(r'\d{8}\.\d+', build_version), \
         f"Unexpected format for SONiC build version: {build_version}"
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def parse_show_uptime(output):
     """
-    @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
-              whether the value of 'system uptime' was float number and whether the value was
-              updated correctly.
+    Parses 'show uptime' output to extract total uptime in seconds.
+    Example input: 'up 1 day, 2 hours, 22 minutes'
     """
-    logger.info("start test the dataset 'system uptime'")
+    match = re.search(r'up\s+(?:(\d+)\s+day[s]?,\s*)?(?:(\d+)\s+hour[s]?,\s*)?(?:(\d+)\s+minute[s]?)?', output)
+    if not match:
+        raise ValueError(f"Unexpected uptime format: {output}")
+
+    days = int(match.group(1) or 0)
+    hours = int(match.group(2) or 0)
+    minutes = int(match.group(3) or 0)
+
+    return days * 86400 + hours * 3600 + minutes * 60
+
+@pytest.mark.topology('any')
+def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Use 'show uptime' CLI on the DUT to validate that system uptime is increasing.
+    """
+    logger.info("Start test for system uptime via 'show uptime'")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    skip_201911_and_older(duthost)
-    dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
-    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
-    system_uptime_1st = 0
-    found_system_uptime_field = False
-    for line_info in system_uptime_info:
-        if "total" in line_info:
-            try:
-                system_uptime_1st = float(line_info.split(":")[1].strip().rstrip(','))
-                found_system_uptime_field = True
-            except ValueError as err:
-                pytest.fail(
-                    "The value of system uptime was not a float. Error message was '{}'".format(err))
 
-    if not found_system_uptime_field:
-        pytest.fail("The field of system uptime was not found.")
+    result_1 = duthost.shell("show uptime")["stdout"]
+    logger.info(f"Initial uptime: {result_1.strip()}")
+    uptime_1 = parse_show_uptime(result_1)
 
-    # Wait 10 seconds such that the value of system uptime was added 10 seconds.
-    time.sleep(10)
-    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
-    system_uptime_2nd = 0
-    found_system_uptime_field = False
-    for line_info in system_uptime_info:
-        if "total" in line_info:
-            try:
-                system_uptime_2nd = float(line_info.split(":")[1].strip().rstrip(','))
-                found_system_uptime_field = True
-            except ValueError as err:
-                pytest.fail(
-                    "The value of system uptime was not a float. Error message was '{}'".format(err))
+    time.sleep(61)
 
-    if not found_system_uptime_field:
-        pytest.fail("The field of system uptime was not found.")
+    result_2 = duthost.shell("show uptime")["stdout"]
+    logger.info(f"Second uptime: {result_2.strip()}")
+    uptime_2 = parse_show_uptime(result_2)
 
-    if system_uptime_2nd - system_uptime_1st < 10:
-        pytest.fail("The value of system uptime was not updated correctly.")
+    assert uptime_2 > uptime_1, "System uptime did not increase"
+    assert uptime_2 - uptime_1 >= 1, f"Uptime increased by less than expected: {uptime_2 - uptime_1} seconds"
+
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry):
@@ -320,7 +323,6 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
 
     # Capture output even if return code is non-zero (DeadlineExceeded is fine)
     raw_output = ptfhost.shell(cmd, module_ignore_errors=True)['stdout']
-    logger.info("Raw gNMI Output:\n%s", raw_output)
 
     # Use regex to verify keys and appearance counts
     ethernet_count = len(re.findall(r'\bEthernet0\b', raw_output))
