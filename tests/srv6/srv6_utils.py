@@ -429,6 +429,6 @@ def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
     Returns:
         bool: True if entries exist, False otherwise
     """
-    asic_db_my_sids = duthost.command(sonic_db_cli + " ASIC_DB keys "
-                                     "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
+    asic_db_my_sids = duthost.command(sonic_db_cli +
+                                      " ASIC_DB keys *ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
     return len(asic_db_my_sids.strip()) > 0
