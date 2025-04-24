@@ -1424,6 +1424,24 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL:
+  xfail:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+    - "asic_type in ['cisco-8000']"
+
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL:
+  xfail:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL:
+  xfail:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####           http              #####
 #######################################
