@@ -11,3 +11,15 @@
   hwsku: dbmvtx9180_64x100G
   server: server-1
 
+- conf-name: senao-testbed
+  name: senao-testbed
+  topo: t0
+  disable_routing_config: true
+  ptf_image_name: ptf
+  ptf: ptf-1
+  dut:
+    - sonic-senao
+  inv_name: servers  # <- changed from veos
+  dut_type: FrontEnd
+  hwsku: sera_rds2000-r0 
+  server: server-1

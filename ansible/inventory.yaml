@@ -9,7 +9,13 @@ all:
           hwsku: dbmvtx9180_64x100G
           ansible_connection: ssh
           ansible_timeout: 120
-
+        sonic-senao:
+          ansible_host: 10.30.2.134
+          ansible_user: admin
+          ansible_ssh_pass: "YourPaSsWoRd"
+          hwsku: sera_rds2000-r0          
+          ansible_connection: ssh
+          ansible_timeout: 120 
 
     ptf:
       hosts:
