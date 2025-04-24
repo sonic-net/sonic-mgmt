@@ -695,7 +695,7 @@ sonic_arista_7050cx3:
       base_mac: 68:8b:f4:87:9d:dc
       syseeprom_info:
         "0x21": "DCS-7050CX3-32S"
-        "0x22": ""
+        "0x22": "ASY0288213A0"
         "0x23": "JPA2424P0Y9"
         "0x24": "68:8b:f4:87:9d:dc"
         "0x25": "2024/04/08 08:01:55"
