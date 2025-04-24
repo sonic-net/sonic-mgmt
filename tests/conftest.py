@@ -5,6 +5,7 @@ import logging
 import getpass
 import random
 from concurrent.futures import as_completed
+import re
 
 import pytest
 import yaml
@@ -50,7 +51,8 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -278,7 +280,8 @@ def enhance_inventory(request, tbinfo):
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
 
     if request.config.getoption("trim_inv"):
-        trim_inventory(inv_files, tbinfo)
+        target_hostname = get_target_hostname(request)
+        trim_inventory(inv_files, tbinfo, target_hostname)
 
     try:
         logger.info(f"Inventory file: {inv_files}")
@@ -483,8 +486,27 @@ def duthost(duthosts, request):
     return duthost
 
 
+@pytest.fixture(scope="session")
+def enable_nat_for_dpuhosts(duthosts, ansible_adhoc, request):
+    """
+    @summary: fixture to enable nat for dpuhost.
+    @param duthosts: fixture to get DUT hosts
+    @param ansible_adhoc: Fixture provided by the pytest-ansible package.
+        Source of the various device objects. It is
+        mandatory argument for the class constructors.
+    @param request: request parameters for duthost test fixture
+    """
+    dpuhost_names = get_specified_dpus(request)
+    if dpuhost_names:
+        logging.info(f"dpuhost_names: {dpuhost_names}")
+        for duthost in duthosts:
+            if not is_enabled_nat_for_dpu(duthost, request):
+                dpu_name_ssh_port_dict = get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc)
+                enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request)
+
+
 @pytest.fixture(name="dpuhosts", scope="session")
-def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_nat_for_dpuhosts):
     """
     @summary: fixture to get DPU hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -1428,6 +1450,29 @@ def get_testbed_metadata(request):
     return metadata.get(tbname)
 
 
+def get_snappi_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError:
+        return None
+
+    return metadata.get(tbname)
+
+
 def generate_port_lists(request, port_scope, with_completeness_level=False):
     empty = [encode_dut_port_name('unknown', 'unknown')]
     if 'ports' in port_scope:
@@ -1845,6 +1890,9 @@ def pytest_generate_tests(metafunc):        # noqa: E302
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'tgen_port_info' in metafunc.fixturenames:
+        metafunc.parametrize('tgen_port_info', generate_skeleton_port_info(metafunc), indirect=True)
+
     if 'vlan_name' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             if tbinfo['topo']['name'] == 'm0-2vlan':
@@ -1884,6 +1932,62 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
                 else:
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
+
+def generate_skeleton_port_info(request):
+    """
+    Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
+
+    ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
+    """
+    dut_info = get_snappi_testbed_metadata(request) or []
+    available_interfaces = {}
+    matrix = {}
+    for index, linecard in enumerate(dut_info):
+        interface_to_asic = {}
+        for asic in dut_info[linecard]["asic_to_interface"]:
+            for interface in dut_info[linecard]["asic_to_interface"][asic]:
+                interface_to_asic[interface] = asic
+
+        available_interfaces[linecard] = [dut_info[linecard]['intf_status'][interface]
+                                          for interface in dut_info[linecard]['intf_status']
+                                          if dut_info[linecard]['intf_status'][interface]["admin_state"] == "up"]
+
+        for interface in available_interfaces[linecard]:
+            for key, value in dut_info[linecard]["asic_to_interface"].items():
+                if interface['name'] in value:
+                    interface['asic'] = key
+
+        for interface in available_interfaces[linecard]:
+            speed = float(re.match(r"([\d.]+)", interface['speed']).group(0))
+            asic = interface['asic']
+            if (speed not in matrix):
+                matrix[speed] = {}
+            if (linecard not in matrix[speed]):
+                matrix[speed][linecard] = {}
+            if (asic not in matrix[speed][linecard]):
+                matrix[speed][linecard][asic] = 1
+            else:
+                matrix[speed][linecard][asic] += 1
+
+    def build_params(speed, category):
+        return f"{speed}-{category}"
+
+    flattened_list = set()
+
+    for speed, linecards in matrix.items():
+        if len(linecards) >= 2:
+            flattened_list.add(build_params(speed, 'multiple_linecard_multiple_asic'))
+
+        for linecard, asic_list in linecards.items():
+            if len(asic_list) >= 2:
+                flattened_list.add(build_params(speed, 'single_linecard_multiple_asic'))
+
+            for asics, port_count in asic_list.items():
+                if int(port_count) >= 2:
+                    flattened_list.add(build_params(speed, 'single_linecard_single_asic'))
+
+    return list(flattened_list)
 
 
 def get_autoneg_tests_data():
@@ -2450,53 +2554,48 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
         duts_data = {}
 
-        new_core_dumps = {}
-        core_dump_check_failed = False
-
-        inconsistent_config = {}
-        pre_only_config = {}
-        cur_only_config = {}
-        config_db_check_failed = False
-
-        check_result = {}
-
         if check_flag:
-            for duthost in duthosts:
-                logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
-                duthost.shell("free -h")
-                duthost.shell("df -h")
 
-                logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
-                duts_data[duthost.hostname] = {}
+            def collect_before_test(dut):
+                logger.info("Dumping Disk and Memory Space information before test on {}".format(dut.hostname))
+                dut.shell("free -h")
+                dut.shell("df -h")
 
-                if "20191130" in duthost.os_version:
-                    pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+                logger.info("Collecting core dumps before test on {}".format(dut.hostname))
+                duts_data[dut.hostname] = {}
+
+                if "20191130" in dut.os_version:
+                    pre_existing_core_dumps = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
                 else:
-                    pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-                duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
+                    pre_existing_core_dumps = dut.shell('ls /var/core/')['stdout'].split()
+                duts_data[dut.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
-                logger.info("Collecting running config before test on {}".format(duthost.hostname))
-                duts_data[duthost.hostname]["pre_running_config"] = {}
-                if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
-                    logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
-                    duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-                duts_data[duthost.hostname]["pre_running_config"][None] = \
-                    json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+                logger.info("Collecting running config before test on {}".format(dut.hostname))
+                duts_data[dut.hostname]["pre_running_config"] = {}
+                if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                    logger.info("Collecting running golden config before test on {}".format(dut.hostname))
+                    dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+                duts_data[dut.hostname]["pre_running_config"][None] = \
+                    json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
-                if duthost.is_multi_asic:
-                    for asic_index in range(0, duthost.facts.get('num_asic')):
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
                         asic_ns = "asic{}".format(asic_index)
-                        if not duthost.stat(
+                        if not dut.stat(
                                 path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
-                            duthost.shell(
+                            dut.shell(
                                 "sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".format(
                                     asic_ns,
                                     asic_index,
                                 )
                             )
-                        duts_data[duthost.hostname]['pre_running_config'][asic_ns] = \
-                            json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
-                                                     verbose=False)['stdout'])
+                        duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
+                            json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
+                                                 verbose=False)['stdout'])
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(collect_before_test, duthost)
 
         if is_par_run and is_par_leader:
             initial_check_state.set_new_status(InitialCheckStatus.SETUP_COMPLETED, is_par_leader, target_hostname)
@@ -2508,28 +2607,56 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
             initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TESTS_COMPLETED)
             initial_check_state.set_new_status(InitialCheckStatus.TEARDOWN_STARTED, is_par_leader, target_hostname)
 
+        inconsistent_config = {}
+        pre_only_config = {}
+        cur_only_config = {}
+        new_core_dumps = {}
+
+        core_dump_check_failed = False
+        config_db_check_failed = False
+
+        check_result = {}
+
         if check_flag:
-            for duthost in duthosts:
-                inconsistent_config[duthost.hostname] = {}
-                pre_only_config[duthost.hostname] = {}
-                cur_only_config[duthost.hostname] = {}
-                new_core_dumps[duthost.hostname] = []
 
-                logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
-                duthost.shell("free -h")
-                duthost.shell("df -h")
+            def collect_after_test(dut):
+                inconsistent_config[dut.hostname] = {}
+                pre_only_config[dut.hostname] = {}
+                cur_only_config[dut.hostname] = {}
+                new_core_dumps[dut.hostname] = []
 
-                logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
-                if "20191130" in duthost.os_version:
-                    cur_cores = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+                logger.info("Dumping Disk and Memory Space information after test on {}".format(dut.hostname))
+                dut.shell("free -h")
+                dut.shell("df -h")
+
+                logger.info("Collecting core dumps after test on {}".format(dut.hostname))
+                if "20191130" in dut.os_version:
+                    cur_cores = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
                 else:
-                    cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
-                duts_data[duthost.hostname]["cur_core_dumps"] = cur_cores
+                    cur_cores = dut.shell('ls /var/core/')['stdout'].split()
+                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
 
-                cur_core_dumps_set = set(duts_data[duthost.hostname]["cur_core_dumps"])
-                pre_core_dumps_set = set(duts_data[duthost.hostname]["pre_core_dumps"])
-                new_core_dumps[duthost.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
+                cur_core_dumps_set = set(duts_data[dut.hostname]["cur_core_dumps"])
+                pre_core_dumps_set = set(duts_data[dut.hostname]["pre_core_dumps"])
+                new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
 
+                logger.info("Collecting running config after test on {}".format(dut.hostname))
+                # get running config after running
+                duts_data[dut.hostname]["cur_running_config"] = {}
+                duts_data[dut.hostname]["cur_running_config"][None] = \
+                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        duts_data[dut.hostname]["cur_running_config"][asic_ns] = \
+                            json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                                 verbose=False)['stdout'])
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(collect_after_test, duthost)
+
+            for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
                     core_dump_check_failed = True
 
@@ -2537,20 +2664,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                     for new_core_dump in new_core_dumps[duthost.hostname]:
                         duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
 
-                logger.info("Collecting running config after test on {}".format(duthost.hostname))
-                # get running config after running
-                duts_data[duthost.hostname]["cur_running_config"] = {}
-                duts_data[duthost.hostname]["cur_running_config"][None] = \
-                    json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                if duthost.is_multi_asic:
-                    for asic_index in range(0, duthost.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        duts_data[duthost.hostname]["cur_running_config"][asic_ns] = \
-                            json.loads(duthost.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                     verbose=False)['stdout'])
-
                 # The tables that we don't care
-                EXCLUDE_CONFIG_TABLE_NAMES = set([])
+                exclude_config_table_names = set([])
                 # The keys that we don't care
                 # Current skipped keys:
                 # 1. "MUX_LINKMGR|LINK_PROBER"
@@ -2563,13 +2678,13 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 # Let's keep this setting in db and we don't want any config reload caused by this key, so
                 # let's skip checking it.
                 if "dualtor" in tbinfo["topo"]["name"]:
-                    EXCLUDE_CONFIG_KEY_NAMES = [
+                    exclude_config_key_names = [
                         'MUX_LINKMGR|LINK_PROBER',
                         'MUX_LINKMGR|TIMED_OSCILLATION',
                         'LOGGER|linkmgrd'
                     ]
                 else:
-                    EXCLUDE_CONFIG_KEY_NAMES = []
+                    exclude_config_key_names = []
 
                 def _remove_entry(table_name, key_name, config):
                     if table_name in config and key_name in config[table_name]:
@@ -2586,7 +2701,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                     cur_running_config = duts_data[duthost.hostname]["cur_running_config"][cfg_context]
 
                     # Remove ignored keys from base config
-                    for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
+                    for exclude_key in exclude_config_key_names:
                         fields = exclude_key.split('|')
                         if len(fields) != 2:
                             continue
@@ -2598,19 +2713,19 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
                     # Check if there are extra keys in pre running config
                     pre_config_extra_keys = list(
-                        pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                        pre_running_config_keys - cur_running_config_keys - exclude_config_table_names)
                     for key in pre_config_extra_keys:
                         pre_only_config[duthost.hostname][cfg_context].update({key: pre_running_config[key]})
 
                     # Check if there are extra keys in cur running config
                     cur_config_extra_keys = list(
-                        cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                        cur_running_config_keys - pre_running_config_keys - exclude_config_table_names)
                     for key in cur_config_extra_keys:
                         cur_only_config[duthost.hostname][cfg_context].update({key: cur_running_config[key]})
 
                     # Get common keys in pre running config and cur running config
                     common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
-                                              EXCLUDE_CONFIG_TABLE_NAMES)
+                                              exclude_config_table_names)
 
                     # Check if the running config is modified after module running
                     for key in common_config_keys:
@@ -2652,7 +2767,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                             cur_only_config[duthost.hostname][cfg_context] or \
                             inconsistent_config[duthost.hostname][cfg_context]:
                         config_db_check_failed = True
-            if (core_dump_check_failed or config_db_check_failed):
+
+            if core_dump_check_failed or config_db_check_failed:
                 check_result = {
                     "core_dump_check": {
                         "failed": core_dump_check_failed,
@@ -2671,6 +2787,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 restore_config_db_and_config_reload(duts_data, duthosts)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
+
         if check_result:
             logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
             add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_failed", core_dump_check_failed)
