@@ -138,6 +138,18 @@ class LogAnalyzer:
         if not result:
             raise LogAnalyzerError("Log analyzer failed - no result.")
         else:
+            logging.info(f"[chunangli] check match number. total_match={result['total']['match']}, "
+                         f"expected_missing_match={result['total']['expected_missing_match']}")
+
+            # if result['total']['match'] == 0:
+            logging.info(f"[chunangli], match_messages: \n{result['match_messages']}")
+            result['total']['match'] = 10000
+            dict1 = {}
+            for i in range(2000):
+                dict1[i] = ["2025 Apr 20 17:54:51.218839 bjw-can-7260-12 ERR syncd#syncd: :- collectData: "
+                            "Failed to get stats of Port Counter 0x100000042: -2"]*5
+            result['match_messages'] = dict1
+
             result_str = self._results_repr(result)
             if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
                 raise LogAnalyzerError(result_str)
