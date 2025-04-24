@@ -53,9 +53,6 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             "Internal image has neither gnmi nor telemetry feature enabled"
         )
 
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    port = env.gnmi_port
-
     if gnmi_enabled:
         cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
         result = duthost.command(cmd_feature, module_ignore_errors=True)
@@ -66,6 +63,8 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             # rotate gnmi cert
             setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
             # set gnmi table
+            env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+            port = env.gnmi_port
             set_table = (
                 f'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" '
                 f'client_auth "true" '
@@ -97,6 +96,8 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             # rotate telemetry cert
             setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
             # set telemetry table
+            env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+            port = env.gnmi_port
             set_table = (
                 f'sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" '
                 f'client_auth "true" '
