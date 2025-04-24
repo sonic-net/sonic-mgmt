@@ -2960,20 +2960,20 @@ def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def gnxi_path(ptfhost):
     """
-    Determine the correct gnxi path based on the docker-ptf image version.
-    Newer images use /root/gnxi, older ones use /gnxi.
+    gnxi's location is updated from /gnxi to /root/gnxi
+    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
+    But old docker-ptf images don't have this update,
+    test case will fail for these docker-ptf images,
+    because it should still call /gnxi files.
+    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
+    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
     """
-    preferred_path = "/root/gnxi/"
-    fallback_path = "/gnxi/"
-
-    try:
-        result = ptfhost.stat(path=preferred_path)
-        if result["stat"].get("exists") and result["stat"].get("isdir"):
-            return preferred_path
-    except RunAnsibleModuleFail:
-        logger.warning(f"Permission denied or path not found: {preferred_path}. Falling back to {fallback_path}")
-
-    return fallback_path
+    path_exists = ptfhost.stat(path="/root/gnxi/")
+    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
+        gnxipath = "/root/gnxi/"
+    else:
+        gnxipath = "/gnxi/"
+    return gnxipath
 
 
 def pytest_collection_modifyitems(config, items):

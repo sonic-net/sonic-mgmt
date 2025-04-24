@@ -50,8 +50,7 @@ def setup_telemetry_forpyclient(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
-    client_auth = "false"
-    #    client_auth = str(client_auth_out[0])
+    client_auth = str(client_auth_out[0])
 
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
@@ -72,7 +71,7 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
-    client_auth = "false" #str(client_auth_out[0])
+    client_auth = str(client_auth_out[0])
     if client_auth != default_client_auth:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
                       % (env.gnmi_config_table, default_client_auth),
@@ -97,43 +96,6 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
         dut_ip = duthost.mgmt_ip
         if is_ipv6:
             dut_ip = get_mgmt_ipv6(duthost)
-        wait_tcp_connection(localhost, dut_ip, 9339, timeout_s=60)
-
-        # Check if gnmi_cli binary is present inside the PTF container
-        #cli_check = ptfhost.shell("which gnmi_cli", module_ignore_errors=True)
-        #py_assert(cli_check["rc"] == 0, "gnmi_cli binary not found in PTF container")
-
-        # Optional: check if gnmi_cli is executable
-        #exec_check = ptfhost.shell("test -x $(which gnmi_cli)", module_ignore_errors=True)
-        #py_assert(exec_check["rc"] == 0, "gnmi_cli is not executable in PTF container")
-
-    except RunAnsibleModuleFail as e:
-        logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
-        restore_telemetry_forpyclient(duthost, default_client_auth)
-        raise e
-
-    yield
-    restore_telemetry_forpyclient(duthost, default_client_auth)
-    if not has_gnmi_config:
-        delete_gnmi_config(duthost)
-
-
-@contextmanager
-def __setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
-    """
-    @summary: Post setting up the streaming telemetry before running the test.
-    """
-    try:
-        has_gnmi_config = check_gnmi_config(duthost)
-        if not has_gnmi_config:
-            create_gnmi_config(duthost)
-        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-        default_client_auth = setup_telemetry_forpyclient(duthost)
-
-        # Wait until the TCP port was opened
-        dut_ip = duthost.mgmt_ip
-        if is_ipv6:
-            dut_ip = get_mgmt_ipv6(duthost)
         wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
@@ -142,8 +104,9 @@ def __setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gn
             ret = duthost.shell(cmd)['rc']
             py_assert(ret == 0)
         else:
-            file_exists = True # ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
-            #py_assert(file_exists["stat"]["exists"] is True)
+            cli_check = ptfhost.shell("which gnmi_cli", module_ignore_errors=True)
+            file_exists = cli_check["rc"] == 0
+            py_assert(file_exists, "gnmi_cli binary not found in PTF container")
     except RunAnsibleModuleFail as e:
         logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
         restore_telemetry_forpyclient(duthost, default_client_auth)

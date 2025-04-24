@@ -45,7 +45,6 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/go"
 
 # Clone and build gnmi_cli from openconfig/gnmi
-# Clone and build gnmi_cli from openconfig/gnmi
 RUN git clone https://github.com/openconfig/gnmi.git /root/gnmi && \
     cd /root/gnmi && \
     go mod tidy && \

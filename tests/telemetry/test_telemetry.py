@@ -240,21 +240,6 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, se
     # Run "show version" and capture output
     cmd = "show version"
     result = duthost.shell(cmd)['stdout']
-<<<<<<< HEAD
-=======
-
-    # Match the SONiC Software Version line
-    match = re.search(r"SONiC Software Version: SONiC\.([\w.-]+)", result)
-    assert match is not None, "Could not find SONiC Software Version in output"
-
-    build_version = match.group(1)
-    logger.info("Detected SONiC build version: %s", build_version)
-
-    # Basic version checks
-    assert build_version != "NA", "Invalid SONiC version: NA"
-    assert "dirty" in build_version or re.match(r'\d{8}\.\d+', build_version), \
-        f"Unexpected format for SONiC build version: {build_version}"
->>>>>>> 0fe67d4c8 (Sonic tests on MARVELL switch)
 
     # Match the SONiC Software Version line
     match = re.search(r"SONiC Software Version: SONiC\.([\w.-]+)", result)
