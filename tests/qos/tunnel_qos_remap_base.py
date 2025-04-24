@@ -335,9 +335,11 @@ def disable_packet_aging(duthosts):
     for duthost in duthosts:
         asic = duthost.get_asic_name()
         if 'spc' in asic:
+            # Ignore errors if the script is not found in syncd container as it may be removed
+            # by swap_syncd
             logger.info("Enable Mellanox packet aging")
-            duthost.command("docker exec syncd python /packets_aging.py enable")
-            duthost.command("docker exec syncd rm -rf /packets_aging.py")
+            duthost.command("docker exec syncd python /packets_aging.py enable", module_ignore_errors=True)
+            duthost.command("docker exec syncd rm -rf /packets_aging.py", module_ignore_errors=True)
 
 
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
