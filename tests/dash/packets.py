@@ -127,7 +127,7 @@ def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp',
         ip_ttl=63 if use_pkt_alt_attrs else 254,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
-        vxlan_vni=int(pl.VNET1_VNI)  if use_pkt_alt_attrs else int(pl.VM_VNI),
+        vxlan_vni=int(pl.VNET1_VNI) if use_pkt_alt_attrs else int(pl.VM_VNI),
         inner_frame=exp_inner_packet
     )
 
@@ -140,7 +140,8 @@ def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp',
     return gre_packet, masked_exp_packet
 
 
-def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False, inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
+def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
+                        inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.ENI_MAC if use_pkt_alt_attrs else pl.REMOTE_MAC,
         eth_dst=pl.REMOTE_MAC if use_pkt_alt_attrs else pl.ENI_MAC,

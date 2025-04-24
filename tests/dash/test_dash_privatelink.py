@@ -23,6 +23,7 @@ Test prerequisites:
 - Default route on DPU to NPU
 """
 
+
 @pytest.fixture(scope="module")
 def use_pkt_alt_attrs(duthost):
     hwsku = duthost.sonichost._facts["hwsku"]
