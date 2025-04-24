@@ -2,8 +2,6 @@ import logging
 import time
 import requests
 import random
-import sys
-from io import StringIO
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.reboot import reboot
@@ -11,190 +9,9 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
     extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.srv6_helper import SRv6
 
 logger = logging.getLogger(__name__)
-
-
-class SRv6():
-    uN = 'uN'
-    prefix_len = '48'
-    pipe_mode = 'pipe'
-    uniform_mode = 'uniform'
-
-
-class SRv6Packets():
-    '''
-    Define the ipv6 packets used in srv6 test
-    Each item was defined with actions and packet type as well as segment left and segment list, destination ip
-    '''
-    srv6_packets = [
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1000:0100:0200::',
-            'exp_dst_ipv6': '2001:1000:0200::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward',
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1001:0200:0300::',
-            'exp_dst_ipv6': '2001:1001:0300::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2000:0300:0400:0500:0600::'],
-            'dst_ipv6': '2001:2000:0300::',
-            'exp_dst_ipv6': '2001:2000:0300:0400:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2001:0400:0500:0600::'],
-            'dst_ipv6': '2001:2001:0400:0500::',
-            'exp_dst_ipv6': '2001:2001:0500::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3000:0500:0600::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3000:0500::',
-            'exp_dst_ipv6': '2001:3000:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 2,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3001:0600::',
-            'exp_dst_ipv6': '2001:3000:0600:0700:0800:0900:0a00::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 20,
-            'outer_dscp': 40,
-            'dst_ipv6': '2001:4000:0700::',
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'exp_inner_dscp_pipe': 20,
-            'exp_outer_dscp_uniform': 40,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 32,
-            'outer_dscp': 31,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:4001:0800::',
-            'exp_inner_dscp_pipe': 32,
-            'exp_outer_dscp_uniform': 31,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 2,
-            'outer_dscp': 62,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:5000:0900::',
-            'exp_inner_dscp_pipe': 2,
-            'exp_outer_dscp_uniform': 62,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 63,
-            'outer_dscp': 1,
-            'dst_ipv6': '2001:5001:0a00::',
-            'exp_inner_dscp_pipe': 63,
-            'exp_outer_dscp_uniform': 1,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        }
-    ]
-    srv6_next_header = {
-        scapy.IP: 4,
-        scapy.IPv6: 41
-    }
 
 
 class MyLocators():
@@ -228,23 +45,6 @@ class MySIDs(MyLocators):
     ]
 
 
-def create_srv6_locator(duthost,
-                        locator_name,
-                        prefix,
-                        block_len=32,
-                        node_len=16,
-                        func_len=0,
-                        arg_len=0):
-    logger.info(f'Configure locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
-        f'"prefix" "{prefix}" '
-        f'"block_len" "{block_len}" '
-        f'"node_len" "{node_len}" '
-        f'"func_len" "{func_len}" '
-        f'"arg_len" "{arg_len}"')
-
-
 def validate_srv6_in_appl_db(duthost,
                              block_len=32,
                              node_len=16,
@@ -265,30 +65,6 @@ def validate_srv6_in_appl_db(duthost,
     return True
 
 
-def del_srv6_locator(duthost, locator_name):
-    logger.info(f'Delete locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
-
-
-def create_srv6_sid(duthost,
-                    locator_name,
-                    ip_addr,
-                    action=SRv6.uN,
-                    decap_vrf='default',
-                    decap_dscp_mode=SRv6.uniform_mode):
-    logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
-        f'"action" "{action}" '
-        f'"decap_vrf" "{decap_vrf}" '
-        f'"decap_dscp_mode" "{decap_dscp_mode}"')
-
-
-def del_srv6_sid(duthost, locator_name, ip_addr):
-    logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
-
-
 def random_reboot(duthost, localhost):
     """
     Randomly choose one action from reload/cold reboot and do the action and wait system recovery
@@ -303,15 +79,6 @@ def random_reboot(duthost, localhost):
         logger.info(f'Do {reboot_type}')
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True, safe_reboot=True,
                check_intf_up_ports=True, wait_for_bgp=True)
-
-
-def dump_packet_detail(pkt):
-    _stdout, sys.stdout = sys.stdout, StringIO()
-    try:
-        pkt.show()
-        return sys.stdout.getvalue()
-    finally:
-        sys.stdout = _stdout
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
