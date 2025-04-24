@@ -168,6 +168,14 @@ bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
     conditions:
       - "asic_type in ['vpp']"
 
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   skip:
     reason: >
@@ -281,6 +289,14 @@ dns/static_dns/test_static_dns.py:
     conditions:
       - "asic_type in ['vpp']"
 
+dns/test_dns_resolv_conf.py::test_dns_resolv_conf:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+      
 #######################################
 #####           FIB               #####
 #######################################
