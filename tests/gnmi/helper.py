@@ -142,11 +142,10 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    cmds = [
-        'systemctl reset-failed %s' % (env.gnmi_container),
-        'systemctl restart %s' % (env.gnmi_container)
-    ]
-    duthost.shell_cmds(cmds=cmds)
+    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
+    duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
