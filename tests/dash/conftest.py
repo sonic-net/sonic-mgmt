@@ -25,7 +25,8 @@ def get_dpu_dataplane_port(duthost, dpu_index):
     try:
         interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
     except KeyError:
-        interface = f"Ethernet-BP{dpu_index}"
+        if_dpu_index = 224 + dpu_index*8
+        interface = f"Ethernet{if_dpu_index}"
 
     logger.info(f"DPU dataplane interface: {interface}")
     return interface
@@ -175,7 +176,7 @@ def dash_pl_config(duthost, config_facts, minigraph_facts):
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[LOCAL_DUT_INTF] = intf
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
-            if REMOTE_PTF_INTF not in dash_info and config["name"].endswith("T2"):
+            if REMOTE_PTF_SEND_INTF not in dash_info and config["name"].endswith("T2"):
                 intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
                 intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
                 dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
