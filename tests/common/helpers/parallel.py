@@ -162,6 +162,15 @@ def parallel_run(
             len(gone), len(alive)
         ))
 
+        # todo: Sometimes process run to the end but still alive, causing exception hidden.
+        #       Explicitly check the process exception to prevent exception miss.
+        #       Remove this temp fix once resolve the process alive problem.
+        for worker in alive:
+            if worker.exception is not None:
+                failed_processes[worker.name] = {}
+                failed_processes[worker.name]['exit_code'] = worker.exitcode
+                failed_processes[worker.name]['exception'] = worker.exception
+
         if len(gone) == 0:
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
