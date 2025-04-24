@@ -20,7 +20,10 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     wget \
     tar \
-    && apt-get clean
+    supervisor && \
+    mkdir -p /etc/supervisor/conf.d && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python libraries for PTF testing
 RUN pip3 install --upgrade pip && \
@@ -55,3 +58,7 @@ COPY . /root/ptftests
 RUN touch /root/ptftests/__init__.py
 
 WORKDIR /root/ptftests
+
+# Automatically start supervisord when container starts
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+

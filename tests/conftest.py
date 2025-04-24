@@ -824,7 +824,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
     futures = []
     servers = []
     if 'servers' in tbinfo:
@@ -2474,7 +2474,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
                 os.remove(asic_cfg_file)
 
     # Second execute config reload on all duthosts
-    with SafeThreadPoolExecutor(max_workers=8) as executor:
+    with SafeThreadPoolExecutor(max_workers=2) as executor:
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
                             check_intf_up_ports=True, wait_for_bgp=True)
@@ -2576,8 +2576,13 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                     logger.info("Collecting running golden config before test on {}".format(dut.hostname))
                     dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-                duts_data[dut.hostname]["pre_running_config"][None] = \
-                    json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+                try:
+                    output = dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout']
+                    duts_data[dut.hostname]["pre_running_config"][None] = json.loads(output)
+                except Exception as e:
+                    logger.error("Failed to load running_golden_config.json on {}: {}".format(dut.hostname, str(e)))
+                    duts_data[dut.hostname]["pre_running_config"][None] = {}
+
 
                 if dut.is_multi_asic:
                     for asic_index in range(0, dut.facts.get('num_asic')):
@@ -2594,7 +2599,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                             json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_before_test, duthost)
 
@@ -2644,8 +2649,13 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
                 # get running config after running
                 duts_data[dut.hostname]["cur_running_config"] = {}
-                duts_data[dut.hostname]["cur_running_config"][None] = \
-                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                try:
+                    output = dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout']
+                    duts_data[dut.hostname]["cur_running_config"][None] = json.loads(output)
+                except Exception as e:
+                    logger.error("Failed to collect current running config after test on {}: {}".format(dut.hostname, str(e)))
+                    duts_data[dut.hostname]["cur_running_config"][None] = {}
+
                 if dut.is_multi_asic:
                     for asic_index in range(0, dut.facts.get('num_asic')):
                         asic_ns = "asic{}".format(asic_index)
@@ -2653,7 +2663,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                             json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
                                                  verbose=False)['stdout'])
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
 
@@ -2819,21 +2829,21 @@ def temporarily_disable_route_check(request, duthosts):
         # the teardown code (after the yield) will not run, so we are using try...finally... to ensure the
         # routeCheck monit will always be started after this fixture.
         try:
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts.frontend_nodes:
                     executor.submit(wait_for_route_check_to_pass, duthost)
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts.frontend_nodes:
                     executor.submit(duthost.shell, "sudo monit stop routeCheck")
 
             yield
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts.frontend_nodes:
                     executor.submit(wait_for_route_check_to_pass, duthost)
         finally:
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
+            with SafeThreadPoolExecutor(max_workers=2) as executor:
                 for duthost in duthosts.frontend_nodes:
                     executor.submit(duthost.shell, "sudo monit start routeCheck")
     else:

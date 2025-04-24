@@ -8,6 +8,8 @@ all:
           ansible_ssh_pass: "auradine "
           hwsku: dbmvtx9180_64x100G
           ansible_connection: ssh
+          ansible_timeout: 120
+
 
     ptf:
       hosts:

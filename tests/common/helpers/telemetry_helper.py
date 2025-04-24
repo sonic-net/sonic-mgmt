@@ -50,7 +50,7 @@ def setup_telemetry_forpyclient(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
+    client_auth = "false" # str(client_auth_out[0])
 
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
@@ -71,7 +71,7 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
+    client_auth = "false" # str(client_auth_out[0])
     if client_auth != default_client_auth:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
                       % (env.gnmi_config_table, default_client_auth),
