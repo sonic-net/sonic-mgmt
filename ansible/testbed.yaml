@@ -2217,7 +2217,7 @@
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms74-t0-sn5640-3
+- conf-name: vms74-t1-sn5640-3
   group-name: vms74-4
   topo: t1-isolated-d56u2
   ptf_image_name: docker-ptf
