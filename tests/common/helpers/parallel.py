@@ -3,13 +3,13 @@ import logging
 import math
 import os
 import shutil
-import tempfile
 import signal
-import traceback
+import tempfile
 import time
-
+import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -27,7 +27,7 @@ class SonicProcess(Process):
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = Pipe()
+        self._pconn, self._cconn = Pipe(duplex=False)  # unidirectional: child_conn can send, parent_conn can recv
         self._exception = None
         self._exception_read = False  # Flag to track read status
 
@@ -39,6 +39,8 @@ class SonicProcess(Process):
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
             raise e
+        finally:
+            self._cconn.close()  # Close the child-side pipe
 
     # for wait_procs
     def wait(self, timeout):
@@ -56,7 +58,7 @@ class SonicProcess(Process):
                 if self._pconn.poll():
                     self._exception = self._pconn.recv()
             except (EOFError, OSError):
-                pass  # Handle closed pipe or terminated process
+                pass
             finally:
                 self._pconn.close()
                 self._exception_read = True
@@ -171,13 +173,14 @@ def parallel_run(
             len(gone), len(alive)
         ))
 
-        # todo: Sometimes process run to the end but still alive, causing exception hidden.
-        #       Explicitly check the process exception to prevent exception miss.
-        #       Remove this temp fix once resolve the process alive problem.
-        # check if we have any processes that failed - have exitcode non-zero or exception not none
+        # Sometimes the child processes finished run but still alive, causing exception hidden.
+        # It mainly caused by child processes hang on send() if parent doesn't read from the pipe.
+        # Therefore, explicitly check the processes exception to prevent any error miss.
+        logger.info("Force read exception regardless of whether the process exited normally.")
         for worker in gone + alive:
             worker_exception = worker.exception  # Force-read to prevent pipe hangs
             if worker_exception is not None:
+                logger.info(f"Process {worker.name} has exception, is_alive={worker.is_running()}, record the error.")
                 failed_processes[worker.name] = {
                     'exit_code': worker.exitcode,
                     'exception': worker_exception
