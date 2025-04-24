@@ -331,7 +331,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % base_eth
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % (base_eth + 4)
             for i in range(12, 20):
-                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (96 + (i - 13) * 8)
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (96 + (i - 12) * 8)
             for i in range(20, 28):  # Update to include only up to etp27
                 base_eth = 160 + (i - 20) * 8
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % base_eth
