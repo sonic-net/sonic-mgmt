@@ -44,7 +44,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: voq-qual/internal-202405-chassis
+    default: voq_qual/internal-202405-chassis
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
