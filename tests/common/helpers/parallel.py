@@ -29,6 +29,7 @@ class SonicProcess(Process):
         Process.__init__(self, *args, **kwargs)
         self._pconn, self._cconn = Pipe()
         self._exception = None
+        self._exception_read = False  # Flag to track read status
 
     def run(self):
         try:
@@ -49,8 +50,16 @@ class SonicProcess(Process):
 
     @property
     def exception(self):
-        if self._pconn.poll():
-            self._exception = self._pconn.recv()
+        """Read exception data once and close parent-side pipe."""
+        if not self._exception_read:
+            try:
+                if self._pconn.poll():
+                    self._exception = self._pconn.recv()
+            except (EOFError, OSError):
+                pass  # Handle closed pipe or terminated process
+            finally:
+                self._pconn.close()
+                self._exception_read = True
         return self._exception
 
 
@@ -165,11 +174,14 @@ def parallel_run(
         # todo: Sometimes process run to the end but still alive, causing exception hidden.
         #       Explicitly check the process exception to prevent exception miss.
         #       Remove this temp fix once resolve the process alive problem.
-        for worker in alive:
-            if worker.exception is not None:
-                failed_processes[worker.name] = {}
-                failed_processes[worker.name]['exit_code'] = worker.exitcode
-                failed_processes[worker.name]['exception'] = worker.exception
+        # check if we have any processes that failed - have exitcode non-zero or exception not none
+        for worker in gone + alive:
+            worker_exception = worker.exception  # Force-read to prevent pipe hangs
+            if worker.exitcode != 0 or worker_exception is not None:
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker_exception
+                }
 
         if len(gone) == 0:
             logger.debug("all processes have timedout")
@@ -180,13 +192,6 @@ def parallel_run(
         else:
             tasks_running -= len(gone)
             tasks_done += len(gone)
-
-        # check if we have any processes that failed - have exitcode non-zero
-        for worker in gone:
-            if worker.exitcode != 0:
-                failed_processes[worker.name] = {}
-                failed_processes[worker.name]['exit_code'] = worker.exitcode
-                failed_processes[worker.name]['exception'] = worker.exception
 
     # In case of timeout force terminate spawned processes
     for worker in workers:
