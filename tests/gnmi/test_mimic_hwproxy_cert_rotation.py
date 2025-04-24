@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from .helper import gnmi_capabilities
+from tests.common.utilities import get_image_type
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             elif feature == "telemetry" and state == "enabled":
                 telemetry_enabled = True
 
-    if "internal" in duthost.os_version:
+    if get_image_type(duthost) != "public":
         pytest_assert(
             gnmi_enabled or telemetry_enabled,
             "Internal image has neither gnmi nor telemetry feature enabled"
@@ -61,6 +62,15 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             duthost.command(disable_feature, module_ignore_errors=True)
             # rotate gnmi cert
             setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
+            # set gnmi table
+            set_table = 'sonic-db-cli CONFIG_DB hset "GNMI|gnmi"   client_auth "true"   log_level "2"   \
+                    port "50052"'
+            duthost.command(set_table, module_ignore_errors=True)
+            set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
+                    ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
+                    server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
+                    server_key "/etc/sonic/telemetry/gnmiserver.key"'
+            duthost.command(set_table_cert, module_ignore_errors=True)
             # enable feature
             enable_feature = 'sudo config feature state gnmi enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
@@ -79,6 +89,15 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             duthost.command(disable_feature, module_ignore_errors=True)
             # rotate telemetry cert
             setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
+            # set telemetry table
+            set_table = 'sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi"   client_auth "true"   log_level "2"   \
+                    port "50051"'
+            duthost.command(set_table, module_ignore_errors=True)
+            set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
+                    ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
+                    server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
+                    server_key "/etc/sonic/telemetry/gnmiserver.key"'
+            duthost.command(set_table_cert, module_ignore_errors=True)
             # enable feature
             enable_feature = 'sudo config feature state telemetry enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
