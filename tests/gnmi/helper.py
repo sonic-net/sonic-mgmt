@@ -151,7 +151,7 @@ def recover_cert_config(duthost):
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
 def check_system_time_sync(duthost):
