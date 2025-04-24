@@ -274,8 +274,9 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    # Use integer division for Python 3 compatibility
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
@@ -620,9 +621,16 @@ class TestVrfCreateAndBind():
 
         for vrf, intfs in list(g_vars['vrf_intfs'].items()):
             for intf in intfs:
-                res = duthost.shell("ip link show %s" % intf)
-                assert vrf in res['stdout'], "The master dev of interface %s should be %s !" % (
-                    intf, vrf)
+                def check_intf_in_vrf():
+                    try:
+                        res = duthost.shell("ip link show %s" % intf)
+                        return vrf in res['stdout']
+                    except Exception:
+                        return False
+
+                # Wait up to 60 seconds for the interface to be bound to the VRF
+                pytest_assert(wait_until(60, 2, 0, check_intf_in_vrf),
+                              "The master dev of interface %s should be %s!" % (intf, vrf))
 
     def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
