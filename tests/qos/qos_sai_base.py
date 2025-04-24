@@ -14,11 +14,13 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
-    import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result  # noqa F401
+    import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa F401
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
@@ -27,6 +29,11 @@ from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
+from tests.common.devices.eos import EosHost
+from .qos_helpers import dutBufferConfig
+from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +42,14 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
-                          "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
-                          "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
+    SUPPORTED_T0_TOPOS = [
+        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
+        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "t0-120", "t0-80", "t0-backend",
+        "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
+        "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
+    ]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag",
+                          "t1-isolated-d28u1"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2", "th5"]
@@ -146,7 +157,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=relax,
-            timeout=1200,
+            timeout=1850,
             socket_recv_size=16384,
             custom_options=custom_options,
             pdb=pdb
@@ -226,6 +237,9 @@ class QosSaiBase(QosBase):
                 port_dynamic_th = dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
+                port_profile_reserved_size = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                )[0]
                 break
         if port_dynamic_th:
 
@@ -245,17 +259,24 @@ class QosSaiBase(QosBase):
                 )[0]
             )
 
-            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+            pg_q_reserved_size = int(port_profile_reserved_size) * pg_q_alpha / (1 + pg_q_alpha)
+            reserved_size = pg_q_reserved_size if pg_q_reserved_size > int(pg_q_buffer_profile["size"]) \
+                else int(pg_q_buffer_profile["size"])
+
+            if pg_q_buffer_profile['dynamic_th'] == "7" and port_dynamic_th != "7":
+                buffer_scale = port_alpha / (1 + port_alpha)
+            else:
+                buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
 
             pg_q_max_occupancy = int(buffer_size * buffer_scale)
 
             pg_q_buffer_profile.update(
-                {"static_th": int(
-                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+                {"static_th": int(pg_q_max_occupancy) + int(reserved_size)}
             )
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -340,8 +361,24 @@ class QosSaiBase(QosBase):
             else:
                 bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+            profile_content = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])
+            if profile_content:
+                bufferProfileName = bufkeystr + profile_content[0]
+            else:
+                logger.info("No lossless buffer. To compatible the existing case, return dump bufferProfilfe")
+                dump_buffer_profile = {
+                    "profileName": f"{bufkeystr}pg_lossless_0_0m_profile",
+                    "pool": "ingress_lossless_pool",
+                    "xon": "0",
+                    "xoff": "0",
+                    "size": "0",
+                    "dynamic_th": "0",
+                    "pg_q_alpha": "0",
+                    "port_alpha": "0",
+                    "pool_size": "0",
+                    "static_th": "0"
+                }
+                return dump_buffer_profile
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -352,7 +389,9 @@ class QosSaiBase(QosBase):
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
-            if dut_asic.sonichost.facts['platform'] == "x86_64-nvidia_sn5600-r0":
+            platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
+                                                                    "x86_64-nvidia_sn5400-r0"]
+            if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
             else:
                 self.__computeBufferThreshold(dut_asic, bufferProfile)
@@ -559,8 +598,9 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    @pytest.fixture(scope='class')
-    def swapSyncd_on_selected_duts(self, request, duthosts, get_src_dst_asic_and_duts, creds, tbinfo, lower_tor_host): # noqa F811
+    @pytest.fixture(scope='module')
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host, # noqa F811
+                                   core_dump_and_config_check): # noqa F811
         """
             Swap syncd on DUT host
 
@@ -571,7 +611,15 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        asic_type = duthosts[0].facts["asic_type"]
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = [lower_tor_host]
+        else:
+            dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
+        if asic_type == "vs":
+            logger.info("Swap syncd is not supported on VS platform")
+            swapSyncd = False
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
             if swapSyncd:
@@ -582,13 +630,18 @@ class QosSaiBase(QosBase):
                     new_creds['docker_registry_password'] = ''
                 else:
                     new_creds = creds
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
-                    docker.swap_syncd(duthost, new_creds)
+
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.swap_syncd, duthost, new_creds)
+
             yield
+
         finally:
             if swapSyncd:
-                for duthost in get_src_dst_asic_and_duts["all_duts"]:
-                    docker.restore_default_syncd(duthost, new_creds)
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in dut_list:
+                        executor.submit(docker.restore_default_syncd, duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=["single_asic", "single_dut_multi_asic",
@@ -602,6 +655,8 @@ class QosSaiBase(QosBase):
         dst_dut_index = 0
         src_asic_index = 0
         dst_asic_index = 0
+        src_long_link = False
+        dst_long_link = False
         topo = tbinfo["topo"]["name"]
         if 'dualtor' in tbinfo['topo']['name']:
             # index of lower_tor_host
@@ -610,12 +665,21 @@ class QosSaiBase(QosBase):
                     lower_tor_dut_index = a_dut_index
                     break
 
+        number_of_duts = len(duthosts.frontend_nodes)
+        is_longlink_list = [False] * number_of_duts
+        for i in range(number_of_duts):
+            if self.isLonglink(duthosts.frontend_nodes[i]):
+                is_longlink_list[i] = True
+        shortlink_indices = [i for i, longlink in enumerate(is_longlink_list) if not longlink]
+
         duthost = duthosts.frontend_nodes[0]
         if test_port_selection_criteria == 'single_asic':
             # We should randomly pick a dut from duthosts.frontend_nodes and a random asic in that selected DUT
             # for now hard code the first DUT and the first asic
             if 'dualtor' in tbinfo['topo']['name']:
                 src_dut_index = lower_tor_dut_index
+            elif topo not in (self.SUPPORTED_T0_TOPOS + self.SUPPORTED_T1_TOPOS) and shortlink_indices:
+                src_dut_index = random.choice(shortlink_indices)
             else:
                 src_dut_index = 0
             dst_dut_index = src_dut_index
@@ -623,22 +687,32 @@ class QosSaiBase(QosBase):
             dst_asic_index = 0
 
         elif test_port_selection_criteria == "single_dut_multi_asic":
+            found_multi_asic_dut = False
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
-            found_multi_asic_dut = False
-            for a_dut_index in range(len(duthosts.frontend_nodes)):
-                a_dut = duthosts.frontend_nodes[a_dut_index]
-                if a_dut.sonichost.is_multi_asic:
-                    src_dut_index = a_dut_index
-                    dst_dut_index = a_dut_index
-                    src_asic_index = 0
-                    dst_asic_index = 1
-                    found_multi_asic_dut = True
-                    logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
-                    break
+            if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
+                random.shuffle(shortlink_indices)
+                for idx in shortlink_indices:
+                    a_dut = duthosts.frontend_nodes[idx]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = idx
+                        found_multi_asic_dut = True
+                        break
+            else:
+                for a_dut_index in range(len(duthosts.frontend_nodes)):
+                    a_dut = duthosts.frontend_nodes[a_dut_index]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = a_dut_index
+                        found_multi_asic_dut = True
+                        logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
+                        break
             if not found_multi_asic_dut:
                 pytest.skip(
                     "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            dst_dut_index = src_dut_index
+            src_asic_index = 0
+            dst_asic_index = 1
+
         else:
             # Dealing with multi-dut
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
@@ -648,12 +722,6 @@ class QosSaiBase(QosBase):
 
             if (len(duthosts.frontend_nodes)) < 2:
                 pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
-
-            number_of_duts = len(duthosts.frontend_nodes)
-            is_longlink_list = [False] * number_of_duts
-            for i in range(number_of_duts):
-                if self.isLonglink(duthosts.frontend_nodes[i]):
-                    is_longlink_list[i] = True
 
             if test_port_selection_criteria == 'multi_dut_shortlink_to_shortlink':
                 if is_longlink_list.count(False) < 2:
@@ -668,9 +736,11 @@ class QosSaiBase(QosBase):
                 if test_port_selection_criteria == 'multi_dut_longlink_to_shortlink':
                     src_dut_index = is_longlink_list.index(True)
                     dst_dut_index = is_longlink_list.index(False)
+                    src_long_link = True
                 else:
                     src_dut_index = is_longlink_list.index(False)
                     dst_dut_index = is_longlink_list.index(True)
+                    dst_long_link = True
 
             src_asic_index = 0
             dst_asic_index = 0
@@ -679,7 +749,9 @@ class QosSaiBase(QosBase):
             "src_dut_index": src_dut_index,
             "dst_dut_index": dst_dut_index,
             "src_asic_index": src_asic_index,
-            "dst_asic_index": dst_asic_index
+            "dst_asic_index": dst_asic_index,
+            "src_long_link": src_long_link,
+            "dst_long_link": dst_long_link
         }
 
     @pytest.fixture(scope='class')
@@ -774,7 +846,8 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
-        if get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+        if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
+                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -902,6 +975,16 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
+        src_mgFacts['minigraph_ptf_indices'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
+            if not key.startswith("Ethernet-BP")
+            }
+        src_mgFacts['minigraph_ports'] = {
+            key: value
+            for key, value in src_mgFacts['minigraph_ports'].items()
+            if not key.startswith("Ethernet-BP")
+            }
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
@@ -972,6 +1055,12 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
 
+            if isMellanoxDevice(src_dut):
+                dualtor_dut_ports = dualtor_ports_for_duts if topo in self.SUPPORTED_PTF_TOPOS else None
+                testPortIds[src_dut_index][src_asic_index] = self.select_port_ids_for_mellnaox_device(
+                    src_dut, src_mgFacts, testPortIds[src_dut_index][src_asic_index], dualtor_dut_ports)
+                dualTorPortIndexes = testPortIds
+
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
@@ -1014,8 +1103,9 @@ class QosSaiBase(QosBase):
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
                     if (use_separated_upkink_dscp_tc_map or
-                            get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] ==
-                            "Cisco-8101-O8C48"):
+                        (get_src_dst_asic_and_duts["src_asic"]
+                         .sonichost.facts["hwsku"]
+                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1060,6 +1150,7 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index][src_asic_index] = {}
             sysPortMap[src_dut_index][src_asic_index] = {}
             active_ips = src_asic.get_active_ip_interfaces(tbinfo)
+            src_namespace_prefix = src_asic.namespace + '|' if src_asic.namespace else f'Asic{src_asic.asic_index}|'
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
@@ -1068,7 +1159,7 @@ class QosSaiBase(QosBase):
                     # Map port IDs to system port for dnx chassis
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                        sys_key = src_asic.namespace + '|' + iface if src_asic.namespace else iface
+                        sys_key = src_namespace_prefix + iface
                         if sys_key in src_system_port:
                             system_port = src_system_port[sys_key]['system_port_id']
                             sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1085,7 +1176,7 @@ class QosSaiBase(QosBase):
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
-                            sys_key = src_asic.namespace + '|' + portName if src_asic.namespace else portName
+                            sys_key = src_namespace_prefix + portName
                             port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
                             if sys_key in src_system_port:
                                 system_port = src_system_port[sys_key]['system_port_id']
@@ -1103,6 +1194,7 @@ class QosSaiBase(QosBase):
                     dutPortIps[dst_dut_index] = {}
                     testPortIds[dst_dut_index] = {}
                     sysPortMap[dst_dut_index] = {}
+                    dst_system_port = {}
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         dst_system_port = dst_dut.config_facts(host=dst_dut.hostname, source='running')[
@@ -1112,6 +1204,7 @@ class QosSaiBase(QosBase):
                     dst_system_port = src_system_port
                 dutPortIps[dst_dut_index][dst_asic_index] = {}
                 sysPortMap[dst_dut_index][dst_asic_index] = {}
+                dst_namespace_prefix = dst_asic.namespace + '|' if dst_asic.namespace else f'Asic{dst_asic.asic_index}|'
                 active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
@@ -1121,7 +1214,7 @@ class QosSaiBase(QosBase):
                         # Map port IDs to system port IDs
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                            sys_key = dst_asic.namespace + '|' + iface if dst_asic.namespace else iface
+                            sys_key = dst_namespace_prefix + iface
                             if sys_key in dst_system_port:
                                 system_port = dst_system_port[sys_key]['system_port_id']
                                 sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1138,7 +1231,7 @@ class QosSaiBase(QosBase):
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                             for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
-                                sys_key = dst_asic.namespace + '|' + portName if dst_asic.namespace else portName
+                                sys_key = dst_namespace_prefix + portName
                                 port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
                                 if sys_key in dst_system_port:
                                     system_port = dst_system_port[sys_key]['system_port_id']
@@ -1150,35 +1243,42 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             testPortIps.update(dutPortIps)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-        # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
-        hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
-
-        # Get dst_dut asic type
-        if dst_dut != src_dut:
-            vendor = dst_dut.facts["asic_type"]
-            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
-            dstDutAsic = None
+        qosConfigs = {}
+        if vendor == "vs":
+            with open(r"qos/files/vs/dutConfig.json") as file:
+                dutConfig = json.load(file)
+                qosConfigs = dutConfig["qosConfigs"]
+                dutAsic = "vs"
+                dstDutAsic = "vs"
+        else:
+            with open(r"qos/files/qos.yml") as file:
+                qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+            # Assuming the same chipset for all DUTs so can use src_dut to get asic type
+            hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            dutAsic = None
             for asic in self.SUPPORTED_ASIC_LIST:
                 vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                    dstDutAsic = asic
+                if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dutAsic = asic
                     break
 
-            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
-        else:
-            dstDutAsic = dutAsic
+            pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+            # Get dst_dut asic type
+            if dst_dut != src_dut:
+                vendor = dst_dut.facts["asic_type"]
+                hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+                dstDutAsic = None
+                for asic in self.SUPPORTED_ASIC_LIST:
+                    vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                    if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                        dstDutAsic = asic
+                        break
+
+                pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+            else:
+                dstDutAsic = dutAsic
 
         dutTopo = "topo-"
 
@@ -1302,7 +1402,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
+            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports):  # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1341,20 +1441,24 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        is_dualtor_active_standby = is_dualtor and active_standby_ports
+        """ Stop mux container for dual ToR Active-Standby """
+        if is_dualtor:
+            if is_dualtor_active_standby:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR, retries=3)
-            check_result = wait_until(
-                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-            validate_check_result(check_result, duthosts, get_mux_status)
-
             try:
                 lower_tor_host.shell("ls %s" % file)
                 lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
                 lower_tor_host.shell("sudo rm {}".format(file))
                 lower_tor_host.shell("sudo touch {}".format(file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
@@ -1364,8 +1468,6 @@ class QosSaiBase(QosBase):
         src_services = [
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
@@ -1374,34 +1476,45 @@ class QosSaiBase(QosBase):
             dst_services = [
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
                 {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             disable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
-        for service in src_services:
-            updateDockerService(src_dut, action="stop", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="stop", **service)
+
+        src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-            for service in dst_services:
-                updateDockerService(dst_dut, action="stop", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="stop", **service)
+
+            dst_dut.shell("sudo config bgp shutdown all")
+
         yield
 
-        for service in src_services:
-            updateDockerService(src_dut, action="start", **service)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for service in src_services:
+                executor.submit(updateDockerService, src_dut, action="start", **service)
+
+        src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            for service in dst_services:
-                updateDockerService(dst_dut, action="start", **service)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for service in dst_services:
+                    executor.submit(updateDockerService, dst_dut, action="start", **service)
+
+            dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             try:
                 lower_tor_host.shell("ls %s" % backup_file)
                 lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
@@ -1417,7 +1530,7 @@ class QosSaiBase(QosBase):
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             enable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -1504,26 +1617,6 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost, dut_asic):
-        bufferConfig = {}
-        try:
-            ns_spec = ""
-            ns = dut_asic.get_asic_namespace()
-            if ns is not None:
-                # multi-asic support
-                ns_spec = " -n " + ns
-            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
-        except Exception as err:
-            logger.info(err)
-        return bufferConfig
-
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1600,8 +1693,11 @@ class QosSaiBase(QosBase):
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            elif dutAsic == 'th5':
+                logger.info("Generator script not implemented for TH5")
+                qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+                bufferConfig = dutBufferConfig(duthost, dut_asic)
                 pytest_assert(len(bufferConfig) == 4,
                               "buffer config is incompleted")
                 pytest_assert('BUFFER_POOL' in bufferConfig,
@@ -1635,7 +1731,7 @@ class QosSaiBase(QosBase):
                                                             'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+            bufferConfig = dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
                           'BUFFER_POOL does not exist in bufferConfig')
             pytest_assert('BUFFER_PROFILE' in bufferConfig,
@@ -1670,6 +1766,11 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+        elif dutAsic == 'vs':
+            with open(r"qos/files/vs/dutQosConfig.json") as file:
+                dutQosConfig = json.load(file)
+                qosParams = dutQosConfig["param"]
+                portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1695,10 +1796,13 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
-            testParams=dutTestParams["basicParams"]
-        )
+        if isMellanoxDevice(duthosts[0]):
+            logger.info("skip reaseAllports fixture for mellanox device")
+        else:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
+                testParams=dutTestParams["basicParams"]
+            )
 
     def __loadSwssConfig(self, duthost):
         """
@@ -1844,22 +1948,62 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
-                         swapSyncd_on_selected_duts):
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
-            docker0_ipv6_addr = \
-                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
-                    "stdout_lines"][0]
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts): # noqa F811
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_list = [lower_tor_host]
+        else:
+            dut_list = duthosts.frontend_nodes
+
+        all_docker0_ipv6_addrs = {}
+        for duthost in dut_list:
+            try:
+                all_docker0_ipv6_addrs[duthost.hostname] = \
+                    duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                        "stdout_lines"][0]
+            except IndexError:
+                logger.info(
+                    "Couldnot get the ipv6 address for docker0 for the"
+                    " host:{}".format(duthost.hostname))
+                all_docker0_ipv6_addrs[duthost.hostname] = None
+
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
+        for duthost in dut_list:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
-            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
-            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+            if all_docker0_ipv6_addrs[duthost.hostname] is not None:
+                logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+                duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
+
+        # TODO: Do we really need this ?
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in dut_list:
+                executor.submit(
+                    config_reload,
+                    duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                )
+
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_pfcwd(self, duthosts):
+        switch_type = duthosts[0].facts.get('switch_type')
+        if switch_type != 'chassis-packet':
+            yield
+            return
+
+        # for packet chassis, the packet may go through backplane
+        # once tx is disabled on egress port, the continuous PFC PAUSE frame will trigger PFCWD on backplane ports
+        # to avoid the impact, we will disable it first before running the test
+        pfcwd_value = {}
+        for duthost in duthosts:
+            pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+            stop_pfcwd(duthost)
+            disable_packet_aging(duthost)
+        yield
+        for duthost in duthosts:
+            reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+            enable_packet_aging(duthost)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2001,12 +2145,25 @@ class QosSaiBase(QosBase):
 
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
+        is_lossy_queue_only = False
+
         if srcport in dualtor_ports_for_duts:
             queues = "0-1"
         else:
-            queues = "0-2"
+            if isMellanoxDevice(duthost):
+                cable_len = dut_asic.shell(f"redis-cli -n 4 hget 'CABLE_LENGTH|AZURE' {srcport}")['stdout']
+                if cable_len == '0m':
+                    is_lossy_queue_only = True
+                    logger.info(f"{srcport} has only lossy queue")
+            if is_lossy_queue_only:
+                is_lossy_queue_only = True
+                queue_table_postfix_list = ['0-3', '4', '5']
+                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
+                queues = random.choice(queue_table_postfix_list)
+            else:
+                queues = "0-2"
 
-        yield self.__getBufferProfile(
+        egress_lossy_profile = self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
@@ -2015,6 +2172,12 @@ class QosSaiBase(QosBase):
             srcport,
             queues
         )
+        if is_lossy_queue_only:
+            egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
+        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
+
+        yield egress_lossy_profile
 
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
@@ -2217,7 +2380,7 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(scope='class', autouse=True)
     def set_static_route(
             self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
         # Get portchannels.
@@ -2446,7 +2609,7 @@ class QosSaiBase(QosBase):
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
 
-    @pytest.fixture(scope="function", autouse=False)
+    @pytest.fixture(scope="class", autouse=False)
     def set_static_route_ptf64(self, dutConfig, get_src_dst_asic_and_duts, dutTestParams, enum_frontend_asic_index):
         def generate_ip_address(base_ip, new_first_octet):
             octets = base_ip.split('.')
@@ -2521,11 +2684,10 @@ class QosSaiBase(QosBase):
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
         tc_to_dscp_count_map = {}
-        for tc in range(8):
-            tc_to_dscp_count_map[tc] = 0
         config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
         dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
         for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map.setdefault(int(tc), 0)
             tc_to_dscp_count_map[int(tc)] += 1
         yield tc_to_dscp_count_map
 
@@ -2543,3 +2705,115 @@ class QosSaiBase(QosBase):
                     if cable_length >= 120000:
                         return True
         return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams,
+                              request):
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            dst_dut = get_src_dst_asic_and_duts['dst_dut']
+            dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
+            dst_interfaces = []
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_id']])
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_2_id']])
+            dst_interfaces.append(dutConfig['dutInterfaces'][dutConfig['testPorts']['dst_port_3_id']])
+            lag_names = []
+            for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
+                for member in port_intf['members']:
+                    if member in dst_interfaces:
+                        lag_names.append(port_ch)
+                        break
+            if len(lag_names) == 0:
+                yield
+                return
+            lag_facts = dst_dut.lag_facts(host=dst_dut.hostname)['ansible_facts']['lag_facts']
+            vm_host_neighbor_lag_members = {}
+            for lag_name in lag_names:
+                po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+                vm_neighbors = dst_mgfacts['minigraph_neighbors']
+                neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
+                neigh_intf = next(iter(po_interfaces.keys()))
+                peer_device = vm_neighbors[neigh_intf]['name']
+                vm_host = nbrhosts[peer_device]['host']
+                vm_host_neighbor_lag_members[vm_host] = []
+                num = 600
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to 600 for %s in %s" % (neighbor_lag_member, peer_device))
+                    if isinstance(vm_host, EosHost):
+                        vm_host_neighbor_lag_members[vm_host].append(neighbor_lag_member)
+                        vm_host.set_interface_lacp_time_multiplier(neighbor_lag_member, num)
+
+        yield
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
+                    vm_host.no_lacp_time_multiplier(neighbor_lag_member)
+
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+        if dut.facts['asic_type'] != "cisco-8000":
+            raise RuntimeError("This function should have been called only for cisco-8000.")
+        dshell_script = '''
+from common import *
+from sai_utils import *
+
+def set_port_cir(interface, rate):
+    mp = get_mac_port(interface)
+    sch = mp.get_scheduler()
+    sch.set_credit_cir(rate)
+    sch.set_credit_eir_or_pir(rate, False)
+
+'''
+
+        for intf in ports:
+            dshell_script += f'\nset_port_cir("{intf}", {speed})'
+
+        script_path = "/tmp/set_scheduler.py"
+        dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
+        dut.docker_copy_to_all_asics(
+            container_name=dest,
+            src=script_path,
+            dst="/")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
+        dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_index = dst_asic.asic_index
+
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            yield
+            return
+
+        interfaces = [dst_port]
+        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
+        mgfacts = dst_dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if dst_port in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
+                    dst_port, portchan, members))
+                interfaces = members
+                break
+
+        # Set scheduler to 5 Gbps.
+        self.copy_set_cir_script_cisco_8000(
+            dut=dst_dut,
+            ports=interfaces,
+            asic=dst_index,
+            speed=5 * 1000 * 1000 * 1000)
+
+        yield
+        return

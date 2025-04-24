@@ -15,6 +15,7 @@ all:
             sonic_multi_asic_2:
             sonic_msft_sup:
             sonic_msft_lc_100G:
+            sonic_cisco_vs:
         fanout:
           hosts:
             str-7260-10:
@@ -160,6 +161,40 @@ sonic_a7260:
         "0x2d": "Arista Networks"
         "0x2e": "Aboot-norcal7-7.2.3-pcie2x4-12345678"
 
+sonic_nokia_multi_asic_lc:
+  vars:
+    hwsku: Nokia-IXR7250E-36x400G
+    iface_speed: 400000
+    num_asics: 2
+    start_topo_service: True
+    frontend_asics: [0,1]
+    card_type: linecard
+  hosts:
+    vlab-t2-03:
+      ansible_host: 10.250.0.123
+      ansible_hostv6: fec0::ffff:afa:13
+      slot_num: slot1
+      loopback4096_ip: [192.0.0.0/32, 192.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128]
+    vlab-t2-04:
+      ansible_host: 10.250.0.124
+      ansible_hostv6: fec0::ffff:afa:14
+      slot_num: slot2
+      loopback4096_ip: [192.0.0.3/32, 192.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
+
+sonic_nokia_sup:
+  vars:
+    hwsku: Nokia-IXR7250E-SUP-10
+    iface_speed: 400000
+    start_topo_service: True
+    card_type: supervisor
+  hosts:
+    vlab-t2-sup1:
+      ansible_host: 10.250.0.125
+      ansible_hostv6: fec0::ffff:afa:15
+      slot_num: slot0
+
 sonic_multi_asic:
   vars:
     hwsku: msft_multi_asic_vs
@@ -223,3 +258,23 @@ sonic_msft_lc_100G:
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 2.2.2.5
+
+sonic_cisco_vs:
+  vars:
+    hwsku: cisco-8101-p4-32x100-vs
+    iface_speed: 100000
+  hosts:
+    vlab-c-01:
+      hwsku: cisco-8101-p4-32x100-vs
+      ansible_host: 10.250.0.125
+      ansible_hostv6: fec0::ffff:afa:13
+    vlab-c-02:
+      ansible_host: 10.250.0.125
+      ansible_hostv6: fec0::ffff:afb:8
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9025
+      ansible_password: password
+      ansible_user: admin
+      ansible_ssh_user: admin
+      ansible_altpassword: admin

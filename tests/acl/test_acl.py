@@ -18,21 +18,23 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
-from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
+from tests.common.fixtures.ptfhost_utils import \
+    copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
+from tests.common.utilities import get_iface_ip
+from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -47,7 +49,7 @@ ACL_REMOVE_RULES_FILE = "acl_rules_del.json"
 
 # TODO: We really shouldn't have two separate templates for v4 and v6, need to combine them somehow
 ACL_RULES_FULL_TEMPLATE = {
-    "ipv4": "acltb_test_rules.j2",
+    "ipv4": "acltb_test_rules_permit_loopback.j2",
     "ipv6": "acltb_v6_test_rules.j2"
 }
 ACL_RULES_PART_TEMPLATES = {
@@ -73,7 +75,7 @@ DOWNSTREAM_IP_TO_ALLOW = {
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -91,6 +93,9 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 }
 
 # Below M0_VLAN IPs are ip in vlan range
+# Note: If two_vlan_a is used, the IP range should choose
+# DOWNSTREAM_DST_IP_VLAN and DOWNSTREAM_DST_IP_VLAN2000
+# separately for each vlan
 DOWNSTREAM_DST_IP_VLAN = {
     "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
@@ -258,7 +263,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
+          tbinfo, ptfadapter, topo_scenario, vlan_name):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -272,11 +278,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     """
 
     pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+    # NOTE: We cannot use rand_unselected_dut in this case
+    # ATM it's only used if 'dualtor' in tbinfo['topo']['name']
+    if topo == "t2":
+        rand_selected_dut = rand_selected_front_end_dut
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     vlan_ports = []
     vlan_mac = None
+    vlan_config = None
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
@@ -302,6 +313,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
+    elif tbinfo['topo']['type'] in ['t0']:
+        try:
+            vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
+            if vlan_config == 'two_vlan_a':
+                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
+                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
+                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
+                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+        except KeyError:
+            logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
     if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"][vlan_name]["members"]]
@@ -358,27 +381,35 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # source or destination port
     if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
         peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+        lo_dev = "Loopback2"
         for interface, neighbor in list(peer_mg_facts['minigraph_neighbors'].items()):
             if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
                 port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
                 upstream_port_ids.append(port_id)
                 upstream_port_id_to_router_mac_map[port_id] = rand_unselected_dut.facts["router_mac"]
+    else:
+        lo_dev = "Loopback0"
 
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]
+    selected_tor_loopback_ip = get_iface_ip(mg_facts, lo_dev)
 
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag",
+                                                                              "t1-isolated-d28u1"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
+    if len(port_channels) and topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag",
+                                                                                               "t1-64-lag-clet",
+                                                                                               "t1-56-lag",
+                                                                                               "t1-28-lag",
+                                                                                               "t1-32-lag"):
 
-    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag", "t1-28-lag", "t1-32-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -405,7 +436,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
         "topo": topo,
-        "vlan_mac": vlan_mac
+        "topo_name": tbinfo["topo"]["name"],
+        "vlan_mac": vlan_mac,
+        "loopback_ip": selected_tor_loopback_ip,
+        "vlan_config": vlan_config
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -566,7 +600,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
         "table_name": table_name,
         "table_ports": ",".join(setup["acl_table_ports"]['']),
         "table_stage": stage,
-        "table_type": "L3" if ip_version == "ipv4" else "L3V6"
+        "table_type": "L3" if ip_version == "ipv4" else "L3V6",
+        "loopback_ip": setup["loopback_ip"]
     }
     logger.info("Generated ACL table configuration:\n{}".format(pprint.pformat(acl_table_config)))
 
@@ -624,7 +659,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
     @abstractmethod
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -634,7 +669,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):   # noqa F811
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
         """Perform actions after rules have been applied.
 
         Args:
@@ -664,7 +699,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     @pytest.fixture(scope="class", autouse=True)
     def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
-                  ip_version, conn_graph_facts):   # noqa F811
+                  ip_version, conn_graph_facts):        # noqa: F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -704,7 +739,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                        duthost, LOG_EXPECT_ACL_RULE_REMOVE_RE)
 
     def set_up_acl_rules_single_dut(self, acl_table,
-                                    conn_graph_facts, dut_to_analyzer_map, duthost, # noqa F811
+                                    conn_graph_facts, dut_to_analyzer_map, duthost,     # noqa: F811
                                     ip_version, localhost,
                                     populate_vlan_arp_entries, tbinfo):
         logger.info("{}: ACL rule application started".format(duthost.hostname))
@@ -718,7 +753,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                self.setup_rules(duthost, acl_table, ip_version)
+                self.setup_rules(duthost, acl_table, ip_version, tbinfo)
                 # Give the dut some time for the ACL rules to be applied and LOG message generated
                 wait_until(300, 20, 0, check_msg_in_syslog,
                            duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
@@ -807,10 +842,8 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     continue
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
-                if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
-                        duthost.facts["hwsku"] == "Cisco-8111-O32" or
-                        duthost.facts["hwsku"] == "Cisco-8111-C32" or
-                        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
+                if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
+                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
@@ -967,69 +1000,71 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         return exp_pkt
 
-    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage, skip_traffic_test):   # noqa F811
+    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that unmatched packets are dropped for ingress."""
         if stage == "egress":
             pytest.skip("Only run for ingress")
 
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 
-    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage, skip_traffic_test):  # noqa F811
+    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that default egress rule allow all traffics"""
         if stage == "ingress":
             pytest.skip("Only run for egress")
 
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
 
     def test_source_ip_match_forwarded(self, setup, direction, ptfadapter,
-                                       counters_sanity_check, ip_version, skip_traffic_test):   # noqa F811
+                                       counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on source IP."""
         src_ip = "20.0.0.2" if ip_version == "ipv4" else "60c0:a800::6"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(1)
 
     def test_rules_priority_forwarded(self, setup, direction, ptfadapter,
-                                      counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
-        """Verify that we respect rule priorites in the forwarding case."""
+                                      counters_sanity_check, ip_version):
+        """Verify that we respect rule priorities in the forwarding case."""
         src_ip = "20.0.0.7" if ip_version == "ipv4" else "60c0:a800::7"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(20)
 
     def test_rules_priority_dropped(self, setup, direction, ptfadapter,
-                                    counters_sanity_check, ip_version, skip_traffic_test):      # noqa F811
-        """Verify that we respect rule priorites in the drop case."""
+                                    counters_sanity_check, ip_version):
+        """Verify that we respect rule priorities in the drop case."""
         src_ip = "20.0.0.3" if ip_version == "ipv4" else "60c0:a800::4"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(7)
 
     def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter,
-                                     counters_sanity_check, ip_version, vlan_name, skip_traffic_test):  # noqa F811
+                                     counters_sanity_check, ip_version, vlan_name):
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
                     rule_id = 33 if vlan_name == "Vlan1000" else 2
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 2
         else:
@@ -1037,25 +1072,27 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         counters_sanity_check.append(rule_id)
 
     def test_dest_ip_match_dropped(self, setup, direction, ptfadapter,
-                                   counters_sanity_check, ip_version, vlan_name, skip_traffic_test):    # noqa F811
+                                   counters_sanity_check, ip_version, vlan_name):
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
-        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # Because m0_l3_scenario use different IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
                     rule_id = 32 if vlan_name == "Vlan1000" else 15
+                logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
+                    setup["topo"], setup["vlan_config"], vlan_name, rule_id))
             else:
                 rule_id = 15
         else:
@@ -1063,165 +1100,162 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         counters_sanity_check.append(rule_id)
 
     def test_source_ip_match_dropped(self, setup, direction, ptfadapter,
-                                     counters_sanity_check, ip_version, skip_traffic_test):     # noqa F811
+                                     counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on source IP."""
         src_ip = "20.0.0.6" if ip_version == "ipv4" else "60c0:a800::3"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(14)
 
     def test_udp_source_ip_match_forwarded(self, setup, direction, ptfadapter,
-                                           counters_sanity_check, ip_version, skip_traffic_test):       # noqa F811
+                                           counters_sanity_check, ip_version):
         """Verify that we can match and forward a UDP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(13)
 
     def test_udp_source_ip_match_dropped(self, setup, direction, ptfadapter,
-                                         counters_sanity_check, ip_version, skip_traffic_test):     # noqa F811
+                                         counters_sanity_check, ip_version):
         """Verify that we can match and drop a UDP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(26)
 
     def test_icmp_source_ip_match_dropped(self, setup, direction, ptfadapter,
-                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
+                                          counters_sanity_check, ip_version):
         """Verify that we can match and drop an ICMP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(25)
 
     def test_icmp_source_ip_match_forwarded(self, setup, direction, ptfadapter,
-                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
+                                            counters_sanity_check, ip_version):
         """Verify that we can match and forward an ICMP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(12)
 
     def test_l4_dport_match_forwarded(self, setup, direction, ptfadapter,
-                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
+                                      counters_sanity_check, ip_version):
         """Verify that we can match and forward on L4 destination port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x1217)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(9)
 
     def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter,
-                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
+                                      counters_sanity_check, ip_version):
         """Verify that we can match and forward on L4 source port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x120D)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(4)
 
     def test_l4_dport_range_match_forwarded(self, setup, direction, ptfadapter,
-                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
+                                            counters_sanity_check, ip_version):
         """Verify that we can match and forward on a range of L4 destination ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x123B)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(11)
 
     def test_l4_sport_range_match_forwarded(self, setup, direction, ptfadapter,
-                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
+                                            counters_sanity_check, ip_version):
         """Verify that we can match and forward on a range of L4 source ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x123A)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(10)
 
     def test_l4_dport_range_match_dropped(self, setup, direction, ptfadapter,
-                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
+                                          counters_sanity_check, ip_version):
         """Verify that we can match and drop on a range of L4 destination ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(22)
 
     def test_l4_sport_range_match_dropped(self, setup, direction, ptfadapter,
-                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
+                                          counters_sanity_check, ip_version):
         """Verify that we can match and drop on a range of L4 source ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(17)
 
     def test_ip_proto_match_forwarded(self, setup, direction, ptfadapter,
-                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
+                                      counters_sanity_check, ip_version):
         """Verify that we can match and forward on the IP protocol."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7E)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(5)
 
     def test_tcp_flags_match_forwarded(self, setup, direction, ptfadapter,
-                                       counters_sanity_check, ip_version, skip_traffic_test):       # noqa F811
+                                       counters_sanity_check, ip_version):
         """Verify that we can match and forward on the TCP flags."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x1B)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(6)
 
     def test_l4_dport_match_dropped(self, setup, direction, ptfadapter,
-                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
+                                    counters_sanity_check, ip_version):
         """Verify that we can match and drop on L4 destination port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(22)
 
     def test_l4_sport_match_dropped(self, setup, direction, ptfadapter,
-                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
+                                    counters_sanity_check, ip_version):
         """Verify that we can match and drop on L4 source port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(17)
 
     def test_ip_proto_match_dropped(self, setup, direction, ptfadapter,
-                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
+                                    counters_sanity_check, ip_version):
         """Verify that we can match and drop on the IP protocol."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7F)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(18)
 
     def test_tcp_flags_match_dropped(self, setup, direction, ptfadapter,
-                                     counters_sanity_check, ip_version, skip_traffic_test):         # noqa F811
+                                     counters_sanity_check, ip_version):
         """Verify that we can match and drop on the TCP flags."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x24)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(19)
 
     def test_icmp_match_forwarded(self, setup, direction, ptfadapter,
-                                  counters_sanity_check, ip_version, skip_traffic_test):            # noqa F811
+                                  counters_sanity_check, ip_version):
         """Verify that we can match and drop on the TCP flags."""
         src_ip = "20.0.0.10" if ip_version == "ipv4" else "60c0:a800::10"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip, icmp_type=3, icmp_code=1)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         counters_sanity_check.append(29)
 
-    def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version, skip_traffic_test):   # noqa F811
+    def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version):
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
 
         if ip_version == "ipv4":
             downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IP].dst)
         else:
             downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IPv6].dst)
-
-        if skip_traffic_test:
-            return
 
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.src_port, pkt)
@@ -1241,7 +1275,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 class TestBasicAcl(BaseAclTest):
     """Test Basic functionality of ACL rules (i.e. setup with full update on a running device)."""
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1249,8 +1283,26 @@ class TestBasicAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
+        loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
+        dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
 
         logger.info("Generating basic ACL rules config for ACL table \"{}\" on {}".format(table_name, dut))
 
@@ -1269,7 +1321,7 @@ class TestIncrementalAcl(BaseAclTest):
     multiple parts.
     """
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1277,8 +1329,25 @@ class TestIncrementalAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
+        loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
+        dut.host.options["variable_manager"].extra_vars.update({"loopback_ip": loopback_ip})
 
         logger.info("Generating incremental ACL rules config for ACL table \"{}\""
                     .format(table_name))
@@ -1298,8 +1367,9 @@ class TestAclWithReboot(TestBasicAcl):
     Verify that configuration persists correctly after reboot and is applied properly
     upon startup.
     """
-
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts): # noqa F811
+    # Flag to ensure reboot only happens once
+    dut_rebooted = False
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1308,12 +1378,14 @@ class TestAclWithReboot(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        if TestAclWithReboot.dut_rebooted:
+            return
+        TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
-        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
-
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1326,6 +1398,9 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
+        # Delay 10 seconds for route convergence
+        time.sleep(10)
+
         populate_vlan_arp_entries()
 
 
@@ -1335,8 +1410,9 @@ class TestAclWithPortToggle(TestBasicAcl):
 
     Verify that ACLs still function as expected after links flap.
     """
-
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):  # noqa F811
+    # Flag to ensure port toggle only happens once
+    dut_port_toggled = False
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
         """Toggle ports after rules are applied.
 
         Args:
@@ -1345,5 +1421,15 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        port_toggle(dut, tbinfo)
+        if TestAclWithPortToggle.dut_port_toggled:
+            return
+        TestAclWithPortToggle.dut_port_toggled = True
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis"):
+            port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        else:
+            port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()

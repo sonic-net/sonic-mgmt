@@ -9,7 +9,6 @@ import ptf.packet as packet
 import ptf.testutils as testutils
 from ptf.mask import Mask
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.config_reload import config_reload
 
@@ -51,9 +50,11 @@ def prepare_subnet_decap_config(rand_selected_dut):
 def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+
+    if not mg_facts['minigraph_portchannels']:
+        pytest.skip('No portchannels found in minigraph')
+
     dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
-    if not dut_port:
-        pytest.skip('No portchannels found')
     dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
@@ -192,23 +193,20 @@ def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, de
 
 
 def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
-                                recv_ports=[], recv_port=None, timeout=10, skip_traffic_test=False):    # noqa F811
-    if skip_traffic_test is True:
-        logger.info("Skip traffic test")
-        return
+                                recv_ports=[], recv_port=None, timeout=10):    # noqa F811
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, send_port, pkt)
+    testutils.send(ptfadapter, send_port, pkt, 10)
     if stage == "positive":
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=10)
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=timeout)
     elif stage == "negative":
-        testutils.verify_packet(ptfadapter, exp_pkt, recv_port, timeout=10)
+        testutils.verify_packet(ptfadapter, exp_pkt, recv_port, timeout=timeout)
 
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
 @pytest.mark.parametrize("stage", ["positive", "negative"])
 def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage,
                            prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
-                           prepare_negative_ip_port_map, setup_arp_responder, skip_traffic_test):     # noqa F811
+                           prepare_negative_ip_port_map, setup_arp_responder):     # noqa F811
     ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
 
     encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage)
@@ -221,5 +219,4 @@ def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapt
         ptf_target_port = None
 
     verify_packet_with_expected(ptfadapter, stage, encapsulated_packet, exp_pkt,
-                                ptf_src_port, recv_ports=upstream_port_ids, recv_port=ptf_target_port,
-                                skip_traffic_test=skip_traffic_test)
+                                ptf_src_port, recv_ports=upstream_port_ids, recv_port=ptf_target_port)

@@ -285,30 +285,31 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
 
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
+def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     snmp_ifnames = [v['name']
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
-    # Verify all physical ports in snmp interface list
-    for _, alias in list(config_facts['port_name_to_alias_map'].items()):
-        assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    # Verify all port channels in snmp interface list
-    for po_name in config_facts.get('PORTCHANNEL', {}):
-        assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
+        # Verify all physical ports of current ASIC are in snmp interface list
+        for _, alias in list(config_facts['port_name_to_alias_map'].items()):
+            assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+
+        # Verify all port channels of current ASIC are in snmp interface list
+        for po_name in config_facts.get('PORTCHANNEL', {}):
+            assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
 
 @pytest.mark.bsl
@@ -320,7 +321,7 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
         duthost.hostname).vars['ansible_host']
 
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
@@ -346,29 +347,29 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
             not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    ports_list = []
-    for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
-        ports_list.extend(list(config_facts.get(i, {}).keys()))
+        ports_list = []
+        for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
+            ports_list.extend(list(config_facts.get(i, {}).keys()))
 
-    dut_facts = collect_all_facts(duthost, ports_list, namespace)
-    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-    result = verify_port_ifindex(snmp_facts, speed_snmp)
-    pytest_assert(
-        not result, "Unexpected comparsion of SNMP: {}".format(result))
+        dut_facts = collect_all_facts(duthost, ports_list, asic.namespace)
+        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+        result = verify_port_ifindex(snmp_facts, speed_snmp)
+        pytest_assert(
+            not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
 def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
@@ -383,6 +384,16 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
     # Get interfaces oid
     port_oid = get_oid_for_interface(duthost, COUNTERS_PORT_NAME_MAP, port_interface, namespace)
     rif_oid = get_oid_for_interface(duthost, COUNTERS_RIF_NAME_MAP, rif_interface, namespace)
+    # Clear the counters from the cache to make test stable
+    # if "sonic-clear counters" was done before the test, /tmp/cache/intfstat and /tmp/cache/portstat will be created.
+    # if /tmp/cache/portstat exist, show interfaces counters will calculate the counters that get from redis-db and the
+    # value saved in the cache file. then the value will not be the number that get from the redis db
+    # if /tmp/cache/intfstat exist, show interfaces counters rif will calculate the counters that get from redis-db and
+    # the value saved in the cache file. then the value will not be the number that get from the redis db
+    # Clear the cache file to make sure that the "show interfaces counters" and "show interfaces counters rif" return
+    # the number that set in the redis-db.
+    duthost.shell("rm -rf /tmp/cache/intfstat", module_ignore_errors=True)
+    duthost.shell("rm -rf /tmp/cache/portstat", module_ignore_errors=True)
 
     logger.info('Set port and rif counters in COUNTERS DB')
     logger.info(f'Set port {port_interface} {SAI_PORT_STAT_IF_IN_ERRORS} counter to {COUNTER_VALUE}')
@@ -441,3 +452,5 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
     # Add loop check in case of snmp agent data update have not finished
     pytest_assert(wait_until(60, 10, 0, verify_snmp_counter, duthost, localhost, creds_all_duts, hostip, mg_facts,
                              rif_interface, rif_counters, port_counters), "SNMP counter validate Failure")
+    # clear all counters after the test
+    duthost.shell('sonic-clear counters')
