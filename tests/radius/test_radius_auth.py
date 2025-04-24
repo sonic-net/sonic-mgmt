@@ -1,11 +1,14 @@
 import pytest
 import shlex
+import time
 from .utils import (
     check_group_output,
     ssh_remote_run,
     ssh_remote_allow_run,
     ssh_remote_ban_run,
+    start_tcpdump_and_try_login,
     check_radius_stats,
+    verify_radius_capture,
 )
 
 from tests.common.helpers.assertions import pytest_assert
@@ -137,7 +140,6 @@ def test_radius_fallback(
     res = ssh_remote_run(
         localhost, dutip, newuser_quoted, localpw_quoted, "show radius"
     )
-    # verifying stats have incremented
     after_stats = check_radius_stats(duthost)
 
     pytest_assert(not res["failed"], res["stderr"])
@@ -169,11 +171,7 @@ def test_radius_failed_auth(
     )
 
 
-'''
-Commenting out this function until
-https://github.com/sonic-net/sonic-buildimage/issues/21386
-is fixed
-def test_radius_source_int(
+def test_radius_source_ip(
     localhost,
     duthosts,
     enum_rand_one_per_hwsku_hostname,
@@ -181,7 +179,7 @@ def test_radius_source_int(
     routed_interfaces,
     ptfhost,
 ):
-    """test RADIUS source interface feature"""
+    """test RADIUS source ip feature"""
     if len(routed_interfaces) == 0:
         pytest.skip(
             "DUT has no routed interfaces, skipping RADIUS source IP test"
@@ -202,5 +200,84 @@ def test_radius_source_int(
         duthost, ptfhost.mgmt_ip, localhost, radius_creds
     )
 
-    pytest_assert(verify_radius_capture(pcap_file, source_ip))
-'''
+    pytest_assert(
+        verify_radius_capture(pcap_file, source_ip),
+        "Source IP of RADIUS packet does not have expected value of {}".format(source_ip)
+    )
+
+
+def test_radius_mgmt_vrf(
+    localhost, duthosts, enum_rand_one_per_hwsku_hostname, radius_creds, ptfhost
+):
+    """Test RADIUS authentication with management VRF enabled"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    # Enable management VRF
+    try:
+        duthost.command("sudo config vrf add mgmt")
+        time.sleep(5)  # Wait for VRF to be created
+
+        # Verify RADIUS server is reachable through mgmt VRF
+        ping_result = duthost.shell("ip vrf exec mgmt ping -c 3 {}".format(ptfhost.mgmt_ip))
+        pytest_assert(ping_result['rc'] == 0,
+                      "RADIUS server not reachable through management VRF")
+
+        # Test RW user authentication through mgmt VRF
+        before_stats = check_radius_stats(duthost)
+        res = ssh_remote_run(
+            localhost,
+            dutip,
+            radius_creds["radius_rw_user"],
+            radius_creds["radius_rw_user_passwd"],
+            "cat /etc/group",
+        )
+        after_stats = check_radius_stats(duthost)
+
+        # Verify authentication was successful
+        check_group_output(res, radius_creds["radius_rw_user"], "rw")
+        pytest_assert(
+            after_stats["access_accepts"] > before_stats["access_accepts"],
+            "RADIUS authentication failed with management VRF enabled"
+        )
+        pytest_assert(
+            after_stats["access_rejects"] == before_stats["access_rejects"],
+            "Unexpected RADIUS authentication rejection with management VRF enabled"
+        )
+
+        # Test RO user authentication through mgmt VRF
+        before_stats = check_radius_stats(duthost)
+        res = ssh_remote_run(
+            localhost,
+            dutip,
+            radius_creds["radius_ro_user"],
+            radius_creds["radius_ro_user_passwd"],
+            "cat /etc/passwd",
+        )
+        after_stats = check_radius_stats(duthost)
+
+        # Verify authentication was successful
+        check_group_output(res, radius_creds["radius_ro_user"], "ro")
+        pytest_assert(
+            after_stats["access_accepts"] > before_stats["access_accepts"],
+            "RADIUS authentication failed with management VRF enabled"
+        )
+        pytest_assert(
+            after_stats["access_rejects"] == before_stats["access_rejects"],
+            "Unexpected RADIUS authentication rejection with management VRF enabled"
+        )
+
+    finally:
+        # Cleanup: Remove management VRF
+        duthost.command("sudo config vrf del mgmt")
+        time.sleep(5)  # Wait for VRF to be removed
+
+        # Wait for SSH to be available after VRF removal
+        localhost.wait_for(
+            host=dutip,
+            port=22,
+            state="started",
+            delay=3,
+            timeout=60,
+            search_regex="OpenSSH"
+        )
