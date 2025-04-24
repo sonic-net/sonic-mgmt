@@ -1,7 +1,6 @@
 import logging
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
