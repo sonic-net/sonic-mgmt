@@ -1229,6 +1229,12 @@ gnmi/test_gnoi_system_grpc.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
+gnmi/test_gnoi_system_reboot.py:
+  skip:
+    reason: "Test not supported on vs platform due to broken gRPC connection during reboot."
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####           hash              #####
 #######################################
