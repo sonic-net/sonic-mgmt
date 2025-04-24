@@ -177,7 +177,7 @@ class TestFdbMacLearning:
             duthost.shell("sudo config interface startup {}".format(port))
 
     @pytest.fixture(autouse=True)
-    def cleanup_device(self, duthosts, rand_one_dut_hostname):
+    def cleanup_arp_fdb(self, duthosts, rand_one_dut_hostname):
         """Cleanup fdb and arp on the selected target DUT."""
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell("sonic-clear arp")
