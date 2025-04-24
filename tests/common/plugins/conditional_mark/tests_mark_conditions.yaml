@@ -1110,7 +1110,7 @@ generic_config_updater/test_multiasic_addcluster.py:
     reason: "Only supported on multi-asic system."
     conditions:
       - "(is_multi_asic is False)"
-      - "hwsku in ['Nokia-IXR7250E-36x400G']"
+      - "hwsku not in ['Nokia-IXR7250E-36x400G']"
 
 generic_config_updater/test_multiasic_idf.py:
   skip:
