@@ -7,7 +7,7 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2'),
+    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3'),
     pytest.mark.device_type('vs')
 ]
 
@@ -35,7 +35,8 @@ def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
                        "src_router_ipv6": gather_facts['src_router_ipv6'],
                        "dst_host_ipv6": gather_facts['dst_host_ipv6'],
                        "src_ptf_port_list": gather_facts['src_port_ids'],
-                       "dst_ptf_port_list": gather_facts['dst_port_ids']
+                       "dst_ptf_port_list": gather_facts['dst_port_ids'],
+                       "kvm_support": True
                        },
                log_file=log_file,
                socket_recv_size=16384,

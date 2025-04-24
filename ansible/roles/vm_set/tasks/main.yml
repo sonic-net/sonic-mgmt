@@ -17,10 +17,14 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: Pick package_installation from env
+  set_fact:
+    package_installation: "{{ lookup('env', 'PACKAGE_INSTALLATION') | default(omit) }}"
+
 - name: Set the default variable package_installation
   set_fact:
     package_installation: true
-  when: package_installation is not defined
+  when: package_installation is not defined or package_installation == ''
 
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
@@ -65,29 +69,33 @@
 
 - block:
     - name: Install necessary packages
-      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      apt:
+        update_cache: yes
+        cache_valid_time: 86400
+        pkg:
+          - ifupdown
+          - openvswitch-switch
+          - net-tools
+          - bridge-utils
+          - util-linux
+          - iproute2
+          - vlan
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - libvirt-clients
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       become: yes
-      with_items:
-        - ifupdown
-        - qemu
-        - openvswitch-switch
-        - net-tools
-        - bridge-utils
-        - util-linux
 
     - name: Install necessary packages
-      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
-      become: yes
-      with_items:
-        - iproute2
-        - vlan
-        - apt-transport-https
-        - ca-certificates
-        - curl
-        - software-properties-common
-        - libvirt-clients
-
-    - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python
@@ -98,6 +106,10 @@
       when: host_distribution_version.stdout == "18.04"
 
     - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python3-libvirt
@@ -105,41 +117,33 @@
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
-      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+      when: host_distribution_version.stdout >= "20.04"
   when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
-  when: pip_executable is not defined and host_distribution_version.stdout != "20.04" and host_distribution_version.stdout != "22.04"
+  when: pip_executable is not defined and host_distribution_version.stdout < "20.04"
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
-
-- name: remove old python packages
-  pip: name=docker-py state=absent executable={{ pip_executable }}
-  environment: "{{ proxy_env | default({}) }}"
-  ignore_errors: yes
+  when: pip_executable is not defined and (host_distribution_version.stdout >= "20.04")
 
 - include_tasks: docker.yml
   when: package_installation|bool
 
-- name: Update python3 packages
-  block:
-    # Workaround for '"Error connecting: Error while fetching server API version: Not supported URL scheme http+docker'
-    # See https://github.com/docker/docker-py/issues/3256
-  - name: Remove old requests package >=2.32.0
-    pip: name=requests state=absent executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    ignore_errors: yes
-  - name: Install requests package <2.32.0
-    pip: name=requests version=2.31.0 state=present executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip3"
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present executable={{ pip_executable }}
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: pip_executable=="pip3" and host_distribution_version.stdout < "24.04"
+
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="python3 -m venv"
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: host_distribution_version.stdout >= "24.04"
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
@@ -154,7 +158,32 @@
     append: yes
     groups: libvirt
   become: yes
-  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+  when: host_distribution_version.stdout >= "20.04"
+
+- name: Update libvirt qemu configuration
+  block:
+  - name: Set user to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?user\s*=.*'
+      line: 'user = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Set group to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?group\s*=.*'
+      line: 'group = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Restart libvirtd to apply qemu.conf changes
+    service:
+      name: libvirtd
+      state: restarted
+    become: yes
+  when: host_distribution_version.stdout >= "24.04"
 
 - name: Install br_netfilter kernel module
   become: yes
@@ -212,7 +241,7 @@
     # root_path is supposed to be absolute path.
     - set_fact:
         root_path: "{{ home_path + '/' + root_path }}"
-      when: "not '{{ root_path }}'.startswith('/')"
+      when: "not root_path.startswith('/')"
 
     - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
 
@@ -304,7 +333,7 @@
       when: VM_num is defined and VM_num|int > 0
 
     - name: Generate vm list of target VMs
-      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+      set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces | default("")) | sort }}
       when: topology['VMs'] is defined
 
     - name: Set fallback default value for VM_targets
@@ -341,6 +370,14 @@
 
   when: vm_required is defined and vm_required == True
 
+- name: Generate DPU list of target DPUs
+  set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
+  when: topology['DPUs'] is defined and hostvars[duts_name]['type'] == 'kvm'
+
+- name: Set fallback default value for dpu_targets
+  set_fact: dpu_targets={{ [] }}
+  when: dpu_targets is not defined
+
 - name: Add topology
   include_tasks: add_topo.yml
   when: action == 'add_topo'
@@ -363,3 +400,8 @@
   loop_control:
     loop_var: dut_name
   when: duts_name is defined
+
+- name: Use virtualenv for all Python scripts on Ubuntu 24.04 and newer
+  set_fact:
+    ansible_python_interpreter: "/tmp/sonic-mgmt-virtualenv/bin/python"
+  when: host_distribution_version.stdout >= "24.04"

@@ -26,6 +26,9 @@ from ptf.testutils import simple_tcpv6_packet
 from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
 from ptf.testutils import simple_ipv4ip_packet
+from ptf.testutils import simple_vxlan_packet
+from ptf.testutils import simple_vxlanv6_packet
+from ptf.testutils import simple_nvgre_packet
 
 import fib
 import lpm
@@ -37,6 +40,7 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
+    RELAXED_BALANCING_RANGE = 0.80
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
 
@@ -57,6 +61,12 @@ class HashTest(BaseTest):
         for param in self._required_params:
             if param not in self.test_params:
                 raise Exception("Missing required parameter {}".format(param))
+
+    def generate_random_sport(self):
+        while True:
+            port = random.randint(0, 65535)
+            if port != 53:
+                return port
 
     def setUp(self):
         '''
@@ -105,9 +115,12 @@ class HashTest(BaseTest):
         self.ipver = self.test_params.get('ipver', 'ipv4')
         self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
 
+        self.topo_name = self.test_params.get('topo_name', '')
+
         # set the base mac here to make it persistent across calls of check_ip_route
         self.base_mac = self.dataplane.get_mac(
             *random.choice(list(self.dataplane.ports.keys())))
+        self.vxlan_dest_port = int(self.test_params.get('vxlan_dest_port', 0))
 
     def _get_nexthops(self, src_port, dst_ip):
         active_dut_indexes = [0]
@@ -177,7 +190,7 @@ class HashTest(BaseTest):
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(
             dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     dst_ip, exp_port_list))
                 assert False
@@ -213,7 +226,7 @@ class HashTest(BaseTest):
                 hash_key, hit_count_map))
 
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists):
         if ip_network(six.text_type(dst_ip)).version == 4:
@@ -247,6 +260,8 @@ class HashTest(BaseTest):
             skip_protos.append(0)
             # Skip IPv6-ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(58)
+            # next-header 255 on BRCM causes 4 bytes to be stripped (CS00012366805)
+            skip_protos.append(255)
 
         while True:
             ip_proto = random.randint(0, 255)
@@ -305,29 +320,46 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
-        send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                     .format(pkt.src,
-                             pkt.dst,
-                             pkt['IP'].src,
-                             pkt['IP'].dst,
-                             pkt['IP'].proto,
-                             sport,
-                             dport,
-                             src_port))
-        logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
-                     .format('any',
-                             'any',
-                             ip_src,
-                             ip_dst,
-                             ip_proto,
-                             sport,
-                             dport))
+        try:
+            send_packet(self, src_port, pkt)
+            logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
+                         .format(pkt.src,
+                                 pkt.dst,
+                                 pkt['IP'].src,
+                                 pkt['IP'].dst,
+                                 pkt['IP'].proto,
+                                 sport,
+                                 dport,
+                                 src_port))
+            logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
+                         .format('any',
+                                 'any',
+                                 ip_src,
+                                 ip_dst,
+                                 ip_proto,
+                                 sport,
+                                 dport))
 
-        dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-            self, masked_exp_pkt, dst_ports, timeout=1)
-        rcvd_port = dst_ports[rcvd_port_index]
+            dst_ports = list(itertools.chain(*dst_port_lists))
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                self, masked_exp_pkt, dst_ports, timeout=1)
+            rcvd_port = dst_ports[rcvd_port_index]
+
+        except AssertionError:
+            logging.error("Traffic wasn't sent successfully, trying again")
+            send_packet(self, src_port, pkt, count=5)
+            logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
+                         .format(pkt.src,
+                                 pkt.dst,
+                                 pkt['IP'].src,
+                                 pkt['IP'].dst,
+                                 pkt['IP'].proto,
+                                 sport,
+                                 dport,
+                                 src_port))
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                self, masked_exp_pkt, dst_ports, timeout=1)
+            rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
@@ -402,29 +434,56 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
-        send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
-                     .format(pkt.src,
-                             pkt.dst,
-                             pkt['IPv6'].src,
-                             pkt['IPv6'].dst,
-                             pkt['IPv6'].nh,
-                             sport,
-                             dport,
-                             src_port))
-        logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
-                     .format('any',
-                             'any',
-                             ip_src,
-                             ip_dst,
-                             ip_proto,
-                             sport,
-                             dport))
+        try:
+            send_packet(self, src_port, pkt)
+            logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
+                         .format(pkt.src,
+                                 pkt.dst,
+                                 pkt['IPv6'].src,
+                                 pkt['IPv6'].dst,
+                                 pkt['IPv6'].nh,
+                                 sport,
+                                 dport,
+                                 src_port))
+            logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
+                         .format('any',
+                                 'any',
+                                 ip_src,
+                                 ip_dst,
+                                 ip_proto,
+                                 sport,
+                                 dport))
 
-        dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-            self, masked_exp_pkt, dst_ports, timeout=1)
-        rcvd_port = dst_ports[rcvd_port_index]
+            dst_ports = list(itertools.chain(*dst_port_lists))
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                self, masked_exp_pkt, dst_ports, timeout=1)
+            rcvd_port = dst_ports[rcvd_port_index]
+
+        except AssertionError:
+            logging.error("Traffic wasn't sent successfully, trying again")
+            send_packet(self, src_port, pkt, count=5)
+            logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'
+                         .format(pkt.src,
+                                 pkt.dst,
+                                 pkt['IPv6'].src,
+                                 pkt['IPv6'].dst,
+                                 pkt['IPv6'].nh,
+                                 sport,
+                                 dport,
+                                 src_port))
+            logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'
+                         .format('any',
+                                 'any',
+                                 ip_src,
+                                 ip_dst,
+                                 ip_proto,
+                                 sport,
+                                 dport))
+
+            dst_ports = list(itertools.chain(*dst_port_lists))
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                self, masked_exp_pkt, dst_ports, timeout=1)
+            rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
@@ -445,7 +504,7 @@ class HashTest(BaseTest):
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
 
-    def check_within_expected_range(self, actual, expected):
+    def check_within_expected_range(self, actual, expected, hash_key):
         '''
         @summary: Check if the actual number is within the accepted range of the expected number
         @param actual : acutal number of recieved packets
@@ -453,7 +512,12 @@ class HashTest(BaseTest):
         @return (percentage, bool)
         '''
         percentage = (actual - expected) / float(expected)
-        return (percentage, abs(percentage) <= self.balancing_range)
+        balancing_range = self.balancing_range
+        if hash_key == 'ip-proto' and self.topo_name == 't2':
+            # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
+            # a large number of ecmp paths so relax the hashing requirements
+            balancing_range = self.RELAXED_BALANCING_RANGE
+        return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
@@ -482,7 +546,7 @@ class HashTest(BaseTest):
             exp_port_list = updated_exp_port_list
         return exp_port_list
 
-    def check_balancing(self, dest_port_list, port_hit_cnt, src_port):
+    def check_balancing(self, dest_port_list, port_hit_cnt, src_port, hash_key):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
@@ -531,7 +595,7 @@ class HashTest(BaseTest):
                 for member in ecmp_entry:
                     total_entry_hit_cnt += port_hit_cnt.get(member, 0)
                 (p, r) = self.check_within_expected_range(
-                    total_entry_hit_cnt, float(total_hit_cnt)/len(asic_member))
+                    total_entry_hit_cnt, float(total_hit_cnt)/len(asic_member), hash_key)
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                              % ("ECMP", str(ecmp_entry), total_hit_cnt//len(asic_member),
                                 total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
@@ -540,7 +604,7 @@ class HashTest(BaseTest):
                     continue
                 for member in ecmp_entry:
                     (p, r) = self.check_within_expected_range(port_hit_cnt.get(
-                        member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                        member, 0), float(total_entry_hit_cnt)/len(ecmp_entry), hash_key)
                     logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
                                  % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry),
                                     port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
@@ -644,6 +708,7 @@ class IPinIPHashTest(HashTest):
             self, masked_exp_pkt, dst_ports)
         rcvd_port = dst_ports[rcvd_port_index]
         exp_src_mac = None
+
         if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
             # active-active dualtor, the packet could be received from either ToR, so use the received
             # port to find the corresponding ToR
@@ -790,7 +855,7 @@ class IPinIPHashTest(HashTest):
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
             outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
-            if len(exp_port_list) <= 1:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
                 logging.warning("{} has only {} nexthop".format(
                     outer_dst_ip, exp_port_list))
                 assert False
@@ -834,13 +899,618 @@ class IPinIPHashTest(HashTest):
                 hash_key, hit_count_map))
 
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
     def runTest(self):
         """
         @summary: Send IPinIP packet for each range of both IPv4 and IPv6 spaces and
         expect the packet to be received from one of the expected ports
         """
+        logging.info("List of hash_keys: {}".format(self.hash_keys))
+        for hash_key in self.hash_keys:
+            logging.info("hash test hash_key: {}".format(hash_key))
+            self.check_hash(hash_key)
+
+
+class VxlanHashTest(HashTest):
+    '''
+    This test is to verify the hash key for VxLAN packet.
+    The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
+    for IPinIP packet.
+    '''
+
+    def check_ipv4_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
+        '''
+        @summary: Check IPv4 route works.
+        @param hash_key: hash key to build packet with.
+        @param src_port: index of port to use for sending packet to switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
+        @param outer_src_ip: source ip at the outer layer
+        @param outer_dst_ip: destination ip at the outer layer
+        '''
+        ip_src = self.src_ip_interval.get_random_ip(
+        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip(
+        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
+
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
+        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'dst-mac' else self.base_mac
+
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
+
+        if self.ipver == "ipv4-ipv4":
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ip_dst": ip_dst,
+                "ip_src": ip_src,
+                "ip_ttl": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+
+            inner_pkt = simple_tcp_packet(**pkt_opts)
+        else:
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ipv6_dst": ip_dst,
+                "ipv6_src": ip_src,
+                "ipv6_hlim": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcpv6_packet(**pkt_opts)
+        pkt_opts = {
+            'eth_dst': router_mac,
+            'ip_src': outer_src_ip,
+            'ip_dst': outer_dst_ip,
+            'ip_ttl': 64,
+            'udp_sport': outer_sport,
+            'udp_dport': self.vxlan_dest_port,
+            'with_udp_chksum': False,
+            'vxlan_vni': 2000,
+            'inner_frame': inner_pkt}
+        vxlan_pkt = simple_vxlan_packet(**pkt_opts)
+
+        exp_pkt = vxlan_pkt.copy()
+        exp_pkt['IP'].ttl -= 1
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        # mask the chksum also if masking the ttl
+        if self.ignore_ttl:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+
+        send_packet(self, src_port, vxlan_pkt)
+        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, '
+                     'dport={})/Inner Ether(src={}, dst={}), IP(src={}, '
+                     'dst={} )/TCP(sport={}, dport={} on port {})'
+                     .format(vxlan_pkt.src,
+                             vxlan_pkt.dst,
+                             vxlan_pkt['IP'].src,
+                             vxlan_pkt['IP'].dst,
+                             outer_sport,
+                             self.vxlan_dest_port,
+                             inner_pkt.src,
+                             inner_pkt.dst,
+                             ip_src,
+                             ip_dst,
+                             sport,
+                             dport,
+                             src_port))
+        logging.info(vxlan_pkt.show())
+
+        dst_ports = list(itertools.chain(*dst_port_lists))
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+            self, masked_exp_pkt, dst_ports)
+        rcvd_port = dst_ports[rcvd_port_index]
+        exp_src_mac = None
+        if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+            # active-active dualtor, the packet could be received from either ToR, so use the received
+            # port to find the corresponding ToR
+            for dut_index, port_list in enumerate(dst_port_lists):
+                if rcvd_port in port_list:
+                    exp_src_mac = self.ptf_test_port_map[str(
+                        rcvd_port)]["target_src_mac"][dut_index]
+        else:
+            exp_src_mac = self.ptf_test_port_map[str(
+                rcvd_port)]["target_src_mac"][0]
+        actual_src_mac = scapy.Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
+
+    def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
+        '''
+        @summary: Check IPv6 route works.
+        @param hash_key: hash key to build packet with.
+        @param in_port: index of port to use for sending packet to switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
+        @param outer_src_ip: source ip at the outer layer
+        @param outer_dst_ip: destination ip at the outer layer
+        '''
+        ip_src = self.src_ip_interval.get_random_ip(
+        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip(
+        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
+        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'dst-mac' else self.base_mac
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
+
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
+
+        if self.ipver == 'ipv6-ipv6':
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ipv6_dst": ip_dst,
+                "ipv6_src": ip_src,
+                "ipv6_hlim": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcpv6_packet(**pkt_opts)
+        else:
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ip_dst": ip_dst,
+                "ip_src": ip_src,
+                "ip_ttl": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcp_packet(**pkt_opts)
+
+        pkt_opts = {
+            'eth_dst': router_mac,
+            'ipv6_src': outer_src_ip,
+            'ipv6_dst': outer_dst_ip,
+            'ipv6_hlim': 64,
+            'udp_sport': outer_sport,
+            'udp_dport': self.vxlan_dest_port,
+            'with_udp_chksum': False,
+            'vxlan_vni': 2000,
+            'inner_frame': inner_pkt}
+        vxlan_pkt = simple_vxlanv6_packet(**pkt_opts)
+
+        exp_pkt = vxlan_pkt.copy()
+        exp_pkt['IPv6'].hlim -= 1
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        send_packet(self, src_port, vxlan_pkt)
+        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})VxLAN(sport={}, dport={})'
+                     '/Inner Ether(src={}, dst={}), Inner IPv6(src={}, '
+                     'dst={})/TCP(sport={}, dport={} on port {})'
+                     .format(vxlan_pkt.src,
+                             vxlan_pkt.dst,
+                             vxlan_pkt['IPv6'].src,
+                             vxlan_pkt['IPv6'].dst,
+                             outer_sport,
+                             self.vxlan_dest_port,
+                             inner_pkt.src,
+                             inner_pkt.dst,
+                             ip_src,
+                             ip_dst,
+                             sport,
+                             dport,
+                             src_port))
+
+        dst_ports = list(itertools.chain(*dst_port_lists))
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+            self, masked_exp_pkt, dst_ports)
+        rcvd_port = dst_ports[rcvd_port_index]
+
+        exp_src_mac = None
+        if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+            # active-active dualtor, the packet could be received from either ToR, so use the received
+            # port to find the corresponding ToR
+            for dut_index, port_list in enumerate(dst_port_lists):
+                if rcvd_port in port_list:
+                    exp_src_mac = self.ptf_test_port_map[str(
+                        rcvd_port)]["target_src_mac"][dut_index]
+        else:
+            exp_src_mac = self.ptf_test_port_map[str(
+                rcvd_port)]["target_src_mac"][0]
+
+        actual_src_mac = scapy.Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
+
+    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
+                       outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
+        if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
+            (matched_port, received) = self.check_ipv4_route(
+                hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip)
+        else:
+            (matched_port, received) = self.check_ipv6_route(
+                hash_key, src_port, dst_port_lists, outer_src_ipv6, outer_dst_ipv6)
+
+        assert received
+
+        logging.info("Received packet at " + str(matched_port))
+        time.sleep(0.02)
+
+        return (matched_port, received)
+
+    def check_hash(self, hash_key):
+        # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
+        # We don't care the actually value as long as the outer_dst_ip is routed by default routed
+        # The outer_src_ip and outer_dst_ip are fixed
+        outer_src_ip = '80.1.0.31'
+        outer_dst_ip = '80.1.0.32'
+        outer_src_ipv6 = '80::31'
+        outer_dst_ipv6 = '80::32'
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
+            outer_dst_ip)
+        if self.switch_type == "chassis-packet":
+            exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
+
+        logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
+            outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
+        for exp_port_list in exp_port_lists:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
+                logging.warning("{} has only {} nexthop".format(
+                    outer_dst_ip, exp_port_list))
+                assert False
+
+        hit_count_map = {}
+        for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+            logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
+                         .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
+            (matched_index, _) = self.check_ip_route(hash_key,
+                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
+                                                     outer_src_ipv6, outer_dst_ipv6)
+            hit_count_map[matched_index] = hit_count_map.get(
+                matched_index, 0) + 1
+        logging.info("hash_key={}, hit count map: {}".format(
+            hash_key, hit_count_map))
+
+        for next_hop in next_hops:
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+
+    def runTest(self):
+        """
+        @summary: Send IPinIP packet for each range of both IPv4 and IPv6 spaces and
+        expect the packet to be received from one of the expected ports
+        """
+        logging.info("List of hash_keys: {}".format(self.hash_keys))
+        for hash_key in self.hash_keys:
+            logging.info("hash test hash_key: {}".format(hash_key))
+            self.check_hash(hash_key)
+
+
+class NvgreHashTest(HashTest):
+    '''
+    This test is to verify the hash key for NvGRE packet.
+    The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
+    for NvGRE packet.
+    '''
+
+    def simple_nvgrev6_packet(self, pktlen=300,
+                              eth_dst='00:01:02:03:04:05',
+                              eth_src='00:06:07:08:09:0a',
+                              dl_vlan_enable=False,
+                              vlan_vid=0,
+                              vlan_pcp=0,
+                              dl_vlan_cfi=0,
+                              ipv6_src='1::2',
+                              ipv6_dst='3::4',
+                              ipv6_fl=0,
+                              ipv6_tc=0,
+                              ipv6_ecn=None,
+                              ipv6_dscp=None,
+                              ipv6_hlim=64,
+                              nvgre_version=0,
+                              nvgre_tni=None,
+                              nvgre_flowid=0,
+                              inner_frame=None
+                              ):
+        '''
+        @summary: Helper function to construct an IPv6 NVGRE packet
+        '''
+        if scapy.NVGRE is None:
+            logging.error(
+                "A NVGRE packet was requested but NVGRE is not supported by your Scapy. "
+                "See README for more information")
+            return None
+
+        nvgre_hdr = scapy.NVGRE(vsid=nvgre_tni, flowid=nvgre_flowid)
+
+        if (dl_vlan_enable):
+            pkt = scapy.Ether(dst=eth_dst, src=eth_src) / \
+                scapy.Dot1Q(prio=vlan_pcp, id=dl_vlan_cfi, vlan=vlan_vid) / \
+                scapy.IPv6(src=ipv6_src, dst=ipv6_dst, fl=ipv6_fl, tc=ipv6_tc, hlim=ipv6_hlim, nh=47) / \
+                nvgre_hdr
+        else:
+            pkt = scapy.Ether(dst=eth_dst, src=eth_src) / \
+                scapy.IPv6(src=ipv6_src, dst=ipv6_dst, fl=ipv6_fl, tc=ipv6_tc, hlim=ipv6_hlim, nh=47) / \
+                nvgre_hdr
+
+        if inner_frame:
+            pkt = pkt / inner_frame
+        else:
+            pkt = pkt / scapy.IP()
+            pkt = pkt/("D" * (pktlen - len(pkt)))
+
+        return pkt
+
+    def check_ipv4_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip, ipver):
+        '''
+        @summary: Check IPv4 route works.
+        @param hash_key: hash key to build packet with.
+        @param src_port: index of port to use for sending packet to switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
+        @param outer_src_ip: source ip at the outer layer
+        @param outer_dst_ip: destination ip at the outer layer
+        '''
+        ip_src = self.src_ip_interval.get_random_ip(
+        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip(
+        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
+        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'dst-mac' else self.base_mac
+
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
+
+        if self.ipver == 'ipv4-ipv4':
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ip_dst": ip_dst,
+                "ip_src": ip_src,
+                "ip_ttl": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcp_packet(**pkt_opts)
+        else:
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ipv6_dst": ip_dst,
+                "ipv6_src": ip_src,
+                "ipv6_hlim": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcpv6_packet(**pkt_opts)
+
+        tni = random.randint(1, 254) + 20000
+        pkt_opts = {
+            'eth_dst': router_mac,
+            'ip_src': outer_src_ip,
+            'ip_dst': outer_dst_ip,
+            'ip_ttl': 64,
+            'nvgre_tni': tni,
+            'inner_frame': inner_pkt}
+        nvgre_pkt = simple_nvgre_packet(**pkt_opts)
+
+        exp_pkt = nvgre_pkt.copy()
+        exp_pkt['IP'].ttl -= 1
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        send_packet(self, src_port, nvgre_pkt)
+        logging.info('Sent Outer Ether(src={}, dst={})/IP(src={}, dst={}, nvgre_tni={})'
+                     '/Inner Ether(src={}, dst={}), IP(src={}, '
+                     'dst={} )/TCP(sport={}, dport={} on port {})'
+                     .format(nvgre_pkt.src,
+                             nvgre_pkt.dst,
+                             nvgre_pkt['IP'].src,
+                             nvgre_pkt['IP'].dst,
+                             tni,
+                             inner_pkt.src,
+                             inner_pkt.dst,
+                             ip_src,
+                             ip_dst,
+                             sport,
+                             dport,
+                             src_port))
+
+        dst_ports = list(itertools.chain(*dst_port_lists))
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+            self, masked_exp_pkt, dst_ports)
+        rcvd_port = dst_ports[rcvd_port_index]
+        exp_src_mac = None
+        if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+            # active-active dualtor, the packet could be received from either ToR, so use the received
+            # port to find the corresponding ToR
+            for dut_index, port_list in enumerate(dst_port_lists):
+                if rcvd_port in port_list:
+                    exp_src_mac = self.ptf_test_port_map[str(
+                        rcvd_port)]["target_src_mac"][dut_index]
+        else:
+            exp_src_mac = self.ptf_test_port_map[str(
+                rcvd_port)]["target_src_mac"][0]
+        actual_src_mac = scapy.Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
+
+    def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ipv6, outer_dst_ipv6, ipver):
+        '''
+        @summary: Check IPv6 route works.
+        @param hash_key: hash key to build packet with.
+        @param in_port: index of port to use for sending packet to switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
+        @param outer_src_ip: source ip at the outer layer
+        @param outer_dst_ip: destination ip at the outer layer
+        '''
+        ip_src = self.src_ip_interval.get_random_ip(
+        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+        ip_dst = self.dst_ip_interval.get_random_ip(
+        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+
+        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
+        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'dst-mac' else self.base_mac
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
+
+        if self.ipver == 'ipv6-ipv6':
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ipv6_dst": ip_dst,
+                "ipv6_src": ip_src,
+                "ipv6_hlim": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcpv6_packet(**pkt_opts)
+        else:
+            pkt_opts = {
+                "eth_src": src_mac,
+                "eth_dst": dst_mac,
+                "ip_dst": ip_dst,
+                "ip_src": ip_src,
+                "ip_ttl": 64,
+                "tcp_sport": sport,
+                "tcp_dport": dport}
+            inner_pkt = simple_tcp_packet(**pkt_opts)
+
+        tni = random.randint(1, 254) + 20000
+        pkt_opts = {
+            'eth_dst': router_mac,
+            'ipv6_src': outer_src_ipv6,
+            'ipv6_dst': outer_dst_ipv6,
+            'ipv6_hlim': 64,
+            'nvgre_tni': tni,
+            'inner_frame': inner_pkt}
+        nvgre_pkt = self.simple_nvgrev6_packet(**pkt_opts)
+
+        exp_pkt = nvgre_pkt.copy()
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+
+        send_packet(self, src_port, nvgre_pkt)
+        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/IPv6(src={}, '
+                     'dst={})/TCP(sport={}, dport={} on port {})'
+                     .format(nvgre_pkt.src,
+                             nvgre_pkt.dst,
+                             nvgre_pkt['IPv6'].src,
+                             nvgre_pkt['IPv6'].dst,
+                             nvgre_pkt['IPv6'].proto,
+                             ip_src,
+                             ip_dst,
+                             sport,
+                             dport,
+                             src_port))
+
+        dst_ports = list(itertools.chain(*dst_port_lists))
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+            self, masked_exp_pkt, dst_ports)
+        rcvd_port = dst_ports[rcvd_port_index]
+
+        exp_src_mac = None
+        if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+            # active-active dualtor, the packet could be received from either ToR, so use the received
+            # port to find the corresponding ToR
+            for dut_index, port_list in enumerate(dst_port_lists):
+                if rcvd_port in port_list:
+                    exp_src_mac = self.ptf_test_port_map[str(
+                        rcvd_port)]["target_src_mac"][dut_index]
+        else:
+            exp_src_mac = self.ptf_test_port_map[str(
+                rcvd_port)]["target_src_mac"][0]
+
+        actual_src_mac = scapy.Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
+
+    def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
+                       outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
+        if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
+            (matched_port, received) = self.check_ipv4_route(
+                hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip, self.ipver)
+        else:
+            (matched_port, received) = self.check_ipv6_route(
+                hash_key, src_port, dst_port_lists, outer_src_ipv6, outer_dst_ipv6, self.ipver)
+
+        assert received
+
+        logging.info("Received packet at " + str(matched_port))
+        time.sleep(0.02)
+
+        return (matched_port, received)
+
+    def check_hash(self, hash_key):
+        # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
+        # We don't care the actually value as long as the outer_dst_ip is routed by default routed
+        # The outer_src_ip and outer_dst_ip are fixed
+        outer_src_ip = '80.1.0.31'
+        outer_dst_ip = '80.1.0.32'
+        outer_src_ipv6 = '80::31'
+        outer_dst_ipv6 = '80::32'
+        src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
+            outer_dst_ip)
+        if self.switch_type == "chassis-packet":
+            exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
+
+        logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(
+            outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
+        for exp_port_list in exp_port_lists:
+            if len(exp_port_list) <= 1 or (self.topo_name == 't1-isolated-d28u1' and len(exp_port_list) != 1):
+                logging.warning("{} has only {} nexthop".format(
+                    outer_dst_ip, exp_port_list))
+                assert False
+
+        hit_count_map = {}
+        for _ in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+            logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
+                         .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
+            (matched_index, _) = self.check_ip_route(hash_key,
+                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
+                                                     outer_src_ipv6, outer_dst_ipv6)
+            hit_count_map[matched_index] = hit_count_map.get(
+                matched_index, 0) + 1
+        logging.info("hash_key={}, hit count map: {}".format(
+            hash_key, hit_count_map))
+
+        for next_hop in next_hops:
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+
+    def runTest(self):
+        """
+        @summary: Send NvGRE packet for each range of both IPv4 and IPv6 spaces and
+        expect the packet to be received from one of the expected ports
+        """
+        logging.info("List of hash_keys: {}".format(self.hash_keys))
         for hash_key in self.hash_keys:
             logging.info("hash test hash_key: {}".format(hash_key))
             self.check_hash(hash_key)

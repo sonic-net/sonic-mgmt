@@ -7,7 +7,8 @@ from tests.common.reboot import reboot
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 BOOT_TYPE = {
@@ -22,7 +23,7 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def get_expected_baud_rate(duthost):
-    DEFAULT_BAUDRATE = "9600"
+    DEFAULT_BAUDRATE = 9600
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
 
@@ -31,7 +32,7 @@ def test_console_baud_rate_config(duthost):
     expected_baud_rate = get_expected_baud_rate(duthost)
     res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
-    if res["stdout"] != expected_baud_rate:
+    if res["stdout"] != str(expected_baud_rate):
         global pass_config_test
         pass_config_test = False
         pytest.fail("Device baud rate is {}, expected {}".format(res["stdout"], expected_baud_rate))
@@ -41,6 +42,8 @@ def test_console_baud_rate_config(duthost):
 def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
+    if "ManagementIp" not in conn_graph_facts['device_console_info'][dut_hostname]:
+        pytest.skip("Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]

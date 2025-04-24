@@ -112,7 +112,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
             port_alias_to_name_map["Ethernet65"] = "Ethernet512"
             port_alias_to_name_map["Ethernet66"] = "Ethernet513"
-        elif hwsku == "Arista-7060X6-64PE-128x400G":
+        elif hwsku in ["Arista-7060X6-64DE-O128S2", "Arista-7060X6-64PE-O128S2"]:
             for i in range(1, 65):
                 for j in [1, 5]:
                     port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
@@ -124,6 +124,36 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                     port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
             port_alias_to_name_map["Ethernet65"] = "Ethernet512"
             port_alias_to_name_map["Ethernet66"] = "Ethernet513"
+        elif hwsku == "Arista-7060X6-64PE-C256S2":
+            for i in range(1, 65, 2):  # This hwsku uses every second OSFP port.
+                for j in range(1, 9):
+                    port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
+            port_alias_to_name_map["Ethernet65"] = "Ethernet512"
+            port_alias_to_name_map["Ethernet66"] = "Ethernet513"
+        elif hwsku == "Arista-7060X6-64PE-C224O8":  # This hwsku uses every second OSFP port.
+            for i in range(1, 65, 2):
+                if i in [13, 17, 45, 49]:
+                    for j in [1, 5]:
+                        port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
+                else:
+                    for j in range(1, 9):
+                        port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
+            port_alias_to_name_map["Ethernet65"] = "Ethernet512"
+            port_alias_to_name_map["Ethernet66"] = "Ethernet513"
+        elif hwsku == "Arista-7060X6-64PE-B-C512S2":
+            for i in range(1, 65):
+                for j in range(1, 9):
+                    port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
+            port_alias_to_name_map["Ethernet65"] = "Ethernet512"
+            port_alias_to_name_map["Ethernet66"] = "Ethernet513"
+        elif hwsku == "Arista-7060X6-64PE-B-C448O16":
+            for i in range(1, 65):
+                if i in [13, 14, 17, 18, 45, 46, 49, 50]:
+                    for j in [1, 5]:
+                        port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
+                else:
+                    for j in range(1, 9):
+                        port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
         elif hwsku == "Arista-7050QX32S-Q32":
             for i in range(5, 29):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
@@ -219,14 +249,21 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s100G_ports += [x for x in range(23, 27)]
 
             port_alias_to_name_map = _port_alias_to_name_map_50G(all_ports, s100G_ports)
-        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB", "Arista-7260CX3-D108C8-CSI"]:
+        elif hwsku == "Arista-7050CX3-32S-S128":
+            for i in range(1, 33):
+                for j in range(1, 5):
+                    port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 4 + j - 1)
+        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB",
+                       "Arista-7260CX3-D108C8-CSI", "Arista-7260CX3-D108C10"]:
             # All possible breakout 50G port numbers:
             all_ports = [x for x in range(1, 65)]
 
             # 100G ports
             s100G_ports = [x for x in range(13, 21)]
-
-            if hwsku == "Arista-7260CX3-D108C8-AILAB":
+            if hwsku == "Arista-7260CX3-D108C10":
+                # The first 2 ports are 100G
+                s100G_ports.extend([x for x in range(1, 3)])
+            elif hwsku == "Arista-7260CX3-D108C8-AILAB":
                 s100G_ports = [x for x in range(45, 53)]
             elif hwsku == "Arista-7260CX3-D108C8-CSI":
                 # Treat 40G port as 100G ports
@@ -312,7 +349,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["twod5GigE%d" % i] = "Ethernet%d" % i
             for i in range(48, 54):
                 port_alias_to_name_map["twenty5GigE%d" % i] = "Ethernet%d" % i
-        elif hwsku == "Nokia-IXR7250E-36x400G" or hwsku == "Nokia-IXR7250E-36x100G":
+        elif hwsku in ["Nokia-IXR7250E-36x400G", "Nokia-IXR7250E-36x100G", "Nokia-IXR7250-X3B"]:
             for i in range(1, 37):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = sonic_name
@@ -336,7 +373,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku in ["Cisco-8111-O64"]:
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku == "Cisco-8101-O8C48":
+        elif hwsku in ["Cisco-8101-O8C48", "Cisco-8101-O8V48"]:
             for i in range(0, 12):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
@@ -345,13 +382,17 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(20, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
-        elif hwsku == "Cisco-8101-C64":
+        elif hwsku in ["Cisco-8101-C64", "Cisco-8101-V64"]:
             for i in range(0, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
-        elif hwsku in ["Cisco-8122-O64"]:
+        elif hwsku in ["Cisco-8122-O64", 'Cisco-8122-O64S2']:
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
+        elif hwsku in ["Cisco-8122-O128"]:
+            for i in range(0, 64):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
         elif hwsku in ["Cisco-8800-LC-48H-C48"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
@@ -408,7 +449,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 idx += 4
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
                 idx += 4
-        elif hwsku in ["Mellanox-SN4700-O28"]:
+        elif hwsku in ["Mellanox-SN4700-O28", "Mellanox-SN4700-O32", "ACS-SN4280", 'Mellanox-SN4280-O28']:
             idx = 0
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
@@ -420,9 +461,49 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                     alias = "etp{}{}".format(i, split_alias)
                     eth_name = "Ethernet{}".format((i - 1) * 8 + idx * 2)
                     port_alias_to_name_map[alias] = eth_name
+        elif hwsku in ["Mellanox-SN5600-C256S1", "Mellanox-SN5610N-C256S2"]:
+            split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h"]
+            for i in range(1, 65, 2):
+                for idx, split_alias in enumerate(split_alias_list):
+                    alias = "etp{}{}".format(i, split_alias)
+                    eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
+                    port_alias_to_name_map[alias] = eth_name
+            port_alias_to_name_map['etp65'] = "Ethernet512"
+            if hwsku == "Mellanox-SN5610N-C256S2":
+                port_alias_to_name_map['etp66'] = "Ethernet520"
+        elif hwsku in ["Mellanox-SN5600-C224O8", "Mellanox-SN5610N-C224O8"]:
+            split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h"]
+            split_alias_list_1 = ["a", "b"]
+            split_2_port_indexs = [13, 17, 45, 49]
+            for i in range(1, 65, 2):
+                if i in split_2_port_indexs:
+                    for idx, split_alias in enumerate(split_alias_list_1):
+                        alias = "etp{}{}".format(i, split_alias)
+                        eth_name = "Ethernet{}".format((i - 1) * 8 + idx * 4)
+                        port_alias_to_name_map[alias] = eth_name
+                else:
+                    for idx, split_alias in enumerate(split_alias_list):
+                        alias = "etp{}{}".format(i, split_alias)
+                        eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
+                        port_alias_to_name_map[alias] = eth_name
+            port_alias_to_name_map['etp65'] = "Ethernet512"
+            if hwsku == "Mellanox-SN5610N-C224O8":
+                port_alias_to_name_map['etp66'] = "Ethernet520"
+        elif hwsku == "ACS-SN4280":
+            for i in range(0, 256, 8):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Arista-7060DX5-32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
+        elif hwsku == "cisco-8101-p4-32x100-vs":
+            # this device simulates 32 ports, with 4 as the step for port naming.
+            for i in range(0, 32, 4):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+        elif hwsku == "Cisco-8102-28FH-DPU-O-T1":
+            for i in range(0, 217, 8):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+            for i in range(0, 8, 1):
+                port_alias_to_name_map["Ethernet-BP%d" % i] = "Ethernet-BP%d" % i
         else:
             if "Arista-7800" in hwsku:
                 assert False, "Please add port_alias_to_name_map for new modular SKU %s." % hwsku

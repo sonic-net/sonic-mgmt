@@ -5,7 +5,7 @@ declare -r SCRIPT_PATH="$(readlink -f "${0}")"
 declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt"
+declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
 declare -r LOCAL_IMAGE_TAG="master"
 declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"
@@ -372,6 +372,12 @@ function parse_arguments() {
             exit_failure "container name is not set."
         else
             exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
+        fi
+    else
+        # If container name is over 64 characters, container will not be able to start due to hostname limitation
+        container_name_len=${#CONTAINER_NAME}
+        if [ "$container_name_len" -gt "64" ]; then
+            exit_failure "Length of supplied container name exceeds 64 characters (currently $container_name_len chars)"
         fi
     fi
 

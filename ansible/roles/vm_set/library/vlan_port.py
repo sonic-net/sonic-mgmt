@@ -124,9 +124,9 @@ class VlanPort(object):
                 logging.debug("Port %s has vlan interface %s with vlan id %s" % (
                     port, vlan_intf, vlan_id))
             except Exception:
-                logging.warn("Unexpected output:\n%s", out)
+                logging.warning("Unexpected output:\n%s", out)
         else:
-            logging.warn("Unexpected output:\n%s", out)
+            logging.warning("Unexpected output:\n%s", out)
 
     @staticmethod
     def iface_updown(iface_name, state, pid):

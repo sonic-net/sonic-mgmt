@@ -7,6 +7,9 @@
 - set_fact: dut="{{ leaf_name }}"
   when: deploy_leaf
 
+- set_fact:
+    clean_before_add: "{{ clean_before_add | default('y') }}"
+
 - debug: msg="Configuring fanout switch for {{ dut }}"
 
 - name: Gathering connection facts about the DUTs or leaffanout device

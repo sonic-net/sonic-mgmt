@@ -8,7 +8,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list # noqa F401
+    lossy_prio_list, disable_pfcwd # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,8 @@ def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
                                    rand_one_dut_portname_oper_up,
                                    enum_dut_lossless_prio,
                                    all_prio_list, # noqa F811
-                                   prio_dscp_map): # noqa F811
+                                   prio_dscp_map, # noqa F811
+                                   disable_pfcwd): # noqa F811
     """
     Test if PFC frames with no bit set in the class enable vector are ignored by the DUT
     for a single lossless priority
@@ -85,7 +86,8 @@ def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
                                   rand_one_dut_portname_oper_up,
                                   lossless_prio_list, # noqa F811
                                   lossy_prio_list, # noqa F811
-                                  prio_dscp_map): # noqa F811
+                                  prio_dscp_map,  # noqa F811
+                                  disable_pfcwd): # noqa F811
     """
     Test if PFC frames with no bit set in the class enable vector are ignored by the DUT
     for multiple lossless priorities

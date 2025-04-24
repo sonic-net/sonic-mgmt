@@ -4,13 +4,32 @@ import time
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1"),
+    pytest.mark.topology("t0", "t1", 'm1', 'm2', 'm3'),
 ]
+
+
+@pytest.fixture
+def enable_container_autorestart(duthosts, rand_one_dut_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[rand_one_dut_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+    yield
+    for feature, status in list(feature_list.items()):
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
 @pytest.fixture(scope='module')
@@ -101,13 +120,22 @@ def verify_bgp_session_down(duthost, bgp_neighbor):
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
 def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts, localhost,
-                                    nbrhosts, setup, test_type, failure_type):
+                                    enable_container_autorestart,
+                                    nbrhosts, setup, test_type, failure_type, tbinfo):
     '''
     1: check all bgp sessions are up
     2: inject failure, shutdown fanout physical interface or neighbor port or neighbor session
     4: do the test, reset bgp or swss or do the reboot
     5: Verify all bgp sessions are up
     '''
+    # Skip the test on dualtor with reboot test type
+    pytest_require(
+        ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
+        "warm reboot is not supported on dualtor"
+    )
+    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
+        pytest.skip("Warm Reboot is not supported on isolated topology")
+
     duthost = duthosts[rand_one_dut_hostname]
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
@@ -146,8 +174,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             time.sleep(1)
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
+    # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
     pytest_assert(
-        wait_until(90, 5, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 
@@ -178,5 +207,5 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+    pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")

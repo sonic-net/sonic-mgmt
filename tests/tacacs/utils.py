@@ -3,6 +3,7 @@ import logging
 import pytest
 import paramiko
 import time
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
 from tests.common.utilities import wait_until, paramiko_ssh
@@ -65,35 +66,36 @@ def check_server_received(ptfhost, data, timeout=30):
     pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
 
 
-def get_auditd_config_reload_timestamp(duthost):
-    res = duthost.shell("sudo journalctl -u auditd --boot | grep 'audisp-tacplus re-initializing configuration'")
+def get_auditd_config_reload_line_count(duthost):
+    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'") # noqa E501
     logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
 
-    if len(res["stdout_lines"]) == 0:
-        return ""
-
-    return res["stdout_lines"][-1]
+    return len(res["stdout_lines"])
 
 
-def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
-    if not last_timestamp:
-        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, timeout=10):
+    if not last_line_count:
+        last_line_count = get_auditd_config_reload_line_count(duthost)
 
     duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
     def log_exist(duthost):
-        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+        latest_line_count = get_auditd_config_reload_line_count(duthost)
+        return latest_line_count > last_line_count
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-def ssh_run_command(ssh_client, command):
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
+    if verify is True:
+        pytest_assert(
+            exit_code == expect_exit_code,
+            f"Command: '{command}' failed with exit code: {exit_code}, stdout: {stdout}, stderr: {stderr}")
     return exit_code, stdout, stderr
 
 
@@ -124,3 +126,24 @@ def duthost_shell_with_unreachable_retry(duthost, command):
                            .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
             if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
                 raise e
+
+
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    res = ptfhost.command('touch /var/log/tac_plus.acct')
+    logger.info(res["stdout_lines"])
+
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
+    ptfhost.command('truncate -s 0 /var/log/tac_plus.log')
+
+
+def count_authorization_request(ptfhost):
+    hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa W605 E501
+    res = ptfhost.shell(sed_command)["stdout"]
+    logger.warning("TACACS authorization request hex: {}".format(res))
+    return res.count(hex_string)

@@ -2,7 +2,6 @@ import pytest
 import ptf.testutils as testutils
 import logging
 import pprint
-import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -17,11 +16,12 @@ from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F40
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -46,8 +46,9 @@ def fdb_table_has_no_dynamic_macs(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def fdb_cleanup(duthost):
+def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before test run """
+    duthost = duthosts[rand_one_dut_hostname]
     if fdb_table_has_no_dynamic_macs(duthost):
         return
     else:
@@ -91,6 +92,43 @@ def is_port_channel_up(duthost, config_portchannels):
     return True
 
 
+def check_snmp_facts(duthost, localhost, hostip, creds_all_duts, config_portchannels, send_cnt, send_portchannels_cnt):
+    dummy_mac_cnt = 0
+    recv_portchannels_cnt = 0
+    snmp_facts = get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    if 'snmp_fdb' not in snmp_facts:
+        logger.info("'snmp_fdb' not in snmp_facts")
+        return False
+    if 'snmp_interfaces' not in snmp_facts:
+        logger.info("'snmp_interfaces' not in snmp_facts")
+        return False
+    for key in snmp_facts['snmp_fdb']:
+        # key is string: vlan.mac
+        items = key.split('.')
+        if len(items) != 2:
+            continue
+        if DUMMY_MAC_PREFIX in items[1]:
+            dummy_mac_cnt += 1
+            idx = str(snmp_facts['snmp_fdb'][key])
+            if idx not in snmp_facts['snmp_interfaces']:
+                logger.info(f"{idx} not in snmp_facts['snmp_interfaces']")
+                return False
+            if 'name' not in snmp_facts['snmp_interfaces'][idx]:
+                logger.info(f"'name' not in snmp_facts['snmp_interfaces'][{idx}]")
+                return False
+            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
+                recv_portchannels_cnt += 1
+    if send_cnt != dummy_mac_cnt:
+        logger.info("Dummy MAC count does not match")
+        return False
+    if send_portchannels_cnt != recv_portchannels_cnt:
+        logger.info("Portchannels count does not match")
+        return False
+    return True
+
+
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
@@ -109,6 +147,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     send_cnt = 0
     send_portchannels_cnt = 0
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+    count_before = get_fdb_dynamic_mac_count(duthost)
     for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
@@ -126,28 +165,16 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     # Flush dataplane
     ptfadapter.dataplane.flush()
 
-    time.sleep(20)
+    pytest_assert(
+        wait_until(
+            40, 5, 10,
+            lambda: (get_fdb_dynamic_mac_count(duthost) - count_before) >= send_cnt
+        ),
+        "The dummy MACs are not fully populated."
+    )
+
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    assert 'snmp_fdb' in snmp_facts
-    assert 'snmp_interfaces' in snmp_facts
-    dummy_mac_cnt = 0
-    recv_portchannels_cnt = 0
-    for key in snmp_facts['snmp_fdb']:
-        # key is string: vlan.mac
-        items = key.split('.')
-        if len(items) != 2:
-            continue
-        logger.info("FDB entry: {}".format(items))
-        if DUMMY_MAC_PREFIX in items[1]:
-            dummy_mac_cnt += 1
-            idx = str(snmp_facts['snmp_fdb'][key])
-            assert idx in snmp_facts['snmp_interfaces']
-            assert 'name' in snmp_facts['snmp_interfaces'][idx]
-            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
-                recv_portchannels_cnt += 1
-    assert send_cnt == dummy_mac_cnt, "Dummy MAC count does not match"
-    assert send_portchannels_cnt == recv_portchannels_cnt, "Portchannels count does not match"
+
+    assert wait_until(60, 5, 0, check_snmp_facts, duthost, localhost, hostip, creds_all_duts,
+                      config_portchannels, send_cnt, send_portchannels_cnt), "SNMP facts validation failure"

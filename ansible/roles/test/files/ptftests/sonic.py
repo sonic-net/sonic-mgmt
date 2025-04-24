@@ -469,9 +469,12 @@ class Sonic(host_device.HostDevice):
 
     def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shutdown', 'startup']
-        is_match = re.match(r'(Port-Channel|Ethernet)\d+', intf)
+        pattern = r'(PortChannel|Ethernet)\d+'
+        is_match = re.match(pattern, intf)
         if is_match:
-            self.do_cmd('sudo config interface %s intf' % state[is_up])
+            self.do_cmd('sudo config interface %s %s' % (state[is_up], intf))
+        else:
+            self.log("Failed to match interface '%s' with pattern '%s'" % (intf, pattern))
 
     def change_neigh_intfs_state(self, intfs, is_up=True):
         for intf in intfs:

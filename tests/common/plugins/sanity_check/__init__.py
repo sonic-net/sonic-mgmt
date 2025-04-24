@@ -1,12 +1,13 @@
-
 import logging
 import copy
 import json
+from contextlib import contextmanager
 
 import pytest
 
 from collections import defaultdict
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
@@ -14,13 +15,15 @@ from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
 from tests.common.plugins.sanity_check.recover import recover, recover_chassis
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.custom_msg_utils import add_custom_msg
+from tests.common.helpers.constants import (
+    DUT_CHECK_NAMESPACE
+)
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_CHECKS = checks.CHECK_ITEMS
-DUT_CHEK_LIST = ['core_dump_check_pass', 'config_db_check_pass']
-CACHE_LIST = ['core_dump_check_pass', 'config_db_check_pass',
-              'pre_sanity_recovered', 'post_sanity_recovered']
+CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -32,8 +35,6 @@ def pytest_sessionfinish(session, exitstatus):
         session.config.cache.set("pre_sanity_check_failed", None)
     if post_sanity_failed:
         session.config.cache.set("post_sanity_check_failed", None)
-    for key in CACHE_LIST:
-        session.config.cache.set(key, None)
 
     if pre_sanity_failed and not post_sanity_failed:
         session.exitstatus = constants.PRE_SANITY_CHECK_FAILED_RC
@@ -80,15 +81,25 @@ def _update_check_items(old_items, new_items, supported_items):
     return updated_items
 
 
-def print_logs(duthosts, print_dual_tor_logs=False):
-    for dut in duthosts:
+def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
+
+    def print_cmds_output_from_duthost(dut, is_dual_tor, ptf):
         logger.info("Run commands to print logs")
 
         cmds = list(constants.PRINT_LOGS.values())
 
-        if print_dual_tor_logs is False:
+        if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
+
+        # check PTF device reachability
+        if ptf.mgmt_ip:
+            cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
+            cmds.append("traceroute {}".format(ptf.mgmt_ip))
+
+        if ptf.mgmt_ipv6:
+            cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
+            cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -98,8 +109,12 @@ def print_logs(duthosts, print_dual_tor_logs=False):
             outputs.append(res)
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
 
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(print_cmds_output_from_duthost, duthost, print_dual_tor_logs, ptfhost)
 
-def filter_check_items(tbinfo, check_items):
+
+def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
 
     # ignore BGP check for particular topology type
@@ -108,6 +123,18 @@ def filter_check_items(tbinfo, check_items):
 
     if 'dualtor' not in tbinfo['topo']['name'] and 'check_mux_simulator' in filtered_check_items:
         filtered_check_items.remove('check_mux_simulator')
+
+    def _is_voq_chassis(duthosts):
+        for duthost in duthosts:
+            if duthost.facts['switch_type'] == "voq":
+                return True
+        return False
+
+    if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
+        if 'check_bfd_up_count' in filtered_check_items:
+            filtered_check_items.remove('check_bfd_up_count')
+        if 'check_mac_entry_count' in filtered_check_items:
+            filtered_check_items.remove('check_mac_entry_count')
 
     return filtered_check_items
 
@@ -125,56 +152,70 @@ def do_checks(request, check_items, *args, **kwargs):
     return check_results
 
 
-@pytest.fixture(scope="module", autouse=True)
-def log_custom_msg(request):
-    yield
-    module_name = request.node.name
-    items = request.session.items
-    for item in items:
-        if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-            customMsgDict = {}
-            dutChekResults = {}
-            for key in DUT_CHEK_LIST:
-                if request.config.cache.get(key, None) is False:
-                    dutChekResults[key] = False
-            if dutChekResults:
-                customMsgDict['DutChekResult'] = dutChekResults
+@pytest.fixture(scope="module")
+def prepare_parallel_run(request, parallel_run_context):
+    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
+    should_skip_sanity = False
+    if is_par_run:
+        initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
+        if is_par_leader:
+            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
 
-            # Check pre_sanity_checks results
-            preSanityCheckResults = {}
-            if request.config.cache.get("pre_sanity_check_failed", None):
-                preSanityCheckResults['pre_sanity_check_failed'] = True
-            # pre_sanity_recovered should be None in healthy case, record either True/False
-            if request.config.cache.get("pre_sanity_recovered", None) is not None:
-                preSanityCheckResults['pre_sanity_recovered'] = request.config.cache.get("pre_sanity_recovered", None)
-            if preSanityCheckResults:
-                customMsgDict['PreSanityCheckResults'] = preSanityCheckResults
+            yield should_skip_sanity
 
-            # Check post_sanity_checks results
-            postSanityCheckResults = {}
-            if request.config.cache.get("post_sanity_check_failed", None):
-                postSanityCheckResults['post_sanity_check_failed'] = True
-            # post_sanity_recovered should be None in healthy case, record either True/False
-            if request.config.cache.get("post_sanity_recovered", None) is not None:
-                preSanityCheckResults['post_sanity_recovered'] = request.config.cache.get("post_sanity_recovered", None)
-            if postSanityCheckResults:
-                customMsgDict['PostSanityCheckResults'] = postSanityCheckResults
+            if (request.config.cache.get("pre_sanity_check_failed", None) or
+                    request.config.cache.get("post_sanity_check_failed", None)):
+                initial_check_state.set_new_status(
+                    InitialCheckStatus.SANITY_CHECK_FAILED,
+                    is_par_leader,
+                    target_hostname,
+                )
+            else:
+                initial_check_state.set_new_status(
+                    InitialCheckStatus.TEARDOWN_COMPLETED,
+                    is_par_leader,
+                    target_hostname,
+                )
 
-            # if we have any custom message to log, append it to user_properties
-            if customMsgDict:
-                logger.debug("customMsgDict: {}".format(customMsgDict))
-                item.user_properties.append(('CustomMsg', json.dumps(customMsgDict)))
+                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
+        else:
+            should_skip_sanity = True
+            logger.info(
+                "Fixture sanity_check_full setup for non-leader nodes in parallel run is skipped. "
+                "Please refer to the leader node log for check status."
+            )
+
+            yield should_skip_sanity
+
+            logger.info(
+                "Fixture sanity_check_full teardown for non-leader nodes in parallel run is skipped. "
+                "Please refer to the leader node log for check status."
+            )
+
+            initial_check_state.wait_and_acknowledge_status(
+                InitialCheckStatus.TEARDOWN_COMPLETED,
+                is_par_leader,
+                target_hostname,
+            )
+    else:
+        yield should_skip_sanity
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
+    should_skip_sanity = prepare_parallel_run
+    if should_skip_sanity:
+        logger.info("Skip sanity check according to parallel run status")
+        yield
+        return
 
     skip_sanity = False
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    nbr_hosts = None
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -227,7 +268,7 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
         cli_items_list = str(cli_check_items).split(',')
         pre_check_items = _update_check_items(pre_check_items, cli_items_list, SUPPORTED_CHECKS)
 
-    pre_check_items = filter_check_items(tbinfo, pre_check_items)  # Filter out un-supported checks.
+    pre_check_items = filter_check_items(tbinfo, duthosts, pre_check_items)  # Filter out un-supported checks.
 
     if post_check:
         # Prepare post test check items based on the collected pre test check items.
@@ -243,7 +284,7 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
             cli_post_items_list = str(cli_post_check_items).split(',')
             post_check_items = _update_check_items(post_check_items, cli_post_items_list, SUPPORTED_CHECKS)
 
-        post_check_items = filter_check_items(tbinfo, post_check_items)  # Filter out un-supported checks.
+        post_check_items = filter_check_items(tbinfo, duthosts, post_check_items)  # Filter out un-supported checks.
     else:
         post_check_items = set()
 
@@ -266,7 +307,7 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
         for item in set(pre_check_items):
             request.fixturenames.append(item)
         dual_tor = 'dualtor' in tbinfo['topo']['name']
-        print_logs(duthosts, print_dual_tor_logs=dual_tor)
+        print_logs(duthosts, ptfhost, print_dual_tor_logs=dual_tor)
 
         check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
         logger.debug("Pre-test sanity check results:\n%s" %
@@ -274,12 +315,14 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
 
         failed_results = [result for result in check_results if result['failed']]
         if failed_results:
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.pre_sanity_check_failed", True)
             if not allow_recover:
                 request.config.cache.set("pre_sanity_check_failed", True)
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -290,36 +333,39 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
 
     if not post_check:
         logger.info("No post-test check is required. Done post-test sanity check")
-        return
-
-    if post_check_items:
-        logger.info("Start post-test sanity check")
-        post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
-        logger.debug("Post-test sanity check results:\n%s" %
-                     json.dumps(post_check_results, indent=4, default=fallback_serializer))
+    else:
+        if post_check_items:
+            logger.info("Start post-test sanity check")
+            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            logger.debug("Post-test sanity check results:\n%s" %
+                         json.dumps(post_check_results, indent=4, default=fallback_serializer))
 
         post_failed_results = [result for result in post_check_results if result['failed']]
         if post_failed_results:
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
             if not allow_recover:
                 request.config.cache.set("post_sanity_check_failed", True)
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(duthosts, post_failed_results, fanouthosts, localhost, nbrhosts,
-                                                post_check_items, recover_method, request, tbinfo, STAGE_POST_TEST)
+                if not nbr_hosts:
+                    nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
+                                                nbr_hosts, post_check_items, recover_method, request, tbinfo,
+                                                STAGE_POST_TEST)
 
-        logger.info("Done post-test sanity check")
-    else:
-        logger.info('No post-test sanity check item, skip post-test sanity check.')
+            logger.info("Done post-test sanity check")
+        else:
+            logger.info('No post-test sanity check item, skip post-test sanity check.')
 
 
-def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
+def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
                                     recover_method, request, tbinfo, sanity_check_stage: str):
-    cache_key = "pre_sanity_check_failed"
-    recovery_cache_key = "pre_sanity_recovered"
+    sanity_failed_cache_key = "pre_sanity_check_failed"
+    recovery_failed_cache_key = "pre_sanity_recovery_failed"
     if sanity_check_stage == STAGE_POST_TEST:
-        cache_key = "post_sanity_check_failed"
-        recovery_cache_key = "post_sanity_recovered"
+        sanity_failed_cache_key = "post_sanity_check_failed"
+        recovery_failed_cache_key = "post_sanity_recovery_failed"
 
     try:
         dut_failed_results = defaultdict(list)
@@ -343,12 +389,12 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
         else:
             for dut_name, dut_results in list(dut_failed_results.items()):
                 # Attempt to restore DUT state
-                recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
+                recover(ptfhost, duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                         recover_method)
 
     except BaseException as e:
-        request.config.cache.set(cache_key, True)
-        request.config.cache.set(recovery_cache_key, False)
+        request.config.cache.set(sanity_failed_cache_key, True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
 
         logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
         pt_assert(
@@ -362,20 +408,21 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
                  json.dumps(new_check_results, indent=4, default=fallback_serializer))
     new_failed_results = [result for result in new_check_results if result['failed']]
     if new_failed_results:
-        request.config.cache.set(cache_key, True)
-        request.config.cache.set(recovery_cache_key, False)
+        request.config.cache.set(sanity_failed_cache_key, True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
         pt_assert(False,
                   f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
                   f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
     # Record recovery success
-    request.config.cache.set(recovery_cache_key, True)
+    add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", False)
 
 
-# make sure teardown of log_custom_msg happens after sanity_check
-@pytest.fixture(scope="module", autouse=True)
-def sanity_check(request, parallel_run_context, log_custom_msg):
+def _sanity_check(request, parallel_run_context):
+
     is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
     initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
+    if is_par_run:
+        initial_check_state.mark_and_wait_before_setup(target_hostname, is_par_leader)
 
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
@@ -399,45 +446,11 @@ def sanity_check(request, parallel_run_context, log_custom_msg):
                     is_par_leader,
                     target_hostname,
                 )
-    elif is_par_run and not is_par_leader:
-        logger.info(
-            "Fixture sanity_check_full setup for non-leader nodes in parallel run is skipped. "
-            "Please refer to the leader node log for check status."
-        )
-
-        yield
-
-        logger.info(
-            "Fixture sanity_check_full teardown for non-leader nodes in parallel run is skipped. "
-            "Please refer to the leader node log for check status."
-        )
-
-        initial_check_state.wait_and_acknowledge_status(
-            InitialCheckStatus.TEARDOWN_COMPLETED,
-            is_par_leader,
-            target_hostname,
-        )
     else:
-        try:
-            if is_par_run and is_par_leader:
-                initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+        yield request.getfixturevalue('sanity_check_full')
 
-            yield request.getfixturevalue('sanity_check_full')
 
-            if is_par_run and is_par_leader:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
-                )
-
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
-        except BaseException as e:
-            if is_par_run and is_par_leader:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.SANITY_CHECK_FAILED,
-                    is_par_leader,
-                    target_hostname,
-                )
-
-            raise e
+@pytest.fixture(scope="module", autouse=True)
+def sanity_check(request, parallel_run_context):
+    with contextmanager(_sanity_check)(request, parallel_run_context) as result:
+        yield result

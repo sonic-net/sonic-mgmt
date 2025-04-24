@@ -321,7 +321,7 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port, community):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s local-preference 10000 community [%s]"
             % (neighbor, operation, route, nexthop, community)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 

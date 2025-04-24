@@ -31,7 +31,20 @@ MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
         }
     })
 )}
-
+# rx port is 400Gbps port receiving traffic in mixed-speed mode.
+# tx port is 100Gbps port sending traffic to IXIA.
+MIXED_SPEED_PORT_INFO = {MULTIDUT_TESTBED: (
+    ({
+        'multiple-dut-any-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut2"}
+            ]
+        }
+    })
+)}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
@@ -75,24 +88,6 @@ config_set = {
                     'asic': [None]
                 }
             }
-
-dut_ip_start = '20.1.1.0'
-snappi_ip_start = '20.1.1.1'
-prefix_length = 31
-
-dut_ipv6_start = '2000:1::1'
-snappi_ipv6_start = '2000:1::2'
-v6_prefix_length = 126
-
-pfcQueueGroupSize = 8  # can have values 4 or 8
-pfcQueueValueDict = {0: 0,
-                     1: 1,
-                     2: 0,
-                     3: 3,
-                     4: 2,
-                     5: 0,
-                     6: 1,
-                     7: 0}
 
 
 def create_ip_list(value, count, mask=32, incr=0):
@@ -147,33 +142,30 @@ ipv6 = []
 peer_ipv6 = []
 # START ---------------------   T2 BGP Case -------------------
 '''
-    PRE-REQUISITE : The DUT ports must be Administratively Up and configured as Routed ports before starting the test
+    PRE-REQUISITE :
+    DUT Configs:
+        For the T2 DUT configuration, use the following topo file:
+            For multi-asic:  topo_tgen_t2_2lc_masic_route_conv.yml (or define one if topology is different)
+            For single-asic: topo_tgen_t2_2lc_route_conv.yml (or define one if topology is different)
+        For the T1 DUT configuration: Please ensure to configure the DUT using the initial_setup() fixture
+            in the tests/snappi_tests/multidut/bgp/conftest.py
+        For Fanout(if Applicable): Please ensure to configure the DUT using the initial_setup() fixture in the
+            tests/snappi_tests/multidut/bgp/conftest.py
+
 '''
 # *********** Common variables for Performance and Outbound ****************
 T2_SNAPPI_AS_NUM = 65400
 T2_DUT_AS_NUM = 65100
 BGP_TYPE = 'ebgp'
-t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
 SNAPPI_TRIGGER = 60  # timeout value for snappi operation
-DUT_TRIGGER = 180    # timeout value for dut operation
+DUT_TRIGGER = 180    # longer timeout value for dut operation
+DUT_TRIGGER_SHORT = 60    # shorter timeout value for dut operation
 
 ipv4_subnet = '20.0.1.1/31'
 ipv6_subnet = '2000:1:1:1::1/126'
 v4_prefix_length = int(ipv4_subnet.split('/')[1])
 v6_prefix_length = int(ipv6_subnet.split('/')[1])
 
-# *********** Performance case variables ****************
-# asic_value is None if it's non-chassis based or single line card
-PERFORMANCE_PORTS = {
-                        'Traffic_Tx_Ports': [
-                            {'port_name': 'Ethernet0', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic0'},
-                            {'port_name': 'Ethernet88', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic0'},
-                        ],
-                        'Uplink BGP Session': [
-                            {'port_name': 'Ethernet192', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic1'},
-                            {'port_name': 'Ethernet144', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic1'},
-                        ]
-                    }
 # *********** Outbound case variables ****************
 # Expect the T1 and T2 ports to be routed ports and not part of any portchannel.
 T1_SNAPPI_AS_NUM = 65300
@@ -181,56 +173,99 @@ T1_DUT_AS_NUM = 65200
 AS_PATHS = [65002]
 
 snappi_community_for_t1 = ["8075:54000"]
+snappi_community_for_t1_drop = ["8075:54001"]
 snappi_community_for_t2 = ["8075:316", "8075:10400"]
 fanout_presence = True
+num_regionalhubs = 2
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
-t2_uplink_fanout_info = [
-                            {
-                                 'fanout_ip': '152.148.150.143',
-                                 'port_mapping': [{'fanout_port': 'Ethernet0', 'uplink_port': 'Ethernet0'},
-                                                  {'fanout_port': 'Ethernet88', 'uplink_port': 'Ethernet88'},
-                                                  {'fanout_port': 'Ethernet192', 'uplink_port': 'Ethernet192'},
-                                                  {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet144'}]
-                            },
-                            {
-                                'fanout_ip': '152.148.150.142',
-                                'port_mapping': [{'fanout_port': 'Ethernet2', 'uplink_port': 'Ethernet2'},
-                                                 {'fanout_port': 'Ethernet3', 'uplink_port': 'Ethernet3'},
-                                                 {'fanout_port': 'Ethernet4', 'uplink_port': 'Ethernet4'},
-                                                 {'fanout_port': 'Ethernet5', 'uplink_port': 'Ethernet5'}]
-                            }
-                        ]
+t2_uplink_fanout_info = {
+    'HW_PLATFORM1': {
+        'fanout_ip': '10.3.146.9',
+        'port_mapping': [
+            {'fanout_port': 'Ethernet64', 'uplink_port': 'Ethernet0'},
+            {'fanout_port': 'Ethernet68', 'uplink_port': 'Ethernet8'},
+            {'fanout_port': 'Ethernet72', 'uplink_port': 'Ethernet16'},
+            {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'}
+        ]
+    },
+    'HW_PLATFORM2': {}
+}
+
 # The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
-t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"]
+t1_t2_device_hostnames = {
+    'HW_PLATFORM1': [
+        "sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"
+    ],
+    'HW_PLATFORM2': [
+    ]
+}
+
 t1_ports = {
-                t1_t2_device_hostnames[0]:
-                [
-                    'Ethernet8',
-                    'Ethernet16'
-                ]
-            }
+     'HW_PLATFORM1': {
+         t1_t2_device_hostnames['HW_PLATFORM1'][0]:
+         [
+            'Ethernet24',
+            'Ethernet28'
+         ]
+     },
+     'HW_PLATFORM2': {
+     }
+}
+
+t1_dut_info = {
+    'HW_PLATFORM1': {
+        'dut_ip': '10.64.246.10',
+    },
+    'HW_PLATFORM2': {
+        'dut_ip': '10.64.246.10',
+    }
+}
+
+t1_snappi_ports = {
+    'HW_PLATFORM1': [
+        {'ip': '10.1.1.1', 'port_id': '11.3', 'peer_port': 'Ethernet24', 'peer_device': 'sonic-t1',
+         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.3', 'api_server_ip': '10.2.2.2'},
+        {'ip': '10.1.1.1', 'port_id': '11.4', 'peer_port': 'Ethernet28', 'peer_device': 'sonic-t1',
+         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.4', 'api_server_ip': '10.2.2.2'},
+    ],
+    'HW_PLATFORM2': []
+}
 
 # asic_value is None if it's non-chassis based or single line card
 t2_uplink_portchannel_members = {
-                                    t1_t2_device_hostnames[1]:
-                                    {
-                                        'asic0':
-                                            {
-                                                'PortChannel0': ['Ethernet0', 'Ethernet88']
-                                            },
-                                        'asic1':
-                                            {
-                                                'PortChannel1': ['Ethernet192', 'Ethernet144']
-                                            }
-                                    }
-                                }
-# TODO: Multiple interconnected ports scenario
-t1_side_interconnected_port = 'Ethernet120'
-t2_side_interconnected_port = {'port_name': 'Ethernet272', 'asic_value': 'asic1'}
+    'HW_PLATFORM1': {
+          t1_t2_device_hostnames['HW_PLATFORM1'][1]: {
+              'asic0': {
+                  'PortChannel0': ['Ethernet0'],
+                  'PortChannel1': ['Ethernet8'],
+                  'PortChannel2': ['Ethernet16'],
+                  'PortChannel3': ['Ethernet24'],
+              },
+              'asic1': {
+              }
+          }
+    },
+    'HW_PLATFORM2': {
 
-routed_port_count = 1+len(t1_ports[t1_t2_device_hostnames[0]])
+    }
+}
+
+# TODO: Multiple interconnected ports scenario
+t1_side_interconnected_port = {
+    'HW_PLATFORM1': 'Ethernet0',
+    'HW_PLATFORM2': None
+}
+
+t2_side_interconnected_port = {
+    'HW_PLATFORM1': {'port_name': 'Ethernet272', 'asic_value': 'asic1'},
+    'HW_PLATFORM2': {}
+}
+
+routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][
+                          t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][0]])
 portchannel_count = sum([len(portchannel_info) for _, portchannel_info in
-                        t2_uplink_portchannel_members[t1_t2_device_hostnames[1]].items()])
+                        t2_uplink_portchannel_members[list(t2_uplink_portchannel_members.keys())[0]][
+                        t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][1]].items()])
 
 
 def generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet):
@@ -260,10 +295,5 @@ t1_t2_snappi_ipv6_list = peer_ipv6[:routed_port_count]
 
 t2_dut_portchannel_ipv6_list = ipv6[routed_port_count:]
 snappi_portchannel_ipv6_list = peer_ipv6[routed_port_count:]
-
-t2_dut_ipv4_list = ip[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
-t2_dut_ipv6_list = ipv6[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
-t2_snappi_ipv4_list = peer_ip[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
-t2_snappi_ipv6_list = peer_ipv6[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
 
 # END ---------------------   T2 BGP Case -------------------

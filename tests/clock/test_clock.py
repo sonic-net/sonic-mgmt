@@ -24,6 +24,7 @@ class ClockConsts:
 
     TEST_TIMEZONE = "Asia/Jerusalem"
     TIME_MARGIN = 6
+    TIME_MARGIN_MODULAR = 16
     RANDOM_NUM = 6
 
     # sonic commands
@@ -31,6 +32,9 @@ class ClockConsts:
     CMD_SHOW_CLOCK_TIMEZONES = "show clock timezones"
     CMD_CONFIG_CLOCK_TIMEZONE = "config clock timezone"
     CMD_CONFIG_CLOCK_DATE = "config clock date"
+    CMD_NTP_STOP = 'service ntp stop'
+    CMD_NTP_START = 'service ntp start'
+    CMD_NTPDATE = 'ntpdate'
 
     # expected outputs
     OUTPUT_CMD_SUCCESS = ''
@@ -60,7 +64,7 @@ class ClockConsts:
 
 class ClockUtils:
     @staticmethod
-    def run_cmd(duthosts, cmd, param=''):
+    def run_cmd(duthosts, cmd, param='', raise_err=False):
         """
         @summary:
             Run a given command and return its output.
@@ -81,6 +85,8 @@ class ClockUtils:
                 err = cmd_err.results["stderr"]
                 cmd_output = output if output else err
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
+                if raise_err:
+                    raise Exception(cmd_output)
 
             cmd_output = str(cmd_output)
             logging.info(f'Output: {cmd_output}')
@@ -93,20 +99,54 @@ class ClockUtils:
         @summary:
             Verify, and then split output of show clock into date, time and timezone strings
 
-            Exapmple:
+            Example:
             "Mon 03 Apr 2023 11:29:46 PM UTC" -> {"date": "2023-04-03", "time": "23:29:46", "timezone": "+0000"}
         @param show_clock_output: the given show clock output
         @return: The splited output as a dict
         """
+        def find_timezone_str_and_matching_format(show_clock_output):
+            """
+            Determine the timezone string and matching datetime format from show_clock_output.
+            Supports multiple formats:
+            - 12-hour: "Thu Feb 20 05:10:25 AM IST 2025" (timezone before year, with AM/PM)
+            - 24-hour: "Thu Feb 20 05:10:25 IST 2025" (timezone before year, no AM/PM)
+            - 24-hour: "Thu 20 Feb 2025 05:10:25 IST" (year before timezone, no AM/PM)
+            - 12-hour: "Thu 20 Feb 2025 05:10:25 AM IST" (year before timezone, with AM/PM)
+            Finds matching tz string and format pair by checking the year and time format.
+            """
+            parts = show_clock_output.split()
+            tz_str1 = parts[-1].strip()  # Last part (e.g., "2025" or "IST")
+            tz_str2 = parts[3].strip()   # Fourth part (e.g., "2025" or "Feb")
+
+            # Year is last (e.g., "2025")
+            if len(tz_str1) == 4 and tz_str1.isdigit():
+                timezone = parts[-2].strip()  # Timezone is second-to-last (e.g., "IST")
+                # Check for AM/PM to determine 12-hour vs 24-hour
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %b %d %I:%M:%S %p %Y'  # 12-hour format
+                else:
+                    return timezone, '%a %b %d %H:%M:%S %Y'     # 24-hour format
+
+            # Year is fourth (e.g., "2025")
+            elif len(tz_str2) == 4 and tz_str2.isdigit():
+                timezone = parts[-1].strip()  # Timezone is last (e.g., "UTC")
+                # Assuming it has AM/PM; adjust if 24-hour is possible
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %d %b %Y %I:%M:%S %p'  # 12-hour format
+                else:
+                    return timezone, '%a %d %b %Y %H:%M:%S'     # 24-hour format
+
+            else:
+                raise ValueError(f'Cannot find matching timezone string and format for: "{show_clock_output}"')
+
         with allure.step('Verify output of show clock'):
             try:
-                timezone_str = show_clock_output.split()[-2].strip()
-                logging.info(f'Timezone str: "{timezone_str}"')
-
-                date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
+                timezone_str, parse_format = find_timezone_str_and_matching_format(show_clock_output)
+                # we need to remove timezone string, as datetime has issue parsing some timezone
+                date_time_to_parse = show_clock_output.replace(' ' + timezone_str, '').strip()
                 logging.info(f'Time and date to parse: "{date_time_to_parse}"')
 
-                datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %b %d %H:%M:%S %p %Y')
+                datetime_obj = dt.datetime.strptime(date_time_to_parse, parse_format)
                 logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
                 pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
@@ -319,7 +359,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
 
-def test_config_clock_date(duthosts, init_timezone, restore_time):
+def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
     """
     @summary:
         Check that 'config clock date' command works correctly
@@ -330,10 +370,13 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         3. Try to set invalid date and time
         4. Verify error and that time hasn't changed
     """
+    # add extra time margin for t2 topo
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    time_margin = ClockConsts.TIME_MARGIN_MODULAR if is_modular_chassis else ClockConsts.TIME_MARGIN
     with allure.step('Select valid date and time to set'):
-        new_date = ClockUtils.select_random_date()
+        new_date = dt.datetime.today() + dt.timedelta(days=1)
         new_time = ClockUtils.select_random_time()
-        new_datetime = new_date + ' ' + new_time
+        new_datetime = new_date.strftime('%Y-%m-%d') + ' ' + new_time
 
     with allure.step(f'Set new date and time "{new_datetime}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
@@ -351,7 +394,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
             cur_time = show_clock_dict[ClockConsts.TIME]
             cur_datetime = f'{cur_date} {cur_time}'
 
-            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
+            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime, allowed_margin=time_margin)
 
     with allure.step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
@@ -398,4 +441,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                     time_after = show_clock_dict_after[ClockConsts.TIME]
                     datetime_after = f'{date_after} {time_after}'
 
-                    ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
+                    ClockUtils.verify_datetime(
+                        expected=datetime_before,
+                        actual=datetime_after,
+                        allowed_margin=time_margin
+                    )

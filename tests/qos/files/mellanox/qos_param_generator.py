@@ -34,7 +34,7 @@ class QosParamMellanox(object):
         self.asic_type = asic_type
         self.cell_size = self.asic_param_dic[asic_type]['cell_size']
         self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
-        if speed_cable_len[0:6] == '400000':
+        if self.asic_type == "spc3" and speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
             self.extra_margin = 16
@@ -236,6 +236,11 @@ class QosParamMellanox(object):
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
+        if 'lossy_dscp' in self.egressLossyProfile:
+            lossy_queue['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_pg_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['queue'] = self.egressLossyProfile['lossy_queue']
 
         wm_buf_pool_lossless = self.qos_params_mlnx['wm_buf_pool_lossless']
         wm_buf_pool_lossless['pkts_num_trig_pfc'] = pkts_num_trig_pfc

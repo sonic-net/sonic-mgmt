@@ -3,10 +3,10 @@
 import json
 
 from tempfile import mkstemp
-from helpers import log_info, log_debug
-from common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
+from tests.common.configlet.helpers import log_info, log_debug
+from tests.common.configlet.utils import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
 
-import strip
+from tests.configlet.util import strip
 
 orig_config = None
 

@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, component
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -21,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 image_list = [
@@ -41,7 +41,7 @@ class TestComponentApi(PlatformApiTestBase):
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, platform_api_conn):   # noqa F811
         if self.num_components is None:
             try:
                 self.num_components = int(chassis.get_num_components(platform_api_conn))
@@ -73,7 +73,7 @@ class TestComponentApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         for i in range(self.num_components):
@@ -83,8 +83,7 @@ class TestComponentApi(PlatformApiTestBase):
                 self.compare_value_with_platform_facts(duthost, 'name', name, i)
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for i in range(self.num_components):
             presence = component.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Component {}: Unable to retrieve presence".format(i)):
@@ -93,16 +92,14 @@ class TestComponentApi(PlatformApiTestBase):
                 self.expect(presence is True, "Component {} not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for i in range(self.num_components):
             model = component.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Component {}: Unable to retrieve model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Component {}: Model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_components):
             serial = component.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Component {}: Unable to retrieve serial number".format(i)):
@@ -110,15 +107,14 @@ class TestComponentApi(PlatformApiTestBase):
                             "Component {}: Serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_components):
             status = component.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Component {}: Unable to retrieve status".format(i)):
                 self.expect(isinstance(status, bool), "Component {}: Status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):
+    def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
         for i in range(self.num_components):
             position = component.get_position_in_parent(platform_api_conn, i)
             if self.expect(position is not None,
@@ -127,7 +123,7 @@ class TestComponentApi(PlatformApiTestBase):
                             "Position value must be an integer value for component {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):
+    def test_is_replaceable(self, platform_api_conn):     # noqa F811
         for i in range(self.num_components):
             replaceable = component.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None,
@@ -140,8 +136,8 @@ class TestComponentApi(PlatformApiTestBase):
     # Functions to test methods defined in ComponentBase class
     #
 
-    def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                             platform_api_conn):  # noqa F811
         for i in range(self.num_components):
             description = component.get_description(platform_api_conn, i)
             if self.expect(description is not None, "Component {}: Failed to retrieve description".format(i)):
@@ -149,8 +145,8 @@ class TestComponentApi(PlatformApiTestBase):
                             "Component {}: Description appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+    def test_get_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                  platform_api_conn):     # noqa F811
         for i in range(self.num_components):
             fw_version = component.get_firmware_version(platform_api_conn, i)
             if self.expect(fw_version is not None, "Component {}: Failed to retrieve firmware version".format(i)):
@@ -159,7 +155,7 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_available_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                            localhost, platform_api_conn):
+                                            localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
@@ -175,7 +171,7 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_firmware_update_notification(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                              localhost, platform_api_conn):
+                                              localhost, platform_api_conn):      # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
@@ -188,7 +184,8 @@ class TestComponentApi(PlatformApiTestBase):
                                   "Component {}: Firmware update notification appears to be incorrect from image {}"
                                   .format(i, image))
 
-    def test_install_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_install_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                              platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
@@ -202,7 +199,8 @@ class TestComponentApi(PlatformApiTestBase):
                                 .format(i, image))
         self.assert_expectations()
 
-    def test_update_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_update_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                             platform_api_conn):     # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
