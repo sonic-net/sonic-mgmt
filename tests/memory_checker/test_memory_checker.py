@@ -157,6 +157,12 @@ def parse_monit_output(lines):
             continue
         if service is None:
             continue
+
+        # Ignore line continuations that start with more than 2 whitespace
+        # characters.  We don't need the data at all.
+        if len(line) - len(line.lstrip()) > 2:
+            continue
+
         if line.startswith('  '):
             key, value = line.lstrip().split('  ', 1)
             service[key.replace(' ', '_')] = value.lstrip()
