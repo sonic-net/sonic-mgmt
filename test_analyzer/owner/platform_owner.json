@@ -702,5 +702,13 @@
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C28S4",
+        "topo": "t0-d18u8s4",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]

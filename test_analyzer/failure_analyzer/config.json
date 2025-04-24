@@ -142,7 +142,7 @@
                 {
                     "id": "t0",
                     "name": "T0",
-                    "testbed_topology": ["tgen-t0-3-32", "t0-standalone-32", "t0-backend", "t0-64", "t0-56-o8v48", "t0-120", "t0-118", "t0-116", "t0", "t0-56-po2vlan", "t0-8-lag", "t0-35", "t0-56-d48c8", "t0-56", "t0-isolated-d16u16s2", "t0-isolated-d16u16s1", "t0-standalone-32"],
+                    "testbed_topology": ["tgen-t0-3-32", "t0-standalone-32", "t0-backend", "t0-64", "t0-56-o8v48", "t0-120", "t0-118", "t0-116", "t0", "t0-56-po2vlan", "t0-8-lag", "t0-35", "t0-56-d48c8", "t0-56", "t0-isolated-d16u16s2", "t0-isolated-d16u16s1", "t0-standalone-32", "t0-d18u8s4"],
                     "threshold": 51,
                     "included": true
                 },
