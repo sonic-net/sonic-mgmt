@@ -2,17 +2,15 @@ import logging
 import time
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
+from tests.common.platform.processes_utils import wait_critical_processes, get_critical_processes_status
+from tests.common.reboot import wait_for_startup
+from tests.common.utilities import wait_until
+from tests.common.errors import RunAnsibleModuleFail
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
-
-SSH_SHUTDOWN_TIMEOUT = 480
-SSH_STARTUP_TIMEOUT = 600
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
@@ -37,25 +35,21 @@ class TestMemoryExhaustion:
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
-        if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
+        status, _ = get_critical_processes_status(duthost)
+        if not status:
             if pdu_controller is None:
                 logging.error("No PDU controller for {}, failed to recover DUT!".format(hostname))
                 return
             self.pdu_reboot(pdu_controller)
-            # Waiting for SSH connection startup
-            pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
-                          'Recover {} by PDU reboot failed'.format(hostname))
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
             self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
 
     def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
-        dut_datetime = duthost.get_now_time()
+        datetime_before_reboot = duthost.get_now_time()
 
         # Our shell command is designed as 'nohup bash -c "sleep 5 && tail /dev/zero" &' because of:
         #  * `tail /dev/zero` is used to run out of memory completely.
@@ -75,38 +69,22 @@ class TestMemoryExhaustion:
         if not res.is_successful:
             pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))
 
-        # Waiting for SSH connection shutdown
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_ABSENT, SSH_SHUTDOWN_TIMEOUT),
-                      'DUT {} did not shutdown'.format(hostname))
-        # Waiting for SSH connection startup
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
-                      'DUT {} did not startup'.format(hostname))
+        # Verify DUT triggered OOM reboot.
+        self.wait_until_reboot(duthost, datetime_before_reboot)
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
         self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
-        # Verify DUT uptime is later than the time when the test case started running.
-        dut_uptime = duthost.get_up_time()
-        pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
 
-    def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
-        """
-        Check the SSH state of DUT.
-
-        :param localhost: A `tests.common.devices.local.Localhost` Object.
-        :param dut_ip: A string, the IP address of DUT.
-        :param expected_state: A string, the expected SSH state.
-        :param timeout: An integer, the maximum number of seconds to wait for.
-        :return: A boolean, True if SSH state is the same as expected
-                          , False otherwise.
-        """
-        res = localhost.wait_for(host=dut_ip,
-                                 port=SONIC_SSH_PORT,
-                                 state=expected_state,
-                                 search_regex=SONIC_SSH_REGEX,
-                                 delay=10,
-                                 timeout=timeout,
-                                 module_ignore_errors=True)
-        return not res.is_failed and 'Timeout' not in res.get('msg', '')
+    def wait_until_reboot(self, duthost, datetime_before_reboot, timeout=600):
+        def check_dut_rebooted(duthost, datetime_before_reboot):
+            try:
+                dut_up_datetime = duthost.get_up_time()
+            except RunAnsibleModuleFail:
+                # We may hit HostUnreachable issue during device reboot, so return False when
+                # RunAnsibleModuleFail raised.
+                return False
+            return dut_up_datetime > datetime_before_reboot
+        wait_until(timeout, 10, 0, check_dut_rebooted, duthost, datetime_before_reboot)
 
     def pdu_reboot(self, pdu_controller):
         hostname = pdu_controller.dut_hostname

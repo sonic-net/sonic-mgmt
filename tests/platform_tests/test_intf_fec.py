@@ -40,8 +40,7 @@ def get_fec_oper_mode(duthost, interface):
     return fec_status[0].get('fec oper', '').lower()
 
 
-def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                              enum_frontend_asic_index, conn_graph_facts):
+def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Verify the FEC operational mode is valid, for all the interfaces with
     SFP present, supported speeds and link is up using 'show interface status'
@@ -58,11 +57,10 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         # Verify the FEC operational mode is valid
         fec = get_fec_oper_mode(duthost, intf)
         if fec == "n/a":
-            pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
+            pytest.fail("FEC status is N/A for interface {}".format(intf))
 
 
-def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                              enum_frontend_asic_index, conn_graph_facts):
+def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Configure the FEC operational mode for all the interfaces, then check
     FEC operational mode is restored to 'rs' FEC mode
@@ -78,17 +76,17 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     for intf in interfaces:
         fec_mode = get_fec_oper_mode(duthost, intf)
         if fec_mode == "n/a":
-            pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
+            pytest.fail("FEC status is N/A for interface {}".format(intf))
 
         config_status = duthost.command("sudo config interface fec {} {}"
-                                        .format(intf['interface'], fec_mode))
+                                        .format(intf, fec_mode))
         if config_status:
-            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"]),
-                          "Interface {} did not come up after configuring FEC mode".format(intf["interface"]))
+            pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf),
+                          "Interface {} did not come up after configuring FEC mode".format(intf))
             # Verify the FEC operational mode is restored
             post_fec = get_fec_oper_mode(duthost, intf)
             if not (post_fec == fec_mode):
-                pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
+                pytest.fail("FEC status is not restored for interface {}".format(intf))
 
 
 def get_interface_speed(duthost, interface_name):
@@ -106,11 +104,8 @@ def get_interface_speed(duthost, interface_name):
     logging.info(f"Interface {interface_name} has speed {speed}")
     return speed
 
-    pytest.fail(f"Interface {interface_name} not found")
 
-
-def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                   enum_frontend_asic_index, conn_graph_facts):
+def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Verify the FEC stats counters are valid
     Also, check for any uncorrectable FEC errors
@@ -218,8 +213,7 @@ def validate_fec_histogram(duthost, intf_name):
     return True
 
 
-def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                              enum_frontend_asic_index, conn_graph_facts):
+def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Verify the FEC histogram is valid and check for errors
     """

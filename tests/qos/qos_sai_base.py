@@ -29,6 +29,10 @@ from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 from tests.common.devices.eos import EosHost
+from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
+from .qos_helpers import dutBufferConfig
 
 logger = logging.getLogger(__name__)
 
@@ -579,11 +583,15 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        asic_type = duthosts[0].facts["asic_type"]
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
+        if asic_type == "vs":
+            logger.info("Swap syncd is not supported on VS platform")
+            swapSyncd = False
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
             if swapSyncd:
@@ -1194,35 +1202,42 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             testPortIps.update(dutPortIps)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-        # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
-        hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
-
-        # Get dst_dut asic type
-        if dst_dut != src_dut:
-            vendor = dst_dut.facts["asic_type"]
-            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
-            dstDutAsic = None
+        qosConfigs = {}
+        if vendor == "vs":
+            with open(r"qos/files/vs/dutConfig.json") as file:
+                dutConfig = json.load(file)
+                qosConfigs = dutConfig["qosConfigs"]
+                dutAsic = "vs"
+                dstDutAsic = "vs"
+        else:
+            with open(r"qos/files/qos.yml") as file:
+                qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+            # Assuming the same chipset for all DUTs so can use src_dut to get asic type
+            hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            dutAsic = None
             for asic in self.SUPPORTED_ASIC_LIST:
                 vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                    dstDutAsic = asic
+                if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dutAsic = asic
                     break
 
-            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
-        else:
-            dstDutAsic = dutAsic
+            pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+            # Get dst_dut asic type
+            if dst_dut != src_dut:
+                vendor = dst_dut.facts["asic_type"]
+                hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+                dstDutAsic = None
+                for asic in self.SUPPORTED_ASIC_LIST:
+                    vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                    if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                        dstDutAsic = asic
+                        break
+
+                pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+            else:
+                dstDutAsic = dutAsic
 
         dutTopo = "topo-"
 
@@ -1560,26 +1575,6 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost, dut_asic):
-        bufferConfig = {}
-        try:
-            ns_spec = ""
-            ns = dut_asic.get_asic_namespace()
-            if ns is not None:
-                # multi-asic support
-                ns_spec = " -n " + ns
-            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
-        except Exception as err:
-            logger.info(err)
-        return bufferConfig
-
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1660,7 +1655,7 @@ class QosSaiBase(QosBase):
                 logger.info("Generator script not implemented for TH5")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+                bufferConfig = dutBufferConfig(duthost, dut_asic)
                 pytest_assert(len(bufferConfig) == 4,
                               "buffer config is incompleted")
                 pytest_assert('BUFFER_POOL' in bufferConfig,
@@ -1694,7 +1689,7 @@ class QosSaiBase(QosBase):
                                                             'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+            bufferConfig = dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
                           'BUFFER_POOL does not exist in bufferConfig')
             pytest_assert('BUFFER_PROFILE' in bufferConfig,
@@ -1729,6 +1724,11 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+        elif dutAsic == 'vs':
+            with open(r"qos/files/vs/dutQosConfig.json") as file:
+                dutQosConfig = json.load(file)
+                qosParams = dutQosConfig["param"]
+                portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1939,6 +1939,26 @@ class QosSaiBase(QosBase):
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
                 )
+
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_pfcwd(self, duthosts):
+        switch_type = duthosts[0].facts.get('switch_type')
+        if switch_type != 'chassis-packet':
+            yield
+            return
+
+        # for packet chassis, the packet may go through backplane
+        # once tx is disabled on egress port, the continuous PFC PAUSE frame will trigger PFCWD on backplane ports
+        # to avoid the impact, we will disable it first before running the test
+        pfcwd_value = {}
+        for duthost in duthosts:
+            pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+            stop_pfcwd(duthost)
+            disable_packet_aging(duthost)
+        yield
+        for duthost in duthosts:
+            reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+            enable_packet_aging(duthost)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2668,7 +2688,7 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_and_run_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
         dshell_script = '''
@@ -2688,8 +2708,12 @@ def set_port_cir(interface, rate):
 
         script_path = "/tmp/set_scheduler.py"
         dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
         dut.docker_copy_to_all_asics(
-            container_name=f"syncd{asic}",
+            container_name=dest,
             src=script_path,
             dst="/")
 
@@ -2716,7 +2740,7 @@ def set_port_cir(interface, rate):
             interfaces = match.group(1).split(' ')
 
         # Set scheduler to 5 Gbps.
-        self.copy_and_run_set_cir_script_cisco_8000(
+        self.copy_set_cir_script_cisco_8000(
             dut=dst_dut,
             ports=interfaces,
             asic=dst_index,

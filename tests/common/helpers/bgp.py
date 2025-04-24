@@ -20,10 +20,8 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
         duthost.file(path=save_dest_path, state="absent")
 
 
-def run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def run_bgp_facts(duthost, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
-
-    duthost = duthosts[enum_frontend_dut_hostname]
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)

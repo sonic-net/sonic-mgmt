@@ -210,6 +210,20 @@ def gather_ip_interface_info():
                                                          'broadcast': broadcast,
                                                          'netmask': netmask,
                                                          'network': network}
+                        else:
+                            if isinstance(interfaces[iface]['ipv4'], list):
+                                interfaces[iface]['ipv4'].append({'address': address,
+                                                                 'broadcast': broadcast,
+                                                                 'netmast': netmask,
+                                                                 'network': network})
+                            else:
+                                previous_address = interfaces[iface]['ipv4']
+                                interfaces[iface]['ipv4'] = []
+                                interfaces[iface]['ipv4'].append(previous_address)
+                                interfaces[iface]['ipv4'].append({'address': address,
+                                                                 'broadcast': broadcast,
+                                                                 'netmast': netmask,
+                                                                 'network': network})
                     else:
                         if 'ipv4_secondaries' not in interfaces[iface]:
                             interfaces[iface]['ipv4_secondaries'] = []

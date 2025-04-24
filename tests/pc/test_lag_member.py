@@ -211,6 +211,9 @@ def setup_arp_responder(ptf_ports, ptfhost):
     # Disable linux arp response on port, let arp_responder to response.
     set_arp_reply(ptfhost, [PTF_LAG_NAME, ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]], DISABLE_ARP_REPLY)
 
+    logger.info('Copy ARP responder to the PTF container  {}'.format(ptfhost.hostname))
+    ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
+
     arp_responder_conf = {}
     arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]
     arp_responder_conf[ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]] = \

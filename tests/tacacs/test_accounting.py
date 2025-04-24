@@ -92,7 +92,7 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
-def check_local_log_exist(duthost, tacacs_creds, command):
+def check_local_log_exist(duthost, tacacs_creds, command, config_command, ptfhost, rw_user_client, retry=6):
     """
         Remove all ansible command log with /D command,
         which will match following format:
@@ -103,26 +103,37 @@ def check_local_log_exist(duthost, tacacs_creds, command):
                 "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
+
+    logs = []
     username = tacacs_creds['tacacs_rw_user']
     log_pattern = "/ansible.legacy.command Invoked/D;\
-                  /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
-                  .format(username, command)
-    logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
+                /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+                .format(username, command)
 
-    if len(logs) == 0:
-        # Print recent logs for debug
-        recent_logs = duthost.command("tail /var/log/syslog -n 1000")
-        logger.debug("Found logs: %s", recent_logs)
+    while retry > 0:
+        retry -= 1
+        change_and_wait_aaa_config_update(duthost, config_command)
 
-        # Missing log may caused by incorrect NSS config
-        tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
-        logger.debug("tacplus_nss.conf: %s", tacacs_config)
+        cleanup_tacacs_log(ptfhost, rw_user_client)
 
-    pytest_assert(len(logs) > 0)
+        ssh_run_command(rw_user_client, command)
 
-    # exclude logs of the sed command produced by Ansible
-    logs = list([line for line in logs if 'sudo sed' not in line])
-    logger.info("Found logs: %s", logs)
+        logs = wait_for_log(duthost, "/var/log/syslog", log_pattern, timeout=120)
+
+        # exclude logs of the sed command produced by Ansible
+        logs = list([line for line in logs if 'sudo sed' not in line])
+
+        if len(logs) == 0:
+            # Print recent logs for debug
+            recent_logs = duthost.command("tail /var/log/syslog -n 2000")
+            logger.debug("Found logs: %s", recent_logs)
+
+            # Missing log may caused by incorrect NSS config
+            tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
+            logger.debug("tacplus_nss.conf: %s", tacacs_config)
+        else:
+            logger.info("Found logs: %s", logs)
+            break
 
     pytest_assert(logs, 'Failed to find an expected log message by pattern: ' + log_pattern)
 
@@ -284,13 +295,15 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
-    cleanup_tacacs_log(ptfhost, rw_user_client)
-
-    ssh_run_command(rw_user_client, "grep")
 
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        "sudo config aaa accounting local",
+                        ptfhost,
+                        rw_user_client)
 
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
@@ -304,14 +317,18 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
-    cleanup_tacacs_log(ptfhost, rw_user_client)
 
-    ssh_run_command(rw_user_client, "grep")
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        'sudo config aaa accounting "tacacs+ local"',
+                        ptfhost,
+                        rw_user_client)
 
     # Verify TACACS+ server and syslog have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+
     # Verify TACACS+ server and syslog not have any command record which not run by user.
     check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds)
     check_local_no_other_user_log(duthost, tacacs_creds)
@@ -326,20 +343,18 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         rw_user_client,
                                                         ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
-    cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
 
-    """
-        After all server not accessible, run some command
-        Verify local user still can run command without any issue.
-    """
-    ssh_run_command(rw_user_client, "grep")
-
     # Verify syslog have user command record.
-    check_local_log_exist(duthost, tacacs_creds, "grep")
+    check_local_log_exist(
+                        duthost,
+                        tacacs_creds,
+                        "grep",
+                        'sudo config aaa accounting "tacacs+ local"',
+                        ptfhost,
+                        rw_user_client)
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
 

@@ -16,6 +16,7 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 
 pytestmark = [
@@ -90,9 +91,13 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
             .yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     bgp_speaker_asn = res['stdout']
 
-    vlan_ips = generate_ips(3, "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
-                                          mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
-                            [IPAddress(mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
+    vlan_interfaces = get_vlan_interface_list(duthost)
+    # pick up the first vlan to test
+    vlan_if_name = vlan_interfaces[0]
+    vlan_ipv4_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
+    vlan_addr = vlan_ipv4_entry['addr']
+    vlan_ips = generate_ips(3, "%s/%s" % (vlan_addr, vlan_ipv4_entry['prefixlen']),
+                            [IPAddress(vlan_addr)])
     logger.info("Generated vlan_ips: %s" % str(vlan_ips))
 
     speaker_ips = generate_ips(2, mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0], [])
@@ -104,14 +109,12 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     lo_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     lo_addr_prefixlen = int(mg_facts['minigraph_lo_interfaces'][0]['prefixlen'])
 
-    vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
-
     vlan_ports = []
     for i in range(0, 3):
         vlan_ports.append(mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_vlans']
-                          [mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+                          [vlan_if_name]['members'][i]])
     if "backend" in tbinfo["topo"]["name"]:
-        vlan_id = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['vlanid']
+        vlan_id = mg_facts['minigraph_vlans'][vlan_if_name]['vlanid']
         ptf_ports = [("eth%s" % _) + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id for _ in vlan_ports]
     else:
         ptf_ports = ["eth%s" % _ for _ in vlan_ports]
@@ -119,10 +122,10 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     logger.info("ptf_ports: %s", ptf_ports)
 
     # Generate ipv6 nexthops
-    vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
+    vlan_ipv6_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
     vlan_ipv6_prefix = "%s/%s" % (vlan_ipv6_entry["addr"], vlan_ipv6_entry["prefixlen"])
     vlan_ipv6_address = vlan_ipv6_entry["addr"]
-    vlan_if_name = vlan_ipv6_entry['attachto']
+
     nexthops_ipv6 = generate_ips(3, vlan_ipv6_prefix, [IPAddress(vlan_ipv6_address)])
     logger.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
     logger.info("setup ip/routes in ptf")

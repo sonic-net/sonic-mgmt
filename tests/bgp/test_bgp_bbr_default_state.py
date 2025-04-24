@@ -137,6 +137,6 @@ def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, set
         loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
 
     duthost.shell("sudo config save -y")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
     is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']
     pytest_assert(is_bbr_enabled == "", "BBR is not disabled when it should be.")
