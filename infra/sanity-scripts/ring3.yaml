@@ -123,13 +123,11 @@ INFRA:
   t0-64:
     mth64:
       - iface_namingmode/test_iface_namingmode.py
-      - dhcp_relay/test_dhcp_relay.py
       - monit/test_monit_status.py
       - system_health/test_system_health.py
       - container_checker/test_container_checker.py
       - container_hardening/test_container_hardening.py
       - database/test_db_scripts.py
-      - dhcp_relay/test_dhcp_pkt_fwd.py
       - syslog/test_syslog_rate_limit.py
       - test_announce_routes.py
       - test_interfaces.py
@@ -183,7 +181,9 @@ L2:
       - vlan/test_vlan.py
       - generic_config_updater/test_portchannel_interface.py
       - generic_config_updater/test_vlan_interface.py
-
+      - dhcp_relay/test_dhcp_pkt_fwd.py
+      - dhcp_relay/test_dhcp_relay.py
+      
 
 ROUTING: #Sridhar Santhanam
   t0-64:
