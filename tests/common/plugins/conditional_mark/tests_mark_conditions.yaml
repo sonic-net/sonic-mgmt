@@ -26,6 +26,12 @@ acl/null_route/test_null_route_helper.py:
       - "'dualtor' in topo_name"
       - "'m1' in topo_type or 'm2' in topo_type or 'm3' in topo_type"
 
+acl/test_acl.py:
+  skip:
+    reason: "Skip acl for isolated-v6 topology"
+    conditions:
+      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -996,6 +1002,10 @@ fib/test_fib.py::test_nvgre_hash:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+  xfail:
+    reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
+    conditions:
+      - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
@@ -1140,6 +1150,20 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           gnmi              #####
 #######################################
+gnmi/test_gnmi.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_appldb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -1147,12 +1171,34 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
+
+gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnmi_smartswitch.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_killprocess.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
   skip:
@@ -1161,6 +1207,27 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
+
+gnmi/test_gnoi_os.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
+
+gnmi/test_gnoi_system_grpc.py:
+  skip:
+    reason: "GNMI cert name to role mapping change from single role to role list"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 #######################################
 #####           hash              #####
@@ -1306,6 +1373,10 @@ hash/test_generic_hash.py::test_nexthop_flap:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: "Flaky hashing behavior using specific combination of hash field and algorithm."
+    conditions:
+      - "'isolated' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1736,11 +1807,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
         - "asic_type in ['cisco-8000']"
         - "release in ['202412']"
-   xfail:
-     reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
-     conditions:
-        - "'dualtor' in topo_name"
-        - https://github.com/sonic-net/sonic-mgmt/issues/8400
+        - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
    skip:
@@ -1955,7 +2022,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
-      - "'t2' in topo_name and asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['vs']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
@@ -2516,6 +2582,12 @@ upgrade_path:
     reason: "Upgrade path test needs base and target image lists, currently do not support on KVM."
     conditions:
       - "asic_type in ['vs']"
+
+upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
+  skip:
+    reason: "Only supported on T2 topology"
+    conditions:
+      - "'t2' not in topo_type"
 
 #######################################
 #####            vlan             #####
