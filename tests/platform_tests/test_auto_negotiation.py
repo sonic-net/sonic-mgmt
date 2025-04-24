@@ -189,7 +189,7 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
                                                                                                     fanout_port))
 
         # Advertise all supported speeds in fanout port
-        success = fanout.set_speed(fanout_port, None)
+        success = fanout.set_speed(fanout_port, "all")
         pytest_require(
             success,
             'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port)
@@ -241,7 +241,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
         pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
 
         # Advertise all supported speeds in fanout port
-        success = fanout.set_speed(fanout_port, None)
+        success = fanout.set_speed(fanout_port, "all")
         pytest_require(success, 'Failed to advertise all speeds on fanout port {}'.format(fanout_port))
 
         duthost.shell('config interface autoneg {} enabled'.format(dut_port))
