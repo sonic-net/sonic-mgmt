@@ -177,7 +177,7 @@ def parallel_run(
         # check if we have any processes that failed - have exitcode non-zero or exception not none
         for worker in gone + alive:
             worker_exception = worker.exception  # Force-read to prevent pipe hangs
-            if worker.exitcode != 0 or worker_exception is not None:
+            if worker_exception is not None:
                 failed_processes[worker.name] = {
                     'exit_code': worker.exitcode,
                     'exception': worker_exception
