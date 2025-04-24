@@ -71,7 +71,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
+def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp', vxlan_udp_dport=4789):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA,
         pl.PL_OVERLAY_DIP,
@@ -103,13 +103,13 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
         ip_src=pl.PE_PA,
         ip_dst=pl.APPLIANCE_VIP,
         gre_key_present=True,
-        gre_key=int(pl.VNET1_VNI) << 8,
+        gre_key=int(pl.ENCAP_VNI) << 8 if use_pkt_alt_attrs else int(pl.VNET1_VNI) << 8,
         inner_frame=inner_packet,
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC,
-        eth_dst=pl.REMOTE_MAC,
+        eth_src=pl.REMOTE_MAC if use_pkt_alt_attrs else pl.ENI_MAC,
+        eth_dst=pl.ENI_MAC if use_pkt_alt_attrs else pl.REMOTE_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
@@ -124,10 +124,10 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
         eth_dst=config[LOCAL_PTF_MAC],
         ip_src=pl.APPLIANCE_VIP,
         ip_dst=pl.VM1_PA,
-        ip_ttl=254,
+        ip_ttl=63 if use_pkt_alt_attrs else 254,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
-        vxlan_vni=int(pl.VM_VNI),
+        vxlan_vni=int(pl.VNET1_VNI) if use_pkt_alt_attrs else int(pl.VM_VNI),
         inner_frame=exp_inner_packet
     )
 
@@ -140,10 +140,11 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     return gre_packet, masked_exp_packet
 
 
-def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
+def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
+                        inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.REMOTE_MAC,
-        eth_dst=pl.ENI_MAC,
+        eth_src=pl.ENI_MAC if use_pkt_alt_attrs else pl.REMOTE_MAC,
+        eth_dst=pl.REMOTE_MAC if use_pkt_alt_attrs else pl.ENI_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
     )
@@ -157,7 +158,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
             udp_dport=vxlan_udp_dport,
             udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
-            vxlan_vni=int(pl.VM_VNI),
+            vxlan_vni=int(pl.VNET1_VNI) if use_pkt_alt_attrs else int(pl.VM_VNI),
             inner_frame=inner_packet
         )
     elif outer_encap == 'gre':
@@ -167,7 +168,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=int(pl.VM_VNI) << 8,
+            gre_key=int(pl.ENCAP_VNI) << 8 if use_pkt_alt_attrs else int(pl.VM_VNI) << 8,
             inner_frame=inner_packet
         )
     else:
@@ -207,7 +208,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
         gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
         ip_id=0,
-        ip_ttl=254,
+        ip_ttl=63 if use_pkt_alt_attrs else 254,
     )
 
     masked_exp_packet = Mask(exp_encap_packet)
