@@ -13,7 +13,7 @@ DUT_CHECK_NAMESPACE = "dut_check_result"
 UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
     "t1": "t2",
-    "m1": "m2",
+    "m1": "ma",
     "m0": "m1",
     "mx": "m0",
     "t2": "t3",
