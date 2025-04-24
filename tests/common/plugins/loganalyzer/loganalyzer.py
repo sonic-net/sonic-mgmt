@@ -143,9 +143,9 @@ class LogAnalyzer:
 
             # if result['total']['match'] == 0:
             logging.info(f"[chunangli], match_messages: \n{result['match_messages']}")
-            result['total']['match'] = 10000
+            result['total']['match'] = 20
             dict1 = {}
-            for i in range(2000):
+            for i in range(4):
                 dict1[i] = ["2025 Apr 20 17:54:51.218839 bjw-can-7260-12 ERR syncd#syncd: :- collectData: "
                             "Failed to get stats of Port Counter 0x100000042: -2"]*5
             result['match_messages'] = dict1
