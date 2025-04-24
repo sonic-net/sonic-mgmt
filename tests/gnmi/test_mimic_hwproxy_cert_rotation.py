@@ -104,7 +104,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
                 f'port "{port}"'
             )
             duthost.command(set_table, module_ignore_errors=True)
-            set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
+            set_table_cert = 'sonic-db-cli CONFIG_DB hset "TELEMETRY|certs"   \
                     ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
                     server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
                     server_key "/etc/sonic/telemetry/gnmiserver.key"'
