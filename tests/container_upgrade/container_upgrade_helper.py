@@ -29,6 +29,10 @@ container_name_mapping = {
     "docker-bmp-watchdog": "bmp_watchdog",
 }
 
+existing_service_list = [
+    "gnmi"
+]
+
 
 def parse_containers(container_string):
     containers = []
@@ -122,14 +126,26 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "All critical services should be fully started!")
 
 
+def disable_features(duthost):
+    for service in existing_service_list:
+        logger.info(f"Disabling {service} feature")
+        duthost.shell(f"config feature state {service} disabled", module_ignore_errors=True)
+    duthost.shell("config save -y", module_ignore_errors=True)
+
+
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
 
+    # Disable features, and new container will be managed by kubernetes
+    disable_features(duthost)
     registry = load_docker_registry_info(duthost, creds)
     for container, version, name in zip(env.containers, env.container_versions, env.container_names):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
+        # Stop and remove existing container
+        duthost.shell(f"docker stop {name}", module_ignore_errors=True)
+        duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
