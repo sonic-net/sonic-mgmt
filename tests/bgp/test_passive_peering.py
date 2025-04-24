@@ -8,6 +8,7 @@ import logging
 import pytest
 import time
 from tests.common.config_reload import config_reload
+from tests.common.devices.eos import EosHost
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
@@ -19,13 +20,15 @@ pytestmark = [
 bgp_config_sleeptime = 90
 peer_password = "sonic.123"
 wrong_password = "wrong-password"
+EOS_BACKUP_CONFIG_FILE = "/tmp/eos_neighbor_test_passive_peering_backup_config_{}"
 
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     # verify neighbors are type sonic
-    if request.config.getoption("neighbor_type") != "sonic":
-        pytest.skip("Neighbor type must be sonic")
+    is_sonic = False
+    if request.config.getoption("neighbor_type") == "sonic":
+        is_sonic = True
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
@@ -85,17 +88,35 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
         'peer_group_v4': peer_group_v4,
         'peer_group_v6': peer_group_v6,
         'asic_index': asic_index,
-        'neigh_asic_index': neigh_asic_index
+        'neigh_asic_index': neigh_asic_index,
+        'is_sonic': is_sonic
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
+    neighbor_dut = nbrhosts[neigh_name]["host"]
+
+    is_arista_neighbor = not is_sonic and isinstance(neighbor_dut, EosHost)
+
+    if is_arista_neighbor:
+        # Neighbor is running EOS, backup config
+        neighbor_dut.eos_config(
+            backup=True,
+            backup_options={
+                'filename': EOS_BACKUP_CONFIG_FILE.format(neighbor_dut.hostname)
+            }
+        )
 
     yield setup_info
 
     # restore config to original state on both DUT and neighbor
-    config_reload(duthost, safe_reload=True)
-    time.sleep(10)
-    config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
+
+    if is_arista_neighbor:
+        # Neighbor is running EOS, backup config
+        neighbor_dut.load_configuration(EOS_BACKUP_CONFIG_FILE.format(neighbor_dut.hostname))
+    elif is_sonic:
+        config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
+
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def test_bgp_passive_peering_ipv4(setup):
@@ -122,15 +143,20 @@ def test_bgp_passive_peering_ipv4(setup):
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
 
-    logger.info("isSonic: {}".format(setup['isSonic']))
+    logger.info("is_sonic: {}".format(setup['is_sonic']))
 
     # configure password on Neighbor and ensure the adjacency is established (IPv4)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+    if setup['is_sonic']:
+        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
                                                                                         setup['neigh_asic_index'],
                                                                                         setup['neigh_asn'],
                                                                                         setup['dut_ip_v4'],
                                                                                         peer_password)
-    setup['neighhost'].shell(cmd, module_ignore_errors=True)
+        setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    else:
+        cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], peer_password)]
+        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -176,12 +202,18 @@ def test_bgp_passive_peering_ipv6(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # configure password on Neighbor and ensure the adjacency is established (IPv6)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+    if setup['is_sonic']:
+        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.\
+                                                                                    format(
                                                                                         setup['neigh_asic_index'],
                                                                                         setup['neigh_asn'],
                                                                                         setup['dut_ip_v6'],
                                                                                         peer_password)
-    setup['neighhost'].shell(cmd, module_ignore_errors=True)
+        setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    else:
+        cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v6'], peer_password)]
+        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     time.sleep(bgp_config_sleeptime)
 

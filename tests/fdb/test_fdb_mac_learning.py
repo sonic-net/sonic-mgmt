@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
-        r".*ERR swss#orchagent: :- update: Failed to get port by bridge port ID.*",
+        r".*ERR swss#orchagent: .*update: Failed to get port by bridge port ID.*",
         r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
         ]
     if loganalyzer:
@@ -205,8 +205,8 @@ class TestFdbMacLearning:
         """
         Make sure interfaces are ready for sending traffic.
         """
-        if "dualtor" in tbinfo['topo']['name']:
-            pytest_assert(wait_until(150, 5, 0, self.check_mux_status_consistency, duthost, ports))
+        if "dualtor-aa" in tbinfo['topo']['name']:
+            pytest_assert(wait_until(300, 5, 0, self.check_mux_status_consistency, duthost, ports))
         else:
             time.sleep(30)
 

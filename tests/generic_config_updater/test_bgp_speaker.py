@@ -261,3 +261,4 @@ def test_bgp_speaker_tc1_test_config(rand_selected_dut, lo_intf_ips, vlan_intf_i
     bgp_speaker_tc1_add_dummy_ip_range(rand_selected_dut)
     bgp_speaker_tc1_rm_dummy_ip_range(rand_selected_dut)
     bgp_speaker_tc1_replace_src_address(rand_selected_dut)
+    bgp_speaker_config_cleanup(rand_selected_dut)

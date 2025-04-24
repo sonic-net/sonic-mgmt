@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list                                                                  # noqa: F401
+    lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -33,7 +33,8 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
                                     tbinfo,
                                     get_snappi_ports,             # noqa: F811
                                     port_map,
-                                    multidut_port_info):          # noqa: F811
+                                    multidut_port_info,  # noqa: F811
+                                    disable_pfcwd):          # noqa: F811
 
     """
     Majority traffic is lossless priority traffic.
@@ -169,7 +170,8 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
                                    tbinfo,
                                    get_snappi_ports,             # noqa: F811
                                    port_map,
-                                   multidut_port_info):          # noqa: F811
+                                   multidut_port_info,  # noqa: F811
+                                   disable_pfcwd):          # noqa: F811
 
     """
     Traffic is sent to IXIA receiver in equal amount.
@@ -303,7 +305,8 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
                                    tbinfo,
                                    get_snappi_ports,             # noqa: F811
                                    port_map,
-                                   multidut_port_info):          # noqa: F811
+                                   multidut_port_info,  # noqa: F811
+                                   disable_pfcwd):          # noqa: F811
 
     """
     Test to have mixed speed ingress and egress without oversubscribing the egress.

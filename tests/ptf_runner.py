@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 def ptf_collect(host, log_file, skip_pcap=False, dst_dir='./logs/ptf_collect/'):
-    '''Collect PTF log and pcap files from PTF container to sonic-mgmt container.
-    Optionally, save the files to a sub-directory in the destination.'''
+    """
+    Collect PTF log and pcap files from PTF container to sonic-mgmt container.
+    Optionally, save the files to a sub-directory in the destination.
+    """
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
@@ -107,7 +109,6 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                ptf_collect_dir="./logs/ptf_collect/",
                device_sockets=[], timeout=0, custom_options="",
                module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
-
     dut_type = get_dut_type(host)
     kvm_support = params.get("kvm_support", False)
     if dut_type == "kvm" and kvm_support is False:

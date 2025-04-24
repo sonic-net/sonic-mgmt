@@ -25,7 +25,7 @@ class Sniffer(object):
 
     def save_pcap(self, pcap_path):
         if not self.packets:
-            logging.warn("No packets were captured")
+            logging.warning("No packets were captured")
 
         scapyall.wrpcap(pcap_path, self.packets)
         logging.debug("Pcap file dumped to {}".format(pcap_path))
