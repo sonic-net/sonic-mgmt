@@ -1405,6 +1405,10 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
+        # Set LACP timer multiplier to 5 for cEOS peers
+        if self.test_params['neighbor_type'] == "eos":
+            self.ceos_set_lacp_all_neighs(5)
+
         self.pre_reboot_test_setup()
         try:
             self.log("Check that device is alive and pinging")
@@ -1458,7 +1462,28 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
+            # Restore cEOS LACP timer multiplier to default (3)
+            if self.test_params['neighbor_type'] == "eos":
+                self.ceos_set_lacp_all_neighs(3)
+
             self.handle_post_reboot_test_reports()
+
+    def ceos_set_lacp_all_neighs(self, multiplier):
+        for neigh in self.ssh_targets:
+            self.neigh_handle = HostDevice.getHostDeviceInstance(
+                                    self.test_params['neighbor_type'], neigh, None, self.test_params)
+            self.neigh_handle.connect()
+
+            raw_json = self.neigh_handle.do_cmd("show lacp interface | json")
+            neigh_int_json = json.loads(raw_json[raw_json.find("{"):raw_json.rfind("}")+1])
+
+            self.neigh_handle.do_cmd("config")
+            for lag in neigh_int_json["portChannels"]:
+                for neigh_int in neigh_int_json["portChannels"][lag]['interfaces']:
+                    self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                    self.neigh_handle.do_cmd(f"lacp timer multiplier {multiplier}")
+
+            self.neigh_handle.disconnect()
 
     def neigh_lag_status_check(self):
         """
@@ -1725,9 +1750,7 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 90
-        if self.test_params['neighbor_type'] == "sonic":
-            max_allowed_lacp_session_wait = 150
+        max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
