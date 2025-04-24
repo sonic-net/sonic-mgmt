@@ -1,6 +1,10 @@
 {
 	"testcases": [
 		"auditd/test_auditd.py",
+		"bmp/test_bmp_configdb.py",
+		"bmp/test_bmp_redis_instance.py",
+		"bmp/test_bmp_statedb.py",
+		"bmp/test_docker_restart.py",
 		"gnmi/test_gnmi.py",
 		"gnmi/test_gnmi_configdb.py",
 		"gnmi/test_gnmi_appldb.py",
