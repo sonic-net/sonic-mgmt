@@ -7,6 +7,7 @@ import apis.switching.portchannel as portchannel_obj
 import apis.system.interface as intf_obj
 import tortuga_common_utils as common_obj
 import apis.routing.ip as ip_obj
+from spytest.utils import poll_wait
 
 # Global variables
 data_glob = SpyTestDict()
@@ -363,6 +364,10 @@ def test_portchannel_minlink(setup_teardown_portchannel):
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0], data_glob.members_dut1[1]], min_link = '2', add=True)
     common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0], data_glob.members_dut2[1]], min_link = '2', add=True)
 
+    #Port channel status check
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="up"):
+        st.report_fail("PortChannel in Down state")
+
     #test ipv4 traffic with base config
     handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', True)
     common_obj.traffic_start(handles, data_l3, data_l3)
@@ -375,7 +380,7 @@ def test_portchannel_minlink(setup_teardown_portchannel):
     intf_obj.interface_shutdown(data_glob.spine0, [data_glob.members_dut1[0]])
 
     #Port channel status check
-    if not portchannel_obj.verify_portchannel_state(data_glob.spine0, data_glob.portchannel_name, state="down"):
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="down"):
         st.report_fail('msg', "PortChannel in Up state after member shutdown")
 
     common_obj.traffic_start(handles, data_l3, data_l3)
@@ -391,7 +396,7 @@ def test_portchannel_minlink(setup_teardown_portchannel):
     st.wait(10)
 
     #Port channel status check
-    if not portchannel_obj.verify_portchannel_state(data_glob.spine0, data_glob.portchannel_name, state="up"):
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="up"):
         st.report_fail("PortChannel in Down state after member unshut")
 
     common_obj.traffic_start(handles, data_l3, data_l3)
