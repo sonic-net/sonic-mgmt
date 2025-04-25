@@ -684,7 +684,9 @@ class BaseEverflowTest(object):
                 command += " --stage {}".format(self.acl_stage())
 
             if bind_ports_list:
-                command += " -p {}".format(",".join(bind_ports_list))
+                filtered_ports = [p for p in bind_ports_list if p and p != "Not Applicable"]
+                if filtered_ports:
+                    command += " -p {}".format(",".join(filtered_ports))
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
