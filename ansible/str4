@@ -276,6 +276,7 @@ sonic:
     sonic_arista_7060x6:
     sonic_arista_7060x6_512:
     sonic_nvidia_sn5600:
+    sonic_nvidia_sn5640:
     sonic_cisco_8101_O8V48:
     sonic_cisco_8122_O128:
     sonic_arista_7050cx3:
@@ -518,41 +519,41 @@ sonic_nvidia_sn5600:
       hwsku: Mellanox-SN5600-C224O8
       model: 920-9N42F-00RI-7C0
       serial: MT2438XZ0HP9
-      base_mac: 9C:05:91:A2:66:00
+      base_mac: B0:CF:0E:B0:DE:00
       syseeprom_info:
         "0x21": "SN5600"
         "0x22": "920-9N42F-00RI-7C0"
         "0x23": "MT2438XZ0HP9"
-        "0x24": "9C:05:91:A2:66:00"
-        "0x25": "03/28/2024 21:29:35"
+        "0x24": "B0:CF:0E:B0:DE:00"
+        "0x25": "09/25/2024 14:07:38"
         "0x26": "0"
         "0x28": "x86_64-nvidia_sn5600-r0"
         "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "512"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0xF931D612"
     str4-sn5600-5:
       ansible_host: 10.64.246.51
       ansible_hostv6: 2a01:111:e210:b000::a40:f633
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5600-C256S1
       model: 920-9N42F-00RI-7C0
-      serial: MT2438XZ0HP9
-      base_mac: 9C:05:91:A2:66:00
+      serial: MT2438XZ0HP6
+      base_mac: B0:CF:0E:B0:D8:00
       syseeprom_info:
         "0x21": "SN5600"
         "0x22": "920-9N42F-00RI-7C0"
-        "0x23": "MT2438XZ0HP9"
-        "0x24": "9C:05:91:A2:66:00"
-        "0x25": "03/28/2024 21:29:35"
+        "0x23": "MT2438XZ0HP6"
+        "0x24": "B0:CF:0E:B0:D8:00"
+        "0x25": "09/25/2024 14:54:49"
         "0x26": "0"
         "0x28": "x86_64-nvidia_sn5600-r0"
         "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "512"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0xC178779D"
     str4-sn5600-6:
       ansible_host: 10.64.246.65
       ansible_hostv6: 2a01:111:e210:b000::a40:f641
@@ -560,20 +561,20 @@ sonic_nvidia_sn5600:
       hwsku: Mellanox-SN5600-C224O8
       model: 920-9N42F-00RI-7C0
       serial: MT2452XZ085Z
-      base_mac: 9C:05:91:A2:66:00
+      base_mac: B0:CF:0E:BA:92:00
       syseeprom_info:
         "0x21": "SN5600"
         "0x22": "920-9N42F-00RI-7C0"
         "0x23": "MT2452XZ085Z"
-        "0x24": "9C:05:91:A2:66:00"
-        "0x25": "03/28/2024 21:29:35"
+        "0x24": "B0:CF:0E:BA:92:00"
+        "0x25": "12/24/2024 18:06:43"
         "0x26": "0"
         "0x28": "x86_64-nvidia_sn5600-r0"
         "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "512"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0x4CFCEFC7"
     str4-sn5600-7:
       ansible_host: 10.64.246.67
       ansible_hostv6: 2a01:111:e210:b000::a40:f643
@@ -581,20 +582,20 @@ sonic_nvidia_sn5600:
       hwsku: Mellanox-SN5600-C256S1
       model: 920-9N42F-00RI-7C0
       serial: MT2452XZ084D
-      base_mac: 9C:05:91:A2:66:00
+      base_mac: B0:CF:0E:BA:2A:00
       syseeprom_info:
         "0x21": "SN5600"
         "0x22": "920-9N42F-00RI-7C0"
         "0x23": "MT2452XZ084D"
-        "0x24": "9C:05:91:A2:66:00"
-        "0x25": "03/28/2024 21:29:35"
+        "0x24": "B0:CF:0E:BA:2A:00"
+        "0x25": "12/24/2024 18:02:22"
         "0x26": "0"
         "0x28": "x86_64-nvidia_sn5600-r0"
         "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "512"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0xFF0F2F0F"
 
 sonic_nvidia_sn5640:
   hosts:
@@ -605,20 +606,20 @@ sonic_nvidia_sn5640:
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
       serial: MT25116051T3
-      base_mac: 50:00:e6:01:bc:52
+      base_mac: 50:00:E6:01:BC:52
       syseeprom_info:
         "0x21": "SN5640"
-        "0x22": "MSN5640"
+        "0x22": "920-9N52F-09RB-7S0"
         "0x23": "MT25116051T3"
         "0x24": "50:00:e6:01:bc:52"
-        "0x25": "03/28/2024 21:29:35"
-        "0x26": "0"
+        "0x25": "03/18/2025 09:19:04"
+        "0x26": "16"
         "0x28": "x86_64-nvidia_sn5640-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0xC8BAF94C"
     str4-sn5640-2:
       ansible_host: 10.64.246.168
       ansible_hostv6: 2a01:111:e210:b000::a40:f6a8
@@ -626,41 +627,41 @@ sonic_nvidia_sn5640:
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
       serial: MT2512601HDR
-      base_mac: 50:00:e6:01:bc:52
+      base_mac: 50:00:E6:1D:41:B2
       syseeprom_info:
         "0x21": "SN5640"
-        "0x22": "MSN5640"
+        "0x22": "920-9N52F-09RB-7S0"
         "0x23": "MT2512601HDR"
-        "0x24": "50:00:e6:01:bc:52"
-        "0x25": "03/28/2024 21:29:35"
-        "0x26": "0"
+        "0x24": "50:00:E6:1D:41:B2"
+        "0x25": "03/19/2025 17:38:59"
+        "0x26": "16"
         "0x28": "x86_64-nvidia_sn5640-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0x8E539AB1"
     str4-sn5640-3:
       ansible_host: 10.64.246.78
       ansible_hostv6: 2a01:111:e210:b000::a40:f64e
       mgmt_subnet_mask_length: 23
-      hwsku: Mellanox-SN5600-C448O16
+      hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
       serial: MT25116051TV
-      base_mac: 50:00:e6:01:bc:52
+      base_mac: 50:00:E6:01:F1:F4
       syseeprom_info:
         "0x21": "SN5640"
-        "0x22": "MSN5640"
+        "0x22": "920-9N52F-09RB-7S0"
         "0x23": "MT25116051TV"
-        "0x24": "50:00:e6:01:bc:52"
-        "0x25": "03/28/2024 21:29:35"
-        "0x26": "0"
+        "0x24": "50:00:E6:01:F1:F4"
+        "0x25": "03/17/2025 17:39:36"
+        "0x26": "16"
         "0x28": "x86_64-nvidia_sn5640-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
-        "0xFE": "0x2035DFD1"
+        "0xFE": "0x52FF3025"
 
 sonic_cisco_8122_O128:
   hosts:
