@@ -5,6 +5,8 @@ import yaml
 import json
 import random
 import logging
+import os
+import re
 import tempfile
 import traceback
 
@@ -397,11 +399,19 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
 def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
     dst_ports = [str(port) for port_list in dst_ports for port in port_list]
-    tmp_file = tempfile.NamedTemporaryFile()
-    for ip in dst_ips:
-        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
-    tmp_file.flush()
-    ptfhost.copy(src=tmp_file.name, dest=render_file)
+
+    # Use NamedTemporaryFile with text mode
+    with tempfile.NamedTemporaryFile(mode='w+', encoding='utf-8', delete=False) as tmp_file:
+        for ip in dst_ips:
+            tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+        tmp_file.flush()
+        tmp_filename = tmp_file.name
+
+    # Copy the file to the PTF host
+    ptfhost.copy(src=tmp_filename, dest=render_file)
+
+    # Clean up the temporary file
+    os.remove(tmp_filename)
 
 # For dualtor
 
@@ -1016,12 +1026,19 @@ class TestVrfLoopbackIntf():
 
         # ----------- Setup ----------------
 
-        # FIXME Create a dummy bgp session.
+        # FIXME Create a dummy bgp session if not exists
         # Workaroud to overcome the bgp socket issue.
         # When there are only vrf bgp sessions and
         # net.ipv4.tcp_l3mdev_accept=1, bgpd(7.0) does
         # not create bgp socket for sessions.
-        duthost.shell("vtysh -c 'config terminal' -c 'router bgp 65444'")
+
+        # Get the current BGP AS number if exists
+        bgp_as = duthost.shell("vtysh -c 'show running-config' | grep 'router bgp' | head -1",
+                               module_ignore_errors=True)['stdout']
+        if not bgp_as or not re.search(r'router bgp (\d+)', bgp_as):
+            # If BGP is not configured or we couldn't extract the AS number, create a new BGP router
+            logger.warning("No BGP configuration found or couldn't extract AS number, creating default")
+            duthost.shell("vtysh -c 'config terminal' -c 'router bgp 65444'", module_ignore_errors=True)
 
         # vrf1 args, vrf2 use the same as vrf1
         peer_range = IPNetwork(
