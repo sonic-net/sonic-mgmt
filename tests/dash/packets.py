@@ -172,8 +172,7 @@ def build_outer_encap_packet(config, encap_type, inner_packet, ip_src, ip_dst,
     return outer_packet
 
 
-def generate_plnsg_packets(config, inner_encap, outer_encap, inner_packet_type='udp',
-                           vxlan_udp_dport=4789, num_packets=1000):
+def generate_plnsg_packets(config, inner_encap, outer_encap, inner_packet_type='udp', num_packets=1000):
     plnsg_pkts = []
     for i in range(num_packets):
         sport = random.randint(49152, 65535)
@@ -181,7 +180,7 @@ def generate_plnsg_packets(config, inner_encap, outer_encap, inner_packet_type='
             config, inner_encap, outer_encap, sport
         )
         inbound_pkt, inbound_exp_pkt = inbound_pl_packets(
-            config, inner_encap, outer_encap, vxlan_udp_dport=sport
+            config, vxlan_udp_dport=sport
         )
         plnsg_pkts.append((
             inbound_pkt,
