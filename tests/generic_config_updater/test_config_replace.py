@@ -16,7 +16,6 @@ CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 CHECKPOINT_PATH = "/etc/sonic/checkpoints/"
 
 # Test data
-TEST_VLAN_ID = "18"
 TEST_PORTCHANNEL = "PortChannel18"
 TEST_SYSLOG_SERVER = "10.0.0.100"
 TEST_NTP_SERVER = "10.0.0.200"
@@ -104,14 +103,28 @@ class TestConfigReplace:
         current_config = self.get_current_config()
         return self.merge_configs(current_config, updates)
 
+    def find_unused_vlan_id(self, start_id=10):
+        """Find an unused VLAN ID starting from the given ID"""
+        current_config = self.get_current_config()
+        vlan_config = current_config.get("VLAN", {})
+
+        test_id = start_id
+        while f"Vlan{test_id}" in vlan_config:
+            test_id += 1
+
+        return str(test_id)
+
     def test_config_replace_single_table(self):
         """
         Test config replace with single table modification while preserving existing entries
         """
+        # Find an unused VLAN ID
+        test_vlan_id = self.find_unused_vlan_id()
+
         # Get current config and prepare updates
         vlan_updates = {
             "VLAN": {
-                f"Vlan{TEST_VLAN_ID}": {
+                f"Vlan{test_vlan_id}": {
                     "admin_status": "up",
                     "description": "Test_VLAN"
                 }
@@ -165,7 +178,7 @@ class TestConfigReplace:
         """
         current_config = self.get_initial_config()
 
-        # Add invalid VLAN configuration
+        # Add invalid VLAN configuration (VLAN ID > 4094)
         current_config["VLAN"] = {
             "Vlan5000": {}  # Invalid VLAN ID
         }
@@ -255,7 +268,7 @@ class TestConfigReplace:
 
         # Add valid VLAN and invalid PORTCHANNEL
         current_config["VLAN"] = {
-            f"Vlan{TEST_VLAN_ID}": {
+            f"Vlan{self.find_unused_vlan_id()}": {
                 "admin_status": "up"
             }
         }
@@ -272,16 +285,15 @@ class TestConfigReplace:
 
     def test_config_replace_dry_run(self):
         """
-        Test config replace with --dry-run option to verify:
-        1. Configuration is not actually applied
-        2. The command output shows expected changes
+        Test config replace with --dry-run option
         """
-        initial_config = self.get_initial_config()
+        # Find an unused VLAN ID
+        test_vlan_id = self.find_unused_vlan_id()
 
         # Prepare VLAN updates
         vlan_updates = {
             "VLAN": {
-                f"Vlan{TEST_VLAN_ID}": {
+                f"Vlan{test_vlan_id}": {
                     "admin_status": "up",
                     "description": "Test_VLAN_DryRun"
                 }
@@ -302,5 +314,5 @@ class TestConfigReplace:
 
         # Verify configuration was not actually changed
         final_config = self.get_current_config()
-        pytest_assert(final_config == initial_config,
+        pytest_assert(final_config == self.initial_config,
                       "Configuration should not change in dry-run mode")
