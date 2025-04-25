@@ -273,7 +273,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
-    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+    logger.info('DUT OS Version: {}'.format(duthost.os_version))
+    prev_reboot_cause_history = None
+    # prev_reboot_cause_history is only used for T2 device.
+    if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        logger.info('Fetching reboot cause history before rebooting')
+        prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
