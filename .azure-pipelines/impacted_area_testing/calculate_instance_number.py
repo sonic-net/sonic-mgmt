@@ -125,7 +125,7 @@ def main(scripts, topology, branch, prepare_time):
     # As we need some time to prepare testbeds, the prepare time should be subtracted.
     # Obtain the number of instances by rounding up the calculation.
     # To prevent unexpected situations, we set the maximum number of instance
-    print(min(math.ceil(total_running_time / 60 / (120 - prepare_time)), MAX_INSTANCE_NUMBER))
+    print(min(math.ceil(total_running_time / 60 / (180 - prepare_time)), MAX_INSTANCE_NUMBER))
 
 
 if __name__ == '__main__':
