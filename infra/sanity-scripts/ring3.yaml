@@ -272,7 +272,7 @@ TUNNEL: #Thushar Gowda
   #     # Disable the tunnel test cases for now
   #     #- decap/test_decap.py
   #     #- vxlan/test_vxlan_decap.py
-  t1-64:
+  t1-64-lag:
     mth64:
       - vxlan/test_vxlan_ecmp_switchover.py
       - vxlan/test_vxlan_route_advertisement.py  
