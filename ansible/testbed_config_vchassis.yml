@@ -58,6 +58,12 @@
           dest: /usr/bin/setup_vs_chassis.sh
         become: true
 
+      - name: Set routeCheck timeout to 600 seconds
+        lineinfile:
+          path: /etc/monit/conf.d/sonic-host
+          regexp: '^check program routeCheck with path "/usr/local/bin/route_check.py"'
+          line: "check program routeCheck with path \"/usr/local/bin/route_check.py\" timeout 600 seconds"
+
       - name: Execute setup_vs_chassis.sh to configure the DUT as a chassis device
         shell: bash /usr/bin/setup_vs_chassis.sh
         become: true
