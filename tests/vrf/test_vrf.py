@@ -6,7 +6,6 @@ import json
 import random
 import logging
 import os
-import re
 import tempfile
 import traceback
 
@@ -1021,24 +1020,19 @@ class TestVrfLoopbackIntf():
                         "ping6 {} -I Vrf2 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
     @pytest.fixture
-    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts):
+    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
 
         # ----------- Setup ----------------
 
-        # FIXME Create a dummy bgp session if not exists
+        # FIXME Create a dummy bgp session.
         # Workaroud to overcome the bgp socket issue.
         # When there are only vrf bgp sessions and
         # net.ipv4.tcp_l3mdev_accept=1, bgpd(7.0) does
         # not create bgp socket for sessions.
 
-        # Get the current BGP AS number if exists
-        bgp_as = duthost.shell("vtysh -c 'show running-config' | grep 'router bgp' | head -1",
-                               module_ignore_errors=True)['stdout']
-        if not bgp_as or not re.search(r'router bgp (\d+)', bgp_as):
-            # If BGP is not configured or we couldn't extract the AS number, create a new BGP router
-            logger.warning("No BGP configuration found or couldn't extract AS number, creating default")
-            duthost.shell("vtysh -c 'config terminal' -c 'router bgp 65444'", module_ignore_errors=True)
+        dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+        duthost.shell("vtysh -c 'config terminal' -c 'router bgp {}'".format(dut_asn))
 
         # vrf1 args, vrf2 use the same as vrf1
         peer_range = IPNetwork(
@@ -1123,7 +1117,7 @@ class TestVrfLoopbackIntf():
                 ns, ptf_speaker_ip, vlan_peer_port))
 
         # FIXME workround to overcome the bgp socket issue
-        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
+        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp {}'".format(dut_asn))
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
     def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
