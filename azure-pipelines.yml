@@ -177,8 +177,8 @@ stages:
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
-          # 50 mins for preparing testbed, 30 mins for pre-test and post-test
-          PREPARE_TIME: 80
+          # 40 mins for preparing testbed, 10 mins for pre-test and post-test
+          PREPARE_TIME: 50
 
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
