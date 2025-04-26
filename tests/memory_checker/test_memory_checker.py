@@ -150,6 +150,7 @@ def parse_monit_output(lines):
     data = {}
     service = None
     for line in lines:
+        line = line.rstrip()
         if line.startswith("Program '"):
             prog = line[len("Program '"):].rstrip("'")
             service = {}
@@ -158,8 +159,13 @@ def parse_monit_output(lines):
         if service is None:
             continue
         if line.startswith('  '):
-            key, value = line.lstrip().split('  ', 1)
-            service[key.replace(' ', '_')] = value.lstrip()
+            parts = line.lstrip().split('  ', 1)
+            if len(parts) == 2:
+                key, value = parts
+                service[key.replace(' ', '_')] = value.lstrip()
+            else:
+                logger.info(f"Unexpected format in monit output line: {line}")
+                pass
     return data
 
 
