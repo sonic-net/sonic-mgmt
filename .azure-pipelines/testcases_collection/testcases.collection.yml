@@ -74,7 +74,10 @@ stages:
 
               cd tests
 
+              branch_ref=$(resources.repositories.sonic-mgmt.ref)
+              branch_name=${branch_ref##*/}
+
               sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP) -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
-                    python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING)
+                    python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(resources.repositories.sonic-mgmt.url) --branch $branch_name
           env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

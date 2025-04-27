@@ -67,12 +67,16 @@ def main():
     parser.add_argument("--db_name", help="The Kusto database to connect to", type=str, default="")
     parser.add_argument("--db_table", help="The Kusto table to ingest data to", type=str, default="")
     parser.add_argument("--db_table_mapping", help="The json mapping to ingest data", type=str, default="")
+    parser.add_argument("--repo_url", help="The url of the repo", type=str, default="")
+    parser.add_argument("--branch", help="The checkout branch", type=str, default="")
     args = parser.parse_args()
 
     location = args.location
     db_name = args.db_name
     db_table = args.db_table
     db_table_mapping = args.db_table_mapping
+    repo_url = args.repo_url
+    branch = args.branch
 
     # Collect all test scripts (file names)
     scripts = collect_test_scripts(location)
@@ -103,7 +107,9 @@ def main():
             "filepath": script_name,
             "topology": topology,
             "scantime": scantime,
-            "trackid": trackid
+            "trackid": trackid,
+            "repository": repo_url,
+            "branch": branch
         })
 
     print(test_cases)
