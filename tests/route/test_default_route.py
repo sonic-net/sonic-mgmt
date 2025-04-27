@@ -116,6 +116,7 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata, af, nexthops)
     pytest_assert(upstream_neigh is not None,
                   "No upstream neighbors in the testbed")
+    upstream_neigh = {k: v for k, v in upstream_neigh.items() if any(upstream_neigh.get(k))}
 
     if af == 'ipv4':
         upstream_neigh_ip = set([upstream_neigh[neigh][0]
@@ -188,15 +189,16 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
 
 
 def get_memory_usage(process_name):
-    process_list = []
-    for proc in psutil.process_iter(['name', 'memory_info']):
-        if proc.info['name'] == process_name:
-            process_list.append(proc)
+    total_memory_usage = 0
+    for proc in psutil.process_iter():
+        try:
+            if proc.name().lower() == process_name.lower():
+                mem_info = proc.memory_info()
+                total_memory_usage += mem_info.rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
 
-    # Calculate the total memory usage of the process
-    total_memory_usage = sum(proc.info['memory_info'].rss for proc in process_list)
-    logging.debug("get_memory_usage for process {} returns {}".format(process_name, total_memory_usage))
-
+    logging.debug(f"get_memory_usage for process {process_name} returns {total_memory_usage} bytes")
     return total_memory_usage
 
 

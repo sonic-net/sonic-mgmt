@@ -3,6 +3,7 @@ import logging
 import pytest
 import paramiko
 import time
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
 from tests.common.utilities import wait_until, paramiko_ssh
@@ -125,3 +126,24 @@ def duthost_shell_with_unreachable_retry(duthost, command):
                            .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
             if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
                 raise e
+
+
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    res = ptfhost.command('touch /var/log/tac_plus.acct')
+    logger.info(res["stdout_lines"])
+
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
+    ptfhost.command('truncate -s 0 /var/log/tac_plus.log')
+
+
+def count_authorization_request(ptfhost):
+    hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa W605 E501
+    res = ptfhost.shell(sed_command)["stdout"]
+    logger.warning("TACACS authorization request hex: {}".format(res))
+    return res.count(hex_string)
