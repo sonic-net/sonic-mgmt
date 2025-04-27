@@ -120,9 +120,8 @@ all:
 
 fanout:
   hosts:
-    str4-7060x6-64pe-fan-share-1:   # temporary share between str4 and str5
-      ansible_host: 10.64.247.239
-      ansible_hostv6:
+    str5-7060x6-64pe-shared-fan-1:
+      ansible_host: 10.64.247.25
       os: sonic
     str5-7060x6-512-fan-3:
       ansible_host: 10.64.247.132
