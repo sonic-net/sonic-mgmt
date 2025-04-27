@@ -6,7 +6,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "30 */4 * * *"
+  - cron: "30 1,5,9,13,17,21 * * *"
     displayName: PRFailureAnalyzer
     branches:
       include:
