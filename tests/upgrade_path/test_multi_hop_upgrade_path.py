@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, check_asic_and_db_consistency
+    check_services, install_sonic, multi_hop_warm_upgrade_test_helper
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
@@ -78,10 +78,9 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                       "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-        check_services(duthost)
+        check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
 
     multi_hop_warm_upgrade_test_helper(
@@ -138,10 +137,9 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                       "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-        check_services(duthost)
+        check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
-        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
 
     multi_hop_warm_upgrade_test_helper(

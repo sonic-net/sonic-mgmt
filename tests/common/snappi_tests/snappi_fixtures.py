@@ -9,6 +9,7 @@ import sys
 import random
 import snappi_convergence
 from tests.common.helpers.assertions import pytest_require
+from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
@@ -354,7 +355,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
 
 @pytest.fixture(scope="function")
-def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
+def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                           duthosts, rand_one_dut_hostname, snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
@@ -460,7 +461,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
 
 
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
 
     """
     Populate tgen ports info of T0 testbed and returns as a list
@@ -857,6 +858,9 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
             cmd = "add"
         else:
             cmd = "remove"
+        if not setup:
+            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+
         if port['asic_value'] is None:
             duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
                                                                                 cmd,
@@ -870,6 +874,8 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     port['peer_port'],
                                                                                     dutIp,
                                                                                     prefix_length))
+        if setup:
+            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
             continue
         port['intf_config_changed'] = True
@@ -1292,3 +1298,276 @@ def check_fabric_counters(duthost):
                               format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
                 pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
+
+
+DEST_TO_GATEWAY_MAP = {}
+
+
+# Add static routes using CLI WAY.
+def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=True):
+    '''
+        Return a static route-d IP address for the given IP gateway(Ixia port address).
+        Also configure the same in the DUT.
+    '''
+    global DEST_TO_GATEWAY_MAP
+    if dut is None:
+        if addr not in DEST_TO_GATEWAY_MAP:
+            logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
+            return addr
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
+
+    if (dut.facts['asic_type'] != "cisco-8000" or
+            not dut.get_facts().get("modular_chassis", None)):
+        DEST_TO_GATEWAY_MAP[addr] = {}
+        DEST_TO_GATEWAY_MAP[addr]['dest'] = addr
+        return addr
+
+    if setup:
+        if addr in DEST_TO_GATEWAY_MAP:
+            return DEST_TO_GATEWAY_MAP[addr]['dest']
+
+    '''
+        Create a new IP address, which is computed from
+        (given addr + 3.0.0.0) addresses later.
+        So the dest for 200.0.0.1 will be 203.0.0.1/32
+    '''
+    ip_addr = ip_address(addr)
+    DEST_TO_GATEWAY_MAP[addr] = {}
+    DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
+    DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    cmd = "del"
+    if setup:
+        cmd = "add"
+    asic_arg = ""
+    if namespace is not None:
+        asic_arg = f"ip netns exec {namespace}"
+    try:
+        dut.shell(
+            "{} config route {} prefix {}/32 nexthop {} {}".format(
+                asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
+                DEST_TO_GATEWAY_MAP[addr]['intf']))
+    except RunAnsibleModuleFail:
+        if setup:
+            raise
+        else:
+            # Its already removed by reboot
+            pass
+
+    if setup:
+        return DEST_TO_GATEWAY_MAP[addr]['dest']
+    else:
+        del DEST_TO_GATEWAY_MAP[addr]
+
+
+@pytest.fixture(scope="module")
+def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=None):
+    '''
+    Dynamic selection of the DUT ports for the test.
+    Selects ports for three test combinations:
+            - Single line-card single asic
+            - Single line-card multiple asic
+            - Multiple line-card.
+    Args:
+        get_snappi_ports(fixture): returns list of the ports available in test.
+        number_of_tx_rx_ports(fixture): count of tx and rx ports available from the test.
+    Returns:
+        snappi_ports(dict): Dictionary with interface-speed and line-card-combo being primary keys.
+        Example: {'100':{'single-linecard-single-asic':{ports}, 'single-linecard-multiple-asic':{ports}}}
+
+    '''
+    tx_port_count, rx_port_count = number_of_tx_rx_ports
+    tmp_snappi_port_list = get_snappi_ports
+
+    if (not mixed_speed):
+        # Creating list of all interface speeds from selected ports.
+        port_speed_list = []
+        for item in tmp_snappi_port_list:
+            if (int(item['speed'])/1000) not in port_speed_list:
+                port_speed_list.append(int(item['speed'])/1000)
+
+        port_list = {}
+        # Repeating loop for speed_types
+        for port_speed in port_speed_list:
+            new_list = []
+            # Selecting ports matching the port_speed
+            for item in tmp_snappi_port_list:
+                if (int(item['speed']) == (port_speed * 1000)):
+                    new_list.append(item)
+
+            # Creating dictionary f{hostname}{asic_val}
+            # f[hostname]['asic'] should contain associated elements.
+            f = {}
+            for item in new_list:
+                hostname = item['peer_device']
+                asic = item['asic_value']
+                if hostname not in f:
+                    f[hostname] = {}
+                if asic not in f[hostname]:
+                    f[hostname][asic] = []
+                f[hostname][asic].append(item)
+
+            total_ports = tx_port_count + rx_port_count
+
+            # Initializing dictionary port_list{speed}{line-card-asic-combo}
+            # example port_list['100']['single_linecard_single_asic']
+
+            # for 'single-linecard-single-asic'
+            for device, asic in f.items():
+                for asic_val in asic.keys():
+                    if len(f[device][asic_val]) >= (total_ports):
+                        if port_speed not in port_list:
+                            port_list[port_speed] = {}
+                        if 'single_linecard_single_asic' not in port_list[port_speed]:
+                            port_list[port_speed]['single_linecard_single_asic'] = []
+                        if len(port_list[port_speed]['single_linecard_single_asic']) == total_ports:
+                            break
+                        else:
+                            port_list[port_speed]['single_linecard_single_asic'] = f[device][asic_val][0:total_ports]
+
+            # for 'single_linecard_multiple_asic'
+            egress_done = False
+            ingress_done = False
+            tmp_ing_list = []
+            for device, asic in f.items():
+                # Execute ONLY if the number of asics is more than one.
+                if len(asic.keys()) < 2:
+                    continue
+                else:
+                    for asic_val in asic.keys():
+                        asic_port_len = len(f[device][asic_val])
+                        if ((asic_port_len >= tx_port_count) or (asic_port_len >= rx_port_count)):
+                            # Initializing the dictionary
+                            if port_speed not in port_list:
+                                port_list[port_speed] = {}
+                            if 'single_linecard_multiple_asic' not in port_list[port_speed]:
+                                port_list[port_speed]['single_linecard_multiple_asic'] = []
+
+                            # If the dictionary is complete, no need to add further ports.
+                            if len(port_list[port_speed]['single_linecard_multiple_asic']) == total_ports:
+                                break
+
+                            # Accomodating ingress ports first if more ports are available.
+                            if ((asic_port_len - tx_port_count) > (asic_port_len - rx_port_count)
+                                    and not ingress_done
+                                    and not tmp_ing_list
+                                    and (asic_port_len >= rx_port_count)):
+                                tmp_ing_list = f[device][asic_val][0:rx_port_count]
+                                ingress_done = True
+                            elif (not egress_done and (asic_port_len >= tx_port_count)):
+                                tx_list = f[device][asic_val][0:tx_port_count]
+                                port_list[port_speed]['single_linecard_multiple_asic'] = tx_list
+                                egress_done = True
+                                tmp_len = len(port_list[port_speed]['single_linecard_multiple_asic'])
+                                if (tmp_ing_list
+                                        and (tmp_len < total_ports)):
+                                    port_list[port_speed]['single_linecard_multiple_asic'].append(tmp_ing_list)
+                            elif (not ingress_done and (asic_port_len >= rx_port_count)):
+                                rx_list = f[device][asic_val][0:rx_port_count]
+                                port_list[port_speed]['single_linecard_multiple_asic'].append(rx_list)
+                                tmp_ing_list = f[device][asic_val][0:rx_port_count]
+                                ingress_done = True
+
+            if (ingress_done
+                    and egress_done
+                    and (len(flatten_list(port_list[port_speed]['single_linecard_multiple_asic'])) < total_ports)):
+                port_list[port_speed]['single_linecard_multiple_asic'].append(tmp_ing_list)
+
+            # Flatten the dictionary if the dictionary is created.
+            if (port_speed in port_list) and ('single_linecard_multiple_asic' in port_list[port_speed]):
+                port_list[port_speed]['single_linecard_multiple_asic'] = flatten_list(
+                    port_list[port_speed]['single_linecard_multiple_asic'])
+                # If egress or ingress ports are not found, delete the dictionary key-value.
+                if (not egress_done or not ingress_done):
+                    del port_list[port_speed]['single_linecard_multiple_asic']
+
+            # for 'multiple linecard, multiple ASIC'
+            egress_done = False
+            ingress_done = False
+            tmp_ing_list = []
+
+            for device, asic in f.items():
+                # Creating list for a given device for all ASIC combinations.
+                all_asic_ports = []
+                for asic_val in asic.keys():
+                    all_asic_ports.append(f[device][asic_val])
+                all_asic_ports = flatten_list(all_asic_ports)
+
+                # Initializing the dictionary, if it does not exist.
+                if port_speed not in port_list:
+                    port_list[port_speed] = {}
+                if 'multiple_linecard_multiple_asic' not in port_list[port_speed]:
+                    port_list[port_speed]['multiple_linecard_multiple_asic'] = []
+
+                asic_port_len = len(all_asic_ports)
+                if ((asic_port_len - tx_port_count) > (asic_port_len - rx_port_count)
+                        and not ingress_done
+                        and not tmp_ing_list
+                        and (asic_port_len >= rx_port_count)):
+                    tmp_ing_list = all_asic_ports[0:rx_port_count]
+                    ingress_done = True
+                # Identifying egress ports first
+                elif (len(port_list[port_speed]['multiple_linecard_multiple_asic']) <= tx_port_count
+                        and not egress_done and len(all_asic_ports) >= tx_port_count):
+                    port_list[port_speed]['multiple_linecard_multiple_asic'].append(all_asic_ports[0:tx_port_count])
+                    # egress ports identified, move to next device.
+                    # No need to select egress ports now.
+                    egress_done = True
+                    continue
+                # Identifying ingress ports
+                elif (len(port_list[port_speed]['multiple_linecard_multiple_asic']) <= rx_port_count
+                        and not ingress_done and len(all_asic_ports) >= rx_port_count):
+                    port_list[port_speed]['multiple_linecard_multiple_asic'].append(all_asic_ports[0:rx_port_count])
+                    # ingress ports identified, move to next device.
+                    # No need to select ingress ports now.
+                    ingress_done = True
+                    continue
+
+            if (ingress_done
+                    and egress_done
+                    and (len(port_list[port_speed]['multiple_linecard_multiple_asic']) < total_ports)):
+                port_list[port_speed]['multiple_linecard_multiple_asic'].append(tmp_ing_list)
+
+            # Flatten the dictionary, if the dictionary is created.
+            if (port_speed in port_list) and ('multiple_linecard_multiple_asic' in port_list[port_speed]):
+                # Flattening the list.
+                port_list[port_speed]['multiple_linecard_multiple_asic'] = flatten_list(
+                        port_list[port_speed]['multiple_linecard_multiple_asic'])
+
+                # If the dictionary does not select either ingress or egress ports, then dictionary is deleted.
+                if (not egress_done or not ingress_done):
+                    del port_list[port_speed]['multiple_linecard_multiple_asic']
+
+        pytest_assert(port_list is not None, 'snappi ports are not available for required Rx and Tx port counts')
+        return port_list
+
+
+@pytest.fixture(scope="function")
+def tgen_port_info(request, snappi_port_selection):
+    flatten_skeleton_parameter = request.param
+    speed, category = flatten_skeleton_parameter.split("-")
+    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    result = snappi_port_selection[float(speed)][category]
+
+    if not result:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    return result
+
+
+def flatten_list(lst):
+    '''
+    Function to flatten the list
+    Args:
+        lst(list): list that needs to be flattened
+    Retuns:
+        flattened(list): flattened list
+    '''
+    flattened = []
+    for item in lst:
+        if isinstance(item, list):
+            flattened.extend(flatten_list(item))
+        else:
+            flattened.append(item)
+    return flattened

@@ -1,12 +1,19 @@
 import pytest
 import shutil
 import logging
+import os
+import glob
+import grpc
+
+from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
@@ -229,3 +236,88 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+def compile_protos(proto_files, proto_root):
+    """Compile all .proto files using grpc_tools.protoc."""
+    for proto_file in proto_files:
+
+        # Command arguments for protoc
+        args = [
+            "grpc_tools.protoc",
+            f"--proto_path={proto_root}",  # Root directory for proto imports
+            f"--python_out={proto_root}",     # Output for message classes
+            f"--grpc_python_out={proto_root}",  # Output for gRPC stubs
+            proto_file                     # Input .proto file
+        ]
+
+        print(f"Compiling: {proto_file}")
+        ret_code = protoc.main(args)
+        if ret_code != 0:
+            raise Exception(f"Failed to compile {proto_file} with return code {ret_code}")
+
+
+def cleanup_generated_files():
+    """Remove all generated proto .py files."""
+    generated_files = glob.glob("gnmi/protos/**/*.py")
+    for file in generated_files:
+        os.remove(file)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_and_cleanup_protos():
+    """Compile proto files before running tests and remove them afterward."""
+    PROTO_ROOT = "gnmi/protos"
+    PROTO_FILES = ["gnmi/protos/gnoi/system/system.proto"]
+
+    # Compile proto files into Python gRPC stubs
+    compile_protos(PROTO_FILES, PROTO_ROOT)
+
+    # Run tests, then clean up
+    yield
+    cleanup_generated_files()
+
+
+@pytest.fixture(scope="function")
+def grpc_channel(duthosts, rand_one_dut_hostname):
+    """
+    Fixture to set up a gRPC channel with secure credentials.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get DUT gRPC server address and port
+    ip = duthost.mgmt_ip
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    port = env.gnmi_port
+    target = f"{ip}:{port}"
+
+    # Load the TLS certificates
+    with open("gnmiCA.pem", "rb") as f:
+        root_certificates = f.read()
+    with open("gnmiclient.crt", "rb") as f:
+        client_certificate = f.read()
+    with open("gnmiclient.key", "rb") as f:
+        client_key = f.read()
+
+    # Create SSL credentials
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=root_certificates,
+        private_key=client_key,
+        certificate_chain=client_certificate,
+    )
+
+    # Create gRPC channel
+    logging.info("Creating gRPC secure channel to %s", target)
+    channel = grpc.secure_channel(target, credentials)
+
+    try:
+        grpc.channel_ready_future(channel).result(timeout=10)
+        logging.info("gRPC channel is ready")
+    except grpc.FutureTimeoutError as e:
+        logging.error("Error: gRPC channel not ready: %s", e)
+        pytest.fail("Failed to connect to gRPC server")
+
+    yield channel
+
+    # Close the channel
+    channel.close()
