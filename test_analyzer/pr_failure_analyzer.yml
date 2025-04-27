@@ -1,0 +1,58 @@
+# This job is for periodically polling testbed health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "30 */4 * * *"
+    displayName: PRFailureAnalyzer
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: START_TIME
+    type: string
+    default: null
+    displayName: "Start Time"
+
+  - name: END_TIME
+    type: string
+    default: null
+    displayName: "End Time"
+
+stages:
+  - stage: PRFailureAnalyzer
+    jobs:
+      - job: PRFailureAnalyzer
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: Run PR failure analyzer script
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                set -x
+
+                cd test_analyzer
+                pip install -r requirements.txt
+
+                python pr_failure_analyzer.py --start_time ${{ parameters.START_TIME }} --end_time ${{ parameters.END_TIME }}
+            env:
+              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
