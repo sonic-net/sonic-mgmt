@@ -39,6 +39,9 @@ PR checkers are defined in the `sonic-mgmt/azure-pipelines.yml` file. Each job r
 ```
 
 ### Steps to Add a New PR Checker
+Before adding a new topology for testing, please contact with `sonicelastictest@microsoft.com` that suitable VM instances are available to set up the corresponding testbed. 
+Otherwise, there is a risk that the testbed cannot be locked during testing due to the lack of appropriate resources.
+
 **1. Update Test Scripts with Topology Marks**
 
 Each test script includes a pytest mark to specify supported topologies. For your new PR checker, ensure the relevant test scripts include the new topology mark:
@@ -46,7 +49,7 @@ Each test script includes a pytest mark to specify supported topologies. For you
 Example: 
 ```
 pytestmark = [    
-    pytest.mark.topology('t0', 't1-multi-asic')
+    pytest.mark.topology('t0', 't1-multi-asic', '<topology_name>')
 ]
 ```
 This ensures the tests will run in the newly added PR checker.
@@ -93,7 +96,6 @@ Use the provided template (`.azure-pipelines/impacted_area_testing/calculate-ins
     ```buildoutcfg
     TOPOLOGY: <topology_name>
     ```
-    If new type VMSS instances are required for this topology, please contact `sonicelastictest@microsoft.com` to confirm availability.
   + **BUILD_BRANCH**: This is a system variable (`$(BUILD_BRANCH)`) that specifies the branch under test. Do not change this.
   + **PREPARE_TIME**: If preparation and cleanup of the testbed will take more than 30 minutes, specify the `PREPARE_TIME` here.
 
