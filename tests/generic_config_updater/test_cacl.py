@@ -48,7 +48,7 @@ def get_iptable_rules(duthost, ip_netns_namespace_prefix):
 
 @pytest.fixture(scope="module", autouse=True)
 def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     config_reload(duthost, config_source="minigraph", safe_reload=True)
     yield
 
