@@ -108,7 +108,7 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
-    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnoi_readwrite"
+    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
     add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
@@ -135,16 +135,15 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    cmds = [
-        'systemctl reset-failed %s' % (env.gnmi_container),
-        'systemctl restart %s' % (env.gnmi_container)
-    ]
-    duthost.shell_cmds(cmds=cmds)
+    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
+    duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
 def check_system_time_sync(duthost):
