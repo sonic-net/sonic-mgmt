@@ -75,8 +75,8 @@ DST_IPV6_FORWARDED_SCALE_PREFIX = "103:23:4:"
 DST_IP_BLOCKED = "103.23.3.1"
 DST_IPV6_BLOCKED = "103:23:3:1::1"
 
-MAX_IP_RULE_PRIORITY = 9900
-MAX_DROP_RULE_PRIORITY = 9000
+MAX_IP_RULE_PRIORITY = 800
+MAX_DROP_RULE_PRIORITY = 200
 
 # DHCP Constants
 
@@ -154,7 +154,12 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     downstream_port_ids = []
     upstream_port_ids = []
 
-    if topo == "m0_l3":
+    topos_no_portchannels = (
+        't0-isolated-d128u128s2',
+        't0-isolated-d16u16s2',
+    )
+
+    if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
         upstream_neigh_type = get_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
         pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
@@ -218,12 +223,18 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
     vlan_ips = {}
-    for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
-        ip_address = vlan_ip_address.split("/")[0]
-        if netaddr.IPAddress(str(ip_address)).version == 6:
-            vlan_ips["V6"] = ip_address
-        elif netaddr.IPAddress(str(ip_address)).version == 4:
-            vlan_ips["V4"] = ip_address
+    for vlan_ip_address, value in config_facts['VLAN_INTERFACE'][vlan_name].items():
+        try:
+            if isinstance(value, dict) and value.get("secondary"):
+                continue
+            ip_address = vlan_ip_address.split("/")[0]
+            if netaddr.IPAddress(str(ip_address)).version == 6:
+                vlan_ips["V6"] = ip_address
+            elif netaddr.IPAddress(str(ip_address)).version == 4:
+                vlan_ips["V4"] = ip_address
+        except Exception as e:
+            logger.error("Error parsing IP address {} {}: {}".format(vlan_ip_address, value, e))
+            continue
 
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
@@ -369,7 +380,15 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
+    # Get the dictionary for the first VLAN (assumed to be Vlan1000)
+    vlan_interface = list(config_facts['VLAN_INTERFACE'].items())[0][1]
+
+    # Filter out addresses that have the "secondary" attribute set
+    vlan_addrs = []
+    for addr, attrs in vlan_interface.items():
+        if isinstance(attrs, dict) and not attrs.get("secondary", False):
+            vlan_addrs.append(addr)
+
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 
@@ -704,8 +723,8 @@ def dynamic_acl_create_forward_rules(duthost, setup):
 
     outputs = format_and_apply_template(duthost, CREATE_FORWARD_RULES_TEMPLATE, extra_vars, setup)
 
-    expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "9999", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
-    expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "9998", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
+    expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
+    expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "899", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
 
     for output in outputs:
         expect_op_success(duthost, output)
@@ -727,7 +746,7 @@ def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=Non
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
-                             "9995",
+                             "896",
                              "DROP",
                              "IN_PORTS: " + blocked_name,
                              "Active"]
@@ -749,7 +768,7 @@ def dynamic_acl_create_drop_rule_initial(duthost, setup):
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
-                             "9997",
+                             "898",
                              "DROP",
                              "IN_PORTS: " + setup["blocked_src_port_name"],
                              "Active"]
@@ -777,19 +796,19 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
 
     expected_rule_3_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_3",
-                               "9997",
+                               "898",
                                "DROP",
                                "IN_PORTS: " + extra_vars['blocked_port_1'],
                                "Active"]
     expected_rule_4_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_4",
-                               "9996",
+                               "897",
                                "DROP",
                                "IN_PORTS: " + extra_vars['blocked_port_2'],
                                "Active"]
     expected_rule_5_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_5",
-                               "9995",
+                               "896",
                                "DROP",
                                "IN_PORTS: " + extra_vars['blocked_port_3'],
                                "Active"]
@@ -810,7 +829,7 @@ def dynamic_acl_create_arp_forward_rule(duthost, setup):
     for output in outputs:
         expect_op_success(duthost, output)
 
-    expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "9997", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
+    expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "898", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
 
     expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content, setup)
 
@@ -823,7 +842,7 @@ def dynamic_acl_create_ndp_forward_rule(duthost, setup):
     for output in outputs:
         expect_op_success(duthost, output)
 
-    expected_rule_content = ["DYNAMIC_ACL_TABLE", "NDP_RULE", "9996", "FORWARD", "IP_PROTOCOL: 58", "Active"]
+    expected_rule_content = ["DYNAMIC_ACL_TABLE", "NDP_RULE", "897", "FORWARD", "IP_PROTOCOL: 58", "Active"]
 
     expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content, setup)
 
@@ -837,7 +856,7 @@ def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
         expect_op_success(duthost, output)
 
     expected_v6_rule_content = ["DYNAMIC_ACL_TABLE",
-                                "DHCPV6_RULE", "9998",
+                                "DHCPV6_RULE", "899",
                                 "FORWARD",
                                 "IP_PROTOCOL: 17",
                                 "L4_DST_PORT_RANGE: 547-548",
@@ -845,7 +864,7 @@ def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
                                 "Active"]
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
-                             "DHCP_RULE", "9999",
+                             "DHCP_RULE", "900",
                              "FORWARD",
                              "IP_PROTOCOL: 17",
                              "L4_DST_PORT: 67",
@@ -918,13 +937,13 @@ def dynamic_acl_replace_rules(duthost, setup):
 
     expected_rule_1_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_1",
-                               "9999",
+                               "900",
                                "FORWARD",
                                "DST_IP: " + REPLACEMENT_IPV4_SUBNET,
                                "Active"]
     expected_rule_2_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_2",
-                               "9998",
+                               "899",
                                "FORWARD",
                                "DST_IPV6: " + REPLACEMENT_IPV6_SUBNET,
                                "Active"]

@@ -27,7 +27,7 @@ from tests.common.gu_utils import create_path, check_show_ip_intf
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'm1', 'm2', 'm3'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -69,14 +69,14 @@ def check_portchannel_table(duthost, portchannel_table):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname, portchannel_table):
+def setup_env(duthosts, rand_one_dut_hostname, portchannel_table):
     """
     Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_front_end_hostname: The fixture returns a randomly selected frontend DuT.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -94,7 +94,7 @@ def portchannel_interface_tc1_add_duplicate(duthost, portchannel_table, enum_ran
     """ Test adding duplicate portchannel interface
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     dup_ip = portchannel_table[rand_portchannel_name]["ip"]
     dup_ipv6 = portchannel_table[rand_portchannel_name]["ipv6"]
     json_patch = [
@@ -137,7 +137,7 @@ def portchannel_interface_tc1_xfail(duthost, enum_rand_one_frontend_asic_index, 
     ("remove", "PortChannel101", "10.0.0.56/31", "FC00::72/126"), REMOVE Unexist IPv6 address
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     xfail_input = [
         ("add", rand_portchannel_name, "10.0.0.256/31", "FC00::71/126"),
         ("add", rand_portchannel_name, "10.0.0.56/31", "FC00::xyz/126"),
@@ -179,7 +179,7 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
     """ Test portchannel interface replace ip address
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     org_ip = portchannel_table[rand_portchannel_name]["ip"]
     org_ipv6 = portchannel_table[rand_portchannel_name]["ipv6"]
     rep_ip = "10.0.0.156/31"
@@ -224,13 +224,14 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(rand_selected_front_end_dut, portchannel_table,
+def test_portchannel_interface_tc1_suite(duthosts, rand_one_dut_hostname, portchannel_table,
                                          enum_rand_one_frontend_asic_index, rand_portchannel_name):
-    portchannel_interface_tc1_add_duplicate(rand_selected_front_end_dut, portchannel_table,
+    duthost = duthosts[rand_one_dut_hostname]
+    portchannel_interface_tc1_add_duplicate(duthost, portchannel_table,
                                             enum_rand_one_frontend_asic_index, rand_portchannel_name)
-    portchannel_interface_tc1_xfail(rand_selected_front_end_dut,
+    portchannel_interface_tc1_xfail(duthost,
                                     enum_rand_one_frontend_asic_index, rand_portchannel_name)
-    portchannel_interface_tc1_add_and_rm(rand_selected_front_end_dut, portchannel_table,
+    portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
                                          enum_rand_one_frontend_asic_index, rand_portchannel_name)
 
 
@@ -280,7 +281,7 @@ def portchannel_interface_tc2_replace(duthost,
     """Test PortChannelXXXX attribute change
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     attributes = [
         ("mtu", "3324"),
         ("min_links", "2"),
@@ -318,7 +319,7 @@ def portchannel_interface_tc2_incremental(duthost,
     """Test PortChannelXXXX incremental change
     """
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     json_patch = [
         {
          "op": "add",
@@ -339,12 +340,13 @@ def portchannel_interface_tc2_incremental(duthost,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc2_attributes(rand_selected_front_end_dut,
+def test_portchannel_interface_tc2_attributes(duthosts, rand_one_dut_hostname,
                                               enum_rand_one_frontend_asic_index,
                                               rand_portchannel_name):
-    portchannel_interface_tc2_replace(rand_selected_front_end_dut,
+    duthost = duthosts[rand_one_dut_hostname]
+    portchannel_interface_tc2_replace(duthost,
                                       enum_rand_one_frontend_asic_index,
                                       rand_portchannel_name)
-    portchannel_interface_tc2_incremental(rand_selected_front_end_dut,
+    portchannel_interface_tc2_incremental(duthost,
                                           enum_rand_one_frontend_asic_index,
                                           rand_portchannel_name)
