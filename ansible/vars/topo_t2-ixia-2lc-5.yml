@@ -23,10 +23,6 @@ topology:
       vm_offset: 2
     Ixia-Port4:
       vlans:
-        - 1.24@12.3
-      vm_offset: 3
-    Ixia-Port5:
-      vlans:
         - 1.25@12.4
       vm_offset: 4
   DUT:
@@ -142,25 +138,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.6/24
       ipv6: fc0a::d/64
-
-  Ixia-Port5:
-    properties:
-      - common
-      - core
-    bgp:
-      asn: 65200
-      peers:
-        65100:
-          - 10.1.5.0
-          - FC00:5::1
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.7/32
-        ipv6: 2064:100::7/128
-      Ethernet1:
-        ipv4: 10.1.5.1/31
-        ipv6: FC00:5::2/126
-        dut_index: 1
-    bp_interface:
-      ipv4: 10.10.246.7/24
-      ipv6: fc0a::e/64

@@ -4,7 +4,7 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
-MULTIDUT_TESTBED = 'vmsvc5-t2-8800-ixia'
+MULTIDUT_TESTBED = sys.argv[1:][sys.argv[1:].index("--testbed") + 1]
 
 MULTIDUT_PORT_INFO = {
     'vmsvc5-t2-8800-ixia': (
@@ -32,19 +32,19 @@ MULTIDUT_PORT_INFO = {
             }
         })
     ),
-    "vms69-t2-8800-2-ixia": (
-        ({
+    "vms69-t2-8800-2-ixia": [
+        {
             'multi-dut-multi-asic-to-short-link': {
                 'rx_ports': [
                     {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"}
                 ],
                 'tx_ports': [
                     {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet192', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"},
                 ]
             }
-        }),
-        ({
+        },
+        {
             'multi-dut-single-asic-to-short-link': {
                 'rx_ports': [
                     {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
@@ -53,36 +53,35 @@ MULTIDUT_PORT_INFO = {
                     {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
                 ]
             }
-        })
-    )
+        }
+    ]
 }
 # rx port is 400Gbps port receiving traffic in mixed-speed mode.
 # tx port is 100Gbps port sending traffic to IXIA.
-MIXED_SPEED_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
-    ({
+MIXED_SPEED_PORT_INFO = {'vms69-t2-8800-2-ixia': [{
         'multi-dut-multi-asic-to-short-link': {
             'rx_ports': [
-                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
+                {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
             ],
             'tx_ports': [
-                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
-                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
+                {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
+                {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
+                {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
             ]
         }
-    }),
-    ({
+    },
+    {
         'multi-dut-multi-asic-to-longlink': {
             'rx_ports': [
-                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
+                {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
             ],
             'tx_ports': [
-                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
+                {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
+                {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
             ]
         }
-    })
-)}
+    }]
+}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
