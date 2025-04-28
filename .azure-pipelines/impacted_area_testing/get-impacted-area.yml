@@ -32,6 +32,12 @@ steps:
         FINAL_FEATURES=""
         break
 
+      # We can consider the scripts under `tests/scripts` as common scripts
+      # so the scope of PR testing is all test scripts
+      elif [[ "$FEATURE" == *tests/scripts* ]]; then
+        FINAL_FEATURES=""
+        break
+
       # If changes only limited to specific feature, the scope of PR testing is impacted area.
       elif [[ "$FEATURE" =~ ^tests\/.* ]]; then
         # Cut the feature path
