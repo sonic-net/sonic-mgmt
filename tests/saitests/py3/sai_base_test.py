@@ -44,6 +44,7 @@ DEFAULT_QUEUE_SCHEDULER_CONFIG = {"0": "scheduler.0",
                                   "5": "scheduler.0",
                                   "6": "scheduler.0",
                                   "7": ""}
+BLOCK_DATA_PLANE_SCHEDULER_NAME = 'scheduler.block_data_plane'
 
 
 class ThriftInterface(BaseTest):
@@ -238,16 +239,15 @@ class ThriftInterface(BaseTest):
             dut_port = self.get_dut_port(ptf_port)
             dut_port_list.append(dut_port)
         self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(dut_port_list)
-        block_data_plane_scheduler_name = 'scheduler.block_data_plane'
         cmd_set_block_data_plane_scheduler = \
-            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{block_data_plane_scheduler_name}" "type" DWRR "weight" 15 "pir" 1'
+            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" "type" DWRR "weight" 15 "pir" 1'
 
         self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
                              cmd_set_block_data_plane_scheduler)
         for dut_port in dut_port_list:
             for q in DATA_PLANE_QUEUE_LIST:
                 cmd_block_q = \
-                    f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {block_data_plane_scheduler_name}"
+                    f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'], self.test_params['dut_password'], cmd_block_q)
 
@@ -276,6 +276,20 @@ class ThriftInterface(BaseTest):
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'],
                     self.test_params['dut_password'], cmd_recover_q_scheduler_config)
+        self.remove_block_data_plan_scheduler()
+
+    def remove_block_data_plan_scheduler(self):
+        get_block_data_plane_scheduler_name = \
+            f"sonic-db-cli CONFIG_DB keys 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
+        scheduler_name, _, _ = self.exec_cmd_on_dut(self.server,
+                                                    self.test_params['dut_username'],
+                                                    self.test_params['dut_password'],
+                                                    get_block_data_plane_scheduler_name)
+        if isinstance(scheduler_name, list) and BLOCK_DATA_PLANE_SCHEDULER_NAME in scheduler_name[0]:
+            cmd_del_block_data_plane_scheduler = \
+                f'sonic-db-cli CONFIG_DB del "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}"'
+            self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                 cmd_del_block_data_plane_scheduler)
 
 
 class ThriftInterfaceDataPlane(ThriftInterface):

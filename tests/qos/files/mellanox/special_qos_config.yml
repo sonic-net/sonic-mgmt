@@ -27,12 +27,12 @@ qos_params:
         xon_4:
             packet_size: 800
         lossy_queue_1:
-            packet_size: 800
+            packet_size: 1200
         wm_pg_shared_lossless:
             packet_size: 800
             pkts_num_margin: 7
         wm_pg_shared_lossy:
-            packet_size: 800
-            pkts_num_margin: 5
+            packet_size: 1200
+            pkts_num_margin: 8
         wm_q_shared_lossy:
-            packet_size: 800
+            packet_size: 1200
