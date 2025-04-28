@@ -40,7 +40,7 @@ def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, localhost):
 @pytest.mark.disable_loganalyzer
 def test_gnoi_os_activate_invalid_image(duthosts, rand_one_dut_hostname, localhost):
     """
-    Verify the gNOI OS Verify API returns the current OS version.
+    Verify the gNOI OS Activate capable of detecting invalid OS version.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -56,7 +56,7 @@ def test_gnoi_os_activate_invalid_image(duthosts, rand_one_dut_hostname, localho
 @pytest.mark.disable_loganalyzer
 def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, localhost):
     """
-    Verify the gNOI OS Verify API returns the current OS version.
+    Verify the gNOI OS Activate API capable of activating the current OS version.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
