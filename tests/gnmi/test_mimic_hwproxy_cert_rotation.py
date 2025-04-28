@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from .helper import gnmi_capabilities
+from tests.telemetry import test_config_db_parameters
 from tests.common.utilities import get_image_type
 
 
@@ -18,6 +19,13 @@ pytestmark = [
 
 def check_gnmi_status(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    return "RUNNING" in output['stdout']
+
+
+def check_telemetry_status(duthost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
@@ -113,8 +121,5 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             # enable feature
             enable_feature = 'sudo config feature state telemetry enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
-            assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
-            ret, msg = gnmi_capabilities(duthost, localhost)
-            assert ret == 0, msg
-            assert "sonic-db" in msg, msg
-            assert "JSON_IETF" in msg, msg
+            assert wait_until(60, 3, 0, check_telemetry_status, duthost), "TELEMETRY service failed to start"
+            test_config_db_parameters(duthosts, rand_one_dut_hostname)
