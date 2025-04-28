@@ -6,8 +6,11 @@ This script contains re-usable functions for checking status of transceivers.
 import logging
 import re
 from copy import deepcopy
+import pytest
 
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
+
+logger = logging.getLogger(__name__)
 
 
 def parse_transceiver_info(output_lines):
@@ -158,7 +161,7 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
         if res_port_name:
             port_name = res_port_name.groupdict()["key"].strip()
             line_start_num_list_per_port.append([port_name, index])
-    logging.info(f"line_start_num_list_per_port :{line_start_num_list_per_port}")
+    logging.info(f"line_start_num_list_per_port: {line_start_num_list_per_port}")
 
     for index in range(len(line_start_num_list_per_port)):
         if index == len(line_start_num_list_per_port) - 1:
@@ -170,7 +173,7 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
         sfp_eeprom_map_per_port[line_start_num_list_per_port[index][0]] = deepcopy(
             sfp_eeprom_list[line_start_num_for_current_port:line_end_num_for_current_port+1])
 
-    logging.info(f"sfp_eeprom_map_per_port :{sfp_eeprom_map_per_port}")
+    logging.info(f"sfp_eeprom_map_per_port: {sfp_eeprom_map_per_port}")
 
     return sfp_eeprom_map_per_port
 
@@ -428,7 +431,7 @@ def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
             expected_state = 'ModuleLowPwr' if cmis_cable_ports_and_ver[intf] == '3.0' else 'OK'
         else:
             expected_state = 'Not supported'
-    logging.info(f"port {intf}, expected error state:{expected_state}")
+    logging.info(f"port {intf}, expected error state: {expected_state}")
     return expected_state
 
 
@@ -446,3 +449,19 @@ def is_sw_control_enabled(duthost, port_index):
             sw_control_enabled = True
     logging.info(f'The sw control enable of port index {port_index} is {sw_control_enabled}')
     return sw_control_enabled
+
+
+def is_innolight_cable(port_info):
+    """ Check if the given port info indicates an Innolight cable and handle known issues """
+    return 'PINEWAVE' in port_info.get('manufacturer', '')
+
+
+def is_unsupported_module(port_info, port_number):
+    if is_innolight_cable(port_info):
+        logger.info(f"Port {port_number} has an unsupported module, skipping it and continue to check other ports")
+        return True
+    return False
+
+
+def skip_on_unsupported_module():
+    pytest.skip("All ports are with unsupported modules, skipping the test due to Github issue #21878")
