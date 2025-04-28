@@ -9,9 +9,10 @@ The `common2` directory is being developed to address the following goals:
 1. **Code Redesign**: Refactor and redesign existing utilities, fixtures, and helpers to improve readability, modularity, and maintainability.
 2. **Directory Restructuring**: Organize the codebase into a more logical and intuitive directory structure.
 3. **Code Quality Enforcement**: Ensure high-quality code by enforcing pre-commit checks, including:
-   - Linter checks (`pylint`)
-   - Type checking with `mypy`
-   - Code formatting with `black`
+   - **Linter checks** using `pylint`
+   - **Type checking** will be enforced with `mypy`
+   - **Code formatting** done using `black`
+   - **Unit Testing**: Every API library function added to `common2` will be accompanied by unit tests to ensure correctness, maintainability, and ease of debugging.
 
 ## Issues with the Existing `common` Directory
 
