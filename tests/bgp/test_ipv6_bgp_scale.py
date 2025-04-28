@@ -12,7 +12,9 @@ import time
 from copy import deepcopy
 from threading import Thread, Event
 from tests.common.helpers.assertions import pytest_assert
+import ptf.packet as scapy
 from ptf.testutils import simple_icmpv6_packet
+from ptf.mask import Mask
 
 pytestmark = [
     pytest.mark.topology(
@@ -36,8 +38,31 @@ MAX_DOWNTIME_UNISOLATION = 300  # seconds
 MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
 MAX_CONVERGENCE_WAIT_TIME = 300  # seconds
-PACKETS_PER_TIME_SLOT = 2000 // PKTS_SENDING_TIME_SLOT
+PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
+MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing packets
 STATIC_ROUTES = ['0.0.0.0/0', '::/0']
+ICMP_TYPE = 123
+
+
+@pytest.fixture(scope="module")
+def setup_packet_mask_counters(ptfadapter):
+    """
+    Create a mask counters for packet sending
+    """
+    ptf_dp = ptfadapter.dataplane
+    exp_pkt = simple_icmpv6_packet(
+        icmp_type=ICMP_TYPE
+    )
+    masked_exp_pkt = Mask(exp_pkt)
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, 'src')
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "src")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "cksum")
+    ptf_dp.create_mask_counters(masked_exp_pkt)
+
+    yield masked_exp_pkt
 
 
 @pytest.fixture(scope="function")
@@ -111,7 +136,8 @@ def generate_packets(routes, dut_mac, src_mac):
         pkt = simple_icmpv6_packet(
             eth_dst=dut_mac,
             eth_src=src_mac,
-            ipv6_dst=addr
+            ipv6_dst=addr,
+            icmp_type=ICMP_TYPE
         )
         pkts.append(bytes(pkt))
 
@@ -166,21 +192,25 @@ def compare_routes(running_routes, expected_routes):
     return is_same
 
 
-def caculate_downtime(ptf_dp, end_time, start_time):
-    rx_total = sum(list(ptf_dp.rx_counters.values())[:-1])  # Exclude the backplane
-    tx_total = sum(ptf_dp.tx_counters.values())
+def caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
+    logger.warning("Waiting %d seconds for mask counters to be updated", MASK_COUNTER_WAIT_TIME)
+    time.sleep(MASK_COUNTER_WAIT_TIME)
+    rx_total = sum(list(ptf_dp.mask_rx_cnt[masked_exp_pkt].values())[:-1])  # Exclude the backplane
+    tx_total = sum(ptf_dp.mask_tx_cnt[masked_exp_pkt].values())
+    if tx_total == 0:
+        logger.warning("No packets are sent")
     missing_pkt_cnt = tx_total - rx_total
     if missing_pkt_cnt < 0:
         logger.warning("There are packets noise on ptf dataplane")
     pps = tx_total / (end_time - start_time).total_seconds()
-    downtime = missing_pkt_cnt / pps
+    downtime = missing_pkt_cnt / pps if pps > 0 else 10000000
     logger.info(
         "traffic thread duration: %s seconds,\n rx_counters: %s,\n tx_counters: %s,\n" +
         "Total packets received: %d,\n Total packets sent: %d,\n Missing packets: %d\n" +
         "Estimated pps %s, downtime is %s",
         (end_time - start_time).total_seconds(),
-        ptf_dp.rx_counters,
-        ptf_dp.tx_counters,
+        ptf_dp.mask_rx_cnt[masked_exp_pkt],
+        ptf_dp.mask_tx_cnt[masked_exp_pkt],
         rx_total,
         tx_total,
         missing_pkt_cnt,
@@ -190,18 +220,19 @@ def caculate_downtime(ptf_dp, end_time, start_time):
     return downtime
 
 
-def validate_rx_tx_counters(ptf_dp, end_time, start_time, downtime_threshold=MAX_DOWNTIME):
-    downtime = caculate_downtime(ptf_dp, end_time, start_time)
+def validate_rx_tx_counters(ptf_dp, end_time, start_time, masked_exp_pkt, downtime_threshold=MAX_DOWNTIME):
+    downtime = caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt)
     pytest_assert(downtime < downtime_threshold, "Downtime is too long")
 
 
-def flush_counters(ptf_dp):
+def flush_counters(ptf_dp, masked_exp_pkt):
     logging.info("Flushing counters")
-    for idx in ptf_dp.rx_counters.keys():
-        ptf_dp.rx_counters[idx] = 0
-    for idx in ptf_dp.tx_counters.keys():
-        ptf_dp.tx_counters[idx] = 0
-    logging.info("after flush rx_counters: %s, tx_counters: %s", ptf_dp.rx_counters, ptf_dp.tx_counters)
+    for idx in ptf_dp.mask_rx_cnt[masked_exp_pkt].keys():
+        ptf_dp.mask_rx_cnt[masked_exp_pkt][idx] = 0
+    for idx in ptf_dp.mask_tx_cnt[masked_exp_pkt].keys():
+        ptf_dp.mask_tx_cnt[masked_exp_pkt][idx] = 0
+    logging.info("after flush rx_counters: %s, tx_counters: %s",
+                 ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
 
 
 def send_packets(
@@ -247,7 +278,14 @@ def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, time
 
 
 @pytest.mark.parametrize("flapping_port_count", [1,  10, 20])
-def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_count, announce_bgp_routes_teardown):
+def test_sessions_flapping(
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    flapping_port_count,
+    setup_packet_mask_counters,
+    announce_bgp_routes_teardown
+):
     '''
     This test is to make sure When BGP sessions are flapping,
     control plane is functional and data plane has no downtime or acceptable downtime.
@@ -261,6 +299,7 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_co
         Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
     '''
     pdp = ptfadapter.dataplane
+    exp_mask = setup_packet_mask_counters
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
     random.shuffle(bgp_ports)
     flapping_ports, unflapping_ports = bgp_ports[:flapping_port_count], bgp_ports[flapping_port_count:]
@@ -285,7 +324,7 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_co
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
-    flush_counters(pdp)
+    flush_counters(pdp, exp_mask)
     traffic_thread.start()
     start_time = datetime.datetime.now()
     duthost.shutdown_multiple(flapping_ports)
@@ -301,14 +340,20 @@ def test_sessions_flapping(duthost, ptfadapter, bgp_peers_info, flapping_port_co
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, MAX_DOWNTIME_ONE_PORT_FLAPPING)
+        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_ONE_PORT_FLAPPING)
         if not recovered:
             pytest.fail("BGP routes are not stable in long time")
     finally:
         duthost.no_shutdown_multiple(flapping_ports)
 
 
-def test_device_unisolation(duthost, ptfadapter, bgp_peers_info, announce_bgp_routes_teardown):
+def test_device_unisolation(
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    setup_packet_mask_counters,
+    announce_bgp_routes_teardown
+):
     '''
     This test is for the worst senario that all ports are flapped,
     verify control/data plane have acceptable conergence time.
@@ -323,6 +368,7 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info, announce_bgp_ro
         Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
     '''
     pdp = ptfadapter.dataplane
+    exp_mask = setup_packet_mask_counters
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
     injection_dut_port = random.choice(bgp_ports)
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
@@ -356,7 +402,7 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info, announce_bgp_ro
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
-    flush_counters(pdp)
+    flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
     traffic_thread.start()
     duthost.no_shutdown_multiple(bgp_ports)
@@ -370,7 +416,7 @@ def test_device_unisolation(duthost, ptfadapter, bgp_peers_info, announce_bgp_ro
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, MAX_DOWNTIME_UNISOLATION)
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_UNISOLATION)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
 
@@ -381,6 +427,7 @@ def test_nexthop_group_member_scale(
     localhost,
     tbinfo,
     bgp_peers_info,
+    setup_packet_mask_counters,
     announce_bgp_routes_teardown
 ):
     '''
@@ -403,6 +450,7 @@ def test_nexthop_group_member_scale(
 
     ptf_ip = tbinfo['ptf_ip']
     pdp = ptfadapter.dataplane
+    exp_mask = setup_packet_mask_counters
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
     injection_dut_port = random.choice(bgp_ports)
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
@@ -429,7 +477,7 @@ def test_nexthop_group_member_scale(
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
-    flush_counters(pdp)
+    flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
     traffic_thread.start()
     expected_routes = deepcopy(startup_routes)
@@ -445,7 +493,7 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
 
@@ -455,7 +503,7 @@ def test_nexthop_group_member_scale(
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
     )
-    flush_counters(pdp)
+    flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
     traffic_thread.start()
     announce_routes(localhost, tbinfo)
@@ -464,6 +512,6 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
