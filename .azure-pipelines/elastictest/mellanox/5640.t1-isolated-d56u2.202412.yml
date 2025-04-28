@@ -49,7 +49,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202412-hack
+    default: internal-202412-dev
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
