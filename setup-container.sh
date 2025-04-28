@@ -49,6 +49,11 @@ FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
 
+# Sonic-mgmt remote debug feature
+DEBUG_PORT_START_RANGE=50000
+DEBUG_PORT_END_RANGE=60000
+DEFAULT_LOCK_FOLDER="/tmp/sonic-mgmt-locks/"
+
 #
 # Functions -----------------------------------------------------------------------------------------------------------
 #
@@ -110,6 +115,7 @@ function show_help_and_exit() {
     echo "  -v                   explain what is being done"
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
+    echo "  --enable-debug       enable debug mode"
     echo
     echo "Examples:"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master"
@@ -117,6 +123,7 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master --enable-debug"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
@@ -133,6 +140,16 @@ function show_local_container_login() {
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
     echo "SSH:  ssh -i ~/.ssh/id_rsa_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
+
+    if [[ -n ${SELECTED_DEBUG_PORT} ]]; then
+        echo
+        echo "*********************************[IMPORTANT]*********************************"
+        echo "DEBUG PORT: $SELECTED_DEBUG_PORT"
+        echo "Please use the above debug port in your vscode extensions"
+        echo "When running the test, add --enable-debug to the end of your ./run_tests.sh to use"
+        echo "You can check which port was assigned to you again by running 'docker ps' and search for your container"
+        echo "*********************************[IMPORTANT]*********************************"
+    fi
 }
 
 function pull_sonic_mgmt_docker_image() {
@@ -259,6 +276,10 @@ RUN if ! pip3 list | grep -c pytest >/dev/null && \
 /bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze | grep -vE "distro|PyGObject|python-apt|unattended-upgrades|dbus-python")'; \
 fi
 
+# Remote debug port setup
+{% if SONIC_MGMT_DEBUG_PORT %}
+ENV SONIC_MGMT_DEBUG_PORT={{ SONIC_MGMT_DEBUG_PORT }}
+{% endif %}
 EOF
 
     log_info "prepare an environment file: ${TMP_DIR}/data.env"
@@ -272,6 +293,7 @@ GROUP_NAME=${USER}
 USER_NAME=${USER}
 USER_PASS=${USER_PASS}
 ROOT_PASS=${ROOT_PASS}
+SONIC_MGMT_DEBUG_PORT=${SELECTED_DEBUG_PORT}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
@@ -387,6 +409,29 @@ function parse_arguments() {
     fi
 }
 
+function find_debug_port() {
+    mkdir -p "$DEFAULT_LOCK_FOLDER"
+    for port in $(seq $DEBUG_PORT_START_RANGE $DEBUG_PORT_END_RANGE); do
+        if ! ss -tuln | grep -q ":$port\b" && mkdir $DEFAULT_LOCK_FOLDER/$port.lock 2>/dev/null; then
+            trap "rm -rf $DEFAULT_LOCK_FOLDER/$port.lock" EXIT # Remove the port.lock file when done
+            SELECTED_DEBUG_PORT=$port
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--enable-debug" ]]; then
+        ENABLE_DEBUG=1
+    else
+        ARGS+=("$arg")
+    fi
+done
+
+set -- "${ARGS[@]}"
 #
 # Script --------------------------------------------------------------------------------------------------------------
 #
@@ -430,6 +475,17 @@ while getopts "n:i:d:m:p:fvxh" opt; do
             ;;
     esac
 done
+
+if [[ "$ENABLE_DEBUG" -eq 1 ]]; then
+    find_debug_port
+    if [[ -n "$SELECTED_DEBUG_PORT" ]]; then
+        PUBLISH_PORTS+=" -p \"$SELECTED_DEBUG_PORT:$SELECTED_DEBUG_PORT\""
+    else
+        echo "FAILURE: Cannot find an eligible debug port within the range [$DEBUG_PORT_START_RANGE, $DEBUG_PORT_END_RANGE]"
+        echo "Please re-run without --enable-debug option."
+        exit 1
+    fi
+fi
 
 parse_arguments
 
