@@ -6,6 +6,7 @@
 # Ansible files
 .ansible
 ansible.log
+sonic-venv
 
 # Test generated files
 tests/logs

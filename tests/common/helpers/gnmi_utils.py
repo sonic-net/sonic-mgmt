@@ -26,15 +26,17 @@ class GNMIEnvironment(object):
 
     def generate_gnmi_config(self, duthost):
         cmd = "docker images | grep -w sonic-gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        if duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0:
             cmd = "docker ps | grep -w gnmi"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            if duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0:
                 self.gnmi_config_table = "GNMI"
                 self.gnmi_container = "gnmi"
                 self.gnmi_program = "gnmi-native"
                 # GNMI process is gnmi or telemetry
-                res = duthost.shell("docker exec gnmi ps -ef", module_ignore_errors=True)
-                if '/usr/sbin/gnmi' in res['stdout']:
+                res = duthost.shell(
+                    "docker exec gnmi ps -ef", module_ignore_errors=True
+                )
+                if "/usr/sbin/gnmi" in res["stdout"]:
                     self.gnmi_process = "gnmi"
                 else:
                     self.gnmi_process = "telemetry"
@@ -46,20 +48,22 @@ class GNMIEnvironment(object):
 
     def generate_telemetry_config(self, duthost):
         cmd = "docker images | grep -w sonic-telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        if duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0:
             cmd = "docker ps | grep -w telemetry"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            if duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0:
                 self.gnmi_config_table = "TELEMETRY"
                 self.gnmi_container = "telemetry"
                 # GNMI program is telemetry or gnmi-native
-                res = duthost.shell("docker exec %s supervisorctl status" % self.gnmi_container,
-                                    module_ignore_errors=True)
-                if 'telemetry' in res['stdout']:
+                res = duthost.shell(
+                    "docker exec %s supervisorctl status" % self.gnmi_container,
+                    module_ignore_errors=True,
+                )
+                if "telemetry" in res["stdout"]:
                     self.gnmi_program = "telemetry"
                 else:
                     self.gnmi_program = "gnmi-native"
                 self.gnmi_process = "telemetry"
-                self.gnmi_port = 50051
+                self.gnmi_port = 9339
                 return True
             else:
                 pytest.fail("Telemetry is not running")

@@ -1,0 +1,39 @@
+all:
+  children:
+    sonic:
+      hosts:
+        sonic-marvell:
+          ansible_host: 10.30.2.143
+          ansible_user: admin
+          ansible_ssh_pass: "auradine "
+          hwsku: dbmvtx9180_64x100G
+          ansible_connection: ssh
+          ansible_timeout: 120
+        sonic-senao:
+          ansible_host: 10.30.2.134
+          ansible_user: admin
+          ansible_ssh_pass: "YourPaSsWoRd"
+          hwsku: sera_rds2000-r0          
+          ansible_connection: ssh
+          ansible_timeout: 120 
+
+    ptf:
+      hosts:
+        ptf-1:
+          ansible_host: ptf-1
+          ansible_connection: docker
+          ansible_python_interpreter: /usr/bin/python3
+
+    servers:
+      hosts:
+        server-1:
+          ansible_host: 127.0.0.1
+          ansible_user: ubuntu
+          ansible_ssh_pass: ubuntu123
+          ansible_connection: ssh
+          ansible_python_interpreter: /usr/bin/python3
+
+    server-1:
+      hosts:
+        server-1:
+

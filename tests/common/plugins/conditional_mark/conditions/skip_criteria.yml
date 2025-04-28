@@ -1,0 +1,5 @@
+"placeholder_test":
+  skip:
+    reason: "Skip nothing, placeholder"
+    conditions: []
+

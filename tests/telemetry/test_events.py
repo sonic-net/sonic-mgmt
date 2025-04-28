@@ -40,10 +40,14 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
                 setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m): # noqa F811
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
+    import pdb; pdb.set_trace()
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events testing")
 
     skip_201911_and_older(duthost)
+
+    logger.info("Ensure /etc/supervisor/conf.d exists on ptfhost")
+    ptfhost.shell('mkdir -p /etc/supervisor/conf.d')
 
     # Load rest of events
     for file in os.listdir(EVENTS_TESTS_PATH):
