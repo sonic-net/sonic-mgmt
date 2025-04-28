@@ -1,0 +1,84 @@
+root@sonic:~# show vlan brief
++-----------+--------------+-----------+----------------+-----------------------+
+|   VLAN ID | IP Address   | Ports     | Port Tagging   | DHCP Helper Address   |
++===========+==============+===========+================+=======================+
+|       100 |              | Ethernet0 | tagged         |                       |
++-----------+--------------+-----------+----------------+-----------------------+
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# config mac add 00:00:00:00:00:03 100 Ethernet0
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show mac
+  No.    Vlan  MacAddress         Port       Type
+-----  ------  -----------------  ---------  -------
+    1     100  00:00:00:00:00:03  Ethernet0  Dynamic
+Total number of entries 1 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# chef-client
+[2019-05-23T10:48:42+00:00] INFO: Forking chef instance to converge...
+Starting Chef Client, version 12.14.60
+[2019-05-23T10:48:42+00:00] INFO: *** Chef 12.14.60 ***
+[2019-05-23T10:48:42+00:00] INFO: Platform: x86_64-linux-gnu
+[2019-05-23T10:48:42+00:00] INFO: Chef-client pid: 529
+[2019-05-23T10:48:47+00:00] INFO: Run List is [recipe[sonic::fdb], role[sonic]]
+[2019-05-23T10:48:47+00:00] INFO: Run List expands to [sonic::fdb]
+[2019-05-23T10:48:47+00:00] INFO: Starting Chef Run for sonic
+[2019-05-23T10:48:47+00:00] INFO: Running start handlers
+[2019-05-23T10:48:47+00:00] INFO: Start handlers complete.
+[2019-05-23T10:48:47+00:00] INFO: HTTP Request Returned 404 Object Not Found: 
+resolving cookbooks for run list: ["sonic::fdb"]
+[2019-05-23T10:48:47+00:00] INFO: Loading cookbooks [sonic@0.1.0]
+Synchronizing Cookbooks:
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/providers/fdb.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/resources/fdb.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/recipes/fdb.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/attributes/default.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/recipes/default.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/metadata.rb in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/CHANGELOG.md in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/metadata.json in the cache.
+[2019-05-23T10:48:47+00:00] INFO: Storing updated cookbooks/sonic/README.md in the cache.
+  - sonic (0.1.0)
+Installing Cookbook Gems:
+Compiling Cookbooks...
+[2019-05-23T10:48:47+00:00] INFO: My hostname is sonic
+[2019-05-23T10:48:47+00:00] INFO: My provider is sonic_fdb
+[2019-05-23T10:48:47+00:00] INFO: Processing fdb FDB 1
+[2019-05-23T10:48:47+00:00] INFO: Processing fdb FDB 2
+[2019-05-23T10:48:47+00:00] INFO: Processing fdb FDB 3
+Converging 3 resources
+Recipe: sonic::fdb
+  * sonic_fdb[FDB 1] action create[2019-05-23T10:48:47+00:00] INFO: Processing sonic_fdb[FDB 1] action create (sonic::fdb line 42)
+
+    - create FDB entry with mac address '00:00:00:00:00:01', VLAN '100' and port 'Ethernet0'
+  * sonic_fdb[FDB 2] action create[2019-05-23T10:48:48+00:00] INFO: Processing sonic_fdb[FDB 2] action create (sonic::fdb line 42)
+
+    - create FDB entry with mac address '00:00:00:00:00:02', VLAN '100' and port 'Ethernet0'
+  * sonic_fdb[FDB 3] action delete[2019-05-23T10:48:49+00:00] INFO: Processing sonic_fdb[FDB 3] action delete (sonic::fdb line 34)
+
+    - delete FDB entry with mac address '00:00:00:00:00:03' and VLAN '100'
+[2019-05-23T10:48:50+00:00] INFO: Chef Run complete in 2.530659157 seconds
+
+Running handlers:
+[2019-05-23T10:48:50+00:00] INFO: Running report handlers
+Running handlers complete
+[2019-05-23T10:48:50+00:00] INFO: Report handlers complete
+
+Deprecated features used!
+  Using an LWRP provider by its name (SonicFdb) directly is no longer supported in Chef 12 and will be removed.  Use Chef::ProviderResolver.new(node, resource, action) instead. at 2 locations:
+    - /var/cache/chef/cookbooks/sonic/recipes/fdb.rb:43:in `block (2 levels) in from_file'
+    - /var/cache/chef/cookbooks/sonic/recipes/fdb.rb:35:in `block (2 levels) in from_file'
+
+Chef Client finished, 3/3 resources updated in 07 seconds
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show mac
+  No.    Vlan  MacAddress         Port       Type
+-----  ------  -----------------  ---------  -------
+    1     100  00:00:00:00:00:01  Ethernet0  Dynamic
+    2     100  00:00:00:00:00:02  Ethernet0  Dynamic
+Total number of entries 2 
+root@sonic:~# 

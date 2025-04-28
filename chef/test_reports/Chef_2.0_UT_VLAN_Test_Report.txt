@@ -1,0 +1,64 @@
+Test Case ID: 1
+Test Case: VLAN Creation
+Purpose: To verify that VLAN creation can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where VLAN resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the VLAN config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+VLAN as mentioned in the "sonic.json" role should be created successfully on the SONiC switch.
+Observed Result:
+Observed that VLAN as mentioned in the "sonic.json" role is created successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 2
+Test Case: Addition of ports as tagged members in the VLAN
+Purpose: To verify that ports are added as tagged members in the VLAN via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where VLAN resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the VLAN config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Addition of ports as tagged members in the VLAN as mentioned in the "sonic.json" role should be performed successfully on the SONiC switch.
+Observed Result:
+Observed that addition of ports as tagged members in the VLAN as mentioned in the "sonic.json" role is performed successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 3
+Test Case: Addition of ports as untagged members in the VLAN
+Purpose: To verify that ports are added as untagged members in the VLAN via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where VLAN resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the VLAN config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Addition of ports as untagged members in the VLAN as mentioned in the "sonic.json" role should be performed successfully on the SONiC switch.
+Observed Result:
+Observed that addition of ports as untagged members in the VLAN as mentioned in the "sonic.json" role is performed successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 4
+Test Case: Deletion of ports from the VLAN
+Purpose: To verify that ports are deleted from the VLAN via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where VLAN resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the VLAN config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Deletion of ports from the VLAN as mentioned in the "sonic.json" role should be performed successfully on the SONiC switch.
+Observed Result:
+Observed that deletion of ports from the VLAN as mentioned in the "sonic.json" role is performed successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 5
+Test Case: VLAN Deletion
+Purpose: To verify that VLAN deletion can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where VLAN resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the VLAN config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+VLAN as mentioned in the "sonic.json" role should be deleted successfully on the SONiC switch.
+Observed Result:
+Observed that VLAN as mentioned in the "sonic.json" role is deleted successfully on the SONiC switch.
+Result: PASS
