@@ -39,9 +39,9 @@ npu_cli_dict_t2 = {
         "bp-interface-map" : " "
 }
 
-def get_asic_str(duthost):
+def get_asic_str(duthost, asic):
     if duthost.is_multi_asic:
-        return " -n asic0"
+        return f" -n asic{asic}"
     else:
         return ""
 
@@ -135,7 +135,7 @@ def test_enable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "Enabling sdk-debug on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
     assert "sdk-debug has been enabled on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
 
-def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
     """
     @summary: Verify output of `show platform npu` , update the npu_cli_dict at the top for new platform npu command check.
     """
@@ -152,9 +152,13 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
         npu_cli_dict.update(npu_cli_dict_t2)
 
     for cli in npu_cli_dict:
+        if duthost.is_multi_asic:
+            asic = enum_rand_one_asic_index
+        else:
+            asic = ''
         for opt in npu_cli_dict[cli]:
             result = duthost.shell("sudo show platform npu {} {} {}".
-                    format(cli, opt, get_asic_str(duthost)), module_ignore_errors=True)
+                    format(cli, opt, get_asic_str(duthost, asic)), module_ignore_errors=True)
             logging.info(result["stdout"])
             traceback_found = "Traceback" in result["stdout"]
 
