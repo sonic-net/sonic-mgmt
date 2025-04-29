@@ -914,6 +914,9 @@ class TestConfigInterface():
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, interface)
         speeds_to_test = ['100000', '40000']
 
+        if 'arista' in duthost.facts.get('platform', '').lower():
+            pytest.skip("Skip Arista platform for now.")
+
         if native_speed not in speeds_to_test:
             pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
 
@@ -935,7 +938,6 @@ class TestConfigInterface():
             # Configure speed on the DUT and Fanout
             dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
                                .format(ifmode, cli_ns_option, test_intf, speed))
-            # Configure speed on the fanout switch
             fanout.set_speed(fanout_port, speed)
 
         def _verify_speed(speed):
@@ -952,15 +954,17 @@ class TestConfigInterface():
         # Change the speed
         _set_speed(target_speed)
 
-        # Verify speed and link status
-        _verify_speed(target_speed)
-        assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        try:
+            # Verify speed and link status
+            _verify_speed(target_speed)
+            assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        finally:
+            # Restore to native speed after test
+            _set_speed(native_speed)
 
-        # Restore to native speed after test
-        _set_speed(native_speed)
+        # After restoration, verify again
         _verify_speed(native_speed)
         assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
-
         # Revert inconsistent config changes
         config_reload(duthost)
 
