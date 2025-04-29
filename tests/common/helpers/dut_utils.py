@@ -533,6 +533,8 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
+    if "secret_group_vars" in list(hostvars.keys()):
+        creds["ansible_altpasswords"] = hostvars["secret_group_vars"].get("str").get("altpasswords")
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
