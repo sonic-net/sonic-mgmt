@@ -77,7 +77,54 @@ FWD:
       - route/test_duplicate_route.py
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-
+  t0: 
+    all_pids:
+      - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+      - route/test_default_route.py::test_default_route_set_src
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ingress_unmatched_blocked
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded
+      - crm/test_crm.py::test_crm_neighbor
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_egress_unmatched_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_forwarded
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_forwarded
+  t1:
+    all_pids:
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+      - route/test_default_route.py::test_default_route_set_src
+      - route/test_default_route.py::test_default_route_with_bgp_flap
+      - acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_ingress_unmatched_blocked
+      - acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped
+      - acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped
+  
 PLT:
   t0-64:
     mth64:
