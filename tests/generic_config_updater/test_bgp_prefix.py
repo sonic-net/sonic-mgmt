@@ -9,7 +9,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t1'),  # It is a t1 only feature
+    pytest.mark.topology('t1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -24,23 +24,23 @@ PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V
 
 
 @pytest.fixture(autouse=True)
-def _ignore_allow_list_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
+def _ignore_allow_list_errlogs(duthosts, rand_one_dut_front_end_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         IgnoreRegex = [
             ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
         ]
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[rand_one_dut_front_end_hostname]
         """Cisco 8111-O64 has different allow list config"""
         if duthost.facts['hwsku'] == 'Cisco-8111-O64':
-            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+            loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(IgnoreRegex)
     return
 
 
-def get_bgp_prefix_runningconfig(duthost):
+def get_bgp_prefix_runningconfig(duthost, cli_namespace_prefix):
     """ Get bgp prefix config
     """
-    cmds = "show runningconfiguration bgp"
+    cmds = "show runningconfiguration bgp {}".format(cli_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
@@ -53,15 +53,15 @@ def get_bgp_prefix_runningconfig(duthost):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, cli_namespace_prefix):
     """
     Setup/teardown fixture for bgp prefix config
     Args:
         duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        rand_one_dut_front_end_hostname: The fixture returns a randomly selected DuT hostname.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost, cli_namespace_prefix)
     create_checkpoint(duthost)
 
     yield
@@ -69,26 +69,26 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
-        current_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
+        current_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost, cli_namespace_prefix)
         pytest_assert(set(original_bgp_prefix_config) == set(current_bgp_prefix_config),
                       "bgp prefix config are not suppose to change after test")
     finally:
         delete_checkpoint(duthost)
 
 
-def bgp_prefix_test_setup(duthost):
+def bgp_prefix_test_setup(duthost, cli_namespace_prefix):
     """ Clean up bgp prefix config before test
     """
-    cmds = 'sonic-db-cli CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'
+    cmds = 'sonic-db-cli {} CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'.format(cli_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "bgp prefix test setup failed.")
 
 
-def show_bgp_running_config(duthost):
-    return duthost.shell("show runningconfiguration bgp")['stdout']
+def show_bgp_running_config(duthost, cli_namespace_prefix):
+    return duthost.shell("show runningconfiguration bgp {}".format(cli_namespace_prefix))['stdout']
 
 
-def bgp_prefix_tc1_add_config(duthost, community, community_table):
+def bgp_prefix_tc1_add_config(duthost, community, community_table, cli_namespace_prefix, namespace=None):
     """ Test to add prefix config
 
     Sample output of runningconfiguration bgp after config
@@ -117,7 +117,8 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
         }
     ]
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -126,7 +127,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        bgp_config = show_bgp_running_config(duthost)
+        bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
         pytest_assert(re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_INIT), bgp_config),
                       "Failed to add bgp prefix v4 config.")
         pytest_assert(re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_INIT), bgp_config),
@@ -136,7 +137,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgp_prefix_tc1_xfail(duthost, community_table):
+def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
     """ Test input with invalid prefixes
     """
     xfail_input = [
@@ -158,7 +159,8 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
                 "value": prefixes_v4
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[namespace])
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -171,7 +173,7 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
             delete_tmpfile(duthost, tmpfile)
 
 
-def bgp_prefix_tc1_replace(duthost, community, community_table):
+def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_prefix, namespace=None):
     """ Test to replace prefixes
     """
     json_patch = [
@@ -186,7 +188,8 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
             "value": PREFIXES_V4_DUMMY
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -195,7 +198,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        bgp_config = show_bgp_running_config(duthost)
+        bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
         pytest_assert(
             not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_INIT), bgp_config) and
             re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config),
@@ -211,7 +214,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
         delete_tmpfile(duthost, tmpfile)
 
 
-def bgp_prefix_tc1_remove(duthost, community):
+def bgp_prefix_tc1_remove(duthost, community, cli_namespace_prefix, namespace=None):
     """ Test to remove prefix config
     """
     json_patch = [
@@ -220,7 +223,8 @@ def bgp_prefix_tc1_remove(duthost, community):
             "path": "/BGP_ALLOWED_PREFIXES"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -229,7 +233,7 @@ def bgp_prefix_tc1_remove(duthost, community):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        bgp_config = show_bgp_running_config(duthost)
+        bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
         pytest_assert(
             not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config),
             "Failed to remove bgp prefix v4 config."
@@ -244,17 +248,21 @@ def bgp_prefix_tc1_remove(duthost, community):
 
 
 @pytest.mark.parametrize("community", ["empty", "1010:1010"])
-def test_bgp_prefix_tc1_suite(rand_selected_dut, community):
+def test_bgp_prefix_tc1_suite(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, community,
+                              cli_namespace_prefix):
     """ Test suite for bgp prefix for v4 and v6 w/ and w/o community ID
 
     Sample CONFIG_DB entry:
     BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0
     BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0|1010:1010
     """
+    asic_namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     community_table = "" if community == "empty" else "|" + community
 
-    bgp_prefix_test_setup(rand_selected_dut)
-    bgp_prefix_tc1_add_config(rand_selected_dut, community, community_table)
-    bgp_prefix_tc1_xfail(rand_selected_dut, community_table)
-    bgp_prefix_tc1_replace(rand_selected_dut, community, community_table)
-    bgp_prefix_tc1_remove(rand_selected_dut, community)
+    bgp_prefix_test_setup(rand_selected_front_end_dut, cli_namespace_prefix)
+    bgp_prefix_tc1_add_config(rand_selected_front_end_dut, community, community_table, cli_namespace_prefix,
+                              namespace=asic_namespace)
+    bgp_prefix_tc1_xfail(rand_selected_front_end_dut, community_table, namespace=asic_namespace)
+    bgp_prefix_tc1_replace(rand_selected_front_end_dut, community, community_table, cli_namespace_prefix,
+                           namespace=asic_namespace)
+    bgp_prefix_tc1_remove(rand_selected_front_end_dut, community, cli_namespace_prefix, namespace=asic_namespace)
