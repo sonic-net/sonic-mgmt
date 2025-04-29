@@ -137,6 +137,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         pytest.skip("Warm Reboot is not supported on isolated topology")
 
     duthost = duthosts[rand_one_dut_hostname]
+    hwsku = duthost.facts['hwsku']
+    if hwsku == "Arista-7050CX3-32S-C28S4":
+        pytest.skip("Warm reboot is not supported on Arista-7050CX3-32S-C28S4 with t0-d18u8s4 topology")
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
