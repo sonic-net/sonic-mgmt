@@ -3,17 +3,16 @@ import logging
 import random
 import ipaddress
 
-from ptf import testutils
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.common.dualtor.dual_tor_mock import set_mux_state
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
-from tests.common.dualtor.dual_tor_utils import add_nexthop_routes
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                     # noqa F401
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.dualtor.dual_tor_utils import force_active_tor, force_standby_tor     # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                      # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                    # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
 
 
 """
@@ -39,12 +38,12 @@ Expectation:
 
 ACTIVE = 'active'
 STANDBY = 'standby'
+TEST_SCRIPT_SRC = "scripts/dualtor_neighbor_route_share_ip.py"
+TEST_SCRIPT_DST = "/tmp/dualtor_neighbor_route_share_ip.py"
 
 pytestmark = [
     pytest.mark.topology('dualtor'),
-    pytest.mark.usefixtures('apply_mock_dual_tor_tables',
-                            'apply_mock_dual_tor_kernel_configs',
-                            'run_garp_service',
+    pytest.mark.usefixtures('run_garp_service',
                             'run_icmp_responder')
 ]
 
@@ -85,7 +84,7 @@ def testbed_setup(
     tbinfo,
     tor_mux_intfs,
     rand_selected_dut,
-    toggle_all_simulator_ports
+    force_active_tor, force_standby_tor,    # noqa F811
 ):
     """
     Sets up test facts for test_neighbor_update_route_set.
@@ -94,6 +93,7 @@ def testbed_setup(
         dict: dictionary of test details in the form below:
 
         {
+            "vlan": <vlan>
             "active": {
                 "iface": <interface name>,
                 "neighbor_mac": <neighbor mac on interface>,
@@ -107,6 +107,7 @@ def testbed_setup(
                 "ptf_index": <ptf index of interface>,
             },
             "portchannels": {
+                "if_names": [list of if_names]
                 "nexthops": [list of nexthops]
             }
         }
@@ -141,78 +142,84 @@ def testbed_setup(
 
     mg_facts = dut.get_extended_minigraph_facts(tbinfo)
     portchannel_interfaces = mg_facts["minigraph_portchannel_interfaces"]
+    vlan = list(mg_facts["minigraph_vlans"].keys())[0]
     # Get upstream interface info
+    test_facts["vlan"] = vlan
     test_facts["portchannels"] = {}
+    if_names = []
     nexthops = []
     for iface in portchannel_interfaces:
-        # iface_name = iface["attachto"]
-        if ipaddress.ip_address(iface["addr"]).version == ipversion:
-            nexthops.append(iface["addr"])
+        version = ipaddress.ip_address(iface["peer_addr"]).version
+        if str(version) == str(ipversion):
+            peer_addr = iface["peer_addr"]
+            attachto = iface["attachto"]
+            nexthops.append(peer_addr)
+            if_names.append(attachto)
 
-    test_facts["portchannels"]["nexthops"] = nexthops
+    test_facts["portchannels"]["nexthops"] = ",".join(nexthops)
+    test_facts["portchannels"]["if_names"] = ",".join(if_names)
 
     # Set mux ports to Standby and active
     logging.info(f"Set {active_port} to {ACTIVE} state")
-    set_mux_state(dut, tbinfo, ACTIVE, [active_port], toggle_all_simulator_ports)
+    force_active_tor(dut, [active_port])
 
     logging.info(f"Set {standby_port} to {STANDBY} state")
-    set_mux_state(dut, tbinfo, STANDBY, [standby_port], toggle_all_simulator_ports)
+    force_standby_tor(dut, [standby_port])
 
     logging.info(f"Test details: {test_facts}")
     return test_facts
 
 
-def send_garp(ptfadapter, ip, src_mac, iface):
-    pkt = testutils.simple_arp_packet(
-                eth_dst='ff:ff:ff:ff:ff:ff',
-                eth_src=src_mac,
-                arp_op=2,
-                ip_snd=ip,
-                ip_tgt=ip,
-                hw_snd=src_mac,
-                hw_tgt='ff:ff:ff:ff:ff:ff'
-            )
-
-    logging.info("Sending GARP for target {} from PTF interface {}".format(ip, iface))
-    testutils.send_packet(ptfadapter, iface, pkt)
-
-
-def test_neighbor_update_with_route_set(
+def test_neighbor_route_share_ip(
     ptfhost,
     tbinfo,
     ip_version,
     ptfadapter,
     testbed_setup,
     rand_selected_dut,
+    rand_unselected_dut,
     iterations=20
 ):
     if ip_version == "ipv4":
         ip = "25.66.230.0"
-        prefix = f"{ip}/32"
     elif ip_version == "ipv6":
         ip = "2025::ffff"
-        prefix = f"{ip}/128"
 
-    dut = rand_selected_dut
-    active_port = testbed_setup[ACTIVE]["iface"]
-    standby_port = testbed_setup[STANDBY]["iface"]
+    vlan = testbed_setup["vlan"]
+    neighbor_standby = testbed_setup[STANDBY]['neighbor_mac']
+    neighbor_active = testbed_setup[ACTIVE]['neighbor_mac']
+    vlan_nexthop_standby = testbed_setup[STANDBY]["server_ip"]
+    vlan_nexthop_active = testbed_setup[ACTIVE]["server_ip"]
+    portchannel_nexthops = testbed_setup["portchannels"]["nexthops"]
+    portchannel_interfaces = testbed_setup["portchannels"]["if_names"]
+
+    logging.info(f"Copy test script to duthosts, src: {TEST_SCRIPT_SRC} dst: {TEST_SCRIPT_DST}")
+    rand_selected_dut.copy(src=TEST_SCRIPT_SRC, dest=TEST_SCRIPT_DST)
+    rand_unselected_dut.copy(src=TEST_SCRIPT_SRC, dest=TEST_SCRIPT_DST)
 
     # Start test loop:
-    for i in range(iterations):
-        logging.info(f"Start test iteration {i}")
+    logging.info(f"Start test {TEST_SCRIPT_DST} with {iterations} iterations")
+    with SafeThreadPoolExecutor(max_workers=2) as executor:
+        executor.submit(rand_selected_dut.shell, f"python {TEST_SCRIPT_DST} \
+            --vlan-if {vlan}                                                \
+            --portchannel-if {portchannel_interfaces}                       \
+            --standby-mac {neighbor_standby}                                \
+            --active-mac {neighbor_active}                                  \
+            --ip {ip}                                                       \
+            --vlan-nexthops {vlan_nexthop_active}                           \
+            --portchannel-nexthops {portchannel_nexthops}                   \
+            --iterations {iterations}")
 
-        logging.info(f"Add neighbor {ip} to standby mux port {standby_port}")
-        send_garp(ptfadapter, ip, testbed_setup[STANDBY]['neighbor_mac'], testbed_setup[STANDBY]['ptf_index'])
+        # on peer tor, active and standby neighbor are switched
+        executor.submit(rand_unselected_dut.shell, f"python {TEST_SCRIPT_DST}   \
+            --vlan-if {vlan}                                                    \
+            --portchannel-if {portchannel_interfaces}                           \
+            --standby-mac {neighbor_active}                                     \
+            --active-mac {neighbor_standby}                                     \
+            --ip {ip}                                                           \
+            --vlan-nexthops {vlan_nexthop_standby}                              \
+            --portchannel-nexthops {portchannel_nexthops}                       \
+            --iterations {iterations}")
 
-        logging.info(f"Add neighbor {ip} to active mux port {active_port}")
-        send_garp(ptfadapter, ip, testbed_setup[ACTIVE]['neighbor_mac'], testbed_setup[ACTIVE]['ptf_index'])
-
-        nexthops = [testbed_setup[ACTIVE]["server_ip"]]
-        logging.info(f"Set route {prefix} with nexthop(s) {nexthops}")
-        add_nexthop_routes(dut, ip, nexthops=nexthops)
-
-        nexthops = testbed_setup["portchannels"]["nexthops"]
-        logging.info(f"Set route {prefix} with nexthop(s) {nexthops}")
-        add_nexthop_routes(dut, ip, nexthops=nexthops)
-
-        verify_orchagent_running_or_assert(dut)
+    verify_orchagent_running_or_assert(rand_selected_dut)
+    verify_orchagent_running_or_assert(rand_unselected_dut)
