@@ -54,7 +54,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     # Ignore time span WD exceeded error, and contextual log event messages
     SAISwitchIgnoreRegex = [
         ".* ERR syncd.*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
-        ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*"
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*",
+        ".* ERR syncd.*#syncd.*setEndTime:.*create:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000.*"
     ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is enabled
