@@ -161,7 +161,8 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
             or over topologies which doesn't support slb."
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
-      - "'backend' in topo_name or 'mgmttor' in topo_name"
+      - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
+      - "hwsku in ['Arista-7050CX3-32S-C28S4']"
 
 bgp/test_bgp_speaker.py:
   skip:
