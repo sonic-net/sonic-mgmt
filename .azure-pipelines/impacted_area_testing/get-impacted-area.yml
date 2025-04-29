@@ -34,12 +34,12 @@ steps:
       for COMMON_DIR in "${COMMON_DIRS[@]}"; do
         if [[ "$FEATURE" == *$COMMON_DIR* ]]; then
           FINAL_FEATURES=""
-          break
+          break 2
         fi
       done
 
       # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      elif [[ "$FEATURE" =~ ^tests\/.* ]]; then
+      if [[ "$FEATURE" =~ ^tests\/.* ]]; then
         # Cut the feature path
         if [[ $FEATURE == */*/* ]]; then
             FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
