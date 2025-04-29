@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_POLL = 2
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
@@ -107,7 +108,7 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
-                        timeout=-1):
+                        timeout=-1, polling_interval=10, max_sync_count=-1):
     """ Generate the py_gnmicli command line based on the given params.
     t                      --target: gNMI target; required
     p                      --port: port of target; required
@@ -118,6 +119,8 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
     submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
     interval:              sample interval in milliseconds, default 10000ms
+    polling_interval:      polling interval in seconds, default 10s
+    max_sync_count:        Max number of sync responses to receive, -1 means no limit. default -1
     update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
     create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
     filter_event_regex:    Regex to filter event when querying events path
@@ -130,6 +133,11 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
         ns = "/{}".format(namespace)
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
+
+    if subscribe_mode == SUBSCRIBE_MODE_POLL:
+        poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
+        cmd += poll_cmd.format(subscribe_mode, polling_interval, update_count, max_sync_count, timeout)
+        return cmd
 
     if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(

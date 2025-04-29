@@ -25,15 +25,15 @@ class LoadExtraDpuConfigModule(object):
         self.module = AnsibleModule(
             argument_spec=dict(
                 hwsku=dict(type='str', required=True),
-                host_username=dict(type='str', required=False, default='admin'),
-                host_password=dict(type='str', required=False, default='password', no_log=True)
+                host_username=dict(type='str', required=True),
+                host_passwords=dict(type='list', elements='str', required=True, no_log=True)
             ),
             supports_check_mode=False
         )
 
         self.hwsku = self.module.params['hwsku']
         self.host_username = self.module.params['host_username']
-        self.host_password = self.module.params['host_password']
+        self.host_passwords = self.module.params['host_passwords']
 
         try:
             self.hwsku_config = smartswitch_hwsku_config[self.hwsku]
@@ -48,17 +48,21 @@ class LoadExtraDpuConfigModule(object):
         """Establish an SSH connection to the DPU with retry"""
         retry_count = 0
         last_exception = None
+
         while retry_count < MAX_RETRIES:
-            try:
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(dpu_ip, username=self.host_username, password=self.host_password, timeout=30)
-                return ssh
-            except Exception as e:
-                retry_count += 1
-                last_exception = e
-                if retry_count < MAX_RETRIES:
-                    time.sleep(RETRY_DELAY)
+            for password in self.host_passwords:
+                try:
+                    ssh = paramiko.SSHClient()
+                    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                    ssh.connect(dpu_ip, username=self.host_username, password=password, timeout=30)
+                    return ssh
+                except Exception as e:
+                    last_exception = e
+                    continue
+
+            retry_count += 1
+            if retry_count < MAX_RETRIES:
+                time.sleep(RETRY_DELAY)
 
         self.module.fail_json(msg="Failed to connect to DPU {} after {} retries: {}".format(
             dpu_ip, MAX_RETRIES, str(last_exception)))

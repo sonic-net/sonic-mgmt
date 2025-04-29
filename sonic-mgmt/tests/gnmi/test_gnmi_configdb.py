@@ -8,12 +8,15 @@ import time
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
 from .helper import gnmi_subscribe_polling
 from .helper import gnmi_subscribe_streaming_sample, gnmi_subscribe_streaming_onchange
+from .helper import add_gnmi_client_common_name
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
+allure.logger = logger
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -282,3 +285,142 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
+
+
+def test_gnmi_configdb_set_authenticate(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI native write with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    file_name = "cloud.txt"
+    text = "\"Public\""
+    with open(file_name, 'w') as file:
+        file.write(text)
+    ptfhost.copy(src=file_name, dest='/root')
+    update_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype:@/root/%s" % (file_name)]
+
+    with allure.step("Verify GNMI set with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI set with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            pytest.fail("Set request failed: " + str(e))
+
+    with allure.step("Verify GNMI set with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI set with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert "write access" in str(e), str(e)
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
+
+def test_gnmi_configdb_get_authenticate(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI native read with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"]
+
+    with allure.step("Verify GNMI get with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list)
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI get with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list)
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    with allure.step("Verify GNMI get with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list)
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    with allure.step("Verify GNMI get with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list)
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
+
+def test_gnmi_configdb_subscribe_authenticate(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI native read with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"]
+
+    with allure.step("Verify GNMI subscribe with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        logger.info("GNMI subscribe output: " + output)
+        assert "GRPC error" in output, output
+        assert role in output, output
+
+    with allure.step("Verify GNMI subscribe with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    with allure.step("Verify GNMI subscribe with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    with allure.step("Verify GNMI subscribe with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")

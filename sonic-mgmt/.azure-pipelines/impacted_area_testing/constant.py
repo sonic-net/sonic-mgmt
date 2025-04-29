@@ -25,5 +25,5 @@ PR_CHECKER_TOPOLOGY_NAME = {
     "dualtor": ["dualtor", "_kvmtest-dualtor-t0_"]
 }
 
-MAX_INSTANCE_NUMBER = 25
+MAX_INSTANCE_NUMBER = 40
 MAX_GET_TOKEN_RETRY_TIMES = 3

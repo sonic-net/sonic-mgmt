@@ -14,7 +14,7 @@ VM_CA_SUBNET = "10.0.0.0/16"
 PE_PA = "101.1.2.3"  # private endpoint physical address
 PE_CA = "10.2.0.100"  # private endpoint customer address
 PE_CA_SUBNET = "10.2.0.0/16"
-PL_ENCODING_IP = "::56b2:0:ff71:0:0"
+PL_ENCODING_IP = "::d107:64:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
 PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
@@ -22,10 +22,11 @@ PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
 APPLIANCE_ID = "100"
+LOCAL_REGION_ID = "100"
 VM_VNI = "4321"
 ENCAP_VNI = 100
 VNET1 = "Vnet1"
-VNET1_VNI = "45654"
+VNET1_VNI = "2001"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
 ENI_MAC = "F4:93:9F:EF:C4:7E"
 ENI_MAC_STRING = ENI_MAC.replace(":", "")
@@ -37,12 +38,15 @@ ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
 OUTBOUND_DIR_LOOKUP = "dst_mac"
-
+METER_POLICY_V4 = "MeterPolicyV4"
+METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
+METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
+        "local_region_id": LOCAL_REGION_ID,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP
     }
 }
@@ -62,7 +66,8 @@ ENI_CONFIG = {
         "eni_id": ENI_ID,
         "admin_state": State.STATE_ENABLED,
         "pl_underlay_sip": APPLIANCE_VIP,
-        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}"
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "v4_meter_policy_id": METER_POLICY_V4,
     }
 }
 
@@ -72,6 +77,7 @@ PE_VNET_MAPPING_CONFIG = {
         "underlay_ip": PE_PA,
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
     }
 }
 
@@ -79,6 +85,7 @@ VM1_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "underlay_ip": VM1_PA,
+        "metering_class_or": "2",
     }
 }
 
@@ -86,6 +93,8 @@ PE_SUBNET_ROUTE_CONFIG = {
     f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{PE_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "vnet": VNET1,
+        "metering_class_or": "2048",
+        "metering_class_and": "4095",
     }
 }
 
@@ -93,6 +102,8 @@ VM_SUBNET_ROUTE_CONFIG = {
     f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "vnet": VNET1,
+        "metering_class_or": "2048",
+        "metering_class_and": "4095",
     }
 }
 
@@ -135,5 +146,27 @@ ROUTE_GROUP1_CONFIG = {
 ENI_ROUTE_GROUP1_CONFIG = {
     f"DASH_ENI_ROUTE_TABLE:{ENI_ID}": {
         "group_id": ROUTE_GROUP1
+    }
+}
+
+METER_POLICY_V4_CONFIG = {
+    f"DASH_METER_POLICY_TABLE:{METER_POLICY_V4}": {
+        "ip_version": "ipv4"
+    }
+}
+
+METER_RULE1_V4_CONFIG = {
+    f"DASH_METER_RULE_TABLE:{METER_POLICY_V4}:1": {
+        "priority": "10",
+        "ip_prefix": f"{METER_RULE_V4_PREFIX1}",
+        "metering_class": 1,
+    }
+}
+
+METER_RULE2_V4_CONFIG = {
+    f"DASH_METER_RULE_TABLE:{METER_POLICY_V4}:2": {
+        "priority": "10",
+        "ip_prefix": f"{METER_RULE_V4_PREFIX2}",
+        "metering_class": 2,
     }
 }
