@@ -71,6 +71,8 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     artifact_req = Request("https://dev.azure.com/{}/_apis/build/builds/{}/artifacts?artifactName={}&api-version=5.0"
                            .format(url_prefix, buildid, artifact_name))
 
+    print(f"Try to get download url from {artifact_req.full_url}")
+
     # Here "access_token" indeed is Azure DevOps PAT token.
     # "token" should be the actual bearer token for Azure DevOps.
     # PAT should be deprecated. below logic is to handle both cases for smooth transition from PAT to bearer token.
@@ -166,6 +168,8 @@ def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
 
     builds_url = (f"https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={pipeline_id}&"
                   f"branchName=refs/heads/{branch}&resultFilter={result_filter}&statusFilter=completed&api-version=6.0")
+
+    print(f"Try to find latest {result_filter} build for branch {branch} from {builds_url}")
 
     resp = urlopen(builds_url)
 
