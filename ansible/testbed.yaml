@@ -1980,28 +1980,28 @@
 
 - conf-name: vms73-t0-7060x6-2
   group-name: vms73-2
-  topo: t0-isolated-d16u16s2
+  topo: lt2-o128-d110u14
   ptf_image_name: docker-ptf
   ptf: vms73-2
   ptf_ip: 10.64.247.85/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f750/64
   server: server_73
-  vm_base: VM73029
+  vm_base: VM73166
   dut:
   - str4-7060x6-64pe-2
   inv_name: str4
   auto_recover: 'True'
-  comment: riffjiang
+  comment: riffjiang -- Lower T2 work
 
-- conf-name: vms74-t0-7060x6-3
-  group-name: vms74-1
+- conf-name: vms71-t0-7060x6-3
+  group-name: vms71-6
   topo: t0-isolated-v6-d16u16s2
   ptf_image_name: docker-ptf
-  ptf: vms74-1
+  ptf: vms71-6
   ptf_ip: 10.64.247.120/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f778/64
-  server: server_74
-  vm_base: VM74100
+  server: server_71
+  vm_base: VM41160
   dut:
   - str4-7060x6-64pe-10
   inv_name: str4
@@ -2202,30 +2202,30 @@
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms74-t0-sn5640-2
-  group-name: vms74-3
+- conf-name: vms70-t0-sn5640-2
+  group-name: vms70-6
   topo: t0-isolated-d32u32s2
   ptf_image_name: docker-ptf
-  ptf: vms74-3
+  ptf: vms70-6
   ptf_ip: 10.64.247.140/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78c/64
-  server: server_74
-  vm_base: VM74375
+  server: server_70
+  vm_base: VM70244
   dut:
   - str4-sn5640-2
   inv_name: str4
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms74-t1-sn5640-3
-  group-name: vms74-4
+- conf-name: vms70-t1-sn5640-3
+  group-name: vms70-7
   topo: t1-isolated-d56u2
   ptf_image_name: docker-ptf
-  ptf: vms74-4
+  ptf: vms70-7
   ptf_ip: 10.64.247.142/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78c/64
-  server: server_74
-  vm_base: VM74435
+  server: server_70
+  vm_base: VM70279
   dut:
   - str4-sn5640-3
   inv_name: str4
