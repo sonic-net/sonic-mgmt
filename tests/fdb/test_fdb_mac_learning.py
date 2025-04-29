@@ -1,6 +1,7 @@
 import logging
 import pytest
 import time
+from tests.common import config_reload
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
@@ -172,9 +173,8 @@ class TestFdbMacLearning:
 
         yield target_ports_to_ptf_mapping, ptf_ports_available_in_topo, conf_facts
 
-        logging.info("startup all interfaces on DUT")
-        for port in dut_ports:
-            duthost.shell("sudo config interface startup {}".format(port))
+        logging.info("reload device %s to recover", duthost.hostname)
+        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
     @pytest.fixture(autouse=True)
     def cleanup_arp_fdb(self, duthosts, rand_one_dut_hostname):
@@ -309,8 +309,6 @@ class TestFdbMacLearning:
             self.configureNeighborIp(ptfhost, ptf_ports_available_in_topo[ptf_port_index], action="add")
             time.sleep(2)
             ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP), module_ignore_errors=True)
-
-        finally:
             int_ip_found = any((dut_interface in line and self.DUT_INTF_IP in line)
                                for line in duthost.command("show ip interface")["stdout_lines"])
             pytest_assert(int_ip_found, "%s is not configured on %s" % (self.DUT_INTF_IP, dut_interface))
@@ -323,5 +321,6 @@ class TestFdbMacLearning:
                     pytest_assert(items[2] == dut_interface, "ARP entry for ip address {}"
                                   " is incomplete. Interface is missing".format(self.PTF_HOST_IP))
             pytest_assert(arp_found, "ARP entry not found for ip address {}".format(self.PTF_HOST_IP))
+        finally:
             self.configureInterfaceIp(duthost, dut_interface, action="remove")
             self.configureNeighborIp(ptfhost, ptf_ports_available_in_topo[ptf_port_index], action="del")
