@@ -371,3 +371,6 @@ r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22348
 r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
+
+# Ignore k8 error
+r, ".* ERR systemd\[\d*\]: dummyk8s.service:.*Refusing.*"
