@@ -310,7 +310,7 @@ class TestFdbMacLearning:
             time.sleep(2)
             ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP), module_ignore_errors=True)
             int_ip_found = any((dut_interface in line and self.DUT_INTF_IP in line)
-                    for line in duthost.command("show ip interface")["stdout_lines"])
+                               for line in duthost.command("show ip interface")["stdout_lines"])
             pytest_assert(int_ip_found, "%s is not configured on %s" % (self.DUT_INTF_IP, dut_interface))
             show_arp = duthost.command('show arp')
             arp_found = False
