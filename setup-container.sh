@@ -320,7 +320,7 @@ EOF
 }
 
 function container_exists() {
-    container_id=`docker ps --all --filter=name=$CONTAINER_NAME --format '{{.ID}}'`
+    container_id=`docker ps --all --filter name=^$CONTAINER_NAME\$ --format '{{.ID}}'`
     count=`echo $container_id | wc -w`
     return $count
 }
