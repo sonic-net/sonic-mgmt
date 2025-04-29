@@ -2048,6 +2048,14 @@ topology:
       vlans:
         - 511
       vm_offset: 511
+    ARISTA01PT0:
+      vlans:
+        - 512
+      vm_offset: 512
+    ARISTA02PT0:
+      vlans:
+        - 513
+      vm_offset: 513
 
 configuration_properties:
   common:
@@ -11793,3 +11801,39 @@ configuration:
         ipv6: fc00:a::7fe/126
     bp_interface:
       ipv6: fc0a::201/64
+
+  ARISTA01PT0:
+    properties:
+    - common
+    - tor
+    bgp:
+      router-id: 0.12.2.2
+      asn: 4200000510
+      peers:
+        4200100000:
+          - fc00:a::801
+    interfaces:
+      Loopback0:
+        ipv6: fc00:c:c:201::1/128
+      Ethernet1:
+        ipv6: fc00:a::802/126
+    bp_interface:
+      ipv6: fc0a::202/64
+
+  ARISTA02PT0:
+    properties:
+    - common
+    - tor
+    bgp:
+      router-id: 0.12.2.3
+      asn: 4200000511
+      peers:
+        4200100000:
+          - fc00:a::805
+    interfaces:
+      Loopback0:
+        ipv6: fc00:c:c:202::1/128
+      Ethernet1:
+        ipv6: fc00:a::806/126
+    bp_interface:
+      ipv6: fc0a::203/64
