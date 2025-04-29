@@ -533,7 +533,7 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
-        timeout_monit_fail = 180  # fails happens after 10 cycles of 1 second
+        timeout_monit_fail = 360  # fails happens after timeout wait
         container.start_consume_memory()
         container.wait_monit_mem_failed(timeout_monit_fail)
         logger.info("Container %s should now be restarting", container.name)
