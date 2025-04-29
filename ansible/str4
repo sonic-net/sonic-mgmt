@@ -150,6 +150,9 @@ all:
         pdu-107:
           ansible_host: 10.3.154.108
           protocol: snmp
+        pdu-108:
+          ansible_host: 10.3.154.109
+          protocol: snmp
         pdu-115:
           ansible_host: 10.3.154.116
           protocol: snmp
