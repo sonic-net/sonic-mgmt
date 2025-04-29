@@ -214,9 +214,9 @@ def __run_traffic(api, config, duthost, port, all_flow_names, pfcwd_start_delay_
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(pfcwd_start_delay_sec)
     start_pfcwd(duthost, port['asic_value'])
@@ -248,9 +248,9 @@ def __run_traffic(api, config, duthost, port, all_flow_names, pfcwd_start_delay_
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 

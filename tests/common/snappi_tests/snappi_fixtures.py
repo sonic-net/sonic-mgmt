@@ -159,7 +159,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
 
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
 
         ip_stack = ethernet.ipv4_addresses.add()
@@ -239,7 +239,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -339,7 +339,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         device = config.devices.device(name='Device {}'.format(pc))[-1]
 
         ethernet = device.ethernets.add()
-        ethernet.port_name = lag.name
+        ethernet.connection.port_name = lag.name
         ethernet.name = 'Ethernet {}'.format(pc)
         ethernet.mac = __gen_pc_mac(pc_id)
 
@@ -805,7 +805,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -882,7 +882,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
         device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
         ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
