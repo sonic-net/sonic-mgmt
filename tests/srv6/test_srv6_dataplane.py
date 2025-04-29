@@ -328,7 +328,8 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # get the drop counter before traffic test
     if duthost.facts["asic_type"] == "broadcom":
-        before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        before_count = int(portstat[dut_port]['rx_drp'])
     elif duthost.facts["asic_type"] == "mellanox":
         before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
 
@@ -364,7 +365,8 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # verify that the RX_DROP counter is incremented
     if duthost.facts["asic_type"] == "broadcom":
-        after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        after_count = int(portstat[dut_port]['rx_drp'])
         assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
     elif duthost.facts["asic_type"] == "mellanox":
         after_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
