@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service, \
       add_platform_api_server_port_nat_for_dpu, get_ansible_ssh_port    # noqa F401
 from .platform_api_test_base import PlatformApiTestBase
-from tests.common.plugins.ansible_fixtures import ansible_adhoc
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
 
 from collections import OrderedDict
 
@@ -64,7 +64,7 @@ class TestWatchdogApi(PlatformApiTestBase):
                 duthost.shell("systemctl start cpu_wdt.service")
 
     @pytest.fixture(scope='module')
-    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):
+    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa F811
         ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
         results in a dictionary which holds parameters for test '''
 

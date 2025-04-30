@@ -19,7 +19,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
-from tests.common.plugins.ansible_fixtures import ansible_adhoc
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
 
 """
 Helper script for fanout switch operations
@@ -1136,7 +1136,8 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
 
 
 @pytest.fixture(scope='module')
-def add_platform_api_server_port_nat_for_dpu(ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):
+def add_platform_api_server_port_nat_for_dpu(
+        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_dpu():
         ip_interface_status = duthost.show_and_parse('show ip interface')
@@ -1158,7 +1159,7 @@ def add_platform_api_server_port_nat_for_dpu(ansible_adhoc, tbinfo, request, dut
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
 
 
-def get_ansible_ssh_port(duthost, ansible_adhoc):
+def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
     host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
     vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
     ansible_ssh_port = vm.get("ansible_ssh_port", None)
@@ -1166,7 +1167,7 @@ def get_ansible_ssh_port(duthost, ansible_adhoc):
     return ansible_ssh_port
 
 
-def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost):
+def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): # noqa F811
     '''
     Create a NPU host object based on DPU info
     E.g
