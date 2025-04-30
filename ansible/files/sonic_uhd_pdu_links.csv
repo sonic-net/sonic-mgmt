@@ -1,0 +1,3 @@
+StartDevice,StartPort,EndDevice,EndPort
+pdu-82,12,str43-C93180YC-C13-U25,PSU1
+pdu-92,7,STR-IXIA-UHD400-C19-U36,PSU1
