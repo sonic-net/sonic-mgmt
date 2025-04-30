@@ -41,8 +41,7 @@ def arp_setup(ptfhost):
 
 
 def validate_traffic_results(tor_IO, allowed_disruption, delay,
-                             allow_disruption_before_traffic=False,
-                             allowed_duplication=None):
+                             allow_disruption_before_traffic=False):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -108,12 +107,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        # NOTE: Not all testcases set the allowed duplication threshold and the duplication check
-        # uses the allowed disruption threshold here.q So let's set the allowed duplication to
-        # allowed disruption if the allowed duplication is provided here.
-        if allowed_duplication is None:
-            allowed_duplication = allowed_disruption
-        if total_duplications > allowed_duplication:
+        if total_duplications > allowed_disruption:
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
@@ -156,12 +150,11 @@ def _validate_long_disruption(disruptions, allowed_disruption, delay):
 
 
 def verify_and_report(tor_IO, verify, delay, allowed_disruption,
-                      allow_disruption_before_traffic=False, allowed_duplication=None):
+                      allow_disruption_before_traffic=False):
     # Wait for the IO to complete before doing checks
     if verify:
         validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
-                                 allow_disruption_before_traffic=allow_disruption_before_traffic,
-                                 allowed_duplication=allowed_duplication)
+                                 allow_disruption_before_traffic=allow_disruption_before_traffic)
     return tor_IO.get_test_results()
 
 
@@ -274,8 +267,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
-                             stop_after=None, allow_disruption_before_traffic=False,
-                             allowed_duplication=None):
+                             stop_after=None, allow_disruption_before_traffic=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -310,8 +302,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic,
-                                 allowed_duplication=allowed_duplication)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic)
 
     yield t1_to_server_io_test
 
@@ -425,7 +416,7 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def t1_to_soc_io_test(activehost, tor_vlan_port=None,
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                          stop_after=None, allowed_duplication=None):
+                          stop_after=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -441,8 +432,7 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         if asic_type == "vs":
             logging.info("Skipping verify on VS platform")
             return
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption,
-                                 allowed_duplication=allowed_duplication)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield t1_to_soc_io_test
 
