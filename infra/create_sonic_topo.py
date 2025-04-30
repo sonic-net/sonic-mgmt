@@ -522,12 +522,9 @@ def change_dut_passwd(device):
     if user != 'cisco':
         time.sleep(3)
         print("Cisco user not found, adding cisco user")
-        chan.send("sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
-        buff = ''
-        while not buff.endswith(':~$ '):
-            resp = chan.recv(9999)
-            buff += resp.decode("utf-8", errors="replace")
-            print(resp.decode("utf-8", errors="replace"))
+        stdout, stderr, status_code = _run_cmd_in_ssh(ssh, "sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
+        if status_code != 0:
+            raise Exception(f"Failed to add cisco user: stdout: {stdout}, stderr: {stderr}")
 
     ssh.close()
 
