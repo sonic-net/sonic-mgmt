@@ -24,19 +24,16 @@ Previously, this test case verified paths only for IPv6 BGP neighbors. It has be
 
 Above changes were added via Test PRs:
 - [Generalizing GCU test suite to verify both ip types (IPV4, IPV6) for BGP Neighbors](https://github.com/sonic-net/sonic-mgmt/pull/13650)
-- [GCU adding Multi-ASIC support in existing test code base](https://github.com/sonic-net/sonic-mgmt/pull/14070)
+- [[GCU] [MA] Adding support in existing tests - Common changes](https://github.com/sonic-net/sonic-mgmt/pull/15182)
+Separate test PRs handled the addition of T2/multi-ASIC GCU support. They can be tracked from PR #15182, as all related PRs are referenced there.
 
 ## Testbed
 
 The test will run on T2 testbeds.
 
-## Setup Configuration
-
-TBD
-
 ## Testing Plan
 
-### Test Case # 1 - Basic Add Cluster With Data Traffic
+### Test Suite # 1 - Basic Add Cluster With Data Traffic
 
 #### Test Objective
 
@@ -63,10 +60,10 @@ At least two frontend DUT hosts are required to perform traffic. Modifications v
 - With/without acl config.
 - Apply-patch standalone/aggregrated changes.
 
-#### Testing Steps
+#### Setup Configuration
 
 - Select a random ASIC from the downstream host.
-- Select a random BGP neighbor fro-m that namespace and announce a static route for a DST_IP that is advertised only via this neighbor.
+- Select a random BGP neighbor from that namespace and announce a static route for a DST_IP that is advertised only via this neighbor.
 - Verify the route table in the downstream DUT host to ensure that the static route is visible.
 
 Remove Peers from Downstream Namespace:
@@ -84,10 +81,15 @@ Re-add Peers and Re-enable Interfaces:
 - Verify that the peers are re-added, BGP sessions are established, and the route table is updated.
 - Verify the buffer profile exists in CONFIG_DB, APPL_DB, and ASIC_DB.
 
+#### Testing Steps
+
 Data traffic verifications:
 - Perform data traffic tests toward a randomly selected neighbor/the static route from the randomly selected neighbor. Traffic should pass. Verify there are no packet drops via checking pkt counters.
 - Perform data traffic from upsteram to downstream linecard (interlinecard). Perform data traffic from the other asic of the same downsteram linecard (innerlinecard).
-- Variation with acl config verifies traffic passes/drops based on acl rules and src/dst port criterion.
+- Variation with acl config (DATAACL, CTRLPLANE) verifies traffic passes/drops based on acl rules and src/dst port criterion.
+
+[to be enhanced]
+As a test variation, instead of applying changes per ASIC namespace, the same scenario shall be adapted to apply changes to a randomly selected interface that is a member of a portchannel from a randomly selected namespace.
 
 ### Test Case # 2 - Update CABLE Length
 
@@ -118,3 +120,8 @@ To verify qos updates in multi-asic t2 platform. To verify updates in tables "BU
 - Verify that configuration is populated to CONFIG_DB, APPL_DB and ASIC_DB.
 - Bring the interfaces back up via apply-patch.
 - Verify that the interfaces are up.
+
+### Test PRs
+
+Above changes were added via Test PR:
+- [Adding new Tests for Chassis/Multi-ASIC GCU](https://github.com/sonic-net/sonic-mgmt/pull/14887)
