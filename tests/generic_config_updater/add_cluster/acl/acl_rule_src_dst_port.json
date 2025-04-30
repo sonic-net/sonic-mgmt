@@ -5,21 +5,6 @@
                 "L3_TRANSPORT_TEST": {
                     "acl-entries": {
                         "acl-entry": {
-                            "10": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 10
-                                },
-                                "transport": {
-                                    "config": {
-                                        "destination-port": "179"
-                                    }
-                                }
-                            },
                             "100": {
                                 "actions": {
                                     "config": {
