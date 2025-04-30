@@ -20,9 +20,15 @@ pytestmark = [
 
 
 def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
+    route_set = 'all'
+    # Due to https://github.com/sonic-net/sonic-mgmt/issues/16541, only announce and withdraw a small
+    # amount of routes in T2 testing to make test robust.
+    if topo_name == 't2':
+        route_set = 't1'
+
     logger.info("announce ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/",
-                              log_path="logs")
+                              log_path="logs", selected_route_set=route_set)
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
 
@@ -32,7 +38,7 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
 
     logger.info("withdraw ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/",
-                              log_path="logs")
+                              log_path="logs", selected_route_set=route_set)
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
