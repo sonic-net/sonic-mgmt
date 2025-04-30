@@ -73,7 +73,7 @@ def duts_interconnects(duthosts, tbinfo):
     dut_index_map = dict(list(zip(list(tbinfo['duts_map'].values()), list(tbinfo['duts_map'].keys()))))
     if 'devices_interconnect_interfaces' in tbinfo['topo']['properties']['topology']:
         for _, items in list(tbinfo['topo']['properties']['topology']['devices_interconnect_interfaces'].items()):
-            assert(len(items) == 2)
+            assert (len(items) == 2)
             connect = []
             for item in items:
                 (dut_index, vlan_index, _) = parse_vm_vlan_port(item)

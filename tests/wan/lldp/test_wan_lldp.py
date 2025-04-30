@@ -40,7 +40,7 @@ def test_wan_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost
         elif 'local' in v['port']:
             assert v['port']['local'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
         else:
-            assert(False)
+            assert (False)
 
 
 def test_wan_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
