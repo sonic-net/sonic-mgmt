@@ -497,36 +497,6 @@
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms68-t1-8122-01
-  group-name: vms68-4
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms68-4
-  ptf_ip: 10.64.247.93/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f75d/64
-  server: server_68
-  vm_base: VM68121
-  dut:
-  - str3-8122-01
-  inv_name: str3
-  auto_recover: 'True'
-  comment: yawenni
-
-- conf-name: vms63-t0-8122-02
-  group-name: vms63-7
-  topo: t0-64
-  ptf_image_name: docker-ptf
-  ptf: vms63-7
-  ptf_ip: 10.64.247.62/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f73e/64
-  server: server_63
-  vm_base: VM63224
-  dut:
-  - str3-8122-02
-  inv_name: str3
-  auto_recover: 'True'
-  comment: yawenni
-
 - conf-name: vms63-t0-8122-03
   group-name: vms63-8
   topo: t0-64
@@ -2082,6 +2052,21 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
+- conf-name: vms91-t0-7060x6-512-3
+  group-name: vms91-1
+  topo: t0-isolated-d32u32s2
+  ptf_image_name: docker-ptf
+  ptf: vms91-1
+  ptf_ip: 10.64.247.143/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f78f/64
+  server: server_91
+  vm_base: VM91000 # 34VM
+  dut:
+  - str5-7060x6-512-3
+  inv_name: str5
+  auto_recover: 'True'
+  comment: zitingguo
+
 - conf-name: vms92-t1-7060x6-512-4
   group-name: vms92-1
   topo: t1-isolated-d56u2
@@ -2172,15 +2157,15 @@
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms73-t0-sn5600-5
-  group-name: vms73-3
-  topo: t0-isolated-d16u16s1
+- conf-name: vms73-t1-sn5600-5
+  group-name: vms71-5
+  topo: t1-isolated-v6-d28u1
   ptf_image_name: docker-ptf
-  ptf: vms73-3
+  ptf: vms71-5
   ptf_ip: 10.64.247.116/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f774/64
-  server: server_73
-  vm_base: VM73047
+  server: server_71
+  vm_base: VM41232
   dut:
   - str4-sn5600-7
   inv_name: str4
@@ -4249,3 +4234,20 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.134/17
+
+- conf-name: vms66-dual-t0-8101-03
+  group-name: vms66-7
+  topo: dualtor-aa-64-breakout
+  ptf_image_name: docker-ptf
+  ptf: vms66-7
+  ptf_ip: 10.64.247.93/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f75d/64
+  netns_mgmt_ip: 10.64.247.62/23
+  server: server_66
+  vm_base: VM66024
+  dut:
+  - str3-8101-03
+  - str3-8101-04
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yawenni
