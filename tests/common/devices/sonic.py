@@ -2291,7 +2291,10 @@ Totals               6450                 6449
         if not auto_neg_mode:
             cmd = 'config interface speed {} {}'.format(interface_name, speed)
         else:
-            cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+            if speed:
+                cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+            else:
+                cmd = f'config interface advertised-speeds {interface_name} all'
         self.shell(cmd)
         return True
 
@@ -2304,7 +2307,7 @@ Totals               6450                 6449
         Returns:
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
-        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'speed')
+        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'speed')
         speed = self.shell(cmd)['stdout'].strip()
         return speed
 
