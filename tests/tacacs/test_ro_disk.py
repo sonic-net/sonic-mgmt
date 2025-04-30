@@ -2,6 +2,7 @@ import pytest
 import logging
 import os
 import time
+import re
 
 from ansible.errors import AnsibleConnectionFailure
 from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
@@ -11,7 +12,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, check_tacacs  # noqa: F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
 from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
@@ -103,8 +104,8 @@ def do_reboot(duthost, localhost, duthosts):
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     timeout = 300
     if duthost.get_facts().get("modular_chassis"):
-        wait_time = max(wait_time, 900)
-        timeout = max(timeout, 600)
+        wait_time = max(wait_time, 600)
+        timeout = max(timeout, 420)
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     else:
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
@@ -160,21 +161,20 @@ def log_rotate(duthost):
     try:
         duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
     except RunAnsibleModuleFail as e:
-        if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
-            # command will failed when log already in rotating
-            logger.warning("logrotate command failed: {}".format(e))
-        elif "error: stat of /var/log/auth.log failed: Bad message" in e.message:
-            # command will failed because auth.log missing
-            logger.warning("logrotate command failed: {}".format(e))
-        elif "du: cannot access '/var/log/auth.log': Bad message" in e.message:
-            # command will failed because auth.log missing
+        message = str(e)
+        state_failed_pattern = r"error: stat of \S* failed: Bad message"
+        can_not_access_pattern = r"du: cannot access \S*: Bad message"
+        if ("logrotate does not support parallel execution on the same set of logfiles" in message) or \
+                re.match(state_failed_pattern, message) or \
+                re.match(can_not_access_pattern, message) or \
+                ("failed to compress log" in message):
             logger.warning("logrotate command failed: {}".format(e))
         else:
             raise e
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs, pdu_controller):
+                 tacacs_creds, check_tacacs, pdu_controller):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -257,6 +257,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
 
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
+
+        # Verify after monit fix login issue ,remote user can run TSA/TSB command.
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSA")
+        logger.debug("TSA res={}".format(res))
+        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"], "Failed to TSA"
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSB")
+        logger.debug("TSB res={}".format(res))
+        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"], "Failed to TSB"
 
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)

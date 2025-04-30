@@ -11,6 +11,15 @@ from tests.common.utilities import wait_until
 import logging
 
 
+class PtfAgent:
+    def __init__(self, ptf_ip, ptf_ipv6, ptf_nn_port, device_num, ptf_port_set):
+        self.ptf_ip = ptf_ip
+        self.ptf_ipv6 = ptf_ipv6
+        self.ptf_nn_port = ptf_nn_port
+        self.device_num = device_num
+        self.ptf_port_set = ptf_port_set
+
+
 class PtfAdapterNNConnectionError(Exception):
 
     def __init__(self, remote_sock_addr):
@@ -30,20 +39,17 @@ class PtfTestAdapter(BaseTest):
     # the number of currently established connections
     NN_STAT_CURRENT_CONNECTIONS = 201
 
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptfhost):
+    def __init__(self, ptfagents, ptfhosts):
         """ initialize PtfTestAdapter
-        :param ptf_ip: PTF host IP
-        :param ptf_nn_port: PTF nanomessage agent port
-        :param device_num: device number
-        :param ptf_port_set: PTF ports
-        :return:
         """
         self.runTest = lambda: None    # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
         self.payload_pattern = ""
         self.connected = False
-        self.ptfhost = ptfhost
-        self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
+        self.ptfhosts = ptfhosts
+        self.ptfagents = ptfagents
+        self.ptf_port_set = [k for a in ptfagents for k in a.ptf_port_set.keys()]
+        self._init_ptf_dataplane()
 
     def __enter__(self):
         """ enter in 'with' block """
@@ -64,40 +70,33 @@ class PtfTestAdapter(BaseTest):
         finally:
             sock.close()
 
-    def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
+    def _init_ptf_dataplane(self, ptf_config=None):
         """
         initialize ptf framework and establish connection to ptf_nn_agent
         running on PTF host
-        :param ptf_ip: PTF host IP
-        :param ptf_nn_port: PTF nanomessage agent port
-        :param device_num: device number
-        :param ptf_port_set: PTF ports
         :return:
         """
-        self.ptf_ip = ptf_ip
-        self.ptf_nn_port = ptf_nn_port
-        self.device_num = device_num
-        self.ptf_port_set = ptf_port_set
         self.connected = False
 
         ptfutils.default_timeout = self.DEFAULT_PTF_TIMEOUT
         ptfutils.default_negative_timeout = self.DEFAULT_PTF_NEG_TIMEOUT
 
-        ptf_nn_sock_addr = 'tcp://{}:{}'.format(ptf_ip, ptf_nn_port)
-
         ptf.config.update({
             'platform': 'nn',
-            'device_sockets': [
-                (device_num, ptf_port_set, ptf_nn_sock_addr)
-            ],
+            'device_sockets': [],
             'qlen': self.DEFAULT_PTF_QUEUE_LEN,
             'relax': True,
         })
+
         if ptf_config is not None:
             ptf.config.update(ptf_config)
 
-        if not self._check_ptf_nn_agent_availability(ptf_nn_sock_addr):
-            raise PtfAdapterNNConnectionError(ptf_nn_sock_addr)
+        for ptfagent in self.ptfagents:
+            ptf_nn_sock_addr = 'tcp://{}:{}'.format(ptfagent.ptf_ip, ptfagent.ptf_nn_port)
+            ptf.config['device_sockets'].append((ptfagent.device_num, ptfagent.ptf_port_set, ptf_nn_sock_addr))
+
+            if not self._check_ptf_nn_agent_availability(ptf_nn_sock_addr):
+                raise PtfAdapterNNConnectionError(ptf_nn_sock_addr)
 
         # update ptf.config based on NN platform and create dataplane instance
         nn.platform_config_update(ptf.config)
@@ -109,6 +108,26 @@ class PtfTestAdapter(BaseTest):
             device_id, port_id = id
             ptf.dataplane_instance.port_add(ifname, device_id, port_id)
         self.connected = True
+        ptf.dataplane_instance.port_device_map = {p: d for d, p in ptf.dataplane_instance.ports.keys()}
+        ptf.dataplane_instance.port_to_device = lambda port: ptf.dataplane_instance.port_device_map[port]
+        ptf.dataplane_instance.port_to_tuple = lambda port: (ptf.dataplane_instance.port_device_map[port], port)
+        ptf.dataplane_instance._poll = ptf.dataplane_instance.poll
+        ptf.dataplane_instance.poll = lambda device_number, port_number=None, timeout=None, exp_pkt=None, filters=[]: \
+            ptf.dataplane_instance._poll(
+                ptf.dataplane_instance.port_to_device(port_number)
+                if port_number is not None else device_number if device_number is not None else None,
+                port_number,
+                timeout,
+                exp_pkt,
+                filters
+            )
+        ptf.dataplane_instance._send = ptf.dataplane_instance.send
+        ptf.dataplane_instance.send = lambda device_number, port_number, packet: \
+            ptf.dataplane_instance._send(
+                ptf.dataplane_instance.port_to_device(port_number),
+                port_number,
+                packet
+            )
         self.dataplane = ptf.dataplane_instance
 
     def kill(self):
@@ -133,11 +152,12 @@ class PtfTestAdapter(BaseTest):
 
         # Restart ptf_nn_agent to close any TCP connection from the server side
         logging.info("Restarting ptf_nn_agent")
-        self.ptfhost.command('supervisorctl reread')
-        self.ptfhost.command('supervisorctl update')
-        self.ptfhost.command('supervisorctl restart ptf_nn_agent')
+        for ptfhost in self.ptfhosts:
+            ptfhost.command('supervisorctl reread')
+            ptfhost.command('supervisorctl update')
+            ptfhost.command('supervisorctl restart ptf_nn_agent')
 
-        self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
+        self._init_ptf_dataplane(ptf_config)
 
     def update_payload(self, pkt):
         """Update the payload of packet to the default pattern when certain conditions are met.

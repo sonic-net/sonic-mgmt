@@ -10,7 +10,7 @@ from collections import Counter
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py # noqa F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -210,6 +210,9 @@ def setup_ptf_lag(ptfhost, ptf_ports):
 def setup_arp_responder(ptf_ports, ptfhost):
     # Disable linux arp response on port, let arp_responder to response.
     set_arp_reply(ptfhost, [PTF_LAG_NAME, ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]], DISABLE_ARP_REPLY)
+
+    logger.info('Copy ARP responder to the PTF container  {}'.format(ptfhost.hostname))
+    ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
 
     arp_responder_conf = {}
     arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]

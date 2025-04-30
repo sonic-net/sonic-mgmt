@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1', 'ptf')
+    pytest.mark.topology('m1', 'm2', 'm3', 't1', 'ptf')
 ]
 
 
@@ -83,7 +83,7 @@ class TestNeighborMac:
             Args:
                 request: pytest request object
 
-            Retruns:
+            Returns:
                 macIndex (int): index of the mac address used from TEST_MAC
         """
         yield request.param
@@ -191,7 +191,7 @@ class TestNeighborMac:
     @pytest.fixture
     def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex, configureNeighborIpAndPing):
         """
-            Retreive DUT Redis MAC entry of neighbor IP
+            Retrieve DUT Redis MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)

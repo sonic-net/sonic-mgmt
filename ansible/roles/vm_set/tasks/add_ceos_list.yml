@@ -109,7 +109,7 @@
   become: yes
   docker_container:
     name: net_{{ vm_set_name }}_{{ vm_name }}
-    image: debian:jessie
+    image: "{{ docker_registry_host }}/debian:bookworm"
     pull: no
     state: started
     restart: no

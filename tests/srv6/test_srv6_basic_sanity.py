@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 #
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology("ciscovs-7nodes"),
     pytest.mark.skip_check_dut_health
 ]
 
@@ -80,7 +80,11 @@ bgp_neighbor_down_wait_time = 30
 #
 # Initialize the testbed
 #
-def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
+def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
+
+    logger.info("reinit ptfadapter")
+    ptfadapter.reinit({'need_backplane': True})
+
     logger.info("Announce routes from CEs")
     ptfip = ptfhost.mgmt_ip
     nexthop = "10.10.246.254"
@@ -116,8 +120,8 @@ def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
 # Testbed set up and tear down
 #
 @pytest.fixture(scope="module", autouse=True)
-def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
-    setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost)
+def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
+    setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter)
 
 
 #
@@ -208,7 +212,7 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
 #
 # Test Case : Traffic check in Normal Case
 #
-def test_traffic_check(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
+def test_traffic_check_normal(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
     #
     # Create a packet sending to 192.100.0.1
     #

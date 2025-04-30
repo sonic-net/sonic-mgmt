@@ -5,7 +5,9 @@ import os
 import pytest
 
 from tests.common.helpers.platform_api import chassis, psu, psu_fan
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.platform_tests.cli.util import get_skip_mod_list
+from tests.platform_tests.api.conftest import skip_absent_psu
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -23,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -47,7 +48,7 @@ class TestPsuFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):   # noqa F811
+    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):   # noqa F811
         if self.num_psus is None:
             try:
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
@@ -56,6 +57,9 @@ class TestPsuFans(PlatformApiTestBase):
             else:
                 if self.num_psus == 0:
                     pytest.skip("No psus found on device")
+
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        self.psu_skip_list = get_skip_mod_list(duthost, ['psus'])
 
     #
     # Helper functions
@@ -100,6 +104,8 @@ class TestPsuFans(PlatformApiTestBase):
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -136,6 +142,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -152,6 +160,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -164,6 +174,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -177,6 +189,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -189,6 +203,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 position = psu_fan.get_position_in_parent(platform_api_conn, j, i)
@@ -200,6 +216,8 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_is_replaceable(self, platform_api_conn):     # noqa F811
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 replaceable = psu_fan.is_replaceable(platform_api_conn, j, i)
@@ -217,6 +235,8 @@ class TestPsuFans(PlatformApiTestBase):
     def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -242,6 +262,8 @@ class TestPsuFans(PlatformApiTestBase):
         ]
 
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
@@ -258,6 +280,8 @@ class TestPsuFans(PlatformApiTestBase):
         psus_skipped = 0
 
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
             fans_skipped = 0
 
@@ -298,6 +322,8 @@ class TestPsuFans(PlatformApiTestBase):
         psus_skipped = 0
 
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             target_speed = random.randint(1, 100)
             num_fans = psu.get_num_fans(platform_api_conn, j)
             fans_skipped = 0
@@ -345,6 +371,8 @@ class TestPsuFans(PlatformApiTestBase):
         psus_skipped = 0
 
         for j in range(self.num_psus):
+            if skip_absent_psu(j, platform_api_conn, self.psu_skip_list, logger):
+                continue
             num_fans = psu.get_num_fans(platform_api_conn, j)
             fans_skipped = 0
 

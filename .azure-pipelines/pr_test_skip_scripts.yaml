@@ -56,6 +56,10 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # Qos buffer traditional test is only supported 201911 branch
+  - qos/test_buffer_traditional.py
+  # This test only support on cisco device with cisco sdk-debug mode
+  - qos/test_ecn_config.py
   # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
   - read_mac/test_read_mac_metadata.py
   # This script only supported on Mellanox
@@ -74,6 +78,9 @@ t0:
   - mvrf/test_mgmtvrf.py
   - vrf/test_vrf.py
   - vrf/test_vrf_attr.py
+  # Upgrade path test needs base and target image lists, currently do not support on KVM
+  - upgrade_path/test_upgrade_path.py
+  - upgrade_path/test_multi_hop_upgrade_path.py
 
 t1-lag:
   # KVM do not support bfd test
@@ -129,6 +136,10 @@ t1-lag:
   - system_health/test_system_health.py
   # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
+  # This test needs swap syncd support, which is not available on KVM
+  - qos/test_qos_masic.py
+  # This test can only run on cisco and mnlx platforms
+  - vxlan/test_vnet_bgp_route_precedence.py
 
 t2:
   # KVM do not support bfd test
@@ -197,6 +208,8 @@ dualtor:
   - dualtor_io/test_grpc_server_failure.py
   # This test is only for Nvidia platforms.
   - dualtor_mgmt/test_egress_drop_nvidia.py
+  # This test needs some additional SAI attributes, do not support on KVM.
+  - qos/test_tunnel_qos_remap.py
 
 tgen:
   # Ixia test only support on physical ixia testbed
@@ -232,6 +245,8 @@ tgen:
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_po_member_flap.py
   - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_process_crash.py
   - snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_ecn_marking_with_pfc_quanta_variance_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_ecn_marking_with_snappi.py
   - snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_throttling_pause_storms.py
@@ -242,6 +257,7 @@ tgen:
   - snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py
   - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossless_with_snappi.py
   - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossy_with_snappi.py
+  - snappi_tests/multidut/pfc/test_tx_drop_counter_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_a2a_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_basic_with_snappi.py
   - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_burst_storm_with_snappi.py
@@ -252,6 +268,7 @@ tgen:
   - snappi_tests/lacp/test_lacp_timers_effect.py
   - snappi_tests/pfc/test_global_pause_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py
+  - snappi_tests/pfc/warm_reboot/test_pfc_pause_lossless_warm_reboot.py
   - snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_response_with_snappi.py
   - snappi_tests/pfc/test_pfc_pause_unset_bit_enable_vector.py

@@ -79,7 +79,7 @@ class TestRouteConsistency():
         for idx, dut in enumerate(duthosts.frontend_nodes):
             for asic in dut.asics:
                 dut_instance_name = dut.hostname + '-' + str(asic.asic_index)
-                if dut.facts['switch_type'] == "voq" and idx == 0:
+                if dut.facts['switch_type'] in ["voq", "chassis-packet"] and idx == 0:
                     dut_instance_name = dut_instance_name + "UpstreamLc"
                     threading.Thread(target=retrieve_route_snapshot, args=(asic, prefix_snapshot,
                                                                            dut_instance_name, signal_queue)).start()
@@ -96,6 +96,18 @@ class TestRouteConsistency():
             max_prefix_cnt = max(max_prefix_cnt, len(prefix_snapshot[dut_instance_name]))
         return prefix_snapshot, max_prefix_cnt
 
+    @pytest.fixture(autouse=True)
+    def ignore_expected_loganalyzer_exceptions(self, duthosts, loganalyzer):
+        """Ignore expected error syslogs during test execution."""
+        if loganalyzer:
+            for duthost in duthosts:
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        # Withdrawing/announcing routes as well as bgp shut/noshut can make routeCheck fail
+                        r".*ERR.* 'routeCheck' status failed.*",
+                    ]
+                )
+
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, duthosts):
         # take the snapshot of route table from all the DUTs
@@ -106,6 +118,15 @@ class TestRouteConsistency():
         """
         self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 120
         logger.info("max_no_of_prefix: {} sleep_interval: {}".format(max_prefix_cnt, self.sleep_interval))
+
+    def route_snapshots_match(self, duthosts, previous_route_snapshot):
+        new_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+        """ compare the snapshot of route table from all the DUTs. In working condition, the snapshot of
+            route table should be same across all the DUTs"""
+        for dut_instance_name in previous_route_snapshot.keys():
+            if previous_route_snapshot[dut_instance_name] != new_route_snapshot[dut_instance_name]:
+                return False
+        return True
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
 
@@ -146,12 +167,7 @@ class TestRouteConsistency():
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             time.sleep(self.sleep_interval)
 
-            # take the snapshot of route table from all the DUTs
-            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-            """ compare the snapshot of route table from all the DUTs. In working condition, the snapshot of
-                route table should be same across all the DUTs"""
-            for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+            assert wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot)
             logger.info("Route table is consistent across all the DUTs")
         except Exception as e:
             logger.error("Exception occurred: {}".format(e))

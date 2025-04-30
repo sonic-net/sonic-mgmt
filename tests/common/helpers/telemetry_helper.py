@@ -1,4 +1,3 @@
-import pytest
 import logging
 from contextlib import contextmanager
 from tests.common.errors import RunAnsibleModuleFail
@@ -82,14 +81,11 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 
 @contextmanager
-def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           localhost, ptfhost, gnxi_path):
+def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
-    is_ipv6 = request.param
     try:
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
             create_gnmi_config(duthost)
@@ -119,10 +115,3 @@ def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_
     restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
-
-
-@pytest.fixture(scope="function")
-def setup_streaming_telemetry_func(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
-    with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
-                                                localhost, ptfhost, gnxi_path) as result:
-        yield result

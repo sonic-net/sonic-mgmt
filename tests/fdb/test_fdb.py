@@ -57,7 +57,7 @@ def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
 
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
     # Use DUMMY_MAC_COUNT_SLIM on dualtor-64 to reduce running time
-    REQUIRED_TOPO = ["t0-116", "dualtor-64", "dualtor-120",
+    REQUIRED_TOPO = ["t0-116", "t0-118", "dualtor-64", "dualtor-120",
                      "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-standalone-512"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
         # To reduce the case running time
@@ -322,10 +322,10 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 @pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
              toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
-             setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
+             setup_active_active_ports, get_dummay_mac_count, fanouthosts):                                  # noqa F811
 
     # Perform FDB clean up before each test and at the end of the final test
-    fdb_cleanup(duthosts, rand_one_dut_hostname)
+    fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
     if pkt_type == "cleanup":
         return
 
