@@ -33,6 +33,9 @@ stages:
         - checkout: sonic-mgmt
           displayName: 'checkout sonic-mgmt repo'
 
+        - checkout: self
+          displayName: 'checkout sonic-mgmt-int repo'
+
         - script: |
             sudo apt-get -o DPkg::Lock::Timeout=600 update
             sudo apt-get -o DPkg::Lock::Timeout=600 install \
@@ -55,13 +58,14 @@ stages:
             sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
             sudo docker rm -f sonic-mgmt-collect || true
             sudo docker run --rm -dt --name sonic-mgmt-collect \
-              -v $(System.DefaultWorkingDirectory):/var/src/sonic-mgmt \
+              -v $(System.DefaultWorkingDirectory)/sonic-mgmt-int:/var/src/sonic-mgmt-int \
+              -v $(System.DefaultWorkingDirectory)/sonic-mgmt:/var/src/sonic-mgmt \
               sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
               /bin/bash
           displayName: 'Prepare sonic-mgmt docker container'
 
         - task: AzureCLI@2
-          displayName: Testcases Collection
+          displayName: Testcases Collection for sonic-mgmt-int
           inputs:
             azureSubscription: "SONiC-Automation"
             scriptType: 'bash'
@@ -72,12 +76,22 @@ stages:
               accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
               export ACCESS_TOKEN=$accessToken
 
-              cd tests
+              sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP) -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
 
-              branch_ref=$(resources.repositories.sonic-mgmt.ref)
-              branch_name=${branch_ref##*/}
+        - task: AzureCLI@2
+          displayName: Testcases Collection for sonic-mgmt
+          inputs:
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              set -x
 
-              sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP) -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
-                    python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(resources.repositories.sonic-mgmt.url) --branch $branch_name
+              accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
+              sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP) -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch $(resources.repositories.sonic-mgmt.ref)
           env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
