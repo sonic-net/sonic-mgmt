@@ -497,36 +497,6 @@
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms68-t1-8122-01
-  group-name: vms68-4
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms68-4
-  ptf_ip: 10.64.247.93/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f75d/64
-  server: server_68
-  vm_base: VM68121
-  dut:
-  - str3-8122-01
-  inv_name: str3
-  auto_recover: 'True'
-  comment: yawenni
-
-- conf-name: vms63-t0-8122-02
-  group-name: vms63-7
-  topo: t0-64
-  ptf_image_name: docker-ptf
-  ptf: vms63-7
-  ptf_ip: 10.64.247.62/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f73e/64
-  server: server_63
-  vm_base: VM63224
-  dut:
-  - str3-8122-02
-  inv_name: str3
-  auto_recover: 'True'
-  comment: yawenni
-
 - conf-name: vms63-t0-8122-03
   group-name: vms63-8
   topo: t0-64
@@ -4249,3 +4219,20 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.134/17
+
+- conf-name: vms66-dual-t0-8101-03
+  group-name: vms66-7
+  topo: dualtor-aa-64-breakout
+  ptf_image_name: docker-ptf
+  ptf: vms66-7
+  ptf_ip: 10.64.247.93/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f75d/64
+  netns_mgmt_ip: 10.64.247.62/23
+  server: server_66
+  vm_base: VM66024
+  dut:
+  - str3-8101-03
+  - str3-8101-04
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yawenni
