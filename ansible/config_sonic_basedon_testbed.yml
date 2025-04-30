@@ -674,6 +674,8 @@
 
             when: inventory_hostname != sup_dut
         when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric"))
+        rescue:
+          - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
       - name: Generate golden_config_db.json
         generate_golden_config_db:
