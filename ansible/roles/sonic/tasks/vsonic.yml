@@ -31,6 +31,7 @@
             | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
             | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
             | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
+            | jq '.DEVICE_METADATA.localhost.bgp_adv_lo_prefix_as_128="true"'
             > config-metadata.json
     when: '"hwsku" in configuration[hostname]'
 
@@ -40,6 +41,7 @@
             | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
             | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
             | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
+            | jq '.DEVICE_METADATA.localhost.bgp_adv_lo_prefix_as_128="true"'
             > config-metadata.json
     when: '"hwsku" not in configuration[hostname]'
 
