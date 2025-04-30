@@ -233,6 +233,7 @@ def updated_tbinfo(tbinfo):
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
+                   setup_standby_ports_on_rand_unselected_tor,          # noqa F811
                    toggle_all_simulator_ports_to_random_side,           # noqa F811
                    updated_tbinfo, mux_server_url,                      # noqa F401
                    mux_status_from_nic_simulator,
@@ -471,6 +472,7 @@ def setup_active_active_ports(
 
 def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noqa F811
               hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+              setup_standby_ports_on_rand_unselected_tor,                                       # noqa F811
               updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
               single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa F811
               setup_active_active_ports, active_active_ports, request):                         # noqa F811
