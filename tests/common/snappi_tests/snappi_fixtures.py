@@ -1326,7 +1326,6 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     global DEST_TO_GATEWAY_MAP
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
-            logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
             return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
