@@ -195,7 +195,7 @@ def change_interface_admin_state_for_namespace(config_facts,
 
 
 # -----------------------------
-# Validation Helper Functions - Interfaces, Config
+# Helper Functions - Interfaces, Config
 # -----------------------------
 
 def check_interface_status(duthost, namespace, interface_list, exp_status='up'):
@@ -226,6 +226,9 @@ def check_interface_status(duthost, namespace, interface_list, exp_status='up'):
 
 
 def get_cfg_info_from_dut(duthost, path, enum_rand_one_asic_namespace):
+    """
+    Returns the running configuration for a given configuration path within a namespace.
+    """
     dict_info = None
     namespace_prefix = '' if enum_rand_one_asic_namespace is None else '-n ' + enum_rand_one_asic_namespace
     raw_output = duthost.command(
@@ -241,6 +244,35 @@ def get_cfg_info_from_dut(duthost, path, enum_rand_one_asic_namespace):
         print("Expected a dictionary, but got:", type(dict_info))
         dict_info = None
     return dict_info
+
+
+def get_active_interfaces(config_facts):
+    """
+    Finds all the active interfaces based on running configuration.
+    """
+    active_interfaces = []
+    for key, _value in config_facts.get("INTERFACE", {}).items():
+        if re.compile(r'^Ethernet\d{1,3}$').match(key):
+            active_interfaces.append(key)
+    for portchannel in config_facts.get("PORTCHANNEL_MEMBER", {}):
+        for key, _value in config_facts.get("PORTCHANNEL_MEMBER", {}).get(portchannel, {}).items():
+            active_interfaces.append(key)
+    logger.info("Active interfaces for this namespace:{}".format(active_interfaces))
+    return active_interfaces
+
+
+def select_random_active_interface(duthost, namespace):
+    """
+    Finds all the active interfaces based on status in duthost and returns a random selected.
+    """
+    interfaces = duthost.get_interfaces_status(namespace)
+    active_interfaces = []
+    for interface_name, interface_info in list(interfaces.items()):
+        if interface_name.startswith('Ethernet') \
+            and interface_info.get('oper') == 'up' \
+                and interface_info.get('admin') == 'up':
+            active_interfaces.append(interface_name)
+    return random.choice(active_interfaces)
 
 
 # -----------------------------
