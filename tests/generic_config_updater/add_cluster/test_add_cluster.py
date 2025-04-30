@@ -736,29 +736,28 @@ def setup_add_cluster(tbinfo,
                       acl_config_scenario,
                       setup_static_route):
     """
-    Test Case: Add Cluster and Remove Existing BGP Sessions for a Random ASIC.
+    This setup fixture prepares the Downstream LC by applying a patch to remove
+    and then re-add the cluster configuration.
 
-    Setup:
-    - Save the initial configuration.
+    The purpose is to prepare the DUT host for test cases that validate functionality
+    after adding a cluster via apply-patch.
+    The fixture reads the running configuration and constructs patches to remove
+    the current config from a running namespace.
+    After verifying successful removal, it re-adds the configuration and validates that it was successfully restored.
 
-    Test Steps:
-    1. Downstream: Save the initial BGP Neighbors and Peers configuration.
-    2. Upstream: Send traffic towards the Downstream Neighbor, which should pass.
-    3. Downstream: Apply a patch to remove neighbor and peer information.
-    4. Downstream: Verify BGP information, route table, and interfaces information.
-    5. Downstream: Ensure the information for the second ASIC remains unchanged.
-    6. Upstream: Send traffic towards the Downstream Neighbor, which should now fail.
-    7. Downstream: Apply a patch to shut down active interfaces and remove interfaces mapped to neighbors.
-    8. Downstream: Verify that the buffer PG information is automatically updated.
-    9. Downstream: Apply a patch to add neighbor and peer information back.
-    10. Downstream: Verify BGP information, route table, and interfaces information.
-    11. Downstream: Ensure the information for the second ASIC is still the same.
-    12. Downstream: Apply a patch to enable the interfaces and remap interfaces to neighbors.
-    13. Downstream: Verify that the buffer PG information is automatically updated again.
-    14. Upstream: Send traffic towards the Downstream Neighbor, which should pass.
+    **Setup steps - applied to the Downstream LC:**
+    1. Save the original configuration.
+    2. Remove the cluster from a randomly selected namespace.
+    3. Verify BGP information, route table, and interface details to ensure everything has been removed as expected.
+    4. Perform data verification in the upstream → downlink direction, targeting a static route, which should now fail.
+    5. Re-add the cluster to the randomly selected namespace.
+    6. Verify BGP information, route table, and interface details to ensure everything is restored as expected.
+    7. Add ACL configuration based on the test parameter value.
 
-    Teardown:
-    - Restore the configuration to its initial state.
+    **Teardown steps:**
+    The setup logic already re-applies the initial cluster configuration for the namespace.
+    The only recovery needed during teardown is for the ACL configuration:
+    1. Restore the ACL configuration to its initial values.
     """
 
     # initial test env
@@ -847,12 +846,10 @@ def test_add_cluster(tbinfo,
                      acl_config_scenario,
                      setup_add_cluster):
     """
-    Test Case: Add Cluster and Remove Existing BGP Sessions for a Random ASIC.
+    Validates the functionality of the Downstream Linecard after adding a cluster.
 
-    Setup:
-    - Save the initial configuration.
-
-
+    Performs lossless data traffic scenarios for both ACL and non-ACL cases.
+    Verifies successful data transmission, queue counters, and ACL rule match counters.
     """
 
     # initial test env

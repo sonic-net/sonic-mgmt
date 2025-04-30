@@ -88,6 +88,113 @@ def verify_routev4_existence(duthost, asic_id, ip, should_exist=True):
 
 
 # -----------------------------
+# Apply Patch Related Helper Functions
+# -----------------------------
+
+def add_content_to_patch_file(json_data, patch_file):
+    logger.info("Adding extra content to patch file = {}".format(patch_file))
+
+    try:
+        with open(patch_file, "r") as file:
+            existing_content = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        existing_content = []
+
+    if isinstance(json_data, str):
+        try:
+            json_data = json.loads(json_data)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON format in json_data")
+            raise ValueError("json_data must be a valid JSON list or dictionary")
+
+    if isinstance(existing_content, list) and isinstance(json_data, list):
+        existing_content.extend(json_data)
+    elif isinstance(existing_content, dict) and isinstance(json_data, dict):
+        existing_content.update(json_data)
+    else:
+        raise ValueError("add_content_to_patch_file: Mismatched types: Cannot merge {} with {}".format(
+            type(existing_content).__name__, type(json_data).__name__
+        ))
+
+    with open(patch_file, "w") as file:
+        json.dump(existing_content, file, indent=4)
+
+
+def change_interface_admin_state_for_namespace(config_facts,
+                                               duthost,
+                                               namespace,
+                                               status=None,
+                                               apply=True,
+                                               verify=True,
+                                               patch_file=""):
+    """
+    Applies a patch to change the administrative status (up/down) of interfaces for a specific namespace
+    on the DUT host.
+
+    Applies changes at configuration path:
+    - /<namespace>/PORT/<port>/admin_status
+
+    This function updates the administrative state (enabled/disabled) of interfaces within the specified namespace
+    on the DUT host by applying a patch. It also offers optional verification of the changes.
+
+    Args:
+        config_facts (dict): Configuration facts from the DUT host, containing the current state of the configuration.
+        duthost (object): DUT host object on which the patch will be applied.
+        namespace (str): The namespace whose interfaces should have their administrative state modified.
+        status (str, optional): The desired administrative state of the interfaces ('up' or 'down'). If not provided,
+                                no state change is applied. Defaults to None.
+        verify (bool, optional): If True, verifies the changes after applying the patch. Defaults to True.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If the patch or verification fails.
+    """
+
+    pytest_assert(status, "Test didn't provided the admin status value to change to.")
+
+    logger.info("{}: Changing admin status for local interfaces to {} for ASIC namespace {}".format(
+        duthost.hostname, status, namespace)
+        )
+    json_namespace = '' if namespace is None else '/' + namespace
+    json_patch = []
+
+    # find all the interfaces that are active based on configuration
+    up_interfaces = []
+    for key, _value in config_facts.get("INTERFACE", {}).items():
+        if re.compile(r'^Ethernet\d{1,3}$').match(key):
+            up_interfaces.append(key)
+    for portchannel in config_facts.get("PORTCHANNEL_MEMBER", {}):
+        for key, _value in config_facts.get("PORTCHANNEL_MEMBER", {}).get(portchannel, {}).items():
+            up_interfaces.append(key)
+    logger.info("Up interfaces for this namespace:{}".format(up_interfaces))
+
+    for interface in up_interfaces:
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORT/{}/admin_status".format(json_namespace, interface),
+            "value": status
+        })
+
+    if apply:
+
+        tmpfile = generate_tmpfile(duthost)
+
+        try:
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+            expect_op_success(duthost, output)
+            if verify is True:
+                logger.info("{}: Verifying interfaces status is {}.".format(duthost.hostname, status))
+                pytest_assert(check_interface_status(duthost, namespace, up_interfaces, exp_status=status),
+                              "Interfaces failed to update admin status to {}'".format(status))
+        finally:
+            delete_tmpfile(duthost, tmpfile)
+    else:
+        add_content_to_patch_file(json.dumps(json_patch, indent=4), patch_file)
+
+
+# -----------------------------
 # Validation Helper Functions - Interfaces, Config
 # -----------------------------
 
@@ -302,106 +409,3 @@ def send_and_verify_traffic(
                         dscp, counter_exp_prio, counter_rest_prio
                         )
                     )
-
-
-def add_content_to_patch_file(json_data, patch_file):
-    logger.info("Adding extra content to patch file = {}".format(patch_file))
-
-    try:
-        with open(patch_file, "r") as file:
-            existing_content = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError):
-        existing_content = []
-
-    if isinstance(json_data, str):
-        try:
-            json_data = json.loads(json_data)
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON format in json_data")
-            raise ValueError("json_data must be a valid JSON list or dictionary")
-
-    if isinstance(existing_content, list) and isinstance(json_data, list):
-        existing_content.extend(json_data)
-    elif isinstance(existing_content, dict) and isinstance(json_data, dict):
-        existing_content.update(json_data)
-    else:
-        raise ValueError("add_content_to_patch_file: Mismatched types: Cannot merge {} with {}".format(
-            type(existing_content).__name__, type(json_data).__name__
-        ))
-
-    with open(patch_file, "w") as file:
-        json.dump(existing_content, file, indent=4)
-
-
-def change_interface_admin_state_for_namespace(config_facts,
-                                               duthost,
-                                               namespace,
-                                               status=None,
-                                               apply=True,
-                                               verify=True,
-                                               patch_file=""):
-    """
-    Applies a patch to change the administrative status (up/down) of interfaces for a specific namespace
-    on the DUT host.
-
-    Applies changes at configuration path:
-    - /<namespace>/PORT/<port>/admin_status
-
-    This function updates the administrative state (enabled/disabled) of interfaces within the specified namespace
-    on the DUT host by applying a patch. It also offers optional verification of the changes.
-
-    Args:
-        config_facts (dict): Configuration facts from the DUT host, containing the current state of the configuration.
-        duthost (object): DUT host object on which the patch will be applied.
-        namespace (str): The namespace whose interfaces should have their administrative state modified.
-        status (str, optional): The desired administrative state of the interfaces ('up' or 'down'). If not provided,
-                                no state change is applied. Defaults to None.
-        verify (bool, optional): If True, verifies the changes after applying the patch. Defaults to True.
-
-    Returns:
-        None
-
-    Raises:
-        Exception: If the patch or verification fails.
-    """
-
-    pytest_assert(status, "Test didn't provided the admin status value to change to.")
-
-    logger.info("{}: Changing admin status for local interfaces to {} for ASIC namespace {}".format(
-        duthost.hostname, status, namespace)
-        )
-    json_namespace = '' if namespace is None else '/' + namespace
-    json_patch = []
-
-    # find all the interfaces that are active based on configuration
-    up_interfaces = []
-    for key, _value in config_facts.get("INTERFACE", {}).items():
-        if re.compile(r'^Ethernet\d{1,3}$').match(key):
-            up_interfaces.append(key)
-    for portchannel in config_facts.get("PORTCHANNEL_MEMBER", {}):
-        for key, _value in config_facts.get("PORTCHANNEL_MEMBER", {}).get(portchannel, {}).items():
-            up_interfaces.append(key)
-    logger.info("Up interfaces for this namespace:{}".format(up_interfaces))
-
-    for interface in up_interfaces:
-        json_patch.append({
-            "op": "add",
-            "path": "{}/PORT/{}/admin_status".format(json_namespace, interface),
-            "value": status
-        })
-
-    if apply:
-
-        tmpfile = generate_tmpfile(duthost)
-
-        try:
-            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            expect_op_success(duthost, output)
-            if verify is True:
-                logger.info("{}: Verifying interfaces status is {}.".format(duthost.hostname, status))
-                pytest_assert(check_interface_status(duthost, namespace, up_interfaces, exp_status=status),
-                              "Interfaces failed to update admin status to {}'".format(status))
-        finally:
-            delete_tmpfile(duthost, tmpfile)
-    else:
-        add_content_to_patch_file(json.dumps(json_patch, indent=4), patch_file)
