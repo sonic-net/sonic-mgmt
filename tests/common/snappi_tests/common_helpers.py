@@ -1122,10 +1122,8 @@ def clear_counters(duthost, port=None, namespace=None):
             )
         if not namespace:
             namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(namespace))
         duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
     else:
-        duthost.shell("sonic-clear queuecounters \n")
         duthost.shell("sonic-clear dropcounters \n")
 
 
