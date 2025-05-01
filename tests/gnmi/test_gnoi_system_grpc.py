@@ -7,7 +7,10 @@ import sys
 
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.disable_memory_utilization
+]
 
 
 """
