@@ -47,9 +47,11 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     """Auto-setup NTP for all gNMI tests using existing helper."""
     duthost = duthosts[rand_one_dut_hostname]
 
-    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        with setup_ntp_context(ptfhost, duthost, False):
-            yield
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        pytest.skip("check_system_time_sync is skipped for this platform, so skip ntp setup")
+
+    with setup_ntp_context(ptfhost, duthost, False):
+        yield
 
 
 def create_revoked_cert_and_crl(localhost, ptfhost):
