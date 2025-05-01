@@ -1090,41 +1090,6 @@ dut_console/test_console_baud_rate.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####         LLDP                #####
-#######################################
-# lldp/test_lldp.py::test_lldp:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions_logical_operator: or
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# lldp/test_lldp.py::test_lldp_neighbor:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions_logical_operator: or
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions_logical_operator: or
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# lldp/test_lldp_syncd.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions_logical_operator: or
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
 #####     Sub Port Interfaces     #####
 #######################################
 sub_port_interfaces/test_sub_port_l2_forwarding.py:
