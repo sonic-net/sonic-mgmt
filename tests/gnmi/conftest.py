@@ -13,6 +13,7 @@ from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_co
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.ntp_helper import setup_ntp_context
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,15 @@ def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
         shutil.copyfile(gnmi_bin, "gnmi/%s" % file)
         localhost.shell("sudo chmod +x gnmi/%s" % file)
 
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
+    """Auto-setup NTP for all gNMI tests using existing helper."""
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+       with setup_ntp_context(ptfhost, duthost, False):
+            yield
 
 def create_revoked_cert_and_crl(localhost, ptfhost):
     # Create client key
