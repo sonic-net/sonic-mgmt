@@ -10,7 +10,10 @@ to/from API server, processing the statistics after obtaining them
 in .csv format etc.
 """
 
+from argparse import ArgumentParser
 from enum import Enum
+from functools import lru_cache
+import sys
 import ipaddr
 import json
 import re
@@ -1243,3 +1246,10 @@ def get_pfc_count(duthost, port):
         pfc_dict[duthost.hostname][port]['rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
 
     return pfc_dict
+
+@lru_cache
+def get_testbed_from_args():
+    parser = ArgumentParser()
+    parser.add_argument("--testbed")
+    args, _ = parser.parse_known_args(sys.argv[1:])
+    return args.testbed

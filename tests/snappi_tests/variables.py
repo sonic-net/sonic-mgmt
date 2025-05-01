@@ -4,7 +4,7 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
-MULTIDUT_TESTBED = sys.argv[1:][sys.argv[1:].index("--testbed") + 1]
+MULTIDUT_TESTBED = get_testbed_from_args()
 
 MULTIDUT_PORT_INFO = {
     'vmsvc5-t2-8800-ixia': (
