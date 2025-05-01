@@ -3,7 +3,7 @@
 # PROPRIETARY AND CONFIDENTIAL. Cisco Systems, Inc. considers the contents of this
 # file to be highly confidential trade secret information.
 #
-# COPYRIGHT 2023-2024 Cisco Systems, Inc., All rights reserved.
+# COPYRIGHT 2023-2025 Cisco Systems, Inc., All rights reserved.
 
 if [[ -z "${WS_ROOT}" ]]; then
     echo "Must execute from Tortuga source workspace"
@@ -38,6 +38,7 @@ cp "${WS_ROOT}/cloud/tests/pyvxr/sl1x3-ref-sim.yaml" "${DIR}/sl1x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x2-ref-sim.yaml" "${DIR}/sl2x2-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x3-ref-sim.yaml" "${DIR}/sl2x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x9-ref-sim.yaml" "${DIR}/sl2x9-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/g2001x3-ref-sim.yaml" "${DIR}/g2001x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/switch-ref-sim.yaml" "${DIR}/switch-ref-sim.yaml"
 cp "${WS_ROOT}/sandbox/certs/cloud.crt" "${DIR}/sandbox/certs/cloud.crt"
 cp "${WS_ROOT}/sandbox/certs/service.key" "${DIR}/sandbox/certs/service.key"

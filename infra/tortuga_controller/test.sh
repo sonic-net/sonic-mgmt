@@ -32,8 +32,6 @@ fi
 # Common static routes, sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
 PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|8.8.8.2/32#41.216.0.3#4"
-PYVXR_PORTS="leaf0|Ethernet1_32_1#41.230.10.2/24#Vrf12000000"
-PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1#2|lo"
 PYVXR_POLICIES="policy-imp#false#*|true#9999:99"
 PYVXR_POLICIES="${PYVXR_POLICIES},policy-exp#true#*|false#*#9999:99|false#*#4|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
 PYVXR_DHCPS="*"
@@ -53,6 +51,15 @@ BREAKOUTS="$"
 LOADTEST="*"
 TIMEOUT="15m"
 BULK_MODE=true
+
+# Test ports.
+STP_PORT1="Ethernet1_16"
+STP_PORT2="Ethernet1_17"
+DHCP_PORT="Ethernet1_12"
+SUBINF_PORT="Ethernet1_11"
+LAG_PORT1="Ethernet1_9"
+LAG_PORT2="Ethernet1_13"
+ROUTE_PORT="Ethernet1_32"
 
 # Parse command line arguments.
 while :
@@ -112,6 +119,16 @@ do
   -a|-action)
     CGEN_TEST="${2}"
     shift; shift;;
+  -g200)
+    STP_PORT1="Ethernet1_8_2"
+    STP_PORT2="Ethernet1_9_1"
+    DHCP_PORT="Ethernet1_6_2"
+    LAG_PORT1="Ethernet1_5_1"
+    LAG_PORT2="Ethernet1_7_1"
+    ROUTE_PORT="Ethernet1_32_1"
+    SUBINF_PORT="Ethernet1_6_1"
+    BREAKOUTS="*"
+    shift;;
   *)
     shift;;
   esac
@@ -120,14 +137,14 @@ done
 # Number of leaf switches - 1.
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 
+# Add sub-interfaces on hosts connected to SUB_INF_PORT.
+PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#2|lo"
+PYVXR_PORTS="leaf0|${ROUTE_PORT}#41.230.10.2/24#Vrf12000000"
+
 # Enable bulk-mode config.
 if [[ "${BULK_MODE}" == true ]]; then
   TEST_TAGS="${TEST_TAGS},bulk-config"
 fi
-
-# PortChannels are always between two fixed ports.
-LAG_PORT1="Ethernet1_9"
-LAG_PORT2="Ethernet1_13"
 
 # Add PortChannels for single switch setup.
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
@@ -178,8 +195,6 @@ if [[ ${LENGTH} -gt 1 ]]; then
 fi
 
 # Enable STP for PyVxr. STP is always on leaf0.
-STP_PORT1="Ethernet1_16"
-STP_PORT2="Ethernet1_17"
 if [[ "${STP}" == true ]]; then
   HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|${STP_PORT1}|80|true"
   HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|${STP_PORT2}|80|true"
@@ -194,7 +209,6 @@ fi
 
 # Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
 # Fourth host has an untagged Vlan of 40. Vrf40000 has a Loopback of 41.216.230.1
-DHCP_PORT="Ethernet1_12"
 if [[ "${DHCP}" == "vlan" ]]; then
   PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
