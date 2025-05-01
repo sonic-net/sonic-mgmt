@@ -265,6 +265,15 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     return [reboot_res, dut_datetime]
 
 
+def check_dshell_ready(duthost):
+    show_command = "sudo show platform npu rx cgm_global"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        return False
+    return True
+
+
 @support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
@@ -368,6 +377,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "{}: Not all ports that are admin up on are operationally up".format(hostname))
+
+        if duthost.facts['asic_type'] == "cisco-8000":
+            # Wait dshell initialization finish
+            pytest_assert(wait_until(wait + 300, 20, 0, check_dshell_ready, duthost),
+                          "dshell not ready")
     else:
         time.sleep(wait)
 
