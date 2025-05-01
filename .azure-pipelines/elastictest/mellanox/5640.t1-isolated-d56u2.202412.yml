@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms74-t1-sn5640-3"
+    default: "vms70-t1-sn5640-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
