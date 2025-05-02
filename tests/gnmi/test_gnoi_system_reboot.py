@@ -33,6 +33,7 @@ RebootMethod = {
 
 REBOOT_MESSAGE = "gnoi test reboot"
 
+
 def check_reboot_status(duthost, localhost, expected_active, expected_reason, expected_method):
     """
     Call gNOI System.RebootStatus and assert the fields and values of the response.
@@ -55,6 +56,7 @@ def check_reboot_status(duthost, localhost, expected_active, expected_reason, ex
     pytest_assert(isinstance(status["when"], int) and status["when"] > 0, "'when' should be a positive integer")
     pytest_assert(isinstance(status["count"], int) and status["count"] >= 1, "'count' should be >= 1")
 
+
 def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     """
     Test gNOI System.Reboot API with COLD method.
@@ -74,7 +76,12 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
-    check_reboot_status(duthost, localhost, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method=RebootMethod["COLD"])
+    check_reboot_status(
+        duthost, localhost,
+        expected_active=True,
+        expected_reason=REBOOT_MESSAGE,
+        expected_method=RebootMethod["COLD"]
+    )
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
@@ -108,7 +115,12 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
-    check_reboot_status(duthost, localhost, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method=RebootMethod["WARM"])
+    check_reboot_status(
+        duthost, localhost,
+        expected_active=True,
+        expected_reason=REBOOT_MESSAGE,
+        expected_method=RebootMethod["WARM"]
+    )
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
