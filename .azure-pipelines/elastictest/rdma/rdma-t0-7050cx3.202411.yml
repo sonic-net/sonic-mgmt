@@ -49,17 +49,18 @@ parameters:
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: "snappi_tests/pfc snappi_tests/pfcwd snappi_tests/qos snappi_tests/ecn"
+    default: " "
     values:
       - " "
-      - "snappi_tests/pfc snappi_tests/pfcwd snappi_tests/qos snappi_tests/ecn"
+      - "snappi_tests/pfc,snappi_tests/pfcwd,snappi_tests/qos,snappi_tests/ecn"
     displayName: "Scripts to be executed"
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "snappi_tests/pfc,snappi_tests/pfcwd,snappi_tests/qos,snappi_tests/ecn"
     values:
       - " "
+      - "snappi_tests/pfc,snappi_tests/pfcwd,snappi_tests/qos,snappi_tests/ecn"
       - "snappi_tests"
     displayName: "Features to be executed"
 
