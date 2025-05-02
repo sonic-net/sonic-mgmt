@@ -1,6 +1,5 @@
 import pytest
 import logging
-import time
 import tempfile
 import random
 import re
