@@ -478,7 +478,11 @@ configuration:
     interfaces:
       Loopback0:
         ipv6: 2064:100:0:61::/128
+      Ethernet0:
+        lacp: 1
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv6: fc00::182/126
     bp_interface:
       ipv6: fc0a::62/64
