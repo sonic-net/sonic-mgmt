@@ -151,8 +151,6 @@ def test_arp_update_for_failed_standby_neighbor(
     if cable_type == "active-active":
         pytest.skip("Skip as the testcase is designed for active-standby mux port.")
 
-    if ip_address(neighbor_ip).version == 6 and rand_unselected_dut.facts["asic_type"] == "vs":
-        pytest.skip("Temporarily skipped to let the sonic-swss submodule be updated.")
     # We only use ping to trigger an ARP request from the kernel, so exit early to save time
     ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
 
@@ -196,8 +194,6 @@ def test_standby_unsolicited_neigh_learning(
     3. Confirm that the standby ToR learned the entry and it is REACHABLE
     """
     neighbor_ip = selected_mux_port[1]
-    if ip_address(neighbor_ip).version == 6 and rand_unselected_dut.facts["asic_type"] == "vs":
-        pytest.skip("Temporarily skipped to let the sonic-swss submodule be updated.")
     ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
 
     rand_selected_dut.shell(ping_cmd, module_ignore_errors=True)
