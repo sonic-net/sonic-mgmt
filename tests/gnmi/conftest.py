@@ -112,7 +112,7 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
     localhost.shell(local_command)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
@@ -220,7 +220,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
