@@ -62,6 +62,15 @@ FWD:
       - crm/test_crm.py::test_crm_neighbor
       - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
       - ipfwd/test_dip_sip.py
+      - drop_packets/test_drop_counters.py::test_acl_drop
+      - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
+      - drop_packets/test_drop_counters.py::test_absent_ip_header
+      - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
+      - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
+      - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
+      - everflow/test_everflow_ipv6.py
+      - hash/test_generic_hash.py::test_algorithm_config
+      - hash/test_generic_hash.py::test_backend_error_messages
   t2-min:
     sfd:
       - cacl/test_cacl_application.py
