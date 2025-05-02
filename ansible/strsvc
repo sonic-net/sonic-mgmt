@@ -31,10 +31,10 @@ all:
           ansible_host: 10.206.144.128
           ansible_hostv6: 2a01:111:e205:100::ace:9080
         svc1-5:
-          ansible_host: 10.206.144.138
+          ansible_host: 10.206.144.24
           ansible_hostv6: 2a01:111:e205:100::ace:908a
         svc1-6:
-          ansible_host: 10.206.144.139
+          ansible_host: 10.206.144.25
           ansible_hostv6: 2a01:111:e205:100::ace:908b
     pdu:
       hosts:
