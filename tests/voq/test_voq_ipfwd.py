@@ -576,7 +576,7 @@ class TestTableValidation(object):
                         if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
 
         # get attached neighbors
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = dict(cfg_facts['BGP_NEIGHBOR'])
 
         # Remove the neighbor if BGP neighbor is of type RegionalHub
         keys_to_remove = []
