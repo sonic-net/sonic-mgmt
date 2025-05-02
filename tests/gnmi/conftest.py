@@ -49,10 +49,12 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
 
     if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
         logger.info("check_system_time_sync is skipped for this platform, so skip ntp setup")
+        yield
         return
 
     if check_ntp_sync_status(duthost) is True:
         logger.info("DUT is already in sycn with NTP server, so skip ntp setup")
+        yield
         return
 
     with setup_ntp_context(ptfhost, duthost, False):
