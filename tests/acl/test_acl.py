@@ -263,7 +263,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
+          tbinfo, ptfadapter, topo_scenario, vlan_name):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -277,8 +278,12 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     """
 
     pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+    # NOTE: We cannot use rand_unselected_dut in this case
+    # ATM it's only used if 'dualtor' in tbinfo['topo']['name']
+    if topo == "t2":
+        rand_selected_dut = rand_selected_front_end_dut
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     vlan_ports = []
     vlan_mac = None
@@ -1362,8 +1367,9 @@ class TestAclWithReboot(TestBasicAcl):
     Verify that configuration persists correctly after reboot and is applied properly
     upon startup.
     """
-
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
+    # Flag to ensure reboot only happens once
+    dut_rebooted = False
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1372,6 +1378,9 @@ class TestAclWithReboot(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        if TestAclWithReboot.dut_rebooted:
+            return
+        TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
@@ -1401,8 +1410,9 @@ class TestAclWithPortToggle(TestBasicAcl):
 
     Verify that ACLs still function as expected after links flap.
     """
-
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
+    # Flag to ensure port toggle only happens once
+    dut_port_toggled = False
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
         """Toggle ports after rules are applied.
 
         Args:
@@ -1411,6 +1421,9 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        if TestAclWithPortToggle.dut_port_toggled:
+            return
+        TestAclWithPortToggle.dut_port_toggled = True
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware

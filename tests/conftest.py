@@ -5,6 +5,7 @@ import logging
 import getpass
 import random
 from concurrent.futures import as_completed
+import re
 
 import pytest
 import yaml
@@ -35,7 +36,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, NAMESPACE_PREFIX,
+    ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
@@ -1449,6 +1451,29 @@ def get_testbed_metadata(request):
     return metadata.get(tbname)
 
 
+def get_snappi_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError:
+        return None
+
+    return metadata.get(tbname)
+
+
 def generate_port_lists(request, port_scope, with_completeness_level=False):
     empty = [encode_dut_port_name('unknown', 'unknown')]
     if 'ports' in port_scope:
@@ -1866,6 +1891,9 @@ def pytest_generate_tests(metafunc):        # noqa: E302
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'tgen_port_info' in metafunc.fixturenames:
+        metafunc.parametrize('tgen_port_info', generate_skeleton_port_info(metafunc), indirect=True)
+
     if 'vlan_name' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             if tbinfo['topo']['name'] == 'm0-2vlan':
@@ -1905,6 +1933,62 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
                 else:
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
+
+def generate_skeleton_port_info(request):
+    """
+    Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
+
+    ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
+    """
+    dut_info = get_snappi_testbed_metadata(request) or []
+    available_interfaces = {}
+    matrix = {}
+    for index, linecard in enumerate(dut_info):
+        interface_to_asic = {}
+        for asic in dut_info[linecard]["asic_to_interface"]:
+            for interface in dut_info[linecard]["asic_to_interface"][asic]:
+                interface_to_asic[interface] = asic
+
+        available_interfaces[linecard] = [dut_info[linecard]['intf_status'][interface]
+                                          for interface in dut_info[linecard]['intf_status']
+                                          if dut_info[linecard]['intf_status'][interface]["admin_state"] == "up"]
+
+        for interface in available_interfaces[linecard]:
+            for key, value in dut_info[linecard]["asic_to_interface"].items():
+                if interface['name'] in value:
+                    interface['asic'] = key
+
+        for interface in available_interfaces[linecard]:
+            speed = float(re.match(r"([\d.]+)", interface['speed']).group(0))
+            asic = interface['asic']
+            if (speed not in matrix):
+                matrix[speed] = {}
+            if (linecard not in matrix[speed]):
+                matrix[speed][linecard] = {}
+            if (asic not in matrix[speed][linecard]):
+                matrix[speed][linecard][asic] = 1
+            else:
+                matrix[speed][linecard][asic] += 1
+
+    def build_params(speed, category):
+        return f"{speed}-{category}"
+
+    flattened_list = set()
+
+    for speed, linecards in matrix.items():
+        if len(linecards) >= 2:
+            flattened_list.add(build_params(speed, 'multiple_linecard_multiple_asic'))
+
+        for linecard, asic_list in linecards.items():
+            if len(asic_list) >= 2:
+                flattened_list.add(build_params(speed, 'single_linecard_multiple_asic'))
+
+            for asics, port_count in asic_list.items():
+                if int(port_count) >= 2:
+                    flattened_list.add(build_params(speed, 'single_linecard_single_asic'))
+
+    return list(flattened_list)
 
 
 def get_autoneg_tests_data():
@@ -2222,7 +2306,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     yield rtn_dict
 
 
-@ pytest.fixture(scope='class')
+@pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa: F811
     """
@@ -2888,6 +2972,47 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope="module")
+def selected_asic_index(request):
+    asic_index = DEFAULT_ASIC_ID
+    if "enum_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_asic_index")
+    elif "enum_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_frontend_asic_index")
+    elif "enum_backend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_backend_asic_index")
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_asic_index")
+    elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
+    logger.info(f"Selected asic_index {asic_index}")
+    return asic_index
+
+
+@pytest.fixture(scope="module")
+def ip_netns_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for linux commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'sudo ip netns exec {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
+@pytest.fixture(scope="module")
+def cli_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for CLI commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'-n {NAMESPACE_PREFIX}{selected_asic_index}'
 
 
 def pytest_collection_modifyitems(config, items):
