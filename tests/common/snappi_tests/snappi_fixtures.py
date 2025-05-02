@@ -1302,7 +1302,7 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True, scope="session")
 def config_uhd_connect(request, duthost, tbinfo):
     """
     Fixture configures UHD connect
@@ -1313,6 +1313,7 @@ def config_uhd_connect(request, duthost, tbinfo):
     Yields:
     """
     logger.info("Configuring UHD connect")
+    import pdb; pdb.set_trace()
     uhdConnect_ip = tbinfo['uhd_ip']
 
     num_cps_cards = 8

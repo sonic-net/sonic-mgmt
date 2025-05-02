@@ -1,6 +1,7 @@
 """
 This module contains the snappi fixture in the snappi_tests directory.
 """
+from tests.common.snappi_tests.ixload.snappi_helper import main
 import pytest
 import logging
 
@@ -67,6 +68,7 @@ def config_snappi_ixl(request, duthosts, tbinfo):
 
     Yields:
     """
+    import pdb; pdb.set_trace()
     snappi_ixl_params = {}
 
     chassis_ip = tbinfo['chassis_ip']
@@ -89,4 +91,15 @@ def config_snappi_ixl(request, duthosts, tbinfo):
     snappi_ixl_params['test_type_dict'] = test_type_dict
     snappi_ixl_params['connection_dict'] = connection_dict
 
-    return snappi_ixl_params
+    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'],
+                                          test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
+
+    ixl_cfg = {}
+    ixl_cfg['test_type_dict'] = test_type_dict
+    ixl_cfg['connection_dict'] = connection_dict
+
+    ixl_cfg['api'] = api
+    ixl_cfg['config'] = config
+    ixl_cfg['initial_cps_value'] = initial_cps_value
+
+    return ixl_cfg
