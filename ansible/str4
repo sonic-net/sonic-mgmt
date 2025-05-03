@@ -192,6 +192,9 @@ all:
 
 fanout:
   hosts:
+    str4-7060x6-pe64-root:
+      ansible_host: 10.64.246.30
+      ansible_hostv6: 
     str4-7060x6-64pe-fan-2:
       ansible_host: 10.64.246.8
       ansible_hostv6:

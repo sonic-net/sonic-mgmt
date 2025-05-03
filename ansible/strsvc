@@ -53,6 +53,9 @@ all:
 
 fanout:
   hosts:
+    svcstr-7260cx3-acs-5:
+      ansible_host: 10.206.144.12
+      ansible_hostv6: 
     svcstr-7260cx3-acs-1:
       ansible_host: 10.206.144.8
       ansible_hostv6: 2a01:111:e205:100::ace:9008
