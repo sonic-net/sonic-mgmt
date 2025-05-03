@@ -513,9 +513,9 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.97/32
         ipv6: 2064:100:0:61::/128
-      Ethernet0:
-        lacp: 1
       Ethernet1:
+        lacp: 1
+      Ethernet2:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.193/31
