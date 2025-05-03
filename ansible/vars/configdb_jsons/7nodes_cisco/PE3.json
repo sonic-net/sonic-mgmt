@@ -433,6 +433,11 @@
             "alias": "eth0"
         }
     },
+    "SRV6_MY_SOURCE": {
+        "tunnel-source" : {
+            "source-address" : "2064:300::1f"
+        }
+    },
     "SRV6_MY_LOCATORS": {
         "lsid1": {
             "argu_len": "48",
