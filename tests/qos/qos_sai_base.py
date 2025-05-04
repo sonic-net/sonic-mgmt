@@ -17,6 +17,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa F401
@@ -43,7 +44,7 @@ class QosBase:
     """
     SUPPORTED_T0_TOPOS = [
         "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
-        "dualtor-120", "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend",
+        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "t0-120", "t0-80", "t0-backend",
         "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
         "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
     ]
@@ -236,6 +237,9 @@ class QosSaiBase(QosBase):
                 port_dynamic_th = dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
+                port_profile_reserved_size = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                )[0]
                 break
         if port_dynamic_th:
 
@@ -255,17 +259,24 @@ class QosSaiBase(QosBase):
                 )[0]
             )
 
-            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+            pg_q_reserved_size = int(port_profile_reserved_size) * pg_q_alpha / (1 + pg_q_alpha)
+            reserved_size = pg_q_reserved_size if pg_q_reserved_size > int(pg_q_buffer_profile["size"]) \
+                else int(pg_q_buffer_profile["size"])
+
+            if pg_q_buffer_profile['dynamic_th'] == "7" and port_dynamic_th != "7":
+                buffer_scale = port_alpha / (1 + port_alpha)
+            else:
+                buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
 
             pg_q_max_occupancy = int(buffer_size * buffer_scale)
 
             pg_q_buffer_profile.update(
-                {"static_th": int(
-                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+                {"static_th": int(pg_q_max_occupancy) + int(reserved_size)}
             )
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -1391,7 +1402,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
+            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports):  # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1430,20 +1441,24 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        is_dualtor_active_standby = is_dualtor and active_standby_ports
+        """ Stop mux container for dual ToR Active-Standby """
+        if is_dualtor:
+            if is_dualtor_active_standby:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR, retries=3)
-            check_result = wait_until(
-                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-            validate_check_result(check_result, duthosts, get_mux_status)
-
             try:
                 lower_tor_host.shell("ls %s" % file)
                 lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
                 lower_tor_host.shell("sudo rm {}".format(file))
                 lower_tor_host.shell("sudo touch {}".format(file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
@@ -1466,7 +1481,7 @@ class QosSaiBase(QosBase):
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             disable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -1499,7 +1514,7 @@ class QosSaiBase(QosBase):
             dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             try:
                 lower_tor_host.shell("ls %s" % backup_file)
                 lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
@@ -1515,7 +1530,7 @@ class QosSaiBase(QosBase):
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             enable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -2142,8 +2157,8 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['1-3', '4', '5']
-                queue_to_dscp_map = {'1-3': '1', '4': '11', '5': '31'}
+                queue_table_postfix_list = ['0-3', '4', '5']
+                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
                 queues = random.choice(queue_table_postfix_list)
             else:
                 queues = "0-2"
@@ -2159,7 +2174,7 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-3' else queues
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
         logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
@@ -2783,15 +2798,15 @@ def set_port_cir(interface, rate):
             return
 
         interfaces = [dst_port]
-        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
-        if output != '':
-            output = output.replace('(S)', '')
-            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
-            import re
-            match = re.match(pattern, output)
-            if not match:
-                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
-            interfaces = match.group(1).split(' ')
+        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
+        mgfacts = dst_dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if dst_port in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
+                    dst_port, portchan, members))
+                interfaces = members
+                break
 
         # Set scheduler to 5 Gbps.
         self.copy_set_cir_script_cisco_8000(
