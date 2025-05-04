@@ -87,6 +87,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.platform = test_params.get('platform', None)
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
+        self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -738,6 +739,12 @@ class VlanSubnetTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
 
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+
     def runTest(self):
         self.log("VlanSubnetTest")
         self.run_suite()
@@ -773,6 +780,12 @@ class VlanSubnetTest(PolicyTest):
 class VlanSubnetIPinIPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("VlanSubnetIpinIPTest")
