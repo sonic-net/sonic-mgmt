@@ -674,8 +674,8 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         )
 
     with allure.step(f'Randomly choose a reboot type: {reboot_type}, and reboot'):
-        # Save config if reboot type is config reload or cold reboot
-        if reboot_type in ['cold', 'reload', 'warm']:
+        # Save config if reboot type is config reload, cold, fast, warm reboot
+        if reboot_type in ['cold', 'reload', 'warm', 'fast']:
             rand_selected_dut.shell('config save -y')
         # Reload/Reboot the dut
         if reboot_type == 'reload':
