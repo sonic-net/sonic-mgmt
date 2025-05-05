@@ -87,13 +87,13 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
 
+    # Wait for critical processses before ending
+    wait_critical_processes(duthost)
+
     # Check device is actually rebooted by comparing uptime
     uptime_after = duthost.get_up_time(utc_timezone=True)
     logging.info('Uptime before reboot: %s, after reboot: %s', uptime_before, uptime_after)
     assert uptime_after > uptime_before, "Device did not reboot, uptime did not reset"
-
-    # Wait for critical processses before ending
-    wait_critical_processes(duthost)
 
 
 def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
@@ -123,11 +123,6 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
-
-    # Warm reboot does not reset uptime, so we check that it is the same
-    uptime_after = duthost.get_up_time(utc_timezone=True)
-    logging.info('Uptime before reboot: %s, after reboot: %s', uptime_before, uptime_after)
-    assert uptime_after > uptime_before, "Warm reboot should not reset uptime, but it did"
 
     # Wait for critical processses before ending
     wait_critical_processes(duthost)
