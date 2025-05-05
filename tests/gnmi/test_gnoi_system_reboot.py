@@ -108,8 +108,6 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
         "message": REBOOT_MESSAGE,
         "method": RebootMethod["WARM"]
     }
-    # Record uptime before reboot
-    uptime_before = duthost.get_up_time(utc_timezone=True)
 
     ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
