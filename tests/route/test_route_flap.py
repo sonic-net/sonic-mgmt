@@ -46,9 +46,9 @@ def get_prefix_len_by_net_size(net_size):
 
 
 def get_route_prefix_len(tbinfo, common_config):
-    if tbinfo["topo"]["name"] == "m0":
+    if tbinfo["topo"]["type"] in ["m0", "m1"]:
         subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
-    elif tbinfo["topo"]["name"] == "mx":
+    elif tbinfo["topo"]["type"] == "mx":
         subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     else:
         subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
