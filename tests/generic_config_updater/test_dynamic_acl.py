@@ -759,20 +759,20 @@ def dynamic_acl_create_forward_rules_same_priority(duthost, setup):
 
     expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
     expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
-    expected_rule_3_content = ["DYNAMIC_ACL_TABLE", "RULE_4", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_2, "Active"]
-    expected_rule_4_content = ["DYNAMIC_ACL_TABLE", "RULE_5", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_2, "Active"]
-    expected_rule_5_content = ["DYNAMIC_ACL_TABLE", "RULE_6", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_3, "Active"]
-    expected_rule_6_content = ["DYNAMIC_ACL_TABLE", "RULE_7", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_3, "Active"]
+    expected_rule_4_content = ["DYNAMIC_ACL_TABLE", "RULE_4", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_2, "Active"]
+    expected_rule_5_content = ["DYNAMIC_ACL_TABLE", "RULE_5", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_2, "Active"]
+    expected_rule_6_content = ["DYNAMIC_ACL_TABLE", "RULE_6", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_3, "Active"]
+    expected_rule_7_content = ["DYNAMIC_ACL_TABLE", "RULE_7", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_3, "Active"]
 
     for output in outputs:
         expect_op_success(duthost, output)
 
     expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
     expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
-    expect_acl_rule_match(duthost, "RULE_3", expected_rule_3_content, setup)
     expect_acl_rule_match(duthost, "RULE_4", expected_rule_4_content, setup)
     expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content, setup)
     expect_acl_rule_match(duthost, "RULE_6", expected_rule_6_content, setup)
+    expect_acl_rule_match(duthost, "RULE_7", expected_rule_7_content, setup)
 
 
 def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=None):
