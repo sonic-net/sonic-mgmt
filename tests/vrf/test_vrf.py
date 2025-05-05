@@ -5,6 +5,7 @@ import yaml
 import json
 import random
 import logging
+import os
 import tempfile
 import traceback
 
@@ -274,8 +275,9 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    # Use integer division for Python 3 compatibility
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
@@ -396,11 +398,19 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
 def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
     dst_ports = [str(port) for port_list in dst_ports for port in port_list]
-    tmp_file = tempfile.NamedTemporaryFile()
-    for ip in dst_ips:
-        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
-    tmp_file.flush()
-    ptfhost.copy(src=tmp_file.name, dest=render_file)
+
+    # Use NamedTemporaryFile with text mode
+    with tempfile.NamedTemporaryFile(mode='w+', encoding='utf-8', delete=False) as tmp_file:
+        for ip in dst_ips:
+            tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+        tmp_file.flush()
+        tmp_filename = tmp_file.name
+
+    # Copy the file to the PTF host
+    ptfhost.copy(src=tmp_filename, dest=render_file)
+
+    # Clean up the temporary file
+    os.remove(tmp_filename)
 
 # For dualtor
 
@@ -620,9 +630,16 @@ class TestVrfCreateAndBind():
 
         for vrf, intfs in list(g_vars['vrf_intfs'].items()):
             for intf in intfs:
-                res = duthost.shell("ip link show %s" % intf)
-                assert vrf in res['stdout'], "The master dev of interface %s should be %s !" % (
-                    intf, vrf)
+                def check_intf_in_vrf():
+                    try:
+                        res = duthost.shell("ip link show %s" % intf)
+                        return vrf in res['stdout']
+                    except Exception:
+                        return False
+
+                # Wait up to 60 seconds for the interface to be bound to the VRF
+                pytest_assert(wait_until(60, 2, 0, check_intf_in_vrf),
+                              "The master dev of interface %s should be %s!" % (intf, vrf))
 
     def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
@@ -1003,7 +1020,7 @@ class TestVrfLoopbackIntf():
                         "ping6 {} -I Vrf2 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
     @pytest.fixture
-    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts):
+    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
 
         # ----------- Setup ----------------
@@ -1013,7 +1030,9 @@ class TestVrfLoopbackIntf():
         # When there are only vrf bgp sessions and
         # net.ipv4.tcp_l3mdev_accept=1, bgpd(7.0) does
         # not create bgp socket for sessions.
-        duthost.shell("vtysh -c 'config terminal' -c 'router bgp 65444'")
+
+        dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+        duthost.shell("vtysh -c 'config terminal' -c 'router bgp {}'".format(dut_asn))
 
         # vrf1 args, vrf2 use the same as vrf1
         peer_range = IPNetwork(
@@ -1098,7 +1117,7 @@ class TestVrfLoopbackIntf():
                 ns, ptf_speaker_ip, vlan_peer_port))
 
         # FIXME workround to overcome the bgp socket issue
-        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
+        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp {}'".format(dut_asn))
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
     def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
