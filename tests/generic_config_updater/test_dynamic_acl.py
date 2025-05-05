@@ -5,7 +5,6 @@ import binascii
 import netaddr
 import struct
 import math
-import ipaddress
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -1258,12 +1257,13 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True)
 
-def test_gcu_acl_forward_rule_same_priority_respected(rand_selected_dut,
-                                                 rand_unselected_dut,
-                                                 ptfadapter,
-                                                 setup,
-                                                 dynamic_acl_create_table,
-                                                 toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+
+def test_gcu_acl_forward_rule_same_priority(rand_selected_dut,
+                                            rand_unselected_dut,
+                                            ptfadapter,
+                                            setup,
+                                            dynamic_acl_create_table,
+                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
     """Test that forward rules can have the exact same priority and still all be applied correctly
     Then, perform a traffic test to confirm that packets that match both the forward
     and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
