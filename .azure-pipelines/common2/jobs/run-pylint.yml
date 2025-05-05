@@ -1,0 +1,23 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+
+  - name: pylintConfig
+    type: string
+    default: 'pylintrc'
+    displayName: 'Pylint Configuration File'
+
+jobs:
+  - job: run_pylint
+    dependsOn:
+      - check_for_precommit
+      - ${{ parameters.dependsOn }}
+    condition: eq(dependencies.check_for_precommit.outputs['precommit_config.exists'], 'false')
+    displayName: 'Run pylint linter'
+    steps:
+    - script: |
+        pip install pylint
+        echo "Running pylint"
+        pylint --rcfile=${{ parameters.pylintConfig }} .

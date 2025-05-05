@@ -1,0 +1,19 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+
+jobs:
+  - job: run_mypy
+    dependsOn:
+      - check_for_precommit
+      - ${{ parameters.dependsOn }}
+    condition: eq(dependencies.check_for_precommit.outputs['precommit_config.exists'], 'false')
+    displayName: 'Run mypy static type checker'
+    steps:
+    - script: |
+        pip install mypy
+        echo "Running mypy"
+        # configuration is loaded from pyproject.toml
+        mypy . || true
