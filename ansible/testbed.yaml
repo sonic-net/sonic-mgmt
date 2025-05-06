@@ -1215,9 +1215,8 @@
   topo: t2_single_node_min
   ptf_image_name: docker-ptf
   ptf: svc1-5
-  ptf_ip: 10.206.144.138/24
+  ptf_ip: 10.206.144.33/24
   ptf_ipv6: 2a01:111:e205:100::ace:908a/64
-  netns_mgmt_ip: 10.206.144.78/24
   server: server_svc_1
   vm_base: VM10096
   dut:
@@ -1231,9 +1230,8 @@
   topo: t2_single_node_max
   ptf_image_name: docker-ptf
   ptf: svc1-6
-  ptf_ip: 10.206.144.139/24
+  ptf_ip: 10.206.144.34/24
   ptf_ipv6: 2a01:111:e205:100::ace:908b/64
-  netns_mgmt_ip: 10.206.144.79/24
   server: server_svc_1
   vm_base: VM10102
   dut:
@@ -2192,7 +2190,7 @@
   topo: t0-isolated-d32u32s2
   ptf_image_name: docker-ptf
   ptf: vms70-6
-  ptf_ip: 10.64.247.140/23
+  ptf_ip: 10.64.247.103/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78c/64
   server: server_70
   vm_base: VM70244
@@ -2207,7 +2205,7 @@
   topo: t1-isolated-d56u2
   ptf_image_name: docker-ptf
   ptf: vms70-7
-  ptf_ip: 10.64.247.142/23
+  ptf_ip: 10.64.247.115/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78c/64
   server: server_70
   vm_base: VM70279

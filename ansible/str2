@@ -286,6 +286,9 @@ all:
 
 fanout:
   hosts:
+    str2-7260cx3-acs-root02:
+      ansible_host: 10.3.146.104
+      ansible_hostv6: 
     str2-7260cx3-acs-fan-06:
       ansible_host: 10.3.146.176
       ansible_hostv6: 2a01:111:e210:3000::a03:92b0
