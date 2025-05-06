@@ -151,9 +151,9 @@ bgp/test_bgp_bbr.py:
 
 bgp/test_bgp_command.py:
   skip:
-    reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 topology on Mellanox platform'
+    reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 and t1-isolated-d56u2 topology on Mellanox platform'
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1'] and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2'] and asic_type in ['mellanox']"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -167,7 +167,7 @@ bgp/test_bgp_multipath_relax.py:
     conditions_logical_operator: or
     conditions:
       - "'backend' in topo_name"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17928 and topo_name in ['t1-isolated-d28u1']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17928 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2']"
 
 bgp/test_bgp_port_disable.py:
   skip:
