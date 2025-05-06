@@ -2294,6 +2294,7 @@ snmp/test_snmp_phy_entity.py:
     reason: "Only supports physical testbed."
     conditions:
       - "asic_type in ['vs']"
+      - "'isolated' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/22150"
 
 snmp/test_snmp_queue.py:
   skip:
