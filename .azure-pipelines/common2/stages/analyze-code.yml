@@ -15,6 +15,12 @@ stages:
           set -e -u -o pipefail
           set +x  # Disable command tracing
           echo "Hello"
+          out=`git remote -v`
+          echo "Git remote output: $out"
+          git fetch origin
+          echo "Fetching changes from origin rc = $?"
+          out=`git branch --all`
+          echo "Git branches output: $out"
           exit 1
           # CHANGED_FILES=$(git diff "$target_branch" --name-only)
           # echo "Changed files:"
