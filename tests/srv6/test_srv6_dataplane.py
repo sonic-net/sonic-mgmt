@@ -335,7 +335,6 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # inject a number of packets with random payload
     pkt_count = 100
-    random.seed(time.time())
     payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
     if with_srh:
         injected_pkt = simple_ipv6_sr_packet(
