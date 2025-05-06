@@ -26,7 +26,9 @@ stages:
         displayName: 'Check for changes in tests/common2'
 
   - stage: analyze_code
-    dependsOn: detect_common2_changes ${{ parameters.dependsOn }}
+    dependsOn:
+      - detect_common2_changes
+      - ${{ parameters.dependsOn }}
     condition: eq(dependencies.detect_common2_changes.outputs['check_common2_changes.common2_changes'], 'true')
     displayName: 'Static Analysis for tests/common2'
     jobs:
