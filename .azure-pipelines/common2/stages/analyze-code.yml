@@ -14,7 +14,7 @@ stages:
       - script:
           set -x
           git fetch origin master
-          CHANGED_FILES=$(git diff --name-only origin/master...HEAD)
+          CHANGED_FILES=$(git diff --name-only origin/master..HEAD)
           echo "Changed files:"
           echo "$CHANGED_FILES"
           rc=`echo "$CHANGED_FILES" | grep -q "^tests/common2"`
