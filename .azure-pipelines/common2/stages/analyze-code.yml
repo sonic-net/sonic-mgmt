@@ -12,11 +12,11 @@ stages:
       steps:
       - checkout: self
       - script:
-          set -x
+          set -euxo
           git fetch origin master
           echo "Present directory is $(pwd)"
           echo "Current branch is $(git rev-parse --abbrev-ref HEAD)"
-          CHANGED_FILES=$(git diff --name-only origin/master)
+          CHANGED_FILES=$(git diff --name-only master)
           echo "Changed files:"
           echo "$CHANGED_FILES"
           rc=`echo "$CHANGED_FILES" | grep -q "^tests/common2"`
