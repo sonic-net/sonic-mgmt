@@ -67,9 +67,9 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
-                  module_ignore_errors=True)
+def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
@@ -108,8 +108,9 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
+    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
@@ -134,16 +135,15 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    cmds = [
-        'systemctl reset-failed %s' % (env.gnmi_container),
-        'systemctl restart %s' % (env.gnmi_container)
-    ]
-    duthost.shell_cmds(cmds=cmds)
+    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
+    duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
 def check_system_time_sync(duthost):

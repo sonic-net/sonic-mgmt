@@ -264,8 +264,9 @@ def check_services(duthost):
     if not wait_until(330, 30, 0, duthost.critical_services_fully_started):
         raise RebootHealthError("dut.critical_services_fully_started is False")
 
+    critical_services = [re.sub(r'(\d+)$', r'@\1', service) for service in duthost.critical_services]
     logging.info("Check critical service status")
-    for service in duthost.critical_services:
+    for service in critical_services:
         status = duthost.get_service_props(service)
         if status["ActiveState"] != "active":
             raise RebootHealthError("ActiveState of {} is {}, expected: active".format(
@@ -299,8 +300,13 @@ def check_interfaces_and_transceivers(duthost, request):
 
     logging.info(
         "Check whether transceiver information of all ports are in redis")
-    xcvr_info = duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
-    parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
+    parsed_xcvr_info = []
+
+    for asichost in duthost.asics:
+        docker_cmd = asichost.get_docker_cmd("redis-cli -n 6 keys TRANSCEIVER_INFO*", "database")
+        xcvr_info = duthost.command(docker_cmd)
+        parsed_xcvr_info.extend(parse_transceiver_info(xcvr_info["stdout_lines"]))
+
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     if duthost.facts['hwsku'] in MGFX_HWSKU:
         interfaces = MGFX_XCVR_INTF
@@ -316,13 +322,21 @@ def check_neighbors(duthost, tbinfo):
     Perform a BGP neighborship check.
     """
     logging.info("Check BGP neighbors status. Expected state - established")
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
+
+    # Verify bgp sessions are established
+    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if not wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors):
+        raise RebootHealthError("BGP session not established")
+
+    # Only produces bgp_neighbors attribute of bgp_facts (only one used at the moment)
+    bgp_facts = {'bgp_neighbors': {}}
+    for asichost in duthost.asics:
+        asic_ansible_facts = asichost.bgp_facts()['ansible_facts']
+        bgp_facts['bgp_neighbors'].update(asic_ansible_facts['bgp_neighbors'])
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for value in list(bgp_facts['bgp_neighbors'].values()):
-        # Verify bgp sessions are established
-        if value['state'] != 'established':
-            raise RebootHealthError("BGP session not established")
         # Verify locat ASNs in bgp sessions
         if (value['local AS'] != mg_facts['minigraph_bgp_asn']):
             raise RebootHealthError("Local ASNs not found in BGP session.\
@@ -353,8 +367,47 @@ def verify_no_coredumps(duthost, pre_existing_cores):
                                                                                   coredumps_count))
 
 
+@handle_test_error
+def verify_yang(duthost):
+    """
+    Verify yang over running config
+    """
+    logging.info("Verify yang over running config")
+
+    # return release number of current sonic version such as '20191130'
+    def get_current_sonic_version(duthost):
+        os_version = duthost.shell('sonic_installer list 2>/dev/null | grep Current | cut -f2 -d " "')['stdout']
+        # os_version format:
+        # "SONiC-OS-20191130.89"
+        # "SONiC-OS-master.825947-534613c6d"
+        # "SONiC-OS-internal.121161804-317e9bb571"
+        version = os_version.split('-')[2].split('.')[0]
+        match = re.search(r"SONiC-OS-(\d{8})\.", version)
+        if match:
+            release = match.group(1)
+        else:
+            release = None
+        return release
+
+    release = get_current_sonic_version(duthost)
+    # Skip yang validation when no release number found or old version
+    if not release or release < '20220500':
+        return True
+
+    strict_yang_validation = False
+    # Strict yang validation is supported from 202505
+    if release > '20250500':
+        strict_yang_validation = True
+
+    if not wait_until(60, 15, 0, duthost.yang_validate, strict_yang_validation):
+        raise RebootHealthError("Yang validation failed")
+
+
 @pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
+    """
+    Performs health check on single DUT defined by rand_one_dut_hostname before and after a test
+    """
     global test_report
     test_report = {}
     duthost = duthosts[rand_one_dut_hostname]
@@ -376,9 +429,44 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
+    verify_yang(duthost)
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))
+
+
+@pytest.fixture
+def verify_testbed_health(request, duthosts, tbinfo):
+    """
+    Performs health check on all DUTs in a testbed before and after a test
+    """
+    global test_report
+    for duthost in duthosts:
+        test_report = {}
+        check_services(duthost)
+        check_interfaces_and_transceivers(duthost, request)
+        check_neighbors(duthost, tbinfo)
+        check_all = all([check is True for check in list(test_report.values())])
+        pytest_assert(check_all, "DUT {} not ready for test. Health check failed before reboot: {}"
+                      .format(duthost.hostname, test_report))
+
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell(
+            'ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+
+    yield
+
+    for duthost in duthosts:
+        test_report = {}
+        check_services(duthost)
+        check_interfaces_and_transceivers(duthost, request)
+        check_neighbors(duthost, tbinfo)
+        verify_no_coredumps(duthost, pre_existing_cores)
+        check_all = all([check is True for check in list(test_report.values())])
+        pytest_assert(check_all, "Health check failed for {} after reboot: {}"
+                      .format(duthost.hostname, test_report))
 
 
 def get_current_sonic_version(duthost):
