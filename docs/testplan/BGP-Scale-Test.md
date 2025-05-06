@@ -95,7 +95,7 @@ In the worst senario, verify control/data plane have acceptable conergence time.
 ### Steps
 1. Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
 1. Wait for routes are stable.
-1. Start and keep sending packets with all routes to all portes via ptf.
+1. Start and keep sending packets with all routes to all ports via ptf.
 1. Unshut all ports and wait for routes are stable.
 1. Stop sending packets.
 1. Estamite control/data plane convergence time.
@@ -107,13 +107,13 @@ When routes on BGP peers are flapping, make sure the large next hop group member
 ### Steps
 1. Split all routes into N groups that mapping to the N BGP peers.
 #### Test Withdrawn
-1. Start to sending packets with all routes with in fix time interval to all portes via ptf.
+1. Start to sending packets with all routes with in fix time interval to all ports via ptf.
 1. For each BGP peers, withdraw routes in group.
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite data plane down time.
 #### Test Advertising
-1. Start to sending packets with all routes with in fix time interval to all portes via ptf.
+1. Start to sending packets with all routes with in fix time interval to all ports via ptf.
 1. For each BGP peers, advertise routes in group.
 1. Wait for routes are stable.
 1. Stop sending packets.
