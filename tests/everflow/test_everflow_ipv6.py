@@ -117,7 +117,9 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
                 packets = [
                     testutils.simple_ipv6ip_packet(ipv6_src=selected_addrs2[0],
-                                                   eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+                                                   eth_src=ptfadapter.dataplane.get_mac(
+                                                       *list(ptfadapter.dataplane.ports.keys())[0]
+                                                    ),
                                                    eth_dst=setup_info[everflow_direction]["ingress_router_mac"],
                                                    ipv6_dst=selected_addrs2[1],
                                                    inner_frame=inner_pkt2),
