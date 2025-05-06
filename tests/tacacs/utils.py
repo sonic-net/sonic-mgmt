@@ -80,7 +80,7 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     if not last_timestamp:
         last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
-    # Wait 2 seconds to make sure auditd config re-init time stamp dupe with last timestamp:
+    # Wait 2 seconds to make sure auditd config re-init time stamp not dupe with last timestamp:
     #     https://github.com/sonic-net/sonic-mgmt/issues/16709
     time.sleep(2)
 
