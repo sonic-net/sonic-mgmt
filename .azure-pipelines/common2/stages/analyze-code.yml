@@ -11,8 +11,9 @@ stages:
     - job: check_common2_changes
       steps:
       - checkout: self
-      - script:
-          set -e -u -x -o pipefail
+      - script: |
+          set -e -u -o pipefail
+          set +x  # Disable command tracing
           echo "Hello"
           exit 1
           # CHANGED_FILES=$(git diff "$target_branch" --name-only)
