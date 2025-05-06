@@ -35,6 +35,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.disable_memory_utilization
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
