@@ -530,15 +530,6 @@ dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
       - "'dualtor-aa' in topo_name"
 
 #######################################
-#####            dns              #####
-#######################################
-dns/test_dns_resolv_conf.py:
-  skip:
-    reason: "skip this test to update image dns config"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/18188
-
-#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
