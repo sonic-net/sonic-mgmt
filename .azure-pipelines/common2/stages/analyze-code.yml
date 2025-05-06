@@ -14,7 +14,9 @@ stages:
       - script:
           set -x
           git fetch origin master
-          CHANGED_FILES=$(git diff --name-only origin/master..HEAD)
+          echo "Present directory is $(pwd)"
+          echo "Current branch is $(git rev-parse --abbrev-ref HEAD)"
+          CHANGED_FILES=$(git diff --name-only origin/master)
           echo "Changed files:"
           echo "$CHANGED_FILES"
           rc=`echo "$CHANGED_FILES" | grep -q "^tests/common2"`
