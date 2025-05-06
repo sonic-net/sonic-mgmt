@@ -3055,6 +3055,7 @@ def setup_pfc_test(
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
     test_ports = tp_handle.build_port_list()
 
