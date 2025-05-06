@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
 import jinja2
@@ -194,7 +194,7 @@ exabgp_supervisord_conf_tmpl_p2_v3 = '''\
 command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
 '''
 exabgp_supervisord_conf_tmpl_p2_v4 = '''\
-command=/usr/local/bin/exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
+command=env EXABGP_API_ACK=false /usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
 '''
 
 
