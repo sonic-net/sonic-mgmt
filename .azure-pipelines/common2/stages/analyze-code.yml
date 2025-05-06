@@ -13,12 +13,7 @@ stages:
       - checkout: self
       - script:
           set -euxo
-          echo "##[command] Present directory is $(pwd)"
-          echo "##[command] Current branch is $(git rev-parse --abbrev-ref HEAD)"
-          out=`git remote -v`
-          echo "##[command] Remote branches are $out"
-          out=`git branch --all`
-          echo "##[command] Local branches are $out"
+          echo "Hello"
           exit 1
           # CHANGED_FILES=$(git diff "$target_branch" --name-only)
           # echo "Changed files:"
