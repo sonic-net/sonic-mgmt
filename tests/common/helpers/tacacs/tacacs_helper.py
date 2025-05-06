@@ -344,7 +344,7 @@ def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return res
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
+def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=6):
     while retry_count > 0:
         res = ssh_remote_run(localhost, dutip, user,
                              password, command)
