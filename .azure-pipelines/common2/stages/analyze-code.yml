@@ -12,9 +12,6 @@ stages:
       steps:
       - checkout: self
       - script: |
-          set -e -u -o pipefail
-          set +x  # Disable command tracing
-          echo "Hello"
           out=`git remote -v`
           echo "Git remote output: $out"
           git fetch origin
