@@ -498,7 +498,6 @@ class VMTopology(object):
             'ip link', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
         for row in out.split('\n'):
             fields = row.split(':')
-            logging.info('=== Found bridge %s ===' % fields)
             if len(fields) >= 2:
                 brs.append(fields[1].strip())
 
