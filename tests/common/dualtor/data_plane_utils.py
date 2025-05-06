@@ -6,6 +6,8 @@ import time
 import random
 import shutil
 
+from itertools import groupby
+
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa: F401
 from tests.common.dualtor.dual_tor_common import cable_type     # noqa: F401
@@ -60,6 +62,33 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
     for server_ip, result in natsorted(list(results.items())):
         total_received_packets = result['received_packets']
         received_packet_diff = result['received_packets'] - result['sent_packets']
+
+        # NOTE: merge disruption intervals with duplication intervals.
+        # For example, the below traffic result
+        # "duplications": [
+        #     {
+        #         "start_id": 69,
+        #         "end_id": 69,
+        #         "duplication_count": 5
+        #     },
+        #     {
+        #         "start_id": 70,
+        #         "end_id": 70,
+        #         "duplication_count": 1
+        #     }
+        # ],
+        # "disruptions": [
+        #     {
+        #         "start_id": 67,
+        #         "end_id": 69
+        #     },
+        #     {
+        #         "start_id": 70,
+        #         "end_id": 72
+        #     }
+        # ]
+        # disruptions = [[disruption['start_id'], disruption['end_id']] for disruptioin in result['disruptions']]
+
         total_disruptions = len(result['disruptions'])
 
         longest_disruption = 0
@@ -68,12 +97,18 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
             if disruption_length > longest_disruption:
                 longest_disruption = disruption_length
 
-        total_duplications = len(result['duplications'])
+        total_duplications = len([_ for _ in groupby(enumerate(result['duplications']),
+                                                     lambda t: t[0] - t[1]['start_id'])])
+        largest_duplication_count = 0
+        largest_duplication_count_packet_id = None
         longest_duplication = 0
         for duplication in result['duplications']:
             duplication_length = duplication['end_time'] - duplication['start_time']
             if duplication_length > longest_duplication:
                 longest_duplication = duplication_length
+            if duplication['duplication_count'] > largest_duplication_count:
+                largest_duplication_count = duplication['duplication_count']
+                largest_duplication_count_packet_id = duplication['start_id']
 
         disruption_before_traffic = result['disruption_before_traffic']
         disruption_after_traffic = result['disruption_after_traffic']
@@ -85,6 +120,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
             'longest_disruption': longest_disruption,
             'total_duplications': total_duplications,
             'longest_duplication': longest_duplication,
+            'largest_duplication_count': largest_duplication_count,
             'disruption_before_traffic': disruption_before_traffic,
             'disruption_after_traffic': disruption_after_traffic
         }
@@ -108,15 +144,47 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        # NOTE: Not all testcases set the allowed duplication threshold and the duplication check
-        # uses the allowed disruption threshold here.q So let's set the allowed duplication to
-        # allowed disruption if the allowed duplication is provided here.
+        # NOTE: Add fine-grained duplication check to validate both the duplication sequence
+        # count and max packet duplication count.
+        # The below example has two duplication sequences: 70 ~ 71 and 90, and the mx packet
+        # duplication count is 2 (packet id 90 is duplicated 2 times)
+        # [{'duplication_count': 1,
+        #   'end_id': 70,
+        #   'end_time': 1744253633.499116,
+        #   'start_id': 70,
+        #   'start_time': 1744253633.499116},
+        #  {'duplication_count': 1,
+        #   'end_id': 71,
+        #   'end_time': 1744253633.499151,
+        #   'start_id': 71,
+        #   'start_time': 1744253633.499151},
+        #  {'duplication_count': 2,
+        #   'end_id': 90,
+        #   'end_time': 1744253637.499255,
+        #   'start_id': 90,
+        #   'start_time': 1744253636.499255}]
         if allowed_duplication is None:
-            allowed_duplication = allowed_disruption
-        if total_duplications > allowed_duplication:
+            allowed_duplication_sequence = allowed_disruption
+            allowed_duplication_count_max = 2
+        elif isinstance(allowed_duplication, int):
+            allowed_duplication_sequence = allowed_duplication
+            allowed_duplication_count_max = 2
+        elif isinstance(allowed_duplication, list) or isinstance(allowed_duplication, tuple):
+            allowed_duplication_sequence = allowed_duplication[0]
+            allowed_duplication_count_max = allowed_duplication[1]
+        else:
+            raise ValueError("Invalid allowed duplication %s" % allowed_duplication)
+
+        if total_duplications > allowed_duplication_sequence:
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
+
+        if largest_duplication_count > allowed_duplication_count_max:
+            failures.append("Traffic on server {} with packet id %s has %d duplications. "
+                            "Allowed max number of duplication count: {}"
+                            .format(server_ip, largest_duplication_count_packet_id,
+                                    largest_duplication_count, allowed_duplication_count_max))
 
         if longest_duplication > delay and _validate_long_disruption(result['duplications'],
                                                                      allowed_disruption, delay):
