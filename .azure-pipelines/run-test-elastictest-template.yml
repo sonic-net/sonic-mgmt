@@ -55,7 +55,7 @@ parameters:
 
   - name: PTF_IMAGE_TAG
     type: string
-    default: ""
+    default: "latest"
 
   - name: IMAGE_URL
     type: string
