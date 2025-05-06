@@ -136,12 +136,12 @@ class ContinuousReboot:
                         continue
                     reboot_type = str(install_info.get('REBOOT_TYPE')).lower()
                     if reboot_type != 'warm' and reboot_type != 'fast':
-                        logging.warn(
+                        logging.warning(
                             "Unsupported reboot type - {}. Proceeding with {}.".format(reboot_type, self.reboot_type))
                     else:
                         self.reboot_type = reboot_type
                 except ValueError:
-                    logging.warn(
+                    logging.warning(
                         "Invalid json file, continuing the reboot test with old list of images")
                 break
         logging.info("Copy latest PTF test files to PTF host '{0}'".format(
@@ -166,10 +166,10 @@ class ContinuousReboot:
                 if file_exists != '200':
                     logging.info("Remote image file {} does not exist. Curl returned: {}".format(
                         image_path, file_exists))
-                    logging.warn("Continuing the test with current image")
+                    logging.warning("Continuing the test with current image")
                     self.new_image = "current"
             except ValueError:
-                logging.warn(
+                logging.warning(
                     "Invalid json file, continuing the reboot test with old list of images")
 
         if self.new_image == "current":

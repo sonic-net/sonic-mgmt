@@ -31,7 +31,6 @@ parameters:
     default: ""
 
   - name: NUM_ASIC
-    type: number
     default: 1
 
   - name: TEST_SET
@@ -181,7 +180,7 @@ steps:
           set -ex
 
           # If public build image repo, download pr test scripts from public sonic-mgmt repo
-          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" ]]; then
+          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" || "$(BUILD.REPOSITORY.NAME)" = "Azure/sonic-buildimage-msft" ]]; then
             curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
@@ -190,12 +189,18 @@ steps:
           fi
         displayName: "Download Pr Script"
   - ${{ else }}:
-      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
-          - script: |
-              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
-              set -ex
+        - script: |
+            # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+            set -ex
+            CURRENT_BRANCH=${{ parameters.MGMT_BRANCH }}
+            echo "Current branch: $CURRENT_BRANCH"
+            if [[ "$CURRENT_BRANCH" != "master" ]]; then
+              echo "Current mgmt branch is not master, need to download test_plan.py"
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download Test Plan Script"
+            else
+              echo "Current mgmt branch is master, no need to download test_plan.py"
+            fi
+          displayName: "Download Test Plan Script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
