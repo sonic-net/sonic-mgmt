@@ -73,7 +73,7 @@ def dut_nbrs(duthost, nbrhosts):
     return nbrs_to_dut
 
 
-# Check if DUT has downlink T1 connections. Return one random downlink linecard in a T2 chassis 
+# Check if DUT has downlink T1 connections. Return one random downlink linecard in a T2 chassis
 @pytest.fixture(scope="module")
 def rand_one_downlink_duthost(duthosts, tbinfo):
     dl_duthosts = []
