@@ -287,6 +287,57 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     duthost.shell("config interface startup %s" % interface)
 
 
+def test_gnmi_configdb_full_replace_01(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI native write, full config replace for configDB
+    Toggle interface admin status
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
+    interface = get_first_interface(duthost)
+    assert interface is not None, "Invalid interface"
+
+    # Get ASIC namespace and check interface
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            dic = get_sonic_cfggen_output(duthost, asic.namespace)
+            if interface in dic["PORT"]:
+                break
+    else:
+        dic = get_sonic_cfggen_output(duthost)
+
+    assert "PORT" in dic, "Failed to read running config"
+    assert interface in dic["PORT"], "Failed to get interface %s" % interface
+    assert "admin_status" in dic["PORT"][interface], "Failed to get interface %s" % interface
+
+    def check_admin_status(duthost, interface, expected_status):
+        status = get_interface_status(duthost, "admin_status", interface)
+        return status == expected_status
+
+    # Make sure interface is up to begin with
+    assert check_admin_status(duthost, interface, "up"), "Unexpected port status"
+
+    # Update full config with GNMI
+    dic["PORT"][interface]["admin_status"] = "down"
+    filename = "full.txt"
+    with open(filename, 'w') as file:
+        json.dump(dic, file)
+    ptfhost.copy(src=filename, dest='/root')
+
+    replace_list = ["/sonic-db:CONFIG_DB/localhost/:@/root/%s" % filename]
+    gnmi_set(duthost, ptfhost, [], [], replace_list)
+
+    # Check that interface is down after full config push
+    pytest_assert(
+        wait_until(30, 2, 0, check_admin_status, duthost, interface, "down"),
+        "Full config failed to toggle interface %s status" % interface)
+
+    # Startup interface
+    duthost.shell("config interface startup %s" % interface)
+    duthost.shell("config save -y")
+
+
 def test_gnmi_configdb_set_authenticate(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     Verify GNMI native write with authentication
