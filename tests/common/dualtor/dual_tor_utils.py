@@ -1453,7 +1453,7 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt = Ether(
         src=ptfadapter.dataplane.get_mac(
             *list(ptfadapter.dataplane.ports.keys())[0]
-        ), 
+        ),
         dst=duthost.facts["router_mac"]
     )
     pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)

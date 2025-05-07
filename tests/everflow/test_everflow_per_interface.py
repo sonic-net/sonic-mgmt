@@ -174,14 +174,14 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
         packet = testutils.simple_tcp_packet(
             eth_src=ptfadapter.dataplane.get_mac(
                 *list(ptfadapter.dataplane.ports.keys())[0]
-            ), 
+            ),
             eth_dst=router_mac
         )
     else:
         packet = testutils.simple_tcpv6_packet(
             eth_src=ptfadapter.dataplane.get_mac(
                 *list(ptfadapter.dataplane.ports.keys())[0]
-            ), 
+            ),
             eth_dst=router_mac
         )
 
