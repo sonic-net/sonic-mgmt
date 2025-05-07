@@ -16,18 +16,18 @@ from scapy.all import IP, Ether
 from tabulate import tabulate
 
 from tests.common.devices.multi_asic import MultiAsicSonicHost
-from tests.common.dualtor.mux_simulator_control import (
+from tests.common.dualtor.mux_simulator_control import (  # noqa F401
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F401
-)
+)  # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_config_table_presence
-from tests.common.helpers.ptf_tests_helper import (
+from tests.common.helpers.ptf_tests_helper import (  # noqa F401
     downstream_links,  # noqa F401
     get_dut_pair_port_from_ptf_port,  # noqa F401
     select_random_link,
     upstream_links,  # noqa F401
-)
+)  # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.ptfadapter.ptfadapter import PtfTestAdapter
 
