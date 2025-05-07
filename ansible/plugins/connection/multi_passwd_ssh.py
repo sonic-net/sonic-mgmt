@@ -116,11 +116,11 @@ def _password_retry(func):
                 ipv4_addr_unavailable and hostv6
             if not try_ipv6_addr:
                 raise e
-            self._change_host(hostv6, *args)
+            _change_host(self, hostv6, *args)
             try:
                 return _conn_with_multi_pwd(self, *args, **kwargs)
             except AnsibleConnectionFailure as e:
-                self._change_host(orig_host, *args)
+                _change_host(self, orig_host, *args)
                 raise e
 
     return wrapped
