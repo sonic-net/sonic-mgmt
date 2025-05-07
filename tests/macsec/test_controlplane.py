@@ -91,7 +91,7 @@ class TestControlPlane():
     @pytest.mark.disable_loganalyzer
     def test_profile_replace(self, duthost, ctrl_links,
                              profile_name, default_priority, cipher_suite,
-                             primary_cak, primary_ckn, policy, send_sci, rekey_period, wait_mka_establish):
+                             primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo, wait_mka_establish):
         # Only pick one controlled link for profile replace test
         ctrl_link = dict([next(iter(ctrl_links.items()))])
         port_name, nbr = list(ctrl_link.items())[0]
@@ -100,7 +100,8 @@ class TestControlPlane():
         # Replace existing profile with new profile
         new_profile_name = profile_name+"_NEW"
         setup_macsec_configuration(duthost, ctrl_link, new_profile_name, default_priority,
-                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
+                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
+
         def check_mka_new_session():
             _, _, new_dut_ingress_sc_table, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
                 duthost, port_name, nbr["host"], nbr["port"])
