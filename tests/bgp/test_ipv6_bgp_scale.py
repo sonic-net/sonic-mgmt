@@ -347,80 +347,6 @@ def test_sessions_flapping(
         duthost.no_shutdown_multiple(flapping_ports)
 
 
-def test_device_unisolation(
-    duthost,
-    ptfadapter,
-    bgp_peers_info,
-    setup_packet_mask_counters,
-    announce_bgp_routes_teardown
-):
-    '''
-    This test is for the worst senario that all ports are flapped,
-    verify control/data plane have acceptable conergence time.
-    Steps:
-        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
-        Wait for routes are stable.
-        Start and keep sending packets with all routes to all portes via ptf.
-        Unshut all ports and wait for routes are stable.
-        Stop sending packets.
-        Estamite control/data plane convergence time.
-    Expected result:
-        Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
-    '''
-    pdp = ptfadapter.dataplane
-    exp_mask = setup_packet_mask_counters
-    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-    injection_dut_port = random.choice(bgp_ports)
-    injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
-    logger.info("Injection port: %s", injection_port)
-
-    startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
-    pkts = generate_packets(
-        ecmp_routes,
-        duthost.facts['router_mac'],
-        pdp.get_mac(0, injection_port)
-    )
-
-    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
-    expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
-    try:
-        duthost.shutdown_multiple(bgp_ports)
-        ports_shut_time = datetime.datetime.now()
-        recovered = wait_for_ipv6_bgp_routes_recovery(
-            duthost,
-            expected_routes,
-            ports_shut_time,
-            MAX_CONVERGENCE_WAIT_TIME
-        )
-        if not recovered:
-            pytest.fail("BGP routes are not stable in long time")
-    except Exception:
-        duthost.no_shutdown_multiple(bgp_ports)
-
-    terminated = Event()
-    traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
-    )
-    flush_counters(pdp, exp_mask)
-    start_time = datetime.datetime.now()
-    traffic_thread.start()
-    duthost.no_shutdown_multiple(bgp_ports)
-    ports_startup_time = datetime.datetime.now()
-    recovered = wait_for_ipv6_bgp_routes_recovery(
-        duthost,
-        startup_routes,
-        ports_startup_time,
-        MAX_CONVERGENCE_WAIT_TIME
-    )
-    terminated.set()
-    traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_UNISOLATION)
-    if not recovered:
-        pytest.fail("BGP routes are not stable in long time")
-
-
 def test_nexthop_group_member_scale(
     duthost,
     ptfadapter,
@@ -513,5 +439,79 @@ def test_nexthop_group_member_scale(
     traffic_thread.join()
     end_time = datetime.datetime.now()
     validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    if not recovered:
+        pytest.fail("BGP routes are not stable in long time")
+
+
+def test_device_unisolation(
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    setup_packet_mask_counters,
+    announce_bgp_routes_teardown
+):
+    '''
+    This test is for the worst senario that all ports are flapped,
+    verify control/data plane have acceptable conergence time.
+    Steps:
+        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
+        Wait for routes are stable.
+        Start and keep sending packets with all routes to all portes via ptf.
+        Unshut all ports and wait for routes are stable.
+        Stop sending packets.
+        Estamite control/data plane convergence time.
+    Expected result:
+        Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
+    '''
+    pdp = ptfadapter.dataplane
+    exp_mask = setup_packet_mask_counters
+    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
+    injection_dut_port = random.choice(bgp_ports)
+    injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
+    logger.info("Injection port: %s", injection_port)
+
+    startup_routes = get_all_bgp_ipv6_routes(duthost)
+    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
+    pkts = generate_packets(
+        ecmp_routes,
+        duthost.facts['router_mac'],
+        pdp.get_mac(0, injection_port)
+    )
+
+    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
+    expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
+    try:
+        duthost.shutdown_multiple(bgp_ports)
+        ports_shut_time = datetime.datetime.now()
+        recovered = wait_for_ipv6_bgp_routes_recovery(
+            duthost,
+            expected_routes,
+            ports_shut_time,
+            MAX_CONVERGENCE_WAIT_TIME
+        )
+        if not recovered:
+            pytest.fail("BGP routes are not stable in long time")
+    except Exception:
+        duthost.no_shutdown_multiple(bgp_ports)
+
+    terminated = Event()
+    traffic_thread = Thread(
+        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
+    )
+    flush_counters(pdp, exp_mask)
+    start_time = datetime.datetime.now()
+    traffic_thread.start()
+    duthost.no_shutdown_multiple(bgp_ports)
+    ports_startup_time = datetime.datetime.now()
+    recovered = wait_for_ipv6_bgp_routes_recovery(
+        duthost,
+        startup_routes,
+        ports_startup_time,
+        MAX_CONVERGENCE_WAIT_TIME
+    )
+    terminated.set()
+    traffic_thread.join()
+    end_time = datetime.datetime.now()
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_UNISOLATION)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
