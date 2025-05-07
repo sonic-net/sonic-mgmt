@@ -7,7 +7,7 @@ import logging
 import random
 import time
 from enum import Enum
-from typing import Any
+from typing import Any, Dict
 
 import ptf.testutils as testutils
 import pytest
@@ -42,7 +42,7 @@ DUMMY_SRC_IP = "8.8.8.8"
 output_table = []
 packet_egressed_success = False
 CONFIG_DB_JSON_PATH: str = "/etc/sonic/config_db.json"
-TC_TO_DSCP_MAP: dict[str, dict[str, str]] = {
+TC_TO_DSCP_MAP: Dict[str, Dict[str, str]] = {
     "AZURE": {
         "0": "1",
         "1": "2",
@@ -80,7 +80,7 @@ class TestMode(Enum):
 @pytest.fixture
 def apply_tc_to_dscp_map_config(
     duthost,
-    upstream_links: dict,  # noqa F811
+    upstream_links: Dict,  # noqa F811
     request,
 ):
     """
@@ -258,7 +258,7 @@ def send_and_verify_traffic(
             )
 
 
-def validate_qos_map_on_port(intf: str, qos_map: str, config_db: dict) -> bool:
+def validate_qos_map_on_port(intf: str, qos_map: str, config_db: Dict) -> bool:
     """
     Checks if a specific qos map ex. dscp_to_tc_map is present for
     a specific interface on the switch. Returns True if present,
@@ -273,7 +273,7 @@ def validate_qos_map_on_port(intf: str, qos_map: str, config_db: dict) -> bool:
 
 
 def ingress_to_egress_dscp_conversion(
-    ingress_dscp: int, dscp_to_tc_map: dict, tc_to_dscp_map: dict
+    ingress_dscp: int, dscp_to_tc_map: Dict, tc_to_dscp_map: Dict
 ) -> int:
     if not tc_to_dscp_map:
         return ingress_dscp
@@ -303,8 +303,8 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
     def _setup_test_params(
         self,
         duthost,
-        downstream_links: dict,  # noqa F811
-        upstream_links: dict,  # noqa F811
+        downstream_links: Dict,  # noqa F811
+        upstream_links: Dict,  # noqa F811
         test_mode: TestMode,
     ):
         """
@@ -316,7 +316,7 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
             upstream_links (fixture): Dictionary of upstream links info for DUT
             test_mode (str): Type of test i.e. correct mapping, invalid mapping, missing mapping, etc
         """
-        test_params: dict[str, Any] = {}
+        test_params: Dict[str, Any] = {}
         downlink = select_random_link(downstream_links)
         router_mac = duthost.facts["router_mac"]
         egress_intf = None
@@ -371,9 +371,9 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
         self,
         ptfadapter: PtfTestAdapter,
         duthost: MultiAsicSonicHost,
-        tbinfo: dict,
-        test_params: dict,
-        dut_qos_maps_module: dict,  # noqa F811
+        tbinfo: Dict,
+        test_params: Dict,
+        dut_qos_maps_module: Dict,  # noqa F811
         test_mode: TestMode,
     ):  # noqa F811
         """
