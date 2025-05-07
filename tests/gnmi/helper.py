@@ -228,7 +228,14 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     else:
         cmd += '-pkey /root/gnmiclient.key '
         cmd += '-cchain /root/gnmiclient.crt '
-    cmd += '-m set-update '
+    if len(replace_list) >= 1:
+        cmd += '-m set-replace '
+    elif len(update_list) >= 1:
+        cmd += '-m set-update '
+    elif len(delete_list) >= 1:
+        cmd += '-m set-delete '
+    else:
+        raise Exception("SET operation must have at least one entry to modify")
     xpath = ''
     xvalue = ''
     for path in delete_list:
