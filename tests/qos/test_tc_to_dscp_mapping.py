@@ -76,58 +76,96 @@ class TestMode(StrEnum):
     VALID_TABLE_MISSING_MAP: a valid TC_TO_DSCP map is present but the egress
                              interface is missing a valid mapping.
     MISSING_TABLE: the TC_TO_DSCP map is missing.
+    VALID_TABLE_MISSING_TC: a valid TC_TO_DSCP map is present but some TC values are missing.
     """
 
     VALID_TABLE_VALID_MAP = "valid_table_valid_map"
     VALID_TABLE_MISSING_MAP = "valid_table_missing_map"
     MISSING_TABLE = "missing_table"
+    VALID_TABLE_MISSING_TC = "valid_table_missing_tc"
 
 
 @pytest.fixture
 def apply_tc_to_dscp_map_config(
     duthost,
     upstream_links: dict,  # noqa F811
+    request,
 ):
     """
     Apply the TC_TO_DSCP map configuration to the DUT.
 
+    This fixture can apply either a standard TC_TO_DSCP map or one with missing TC entries
+    based on the test's needs. When 'missing_tc' is True, it creates a map with missing TC values.
+
     Args:
         duthost: The DUT host object.
+        upstream_links: Dictionary containing upstream link information.
+        request: Pytest request object for fixture parameterization.
+
+    Returns:
+        The applied TC_TO_DSCP map when 'missing_tc' is True, otherwise None.
     """
+    missing_tc = request.param if hasattr(request, "param") else False
+
     tc_to_dscp_map_present = check_config_table_presence(
         duthost, table_name="TC_TO_DSCP_MAP"
     )
-    if tc_to_dscp_map_present:
+
+    if missing_tc:
+        tc_to_dscp_map = {
+            "AZURE": {
+                "0": "1",
+                "1": "2",
+                "2": "2",
+                # TC 3 is missing
+                "4": "4",
+                # TC 5 is missing
+                "6": "7",
+                "7": "8",
+            }
+        }
+    else:
+        tc_to_dscp_map = TC_TO_DSCP_MAP
+
+    if tc_to_dscp_map_present and not missing_tc:
         logger.info("TC_TO_DSCP_MAP already present in config db. Skipping setup.")
-        yield
+        yield None
     else:
         config_db_json = duthost.shell(f"cat {CONFIG_DB_JSON_PATH}")["stdout"]
         config_db_dict: dict = json.loads(config_db_json)
-        config_db_dict["TC_TO_DSCP_MAP"] = TC_TO_DSCP_MAP
+
+        backup_file = "/etc/sonic/config_db_backup.json"
+        duthost.shell(f"cp /etc/sonic/config_db.json {backup_file}")
+
+        # Apply the TC_TO_DSCP map
+        config_db_dict["TC_TO_DSCP_MAP"] = tc_to_dscp_map
         port_qos_map: dict = config_db_dict.get("PORT_QOS_MAP")
         pytest_assert(port_qos_map, "PORT_QOS_MAP missing from duthost config.")
 
         for upstream_intf in upstream_links.keys():
-            # Set TC_TO_DSCP map attribute for egress intfs
             config_db_dict["PORT_QOS_MAP"][upstream_intf]["tc_to_dscp_map"] = "AZURE"
 
-        backup_file = "/etc/sonic/config_db_backup.json"
-        duthost.shell(f"cp /etc/sonic/config_db.json {backup_file}")
         duthost.copy(
             content=json.dumps(config_db_dict, indent=4), dest=CONFIG_DB_JSON_PATH
         )
-        logger.info("Running QoS Reload on switch")
+
+        log_message = "Running QoS Reload on switch"
+        if missing_tc:
+            log_message += " with missing TC mappings"
+        logger.info(log_message)
+
         duthost.shell("sudo config qos reload -y")
         wait_critical_processes(duthost)
 
-        yield
+        yield tc_to_dscp_map if missing_tc else None
 
     # Reset back to original config
-    if tc_to_dscp_map_present:
+    if tc_to_dscp_map_present and not missing_tc:
         logger.info("TC_TO_DSCP_MAP already present in config db. Skipping teardown.")
         return None
+
     duthost.shell(f"cp {backup_file} /etc/sonic/config_db.json")
-    logger.info("Running QoS Reload on switch")
+    logger.info("Running QoS Reload on switch to restore original config")
     duthost.shell("sudo config qos reload -y")
     wait_critical_processes(duthost)
 
@@ -280,7 +318,6 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
         router_mac = duthost.facts["router_mac"]
         egress_intf = None
 
-        # Read the current config_db.json
         config_db_json = duthost.shell("cat /etc/sonic/config_db.json")["stdout"]
         config_db_dict = json.loads(config_db_json)
 
@@ -376,6 +413,12 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
                     dscp_to_tc_map=dut_qos_maps_module.get("dscp_to_tc_map"),
                     tc_to_dscp_map=TC_TO_DSCP_MAP,
                 )
+            elif test_mode == TestMode.VALID_TABLE_MISSING_TC:
+                exp_dscp = ingress_to_egress_dscp_conversion(
+                    ingress_dscp=ingress_dscp,
+                    dscp_to_tc_map=dut_qos_maps_module.get("dscp_to_tc_map"),
+                    tc_to_dscp_map=test_params.get("tc_to_dscp_map"),
+                )
             else:
                 exp_dscp = ingress_dscp
 
@@ -419,7 +462,7 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
                         ]
                     )
             except ConnectionError as e:
-                # Sending large number of packets can cause socket buffer to be full and leads connection timeout.
+                # Sending large number of packets can cause socket buffer to be full and leads to a connection timeout.
                 logger.error(f"Try reducing DEFAULT_PKT_COUNT value: {e}")
                 failed_once = True
                 output_table.append(
@@ -443,6 +486,7 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
 
         pytest_assert(not failed_once, "FAIL: Test failed. See table details.")
 
+    @pytest.mark.parametrize("apply_tc_to_dscp_map_config", [False], indirect=True)
     def test_tc_to_dscp_map_valid_table_valid_map(
         self,
         ptfadapter,
@@ -474,7 +518,8 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
             test_mode,
         )
 
-    def test_tc_to_dscp_map_missing_table(
+    @pytest.mark.parametrize("apply_tc_to_dscp_map_config", [True], indirect=True)
+    def test_tc_to_dscp_map_missing_tc(
         self,
         ptfadapter,
         rand_selected_dut,
@@ -484,16 +529,19 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
         downstream_links,  # noqa F811
         upstream_links,  # noqa F811
         dut_qos_maps_module,  # noqa F811
+        apply_tc_to_dscp_map_config,  # noqa F811
     ):
         """
-        Test TC to DSCP mapping for missing TC TO DSCP mapping
-        so packet will egress with ingress DSCP value.
+        Test TC to DSCP mapping when there's no entry for a TC value in the TC_TO_DSCP map.
+        In this scenario, the ingress DSCP should be retained in the egress packet.
         """
         duthost = rand_selected_dut
-        test_mode = TestMode.VALID_TABLE_VALID_MAP
+        test_mode = TestMode.VALID_TABLE_MISSING_TC
         test_params = self._setup_test_params(
             duthost, downstream_links, upstream_links, test_mode
         )
+        test_params["tc_to_dscp_map"] = apply_tc_to_dscp_map_config
+
         self._run_test(
             ptfadapter,
             duthost,
