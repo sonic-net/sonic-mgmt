@@ -727,7 +727,7 @@ sonic_arista_7050cx3:
         "0x24": "68:8b:f4:87:9d:dc"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
-        "0x27": "12.02"
+        "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32s"
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
