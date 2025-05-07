@@ -1227,8 +1227,10 @@ def print_env_info(data, device_type, vEOS_count):
     print("******************************************************************************************************************************************************************************\n")
 
 def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
-    sim_cfg_filename = "sim_credentials.json"
+    sim_cfg_filename = "sim_env.sh"
     sim_cfg = {}
+
+    file_contents = ""
 
     for dut_name in get_dut_names(data):
         device = data[dut_name]
@@ -1237,30 +1239,28 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
         dut_pass = "{}_PASSWORD".format(dut_name.upper().replace(" ", "_"))
         dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
 
-        sim_cfg[dut_host] = device['HostAgent']
-        sim_cfg[dut_username] = "cisco"
-        sim_cfg[dut_pass] = "cisco123"
-        sim_cfg[dur_ssh_port] = device['xr_redir22']
+        file_contents +=  f"export {dut_host}={device['HostAgent']}\n"
+        file_contents +=  f"export {dut_username}=cisco\n"
+        file_contents +=  f"export {dut_pass}=cisco123\n"
+        file_contents +=  f"export {dur_ssh_port}={device['xr_redir22']}\n"
 
-    sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
-    sim_cfg["SONIC_MGMT_USERNAME"] = "vxr"
-    sim_cfg["SONIC_MGMT_PASSWORD"] = "cisco123"
-    sim_cfg["SONIC_MGMT_SSH_PORT"] = data['sonic_mgmt']['xr_redir22']
-
-    sim_cfg["PTF_HOST"] = data['docker_ptf']['HostAgent']
-    sim_cfg["PTF_USERNAME"] = "root"
-    sim_cfg["PTF_PASSWORD"] = "root"
-    sim_cfg["PTF_SSH_PORT"] = data['docker_ptf']['xr_redir22']
-
-    sim_cfg['TOPO_NAME'] = topo_name
-    sim_cfg['DEVICE_TYPE'] = device_type
-    sim_cfg['DOCKER_MGMT_CONTAINER'] = docker_mgmt_container
+    file_contents +=  f"export SONIC_MGMT_HOST={data['sonic_mgmt']['HostAgent']}\n"
+    file_contents +=  f"export SONIC_MGMT_USERNAME=vxr\n"
+    file_contents +=  f"export SONIC_MGMT_PASSWORD=cisco123\n"
+    file_contents +=  f"export SONIC_MGMT_SSH_PORT={data['sonic_mgmt']['xr_redir22']}\n"
+    file_contents +=  f"export PTF_HOST={data['docker_ptf']['HostAgent']}\n"
+    file_contents +=  f"export PTF_USERNAME=root\n"
+    file_contents +=  f"export PTF_PASSWORD=root\n"
+    file_contents +=  f"export PTF_SSH_PORT={data['docker_ptf']['xr_redir22']}\n"
+    file_contents +=  f"export TOPO_NAME={topo_name}\n"
+    file_contents +=  f"export DEVICE_TYPE={device_type}\n"
+    file_contents +=  f"export DOCKER_MGMT_CONTAINER={docker_mgmt_container}\n"
 
     print("Exporting sim credentials to file: {}".format(sim_cfg_filename))
     print("Contents: \n{}".format(sim_cfg))
 
     with open(sim_cfg_filename,'w') as cfg_file:
-            json.dump(sim_cfg, cfg_file, indent=4)
+            cfg_file.write(file_contents)
 
 def get_lc_topo_type(topo_yaml):
     """ Generates LC topology code based on LC types used in Chassis topology.

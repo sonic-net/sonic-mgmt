@@ -62,19 +62,11 @@ run_sanity:
 		cd infra; \
 		source pyats/bin/activate; \
 		python3.8 -u run_scripts_remote.py  \
-		--host_address=${HOST_ADDRESS} \
-		--username=${USERNAME} \
-		--password=${PASSWORD} \
-		--ssh_port=${SSH_PORT} \
-		--topo_name=${TOPO_NAME} \
 		--script_file=${TESTFILE} \
-		--device_type=${DEVICE_TYPE} \
+		--device_type=${PLATFORM} \
 		--topo_type=${TOPOLOGY} \
-		--docker_mgmt_container='${DOCKER_MGMT_CONTAINER}' \
-		--sonic_test_dir='${SONIC_TEST_DIR}' \
 		--create_allure_report \
 		--additional_tests='${ADDITIONAL_TESTS}' \
-		--dut_data_file='vxr_ports.yaml' \
 		--test_tag '${TEST_TAG}' \
 		--add_sim_patches  \
 		$(SIM_ADDITIONAL_PARAMS) \

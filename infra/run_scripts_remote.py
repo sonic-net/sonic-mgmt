@@ -628,7 +628,40 @@ def upload_log_files(files_to_copy):
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
             sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, add_sim_patches=False, test_tag=None):
     sanity_start_time = datetime.datetime.now()
+
+    print('run_scripts_remote, params:')
+    print(f"""
+host={host},
+username={username},
+password={password},
+script_file={script_file},
+drop_version={drop_version},
+log_dir={log_dir},
+device_type={device_type},
+topo_type={topo_type},
+create_allure_report={create_allure_report},
+ssh_port={ssh_port},
+topo_name={topo_name},
+additional_tests={additional_tests},
+sonic_test_dir={sonic_test_dir},
+docker_mgmt_container={docker_mgmt_container},
+skip_sanity={skip_sanity},
+dut_data_file={dut_data_file},
+add_sim_patches={add_sim_patches},
+test_tag={test_tag},
+          """)
+
     
+    if not os.path.exists(dut_data_file):
+        print(f"ERROR! dut data file '{dut_data_file}' does not exist! Exiting")
+        return -1
+
+    if not host or not ssh_port:
+        with open(dut_data_file) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        host = data['sonic_mgmt']['HostAgent']
+        ssh_port = data['sonic_mgmt']['xr_redir22']
+
     run_result = None
     failure_reason = None
 
@@ -734,13 +767,13 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-a', '--host_address', type=str, help='host address to ssh into',
-                      required=True,default=None)
+                      required=False,default=None)
     parser.add_argument('-r', '--ssh_port', type=str, help='port_used for ssh',
                       required=False,default=22)
-    parser.add_argument('-u', '--username', type=str, help='username for ssh',
-                      required=True,default=None)
-    parser.add_argument('-p', '--password', type=str, help='ssh password',
-                      required=True,default=None)
+    parser.add_argument('-u', '--username', type=str, help='username used to ssh into machine running sonic-mgmt',
+                      required=False,default="vxr")
+    parser.add_argument('-p', '--password', type=str, help='password used to ssh into mechine running sonic-mgmt',
+                      required=False,default="cisco123")
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -750,7 +783,7 @@ def _create_parser():
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64")
+                      required=True,default="mth64")
     parser.add_argument('-tt', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag')
     parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
@@ -766,7 +799,7 @@ def _create_parser():
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
                       default=False)
     parser.add_argument('-m', '--dut_data_file', type=str, help='path of file containing DUT access info',
-                      required=True,default=None)
+                      required=False,default='vxr_ports.yaml')
     parser.add_argument('-y', '--test_tag', type=str, help='tag to get tests to run from sanity file. Comma seperated \
         For e.g.fwd,plt', required=False,default=None)
     return parser
