@@ -1,25 +1,45 @@
+
 D1:
   sonic:
     config: |
+      sudo config interface ip add D1D2P1 1001:100:40::1/64
+      sudo config interface ip add D1D2P2 1001:100:44::1/64
+      sudo config interface ip add D1D2P3 1001:100:80::1/64
+      sudo config interface ip add D1D2P4 1001:100:84::1/64
+      sudo config interface ip add D1D2P5 1001:100:88::1/64
+      sudo config interface ip add D1D2P7 1001:100:232::1/64
+      sudo config interface ip add D1D2P8 1001:100:236::1/64
+      sudo config interface ip add D1T1P1 2001:200:1::1/64
+
+
       sudo config interface ip add D1D2P1 100.100.40.1/24
       sudo config interface ip add D1D2P2 100.100.44.1/24
       sudo config interface ip add D1D2P3 100.100.80.1/24
       sudo config interface ip add D1D2P4 100.100.84.1/24
       sudo config interface ip add D1D2P5 100.100.88.1/24
-      sudo config interface ip add D1D2P6 100.100.104.1/24
       sudo config interface ip add D1D2P7 100.100.232.1/24
       sudo config interface ip add D1D2P8 100.100.236.1/24
       sudo config interface ip add D1T1P1 200.200.1.1/24
     deconfig: |
+
+      sudo config interface ip rem D1D2P1 1001:100:40::1/64
+      sudo config interface ip rem D1D2P2 1001:100:44::1/64
+      sudo config interface ip rem D1D2P3 1001:100:80::1/64
+      sudo config interface ip rem D1D2P4 1001:100:84::1/64
+      sudo config interface ip rem D1D2P5 1001:100:88::1/64
+      sudo config interface ip rem D1D2P7 1001:100:232::1/64
+      sudo config interface ip rem D1D2P8 1001:100:236::1/64
+      sudo config interface ip rem D1T1P1 2001:200:1::1/64
+
       sudo config interface ip rem D1D2P1 100.100.40.1/24
       sudo config interface ip rem D1D2P2 100.100.44.1/24
       sudo config interface ip rem D1D2P3 100.100.80.1/24
       sudo config interface ip rem D1D2P4 100.100.84.1/24
       sudo config interface ip rem D1D2P5 100.100.88.1/24
-      sudo config interface ip rem D1D2P6 100.100.104.1/24
       sudo config interface ip rem D1D2P7 100.100.232.1/24
       sudo config interface ip rem D1D2P8 100.100.236.1/24
       sudo config interface ip rem D1T1P1 200.200.1.1/24
+
       sudo config interface startup D1D2P1
   bgp:
     config: |
@@ -28,29 +48,83 @@ D1:
       bgp router-id 10.200.200.200
       no bgp ebgp-requires-policy
       no bgp default ipv4-unicast
+      
       bgp disable-ebgp-connected-route-check
       bgp bestpath as-path multipath-relax
       no bgp network import-check
+
       neighbor 100.100.40.2 remote-as 65201
       neighbor 100.100.44.2 remote-as 65201
       neighbor 100.100.80.2 remote-as 65201
       neighbor 100.100.84.2 remote-as 65201
       neighbor 100.100.88.2 remote-as 65201
-      neighbor 100.100.104.2 remote-as 65201
       neighbor 100.100.232.2 remote-as 65201
       neighbor 100.100.236.2 remote-as 65201
       neighbor 200.200.1.2 remote-as 65205
+
+      neighbor 1001:100:40::2 remote-as 65201
+      neighbor 1001:100:44::2 remote-as 65201
+      neighbor 1001:100:80::2 remote-as 65201
+      neighbor 1001:100:84::2 remote-as 65201
+      neighbor 1001:100:88::2 remote-as 65201
+      neighbor 1001:100:232::2 remote-as 65201
+      neighbor 1001:100:236::2 remote-as 65201
+      neighbor 2001:200:1::2 remote-as 65205
+
       address-family ipv4 unicast
       neighbor 100.100.40.2 activate
       neighbor 100.100.44.2 activate
       neighbor 100.100.80.2 activate
       neighbor 100.100.84.2 activate
       neighbor 100.100.88.2 activate
-      neighbor 100.100.104.2 activate
       neighbor 100.100.232.2 activate
       neighbor 100.100.236.2 activate
       neighbor 200.200.1.2 activate
       exit-address-family
+
+      address-family ipv6 unicast
+      neighbor 1001:100:40::2 activate
+      neighbor 1001:100:40::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:40::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:44::2 activate
+      neighbor 1001:100:44::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:44::2 route-map TO_BGP_PEER_V6 out
+      
+      neighbor 1001:100:80::2 activate
+      neighbor 1001:100:80::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:80::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:84::2 activate
+      neighbor 1001:100:84::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:84::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:88::2 activate
+      neighbor 1001:100:88::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:88::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:232::2 activate
+      neighbor 1001:100:232::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:232::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:236::2 activate
+      neighbor 1001:100:236::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:236::2 route-map TO_BGP_PEER_V6 out
+
+      neighbor 2001:200:1::2 activate
+      neighbor 2001:200:1::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 2001:200:1::2 route-map TO_BGP_PEER_V6 out
+      exit-address-family
+      exit
+
+      route-map FROM_BGP_PEER_V6 permit 1
+      on-match next
+      set ipv6 next-hop prefer-global
+      exit
+      route-map FROM_BGP_PEER_V6 permit 100
+      exit
+      route-map TO_BGP_PEER_V6 permit 100
+
       end
       exit
     deconfig: |
@@ -61,6 +135,7 @@ D1:
 D2:
   sonic:
     config: |
+
       sudo config interface ip add D2D1P1 100.100.40.2/24
       sudo config interface ip add D2D1P2 100.100.44.2/24
       sudo config interface ip add D2D1P3 100.100.80.2/24
@@ -70,16 +145,36 @@ D2:
       sudo config interface ip add D2D1P7 100.100.232.2/24
       sudo config interface ip add D2D1P8 100.100.236.2/24
       sudo config interface ip add D2T1P1 200.100.1.1/24
+
+      sudo config interface ip add D2D1P1 1001:100:40::2/64
+      sudo config interface ip add D2D1P2 1001:100:44::2/64
+      sudo config interface ip add D2D1P3 1001:100:80::2/64
+      sudo config interface ip add D2D1P4 1001:100:84::2/64
+      sudo config interface ip add D2D1P5 1001:100:88::2/64
+      sudo config interface ip add D2D1P6 1001:100:104::2/64
+      sudo config interface ip add D2D1P7 1001:100:232::2/64
+      sudo config interface ip add D2D1P8 1001:100:236::2/64
+      sudo config interface ip add D2T1P1 2001:100:1::1/64
     deconfig: |
+
       sudo config interface ip rem D2D1P1 100.100.40.2/24
       sudo config interface ip rem D2D1P2 100.100.44.2/24
       sudo config interface ip rem D2D1P3 100.100.80.2/24
       sudo config interface ip rem D2D1P4 100.100.84.2/24
       sudo config interface ip rem D2D1P5 100.100.88.2/24
-      sudo config interface ip rem D2D1P6 100.100.104.2/24
       sudo config interface ip rem D2D1P7 100.100.232.2/24
       sudo config interface ip rem D2D1P8 100.100.236.2/24
       sudo config interface ip rem D2T1P1 200.100.1.1/24
+
+      sudo config interface ip rem D2D1P1 1001:100:40::2/64
+      sudo config interface ip rem D2D1P2 1001:100:44::2/64
+      sudo config interface ip rem D2D1P3 1001:100:80::2/64
+      sudo config interface ip rem D2D1P4 1001:100:84::2/64
+      sudo config interface ip rem D2D1P5 1001:100:88::2/64
+      sudo config interface ip rem D2D1P7 1001:100:232::2/64
+      sudo config interface ip rem D2D1P8 1001:100:236::2/64
+      sudo config interface ip rem D2T1P1 2001:100:1::1/64
+      sudo config interface startup D2D1P1
   bgp:
     config: |
       no router bgp
@@ -90,15 +185,26 @@ D2:
       bgp disable-ebgp-connected-route-check
       bgp bestpath as-path multipath-relax
       no bgp network import-check
+
+
       neighbor 100.100.40.1 remote-as 65200
       neighbor 100.100.44.1 remote-as 65200
       neighbor 100.100.80.1 remote-as 65200
       neighbor 100.100.84.1 remote-as 65200
       neighbor 100.100.88.1 remote-as 65200
-      neighbor 100.100.104.1 remote-as 65200
       neighbor 100.100.232.1 remote-as 65200
       neighbor 100.100.236.1 remote-as 65200
       neighbor 200.100.1.2 remote-as 65206
+
+      neighbor 1001:100:40::1 remote-as 65200
+      neighbor 1001:100:44::1 remote-as 65200
+      neighbor 1001:100:80::1 remote-as 65200
+      neighbor 1001:100:84::1 remote-as 65200
+      neighbor 1001:100:88::1 remote-as 65200
+      neighbor 1001:100:232::1 remote-as 65200
+      neighbor 1001:100:236::1 remote-as 65200
+      neighbor 2001:100:1::2 remote-as 65206
+
       address-family ipv4 unicast
       neighbor 100.100.40.1 activate
       neighbor 100.100.44.1 activate
@@ -110,9 +216,55 @@ D2:
       neighbor 100.100.236.1 activate
       neighbor 200.100.1.2 activate
       exit-address-family
+
+      address-family ipv6 unicast
+      neighbor 1001:100:40::1 activate
+      neighbor 1001:100:40::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:40::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:44::1 activate
+      neighbor 1001:100:44::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:44::1 route-map TO_BGP_PEER_V6 out
+
+
+      neighbor 1001:100:80::1 activate
+      neighbor 1001:100:80::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:80::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:84::1 activate
+      neighbor 1001:100:84::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:84::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:88::1 activate
+      neighbor 1001:100:88::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:88::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:232::1 activate
+      neighbor 1001:100:232::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:232::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 1001:100:236::1 activate
+      neighbor 1001:100:236::1 route-map FROM_BGP_PEER_V6 in
+      neighbor 1001:100:236::1 route-map TO_BGP_PEER_V6 out
+
+      neighbor 2001:100:1::2 activate
+      neighbor 2001:100:1::2 route-map FROM_BGP_PEER_V6 in
+      neighbor 2001:100:1::2 route-map TO_BGP_PEER_V6 out
+      exit-address-family
+      exit
+      
+      route-map FROM_BGP_PEER_V6 permit 1
+      on-match next
+      set ipv6 next-hop prefer-global
+      exit
+      route-map FROM_BGP_PEER_V6 permit 100
+      exit
+      route-map TO_BGP_PEER_V6 permit 100
+
       end
       exit
     deconfig: |
       no router bgp 65201
       end
       exit
+      

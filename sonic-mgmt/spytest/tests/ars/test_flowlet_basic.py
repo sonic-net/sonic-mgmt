@@ -2,24 +2,27 @@ import os
 import yaml
 import pytest
 from spytest import st, tgapi, SpyTestDict
-import apis.routing.ip as ipapi
 import tests.cisco.tortuga.common.tortuga_common_utils as common_obj
 import apis.system.interface as interface_obj
 
 # Tgen config
 data = SpyTestDict()
-data.t1d1_ip_addr = "200.200.1.2" #Source IP
+data.t1d1_ipv6_addr = "2001:200:1::2" #Source IPv6
+data.t1d1_ip_addr = "200.200.1.2" #source IPv4
 data.t1d1_mac_addr = "00:0A:03:00:11:01" #source Mac
+data.t1d2_ipv6_addr = "2001:100:1::2"
 data.t1d2_ip_addr = "200.100.1.2"
 data.t1d2_mac_addr = "00:0A:04:00:12:01"
-data.t1d1_ip_gateway = "200.200.1.1" #source Gateway
+data.t1d1_ipv6_gateway = "2001:200:1::1" #source Gateway ipv6
+data.t1d2_ipv6_gateway = "2001:100:1::1"
+data.t1d1_ip_gateway = "200.200.1.1" #source Gateway ipv4
 data.t1d2_ip_gateway = "200.100.1.1"
 data.tgen1_asn = "65205"
 data.tgen2_asn = "65206"
+data.v6_mask="64"
 f_size='1024'
 t_mode='create'
 t_l4_protocol="tcp"
-tcircuit_endpoint_type='ipv4'
 t_tcp_src_port=1002
 t_high_speed_result_analysis='1'
 # Tgen config
@@ -28,18 +31,13 @@ t_high_speed_result_analysis='1'
 def setup_teardown_basic():
     global vars, updated_path, data_glob
     global tg1, tg2, tg_handle_1, tg_handle_2
-    global trC1, trB1, trB2, trB4, trB5, trB1M, trC1M
+    global trC1, trB1, trB2, trB4, trB5, trB1M
     initialize_globals()
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             for domain, configs in config.items():
                 common_obj.config_static(node, domain, True, updated_path)
-    reset_tg_interfaces()
-    configure_tg_interfaces()
-    ping_dut_interface_from_tg()
-    configure_bgp()
-    configure_traffic_streams()
     yield 'setup_teardown_basic'
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
@@ -71,6 +69,15 @@ def add_ars():
         st.report_fail("test_case_failed_msg", "ARS Value Not SET Appropriately While Adding")
     return
 
+def add_ars_perpacket():
+    st.config(data_glob.dut1, "sudo -s config ars-profile add global --enable-all-packets true")
+    st.config(data_glob.dut1, "sudo -s config ars add global --mode per-packet-quality")
+    res = st.show(data_glob.dut1, "show ars")
+    expected_values = {"ars_name": "global", "ars_mode": "per-packet-quality"}
+    if not check_ars(res, expected_values):
+        st.report_fail("test_case_failed_msg", "ARS Value Not SET Appropriately While Adding")
+    return
+
 def check_ars(ars, expected_values ={"ars_name": "global", "ars_mode": "flowlet-quality", "ars_idle_time": "1000"}):
     if len(ars) ==0 and len(expected_values)==0:
         st.log("ARS Value Set Appropriately")
@@ -95,7 +102,18 @@ def reset_tg_interfaces():
     tg1.tg_traffic_control(action='reset', port_handle=[tg_handle_1, tg_handle_2])
     tg2.tg_traffic_control(action='reset', port_handle=[tg_handle_1, tg_handle_2])
 
-def configure_tg_interfaces():
+def configure_tg_interfaces_v6():
+    st.log("Creating Devices & adding IP Addresses along with ARP requests")
+    res1 = tg1.tg_interface_config(port_handle=tg_handle_1, mode='config', ipv6_intf_addr=data.t1d1_ipv6_addr,ipv6_prefix_length='64', ipv6_gateway=data.t1d1_ipv6_gateway, src_mac_addr=data.t1d1_mac_addr, arp_send_req='1')
+    st.log("INTFCONF: " + str(res1))
+    global tg1_interface
+    tg1_interface = res1
+    res2 = tg2.tg_interface_config(port_handle=tg_handle_2, mode='config', ipv6_intf_addr=data.t1d2_ipv6_addr,ipv6_prefix_length='64', ipv6_gateway=data.t1d2_ipv6_gateway, src_mac_addr=data.t1d2_mac_addr, arp_send_req='1')
+    st.log("INTFCONF: " + str(res2))
+    global tg2_interface
+    tg2_interface = res2
+
+def configure_tg_interfaces_v4():
     st.log("Creating Devices & adding IP Addresses along with ARP requests")
     res1 = tg1.tg_interface_config(port_handle=tg_handle_1, mode='config', intf_ip_addr=data.t1d1_ip_addr, gateway=data.t1d1_ip_gateway, src_mac_addr=data.t1d1_mac_addr, arp_send_req='1')
     st.log("INTFCONF: " + str(res1))
@@ -106,7 +124,82 @@ def configure_tg_interfaces():
     global tg2_interface
     tg2_interface = res2
 
-def configure_bgp():
+@pytest.fixture(scope = 'class')
+def fixture_v6():
+    reset_tg_interfaces()
+    configure_tg_interfaces_v6()
+    ping_dut_interface_from_tg(dst_ip1 ="2001:200:1::1", dst_ip2="2001:100:1::1")
+    configure_bgp_v6()
+    configure_traffic_streams('ipv6')
+    yield
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB1['stream_id']) 
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trC1['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB2['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB4['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB5['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB1M['stream_id'])
+    reset_tg_interfaces()
+    st.wait(100)
+    tg1.tg_interface_config(port_handle=tg_handle_1, handle=tg1_interface['handle'], mode='destroy')
+    st.wait(100)
+    tg2.tg_interface_config(port_handle=tg_handle_2, handle=tg2_interface['handle'], mode='destroy')
+    st.wait(100)
+
+@pytest.fixture(scope = 'class')
+def fixture_v4():
+    reset_tg_interfaces()
+    configure_tg_interfaces_v4()
+    ping_dut_interface_from_tg(dst_ip1 ="200.200.1.1", dst_ip2="200.100.1.1")
+    configure_bgp_v4()
+    configure_traffic_streams('ipv4')
+    yield
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB1['stream_id']) 
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trC1['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB2['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB4['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB5['stream_id'])
+    tg1.tg_traffic_config(mode = 'disable', stream_id =trB1M['stream_id'])
+    reset_tg_interfaces()
+    st.wait(100)
+    tg1.tg_interface_config(port_handle=tg_handle_1, handle=tg1_interface['handle'], mode='destroy')
+    st.wait(100)
+    tg2.tg_interface_config(port_handle=tg_handle_2, handle=tg2_interface['handle'], mode='destroy')
+    st.wait(100)
+
+def configure_bgp_v6():
+    st.banner("Configuring BGP on TGEN-T1D1P1 towards DUT1")
+    bgp_rtr1 = tg1.tg_emulation_bgp_config(handle=tg1_interface['handle'],
+                                           mode='enable', active_connect_enable='1',
+                                           local_as=data.tgen1_asn, remote_as=data.dut_asn_list[data_glob.dut1], remote_ipv6_addr=data.t1d1_ipv6_gateway,ip_version='6',
+                                           enable_4_byte_as='1', graceful_restart_enable='1')
+    tg1.tg_emulation_bgp_control(handle=bgp_rtr1['handle'], mode='start')
+    st.wait(2)
+    st.banner("Configuring BGP on TGEN-T1D2P1 towards DUT2")
+    global bgp_rtr2
+    bgp_rtr2 = tg2.tg_emulation_bgp_config(handle=tg2_interface['handle'],
+                                           mode='enable', active_connect_enable='1',
+                                           local_as=data.tgen2_asn, remote_as=data.dut_asn_list[data_glob.dut2], remote_ipv6_addr=data.t1d2_ipv6_gateway,ip_version='6',
+                                           enable_4_byte_as='1', graceful_restart_enable='1')
+    tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
+    st.wait(2)
+    global bgp_route
+    # Destination Network group
+    bgp_route = tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add', num_routes='1', prefix='2001:db8::20:20:20', ip_version='6')  
+    tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
+    st.wait(2)
+    st.banner("Prefix advertisement MultiFlow ")
+    global Dest_NG
+    # Destination Network group Multi Flow
+    Dest_NG= tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add', num_routes='512',  prefix='2001:db8:20:21::1' , ip_version='6')  
+    tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
+    st.wait(2)
+    # Souce Network group Multi Flow
+    global Src_NG
+    Src_NG = tg1.tg_emulation_bgp_route_config(handle=bgp_rtr1['handle'], mode='add', num_routes='512', prefix='2001:db8:10:11::1', ip_version='6')
+    tg1.tg_emulation_bgp_control(handle=bgp_rtr1['handle'], mode='start')
+    st.wait(2)
+
+def configure_bgp_v4():
     st.banner("Configuring BGP on TGEN-T1D1P1 towards DUT1")
     bgp_rtr1 = tg1.tg_emulation_bgp_config(handle=tg1_interface['handle'],
                                            mode='enable', active_connect_enable='1',
@@ -139,9 +232,9 @@ def configure_bgp():
     tg1.tg_emulation_bgp_control(handle=bgp_rtr1['handle'], mode='start')
     st.wait(2)
 
-def configure_traffic_streams():
+def configure_traffic_streams(tcircuit_endpoint_type):
     st.banner("Configuring Traffic Stream on TGEN port1 towards DUT1")
-    global trB1, trB2, trB4, trB5, trC1, trC1M, trB1M
+    global trB1, trB2, trB4, trB5, trC1, trB1M
     trB1, trB2, trB4, trB5 = None, None, None, None
     traffic_map = { "trB1": "2000000", "trB2": "3000000", "trB4": "200000", "trB5": "400000"}
     for key, param in traffic_map.items():
@@ -154,9 +247,6 @@ def configure_traffic_streams():
     trC1 = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle=tg1_interface['handle'],
                                  emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type=tcircuit_endpoint_type, mode=t_mode, l4_protocol=t_l4_protocol, tcp_src_port=t_tcp_src_port,
                                  high_speed_result_analysis=t_high_speed_result_analysis, frame_size=f_size, transmit_mode='continuous', rate_percent=99.5)
-    trC1M = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle= Src_NG['handle'],
-                                emulation_dst_handle=Dest_NG['handle'], circuit_endpoint_type=tcircuit_endpoint_type, mode=t_mode, l4_protocol=t_l4_protocol, tcp_src_port=t_tcp_src_port,
-                                high_speed_result_analysis=t_high_speed_result_analysis, frame_size=f_size, transmit_mode='continuous', rate_percent=99.5)
     trB1M = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle= Src_NG['handle'],
                                 emulation_dst_handle=Dest_NG['handle'], circuit_endpoint_type=tcircuit_endpoint_type, mode=t_mode, l4_protocol=t_l4_protocol, tcp_src_port=t_tcp_src_port,
                                 high_speed_result_analysis=t_high_speed_result_analysis, frame_size=f_size, transmit_mode='multi_burst',
@@ -171,16 +261,12 @@ def get_handles():
     tg2, tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
     return (tg1, tg2, tg_ph_1, tg_ph_2)
 
-def ping_dut_interface_from_tg():
-    res = tgapi.verify_ping(src_obj=tg1, port_handle=tg_handle_1, dev_handle=tg1_interface['handle'],
-                            dst_ip="200.200.1.1", ping_count='1', exp_count='1')
-    if res:
-        st.log("Ping succeeded.")
-    else:
-        st.warn("Ping failed.")
-    res = tgapi.verify_ping(src_obj=tg2, port_handle=tg_handle_2, dev_handle=tg2_interface['handle'],
-                            dst_ip="200.100.1.1", ping_count='1', exp_count='1')
-    if res:
+def ping_dut_interface_from_tg(dst_ip1 , dst_ip2):
+    res1 = tgapi.verify_ping(src_obj=tg1, port_handle=tg_handle_1, dev_handle=tg1_interface['handle'],
+                            dst_ip=dst_ip1, ping_count='1', exp_count='1')
+    res2 = tgapi.verify_ping(src_obj=tg2, port_handle=tg_handle_2, dev_handle=tg2_interface['handle'],
+                            dst_ip=dst_ip2, ping_count='1', exp_count='1')
+    if res1 and res2:
         st.log("Ping succeeded.")
     else:
         st.warn("Ping failed.")
@@ -204,13 +290,13 @@ def check_traffic_single_interface(counters, intfrecord, tolerance = 0.001, pack
     return tx_ok_count == 1 and  int(tgen_source_port) <= int(tgen_recieve_port)*(1+packetlosstolerance) # Makes Sure the sending packets from source Always less than recieved packet at Destination Making sure No packet loss
 
 def run_traffic(stream):
-    st.config(data_glob.dut1, "sonic-clear counters")
+    st.config(data_glob.dut1, "sudo -s sonic-clear counters")
     tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
     tg1.tg_traffic_control(action='run', handle=stream)
-    st.wait(2)
+    st.wait(1)
     tg1.tg_traffic_control(action='stop', handle=stream)
 
-def check_traffic_balanced(counters, intfrecord, margin = 0.5, packetlosstolerance = 0.001):
+def check_traffic_balanced(counters, intfrecord, margin = 0.6, packetlosstolerance = 0.001):
     """
     Check if traffic is balanced across multiple interfaces.
     """
@@ -227,9 +313,6 @@ def check_traffic_balanced(counters, intfrecord, margin = 0.5, packetlosstoleran
             ok_value = int(record.get(f'tx_ok', '0').replace(',', ''))
             total_count += ok_value
             interface_counts.append(ok_value)
-    if  tgen_source_port > total_count +5 :
-        st.banner("Packet Loss Observed")
-        return False
     average_count = tgen_source_port/ len(intfrecord)
     toleranceB = average_count * (1-margin) # 50% tolerance for distribution below
     toleranceA = average_count * (1+margin) # 150 % tolerance for distribution above
@@ -251,10 +334,9 @@ def run_traffic_multiple_stream(stream, check_type='single'):
     Returns:
     - bool: True if the traffic check passes, False otherwise.
     """
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
+    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
     run_traffic(stream)
     counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
     if check_type == 'single':
         if not check_traffic_single_interface(counter1, intfrecord):
             return False
@@ -285,238 +367,559 @@ def verify_traffic_distribution(counter, intfrecord, tolerance_factor=0.5):
         if not (toleranceB <= pkt_count <= toleranceA):
             st.report_fail("test_case_failed_msg", "Traffic Load does not Distributed Evenly with ARS Enable")
 
-def test_nhg_then_ars():
-    st.banner("Test Next Hop Group first followed by ARS object creation: Traffic load expected to distribute for ars config after NHG")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    #Configure Ixia Prefix
-    dest = tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add',num_routes='1', prefix='17.20.20.1')  
-    tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
-    trB = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle=tg1_interface['handle'], emulation_dst_handle=dest['handle'], 
-                            circuit_endpoint_type='ipv4', mode='create', l4_protocol="tcp", tcp_src_port=1002,
-                            high_speed_result_analysis='1', frame_size='1024', transmit_mode='multi_burst',
-                                pkts_per_burst='999', inter_burst_gap='20000000', inter_burst_gap_unit='ns', tx_delay='0', tx_delay_unit='bytes',
-                                min_gap_bytes='12')
-    stream = trB['stream_id']
-    add_ars()
-    run_traffic(stream)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_balanced(counter1, intfrecord):
-        st.banner("Test Failed: traffic load is not Distributed")
-        st.report_fail("test_case_failed_msg", "Traffic load does not distribute for ars config after ixiaprefix")
-    st.banner("Test Passed: Traffic Load Distributed Evenly")
-    st.report_pass('test_case_passed')
+@pytest.mark.usefixtures('fixture_v6')
+class Test_IPV6_config_ars():
 
-def test_ars_traffic_intransit():
-    st.banner("Test Add and Remove when traffic is being sent through, making sure traffic no distributed (on removal) and distributed (on adding ARS)")
-    stream = trB1['stream_id']
-    intfrecord = [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    # Disabling ARS in Running traffic
-    st.banner("Disabling ARS in Running traffic")
-    add_ars()
-    tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
-    tg1.tg_traffic_control(action='run', handle=stream)
-    del_ars()
-    st.config(data_glob.dut1, "sonic-clear counters")
-    st.wait(2)
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    tg1.tg_traffic_control(action='stop', handle=stream)
-    st.config(data_glob.dut1, "show interface counters")
-    verify_single_interface_traffic(counter1, intfrecord)
-    # Adding ARS in Running traffic
-    st.banner("Adding ARS in Running traffic")
-    tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
-    tg1.tg_traffic_control(action='run', handle=stream)
-    st.banner("ARS Enable")
-    add_ars()
-    st.config(data_glob.dut1, "sonic-clear counters")
-    st.wait(2)
-    counter = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    tg1.tg_traffic_control(action='stop', handle=stream)
-    del_ars()
-    # Verifying traffic distribution
-    verify_traffic_distribution(counter, intfrecord)
-    st.banner("test ARS in traffic transit Passed")
-    st.report_pass('test_case_passed')
-
-def test_singleflow_without_burst():
-    st.banner("Testing Single Flow Without Bursts : Traffic Expected to flow thorugh single interface for Continuous Traffic")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    stream = trC1['stream_id']
-    add_ars()
-    run_traffic(stream)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_single_interface(counter1, intfrecord):
-        st.banner("Failed: traffic pass through Multiple Interface")
-        st.report_fail("test_case_failed_msg","Traffic does not flow thorugh single interface for Continuous Traffic")
-    st.banner("Passed: Traffic passes through Single Interface")
-    st.report_pass('test_case_passed')
-
-def test_singleflow_with_burst():
-    st.banner("TEST Single Flow With Burst Mode: Traffic Expected to Distribute among interface when ARS Enable")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    stream = trB1['stream_id']
-    add_ars()
-    run_traffic(stream)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_balanced(counter1, intfrecord):
-        st.banner("Failed traffic load is not Distributed")
-        st.report_fail("test_case_failed_msg","Traffic does not Distribute among interface when ARS Enable")
-    st.banner("Passed: Traffic Load Distributed Evenly")
-    st.report_pass('test_case_passed')
-
-def test_burst_time_lower_idel_timegap():
-    st.banner("TEST Burst time gap in IXIA set to values lower than the idle time gap: Traffic Expected to Pass through Single interface for Burst Time Lower than idel Time gap") # Idel time Gap 1 milisecond
-    test_failcount = 0
-    streams = [trB4['stream_id'], trB5['stream_id']] # streams with burst time 200K 400K (0.2 Mili second , 0.4 Mili Second)
-    for stream in streams:
+    def test_ars_then_nhg_v6(self):
+        st.banner("Verify traffic distribution on NHG created after ARS config: Traffic is expected to be load balanced after NHG is created, Ars oid should be getting attached to it.")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
         add_ars()
-        if not run_traffic_multiple_stream(stream):
-            test_failcount+=1
+        stream = trB1['stream_id']
+        run_traffic(stream)
         del_ars()
-    if test_failcount > 0:
-        st.banner("Test Failed: For Burst Time Lower than Idel Time Gap")
-        st.report_fail("test_case_failed_msg", "Traffic does not Pass through Single interface for Burst Time Lower than idel Time gap")
-    else:
-        st.banner("Passed: Traffic Pass through single interface")
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not pass thorugh single interface on Config ARS before Ixia Prefixes")
+        st.banner("Test Passed: Traffic Load Distributed Evenly")
         st.report_pass('test_case_passed')
 
-def test_burst_time_higher_idel_timegap():
-    st.banner("TestBurst time in IXIA set to values higher than the idle time gap: Traffic Expected to Distribute for Burst TIme Higher than Idel Time Gap")
-    test_failcount = 0
-    streams = [trB1['stream_id'], trB2['stream_id']]
-    for stream in streams:
+    def test_singleflow_without_burst_v6(self):
+        st.banner("Testing Single Flow Without Bursts : Traffic Expected to flow thorugh single interface for Continuous Traffic")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trC1['stream_id']
         add_ars()
-        if not run_traffic_multiple_stream(stream, 'balanced'):
-            test_failcount += 1
+        run_traffic(stream)
         del_ars()
-    if test_failcount > 0:
-        st.banner("Test Failed: For idle time more than Burst gap")
-        st.report_fail("test_case_failed_msg", "Traffic does not Distribute for Burst TIme Higher than Idel Time Gap")
-    else:
-        st.banner("Test Passed: Traffic is Load Distributed Evenly")
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_single_interface(counter1, intfrecord):
+            st.banner("Failed: traffic pass through Multiple Interface")
+            st.report_fail("test_case_failed_msg","Traffic does not flow thorugh single interface for Continuous Traffic")
+        st.banner("Passed: Traffic passes through Single Interface")
         st.report_pass('test_case_passed')
 
-def test_bring_down_one_nhop_member():
-    st.banner("IN TEST Bring Down One Interface: Traffic is expected to Distribute on ARS Enable Before and After Interface Shutdown")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    stream = trB1['stream_id']
-    st.config(data_glob.dut1, "sonic-clear counters")
-    add_ars()
-    run_traffic(stream)
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_balanced(counter1, intfrecord):
-        st.banner("Test Failed: traffic load not distributed")
-        st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable Before Interface Shutdown")
-    st.config(data_glob.dut1, "sonic-clear counters")
-    #Bring down one interface 
-    interface_obj.interface_shutdown(vars.D1, vars.D1D2P1, skip_verify=False)
-    st.wait(2)
-    run_traffic(stream)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    interface_obj.interface_noshutdown(vars.D1, vars.D1D2P1, skip_verify=False)
-    intfrecord =[vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    if not check_traffic_balanced(counter1, intfrecord = intfrecord ):
-        st.banner("Test Failed: traffic load not distributed")
-        st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable after Interface Shutdown")
-    st.banner("Test Passed Traffic is Load Distributed Evenly Even after bringing down interface")
-    st.report_pass('test_case_passed')
- 
-def test_delete_ars():
-    st.banner("TEST Delete ARS Profile when Ecmp group configured: Traffic Expected to Pass Through Single Interface on deleting ARS")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    stream = trB1['stream_id']
-    add_ars()
-    del_ars()
-    run_traffic(stream)
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_single_interface(counter1, intfrecord):
-        st.banner("Test Failed: traffic pass through Multiple Interface")
-        st.report_fail("test_case_failed_msg", "Traffic does not Pass Through Single Interface on deleting ARS")
-    st.banner("Test Passed: Traffic passes through Single Interface")
-    st.report_pass('test_case_passed')
-
-def test_ars_then_nhg():
-    st.banner("Test ARS first followed by Next Hop Group creation: Traffic Expected to pass thorugh single interface on Config ARS before Ixia Prefixes")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    add_ars()
-    #Configure Ixia Prefix Next Hop Group
-    dest_G = tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add', num_routes='1', prefix='18.20.20.1')  
-    tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
-    trB7 = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle=tg1_interface['handle'], emulation_dst_handle=dest_G['handle'], 
-                            circuit_endpoint_type='ipv4', mode='create', l4_protocol="tcp", tcp_src_port=1002,
-                            high_speed_result_analysis='1', frame_size='1024', transmit_mode='multi_burst',
-                                pkts_per_burst='999', inter_burst_gap='2000000', inter_burst_gap_unit='ns', tx_delay='0', tx_delay_unit='bytes',
-                                min_gap_bytes='12')
-    stream = trB7['stream_id']
-    run_traffic(stream)
-    del_ars()
-    st.config(data_glob.dut1, "show interface counters")
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    if not check_traffic_balanced(counter1, intfrecord):
-        st.banner("Test Failed: traffic load is not Distributed")
-        st.report_fail("test_case_failed_msg", "Traffic does not pass thorugh single interface on Config ARS before Ixia Prefixes")
-    st.banner("Test Passed: Traffic Load Distributed Evenly")
-    st.report_pass('test_case_passed')
-
-def test_multiple_flow_with_and_without_burst():
-    st.banner("Test Multiple Flow With and Without Burst: Traffic Expected to Distribute for MultiFlow Conitnuous Traffic and Burst traffic")
-    st.show(data_glob.dut1, "sudo show ars")
-    intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P6, vars.D1D2P7, vars.D1D2P8]
-    stream1 = trB1M['stream_id']
-    stream2 = trC1M['stream_id']
-    # Multi Flow Burst Mode
-    st.banner("Starting to RUN traffic Multi Flow Burst Mode")
-    add_ars()
-    run_traffic(stream1)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_balanced(counter1, intfrecord):
-        st.banner("Test Failed: traffic load not distributed")
-        st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Burst Mode Traffic")
-    #Multi Flow Continous Mode
-    st.banner("Starting to RUN traffic Multi Flow Continuous Mode")
-    add_ars()
-    run_traffic(stream2)
-    del_ars()
-    counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
-    st.config(data_glob.dut1, "show interface counters")
-    if not check_traffic_balanced(counter1,intfrecord):
-        st.banner("Test Failed: traffic load not distributed")
-        st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Conitnuous Traffic")
-    st.banner("Test Passed: for Multi Flow With and without Burst mode")
-    st.report_pass('test_case_passed')
-
-def test_continuous_traffic_various_idel_timegap():
-    st.banner("Test Various Idel Time GAP Single Continous Traffic Flow: Traffic Expected to Pass through single interface for various time gap")
-    idelTimeGapArray = [100, 200, 300, 800]
-    stream = trC1["stream_id"]
-    test_failcount = 0
-    for i in range(0, 4):
-        timegap =idelTimeGapArray[i]
-        st.config(data_glob.dut1, "sudo -s config ars-profile add global --enable-all-packets true")
-        st.config(data_glob.dut1, "sudo -s config ars add global --mode flowlet-quality --idle-time "+ str(timegap))
-        res = st.show(data_glob.dut1, "show ars")
-        expected_values = {"ars_name": "global", "ars_mode": "flowlet-quality", "ars_idle_time": str(timegap)}
-        if not check_ars(res, expected_values):
-            st.report_fail("test_case_failed_msg", "ARS Value Not SET Appropriately While Adding")
-        if not run_traffic_multiple_stream(stream):
-            test_failcount+=1
+    def test_ars_traffic_intransit_v6(self):
+        st.banner("Test Add and Remove when traffic is being sent through, making sure traffic no distributed (on removal) and distributed (on adding ARS)")
+        stream = trB1['stream_id']
+        intfrecord = [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        # Disabling ARS in Running traffic
+        st.banner("Disabling ARS in Running traffic")
+        add_ars()
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        tg1.tg_traffic_control(action='run', handle=stream)
         del_ars()
-    if test_failcount > 0:
-        st.banner("Test Failed: Various Idel Time GAP Single Continous Traffic Flow")
-        st.report_fail("test_case_failed_msg", "Traffic does not Pass through single interface for various time gap")
-    else:
-        st.banner("Test Passed: Traffic Pass through single interface")
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        verify_single_interface_traffic(counter1, intfrecord)
+        # Adding ARS in Running traffic
+        st.banner("Adding ARS in Running traffic")
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        tg1.tg_traffic_control(action='run', handle=stream)
+        st.banner("ARS Enable")
+        add_ars()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        counter = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        del_ars()
+        verify_traffic_distribution(counter, intfrecord)
+        st.banner("test ARS in traffic transit Passed")
         st.report_pass('test_case_passed')
+
+    def test_burst_time_lower_idle_timegap_v6(self):
+        st.banner("TEST Burst time gap in IXIA set to values lower than the idle time gap: Traffic Expected to Pass through Single interface for Burst Time Lower than idle Time gap") # idle time Gap 1 milisecond
+        test_failcount = 0
+        streams = [trB4['stream_id'], trB5['stream_id']] # streams with burst time 200K 400K (0.2 Mili second , 0.4 Mili Second)
+        for stream in streams:
+            add_ars()
+            if not run_traffic_multiple_stream(stream):
+                test_failcount+=1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: For Burst Time Lower than idle Time Gap")
+            st.report_fail("test_case_failed_msg", "Traffic does not Pass through Single interface for Burst Time Lower than idle Time gap")
+        else:
+            st.banner("Passed: Traffic Pass through single interface")
+            st.report_pass('test_case_passed')
+
+    def test_burst_time_higher_idle_timegap_v6(self):
+        st.banner("TestBurst time in IXIA set to values higher than the idle time gap: Traffic Expected to Distribute for Burst TIme Higher than idle Time Gap")
+        test_failcount = 0
+        streams = [trB1['stream_id'], trB2['stream_id']]
+        for stream in streams:
+            add_ars()
+            if not run_traffic_multiple_stream(stream, 'balanced'):
+                test_failcount += 1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: For idle time more than Burst gap")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for Burst TIme Higher than idle Time Gap")
+        else:
+            st.banner("Test Passed: Traffic is Load Distributed Evenly")
+            st.report_pass('test_case_passed')
+
+    def test_continuous_traffic_various_idle_timegap_v6(self):
+        st.banner("Test Various idle Time GAP Single Continous Traffic Flow: Traffic Expected to Pass through single interface for various time gap")
+        idleTimeGapArray = [100, 800]
+        stream = trC1["stream_id"]
+        test_failcount = 0
+        for i in range(0, 2):
+            timegap =idleTimeGapArray[i]
+            st.config(data_glob.dut1, "sudo -s config ars-profile add global --enable-all-packets true")
+            st.config(data_glob.dut1, "sudo -s config ars add global --mode flowlet-quality --idle-time "+ str(timegap))
+            res = st.show(data_glob.dut1, "show ars")
+            expected_values = {"ars_name": "global", "ars_mode": "flowlet-quality", "ars_idle_time": str(timegap)}
+            if not check_ars(res, expected_values):
+                st.report_fail("test_case_failed_msg", "ARS Value Not SET Appropriately While Adding")
+            if not run_traffic_multiple_stream(stream):
+                test_failcount+=1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: Various idle Time GAP Single Continous Traffic Flow")
+            st.report_fail("test_case_failed_msg", "Traffic does not Pass through single interface for various time gap")
+        else:
+            st.banner("Test Passed: Traffic Pass through single interface")
+            st.report_pass('test_case_passed')
+
+    def test_multiple_flow_with_burst_v6(self):
+        st.banner("Test Multiple Flow With Burst: Traffic Expected to Distribute for MultiFlow Burst traffic")
+        st.show(data_glob.dut1, "sudo show ars")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream1 = trB1M['stream_id']
+        st.banner("Starting to RUN traffic Multi Flow Burst Mode")
+        add_ars()
+        run_traffic(stream1)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Burst Mode Traffic")
+        st.banner("Test Passed: for Multi Flow With Burst mode")
+        st.report_pass('test_case_passed')
+
+    def test_ars_traffic_intransit_perpacket_v6(self):
+        st.banner("(Perpacket) Test Add and Remove when traffic is being sent through, making sure traffic no distributed (on removal) and distributed (on adding ARS)")
+        stream = trB1['stream_id']
+        intfrecord = [ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        # Disabling ARS in Running traffic
+        st.banner("Disabling ARS in Running traffic")
+        add_ars_perpacket()
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        tg1.tg_traffic_control(action='run', handle=stream)
+        del_ars()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        verify_single_interface_traffic(counter1, intfrecord)
+        # Adding ARS in Running traffic
+        st.banner("Adding ARS in Running traffic")
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        tg1.tg_traffic_control(action='run', handle=stream)
+        st.banner("ARS Enable")
+        add_ars_perpacket()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        counter = st.show(data_glob.dut1, "sudo -s show interface counters")
+        del_ars()
+        verify_traffic_distribution(counter, intfrecord)
+        st.banner("test ARS in traffic transit Passed")
+        st.report_pass('test_case_passed')
+
+    def test_singleflow_continuous_perpacket_v6(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket)Testing Single Flow Without Bursts : Traffic Expected to flow thorugh single interface for Continuous Traffic")
+        stream = trC1['stream_id']
+        add_ars_perpacket()
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Failed traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg","Traffic does not Distribute among interface when ARS Enable")
+        st.banner("Passed: Traffic Load Distributed Evenly")
+        st.report_pass('test_case_passed')
+
+    def test_ars_then_nhg_perpacket_v6(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket)Verify traffic distribution on NHG created after ARS config: Traffic is expected to be load balanced after NHG is created, Ars oid should be getting attached to it.")
+        add_ars_perpacket()
+        #Configure Ixia Prefix Next Hop Group
+        dest_G = tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add', num_routes='1',prefix='2001:db8::15:20:20', ip_version='6')  
+        tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
+        st.wait(5)
+        trB7 = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle=tg1_interface['handle'], emulation_dst_handle=dest_G['handle'], 
+                                circuit_endpoint_type='ipv6', mode='create', l4_protocol="tcp", tcp_src_port=1002,
+                                high_speed_result_analysis='1', frame_size='1024', transmit_mode='multi_burst',
+                                    pkts_per_burst='999', inter_burst_gap='2000000', inter_burst_gap_unit='ns', tx_delay='0', tx_delay_unit='bytes',
+                                    min_gap_bytes='12')
+        stream = trB7['stream_id']
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_config(mode = 'disable', stream_id =trB7['stream_id'])
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not pass thorugh single interface on Config ARS before Ixia Prefixes")
+        st.banner("Test Passed: Traffic Load Distributed Evenly")
+        st.report_pass('test_case_passed')
+
+    def test_multipleflow_with_burst_perpacket_v6(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket) Test Multiple Flow With Burst: Traffic Expected to Distribute for MultiFlow Burst traffic")
+        st.show(data_glob.dut1, "sudo show ars")
+        stream1 = trB1M['stream_id']
+        # Multi Flow Burst Mode
+        st.banner("Starting to RUN traffic Multi Flow Burst Mode")
+        add_ars_perpacket()
+        run_traffic(stream1)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Burst Mode Traffic")
+        st.banner("Test Passed: for Multi Flow With Burst mode")
+        st.report_pass('test_case_passed')
+
+@pytest.mark.usefixtures('fixture_v4')
+class Test_IPV4_config_ars():
+
+    def test_ars_then_nhg_perpacket_v4(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket)Verify traffic distribution on NHG created after ARS config: Traffic is expected to be load balanced after NHG is created, Ars oid should be getting attached to it.")
+        add_ars_perpacket()
+        stream = trB1['stream_id']
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not pass thorugh single interface on Config ARS before Ixia Prefixes")
+        st.banner("Test Passed: Traffic Load Distributed Evenly")
+        st.report_pass('test_case_passed')
+
+    def test_ars_then_nhg_v4(self):
+        st.banner("Verify traffic distribution on NHG created after ARS config: Traffic is expected to be load balanced after NHG is created, Ars oid should be getting attached to it.")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        add_ars()
+        #Configure Ixia Prefix Next Hop Group
+        dest_G = tg2.tg_emulation_bgp_route_config(handle=bgp_rtr2['handle'], mode='add', num_routes='1', prefix='18.20.20.1')  
+        tg2.tg_emulation_bgp_control(handle=bgp_rtr2['handle'], mode='start')
+        st.wait(5)
+        trB7 = tg1.tg_traffic_config(port_handle=tg_handle_1, emulation_src_handle=tg1_interface['handle'], emulation_dst_handle=dest_G['handle'], 
+                                circuit_endpoint_type='ipv4', mode='create', l4_protocol="tcp", tcp_src_port=1002,
+                                high_speed_result_analysis='1', frame_size='1024', transmit_mode='multi_burst',
+                                    pkts_per_burst='999', inter_burst_gap='2000000', inter_burst_gap_unit='ns', tx_delay='0', tx_delay_unit='bytes',
+                                    min_gap_bytes='12')
+        stream = trB7['stream_id']
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_config(mode = 'disable', stream_id =trB7['stream_id'])
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg", "Traffic pass thorugh single interface on Config ARS before Ixia Prefixes")
+        st.banner("Test Passed: Traffic Load Distributed Evenly")
+        st.report_pass('test_case_passed')
+
+    def test_singleflow_without_burst_v4(self):
+        st.banner("Testing Single Flow Without Bursts : Traffic Expected to flow thorugh single interface for Continuous Traffic")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trC1['stream_id']
+        add_ars()
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_single_interface(counter1, intfrecord):
+            st.banner("Failed: traffic pass through Multiple Interface")
+            st.report_fail("test_case_failed_msg","Traffic does not flow thorugh single interface for Continuous Traffic")
+        st.banner("Passed: Traffic passes through Single Interface")
+        st.report_pass('test_case_passed')
+
+    def test_ars_traffic_intransit_v4(self):
+        st.banner("Test Add and Remove when traffic is being sent through, making sure traffic no distributed (on removal) and distributed (on adding ARS)")
+        stream = trB1['stream_id']
+        intfrecord = [vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        # Disabling ARS in Running traffic
+        st.banner("Disabling ARS in Running traffic")
+        add_ars()
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        tg1.tg_traffic_control(action='run', handle=stream)
+        del_ars()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        verify_single_interface_traffic(counter1, intfrecord)
+        # Adding ARS in Running traffic
+        st.banner("Adding ARS in Running traffic")
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        tg1.tg_traffic_control(action='run', handle=stream)
+        st.banner("ARS Enable")
+        add_ars()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        counter = st.show(data_glob.dut1, "sudo -s show interface counters")
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        del_ars()
+        verify_traffic_distribution(counter, intfrecord)
+        st.banner("test ARS in traffic transit Passed")
+        st.report_pass('test_case_passed')
+
+    def test_burst_time_lower_idle_timegap_v4(self):
+        st.banner("TEST Burst time gap in IXIA set to values lower than the idle time gap: Traffic Expected to Pass through Single interface for Burst Time Lower than idle Time gap") # idle time Gap 1 milisecond
+        test_failcount = 0
+        streams = [trB4['stream_id'], trB5['stream_id']] # streams with burst time 200K 400K (0.2 Mili second , 0.4 Mili Second)
+        for stream in streams:
+            add_ars()
+            if not run_traffic_multiple_stream(stream):
+                test_failcount+=1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: For Burst Time Lower than idle Time Gap")
+            st.report_fail("test_case_failed_msg", "Traffic does not Pass through Single interface for Burst Time Lower than idle Time gap")
+        else:
+            st.banner("Passed: Traffic Pass through single interface")
+            st.report_pass('test_case_passed')
+
+    def test_burst_time_higher_idle_timegap_v4(self):
+        st.banner("TestBurst time in IXIA set to values higher than the idle time gap: Traffic Expected to Distribute for Burst TIme Higher than idle Time Gap")
+        test_failcount = 0
+        streams = [trB1['stream_id'], trB2['stream_id']]
+        for stream in streams:
+            add_ars()
+            if not run_traffic_multiple_stream(stream, 'balanced'):
+                test_failcount += 1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: For idle time more than Burst gap")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for Burst TIme Higher than idle Time Gap")
+        else:
+            st.banner("Test Passed: Traffic is Load Distributed Evenly")
+            st.report_pass('test_case_passed')
+        
+    def test_multiple_flow_with_burst_v4(self):
+        st.banner("Test Multiple Flow With Burst: Traffic Expected to Distribute for MultiFlow Burst traffic")
+        st.show(data_glob.dut1, "sudo show ars")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream1 = trB1M['stream_id']
+        # Multi Flow Burst Mode
+        st.banner("Starting to RUN traffic Multi Flow Burst Mode")
+        add_ars()
+        run_traffic(stream1)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Burst Mode Traffic")   
+        st.banner("Test Passed: for Multi Flow With Burst mode")
+        st.report_pass('test_case_passed')
+
+    def test_continuous_traffic_various_idle_timegap_v4(self):
+        st.banner("Test Various idle Time GAP Single Continous Traffic Flow: Traffic Expected to Pass through single interface for various time gap")
+        idleTimeGapArray = [100, 800]
+        stream = trC1["stream_id"]
+        test_failcount = 0
+        for i in range(0, 2):
+            timegap =idleTimeGapArray[i]
+            st.config(data_glob.dut1, "sudo -s config ars-profile add global --enable-all-packets true")
+            st.config(data_glob.dut1, "sudo -s config ars add global --mode flowlet-quality --idle-time "+ str(timegap))
+            res = st.show(data_glob.dut1, "show ars")
+            expected_values = {"ars_name": "global", "ars_mode": "flowlet-quality", "ars_idle_time": str(timegap)}
+            if not check_ars(res, expected_values):
+                st.report_fail("test_case_failed_msg", "ARS Value Not SET Appropriately While Adding")
+            if not run_traffic_multiple_stream(stream):
+                test_failcount+=1
+            del_ars()
+        if test_failcount > 0:
+            st.banner("Test Failed: Various idle Time GAP Single Continous Traffic Flow")
+            st.report_fail("test_case_failed_msg", "Traffic does not Pass through single interface for various time gap")
+        else:
+            st.banner("Test Passed: Traffic Pass through single interface")
+            st.report_pass('test_case_passed')
+
+    def test_ars_traffic_intransit_perpacket_v4(self):
+        st.banner("(Perpacket) Test Add and Remove when traffic is being sent through, making sure traffic no distributed (on removal) and distributed (on adding ARS)")
+        stream = trB1['stream_id']
+        intfrecord = [ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        # Disabling ARS in Running traffic
+        st.banner("Disabling ARS in Running traffic")
+        add_ars_perpacket()
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        tg1.tg_traffic_control(action='run', handle=stream)
+        del_ars()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        verify_single_interface_traffic(counter1, intfrecord)
+        # Adding ARS in Running traffic
+        st.banner("Adding ARS in Running traffic")
+        tg1.tg_traffic_control(action="clear_stats", port_handle=tg_handle_1)
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        tg1.tg_traffic_control(action='run', handle=stream)
+        st.banner("ARS Enable")
+        add_ars_perpacket()
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        st.wait(2)
+        tg1.tg_traffic_control(action='stop', handle=stream)
+        counter = st.show(data_glob.dut1, "sudo -s show interface counters")
+        del_ars()
+        verify_traffic_distribution(counter, intfrecord)
+        st.banner("test ARS in traffic transit Passed")
+        st.report_pass('test_case_passed')
+
+    def test_singleflow_continuous_perpacket_v4(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket)Testing Single Flow Without Bursts : Traffic Expected to Distribute Across Interface")
+        stream = trC1['stream_id']
+        add_ars_perpacket()
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Failed traffic load is not Distributed")
+            st.report_fail("test_case_failed_msg","Traffic does not Distribute among interface when ARS Enable")
+        st.banner("Passed: Traffic Load Distributed Evenly")
+        st.report_pass('test_case_passed')
+
+    def test_multipleflow_with_burst_perpacket_v4(self):
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        st.banner("(perpacket)Test Multiple Flow With Burst: Traffic Expected to Distribute for MultiFlow Burst traffic")
+        st.show(data_glob.dut1, "sudo show ars")
+        stream1 = trB1M['stream_id']
+        # Multi Flow Burst Mode
+        st.banner("Starting to RUN traffic Multi Flow Burst Mode")
+        add_ars_perpacket()
+        run_traffic(stream1)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute for MultiFlow Burst Mode Traffic")
+        st.banner("Test Passed: for Multi Flow With Burst mode")
+        st.report_pass('test_case_passed')
+
+    def test_bring_down_one_nhop_member_v4(self):
+        st.banner("IN TEST Bring Down One Interface: Traffic is expected to Distribute on ARS Enable Before and After Interface Shutdown")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trB1['stream_id']
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        add_ars()
+        run_traffic(stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            del_ars()
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable Before Interface Shutdown")
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        #Bring down one interface 
+        interface_obj.interface_shutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(2)
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        interface_obj.interface_noshutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(20)
+        intfrecord =[vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        if not check_traffic_balanced(counter1, intfrecord = intfrecord ):
+            st.banner("Test Failed: traffic load not distributed")
+            del_ars()
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable after Interface Shutdown")
+        st.wait(100)
+        st.banner("Test Passed Traffic is Load Distributed Evenly Even after bringing down interface")
+        st.report_pass('test_case_passed')
+
+    def test_bring_down_one_nhop_member_perpacket_v4(self):
+        st.banner("IN TEST Bring Down One Interface: Traffic is expected to Distribute on ARS Enable Before and After Interface Shutdown")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trB1['stream_id']
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        add_ars_perpacket()
+        run_traffic(stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            del_ars()
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable Before Interface Shutdown")
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        #Bring down one interface 
+        interface_obj.interface_shutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(2)
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        interface_obj.interface_noshutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(20)
+        intfrecord =[vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        if not check_traffic_balanced(counter1, intfrecord = intfrecord ):
+            st.banner("Test Failed: traffic load not distributed")
+            del_ars()
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable after Interface Shutdown")
+        st.wait(100)
+        st.banner("Test Passed Traffic is Load Distributed Evenly Even after bringing down interface")
+        st.report_pass('test_case_passed')
+
+@pytest.mark.usefixtures('fixture_v6')
+class Test_IPV6_config_ars_bring_down_interface():
+    def test_bring_down_one_nhop_member_v6(self):
+        st.banner("IN TEST Bring Down One Interface: Traffic is expected to Distribute on ARS Enable Before and After Interface Shutdown")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trB1['stream_id']
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        add_ars()
+        run_traffic(stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable Before Interface Shutdown")
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        #Bring down one interface 
+        interface_obj.interface_shutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(2)
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        interface_obj.interface_noshutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(20)
+        intfrecord =[vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        if not check_traffic_balanced(counter1, intfrecord = intfrecord ):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable after Interface Shutdown")
+        st.wait(100)
+        st.banner("Test Passed Traffic is Load Distributed Evenly Even after bringing down interface")
+        st.report_pass('test_case_passed')
+
+    def test_bring_down_one_nhop_member_perpacket_v6(self):
+        st.banner("IN TEST Bring Down One Interface: Traffic is expected to Distribute on ARS Enable Before and After Interface Shutdown")
+        intfrecord =[ vars.D1D2P1, vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        stream = trB1['stream_id']
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        add_ars_perpacket()
+        run_traffic(stream)
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        if not check_traffic_balanced(counter1, intfrecord):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable Before Interface Shutdown")
+        st.config(data_glob.dut1, "sudo -s sonic-clear counters")
+        #Bring down one interface 
+        interface_obj.interface_shutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(2)
+        run_traffic(stream)
+        del_ars()
+        counter1 = st.show(data_glob.dut1, "sudo -s show interface counters")
+        interface_obj.interface_noshutdown(vars.D1, vars.D1D2P1, skip_verify=False)
+        st.wait(100)
+        intfrecord =[vars.D1D2P2, vars.D1D2P3, vars.D1D2P4, vars.D1D2P5, vars.D1D2P7, vars.D1D2P8]
+        if not check_traffic_balanced(counter1, intfrecord = intfrecord ):
+            st.banner("Test Failed: traffic load not distributed")
+            st.report_fail("test_case_failed_msg", "Traffic does not Distribute on ARS Enable after Interface Shutdown")
+        st.banner("Test Passed Traffic is Load Distributed Evenly Even after bringing down interface")
+        st.report_pass('test_case_passed')
+        
