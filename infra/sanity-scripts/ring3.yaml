@@ -260,8 +260,8 @@ MGMT:
       #- gnmi/test_gnmi.py
       #- gnmi/test_gnmi_configdb.py
       #- snmp/test_snmp_link_local.py
-      #- tacacs/test_authorization.py
-      #- tacacs/test_ro_disk.py
+      - tacacs/test_authorization.py
+      - tacacs/test_ro_disk.py
     
 L2:
   t0-64:
