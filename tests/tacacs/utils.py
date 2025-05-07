@@ -80,17 +80,17 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     if not last_timestamp:
         last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
-    # Wait 2 seconds to make sure auditd config re-init time stamp not dupe with last timestamp:
-    #     https://github.com/sonic-net/sonic-mgmt/issues/16709
-    time.sleep(2)
-
     duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
     def log_exist(duthost):
         latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+        reload = latest_timestamp != last_timestamp
+        if not reload:
+            # Send the HUP signal to auditd-tacplus to trigger a config reload
+            duthost.shell("sudo kill -1 $(pidof audisp-tacplus)")
+        return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
