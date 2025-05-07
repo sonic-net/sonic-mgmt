@@ -227,6 +227,7 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
         field = line.split('=')[0].strip()
         if field == "state":
             return expected_state in line.split('=')[1].strip()
+    return ""
 
 
 def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
