@@ -38,3 +38,10 @@ stages:
     - template: /.azure-pipelines/common2/jobs/run-black.yml
     - template: /.azure-pipelines/common2/jobs/run-mypy.yml
     - template: /.azure-pipelines/common2/jobs/run-pylint.yml
+    - job: enforce_coverage
+      displayName: 'Enforce 80% Unit Test Coverage'
+      steps:
+      - script: |
+          pip install pytest pytest-cov
+          pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
+        displayName: 'Run Unit Tests with Coverage Check'
