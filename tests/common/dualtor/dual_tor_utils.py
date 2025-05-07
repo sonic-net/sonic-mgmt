@@ -1517,7 +1517,7 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
         if 'PortChannel' in intf:
             portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv4'])
             if 'peer_ipv6' in ip_intf_facts[intf]:
-               portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv6'])
+                portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv6'])
 
     route_dst = ipaddress.ip_address(six.text_type(route_dst))
     ip_neighbors = []
