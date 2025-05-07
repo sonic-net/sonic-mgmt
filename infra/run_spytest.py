@@ -485,10 +485,11 @@ def collect_result():
             key = key.strip()
             value = value.strip()
 
+            sum["failed"] = 0
             if key == "PASS":
                 sum["passed"] = int(value)
             elif key in ["DUTFAIL", "CONFIGFAIL", "CMDFAIL", "TOPOFAIL", "TGENFAIL", "UNSUPPORTED", "SCRIPTERROR", "DEPFAIL", "ENVFAIL", "TIMEOUT", "FAIL"]:
-                sum["failed"] = int(value)
+                sum["failed"] += int(value)
             elif key == "SKIPPED":
                 sum["skipped"] = int(value)
             elif key == "Test Count":
