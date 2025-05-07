@@ -71,7 +71,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
@@ -208,7 +208,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
@@ -341,7 +341,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
