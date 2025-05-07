@@ -94,8 +94,11 @@ def apply_tc_to_dscp_map_config(
     """
     Apply the TC_TO_DSCP map configuration to the DUT.
 
-    This fixture can apply either a standard TC_TO_DSCP map or one with missing TC entries
-    based on the test's needs. When 'missing_tc' is True, it creates a map with missing TC values.
+    This fixture can apply different TC_TO_DSCP configurations based on test needs:
+    - When 'missing_tc' is True, it creates a map with missing TC values
+    - When 'missing_map_on_interface' is True, it creates the TC_TO_DSCP map table
+      but doesn't assign it to interfaces
+    - Default case creates a complete map and assigns it to all interfaces
 
     Args:
         duthost: The DUT host object.
@@ -105,12 +108,20 @@ def apply_tc_to_dscp_map_config(
     Returns:
         The applied TC_TO_DSCP map when 'missing_tc' is True, otherwise None.
     """
-    missing_tc = request.param if hasattr(request, "param") else False
+    # Parse parameters
+    missing_tc = False
+    missing_map_on_interface = False
 
-    tc_to_dscp_map_present = check_config_table_presence(
-        duthost, table_name="TC_TO_DSCP_MAP"
-    )
+    if hasattr(request, "param"):
+        if isinstance(request.param, bool):
+            missing_tc = request.param
+        elif isinstance(request.param, dict):
+            missing_tc = request.param.get("missing_tc", False)
+            missing_map_on_interface = request.param.get(
+                "missing_map_on_interface", False
+            )
 
+    # Choose which map to apply based on the parameter
     if missing_tc:
         tc_to_dscp_map = {
             "AZURE": {
@@ -127,43 +138,43 @@ def apply_tc_to_dscp_map_config(
     else:
         tc_to_dscp_map = TC_TO_DSCP_MAP
 
-    if tc_to_dscp_map_present and not missing_tc:
-        logger.info("TC_TO_DSCP_MAP already present in config db. Skipping setup.")
-        yield None
-    else:
-        config_db_json = duthost.shell(f"cat {CONFIG_DB_JSON_PATH}")["stdout"]
-        config_db_dict: dict = json.loads(config_db_json)
+    config_db_json = duthost.shell(f"cat {CONFIG_DB_JSON_PATH}")["stdout"]
+    config_db_dict: dict = json.loads(config_db_json)
+    backup_file = "/etc/sonic/config_db_backup.json"
+    duthost.shell(f"cp /etc/sonic/config_db.json {backup_file}")
 
-        backup_file = "/etc/sonic/config_db_backup.json"
-        duthost.shell(f"cp /etc/sonic/config_db.json {backup_file}")
+    config_db_dict["TC_TO_DSCP_MAP"] = tc_to_dscp_map
+    port_qos_map: dict = config_db_dict.get("PORT_QOS_MAP")
+    pytest_assert(port_qos_map, "PORT_QOS_MAP missing from duthost config.")
 
-        # Apply the TC_TO_DSCP map
-        config_db_dict["TC_TO_DSCP_MAP"] = tc_to_dscp_map
-        port_qos_map: dict = config_db_dict.get("PORT_QOS_MAP")
-        pytest_assert(port_qos_map, "PORT_QOS_MAP missing from duthost config.")
-
+    if not missing_map_on_interface:
         for upstream_intf in upstream_links.keys():
             config_db_dict["PORT_QOS_MAP"][upstream_intf]["tc_to_dscp_map"] = "AZURE"
-
-        duthost.copy(
-            content=json.dumps(config_db_dict, indent=4), dest=CONFIG_DB_JSON_PATH
-        )
 
         log_message = "Running QoS Reload on switch"
         if missing_tc:
             log_message += " with missing TC mappings"
-        logger.info(log_message)
+    else:
+        for upstream_intf in upstream_links.keys():
+            if "tc_to_dscp_map" in config_db_dict["PORT_QOS_MAP"][upstream_intf]:
+                del config_db_dict["PORT_QOS_MAP"][upstream_intf]["tc_to_dscp_map"]
 
-        duthost.shell("sudo config qos reload -y")
-        wait_critical_processes(duthost)
+        log_message = (
+            "Running QoS Reload on switch with missing tc_to_dscp_map on interfaces"
+        )
 
-        yield tc_to_dscp_map if missing_tc else None
+    duthost.copy(content=json.dumps(config_db_dict, indent=4), dest=CONFIG_DB_JSON_PATH)
 
-    # Reset back to original config
-    if tc_to_dscp_map_present and not missing_tc:
-        logger.info("TC_TO_DSCP_MAP already present in config db. Skipping teardown.")
-        return None
+    logger.info(log_message)
+    duthost.shell("sudo config qos reload -y")
+    wait_critical_processes(duthost)
 
+    if missing_tc:
+        yield tc_to_dscp_map
+    else:
+        yield None
+
+    # Always restore original config after test
     duthost.shell(f"cp {backup_file} /etc/sonic/config_db.json")
     logger.info("Running QoS Reload on switch to restore original config")
     duthost.shell("sudo config qos reload -y")
@@ -541,6 +552,43 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
             duthost, downstream_links, upstream_links, test_mode
         )
         test_params["tc_to_dscp_map"] = apply_tc_to_dscp_map_config
+
+        self._run_test(
+            ptfadapter,
+            duthost,
+            tbinfo,
+            test_params,
+            dut_qos_maps_module,
+            test_mode,
+        )
+
+    @pytest.mark.parametrize(
+        "apply_tc_to_dscp_map_config",
+        [{"missing_map_on_interface": True}],
+        indirect=True,
+    )
+    def test_tc_to_dscp_map_valid_table_missing_map(
+        self,
+        ptfadapter,
+        rand_selected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+        setup_standby_ports_on_rand_unselected_tor,  # noqa F811
+        tbinfo,
+        downstream_links,  # noqa F811
+        upstream_links,  # noqa F811
+        dut_qos_maps_module,  # noqa F811
+        apply_tc_to_dscp_map_config,  # noqa F811
+    ):
+        """
+        Test TC to DSCP mapping when there's a valid TC_TO_DSCP table in the config DB,
+        but the egress interface is missing the tc_to_dscp_map configuration in PORT_QOS_MAP.
+        In this scenario, the ingress DSCP should be retained in the egress packet.
+        """
+        duthost = rand_selected_dut
+        test_mode = TestMode.VALID_TABLE_MISSING_MAP
+        test_params = self._setup_test_params(
+            duthost, downstream_links, upstream_links, test_mode
+        )
 
         self._run_test(
             ptfadapter,
