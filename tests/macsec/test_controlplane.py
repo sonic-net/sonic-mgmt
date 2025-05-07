@@ -88,7 +88,7 @@ class TestControlPlane():
         assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
         duthost.command("rm {}".format(tmp_file))
 
-   @pytest.mark.disable_loganalyzer
+    @pytest.mark.disable_loganalyzer
     def test_profile_replace(self, duthost, ctrl_links,
                              profile_name, default_priority, cipher_suite,
                              primary_cak, primary_ckn, policy, send_sci, rekey_period, wait_mka_establish):
