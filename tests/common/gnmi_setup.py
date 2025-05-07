@@ -22,7 +22,7 @@ from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   #
 logger = logging.getLogger(__name__)
 
 # Wait 15 seconds after starting GNMI server
-GNMI_SERVER_START_WAIT_TIME = 15
+GNMI_SERVER_START_WAIT_TIME = 5
 
 
 def create_ext_conf(ip, filename):
@@ -142,18 +142,20 @@ def apply_cert_config(duthost):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
 
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
-    dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
-        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
-    if env.gnmi_process not in output['stdout']:
-        # Dump tcp port status and gnmi log
-        logger.info("TCP port status: " + output['stdout'])
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        pytest.fail("Failed to start gnmi server")
+    is_time_synced = False
+    for i in range(3):
+        time.sleep(GNMI_SERVER_START_WAIT_TIME)
+        dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        if is_time_synced is False and duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+            is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+            assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
+        if env.gnmi_process not in output['stdout']:
+            # Dump tcp port status and gnmi log
+            logger.info("TCP port status: " + output['stdout'])
+            dump_gnmi_log(duthost)
+            dump_system_status(duthost)
+            pytest.fail("Failed to start gnmi server")
 
 
 def recover_cert_config(duthost):
