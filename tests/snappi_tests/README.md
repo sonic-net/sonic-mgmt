@@ -25,8 +25,7 @@ Please make sure that you have loaded the sonic docker image to be executed usin
 * Changing default username and passwords of DUT.
     - ansible/group_vars/snappi-sonic/secrets.yml
 # Steps for Running snappi-tests Using sonic-mgmt Framework
-
-## Step 1: Configure Device Inventory
+## Step 2: Configure Device Inventory
 **File:** `~/sonic-mgmt/ansible/files/sonic_snappi-sonic_devices.csv`
 
 - Define all testbed components:
