@@ -9,39 +9,28 @@ import time
 from enum import StrEnum
 from typing import Any
 
-import ptf.packet as scapy
 import ptf.testutils as testutils
 import pytest
 from ptf import mask
 from scapy.all import IP, Ether
-from scapy.layers.l2 import Ether
 from tabulate import tabulate
 
 from tests.common.devices.multi_asic import MultiAsicSonicHost
 from tests.common.dualtor.mux_simulator_control import (
-    toggle_all_simulator_ports_to_rand_selected_tor,
-)  # noqa F401
+    toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F401
+)
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_config_table_presence
 from tests.common.helpers.ptf_tests_helper import (
-    apply_dscp_cfg_setup,
-    apply_dscp_cfg_teardown,
-    downstream_links,
-    get_dut_pair_port_from_ptf_port,
-    get_stream_ptf_ports,
+    downstream_links,  # noqa F401
+    get_dut_pair_port_from_ptf_port,  # noqa F401
     select_random_link,
-    upstream_links,
-)  # noqa F401
+    upstream_links,  # noqa F401
+)
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.ptfadapter.ptfadapter import PtfTestAdapter
-from tests.common.utilities import (
-    find_egress_queue,
-    get_dscp_to_queue_value,
-    get_egress_queue_pkt_count_all_prio,
-    get_ipv4_loopback_ip,
-    wait_until,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -397,7 +386,6 @@ class TestQoSSai_TC_TO_DSCP_Mapping_Base:
         Raises:
             RunAnsibleModuleFail if ptf test fails
         """
-        asic_type = duthost.facts["asic_type"]
         router_mac = test_params["router_mac"]
         ptf_src_port_id = test_params["ptf_downlink_port"]
         ptf_dst_port_id = test_params["ptf_uplink_port"]
