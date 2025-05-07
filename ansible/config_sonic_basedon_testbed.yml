@@ -828,7 +828,12 @@
         loop_control:
           loop_var: azng_config_cmd
         ignore_errors: false
-        when: sup_dut is defined and testbed_facts['duts_map'][inventory_hostname] == 0 and (not is_ixia_testbed or 'route_conv' in topo)
+        when: > 
+         't2' in topo 
+         and 'lt2' not in topo
+         and 'ft2' not in topo
+         and testbed_facts['duts_map'][inventory_hostname] == 0 
+         and not is_ixia_testbed 
 
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json
