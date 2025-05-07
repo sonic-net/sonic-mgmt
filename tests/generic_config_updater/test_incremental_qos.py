@@ -129,6 +129,9 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
                                      .format(interface))['stdout']
+        if cable_length == "0m":
+            pytest.skip("skip the test due to no buffer lossless pg")
+
         port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'
                                    .format(interface))['stdout']
 

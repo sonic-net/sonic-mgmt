@@ -24,6 +24,12 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
+acl/test_acl.py:
+  skip:
+    reason: "Skip acl for isolated-v6 topology"
+    conditions:
+      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -2267,7 +2273,7 @@ srv6/test_srv6_basic_sanity.py:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox platform with 202412 image at this time"
+    reason: "Only target mellanox and brcm platform with 202412 image at this time"
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
@@ -2276,6 +2282,12 @@ srv6/test_srv6_static_config.py:
     reason: "Requires particular image support, skip in PR testing"
     conditions:
       - "release not in ['202412']"
+
+srv6/test_srv6_vlan_forwarding.py:
+  skip:
+    reason: "Only target mellanox/brcm platform with 202412 image at this time"
+    conditions:
+      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
 
 #######################################
 #####             ssh             #####
