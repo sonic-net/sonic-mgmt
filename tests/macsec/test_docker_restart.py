@@ -12,7 +12,7 @@ pytestmark = [
 ]
 
 
-def test_restart_macsec_docker(duthosts, ctrl_links, policy, cipher_suite, send_sci,
+def test_restart_macsec_docker(ctrl_links, policy, cipher_suite, send_sci,
                                macsec_duthost):
     duthost = macsec_duthost
 
