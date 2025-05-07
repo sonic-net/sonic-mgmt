@@ -167,6 +167,11 @@ def check_skip_xon_hysteresis_test(xonHysteresisKey, dutQosConfig,
             " Pls see qos.yaml for the port idx's that are needed.")
 
 
+def skip_test_on_no_lossless_pg(portSpeedCableLength):
+    if portSpeedCableLength == "0_0m":
+        pytest.skip("skip the test due to no buffer lossless pg")
+
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
@@ -403,6 +408,7 @@ class TestQosSai(QosSaiBase):
                 "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
@@ -500,6 +506,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Shared Headroom has to be enabled for this test")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -673,6 +680,7 @@ class TestQosSai(QosSaiBase):
                 "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -850,6 +858,7 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
 
@@ -1608,6 +1617,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         qosConfig = dutQosConfig["param"]
         if "wrr" in qosConfig[portSpeedCableLength]:
             qosConfigWrr = qosConfig[portSpeedCableLength]["wrr"]
@@ -1687,6 +1697,9 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if pgProfile == "wm_pg_shared_lossless":
+            skip_test_on_no_lossless_pg(portSpeedCableLength)
+
         if pgProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -1790,6 +1803,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
@@ -1902,6 +1916,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if queueProfile == "wm_q_shared_lossless":
+            skip_test_on_no_lossless_pg(portSpeedCableLength)
 
         if queueProfile == "wm_q_shared_lossless":
             if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
@@ -1963,8 +1979,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps  # noqa F811
-    ):
+        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
+            dutQosConfig):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -1982,6 +1998,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
                  dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox"]):

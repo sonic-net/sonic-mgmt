@@ -236,6 +236,9 @@ class QosSaiBase(QosBase):
                 port_dynamic_th = dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
+                port_profile_reserved_size = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                )[0]
                 break
         if port_dynamic_th:
 
@@ -255,17 +258,24 @@ class QosSaiBase(QosBase):
                 )[0]
             )
 
-            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+            pg_q_reserved_size = int(port_profile_reserved_size) * pg_q_alpha / (1 + pg_q_alpha)
+            reserved_size = pg_q_reserved_size if pg_q_reserved_size > int(pg_q_buffer_profile["size"]) \
+                else int(pg_q_buffer_profile["size"])
+
+            if pg_q_buffer_profile['dynamic_th'] == "7" and port_dynamic_th != "7":
+                buffer_scale = port_alpha / (1 + port_alpha)
+            else:
+                buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
 
             pg_q_max_occupancy = int(buffer_size * buffer_scale)
 
             pg_q_buffer_profile.update(
-                {"static_th": int(
-                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+                {"static_th": int(pg_q_max_occupancy) + int(reserved_size)}
             )
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -350,8 +360,24 @@ class QosSaiBase(QosBase):
             else:
                 bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+            profile_content = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])
+            if profile_content:
+                bufferProfileName = bufkeystr + profile_content[0]
+            else:
+                logger.info("No lossless buffer. To compatible the existing case, return dump bufferProfilfe")
+                dump_buffer_profile = {
+                    "profileName": f"{bufkeystr}pg_lossless_0_0m_profile",
+                    "pool": "ingress_lossless_pool",
+                    "xon": "0",
+                    "xoff": "0",
+                    "size": "0",
+                    "dynamic_th": "0",
+                    "pg_q_alpha": "0",
+                    "port_alpha": "0",
+                    "pool_size": "0",
+                    "static_th": "0"
+                }
+                return dump_buffer_profile
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -1751,10 +1777,13 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
-            testParams=dutTestParams["basicParams"]
-        )
+        if isMellanoxDevice(duthosts[0]):
+            logger.info("skip reaseAllports fixture for mellanox device")
+        else:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",
+                testParams=dutTestParams["basicParams"]
+            )
 
     def __loadSwssConfig(self, duthost):
         """
@@ -2097,12 +2126,25 @@ class QosSaiBase(QosBase):
 
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
+        is_lossy_queue_only = False
+
         if srcport in dualtor_ports_for_duts:
             queues = "0-1"
         else:
-            queues = "0-2"
+            if isMellanoxDevice(duthost):
+                cable_len = dut_asic.shell(f"redis-cli -n 4 hget 'CABLE_LENGTH|AZURE' {srcport}")['stdout']
+                if cable_len == '0m':
+                    is_lossy_queue_only = True
+                    logger.info(f"{srcport} has only lossy queue")
+            if is_lossy_queue_only:
+                is_lossy_queue_only = True
+                queue_table_postfix_list = ['0-3', '4', '5']
+                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
+                queues = random.choice(queue_table_postfix_list)
+            else:
+                queues = "0-2"
 
-        yield self.__getBufferProfile(
+        egress_lossy_profile = self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
@@ -2111,6 +2153,12 @@ class QosSaiBase(QosBase):
             srcport,
             queues
         )
+        if is_lossy_queue_only:
+            egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
+        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
+
+        yield egress_lossy_profile
 
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
