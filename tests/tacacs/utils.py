@@ -66,24 +66,31 @@ def check_server_received(ptfhost, data, timeout=30):
     pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
 
 
-def get_auditd_config_reload_line_count(duthost):
+def get_auditd_config_reload_timestamp(duthost):
     res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'") # noqa E501
     logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
 
-    return len(res["stdout_lines"])
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
 
 
-def change_and_wait_aaa_config_update(duthost, command, last_line_count=None, timeout=10):
-    if not last_line_count:
-        last_line_count = get_auditd_config_reload_line_count(duthost)
+def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
     duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
     def log_exist(duthost):
-        latest_line_count = get_auditd_config_reload_line_count(duthost)
-        return latest_line_count > last_line_count
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        reload = latest_timestamp != last_timestamp
+        if not reload:
+            # Send the HUP signal to auditd-tacplus to trigger a config reload
+            duthost.shell("sudo kill -1 $(pidof audisp-tacplus)")
+        return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
