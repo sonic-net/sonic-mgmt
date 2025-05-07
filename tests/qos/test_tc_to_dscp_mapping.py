@@ -6,7 +6,7 @@ import json
 import logging
 import random
 import time
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 import ptf.testutils as testutils
@@ -56,7 +56,7 @@ TC_TO_DSCP_MAP: dict[str, dict[str, str]] = {
 }
 
 
-class TestMode(StrEnum):
+class TestMode(Enum):
     """
     States which kind of test is being run.
 
@@ -72,6 +72,9 @@ class TestMode(StrEnum):
     VALID_TABLE_MISSING_MAP = "valid_table_missing_map"
     MISSING_TABLE = "missing_table"
     VALID_TABLE_MISSING_TC = "valid_table_missing_tc"
+
+    def __str__(self):
+        return self.value
 
 
 @pytest.fixture
