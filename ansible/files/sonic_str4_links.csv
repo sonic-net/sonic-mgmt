@@ -1291,8 +1291,6 @@ str4-8122-04,Ethernet488,str4-8122-fanout-03,etp61a,400000,479,Access,off
 str4-8122-04,Ethernet492,str4-8122-fanout-03,etp61b,400000,480,Access,off
 str4-8122-04,Ethernet496,str4-8122-fanout-03,etp62a,400000,481,Access,off
 str4-8122-04,Ethernet500,str4-8122-fanout-03,etp62b,400000,482,Access,off
-str4-8122-04,Ethernet504,str4-7060x6-64pe-fan-share-1,Ethernet96,100000,483,Access,off
-str4-8122-04,Ethernet508,str4-7060x6-64pe-fan-share-1,Ethernet100,100000,484,Access,off
 str4-8122-04,Ethernet512,str4-8122-fanout-03,etp64,10000,485,Access,off
 str4-8122-04,Ethernet513,str4-8122-fanout-03,etp65,10000,486,Access,off
 str4-7060x6-64pe-7,Ethernet0,str4-7060x6-64pe-fan-4,Ethernet0,100000,1234,Access,off
