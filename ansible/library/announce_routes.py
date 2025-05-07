@@ -150,6 +150,7 @@ def read_topo(topo_name, path):
 
 
 def change_routes(action, ptf_ip, port, routes):
+    logging.debug("action = {}, ptf_ip = {}, port = {}, routes = {}".format(action, ptf_ip, port, routes))
     messages = []
     for prefix, nexthop, aspath in routes:
         if aspath:
@@ -1308,6 +1309,23 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
+    vms = topo['topology']['VMs']
+
+    for hostname, routes in peers_routes_to_change.items():
+        vm_offset = vms[hostname]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        ipv4_routes = [r for r in routes if '.' in r[0]]
+        if ipv4_routes:
+            change_routes(action, ptf_ip, port, ipv4_routes)
+
+        ipv6_routes = [r for r in routes if ':' in r[0]]
+        if ipv6_routes:
+            change_routes(action, ptf_ip, port6, ipv6_routes)
+
+
 def get_ipv4_routes(routes):
     return [r for r in routes if ipaddress.ip_network(UNICODE_TYPE(r[0])).version == 4]
 
@@ -1345,6 +1363,8 @@ def main():
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
             dut_interfaces=dict(required=False, type='str', default=''),
+            adhoc=dict(required=False, type='bool', default=False),
+            peers_routes_to_change=dict(required=False, type='dict', default={}),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1357,6 +1377,8 @@ def main():
     action = module.params['action']
     dut_interfaces = module.params['dut_interfaces']
     path = module.params['path']
+    adhoc = module.params['adhoc']
+    peers_routes_to_change = module.params['peers_routes_to_change']
 
     topo = read_topo(topo_name, path)
     if not topo:
@@ -1372,7 +1394,10 @@ def main():
     topo_type = get_topo_type(topo_name)
 
     try:
-        if topo_type == "t0":
+        if adhoc:
+            adhoc_routes(topo, ptf_ip, peers_routes_to_change, action)
+            module.exit_json(change=True)
+        elif topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
