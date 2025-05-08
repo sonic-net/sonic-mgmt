@@ -304,7 +304,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if self.ports[selected_port]['test_port_type'] != 'portchannel':
             return
 
-        config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         portChannels = config_facts['PORTCHANNEL_MEMBER']
         portChannel = None
         portChannelMembers = None
