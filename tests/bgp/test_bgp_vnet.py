@@ -21,6 +21,29 @@ logger = logging.getLogger(__name__)
 # global variables
 g_vars = {}
 
+TEMPLATE_CONFIGS = {
+    "vnet_dynamic_peer_add": {
+        "BGP_PEER_RANGE": {
+            "Vnet2|BGPSLBPassive": {
+                "ip_range": ["10.0.0.60/31", "10.0.0.62/31"],
+                "peer_asn": "64600",
+                "src_address": "10.0.0.60",
+                "name": "BGPSLBPassive"
+            }
+        }
+    },
+    "vnet_dynamic_peer_del": {
+        "BGP_PEER_RANGE": {
+            "Vnet2|BGPSLBPassive": {
+                "ip_range": ["10.0.0.60/31"],
+                "peer_asn": "64600",
+                "src_address": "10.0.0.60",
+                "name": "BGPSLBPassive"
+            }
+        }
+    }
+}
+
 
 # helper functions
 def get_vlan_members(vlan_name, cfg_facts):
@@ -182,17 +205,24 @@ def validate_state_db_entry(duthost, peer, vnet, dynamic_peer):
         "Peer {} vnet {} state in state db is not {}. Found {}".format(peer, vnet, expected_state, peer_state)
 
 
-def modify_dynamic_peer_cfg(duthost, cfg_facts, template):
+def modify_dynamic_peer_cfg(duthost, template):
     '''
     modify dynamic peer configuration on DUT
     '''
-    cfg_t0 = deepcopy(cfg_facts)
-    cfg_t0.pop('config_port_indices', None)
-    extra_vars = {'cfg_t0': cfg_t0}
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    temp_location = "/tmp/{}.json".format(template)
-    duthost.template(src="bgp/templates/{}.j2".format(template), dest=temp_location)
-    duthost.shell("sonic-cfggen -j {} --write-to-db".format(temp_location))
+    if template not in TEMPLATE_CONFIGS:
+        raise ValueError(f"Unknown template name: {template}")
+
+    config_dict = TEMPLATE_CONFIGS[template]
+    config_json_str = json.dumps(config_dict, indent=4)
+
+    temp_location = f"/tmp/{template}.json"
+
+    # Copy rendered config to DUT and apply it
+    duthost.copy(content=config_json_str, dest=temp_location)
+    duthost.shell(f"cp {temp_location} /home/admin/{template}.json")
+    duthost.shell(f"sonic-cfggen -j {temp_location} --write-to-db")
+    time.sleep(10)
+    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
 
 
 def dynamic_range_add_delete(duthost, cfg_facts, template):
@@ -204,12 +234,10 @@ def dynamic_range_add_delete(duthost, cfg_facts, template):
     dynamic_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
     static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
     time.sleep(10)
-    modify_dynamic_peer_cfg(duthost, cfg_facts, template)
-    time.sleep(10)
+    modify_dynamic_peer_cfg(duthost, template)
 
     bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
     bgp_summary = json.loads(bgp_summary_string)
-    total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
     dynamic_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
     static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
     # add 20 seconds to the uptime to account for the sleep timer
@@ -221,12 +249,24 @@ def dynamic_range_add_delete(duthost, cfg_facts, template):
     assert static_peer_uptime_after >= static_peer_uptime_before, \
         "Static peer should not flap when a dynamic range is added/deleted!"
     if template == 'vnet_dynamic_peer_add':
-        assert int(total_peers) == 2, "There should be 2 dynamic peer! found {}".format(total_peers)
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
+        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
     elif template == 'vnet_dynamic_peer_del':
-        assert int(total_peers) == 1, "There should be only 1 dynamic peer! found {}".format(total_peers)
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
+            ), "BGP peer 10.0.63 should not be in show bgp summary output"
     else:
         assert False, "Invalid template name {}".format(template)
-    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
 
 
 def dynamic_peer_delete(duthost):
@@ -273,10 +313,8 @@ def dynamic_peer_modify_stress_test(duthost, cfg_facts):
     core_dumps_before = get_core_dumps(duthost)
 
     for i in range(20):
-        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_del')
-        time.sleep(10)
-        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
-        time.sleep(10)
+        modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
+        modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
 
     static_peer_uptime_after = static_peer_uptime_before + 20*20*1000
     dynamic_peer_uptime_after = dynamic_peer_uptime_before + 20*20*1000
@@ -307,8 +345,17 @@ def dynamic_peer_delete_stress_test(duthost, cfg_facts):
         redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
         duthost.shell(redis_cmd)
         time.sleep(10)
-        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
-        time.sleep(10)
+        modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(bgp_summary_string)
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
+        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
 
     static_peer_uptime_before = static_peer_uptime_before + 20*20*1000
     bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
@@ -353,13 +400,26 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
                             validate_state_db_entry(duthost, peer, vnet, False)
 
         # Verify changing ip_range for dynamic peers
-        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_del')
-        time.sleep(20)
         bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
         bgp_summary = json.loads(bgp_summary_string)
-        total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
-        assert int(total_peers) == 1, "There should be only 1 dynamic peer!"
-        validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
+        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
+        modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
+        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(bgp_summary_string)
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
+        ), "BGP peer 10.0.63 should not be in show bgp summary output"
 
         # Verify adding a new dynamic range
         dynamic_range_add_delete(duthost, cfg_facts, 'vnet_dynamic_peer_add')
@@ -371,8 +431,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         dynamic_peer_delete(duthost)
 
         # Add the dynamic peer group back to the config db
-        modify_dynamic_peer_cfg(duthost, cfg_facts, 'vnet_dynamic_peer_add')
-        time.sleep(10)
+        modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
 
         # Perform stress test for modifying dynamic peer configuration
         dynamic_peer_modify_stress_test(duthost, cfg_facts)
