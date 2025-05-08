@@ -45,8 +45,8 @@ def test_ecn_marking(
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_snappi_ports
     snappi_ports = setup_snappi_port_configs
-    tx_ports = setup_snappi_port_configs[1:3]
-    rx_ports = [setup_snappi_port_configs[3]]
+    tx_ports = setup_snappi_port_configs[:2]
+    rx_ports = [setup_snappi_port_configs[2]]
     config, tx_names, rx_names = create_snappi_config(
         snappi_api, tx_ports, rx_ports, is_rdma=True
     )
@@ -126,6 +126,13 @@ def test_ecn_marking(
 
     # packet_capture_file = "Rx_0 - Data"
     ip_pkts = get_ipv4_pkts(packet_capture_file + ".pcapng")
+    count = 0
+    for pkt in ip_pkts:
+        if is_ecn_marked(pkt):
+            count+=1
+    logger.info("Total packets Captured: {}".format(len(ip_pkts)))
+    logger.info("Total packets marked: {}".format(count))
+    logger.info("Percentage of packets marked: {}".format(count/len(ip_pkts)*100))
     # Check if the first packet is ECN marked
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
     # Check if the last packet is not ECN marked
