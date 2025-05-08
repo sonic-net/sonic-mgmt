@@ -1,7 +1,5 @@
 # Modules
-+file:cisco/tortuga/vxlan/multihome/config/test_config.py
-+file:cisco/tortuga/vxlan/multihome/mobility/test_mobility.py
-+file:cisco/tortuga/vxlan/multihome/traffic/test_traffic.py
++file:cisco/tortuga/vxlan/test_evpn_mh_v4_over_v6.py
 
 #Runtime Arguments
 +args:--skip-init-config
