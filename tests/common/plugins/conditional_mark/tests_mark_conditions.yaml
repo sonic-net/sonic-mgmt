@@ -812,6 +812,12 @@ dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
     conditions:
       - "asic_type in ['vs'] or 'arista_7800' in platform"
 
+dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
+  skip:
+    reason: "Skipping test because test is not supported on this hwsku"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+
 #######################################
 #####             ecmp            #####
 #######################################
