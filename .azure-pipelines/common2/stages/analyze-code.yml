@@ -26,9 +26,7 @@ stages:
             echo "##vso[task.setvariable variable=common2_changes;isOutput=true]false"
         name: set_var
 
-    - job: run_analyze_code
-      displayName: 'Run Static Analysis for tests/common2'
-      dependsOn: check_common2_changes
-      condition: eq(dependencies.check_common2_changes.outputs['set_var.common2_changes'], 'true')
-      steps:
-      - template: /.azure-pipelines/common2/jobs/run-analyze-code.yml
+    - template: /.azure-pipelines/common2/jobs/run-analyze-code.yml
+      parameters:
+        dependsOn: [check_common2_changes]
+        condition: eq(dependencies.check_common2_changes.outputs['set_var.common2_changes'], 'true')
