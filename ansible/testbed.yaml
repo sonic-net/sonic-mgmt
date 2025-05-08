@@ -2246,7 +2246,7 @@
   comment: shiyanwang
 
 - conf-name: ptp-7060x6-1
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -2261,7 +2261,7 @@
   comment: patelmi
 
 - conf-name: ptp-7060x6-2
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -2276,7 +2276,7 @@
   comment: patelmi
 
 - conf-name: ptp-7060x6-3
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -2291,7 +2291,7 @@
   comment: patelmi
 
 - conf-name: ptp-7060x6-4
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -2306,7 +2306,7 @@
   comment: patelmi
 
 - conf-name: ptp-sn5600-1
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -2321,7 +2321,7 @@
   comment: patelmi
 
 - conf-name: ptp-sn5600-2
-  group-name:
+  group-name: ''
   topo: ptp-256
   ptf_image_name: ''
   ptf: ''
@@ -3977,6 +3977,36 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: jianquanye
+
+- conf-name: tk5-7050-t0-01
+  group-name: 7050-01
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf7-4
+  ptf_ip: 10.212.65.94/24
+  ptf_ipv6: 2603:10e2:140:3000::11e/122
+  server: server_tk5_7
+  vm_base: VM77096
+  dut:
+  - strtk5-7050cx3-01
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tk5-7050-t0-01
+
+- conf-name: tk5-7050-t1-01
+  group-name: 7050-02
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf7-5
+  ptf_ip: 10.212.65.95/24
+  ptf_ipv6: 2603:10e2:140:3000::11f/122
+  server: server_tk5_7
+  vm_base: VM77100
+  dut:
+  - strtk5-7050cx3-02
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tk5-7050-t1-01
 
 - conf-name: vms24-t1-8101-02
   group-name: vms24-1

@@ -285,6 +285,9 @@ fanout:
     strtk5-7260-fanout-26:
       ansible_host: 10.212.69.134
       ansible_hostv6: 2603:10e2:140:3000::c6
+    strtk5-7260-fanout-37:
+      ansible_host: 10.212.69.48
+      ansible_hostv6: 2603:10e2:140:3000::4f
     strtk5-e1031-fan-4:
       ansible_host: 10.212.69.132
       ansible_hostv6: 2603:10e2:140:3000::c4
@@ -390,6 +393,7 @@ sonic:
     sonic_nokia_7250_lc_400G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
+    sonic_arista_7050:
 
 sonic_arista_40:
   hosts:
@@ -1731,3 +1735,49 @@ sonic_cisco_sup:
         metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
           timeout: 600
           wait: 900
+
+sonic_arista_7050:
+  vars:
+    iface_speed: 100000
+    msft_an_enabled: True
+  hosts:
+    strtk5-7050cx3-01:
+      ansible_host: 10.212.69.46
+      ansible_hostv6: 2603:10e2:140:3000::4d
+      mgmt_subnet_mask_length: 27
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPN2426P06C
+      base_mac: 68:8b:f4:88:63:58
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288213A0"
+        "0x23": "JPN2426P06C"
+        "0x24": "68:8b:f4:88:63:58"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "12.02"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "JPN2426P06C"
+    strtk5-7050cx3-02:
+      ansible_host: 10.212.69.47
+      ansible_hostv6: 2603:10e2:140:3000::4e
+      mgmt_subnet_mask_length: 27
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S
+      serial: JPN2426P03J
+      base_mac: 68:8b:f4:88:3b:a4
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288213A0"
+        "0x23": "JPE21041573"
+        "0x24": "68:8b:f4:88:3b:a4"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "12.02"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "JPN2426P03J"
