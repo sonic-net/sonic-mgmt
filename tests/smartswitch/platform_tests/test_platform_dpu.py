@@ -318,3 +318,31 @@ def test_system_health_summary(duthosts, dpuhosts,
         pytest_assert(result,
                       "{} health status is not ok"
                       .format(dpu_name))
+
+
+def test_data_control_mid_plane_sync(duthosts,
+                                     enum_rand_one_per_hwsku_hostname,
+                                     platform_api_conn, num_dpu_modules):  # noqa: F811
+    """
+    @summary: To verify data, control and mid planes are in sync
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules)
+
+    logging.info("Bringing DOWN DPUs midplane")
+    duthost.shell("sudo ip link set bridge-midplane down")
+
+    for index in range(len(dpu_on_list)):
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Offline', 'down')
+
+    logging.info("Bringing UP DPUs midplane")
+    duthost.shell("sudo ip link set bridge-midplane up")
+
+    for index in range(len(dpu_on_list)):
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Online', 'up')
+
