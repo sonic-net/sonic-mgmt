@@ -221,6 +221,43 @@
     sysctl_set: yes
   become: yes
 
+- name: Increase neighbor gc_thresh1
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "8192"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh1
+    - net.ipv6.neigh.default.gc_thresh1
+
+- name: Increase neighbor gc_thresh2
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "16384"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh2
+    - net.ipv6.neigh.default.gc_thresh2
+
+- name: Increase neighbor gc_thresh3
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "32768"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh3
+    - net.ipv6.neigh.default.gc_thresh3
+
+- name: increase kernel pid max
+  sysctl:
+    name: "kernel.pid_max"
+    value: "4194304"
+    sysctl_set: yes
+  become: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
