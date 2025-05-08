@@ -345,4 +345,3 @@ def test_data_control_mid_plane_sync(duthosts,
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
                                 'Online', 'up')
-
