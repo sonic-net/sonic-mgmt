@@ -73,12 +73,9 @@ def dut_nbrs(duthost, nbrhosts):
     return nbrs_to_dut
 
 
-# Get one random downlink linecard in a T2 chassis
+# Check if DUT has downlink T1 connections. Return one random downlink linecard in a T2 chassis
 @pytest.fixture(scope="module")
 def rand_one_downlink_duthost(duthosts, tbinfo):
-    if tbinfo['topo']['type'] != 't2':
-        return []
-
     dl_duthosts = []
     for dut in duthosts.frontend_nodes:
         minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
@@ -87,10 +84,11 @@ def rand_one_downlink_duthost(duthosts, tbinfo):
             if 'T1' in value['name']:
                 dl_duthosts.append(dut)
                 break
+    if len(dl_duthosts) == 0:
+        pytest.skip("No downlink T1 connections found")
     dut = random.sample(dl_duthosts, 1)
     if dut:
         return dut[0]
-    pytest.skip("Skipping test - No downlink linecards found")
 
 
 def test_idf_isolated_no_export(rand_one_downlink_duthost,
