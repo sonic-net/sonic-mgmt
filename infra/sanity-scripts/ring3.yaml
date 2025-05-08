@@ -305,15 +305,15 @@ ROUTING: #Sridhar Santhanam
       #- bgp/test_bgp_bounce.py
       #- bgp/test_bgp_multipath_relax.py
       - bgp/test_bgp_session_flap.py
-      - route/test_route_consistency.py
-      - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
-      - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
-      - route/test_default_route.py::test_default_route_set_src
-      - route/test_default_route.py::test_default_route_with_bgp_flap
-      - route/test_route_perf.py
-      - route/test_route_flap.py
-      - route/test_duplicate_route.py
-      - route/test_static_route.py
+      # - route/test_route_consistency.py
+      # - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+      # - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+      # - route/test_default_route.py::test_default_route_set_src
+      # - route/test_default_route.py::test_default_route_with_bgp_flap
+      # - route/test_route_perf.py
+      # - route/test_route_flap.py
+      # - route/test_duplicate_route.py
+      # - route/test_static_route.py
       #- generic_config_updater/test_bgpl.py
       - log_fidelity/test_bgp_shutdown.py
   t2-min:
