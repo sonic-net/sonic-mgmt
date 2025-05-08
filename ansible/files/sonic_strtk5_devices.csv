@@ -25,6 +25,7 @@ strtk5-7260-fanout-23,10.212.69.130/27,Arista-7260CX3,FanoutLeaf,,
 strtk5-7260-fanout-24,10.212.69.131/27,Arista-7260CX3,FanoutLeaf,,
 strtk5-7260-fanout-25,10.212.69.133/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-7260-fanout-26,10.212.69.134/27,Arista-7260QX-64,FanoutLeaf,,
+strtk5-7260-fanout-37,10.212.69.48/27,Arista-7260CX3,FanoutLeaf,,
 strtk5-e1031-fan-4,10.212.69.132/27,Celestica-E1031-T48S4,FanoutLeafSonic,,sonic
 strtk5-7260-24,10.212.69.139/27,Arista-7260QX-64,FanoutLeaf,,
 strtk5-z9332f-fanout-01,10.212.70.17/27,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
@@ -95,6 +96,8 @@ strtk5-8800-sup-1,10.212.70.20/27,Cisco-8800-RP,DevSonic,,sonic
 strtk5-8800-lc1-1,10.212.70.21/27,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 strtk5-8800-lc2-1,10.212.70.22/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
 strtk5-8800-lc3-1,10.212.70.23/27,Cisco-88-LC0-36FH-O36,DevSonic,,sonic
+strtk5-7050cx3-01,10.212.69.46/27,Arista-7050CX3-32S-C32,DevSonic,,sonic
+strtk5-7050cx3-02,10.212.69.47/27,Arista-7050CX3-32S-C32,DevSonic,,sonic
 
 strtk5-dx010-06,10.212.69.149/27,Celestica-DX010-C32,DevSonic,,sonic
 strtk5-dx010-07,10.212.70.4/27,Celestica-DX010-C32,DevSonic,,sonic

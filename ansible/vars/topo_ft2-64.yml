@@ -1476,14 +1476,14 @@ configuration:
       peers:
         4200100000:
           - 10.0.0.126
-          - fc00::fc
+          - fc01::1
     interfaces:
       Loopback0:
         ipv4: 100.1.0.64/32
         ipv6: 2064:100:0:40::/128
       Ethernet1:
         ipv4: 10.0.0.127/31
-        ipv6: fc00::fd/126
+        ipv6: fc01::2/126
     bp_interface:
       ipv4: 10.10.246.65/24
       ipv6: fc0a::41/64
