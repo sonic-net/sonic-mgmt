@@ -164,7 +164,7 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
                     .format(server_neighbor_ip, vlan))
     duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
     duthost.command("config save -y")
-    time.sleep(5)
+    time.sleep(60)
 
     setup_info = {
         "duthost": duthost,
