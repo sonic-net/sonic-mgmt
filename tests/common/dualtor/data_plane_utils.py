@@ -111,7 +111,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
             # keep only disruptions
             result['disruptions'] = [_ for _ in disruptions if "duplication_count" not in _]
             logger.debug("Server %s disruptions after merge:\n%s",
-                         server_ip, json.dumps(result['disruptions']))
+                         server_ip, json.dumps(result['disruptions'], indent=4))
 
         total_disruptions = len(result['disruptions'])
 
