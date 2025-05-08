@@ -92,7 +92,7 @@ parameters:
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
     type: string
-    default: "platform_tests/test_reload_config.py"
+    default: " "
 
   # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_EXCLUDE
