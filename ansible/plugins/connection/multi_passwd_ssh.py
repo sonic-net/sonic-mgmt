@@ -109,6 +109,7 @@ def _password_retry(func):
         except AnsibleConnectionFailure as e:
             # If a non-authentication related exception is raised and IPv6 host is set,
             # Retry with IPv6 host with multi-password
+            hostv6 = None
             try:
                 hostv6 = self.get_option("hostv6")
             except KeyError:
