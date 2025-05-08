@@ -66,10 +66,10 @@ function usage
   echo "To announce routes to DUT for specified testbed: $0 announce-routes 'testbed-name' ~/.password"
   echo "To generate minigraph for DUT in specified testbed: $0 gen-mg 'testbed-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in specified testbed: $0 deploy-mg 'testbed-name' 'inventory' ~/.password"
-  echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
-  echo "        -e enable_data_plane_acl=true"
-  echo "        -e enable_data_plane_acl=false"
-  echo "        by default, data acl is enabled"
+  echo "    Optional parameters:"
+  echo "      -e enable_data_plane_acl=true|false (default: true)"
+  echo "      -e routing_config_mode=separated|unified|split|split-unified (default: separated)"
+  echo "      -e frr_mgmt_config=true|false (default: false)"
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
@@ -542,11 +542,43 @@ function generate_minigraph
   shift
   shift
 
+  # Parse additional options
+  while [ "$1" != "" ]; do
+    case $1 in
+      -e ) shift
+           if [[ "$1" == routing_config_mode=* ]]; then
+             routing_config_mode="${1#*=}"
+             # Remove quotes if present
+             routing_config_mode="${routing_config_mode%\"}"
+             routing_config_mode="${routing_config_mode#\"}"
+           elif [[ "$1" == frr_mgmt_config=* ]]; then
+             frr_mgmt_config="${1#*=}"
+             # Remove quotes if present
+             frr_mgmt_config="${frr_mgmt_config%\"}"
+             frr_mgmt_config="${frr_mgmt_config#\"}"
+           fi
+           ;;
+    esac
+    shift
+  done
+
+  # Prepare routing_config_mode parameter if defined and has a value
+  routing_mode_param=""
+  if [ -n "${routing_config_mode+x}" ] && [ -n "$routing_config_mode" ]; then
+    routing_mode_param="-e routing_config_mode=\"${routing_config_mode}\""
+  fi
+
+  # Prepare frr_mgmt_config parameter if defined and has a value
+  frr_mgmt_param=""
+  if [ -n "${frr_mgmt_config+x}" ] && [ -n "$frr_mgmt_config" ]; then
+    frr_mgmt_param="-e frr_mgmt_config=\"${frr_mgmt_config}\""
+  fi
+
   echo "Generating minigraph for testbed '$testbed_name'"
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $routing_mode_param $frr_mgmt_param $@
 
   echo Done
 }
@@ -560,11 +592,43 @@ function deploy_minigraph
   shift
   shift
 
+  # Parse additional options
+  while [ "$1" != "" ]; do
+    case $1 in
+      -e ) shift
+           if [[ "$1" == routing_config_mode=* ]]; then
+             routing_config_mode="${1#*=}"
+             # Remove quotes if present
+             routing_config_mode="${routing_config_mode%\"}"
+             routing_config_mode="${routing_config_mode#\"}"
+           elif [[ "$1" == frr_mgmt_config=* ]]; then
+             frr_mgmt_config="${1#*=}"
+             # Remove quotes if present
+             frr_mgmt_config="${frr_mgmt_config%\"}"
+             frr_mgmt_config="${frr_mgmt_config#\"}"
+           fi
+           ;;
+    esac
+    shift
+  done
+
+  # Prepare routing_config_mode parameter if defined and has a value
+  routing_mode_param=""
+  if [ -n "${routing_config_mode+x}" ] && [ -n "$routing_config_mode" ]; then
+    routing_mode_param="-e routing_config_mode=\"${routing_config_mode}\""
+  fi
+
+  # Prepare frr_mgmt_config parameter if defined and has a value
+  frr_mgmt_param=""
+  if [ -n "${frr_mgmt_config+x}" ] && [ -n "$frr_mgmt_config" ]; then
+    frr_mgmt_param="-e frr_mgmt_config=\"${frr_mgmt_config}\""
+  fi
+
   echo "Deploying minigraph to testbed '$testbed_name'"
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $routing_mode_param $frr_mgmt_param $@
 
   echo Done
 }

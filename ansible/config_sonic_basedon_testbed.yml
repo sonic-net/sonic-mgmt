@@ -680,6 +680,15 @@
           - hwsku == 'cisco-8101-p4-32x100-vs'
         when: init_cfg_profile is not defined
 
+      - name: Handle routing_config_mode & frr_mgmt_config configuration, and BGP config transformation
+        block:
+          - name: Include routing config tasks
+            include_tasks: config_sonic_unified_mode_testbed.yml
+        when: >
+          init_cfg_profile is not defined and
+          ((routing_config_mode is defined and routing_config_mode is not none and routing_config_mode | length > 0) or
+          (frr_mgmt_config is defined and frr_mgmt_config is not none and frr_mgmt_config | length > 0))
+
       - name: SONiC config reload to pick up config_db.json
         command: config reload -y
         become: yes
