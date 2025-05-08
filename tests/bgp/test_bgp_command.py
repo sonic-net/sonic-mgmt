@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
     pytest.mark.device_type('vs')
 ]
 

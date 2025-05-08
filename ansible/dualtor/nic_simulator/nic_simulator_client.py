@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from six.moves.urllib import response     # noqa F401
+from six.moves.urllib import response     # noqa: F401
 import grpc
 
 from collections import namedtuple
@@ -93,7 +93,7 @@ def main():
                     ),
                 ]
             )
-            response = stub.QueryAdminPortState(request)        # noqa F811
+            response = stub.QueryAdminPortState(request)        # noqa: F811
             print(response)
 
             request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(

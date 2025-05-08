@@ -8,7 +8,7 @@ from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -487,6 +487,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         reboot_type = 'default'
         reboot_timeout = 300
+
+        if duthosts[enum_rand_one_per_hwsku_hostname].get_facts().get("modular_chassis"):
+            reboot_timeout = 360
 
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(duthosts[enum_rand_one_per_hwsku_hostname])

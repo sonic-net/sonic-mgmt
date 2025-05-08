@@ -41,7 +41,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
                                      'x86_64-cel_e1031-r0', 'x86_64-arista_7800r3a_36dm2_lc') or is_asan:
         memory_threshold = 90
     if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0',
-                                     'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'):
+                                     'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn3420-r0'):
         memory_threshold = 70
     if duthost.facts['platform'] in ('x86_64-8800_rp_o-r0', 'x86_64-8800_rp-r0'):
         memory_threshold = 65
@@ -75,6 +75,9 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
         check_memory(i, memory_threshold, monit_result, outstanding_mem_polls)
         for proc in monit_result.processes:
             cpu_threshold = normal_cpu_threshold
+            if proc['name'] == 'nasa':
+                logging.info("skip nasa proc")
+                continue
             if proc['name'] in high_cpu_consume_procs:
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,

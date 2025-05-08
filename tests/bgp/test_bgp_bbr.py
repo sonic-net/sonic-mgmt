@@ -313,12 +313,15 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
         tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
         if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
-            logging.warn('No route for {} found on {}'.format(route.prefix, tor1))
+            logging.warning('No route for {} found on {}'.format(route.prefix, tor1))
             return False
         tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-            ['asPathEntry']['asPath']   # noqa E211
+            ['asPathEntry']['asPath']   # noqa:E211
         if not tor1_route_aspath == route.aspath:
-            logging.warn('On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath))
+            logging.warning(
+                'On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath)
+            )
+
             return False
         return True
 
@@ -330,17 +333,22 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
         if accepted:
             if not dut_route:
-                logging.warn('No route for {} found on DUT'.format(route.prefix))
+                logging.warning('No route for {} found on DUT'.format(route.prefix))
                 return False
             dut_route_aspath = dut_route['paths'][0]['aspath']['string']
             # Route path from DUT: -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
             dut_route_aspath_expected = '{} {}'.format(tor1_asn, route.aspath)
             if not dut_route_aspath == dut_route_aspath_expected:
-                logging.warn('On DUT expected aspath: {}, actual aspath: {}'
-                             .format(dut_route_aspath_expected, dut_route_aspath))
+                logging.warning(
+                    'On DUT expected aspath: {}, actual aspath: {}'.format(
+                        dut_route_aspath_expected,
+                        dut_route_aspath,
+                    )
+                )
+
                 return False
             if 'advertisedTo' not in dut_route:
-                logging.warn("DUT didn't advertise the route")
+                logging.warning("DUT didn't advertise the route")
                 return False
             advertised_to = set()
             for _ in dut_route['advertisedTo']:
@@ -349,11 +357,11 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                     advertised_to.add(bgp_neighbors[_]['name'])
             for vm in other_vms:
                 if vm not in advertised_to:
-                    logging.warn("DUT didn't advertise route to neighbor %s" % vm)
+                    logging.warning("DUT didn't advertise route to neighbor %s" % vm)
                     return False
         else:
             if dut_route:
-                logging.warn('Prefix {} should not be accepted by DUT'.format(route.prefix))
+                logging.warning('Prefix {} should not be accepted by DUT'.format(route.prefix))
         return True
 
     # Check route on other VMs
@@ -366,7 +374,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
         vm_route = nbrhosts[node]['host'].get_route(route.prefix)
         if not isinstance(vm_route, dict):
-            logging.warn("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
+            logging.warning("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
         vm_route['failed'] = False
         vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
         if accepted:
@@ -375,7 +383,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                 vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
             else:
                 tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-                    ['asPathEntry']['asPath']   # noqa E211
+                    ['asPathEntry']['asPath']   # noqa:E211
                 # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
                 tor_route_aspath_expected = '{} {} {}'.format(dut_asn, tor1_asn, route.aspath)
                 if tor_route_aspath != tor_route_aspath_expected:
@@ -458,9 +466,10 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
     pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
 
     # Check if BBR is enabled or disabled using the running configuration
-    bbr_status_running_config = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)\
-        ['stdout'] # noqa E211
+    bbr_status_running_config = duthost.shell(
+        "show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']    # noqa:E211
     if bbr_status == 'enabled':
         pytest_assert('allowas-in' in bbr_status_running_config, "BGP BBR is not enabled in running configuration")
     else:
-        pytest_assert('allowas-in' not in bbr_status_running_config, "BGP BBR is not disabled in running configuration")
+        pytest_assert('allowas-in' not in bbr_status_running_config,
+                      "BGP BBR is not disabled in running configuration")

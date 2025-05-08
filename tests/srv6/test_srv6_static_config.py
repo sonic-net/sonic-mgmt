@@ -1,17 +1,13 @@
 import time
 import pytest
 from tests.common.utilities import wait_until
+from srv6_utils import verify_appl_db_sid_entry_exist
 
 pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
 
 WAIT_TIME = 5
-
-
-def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
-    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
-    return key in appl_db_my_sids if exist else key not in appl_db_my_sids
 
 
 def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_index):

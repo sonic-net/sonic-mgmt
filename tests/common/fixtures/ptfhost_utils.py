@@ -15,6 +15,7 @@ from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,8 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
+                if isinstance(attrs[val], dict) and attrs[val].get('secondary') == 'true':
+                    continue
                 ip = ip_interface(val)
                 if ip.version == 4:
                     ipv4_base = ip
@@ -203,9 +206,20 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
         tbinfo
     )['minigraph_ptf_indices']
 
+    server_ip = {}
+    if 'dualtor' in tbinfo['topo']['name']:
+        server_ip = mux_cable_server_ip(rand_selected_dut)
+
+    ip_offset = 0
     for port in vlan_members:
         ptf_index = dut_to_ptf_port_map[port]
         ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
+        if 'dualtor' in tbinfo['topo']['name']:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                server_ip[port]['server_ipv4'].split('/')[0],
+                server_ip[port]['server_ipv6'].split('/')[0]
+            ]
+            continue
         arp_responder_cfg['eth{}'.format(ptf_index)] = [
             str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
         ]
@@ -231,7 +245,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base
+    yield vlan, ipv4_base, ipv6_base, ip_offset
 
     ptfhost.command('supervisorctl stop arp_responder')
 
@@ -445,8 +459,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
+                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
