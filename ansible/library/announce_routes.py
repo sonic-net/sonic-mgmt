@@ -342,9 +342,10 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     nexthop_v6, tor_subnet_size, max_tor_subnet_number, topo,
                     router_type="leaf", tor_index=None, set_num=None,
                     no_default_route=False, core_ra_asn=CORE_RA_ASN,
-                    ipv6_address_pattern=IPV6_ADDRESS_PATTERN_DEFAULT_VALUE):
+                    ipv6_address_pattern=IPV6_ADDRESS_PATTERN_DEFAULT_VALUE,
+                    tor_default_route=False):
     routes = []
-    if not no_default_route and router_type != "tor":
+    if not no_default_route and (router_type != "tor" or tor_default_route):
         default_route_as_path = get_uplink_router_as_path(
             router_type, spine_asn)
 
@@ -512,7 +513,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
+def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce", tor_default_route=False):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -563,7 +564,7 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
                                             None, leaf_asn_start, tor_asn_start,
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                             router_type=router_type, tor_index=tor_index,
-                                            no_default_route=no_default_route)
+                                            no_default_route=no_default_route, tor_default_route=tor_default_route)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
@@ -574,7 +575,8 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                             router_type=router_type, tor_index=tor_index,
                                             no_default_route=no_default_route,
-                                            ipv6_address_pattern=ipv6_address_pattern)
+                                            ipv6_address_pattern=ipv6_address_pattern,
+                                            tor_default_route=tor_default_route)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
@@ -1390,6 +1392,7 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
+    tor_default_route = "t1-isolated" in topo_name
 
     topo_type = get_topo_type(topo_name)
 
@@ -1402,7 +1405,7 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
-                topo, ptf_ip, no_default_route=is_storage_backend, action=action)
+                topo, ptf_ip, no_default_route=is_storage_backend, action=action, tor_default_route=tor_default_route)
             module.exit_json(changed=True)
         elif topo_type == "t2":
             fib_t2_lag(topo, ptf_ip, action=action)
