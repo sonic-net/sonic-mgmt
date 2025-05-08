@@ -24,6 +24,7 @@ stages:
           else
             echo "No changes detected in tests/common2"
             echo "##vso[task.setvariable variable=common2_changes;isOutput=true]false"
+          fi
         name: set_var
 
     - template: /.azure-pipelines/common2/jobs/run-analyze-code.yml
