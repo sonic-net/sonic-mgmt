@@ -1549,6 +1549,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_port_channel:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/22081"
 
+macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
+  skip:
+    reason: "Skip SNMP test for causing continuously failing in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18273"
+
 #######################################
 #####           mclag             #####
 #######################################
