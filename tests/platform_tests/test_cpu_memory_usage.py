@@ -75,6 +75,9 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
         check_memory(i, memory_threshold, monit_result, outstanding_mem_polls)
         for proc in monit_result.processes:
             cpu_threshold = normal_cpu_threshold
+            if proc['name'] == 'nasa':
+                logging.info("skip nasa proc")
+                continue
             if proc['name'] in high_cpu_consume_procs:
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,

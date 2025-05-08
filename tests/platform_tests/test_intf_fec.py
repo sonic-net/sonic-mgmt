@@ -15,7 +15,8 @@ SUPPORTED_PLATFORMS = [
     "mlnx_msn",
     "8101_32fh",
     "8111_32eh",
-    "arista"
+    "arista",
+    "x86_64-88_lc0_36fh_m-r0"
 ]
 
 SUPPORTED_SPEEDS = [
@@ -38,6 +39,13 @@ def get_fec_oper_mode(duthost, interface):
     logging.info("Get output of '{} {}'".format("show interfaces fec status", interface))
     fec_status = duthost.show_and_parse("show interfaces fec status {}".format(interface))
     return fec_status[0].get('fec oper', '').lower()
+
+
+def check_intf_fec_mode(duthost, intf, exp_fec_mode):
+    post_fec = get_fec_oper_mode(duthost, intf)
+    if post_fec == exp_fec_mode:
+        return True
+    return False
 
 
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -78,15 +86,16 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if fec_mode == "n/a":
             pytest.fail("FEC status is N/A for interface {}".format(intf))
 
-        config_status = duthost.command("sudo config interface fec {} {}"
-                                        .format(intf, fec_mode))
+        asic_cli_option = duthost.get_port_asic_instance(intf).cli_ns_option
+
+        config_status = duthost.command("sudo config interface {} fec {} {}"
+                                        .format(asic_cli_option, intf, fec_mode))
         if config_status:
             pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf),
                           "Interface {} did not come up after configuring FEC mode".format(intf))
             # Verify the FEC operational mode is restored
-            post_fec = get_fec_oper_mode(duthost, intf)
-            if not (post_fec == fec_mode):
-                pytest.fail("FEC status is not restored for interface {}".format(intf))
+            pytest_assert(wait_until(30, 2, 0, check_intf_fec_mode, duthost, intf, fec_mode),
+                          f"FEC status of Interface {intf} is not restored to {fec_mode}")
 
 
 def get_interface_speed(duthost, interface_name):
@@ -177,7 +186,9 @@ def get_fec_histogram(duthost, intf_name):
     """
     try:
         logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
-        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+        asic_cli_option = duthost.get_port_asic_instance(intf_name).cli_ns_option
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {} {}".format(asic_cli_option,
+                                                                                                intf_name))
     except Exception as e:
         logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
         pytest.skip("Command 'show interfaces counters fec-histogram {}' not found \

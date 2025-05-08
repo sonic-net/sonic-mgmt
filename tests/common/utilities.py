@@ -19,6 +19,7 @@ import copy
 import tempfile
 import uuid
 import paramiko
+import asyncio
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
@@ -160,6 +161,55 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         else:
             logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
             time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        return False
+
+
+async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    @summary: Same as wait_until but async
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True. If the condition function raises an
+        exception, log the error and keep waiting and polling.
+    """
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+                 (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        await asyncio.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        logger.debug("Time elapsed: %f seconds" % elapsed_time)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
+            check_result = False
+
+        if check_result:
+            logger.debug("%s is True, exit early with True" % condition.__name__)
+            return True
+        else:
+            logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
+            await asyncio.sleep(interval)
             elapsed_time = time.time() - start_time
 
     if elapsed_time >= timeout:
@@ -1040,11 +1090,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1052,10 +1102,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1414,6 +1466,25 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
 
 
 def cleanup_prev_images(duthost):

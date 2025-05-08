@@ -21,6 +21,7 @@ import time
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+NAT_ENABLE_KEY = "nat_enabled_on_{}"
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
@@ -655,3 +656,66 @@ def extract_techsupport_tarball_file(duthost, tarball_name):
         techsupport_folder = tarball_name.split('.')[0].split('/var/dump/')[1]
         techsupport_folder_full_path = '{}{}'.format(dst_folder, techsupport_folder)
     return techsupport_folder_full_path
+
+
+def is_enabled_nat_for_dpu(duthost, request):
+    if request.config.cache.get(NAT_ENABLE_KEY.format(duthost.hostname), False):
+        logger.info("NAT is enabled")
+        return True
+    else:
+        logger.info('NAT is not enabled')
+        return False
+
+
+def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
+    dpuhost_ssh_port_dict = {}
+    for dpuhost_name in dpuhost_names:
+        host = ansible_adhoc(become=True, args=[], kwargs={})[dpuhost_name]
+        vm = host.options["inventory_manager"].get_host(dpuhost_name).vars
+        ansible_ssh_port = vm.get("ansible_ssh_port", None)
+        if ansible_ssh_port:
+            dpuhost_ssh_port_dict[dpuhost_name] = ansible_ssh_port
+
+    duthost_name = duthost.hostname
+    dpu_name_ssh_port_dict = {}
+    for dpuhost_name, dpu_host_ssh_port in dpuhost_ssh_port_dict.items():
+        if duthost_name in dpuhost_name:
+            res = re.match(fr"{duthost_name}.*dpu.*(\d+)", dpuhost_name)
+            if res:
+                dpuhost_index = res[1]
+            else:
+                assert f"Not find the dpu name index in the {dpuhost_name}, please correct the dpuhost_name. " \
+                       f"dpuhost name should include the dut host name and the dpu index. " \
+                       f"e.g smartswitch-01-dpu-1, smartswitch-01 is the duthost name, " \
+                       f"dpu-1 is the dpu name, and 1 is the dpu index"
+            dpu_name_ssh_port_dict[f"dpu{dpuhost_index}"] = str(dpu_host_ssh_port)
+    logger.info(f"dpu_name_ssh_port_dict:{dpu_name_ssh_port_dict}")
+
+    return dpu_name_ssh_port_dict
+
+
+def check_nat_is_enabled_and_set_cache(duthost, request):
+    get_nat_iptable_output = 'sudo iptables -t nat -L'
+    nat_iptable_output = duthost.shell(get_nat_iptable_output)['stdout']
+    pattern_nat_result = '.*DNAT.*tcp.*anywhere.*anywhere.*tcp dpt:.* to:169.254.200.*22.*'
+    if re.search(pattern_nat_result, nat_iptable_output):
+        logger.info('NAT is enabled successfully')
+        request.config.cache.set(NAT_ENABLE_KEY.format(duthost.hostname), True)
+        return True
+    else:
+        raise Exception('NAT is not enabled successfully')
+
+
+def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+    enable_nat_cmds = [
+        "sudo su",
+        "sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf",
+        "sudo echo net.ipv4.conf.eth0.forwarding=1 >> /etc/sysctl.conf",
+        "sudo sysctl -p",
+        f"sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus "
+        f"{','.join(dpu_name_ssh_port_dict.keys())} --ports {','.join(dpu_name_ssh_port_dict.values())}",
+        "sudo iptables-save > /etc/iptables/rules.v4",
+        "exit"
+    ]
+    duthost.shell_cmds(cmds=enable_nat_cmds)
+    check_nat_is_enabled_and_set_cache(duthost, request)

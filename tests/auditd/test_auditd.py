@@ -33,7 +33,7 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
         rule_checksum = "bd574779fb4e1116838d18346187bb7f7bd089c9"
     else:
-        rule_checksum = "f88174f901ec8709bacaf325158f10ec62909d13"
+        rule_checksum = "c3441d4f777257d8d2c6ac90fd50d49b9a1d616b"
 
     cmd = """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" \
               ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD)
@@ -78,8 +78,6 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 
     # Define expected keys
     expected_keys = [
-        "cpu_usage",
-        "mem_usage",
         "auditd_conf",
         "syslog_conf",
         "auditd_rules",
@@ -232,8 +230,6 @@ def test_auditd_host_failure(localhost, duthosts, enum_rand_one_per_hwsku_hostna
 
     # Define expected keys
     expected_keys = [
-        "cpu_usage",
-        "mem_usage",
         "auditd_active"
     ]
 

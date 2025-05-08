@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
+CREATE_FORWARD_RULES_SAME_PRIORITY_TEMPLATE = "create_forward_rules_same_priority.j2"
 CREATE_SECONDARY_FORWARD_RULES_TEMPLATE = "create_secondary_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
@@ -733,6 +734,46 @@ def dynamic_acl_create_forward_rules(duthost, setup):
     expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
 
 
+def dynamic_acl_create_forward_rules_same_priority(duthost, setup):
+    """Create forward ACL rules with same priority"""
+
+    IPV4_SUBNET = DST_IP_FORWARDED_ORIGINAL + "/32"
+    IPV4_SUBNET_2 = increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 1) + "/32"
+    IPV4_SUBNET_3 = increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 2) + "/32"
+
+    IPV6_SUBNET = DST_IPV6_FORWARDED_ORIGINAL + "/128"
+    IPV6_SUBNET_2 = increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 1) + "/128"
+    IPV6_SUBNET_3 = increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 2) + "/128"
+
+    extra_vars = {
+        'ipv4_subnet': IPV4_SUBNET,
+        'ipv4_subnet_2': IPV4_SUBNET_2,
+        'ipv4_subnet_3': IPV4_SUBNET_3,
+        'ipv6_subnet': IPV6_SUBNET,
+        'ipv6_subnet_2': IPV6_SUBNET_2,
+        'ipv6_subnet_3': IPV6_SUBNET_3
+        }
+
+    outputs = format_and_apply_template(duthost, CREATE_FORWARD_RULES_SAME_PRIORITY_TEMPLATE, extra_vars, setup)
+
+    expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
+    expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
+    expected_rule_4_content = ["DYNAMIC_ACL_TABLE", "RULE_4", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_2, "Active"]
+    expected_rule_5_content = ["DYNAMIC_ACL_TABLE", "RULE_5", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_2, "Active"]
+    expected_rule_6_content = ["DYNAMIC_ACL_TABLE", "RULE_6", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_3, "Active"]
+    expected_rule_7_content = ["DYNAMIC_ACL_TABLE", "RULE_7", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_3, "Active"]
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
+    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
+    expect_acl_rule_match(duthost, "RULE_4", expected_rule_4_content, setup)
+    expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content, setup)
+    expect_acl_rule_match(duthost, "RULE_6", expected_rule_6_content, setup)
+    expect_acl_rule_match(duthost, "RULE_7", expected_rule_7_content, setup)
+
+
 def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=None):
     """Create a drop rule in the format required when an ACL table has rules in it already"""
 
@@ -1211,6 +1252,34 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
 
     dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter,
+                               packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True)
+
+
+def test_gcu_acl_forward_rule_same_priority(rand_selected_dut,
+                                            rand_unselected_dut,
+                                            ptfadapter,
+                                            setup,
+                                            dynamic_acl_create_table,
+                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+    """Test that forward rules can have the exact same priority and still all be applied correctly
+    Then, perform a traffic test to confirm that packets that match both the forward
+    and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
+
+    dynamic_acl_create_forward_rules_same_priority(rand_selected_dut, setup)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup,
+                               increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 1),
+                               increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 1)),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup,
+                               increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 2),
+                               increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 2)),
                                packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),

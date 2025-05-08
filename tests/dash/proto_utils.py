@@ -13,6 +13,9 @@ from dash_api.route_pb2 import Route
 from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa F401
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
+from dash_api.meter_policy_pb2 import MeterPolicy
+from dash_api.meter_rule_pb2 import MeterRule
+
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
 
@@ -40,6 +43,8 @@ PB_CLASS_MAP = {
     "ROUTING_TYPE": RouteType,
     "ROUTE_GROUP": RouteGroup,
     "ENI_ROUTE": EniRoute,
+    "METER_POLICY": MeterPolicy,
+    "METER_RULE": MeterRule,
 }
 
 
