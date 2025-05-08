@@ -253,7 +253,7 @@ def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):
 
             ip_layer.address = port_data["ipAddress"]
             ip_layer.gateway = port_data["ipGateway"]
-            ip_layer.prefix = port_data["prefix"]
+            ip_layer.prefix = int(port_data["prefix"])
             device_names.append(device.name)
         return device_names
 
