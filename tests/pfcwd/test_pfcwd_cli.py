@@ -425,7 +425,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("tx_drop_count {} -> {}".format(tx_drop_count_init, tx_drop_count_check))
                 pytest_assert(
                     ((tx_drop_count_check - tx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
-                    "PFC storm Tx ok count not correct"
+                    "PFC storm Tx drop count not correct"
                 )
             elif self.tx_action == "forward":
                 tx_ok_count_init = int(pfcwd_stat_init[0]['tx_ok_count'])
