@@ -94,7 +94,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                          server_ip, json.dumps(result['duplications'], indent=4))
             disruptions = []
             intervals = copy.deepcopy(result['disruptions']) + copy.deepcopy(result['duplications'])
-            intervals.sort(key = lambda interval : interval['start_time'])
+            intervals.sort(key=lambda interval: interval['start_time'])
             for interval in intervals:
                 if disruptions and interval['start_id'] <= disruptions[-1]['end_id'] + 1:
                     if disruptions[-1]['end_id'] < interval['end_id']:
@@ -205,7 +205,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             .format(server_ip, total_duplications, allowed_disruption))
 
         if largest_duplication_count > allowed_duplication_count_max:
-            failures.append("Traffic on server {} with packet id %s has %d duplications. "
+            failures.append("Traffic on server {} with packet id {} has {} duplications. "
                             "Allowed max number of duplication count: {}"
                             .format(server_ip, largest_duplication_count_packet_id,
                                     largest_duplication_count, allowed_duplication_count_max))

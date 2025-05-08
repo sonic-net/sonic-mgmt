@@ -25,7 +25,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def link_down_downstream_active_duplication_setting(duthost, mux_config):
+def link_down_downstream_active_duplication_setting(duthost, mux_config):   # noqa F811
     """Setup duplication setting based on the platform."""
     hwsku = duthost.facts['hwsku'].lower()
     allowed_duplication = None
