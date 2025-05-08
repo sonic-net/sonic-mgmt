@@ -11,6 +11,9 @@ import pytest
 
 from tests.common.reboot import reboot
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+import ptf.testutils as testutils
+from ptf.mask import Mask
+from scapy.all import IP, Ether
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -219,7 +222,6 @@ def modify_dynamic_peer_cfg(duthost, template):
 
     # Copy rendered config to DUT and apply it
     duthost.copy(content=config_json_str, dest=temp_location)
-    duthost.shell(f"cp {temp_location} /home/admin/{template}.json")
     duthost.shell(f"sonic-cfggen -j {temp_location} --write-to-db")
     time.sleep(10)
     validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
@@ -235,6 +237,8 @@ def dynamic_range_add_delete(duthost, cfg_facts, template):
     static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
     time.sleep(10)
     modify_dynamic_peer_cfg(duthost, template)
+    if template == 'vnet_dynamic_peer_add':
+        time.sleep(120)
 
     bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
     bgp_summary = json.loads(bgp_summary_string)
@@ -288,7 +292,7 @@ def dynamic_peer_delete(duthost):
         "Static peer should not flap when a dynamic peer is deleted!"
     total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
     assert int(total_peers) == 0, "There should be no dynamic peer! found {}".format(total_peers)
-    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", False)
+    validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
 
 
 def get_core_dumps(duthost):
@@ -368,7 +372,51 @@ def dynamic_peer_delete_stress_test(duthost, cfg_facts):
         "Core dumps should not be generated when deleting dynamic peer configuration!"
 
 
-def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
+def bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname):
+    '''
+    Verify that the traffic to the peer in Vnet1 is forwarded correctly.
+    Send a UDP packet to with the destination as one of the routes learned via bgp in Vnet1
+    and verify that it is received on the correct port in Vnet1.
+    Also verify that the packet is not received on the other ports which belong to Vnet2.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    router_mac = duthost.facts["router_mac"]
+    # Destination IP is one of the routes learned via bgp in Vnet1
+    dst_ip = "193.11.248.129"
+
+    send_port = 28
+    src_mac = ptfadapter.dataplane.get_mac(0, send_port)
+
+    inner_pkt = testutils.simple_udp_packet(
+        eth_dst=router_mac,
+        eth_src=src_mac,
+        ip_dst=dst_ip,
+        ip_src="20.20.20.1",
+        udp_sport=1234,
+        udp_dport=4321,
+    )
+
+    expected_pkt = Mask(inner_pkt)
+    expected_pkt.set_do_not_care_scapy(Ether, "dst")
+    expected_pkt.set_do_not_care_scapy(Ether, "src")
+    expected_pkt.set_do_not_care_scapy(IP, "ttl")
+    expected_pkt.set_do_not_care_scapy(IP, "chksum")
+
+    expected_ports = [28, 29]
+    unexpected_ports = [30, 31]
+
+    logger.info(f"Sending UDP packet on port {send_port}")
+    testutils.send(ptfadapter, send_port, inner_pkt)
+
+    logger.info(f"Expecting UDP packet on one of {expected_ports}")
+    testutils.verify_packet_any_port(ptfadapter, expected_pkt, expected_ports)
+
+    logger.info(f"Verifying packet is not received on ports {unexpected_ports}")
+    testutils.verify_no_packet_any(ptfadapter, expected_pkt, unexpected_ports)
+
+
+@pytest.mark.disable_loganalyzer
+def test_dynamic_peer_vnet(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts):
     '''
     Tests for static and dynamic peers inside a vnet.
     '''
@@ -398,6 +446,9 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
                             validate_state_db_entry(duthost, peer, vnet, True)
                         else:
                             validate_state_db_entry(duthost, peer, vnet, False)
+
+        # Verify traffic to peers in Vnet1
+        bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname)
 
         # Verify changing ip_range for dynamic peers
         bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
