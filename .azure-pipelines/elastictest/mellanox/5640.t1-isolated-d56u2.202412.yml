@@ -70,7 +70,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfcwd,dualtor,snappi_tests,ixia,wan,dualtor_io,bfd,configlet,dash,dhcp_relay,dhcp_server,dualtor_mgmt,http,macsec,mclag,mpls,mx,ospf,pfc_asym,read_mac,reset_factory,smartswitch,test_pktgen,test_vs_chassis_setup,upgrade_path,voq,wol"
+    default: "pfcwd,dualtor,snappi_tests,ixia,wan,dualtor_io,bfd,configlet,dash,dhcp_relay,dhcp_server,dualtor_mgmt,http,macsec,mclag,mpls,mx,ospf,pfc_asym,read_mac,reset_factory,smartswitch,test_pktgen,test_vs_chassis_setup,upgrade_path,voq,wol,pc"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
