@@ -106,7 +106,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo, ip_version     # noqa F811
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -156,7 +156,14 @@ def setup_pfc_test(
 
     # build the port list for the test
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
+    if ip_version == "IPv4":
+        ip_version_num = 4
+    elif ip_version == "IPv6":
+        ip_version_num = 6
+    else:
+        pytest.fail(f"Invalid IP version: {input}", pytrace=True)
+
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
     mg_facts['minigraph_port_indices'] = {
         key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
@@ -179,7 +186,8 @@ def setup_pfc_test(
                   'selected_test_ports': selected_ports,
                   'pfc_timers': set_pfc_timers(),
                   'neighbors': neighbors,
-                  'eth0_ip': dut_eth0_ip
+                  'eth0_ip': dut_eth0_ip,
+                  'ip_version': ip_version
                   }
 
     if mg_facts['minigraph_vlans']:
@@ -260,6 +268,11 @@ def pfcwd_pause_service(ptfhost):
         needs_resume["garp_service"] = False
 
     logger.debug("pause_service needs_resume {}".format(needs_resume))
+
+
+@pytest.fixture(scope="module", params=['IPv4', 'IPv6'])
+def ip_version(request):
+    return request.param
 
 
 @pytest.fixture(scope="function", autouse=False)
