@@ -189,8 +189,8 @@ def get_critical_process_from_monit(duthost, container_name):
         container_name: Name of container.
 
     Returns:
-        A list contains command lines of critical processes. Bool varaible indicates
-        whether the operation in this funciton was done successfully or not.
+        A list contains command lines of critical processes. Bool variable indicates
+        whether the operation in this function was done successfully or not.
     """
     critical_process_list = []
     succeeded = True
@@ -583,7 +583,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     logger.info("Found all the expected alerting messages from syslog!")
 
     logger.info("Executing the config reload...")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     logger.info("Executing the config reload was done!")
 
     ensure_all_critical_processes_running(duthost, containers_in_namespaces)
@@ -611,10 +611,14 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     marker = loganalyzer.init()
 
     # freeze orchagent for warm-reboot
-    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
+    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
+    else:
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
     exit_code = command_output["rc"]
     logger.warning("command_output: {}".format(command_output))
-    pytest_assert(exit_code == 0, "Failed to freeze orchagen for warm reboot")
+    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)
@@ -627,5 +631,5 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
-    # assert after config reload, make sure orchange recovered after test
+    # assert after config reload, make sure orchagent recovered after test
     pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")

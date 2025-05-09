@@ -85,7 +85,10 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
+    ip_ifaces = {}
+    for asic in duthost.asics:
+        ip_int = duthost.get_active_ip_interfaces(tbinfo, asic_index=asic.asic_index)
+        ip_ifaces.update(ip_int)
     port_list = []
     for iface in list(ip_ifaces.keys()):
         if iface.startswith("PortChannel"):
@@ -149,8 +152,11 @@ def setup_pfc_test(
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
+    topo = tbinfo["topo"]["name"]
+
     # build the port list for the test
-    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
     test_ports = tp_handle.build_port_list()
     mg_facts['minigraph_port_indices'] = {
         key: value for key, value in mg_facts['minigraph_ptf_indices'].items()
@@ -161,7 +167,6 @@ def setup_pfc_test(
         if not key.startswith('Ethernet-BP')
     }
     # In T1 topology update test ports by removing inactive ports
-    topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
@@ -312,3 +317,10 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
     if asic_id:
         asic_arg = f"-n asic{asic_id}"
     duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cleanup(ptfhost):
+
+    yield
+    ptfhost.remove_ip_addresses()
