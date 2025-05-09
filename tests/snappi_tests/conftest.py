@@ -76,19 +76,3 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
 
     duthost = duthosts[rand_one_dut_hostname]
     enable_packet_aging(duthost)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def ignore_route_check_for_cisco_8000(duthosts, loganalyzer):
-    if not loganalyzer:
-        yield
-        return
-    ignore_list = [r".*'routeCheck' status failed .*", r".*missing interface entry for static route.*"]
-    for dut in duthosts:
-        if (dut.facts['asic_type'] == "cisco-8000" and
-                dut.get_facts().get("modular_chassis", None)):
-            for line in ignore_list:
-                loganalyzer[dut.hostname].ignore_regex.append(line)
-
-    yield
-    return

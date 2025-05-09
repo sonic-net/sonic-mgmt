@@ -7,6 +7,7 @@ import logging
 import snappi
 import sys
 import random
+from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
@@ -926,6 +927,19 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
+            duthost_list[0].get_facts().get("modular_chassis", None)):
+        global DEST_TO_GATEWAY_MAP
+        copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
+        for addr in copy_DEST_TO_GATEWAY_MAP:
+            static_routes_cisco_8000(
+                addr,
+                dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
+                intf=None,
+                namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
+                setup=False)
+
+        time.sleep(4)
     for index, duthost in enumerate(duthost_list):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
@@ -1305,7 +1319,6 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     '''
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
-            logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
             return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
@@ -1327,6 +1340,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
     DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    DEST_TO_GATEWAY_MAP[addr]['dut'] = dut
+    DEST_TO_GATEWAY_MAP[addr]['asic'] = namespace
     cmd = "del"
     if setup:
         cmd = "add"
@@ -1334,6 +1349,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
     try:
+        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
+            asic_arg, intf, addr))
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
