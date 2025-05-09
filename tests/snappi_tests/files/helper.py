@@ -14,6 +14,10 @@ from tests.common.utilities import wait_until
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
     snappi_dut_base_config, is_snappi_multidut
+from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
+
 
 logger = logging.getLogger(__name__)
 
@@ -383,3 +387,50 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
         dict_output[entry] = value
 
     return dict_output
+
+
+@pytest.fixture(params=['warm', 'cold', 'fast'])
+def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
+    '''
+    Purpose of the function is to have reboot_duts and disable watchdogs.
+    '''
+    reboot_type = request.param
+    _, _, snappi_ports = setup_ports_and_dut
+    skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
+    skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
+
+    def save_config_and_reboot(node, results=None):
+        up_bgp_neighbors = node.get_bgp_neighbors_per_asic("established")
+        logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, node.hostname))
+        node.shell("mkdir /etc/sonic/orig_configs; mv /etc/sonic/config_db* /etc/sonic/orig_configs/")
+        node.shell("sudo config save -y")
+        reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
+        logger.info("Wait until the system is stable")
+        wait_until(180, 20, 0, node.critical_services_fully_started)
+        wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
+        wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
+
+    # Convert the list of duthosts into a list of tuples as required for parallel func.
+    args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
+    parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
+
+    pfcwd_value = {}
+
+    for duthost in list(args):
+        pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+        stop_pfcwd(duthost)
+        disable_packet_aging(duthost)
+
+    yield
+
+    for duthost in list(args):
+        reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+        enable_packet_aging(duthost)
+
+    def revert_config_and_reload(node, results=None):
+        node.shell("mv /etc/sonic/orig_configs/* /etc/sonic/ ; rmdir /etc/sonic/orig_configs; ")
+        config_reload(node, safe_reload=True)
+
+    # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
+    for duthost in args:
+        revert_config_and_reload(node=duthost)
