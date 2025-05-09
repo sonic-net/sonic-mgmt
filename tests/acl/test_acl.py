@@ -176,7 +176,11 @@ def remove_dataacl_table(duthosts):
 
 def remove_table_single_dut(table_name, duthost):
     lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
-    table_existing = any(table_name in line for line in lines)
+    table_existing = False
+    for line in lines:
+        if table_name in line:
+            table_existing = True
+            break
     if table_existing:
         logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
         cmds = [
