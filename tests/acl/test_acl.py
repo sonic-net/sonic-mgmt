@@ -155,26 +155,32 @@ def remove_dataacl_table(duthosts):
     Remove DATAACL to free TCAM resources.
     The change is written to configdb as we don't want DATAACL recovered after reboot
     """
-    TABLE_NAME = "DATAACL"
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
-            executor.submit(remove_dataacl_table_single_dut, TABLE_NAME, duthost)
+            executor.submit(remove_table_single_dut, "DATAACL", duthost)
+            if (duthost.facts["asic_type"] == "vpp"):
+                executor.submit(remove_table_single_dut, "EVERFLOW", duthost)
     yield
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True)
+            executor.submit(
+                config_reload,
+                duthost,
+                config_source="minigraph",
+                safe_reload=True,
+                check_intf_up_ports=True
+            )
 
 
-def remove_dataacl_table_single_dut(table_name, duthost):
+def remove_table_single_dut(table_name, duthost):
     lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
-    data_acl_existing = False
+    table_existing = False
     for line in lines:
         if table_name in line:
-            data_acl_existing = True
+            table_existing = True
             break
-    if data_acl_existing:
-        # Remove DATAACL
+    if table_existing:
         logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
         cmds = [
             "config acl remove table {}".format(table_name),
