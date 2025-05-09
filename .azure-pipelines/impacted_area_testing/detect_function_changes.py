@@ -96,10 +96,13 @@ if __name__ == "__main__":
     parser.add_argument("--target_branch", type=str, required=True, help="Target branch name.")
     parser.add_argument("--directory", type=str, required=True, help="Directory to analyze.")
     parser.add_argument("--trace", action="store_true", help="Enable trace logging.")
+    parser.add_argument("--no-log", action="store_true", help="Disable logging.")
 
     args = parser.parse_args()
 
-    if args.trace:
+    if args.no_log:
+        logger.disabled = True
+    elif args.trace:
         logger.setLevel(logging.DEBUG)
 
     logger.info(f"Modified files: {args.modified_files}")
@@ -122,4 +125,5 @@ if __name__ == "__main__":
             logger.info(f"Invoking analyze_impact.py for function: {function_name}")
             result = invoke_analyze_impact(function_name, args.directory, args.trace)
             if result:
-                logger.info(f"Impact analysis result for {function_name}:\n{json.dumps(result, indent=4)}")
+                if result.get('tests'):
+                    print(' '.join(result['tests']))

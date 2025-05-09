@@ -3,7 +3,7 @@
 """
     Scripts for getting test scripts in impacted area
     Example:
-        python impacted_area_testing/get_test_scripts.py vrf,gnmi ../tests
+        python impacted_area_testing/get_test_scripts.py --files file1.py file2.py
 
     It will get all test scripts in specific impacted area.
 """
@@ -12,7 +12,6 @@ import re
 import logging
 import json
 import argparse
-from natsort import natsorted
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
@@ -53,30 +52,17 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
                 test_scripts_per_topology_checker[topology_checker].append(script_name)
 
 
-def collect_scripts_by_topology_type(features: str, location: str) -> dict:
+def collect_scripts_by_topology_type_from_files(files: list) -> dict:
     """
-    This function collects all test scripts under the impacted area and category them by topology type.
+    This function collects test scripts from the provided list of files and categorizes them by topology type.
 
     Args:
-        Features: The impacted area defined by features
-        Location: The location of test scripts
+        files: List of file paths to analyze.
 
     Returns:
         Dict: A dict of test scripts categorized by topology type.
     """
-    # Recursively find all files starting with "test_" and ending with ".py"
-    # Note: The full path and name of files are stored in a list named "files"
-    scripts = []
-
-    for feature in features.split(","):
-        feature_path = os.path.join(location, feature)
-        for root, dirs, script in os.walk(feature_path):
-            for s in script:
-                if s.startswith("test_") and s.endswith(".py"):
-                    scripts.append(os.path.join(root, s))
-    scripts = natsorted(scripts)
-
-    # Open each file and search for regex pattern
+    # Regex pattern to find pytest topology markers
     pattern = re.compile(r"[^@]pytest\.mark\.topology\(([^\)]*)\)")
 
     # Init the dict to record the mapping of topology type and test scripts
@@ -84,14 +70,14 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     for topology_type in PR_TOPOLOGY_TYPE:
         test_scripts_per_topology_checker[topology_type] = []
 
-    for s in scripts:
+    for file_path in files:
         # Remove prefix from file name:
-        script_name = s[len(location) + 1:]
+        script_name = os.path.basename(file_path)
         if script_name in EXCLUDE_TEST_SCRIPTS:
             continue
 
         try:
-            with open(s, 'r') as script:
+            with open(file_path, 'r') as script:
                 for line in script:
                     # Get topology type of script from mark `pytest.mark.topology`
                     match = pattern.search(line)
@@ -99,22 +85,20 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
                         distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_checker)
                         break
         except Exception as e:
-            raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
+            raise Exception(f'Exception occurred while trying to get topology in {file_path}, error {e}')
 
     return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
 
-def main(features, location):
-    scripts_list = collect_scripts_by_topology_type(features, location)
+def main(files):
+    scripts_list = collect_scripts_by_topology_type_from_files(files)
     print(json.dumps(scripts_list))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--features", help="Impacted area", nargs='?', const="", type=str, default="")
-    parser.add_argument("--location", help="The location of folder `tests`", type=str, default="")
+    parser.add_argument("--files", help="List of files to analyze", nargs='+', type=str, required=True)
     args = parser.parse_args()
 
-    features = args.features
-    location = args.location
-    main(features, location)
+    files = args.files
+    main(files)
