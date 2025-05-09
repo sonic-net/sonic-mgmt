@@ -6,7 +6,8 @@
             "log_nbr_state_changes" : "true",
             "load_balance_mp_relax" : "true",
             "keepalive" : "10",
-            "holdtime" : "30"
+            "holdtime" : "30",
+            "sid_vpn_per_vrf_export_explicit": "true"
         },
         "default" : {
             "local_asn" : "64601",
