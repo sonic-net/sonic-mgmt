@@ -12,7 +12,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet
+    get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -1367,7 +1367,8 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
         Example: {'100':{'single-linecard-single-asic':{ports}, 'single-linecard-multiple-asic':{ports}}}
 
     '''
-    tx_port_count, rx_port_count = number_of_tx_rx_ports
+    # Reverse this here since this is more like on the DUT perspective
+    rx_port_count, tx_port_count = number_of_tx_rx_ports
     tmp_snappi_port_list = get_snappi_ports
 
     if (not mixed_speed):
@@ -1534,18 +1535,59 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 
 
 @pytest.fixture(scope="function")
-def tgen_port_info(request, snappi_port_selection):
+def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
+                   number_of_tx_rx_ports, duthosts, snappi_api):
+    testbed = request.config.getoption("--testbed")
+
+    is_override, _ = parse_override(
+        testbed,
+        'multidut_port_info'
+    )
+
+    if is_override:
+        testbed_subtype, rdma_ports = next(iter(request.param.items()))
+        tx_port_count, rx_port_count = number_of_tx_rx_ports
+
+        if len(get_snappi_ports) < tx_port_count + rx_port_count:
+            pytest.skip(
+                "Need Minimum of 2 ports defined in ansible/files/*links.csv"
+                " file, got:{}".format(len(get_snappi_ports)))
+
+        if len(rdma_ports['tx_ports']) < tx_port_count:
+            pytest.skip(
+                "Doesn't have the required Tx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        if len(rdma_ports['rx_ports']) < rx_port_count:
+            pytest.skip(
+                "Doesn't have the required Rx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        snappi_ports = get_snappi_ports
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(
+                get_snappi_ports,
+                rdma_ports,
+                tx_port_count,
+                rx_port_count,
+                testbed
+            )
+        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+
     flatten_skeleton_parameter = request.param
     speed, category = flatten_skeleton_parameter.split("-")
+
     if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
         pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    result = snappi_port_selection[float(speed)][category]
+    snappi_ports = snappi_port_selection[float(speed)][category]
 
-    if not result:
+    if not snappi_ports:
         pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    return result
+    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
 
 
 def flatten_list(lst):
