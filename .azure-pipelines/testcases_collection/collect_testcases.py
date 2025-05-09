@@ -57,7 +57,7 @@ def run_pytest_collection(location):
 
 def upload_results(test_cases, db_name, db_table, db_table_mapping):
     kusto_db = KustoConnector(db_name, db_table, db_table_mapping)
-    kusto_db.upload_testcases(test_cases)
+    kusto_db.upload_results(test_cases)
 
 
 def main():

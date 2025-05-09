@@ -33,14 +33,14 @@ class KustoConnector():
             kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster, access_token)
             self._ingestion_client = KustoIngestClient(kcsb)
 
-    def upload_testcases(self, test_cases):
+    def upload_results(self, results):
         uploadtime = str(datetime.now())
 
-        for case in test_cases:
-            case["uploadtime"] = uploadtime
+        for test_case in results:
+            test_case["uploadtime"] = uploadtime
 
-        print("Upload test scripts")
-        self._ingest_data(self.db_table, test_cases)
+        print("Upload test cases")
+        self._ingest_data(self.db_table, results)
 
     def _ingest_data(self, table, data):
         props = IngestionProperties(
