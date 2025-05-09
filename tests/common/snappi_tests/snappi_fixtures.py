@@ -112,7 +112,7 @@ def __valid_ipv4_addr(ip):
         return False
 
 
-def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
+def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True):
     """
     Generate Snappi configuration of layer 3 interfaces
     Args:
@@ -120,6 +120,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
         snappi_ports (list): list of Snappi port information
+        setup (bool): Setting up or teardown? True or False
     Returns:
         True if we successfully generate configuration or False
     """
@@ -149,6 +150,8 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
             return False
+
+        static_routes_cisco_8000(ip, duthost, intf, setup=setup)
 
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
@@ -727,7 +730,8 @@ def setup_dut_ports(
             config_result = __l3_intf_config(config=config,
                                              port_config_list=port_config_list,
                                              duthost=duthost,
-                                             snappi_ports=snappi_ports)
+                                             snappi_ports=snappi_ports,
+                                             setup=setup)
             pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list, snappi_ports
@@ -1299,15 +1303,13 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         Return a static route-d IP address for the given IP gateway(Ixia port address).
         Also configure the same in the DUT.
     '''
-    global DEST_TO_GATEWAY_MAP
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
             logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
             return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
-    if (dut.facts['asic_type'] != "cisco-8000" or
-            not dut.get_facts().get("modular_chassis", None)):
+    if dut.facts['asic_type'] != "cisco-8000":
         DEST_TO_GATEWAY_MAP[addr] = {}
         DEST_TO_GATEWAY_MAP[addr]['dest'] = addr
         return addr
