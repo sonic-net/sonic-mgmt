@@ -154,6 +154,8 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
 
         gen_data_flow_dest_ip(ip, duthost, intf, setup=setup)
 
+        static_routes_cisco_8000(ip, duthost, intf, setup=setup)
+
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
 
