@@ -7,6 +7,7 @@ import pprint
 import shutil
 
 from . import system_msg_handler
+from .bug_handler_helper import bug_handler_wrapper
 
 from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
@@ -454,3 +455,24 @@ class LogAnalyzer:
         @param src: Source path to store downloaded file.
         """
         self.ansible_host.fetch(dest=dest, src=src, flat="yes")
+
+
+class LogAnalyzerEnhanced(LogAnalyzer):
+    """
+    A subclass of LogAnalyzer that adds bug handler functionality.
+    This class is intended to be used inside test case body
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def analyze(self, marker, **kwargs):
+        if self.request is not None and getattr(self.request, "config", None) is not None:
+            fail_test = not (self.request.config.getoption("--ignore_la_failure"))
+            store_la_logs = self.request.config.getoption("--store_la_logs")
+            kwargs["fail"] = fail_test
+            kwargs["store_la_logs"] = store_la_logs
+        la_result = super().analyze(marker, **kwargs)
+        hostname = self.ansible_host.hostname
+        bug_handler_wrapper(analyzers={hostname: self}, la_results={hostname: la_result},
+                            duthosts=[self.ansible_host])
+        return la_result

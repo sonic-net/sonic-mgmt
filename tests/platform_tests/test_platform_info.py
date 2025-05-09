@@ -12,7 +12,7 @@ import pytest
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerEnhanced as LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
@@ -159,7 +159,8 @@ def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="function")
 def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus',
+                              request=request)
     loganalyzer.load_common_config()
 
     ignore_list = request.param
