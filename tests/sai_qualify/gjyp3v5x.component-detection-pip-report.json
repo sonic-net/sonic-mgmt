@@ -1,0 +1,432 @@
+{
+  "version": "1",
+  "pip_version": "25.0.1",
+  "install": [
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/e4/9f/c3937d4babe62504b874d4bf2c0d85aa69c7f59fa84cf6050f3b9dc5d83e/APScheduler-3.9.1-py2.py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=ddc25a0ddd899de44d7f451f4375fb971887e65af51e41e5dcf681f59b8b2c9a",
+          "hashes": {
+            "sha256": "ddc25a0ddd899de44d7f451f4375fb971887e65af51e41e5dcf681f59b8b2c9a"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": true,
+      "requested": true,
+      "metadata": {
+        "metadata_version": "2.1",
+        "name": "APScheduler",
+        "version": "3.9.1",
+        "platform": [
+          "UNKNOWN"
+        ],
+        "summary": "In-process task scheduler with Cron-like capabilities",
+        "description": ".. image:: https://github.com/agronholm/apscheduler/workflows/Python%20codeqa/test/badge.svg?branch=3.x\n  :target: https://github.com/agronholm/apscheduler/actions?query=workflow%3A%22Python+codeqa%2Ftest%22+branch%3A3.x\n  :alt: Build Status\n.. image:: https://coveralls.io/repos/github/agronholm/apscheduler/badge.svg?branch=3.x\n  :target: https://coveralls.io/github/agronholm/apscheduler?branch=3.x\n  :alt: Code Coverage\n.. image:: https://readthedocs.org/projects/apscheduler/badge/?version=3.x\n  :target: https://apscheduler.readthedocs.io/en/master/?badge=3.x\n  :alt: Documentation\n\nAdvanced Python Scheduler (APScheduler) is a Python library that lets you schedule your Python code\nto be executed later, either just once or periodically. You can add new jobs or remove old ones on\nthe fly as you please. If you store your jobs in a database, they will also survive scheduler\nrestarts and maintain their state. When the scheduler is restarted, it will then run all the jobs\nit should have run while it was offline [#f1]_.\n\nAmong other things, APScheduler can be used as a cross-platform, application specific replacement\nto platform specific schedulers, such as the cron daemon or the Windows task scheduler. Please\nnote, however, that APScheduler is **not** a daemon or service itself, nor does it come with any\ncommand line tools. It is primarily meant to be run inside existing applications. That said,\nAPScheduler does provide some building blocks for you to build a scheduler service or to run a\ndedicated scheduler process.\n\nAPScheduler has three built-in scheduling systems you can use:\n\n* Cron-style scheduling (with optional start/end times)\n* Interval-based execution (runs jobs on even intervals, with optional start/end times)\n* One-off delayed execution (runs jobs once, on a set date/time)\n\nYou can mix and match scheduling systems and the backends where the jobs are stored any way you\nlike. Supported backends for storing jobs include:\n\n* Memory\n* `SQLAlchemy <http://www.sqlalchemy.org/>`_ (any RDBMS supported by SQLAlchemy works)\n* `MongoDB <http://www.mongodb.org/>`_\n* `Redis <http://redis.io/>`_\n* `RethinkDB <https://www.rethinkdb.com/>`_\n* `ZooKeeper <https://zookeeper.apache.org/>`_\n\nAPScheduler also integrates with several common Python frameworks, like:\n\n* `asyncio <http://docs.python.org/3.4/library/asyncio.html>`_ (:pep:`3156`)\n* `gevent <http://www.gevent.org/>`_\n* `Tornado <http://www.tornadoweb.org/>`_\n* `Twisted <http://twistedmatrix.com/>`_\n* `Qt <http://qt-project.org/>`_ (using either\n  `PyQt <http://www.riverbankcomputing.com/software/pyqt/intro>`_ ,\n  `PySide6 <https://wiki.qt.io/Qt_for_Python>`_ ,\n  `PySide2 <https://wiki.qt.io/Qt_for_Python>`_ or\n  `PySide <http://qt-project.org/wiki/PySide>`_)\n\nThere are third party solutions for integrating APScheduler with other frameworks:\n\n* `Django <https://github.com/jarekwg/django-apscheduler>`_\n* `Flask <https://github.com/viniciuschiele/flask-apscheduler>`_\n\n\n.. [#f1] The cutoff period for this is also configurable.\n\n\nDocumentation\n-------------\n\nDocumentation can be found `here <https://apscheduler.readthedocs.io/>`_.\n\n\nSource\n------\n\nThe source can be browsed at `Github <https://github.com/agronholm/apscheduler/tree/3.x>`_.\n\n\nReporting bugs\n--------------\n\nA `bug tracker <https://github.com/agronholm/apscheduler/issues>`_ is provided by Github.\n\n\nGetting help\n------------\n\nIf you have problems or other questions, you can either:\n\n* Ask in the `apscheduler <https://gitter.im/apscheduler/Lobby>`_ room on Gitter\n* Ask on the `APScheduler GitHub discussion forum <https://github.com/agronholm/apscheduler/discussions>`_, or\n* Ask on `StackOverflow <http://stackoverflow.com/questions/tagged/apscheduler>`_ and tag your\n  question with the ``apscheduler`` tag\n\n\n",
+        "keywords": [
+          "scheduling",
+          "cron"
+        ],
+        "home_page": "https://github.com/agronholm/apscheduler",
+        "author": "Alex Grönholm",
+        "author_email": "apscheduler@nextday.fi",
+        "license": "MIT",
+        "license_file": [
+          "LICENSE.txt"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: MIT License",
+          "Programming Language :: Python",
+          "Programming Language :: Python :: 2.7",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.5",
+          "Programming Language :: Python :: 3.6",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10"
+        ],
+        "requires_dist": [
+          "setuptools (>=0.7)",
+          "six (>=1.4.0)",
+          "pytz",
+          "tzlocal (!=3.*,>=2.0)",
+          "funcsigs ; python_version < \"3.5\"",
+          "futures ; python_version == \"2.7\"",
+          "trollius ; (python_version == \"2.7\") and extra == 'asyncio'",
+          "sphinx ; extra == 'doc'",
+          "sphinx-rtd-theme ; extra == 'doc'",
+          "gevent ; extra == 'gevent'",
+          "pymongo (>=3.0) ; extra == 'mongodb'",
+          "redis (>=3.0) ; extra == 'redis'",
+          "rethinkdb (>=2.4.0) ; extra == 'rethinkdb'",
+          "sqlalchemy (>=0.8) ; extra == 'sqlalchemy'",
+          "pytest ; extra == 'testing'",
+          "pytest-cov ; extra == 'testing'",
+          "pytest-tornado5 ; extra == 'testing'",
+          "mock ; (python_version == \"2.7\") and extra == 'testing'",
+          "pytest-asyncio (<0.6) ; (python_version == \"3.4\") and extra == 'testing'",
+          "pytest-asyncio ; (python_version >= \"3.5\") and extra == 'testing'",
+          "tornado (>=4.3) ; extra == 'tornado'",
+          "twisted ; extra == 'twisted'",
+          "kazoo ; extra == 'zookeeper'"
+        ],
+        "requires_python": ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4",
+        "provides_extra": [
+          "asyncio",
+          "doc",
+          "gevent",
+          "mongodb",
+          "redis",
+          "rethinkdb",
+          "sqlalchemy",
+          "testing",
+          "tornado",
+          "twisted",
+          "zookeeper"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/53/7e/5d8af3317ddbf9519b687bd1c39d8737fde07d97f54df65553faca5cffb1/setuptools-80.3.1-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=ea8e00d7992054c4c592aeb892f6ad51fe1b4d90cc6947cc45c45717c40ec537",
+          "hashes": {
+            "sha256": "ea8e00d7992054c4c592aeb892f6ad51fe1b4d90cc6947cc45c45717c40ec537"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "setuptools",
+        "version": "80.3.1",
+        "summary": "Easily download, build, install, upgrade, and uninstall Python packages",
+        "description": ".. |pypi-version| image:: https://img.shields.io/pypi/v/setuptools.svg\n   :target: https://pypi.org/project/setuptools\n\n.. |py-version| image:: https://img.shields.io/pypi/pyversions/setuptools.svg\n\n.. |test-badge| image:: https://github.com/pypa/setuptools/actions/workflows/main.yml/badge.svg\n   :target: https://github.com/pypa/setuptools/actions?query=workflow%3A%22tests%22\n   :alt: tests\n\n.. |ruff-badge| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json\n   :target: https://github.com/astral-sh/ruff\n   :alt: Ruff\n\n.. |docs-badge| image:: https://img.shields.io/readthedocs/setuptools/latest.svg\n   :target: https://setuptools.pypa.io\n\n.. |skeleton-badge| image:: https://img.shields.io/badge/skeleton-2025-informational\n   :target: https://blog.jaraco.com/skeleton\n\n.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/pypa/setuptools/master.svg?logo=codecov&logoColor=white\n   :target: https://codecov.io/gh/pypa/setuptools\n\n.. |tidelift-badge| image:: https://tidelift.com/badges/github/pypa/setuptools?style=flat\n   :target: https://tidelift.com/subscription/pkg/pypi-setuptools?utm_source=pypi-setuptools&utm_medium=readme\n\n.. |discord-badge| image:: https://img.shields.io/discord/803025117553754132\n   :target: https://discord.com/channels/803025117553754132/815945031150993468\n   :alt: Discord\n\n|pypi-version| |py-version| |test-badge| |ruff-badge| |docs-badge| |skeleton-badge| |codecov-badge| |discord-badge|\n\nSee the `Quickstart <https://setuptools.pypa.io/en/latest/userguide/quickstart.html>`_\nand the `User's Guide <https://setuptools.pypa.io/en/latest/userguide/>`_ for\ninstructions on how to use Setuptools.\n\nQuestions and comments should be directed to `GitHub Discussions\n<https://github.com/pypa/setuptools/discussions>`_.\nBug reports and especially tested patches may be\nsubmitted directly to the `bug tracker\n<https://github.com/pypa/setuptools/issues>`_.\n\n\nCode of Conduct\n===============\n\nEveryone interacting in the setuptools project's codebases, issue trackers,\nchat rooms, and fora is expected to follow the\n`PSF Code of Conduct <https://github.com/pypa/.github/blob/main/CODE_OF_CONDUCT.md>`_.\n\n\nFor Enterprise\n==============\n\nAvailable as part of the Tidelift Subscription.\n\nSetuptools and the maintainers of thousands of other packages are working with Tidelift to deliver one enterprise subscription that covers all of the open source you use.\n\n`Learn more <https://tidelift.com/subscription/pkg/pypi-setuptools?utm_source=pypi-setuptools&utm_medium=referral&utm_campaign=github>`_.\n",
+        "description_content_type": "text/x-rst",
+        "keywords": [
+          "CPAN",
+          "PyPI",
+          "distutils",
+          "eggs",
+          "package",
+          "management"
+        ],
+        "author_email": "Python Packaging Authority <distutils-sig@python.org>",
+        "license_expression": "MIT",
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Topic :: Software Development :: Libraries :: Python Modules",
+          "Topic :: System :: Archiving :: Packaging",
+          "Topic :: System :: Systems Administration",
+          "Topic :: Utilities"
+        ],
+        "requires_dist": [
+          "pytest!=8.1.*,>=6; extra == \"test\"",
+          "virtualenv>=13.0.0; extra == \"test\"",
+          "wheel>=0.44.0; extra == \"test\"",
+          "pip>=19.1; extra == \"test\"",
+          "packaging>=24.2; extra == \"test\"",
+          "jaraco.envs>=2.2; extra == \"test\"",
+          "pytest-xdist>=3; extra == \"test\"",
+          "jaraco.path>=3.7.2; extra == \"test\"",
+          "build[virtualenv]>=1.0.3; extra == \"test\"",
+          "filelock>=3.4.0; extra == \"test\"",
+          "ini2toml[lite]>=0.14; extra == \"test\"",
+          "tomli-w>=1.0.0; extra == \"test\"",
+          "pytest-timeout; extra == \"test\"",
+          "pytest-perf; sys_platform != \"cygwin\" and extra == \"test\"",
+          "jaraco.develop>=7.21; (python_version >= \"3.9\" and sys_platform != \"cygwin\") and extra == \"test\"",
+          "pytest-home>=0.5; extra == \"test\"",
+          "pytest-subprocess; extra == \"test\"",
+          "pyproject-hooks!=1.1; extra == \"test\"",
+          "jaraco.test>=5.5; extra == \"test\"",
+          "sphinx>=3.5; extra == \"doc\"",
+          "jaraco.packaging>=9.3; extra == \"doc\"",
+          "rst.linker>=1.9; extra == \"doc\"",
+          "furo; extra == \"doc\"",
+          "sphinx-lint; extra == \"doc\"",
+          "jaraco.tidelift>=1.4; extra == \"doc\"",
+          "pygments-github-lexers==0.0.5; extra == \"doc\"",
+          "sphinx-favicon; extra == \"doc\"",
+          "sphinx-inline-tabs; extra == \"doc\"",
+          "sphinx-reredirects; extra == \"doc\"",
+          "sphinxcontrib-towncrier; extra == \"doc\"",
+          "sphinx-notfound-page<2,>=1; extra == \"doc\"",
+          "pyproject-hooks!=1.1; extra == \"doc\"",
+          "towncrier<24.7; extra == \"doc\"",
+          "packaging>=24.2; extra == \"core\"",
+          "more_itertools>=8.8; extra == \"core\"",
+          "jaraco.text>=3.7; extra == \"core\"",
+          "importlib_metadata>=6; python_version < \"3.10\" and extra == \"core\"",
+          "tomli>=2.0.1; python_version < \"3.11\" and extra == \"core\"",
+          "wheel>=0.43.0; extra == \"core\"",
+          "platformdirs>=4.2.2; extra == \"core\"",
+          "jaraco.functools>=4; extra == \"core\"",
+          "more_itertools; extra == \"core\"",
+          "pytest-checkdocs>=2.4; extra == \"check\"",
+          "pytest-ruff>=0.2.1; sys_platform != \"cygwin\" and extra == \"check\"",
+          "ruff>=0.8.0; sys_platform != \"cygwin\" and extra == \"check\"",
+          "pytest-cov; extra == \"cover\"",
+          "pytest-enabler>=2.2; extra == \"enabler\"",
+          "pytest-mypy; extra == \"type\"",
+          "mypy==1.14.*; extra == \"type\"",
+          "importlib_metadata>=7.0.2; python_version < \"3.10\" and extra == \"type\"",
+          "jaraco.develop>=7.21; sys_platform != \"cygwin\" and extra == \"type\""
+        ],
+        "requires_python": ">=3.9",
+        "project_url": [
+          "Source, https://github.com/pypa/setuptools",
+          "Documentation, https://setuptools.pypa.io/",
+          "Changelog, https://setuptools.pypa.io/en/stable/history.html"
+        ],
+        "provides_extra": [
+          "test",
+          "doc",
+          "ssl",
+          "certs",
+          "core",
+          "check",
+          "cover",
+          "enabler",
+          "type"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+          "hashes": {
+            "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.1",
+        "name": "six",
+        "version": "1.17.0",
+        "summary": "Python 2 and 3 compatibility utilities",
+        "description": ".. image:: https://img.shields.io/pypi/v/six.svg\n   :target: https://pypi.org/project/six/\n   :alt: six on PyPI\n\n.. image:: https://readthedocs.org/projects/six/badge/?version=latest\n   :target: https://six.readthedocs.io/\n   :alt: six's documentation on Read the Docs\n\n.. image:: https://img.shields.io/badge/license-MIT-green.svg\n   :target: https://github.com/benjaminp/six/blob/master/LICENSE\n   :alt: MIT License badge\n\nSix is a Python 2 and 3 compatibility library.  It provides utility functions\nfor smoothing over the differences between the Python versions with the goal of\nwriting Python code that is compatible on both Python versions.  See the\ndocumentation for more information on what is provided.\n\nSix supports Python 2.7 and 3.3+.  It is contained in only one Python\nfile, so it can be easily copied into your project. (The copyright and license\nnotice must be retained.)\n\nOnline documentation is at https://six.readthedocs.io/.\n\nBugs can be reported to https://github.com/benjaminp/six.  The code can also\nbe found there.\n",
+        "home_page": "https://github.com/benjaminp/six",
+        "author": "Benjamin Peterson",
+        "author_email": "benjamin@python.org",
+        "license": "MIT",
+        "license_file": [
+          "LICENSE"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Programming Language :: Python :: 2",
+          "Programming Language :: Python :: 3",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: MIT License",
+          "Topic :: Software Development :: Libraries",
+          "Topic :: Utilities"
+        ],
+        "requires_python": ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/c2/14/e2a54fabd4f08cd7af1c07030603c3356b74da07f7cc056e600436edfa17/tzlocal-5.3.1-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d",
+          "hashes": {
+            "sha256": "eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.1",
+        "name": "tzlocal",
+        "version": "5.3.1",
+        "summary": "tzinfo object for the local timezone",
+        "description": "tzlocal\n=======\n\nAPI CHANGE!\n-----------\n\nWith version 3.0 of tzlocal, tzlocal no longer returned `pytz` objects, but\n`zoneinfo` objects, which has a different API. Since 4.0, it now restored\npartial compatibility for `pytz` users through Paul Ganssle's\n`pytz_deprecation_shim`.\n\ntzlocal 4.0 also adds an official function `get_localzone_name()` to get only\nthe timezone name, instead of a timezone object. On unix, it can raise an\nerror if you don't have a timezone name configured, where `get_localzone()`\nwill succeed, so only use that if you need the timezone name.\n\n4.0 also adds way more information on what is going wrong in your\nconfiguration when the configuration files are unclear or contradictory.\n\nVersion 5.0 removes the `pytz_deprecation_shim`, and now only returns\n`zoneinfo` objects, like verion 3.0 did. If you need `pytz` objects, you have\nto stay on version 4.0. If there are bugs in version 4.0, I will release\nupdates, but there will be no further functional changes on the 4.x branch.\n\n\nInfo\n----\n\nThis Python module returns the `IANA time zone name\n<https://www.iana.org/time-zones>`_ for your local time zone or a ``tzinfo``\nobject with the local timezone information, under Unix and Windows.\n\nThis module attempts to fix a glaring hole in the ``pytz`` and ``zoneinfo``\nmodules, that there is no way to get the local timezone information, unless\nyou know the zoneinfo name, and under several Linux distros that's hard or\nimpossible to figure out.\n\nWith ``tzlocal`` you only need to call ``get_localzone()`` and you will get a\n``tzinfo`` object with the local time zone info. On some Unices you will\nstill not get to know what the timezone name is, but you don't need that when\nyou have the tzinfo file. However, if the timezone name is readily available\nit will be used.\n\nWhat it's not for\n-----------------\n\nIt's not for converting the current time between UTC and your local time. There are\nother, simpler ways of doing this. This is if you need to know things like the name\nof the time zone, or if you need to be able to convert between your time zone and\nanother time zone for times that are in the future or in the past.\n\nFor current time conversions to and from UTC, look in the Python ``time`` module.\n\n\nSupported systems\n-----------------\n\nThese are the systems that are in theory supported:\n\n * Windows 2000 and later\n\n * Any unix-like system with a ``/etc/localtime`` or ``/usr/local/etc/localtime``\n\nIf you have one of the above systems and it does not work, it's a bug.\nPlease report it.\n\nPlease note that if you are getting a time zone called ``local``, this is not\na bug, it's actually the main feature of ``tzlocal``, that even if your\nsystem does NOT have a configuration file with the zoneinfo name of your time\nzone, it will still work.\n\nYou can also use ``tzlocal`` to get the name of your local timezone, but only\nif your system is configured to make that possible. ``tzlocal`` looks for the\ntimezone name in ``/etc/timezone``, ``/var/db/zoneinfo``,\n``/etc/sysconfig/clock`` and ``/etc/conf.d/clock``. If your\n``/etc/localtime`` is a symlink it can also extract the name from that\nsymlink.\n\nIf you need the name of your local time zone, then please make sure your\nsystem is properly configured to allow that.\n\nIf your unix system doesn't have a timezone configured, tzlocal will default\nto UTC.\n\nNotes on Docker\n---------------\n\nIt turns out that Docker images frequently have broken timezone setups.\nThis usually results in a warning that the configuration is wrong, or that\nthe timezone offset doesn't match the found timezone.\n\nThe easiest way to fix that is to set a TZ variable in your docker setup\nto whatever timezone you want, which is usually the timezone your host\ncomputer has.\n\nUsage\n-----\n\nLoad the local timezone:\n\n    >>> from tzlocal import get_localzone\n    >>> tz = get_localzone()\n    >>> tz\n    zoneinfo.ZoneInfo(key='Europe/Warsaw')\n\nCreate a local datetime:\n\n    >>> from datetime import datetime\n    >>> dt = datetime(2015, 4, 10, 7, 22, tzinfo=tz)\n    >>> dt\n    datetime.datetime(2015, 4, 10, 7, 22, tzinfo=zoneinfo.ZoneInfo(key='Europe/Warsaw'))\n\nLookup another timezone with ``zoneinfo``:\n\n    >>> from zoneinfo import ZoneInfo\n    >>> eastern = ZoneInfo('US/Eastern')\n\nConvert the datetime:\n\n    >>> dt.astimezone(eastern)\n    datetime.datetime(2015, 4, 10, 1, 22, tzinfo=zoneinfo.ZoneInfo(key='US/Eastern'))\n\nIf you just want the name of the local timezone, use `get_localzone_name()`:\n\n    >>> from tzlocal import get_localzone_name\n    >>> get_localzone_name()\n    \"Europe/Warsaw\"\n\nPlease note that under Unix, `get_localzone_name()` may fail if there is no zone\nconfigured, where `get_localzone()` would generally succeed.\n\nTroubleshooting\n---------------\n\nIf you don't get the result you expect, try running it with debugging turned on.\nStart a python interpreter that has tzlocal installed, and run the following code::\n\n    import logging\n    logging.basicConfig(level=\"DEBUG\")\n    import tzlocal\n    tzlocal.get_localzone()\n\nThe output should look something like this, and this will tell you what\nconfigurations were found::\n\n    DEBUG:root:/etc/timezone found, contents:\n     Europe/Warsaw\n\n    DEBUG:root:/etc/localtime found\n    DEBUG:root:2 found:\n     {'/etc/timezone': 'Europe/Warsaw', '/etc/localtime is a symlink to': 'Europe/Warsaw'}\n    zoneinfo.ZoneInfo(key='Europe/Warsaw')\n\n\nDevelopment\n-----------\n\nFor ease of development, there is a Makefile that will help you with basic tasks,\nlike creating a development environment with all the necessary tools (although\nyou need a supported Python version installed first)::\n\n    $ make devenv\n\nTo run tests::\n\n    $ make test\n\nCheck the syntax::\n\n    $ make check\n\n\nMaintainer\n----------\n\n* Lennart Regebro, regebro@gmail.com\n\nContributors\n------------\n\n* Marc Van Olmen\n* Benjamen Meyer\n* Manuel Ebert\n* Xiaokun Zhu\n* Cameris\n* Edward Betts\n* McK KIM\n* Cris Ewing\n* Ayala Shachar\n* Lev Maximov\n* Jakub Wilk\n* John Quarles\n* Preston Landers\n* Victor Torres\n* Jean Jordaan\n* Zackary Welch\n* Mickaël Schoentgen\n* Gabriel Corona\n* Alex Grönholm\n* Julin S\n* Miroslav Šedivý\n* revansSZ\n* Sam Treweek\n* Peter Di Pasquale\n* Rongrong\n\n(Sorry if I forgot someone)\n\nLicense\n-------\n\n* MIT https://opensource.org/licenses/MIT\n",
+        "description_content_type": "text/x-rst",
+        "keywords": [
+          "timezone"
+        ],
+        "author_email": "Lennart Regebro <regebro@gmail.com>",
+        "license": "MIT",
+        "license_file": [
+          "LICENSE.txt"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "License :: OSI Approved :: MIT License",
+          "Operating System :: Microsoft :: Windows",
+          "Operating System :: Unix",
+          "Operating System :: MacOS :: MacOS X",
+          "Typing :: Typed",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13"
+        ],
+        "requires_dist": [
+          "tzdata ; platform_system == \"Windows\"",
+          "pytest (>=4.3) ; extra == 'devenv'",
+          "pytest-mock (>=3.3) ; extra == 'devenv'",
+          "pytest-cov ; extra == 'devenv'",
+          "check-manifest ; extra == 'devenv'",
+          "zest.releaser ; extra == 'devenv'"
+        ],
+        "requires_python": ">=3.9",
+        "project_url": [
+          "Source code, https://github.com/regebro/tzlocal",
+          "Changelog, https://github.com/regebro/tzlocal/blob/master/CHANGES.txt",
+          "Issue tracker, https://github.com/regebro/tzlocal/issues"
+        ],
+        "provides_extra": [
+          "devenv"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00",
+          "hashes": {
+            "sha256": "5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.1",
+        "name": "pytz",
+        "version": "2025.2",
+        "platform": [
+          "Independent"
+        ],
+        "summary": "World timezone definitions, modern and historical",
+        "description": "pytz - World Timezone Definitions for Python\n============================================\n\n:Author: Stuart Bishop <stuart@stuartbishop.net>\n\nIntroduction\n~~~~~~~~~~~~\n\npytz brings the Olson tz database into Python. This library allows\naccurate and cross platform timezone calculations using Python 2.4\nor higher. It also solves the issue of ambiguous times at the end\nof daylight saving time, which you can read more about in the Python\nLibrary Reference (``datetime.tzinfo``).\n\nAlmost all of the Olson timezones are supported.\n\n.. note::\n\n    Projects using Python 3.9 or later should be using the support\n    now included as part of the standard library, and third party\n    packages work with it such as `tzdata <https://pypi.org/project/tzdata/>`_.\n    pytz offers no advantages beyond backwards compatibility with\n    code written for earlier versions of Python.\n\n.. note::\n\n    This library differs from the documented Python API for\n    tzinfo implementations; if you want to create local wallclock\n    times you need to use the ``localize()`` method documented in this\n    document. In addition, if you perform date arithmetic on local\n    times that cross DST boundaries, the result may be in an incorrect\n    timezone (ie. subtract 1 minute from 2002-10-27 1:00 EST and you get\n    2002-10-27 0:59 EST instead of the correct 2002-10-27 1:59 EDT). A\n    ``normalize()`` method is provided to correct this. Unfortunately these\n    issues cannot be resolved without modifying the Python datetime\n    implementation (see PEP-431).\n\n\nInstallation\n~~~~~~~~~~~~\n\nThis package can either be installed using ``pip`` or from a tarball using the\nstandard Python distutils.\n\nIf you are installing using ``pip``, you don't need to download anything as the\nlatest version will be downloaded for you from PyPI::\n\n    pip install pytz\n\nIf you are installing from a tarball, run the following command as an\nadministrative user::\n\n    python setup.py install\n\n\npytz for Enterprise\n~~~~~~~~~~~~~~~~~~~\n\nAvailable as part of the Tidelift Subscription.\n\nThe maintainers of pytz and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open source dependencies you use to build your applications. Save time, reduce risk, and improve code health, while paying the maintainers of the exact dependencies you use. `Learn more. <https://tidelift.com/subscription/pkg/pypi-pytz?utm_source=pypi-pytz&utm_medium=referral&utm_campaign=enterprise&utm_term=repo>`_.\n\n\nExample & Usage\n~~~~~~~~~~~~~~~\n\nLocalized times and date arithmetic\n-----------------------------------\n\n>>> from datetime import datetime, timedelta\n>>> from pytz import timezone\n>>> import pytz\n>>> utc = pytz.utc\n>>> utc.zone\n'UTC'\n>>> eastern = timezone('US/Eastern')\n>>> eastern.zone\n'US/Eastern'\n>>> amsterdam = timezone('Europe/Amsterdam')\n>>> fmt = '%Y-%m-%d %H:%M:%S %Z%z'\n\nThis library only supports two ways of building a localized time. The\nfirst is to use the ``localize()`` method provided by the pytz library.\nThis is used to localize a naive datetime (datetime with no timezone\ninformation):\n\n>>> loc_dt = eastern.localize(datetime(2002, 10, 27, 6, 0, 0))\n>>> print(loc_dt.strftime(fmt))\n2002-10-27 06:00:00 EST-0500\n\nThe second way of building a localized time is by converting an existing\nlocalized time using the standard ``astimezone()`` method:\n\n>>> ams_dt = loc_dt.astimezone(amsterdam)\n>>> ams_dt.strftime(fmt)\n'2002-10-27 12:00:00 CET+0100'\n\nUnfortunately using the tzinfo argument of the standard datetime\nconstructors ''does not work'' with pytz for many timezones.\n\n>>> datetime(2002, 10, 27, 12, 0, 0, tzinfo=amsterdam).strftime(fmt)  # /!\\ Does not work this way!\n'2002-10-27 12:00:00 LMT+0018'\n\nIt is safe for timezones without daylight saving transitions though, such\nas UTC:\n\n>>> datetime(2002, 10, 27, 12, 0, 0, tzinfo=pytz.utc).strftime(fmt)  # /!\\ Not recommended except for UTC\n'2002-10-27 12:00:00 UTC+0000'\n\nThe preferred way of dealing with times is to always work in UTC,\nconverting to localtime only when generating output to be read\nby humans.\n\n>>> utc_dt = datetime(2002, 10, 27, 6, 0, 0, tzinfo=utc)\n>>> loc_dt = utc_dt.astimezone(eastern)\n>>> loc_dt.strftime(fmt)\n'2002-10-27 01:00:00 EST-0500'\n\nThis library also allows you to do date arithmetic using local\ntimes, although it is more complicated than working in UTC as you\nneed to use the ``normalize()`` method to handle daylight saving time\nand other timezone transitions. In this example, ``loc_dt`` is set\nto the instant when daylight saving time ends in the US/Eastern\ntimezone.\n\n>>> before = loc_dt - timedelta(minutes=10)\n>>> before.strftime(fmt)\n'2002-10-27 00:50:00 EST-0500'\n>>> eastern.normalize(before).strftime(fmt)\n'2002-10-27 01:50:00 EDT-0400'\n>>> after = eastern.normalize(before + timedelta(minutes=20))\n>>> after.strftime(fmt)\n'2002-10-27 01:10:00 EST-0500'\n\nCreating local times is also tricky, and the reason why working with\nlocal times is not recommended. Unfortunately, you cannot just pass\na ``tzinfo`` argument when constructing a datetime (see the next\nsection for more details)\n\n>>> dt = datetime(2002, 10, 27, 1, 30, 0)\n>>> dt1 = eastern.localize(dt, is_dst=True)\n>>> dt1.strftime(fmt)\n'2002-10-27 01:30:00 EDT-0400'\n>>> dt2 = eastern.localize(dt, is_dst=False)\n>>> dt2.strftime(fmt)\n'2002-10-27 01:30:00 EST-0500'\n\nConverting between timezones is more easily done, using the\nstandard astimezone method.\n\n>>> utc_dt = datetime.fromtimestamp(1143408899, tz=utc)\n>>> utc_dt.strftime(fmt)\n'2006-03-26 21:34:59 UTC+0000'\n>>> au_tz = timezone('Australia/Sydney')\n>>> au_dt = utc_dt.astimezone(au_tz)\n>>> au_dt.strftime(fmt)\n'2006-03-27 08:34:59 AEDT+1100'\n>>> utc_dt2 = au_dt.astimezone(utc)\n>>> utc_dt2.strftime(fmt)\n'2006-03-26 21:34:59 UTC+0000'\n>>> utc_dt == utc_dt2\nTrue\n\nYou can take shortcuts when dealing with the UTC side of timezone\nconversions. ``normalize()`` and ``localize()`` are not really\nnecessary when there are no daylight saving time transitions to\ndeal with.\n\n>>> utc_dt = datetime.fromtimestamp(1143408899, tz=utc)\n>>> utc_dt.strftime(fmt)\n'2006-03-26 21:34:59 UTC+0000'\n>>> au_tz = timezone('Australia/Sydney')\n>>> au_dt = au_tz.normalize(utc_dt.astimezone(au_tz))\n>>> au_dt.strftime(fmt)\n'2006-03-27 08:34:59 AEDT+1100'\n>>> utc_dt2 = au_dt.astimezone(utc)\n>>> utc_dt2.strftime(fmt)\n'2006-03-26 21:34:59 UTC+0000'\n\n\n``tzinfo`` API\n--------------\n\nThe ``tzinfo`` instances returned by the ``timezone()`` function have\nbeen extended to cope with ambiguous times by adding an ``is_dst``\nparameter to the ``utcoffset()``, ``dst()`` && ``tzname()`` methods.\n\n>>> tz = timezone('America/St_Johns')\n\n>>> normal = datetime(2009, 9, 1)\n>>> ambiguous = datetime(2009, 10, 31, 23, 30)\n\nThe ``is_dst`` parameter is ignored for most timestamps. It is only used\nduring DST transition ambiguous periods to resolve that ambiguity.\n\n>>> print(tz.utcoffset(normal, is_dst=True))\n-1 day, 21:30:00\n>>> print(tz.dst(normal, is_dst=True))\n1:00:00\n>>> tz.tzname(normal, is_dst=True)\n'NDT'\n\n>>> print(tz.utcoffset(ambiguous, is_dst=True))\n-1 day, 21:30:00\n>>> print(tz.dst(ambiguous, is_dst=True))\n1:00:00\n>>> tz.tzname(ambiguous, is_dst=True)\n'NDT'\n\n>>> print(tz.utcoffset(normal, is_dst=False))\n-1 day, 21:30:00\n>>> tz.dst(normal, is_dst=False).seconds\n3600\n>>> tz.tzname(normal, is_dst=False)\n'NDT'\n\n>>> print(tz.utcoffset(ambiguous, is_dst=False))\n-1 day, 20:30:00\n>>> tz.dst(ambiguous, is_dst=False)\ndatetime.timedelta(0)\n>>> tz.tzname(ambiguous, is_dst=False)\n'NST'\n\nIf ``is_dst`` is not specified, ambiguous timestamps will raise\nan ``pytz.exceptions.AmbiguousTimeError`` exception.\n\n>>> print(tz.utcoffset(normal))\n-1 day, 21:30:00\n>>> print(tz.dst(normal))\n1:00:00\n>>> tz.tzname(normal)\n'NDT'\n\n>>> import pytz.exceptions\n>>> try:\n...     tz.utcoffset(ambiguous)\n... except pytz.exceptions.AmbiguousTimeError:\n...     print('pytz.exceptions.AmbiguousTimeError: %s' % ambiguous)\npytz.exceptions.AmbiguousTimeError: 2009-10-31 23:30:00\n>>> try:\n...     tz.dst(ambiguous)\n... except pytz.exceptions.AmbiguousTimeError:\n...     print('pytz.exceptions.AmbiguousTimeError: %s' % ambiguous)\npytz.exceptions.AmbiguousTimeError: 2009-10-31 23:30:00\n>>> try:\n...     tz.tzname(ambiguous)\n... except pytz.exceptions.AmbiguousTimeError:\n...     print('pytz.exceptions.AmbiguousTimeError: %s' % ambiguous)\npytz.exceptions.AmbiguousTimeError: 2009-10-31 23:30:00\n\n\nProblems with Localtime\n~~~~~~~~~~~~~~~~~~~~~~~\n\nThe major problem we have to deal with is that certain datetimes\nmay occur twice in a year. For example, in the US/Eastern timezone\non the last Sunday morning in October, the following sequence\nhappens:\n\n    - 01:00 EDT occurs\n    - 1 hour later, instead of 2:00am the clock is turned back 1 hour\n      and 01:00 happens again (this time 01:00 EST)\n\nIn fact, every instant between 01:00 and 02:00 occurs twice. This means\nthat if you try and create a time in the 'US/Eastern' timezone\nthe standard datetime syntax, there is no way to specify if you meant\nbefore of after the end-of-daylight-saving-time transition. Using the\npytz custom syntax, the best you can do is make an educated guess:\n\n>>> loc_dt = eastern.localize(datetime(2002, 10, 27, 1, 30, 00))\n>>> loc_dt.strftime(fmt)\n'2002-10-27 01:30:00 EST-0500'\n\nAs you can see, the system has chosen one for you and there is a 50%\nchance of it being out by one hour. For some applications, this does\nnot matter. However, if you are trying to schedule meetings with people\nin different timezones or analyze log files it is not acceptable.\n\nThe best and simplest solution is to stick with using UTC.  The pytz\npackage encourages using UTC for internal timezone representation by\nincluding a special UTC implementation based on the standard Python\nreference implementation in the Python documentation.\n\nThe UTC timezone unpickles to be the same instance, and pickles to a\nsmaller size than other pytz tzinfo instances.  The UTC implementation\ncan be obtained as pytz.utc, pytz.UTC, or pytz.timezone('UTC').\n\n>>> import pickle, pytz\n>>> dt = datetime(2005, 3, 1, 14, 13, 21, tzinfo=utc)\n>>> naive = dt.replace(tzinfo=None)\n>>> p = pickle.dumps(dt, 1)\n>>> naive_p = pickle.dumps(naive, 1)\n>>> len(p) - len(naive_p)\n17\n>>> new = pickle.loads(p)\n>>> new == dt\nTrue\n>>> new is dt\nFalse\n>>> new.tzinfo is dt.tzinfo\nTrue\n>>> pytz.utc is pytz.UTC is pytz.timezone('UTC')\nTrue\n\nNote that some other timezones are commonly thought of as the same (GMT,\nGreenwich, Universal, etc.). The definition of UTC is distinct from these\nother timezones, and they are not equivalent. For this reason, they will\nnot compare the same in Python.\n\n>>> utc == pytz.timezone('GMT')\nFalse\n\nSee the section `What is UTC`_, below.\n\nIf you insist on working with local times, this library provides a\nfacility for constructing them unambiguously:\n\n>>> loc_dt = datetime(2002, 10, 27, 1, 30, 00)\n>>> est_dt = eastern.localize(loc_dt, is_dst=True)\n>>> edt_dt = eastern.localize(loc_dt, is_dst=False)\n>>> print(est_dt.strftime(fmt) + ' / ' + edt_dt.strftime(fmt))\n2002-10-27 01:30:00 EDT-0400 / 2002-10-27 01:30:00 EST-0500\n\nIf you pass None as the is_dst flag to localize(), pytz will refuse to\nguess and raise exceptions if you try to build ambiguous or non-existent\ntimes.\n\nFor example, 1:30am on 27th Oct 2002 happened twice in the US/Eastern\ntimezone when the clocks where put back at the end of Daylight Saving\nTime:\n\n>>> dt = datetime(2002, 10, 27, 1, 30, 00)\n>>> try:\n...     eastern.localize(dt, is_dst=None)\n... except pytz.exceptions.AmbiguousTimeError:\n...     print('pytz.exceptions.AmbiguousTimeError: %s' % dt)\npytz.exceptions.AmbiguousTimeError: 2002-10-27 01:30:00\n\nSimilarly, 2:30am on 7th April 2002 never happened at all in the\nUS/Eastern timezone, as the clocks where put forward at 2:00am skipping\nthe entire hour:\n\n>>> dt = datetime(2002, 4, 7, 2, 30, 00)\n>>> try:\n...     eastern.localize(dt, is_dst=None)\n... except pytz.exceptions.NonExistentTimeError:\n...     print('pytz.exceptions.NonExistentTimeError: %s' % dt)\npytz.exceptions.NonExistentTimeError: 2002-04-07 02:30:00\n\nBoth of these exceptions share a common base class to make error handling\neasier:\n\n>>> isinstance(pytz.AmbiguousTimeError(), pytz.InvalidTimeError)\nTrue\n>>> isinstance(pytz.NonExistentTimeError(), pytz.InvalidTimeError)\nTrue\n\n\nA special case is where countries change their timezone definitions\nwith no daylight savings time switch. For example, in 1915 Warsaw\nswitched from Warsaw time to Central European time with no daylight savings\ntransition. So at the stroke of midnight on August 5th 1915 the clocks\nwere wound back 24 minutes creating an ambiguous time period that cannot\nbe specified without referring to the timezone abbreviation or the\nactual UTC offset. In this case midnight happened twice, neither time\nduring a daylight saving time period. pytz handles this transition by\ntreating the ambiguous period before the switch as daylight savings\ntime, and the ambiguous period after as standard time.\n\n\n>>> warsaw = pytz.timezone('Europe/Warsaw')\n>>> amb_dt1 = warsaw.localize(datetime(1915, 8, 4, 23, 59, 59), is_dst=True)\n>>> amb_dt1.strftime(fmt)\n'1915-08-04 23:59:59 WMT+0124'\n>>> amb_dt2 = warsaw.localize(datetime(1915, 8, 4, 23, 59, 59), is_dst=False)\n>>> amb_dt2.strftime(fmt)\n'1915-08-04 23:59:59 CET+0100'\n>>> switch_dt = warsaw.localize(datetime(1915, 8, 5, 00, 00, 00), is_dst=False)\n>>> switch_dt.strftime(fmt)\n'1915-08-05 00:00:00 CET+0100'\n>>> str(switch_dt - amb_dt1)\n'0:24:01'\n>>> str(switch_dt - amb_dt2)\n'0:00:01'\n\nThe best way of creating a time during an ambiguous time period is\nby converting from another timezone such as UTC:\n\n>>> utc_dt = datetime(1915, 8, 4, 22, 36, tzinfo=pytz.utc)\n>>> utc_dt.astimezone(warsaw).strftime(fmt)\n'1915-08-04 23:36:00 CET+0100'\n\nThe standard Python way of handling all these ambiguities is not to\nhandle them, such as demonstrated in this example using the US/Eastern\ntimezone definition from the Python documentation (Note that this\nimplementation only works for dates between 1987 and 2006 - it is\nincluded for tests only!):\n\n>>> from pytz.reference import Eastern # pytz.reference only for tests\n>>> dt = datetime(2002, 10, 27, 0, 30, tzinfo=Eastern)\n>>> str(dt)\n'2002-10-27 00:30:00-04:00'\n>>> str(dt + timedelta(hours=1))\n'2002-10-27 01:30:00-05:00'\n>>> str(dt + timedelta(hours=2))\n'2002-10-27 02:30:00-05:00'\n>>> str(dt + timedelta(hours=3))\n'2002-10-27 03:30:00-05:00'\n\nNotice the first two results? At first glance you might think they are\ncorrect, but taking the UTC offset into account you find that they are\nactually two hours appart instead of the 1 hour we asked for.\n\n>>> from pytz.reference import UTC # pytz.reference only for tests\n>>> str(dt.astimezone(UTC))\n'2002-10-27 04:30:00+00:00'\n>>> str((dt + timedelta(hours=1)).astimezone(UTC))\n'2002-10-27 06:30:00+00:00'\n\n\nCountry Information\n~~~~~~~~~~~~~~~~~~~\n\nA mechanism is provided to access the timezones commonly in use\nfor a particular country, looked up using the ISO 3166 country code.\nIt returns a list of strings that can be used to retrieve the relevant\ntzinfo instance using ``pytz.timezone()``:\n\n>>> print(' '.join(pytz.country_timezones['nz']))\nPacific/Auckland Pacific/Chatham\n\nThe Olson database comes with a ISO 3166 country code to English country\nname mapping that pytz exposes as a dictionary:\n\n>>> print(pytz.country_names['nz'])\nNew Zealand\n\n\nWhat is UTC\n~~~~~~~~~~~\n\n'UTC' is `Coordinated Universal Time`_. It is a successor to, but distinct\nfrom, Greenwich Mean Time (GMT) and the various definitions of Universal\nTime. UTC is now the worldwide standard for regulating clocks and time\nmeasurement.\n\nAll other timezones are defined relative to UTC, and include offsets like\nUTC+0800 - hours to add or subtract from UTC to derive the local time. No\ndaylight saving time occurs in UTC, making it a useful timezone to perform\ndate arithmetic without worrying about the confusion and ambiguities caused\nby daylight saving time transitions, your country changing its timezone, or\nmobile computers that roam through multiple timezones.\n\n..  _Coordinated Universal Time: https://en.wikipedia.org/wiki/Coordinated_Universal_Time\n\n\nHelpers\n~~~~~~~\n\nThere are two lists of timezones provided.\n\n``all_timezones`` is the exhaustive list of the timezone names that can\nbe used.\n\n>>> from pytz import all_timezones\n>>> len(all_timezones) >= 500\nTrue\n>>> 'Etc/Greenwich' in all_timezones\nTrue\n\n``common_timezones`` is a list of useful, current timezones. It doesn't\ncontain deprecated zones or historical zones, except for a few I've\ndeemed in common usage, such as US/Eastern (open a bug report if you\nthink other timezones are deserving of being included here). It is also\na sequence of strings.\n\n>>> from pytz import common_timezones\n>>> len(common_timezones) < len(all_timezones)\nTrue\n>>> 'Etc/Greenwich' in common_timezones\nFalse\n>>> 'Australia/Melbourne' in common_timezones\nTrue\n>>> 'US/Eastern' in common_timezones\nTrue\n>>> 'Canada/Eastern' in common_timezones\nTrue\n>>> 'Australia/Yancowinna' in all_timezones\nTrue\n>>> 'Australia/Yancowinna' in common_timezones\nFalse\n\nBoth ``common_timezones`` and ``all_timezones`` are alphabetically\nsorted:\n\n>>> common_timezones_dupe = common_timezones[:]\n>>> common_timezones_dupe.sort()\n>>> common_timezones == common_timezones_dupe\nTrue\n>>> all_timezones_dupe = all_timezones[:]\n>>> all_timezones_dupe.sort()\n>>> all_timezones == all_timezones_dupe\nTrue\n\n``all_timezones`` and ``common_timezones`` are also available as sets.\n\n>>> from pytz import all_timezones_set, common_timezones_set\n>>> 'US/Eastern' in all_timezones_set\nTrue\n>>> 'US/Eastern' in common_timezones_set\nTrue\n>>> 'Australia/Victoria' in common_timezones_set\nFalse\n\nYou can also retrieve lists of timezones used by particular countries\nusing the ``country_timezones()`` function. It requires an ISO-3166\ntwo letter country code.\n\n>>> from pytz import country_timezones\n>>> print(' '.join(country_timezones('ch')))\nEurope/Zurich\n>>> print(' '.join(country_timezones('CH')))\nEurope/Zurich\n\n\nInternationalization - i18n/l10n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\nPytz is an interface to the IANA database, which uses ASCII names. The `Unicode  Consortium's Unicode Locales (CLDR) <http://cldr.unicode.org>`_\nproject provides translations. Python packages such as\n`Babel <https://babel.pocoo.org/en/latest/api/dates.html#timezone-functionality>`_\nand Thomas Khyn's `l18n <https://pypi.org/project/l18n/>`_ package can be used\nto access these translations from Python.\n\n\nLicense\n~~~~~~~\n\nMIT license.\n\nThis code is also available as part of Zope 3 under the Zope Public\nLicense,  Version 2.1 (ZPL).\n\nI'm happy to relicense this code if necessary for inclusion in other\nopen source projects.\n\n\nLatest Versions\n~~~~~~~~~~~~~~~\n\nThis package will be updated after releases of the Olson timezone\ndatabase.  The latest version can be downloaded from the `Python Package\nIndex <https://pypi.org/project/pytz/>`_.  The code that is used\nto generate this distribution is hosted on Github and available\nusing git::\n\n    git clone https://github.com/stub42/pytz.git\n\nAnnouncements of new releases are made on\n`Launchpad <https://launchpad.net/pytz>`_, and the\n`Atom feed <http://feeds.launchpad.net/pytz/announcements.atom>`_\nhosted there.\n\n\nBugs, Feature Requests & Patches\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\nBugs should be reported on `Github <https://github.com/stub42/pytz/issues>`_.\nFeature requests are unlikely to be considered, and efforts instead directed\nto timezone support now built into Python or packages that work with it.\n\n\nSecurity Issues\n~~~~~~~~~~~~~~~\n\nReports about security issues can be made via `Tidelift <https://tidelift.com/security>`_.\n\n\nIssues & Limitations\n~~~~~~~~~~~~~~~~~~~~\n\n- This project is in maintenance mode. Projects using Python 3.9 or later\n  are best served by using the timezone functionaly now included in core\n  Python and packages that work with it such as `tzdata <https://pypi.org/project/tzdata/>`_.\n\n- Offsets from UTC are rounded to the nearest whole minute, so timezones\n  such as Europe/Amsterdam pre 1937 will be up to 30 seconds out. This\n  was a limitation of the Python datetime library.\n\n- If you think a timezone definition is incorrect, I probably can't fix\n  it. pytz is a direct translation of the Olson timezone database, and\n  changes to the timezone definitions need to be made to this source.\n  If you find errors they should be reported to the time zone mailing\n  list, linked from http://www.iana.org/time-zones.\n\n\nFurther Reading\n~~~~~~~~~~~~~~~\n\nMore info than you want to know about timezones:\nhttps://data.iana.org/time-zones/tz-link.html\n\n\nContact\n~~~~~~~\n\nStuart Bishop <stuart@stuartbishop.net>\n",
+        "keywords": [
+          "timezone",
+          "tzinfo",
+          "datetime",
+          "olson",
+          "time"
+        ],
+        "home_page": "http://pythonhosted.org/pytz",
+        "download_url": "https://pypi.org/project/pytz/",
+        "author": "Stuart Bishop",
+        "author_email": "stuart@stuartbishop.net",
+        "maintainer": "Stuart Bishop",
+        "maintainer_email": "stuart@stuartbishop.net",
+        "license": "MIT",
+        "license_file": [
+          "LICENSE.txt"
+        ],
+        "classifier": [
+          "Development Status :: 6 - Mature",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: MIT License",
+          "Natural Language :: English",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python",
+          "Programming Language :: Python :: 2",
+          "Programming Language :: Python :: 2.4",
+          "Programming Language :: Python :: 2.5",
+          "Programming Language :: Python :: 2.6",
+          "Programming Language :: Python :: 2.7",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.1",
+          "Programming Language :: Python :: 3.2",
+          "Programming Language :: Python :: 3.3",
+          "Programming Language :: Python :: 3.4",
+          "Programming Language :: Python :: 3.5",
+          "Programming Language :: Python :: 3.6",
+          "Programming Language :: Python :: 3.7",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Topic :: Software Development :: Libraries :: Python Modules"
+        ]
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8",
+          "hashes": {
+            "sha256": "1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": false,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "tzdata",
+        "version": "2025.2",
+        "dynamic": [
+          "license-file"
+        ],
+        "summary": "Provider of IANA time zone data",
+        "description": "tzdata: Python package providing IANA time zone data\n====================================================\n\nThis is a Python package containing ``zic``-compiled binaries for the IANA time\nzone database. It is intended to be a fallback for systems that do not have\nsystem time zone data installed (or don't have it installed in a standard\nlocation), as a part of `PEP 615 <https://www.python.org/dev/peps/pep-0615/>`_\n\nThis repository generates a ``pip``-installable package, published on PyPI as\n`tzdata <https://pypi.org/project/tzdata>`_.\n\nFor more information, see `the documentation <https://tzdata.readthedocs.io>`_.\n",
+        "description_content_type": "text/x-rst",
+        "home_page": "https://github.com/python/tzdata",
+        "author": "Python Software Foundation",
+        "author_email": "datetime-sig@python.org",
+        "license": "Apache-2.0",
+        "license_file": [
+          "LICENSE",
+          "licenses/LICENSE_APACHE"
+        ],
+        "classifier": [
+          "Development Status :: 4 - Beta",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: Apache Software License",
+          "Programming Language :: Python :: 2",
+          "Programming Language :: Python :: 3"
+        ],
+        "requires_python": ">=2",
+        "project_url": [
+          "Bug Reports, https://github.com/python/tzdata/issues",
+          "Source, https://github.com/python/tzdata",
+          "Documentation, https://tzdata.readthedocs.io"
+        ]
+      }
+    }
+  ],
+  "environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.13.3",
+    "os_name": "nt",
+    "platform_machine": "AMD64",
+    "platform_release": "11",
+    "platform_system": "Windows",
+    "platform_version": "10.0.22631",
+    "python_full_version": "3.13.3",
+    "platform_python_implementation": "CPython",
+    "python_version": "3.13",
+    "sys_platform": "win32"
+  }
+}
