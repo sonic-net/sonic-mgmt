@@ -24,6 +24,7 @@ TARGET_BRANCHES = [
     'internal-202405',
     'internal-202411',
     'internal-202412',
+    'internal-202412-dev',
     'internal-202405-chassis'
 ]
 CREATE_GRAPH_BRANCHES = ['internal-202012', 'internal-202205', 'internal-202305']
