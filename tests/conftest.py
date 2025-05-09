@@ -1,4 +1,5 @@
 import concurrent.futures
+from functools import lru_cache
 import os
 import json
 import logging
@@ -6,6 +7,7 @@ import getpass
 import random
 from concurrent.futures import as_completed
 import re
+import sys
 
 import pytest
 import yaml
@@ -36,7 +38,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, NAMESPACE_PREFIX,
+    ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
@@ -179,6 +182,8 @@ def pytest_addoption(parser):
     #  keysight ixanvl options #
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
+    parser.addoption("--enable-snappi-dynamic-ports", action="store_true", default=False,
+                     help="Force to use dynamic port allocation for snappi port selections")
 
     ##################################
     # advance-reboot,upgrade options #
@@ -1934,12 +1939,40 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
 
 
+@lru_cache
+def parse_override(testbed, field):
+    is_dynamic_only = "--enable-snappi-dynamic-ports" in sys.argv
+
+    if is_dynamic_only and field != "pfcQueueGroupSize":
+        # Args "--enable-snappi-dynamic-ports" should not affect field `pfcQueueGroupSize`
+        return False, None
+
+    override_file = "snappi_tests/variables.override.yml"
+
+    with open(override_file, 'r') as f:
+        all_values = yaml.safe_load(f)
+        if testbed not in all_values or field not in all_values[testbed]:
+            return False, None
+
+        return True, all_values[testbed][field]
+
+    return False, None
+
+
 def generate_skeleton_port_info(request):
     """
     Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
 
     ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
     """
+    is_override, override_data = parse_override(
+        request.config.getoption("--testbed"),
+        'multidut_port_info'
+    )
+
+    if is_override:
+        return override_data
+
     dut_info = get_snappi_testbed_metadata(request) or []
     available_interfaces = {}
     matrix = {}
@@ -2305,7 +2338,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     yield rtn_dict
 
 
-@ pytest.fixture(scope='class')
+@pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa: F811
     """
@@ -2971,6 +3004,47 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope="module")
+def selected_asic_index(request):
+    asic_index = DEFAULT_ASIC_ID
+    if "enum_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_asic_index")
+    elif "enum_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_frontend_asic_index")
+    elif "enum_backend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_backend_asic_index")
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_asic_index")
+    elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
+    logger.info(f"Selected asic_index {asic_index}")
+    return asic_index
+
+
+@pytest.fixture(scope="module")
+def ip_netns_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for linux commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'sudo ip netns exec {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
+@pytest.fixture(scope="module")
+def cli_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for CLI commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'-n {NAMESPACE_PREFIX}{selected_asic_index}'
 
 
 def pytest_collection_modifyitems(config, items):
