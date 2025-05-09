@@ -35,6 +35,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.disable_memory_utilization
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -1400,6 +1401,14 @@ class TestAclWithReboot(TestBasicAcl):
 
         # Delay 10 seconds for route convergence
         time.sleep(10)
+
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+            logger.info("Sleep 180s on Cisco chassis")
+            time.sleep(180)
 
         populate_vlan_arp_entries()
 

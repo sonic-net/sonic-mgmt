@@ -218,6 +218,30 @@ bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
     reason: "Not applicable for passive bgpmon_v6"
 
+bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_cold_reboot:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_tsa_on_sup:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run_on_dut:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
@@ -788,6 +812,12 @@ dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
     conditions:
       - "asic_type in ['vs'] or 'arista_7800' in platform"
 
+dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
+  skip:
+    reason: "Skipping test because test is not supported on this hwsku"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+
 #######################################
 #####             ecmp            #####
 #######################################
@@ -843,7 +873,7 @@ ecmp/test_ecmp_sai_value.py:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
       - "release in ['201911', '202012', '202205', '202211']"
-      - "topo_type in ['t1'] and hwsku in ['Arista-7050CX3-32S-C32']"
+      - "topo_type in ['t1'] and hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4']"
 
 ecmp/test_fgnhg.py:
   skip:
@@ -1145,20 +1175,6 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           gnmi              #####
 #######################################
-gnmi/test_gnmi.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnmi_appldb.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -1166,34 +1182,12 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
-
-gnmi/test_gnmi_countersdb.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnmi_smartswitch.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnoi_killprocess.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
   skip:
@@ -1202,33 +1196,6 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
-
-gnmi/test_gnoi_os.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnoi_system.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnoi_system_grpc.py:
-  skip:
-    reason: "GNMI cert name to role mapping change from single role to role list"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17876"
-
-gnmi/test_gnoi_system_reboot.py:
-  skip:
-    reason: "Test not supported on vs platform due to broken gRPC connection during reboot."
-    conditions:
-      - "asic_type in ['vs']"
 
 #######################################
 #####           hash              #####
@@ -1611,6 +1578,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_port_channel:
     reason: "Skip port channel test for causing continuously failing in PR testing"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/22081"
+
+macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
+  skip:
+    reason: "Skip SNMP test for causing continuously failing in PR testing"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18273"
 
 #######################################
 #####           mclag             #####
@@ -2019,7 +1992,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
+      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256', 'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 't0-80', 't0-backend', 't1-lag', 't1-28-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
@@ -2038,7 +2011,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
