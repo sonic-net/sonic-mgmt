@@ -239,7 +239,7 @@ def get_t2_info(duthosts, tbinfo):
                         acl_table_ports[''].append(port)
                     else:
                         acl_table_ports[namespace].append(port)
-            else:
+            if len(downstream_rifs):
                 for port in downstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
