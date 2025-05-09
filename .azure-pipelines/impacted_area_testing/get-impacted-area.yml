@@ -11,9 +11,10 @@ steps:
     echo "Fetching changes from origin rc = $?"
     echo "SOURCE_BRANCH: ${{ parameters.SOURCE_BRANCH }}"
     echo "TARGET_BRANCH: ${{ parameters.TARGET_BRANCH }}"
-    CHANGED_FILES=$(git diff --name-only origin/${{ parameters.TARGET_BRANCH }})
-    echo "Changed files:"
-    echo "$CHANGED_FILES"
+    echo "GIT BRANCH: `git branch`"
+    # CHANGED_FILES=$(git diff --name-only origin/${{ parameters.TARGET_BRANCH }})
+    # echo "Changed files:"
+    # echo "$CHANGED_FILES"
 
     IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_impacted_area.py --modified_files "$CHANGED_FILES" --feature_branch ${{ parameters.SOURCE_BRANCH }} --target_branch ${{ parameters.TARGET_BRANCH }} --directory tests --no-log)
     echo "Impacted tests:"
