@@ -1318,15 +1318,6 @@ hash/test_generic_hash.py::test_lag_member_flap:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
-hash/test_generic_hash.py::test_lag_member_flap:
-  skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
-    conditions_logical_operator: "OR"
-    conditions:
-      - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/13919
-
 hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
@@ -1334,12 +1325,6 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
       - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
-  skip:
-    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
-hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
@@ -1357,6 +1342,13 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
       - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1392,7 +1384,7 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
     conditions:
       - "asic_type in ['broadcom', 'mellanox']"
 
-hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCO-ipv4:
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
