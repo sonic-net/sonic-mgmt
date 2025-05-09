@@ -9,7 +9,9 @@ steps:
 - script: |
     git fetch origin
     echo "Fetching changes from origin rc = $?"
-    CHANGED_FILES=$(git diff --name-only ${{ parameters.TARGET_BRANCH }})
+    echo "SOURCE_BRANCH: ${{ parameters.SOURCE_BRANCH }}"
+    echo "TARGET_BRANCH: ${{ parameters.TARGET_BRANCH }}"
+    CHANGED_FILES=$(git diff --name-only origin/${{ parameters.TARGET_BRANCH }})
     echo "Changed files:"
     echo "$CHANGED_FILES"
 
