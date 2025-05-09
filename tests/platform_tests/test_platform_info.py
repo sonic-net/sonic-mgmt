@@ -114,6 +114,21 @@ def stop_pmon_sensord_task(ans_host):
         logging.info("sensord stopped successfully")
 
 
+def start_pmon_sensord_task(duthost):
+    sensord_running_status, sensord_pid = check_sensord_status(duthost)
+    if not sensord_running_status:
+        duthost.command("docker exec pmon supervisorctl restart lm-sensors")
+        time.sleep(3)
+        sensord_running_status, sensord_pid = check_sensord_status(duthost)
+        if sensord_running_status:
+            logging.info("sensord task started, pid = {}".format(sensord_pid))
+        else:
+            logging.error("Failed to start sensord task.")
+    else:
+        logging.info("sensord is running, pid = {}".format(sensord_pid))
+    return sensord_running_status, sensord_pid
+
+
 @pytest.fixture(scope="module")
 def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -252,7 +267,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    if psu_num:
+    if psu_num is not None:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 

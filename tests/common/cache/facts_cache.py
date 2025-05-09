@@ -202,17 +202,15 @@ def _get_default_zone(function, func_args, func_kargs):
         Add the namespace to the default zone.
     """
     hostname = None
-    unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
+    unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa: F821
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
     if not hostname or type(hostname) not in [str, unicode_type]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
     zone = hostname
-    if sys.version_info.major > 2:
-        arg_names = inspect.getfullargspec(function)[0]
-    else:
-        arg_names = inspect.getargspec(function)[0]
+    signature = inspect.signature(function)
+    arg_names = list(signature.parameters.keys())
     if 'namespace' in arg_names:
         try:
             index = arg_names.index('namespace')

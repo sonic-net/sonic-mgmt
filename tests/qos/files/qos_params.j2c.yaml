@@ -451,10 +451,10 @@ qos_params:
                     src_port_ids: [ 0, 2, 4, 6, 8, 10, 12, 14, 16 ]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 657523
-                    pkts_num_hdrm_full: 622850
-                    pkts_num_hdrm_partial: 622750
-                    margin: 300
+                    pkts_num_trig_pfc: 542448
+                    pkts_num_hdrm_full: 713397
+                    pkts_num_hdrm_partial: 713250
+                    margin: 100
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -558,10 +558,10 @@ qos_params:
                     src_port_ids: [ 0, 2, 4, 6, 8, 10, 12, 14, 16 ]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 657523
-                    pkts_num_hdrm_full: 622850
-                    pkts_num_hdrm_partial: 622750
-                    margin: 300
+                    pkts_num_trig_pfc: 542448
+                    pkts_num_hdrm_full: 713397
+                    pkts_num_hdrm_partial: 713300
+                    margin: 100
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1

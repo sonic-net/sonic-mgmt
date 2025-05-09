@@ -54,11 +54,13 @@
     {% for port_name in port_config %}
     {% if port_name in device_port_vlans[inventory_hostname] %}
     {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
+    {% if device_port_vlans[inventory_hostname][port_name]['vlanids'] != '' %}
     {% if ns.firstPrinted %},{% endif %}
         "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
             "tagging_mode" : "untagged"
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
+    {% endif %}
     {% elif device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'trunk' %}
     {% for vlanid in device_port_vlans[inventory_hostname][port_name]['vlanlist'] %}
     {% if ns.firstPrinted %},{% endif %}
