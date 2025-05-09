@@ -164,7 +164,6 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-        for duthost in duthosts:
             executor.submit(
                 config_reload,
                 duthost,
