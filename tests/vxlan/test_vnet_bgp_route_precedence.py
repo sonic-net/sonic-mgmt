@@ -114,6 +114,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     if tbinfo["topo"]["type"] == "mx":
         dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
     else:
+        if not mg_facts['minigraph_portchannels']:
+            pytest.skip('No portchannels found')
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
         pytest.skip('No portchannels found')
