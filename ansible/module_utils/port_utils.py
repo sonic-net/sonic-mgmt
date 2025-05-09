@@ -493,7 +493,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h"]
             split_alias_list_1 = ["a", "b"]
             split_2_port_indexs = [13, 14, 17, 18, 45, 46, 49, 50]
-            for i in range(1, 65, 2):
+            for i in range(1, 65):
                 if i in split_2_port_indexs:
                     for idx, split_alias in enumerate(split_alias_list_1):
                         alias = "etp{}{}".format(i, split_alias)
