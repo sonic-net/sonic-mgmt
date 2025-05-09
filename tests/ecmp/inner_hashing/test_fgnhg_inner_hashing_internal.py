@@ -102,8 +102,8 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
             index = index + 1
 
     port_list.sort()
-    bank_0_port = port_list[:len(port_list)/2]
-    bank_1_port = port_list[len(port_list)/2:]
+    bank_0_port = port_list[:len(port_list)//2]
+    bank_1_port = port_list[len(port_list)//2:]
 
     # Create vlan if
     duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(vlan_ip))

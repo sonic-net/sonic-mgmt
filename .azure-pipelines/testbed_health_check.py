@@ -157,6 +157,11 @@ class TestbedHealthChecker:
             for fanout_hostname in peer_devices:
                 # Check fanouthost reachability
 
+                # Skip the ixia host health check
+                if "ixia" in fanout_hostname:
+                    logger.info("Skip ixia host {} health check.".format(fanout_hostname))
+                    continue
+
                 # Create fanouthost instance.
                 fanouthost = init_host(inventories=self.inventory, host_pattern=fanout_hostname)
 

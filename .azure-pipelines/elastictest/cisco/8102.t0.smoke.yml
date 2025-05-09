@@ -40,7 +40,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_INTERNAL)
+    default: ""
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
