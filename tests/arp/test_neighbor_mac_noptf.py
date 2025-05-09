@@ -74,6 +74,9 @@ class TestNeighborMacNoPtf:
         localv4 = sum(self.count_routes(asichost, prefix) for prefix in localv4_prefixes)
         # these routes are present only on multi asic device, on single asic platform they will be zero
         internal_prefixes = ["8.", "2603"]
+        if asichost.sonichost.facts['switch_type'] == 'voq':
+            # voq inband_ip's
+            internal_prefixes.append("3")
         internal = sum(self.count_routes(asichost, prefix) for prefix in internal_prefixes)
         # custom filtered ips
         filter = {
