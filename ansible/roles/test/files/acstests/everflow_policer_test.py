@@ -274,7 +274,7 @@ class EverflowPolicerTest(BaseTest):
             elif self.asic_type in ["marvell-teralynx"] or \
                     self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
-                pkt = scapy.Ether(pkt[8:])
+                pkt = scapy.Ether(bytes(pkt)[8:])
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
             else:
