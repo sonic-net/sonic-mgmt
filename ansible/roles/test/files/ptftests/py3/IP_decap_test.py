@@ -270,7 +270,7 @@ class DecapPacketTest(BaseTest):
         if "pipe" == self.dscp_mode:
             exp_tc = exp_tos = tc_in
         elif "uniform" == self.dscp_mode:
-            exp_tc = exp_tos = tc_out
+            exp_tc = exp_tos = tc_out = tos_in
         else:
             print("ERROR: no dscp is configured")
             exit()
