@@ -1,4 +1,5 @@
 import concurrent.futures
+from functools import lru_cache
 import os
 import json
 import logging
@@ -6,6 +7,7 @@ import getpass
 import random
 from concurrent.futures import as_completed
 import re
+import sys
 
 import pytest
 import yaml
@@ -180,6 +182,8 @@ def pytest_addoption(parser):
     #  keysight ixanvl options #
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
+    parser.addoption("--enable-snappi-dynamic-ports", action="store_true", default=False,
+                     help="Force to use dynamic port allocation for snappi port selections")
 
     ##################################
     # advance-reboot,upgrade options #
@@ -1935,12 +1939,40 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
 
 
+@lru_cache
+def parse_override(testbed, field):
+    is_dynamic_only = "--enable-snappi-dynamic-ports" in sys.argv
+
+    if is_dynamic_only and field != "pfcQueueGroupSize":
+        # Args "--enable-snappi-dynamic-ports" should not affect field `pfcQueueGroupSize`
+        return False, None
+
+    override_file = "snappi_tests/variables.override.yml"
+
+    with open(override_file, 'r') as f:
+        all_values = yaml.safe_load(f)
+        if testbed not in all_values or field not in all_values[testbed]:
+            return False, None
+
+        return True, all_values[testbed][field]
+
+    return False, None
+
+
 def generate_skeleton_port_info(request):
     """
     Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
 
     ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
     """
+    is_override, override_data = parse_override(
+        request.config.getoption("--testbed"),
+        'multidut_port_info'
+    )
+
+    if is_override:
+        return override_data
+
     dut_info = get_snappi_testbed_metadata(request) or []
     available_interfaces = {}
     matrix = {}
