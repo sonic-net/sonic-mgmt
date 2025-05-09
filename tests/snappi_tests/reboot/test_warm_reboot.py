@@ -1,4 +1,4 @@
-from tests.common.snappi_tests.snappi_fixtures import cvg_api     # noqa F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api     # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import (           # noqa F401
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi_tests.reboot.files.reboot_helper import run_reboot_test
@@ -11,7 +11,7 @@ pytestmark = [pytest.mark.topology('snappi')]
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm'])
-def test_reboot(cvg_api,                # noqa F811
+def test_reboot(snappi_api,                # noqa F811
                 duthost,
                 localhost,
                 tgen_ports,             # noqa F811
@@ -34,14 +34,14 @@ def test_reboot(cvg_api,                # noqa F811
        and the dut is back up
     2) Traffic must have converged after the dut is back up
     Args:
-        cvg_api (pytest fixture): Snappi Convergence API
+        snappi_api (pytest fixture): Snappi Convergence API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         reboot_type (parameter): Reboot command
     """
-    run_reboot_test(cvg_api,
+    run_reboot_test(snappi_api,
                     duthost,
                     localhost,
                     tgen_ports,
