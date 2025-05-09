@@ -150,7 +150,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
-            return False
+            continue
 
         static_routes_cisco_8000(ip, duthost, intf, setup=setup)
 
@@ -181,6 +181,9 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
                                        peer_port=intf)
 
         port_config_list.append(port_config)
+
+    if len(port_config_list) != len(snappi_ports):
+        return False
 
     return True
 
@@ -233,7 +236,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
-                return False
+                continue
 
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
@@ -261,6 +264,9 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            peer_port=phy_intf)
 
             port_config_list.append(port_config)
+
+        if len(port_config_list) != len(snappi_ports):
+            return False
 
     return True
 
