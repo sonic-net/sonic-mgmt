@@ -194,7 +194,7 @@ exabgp_supervisord_conf_tmpl_p2_v3 = '''\
 command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
 '''
 exabgp_supervisord_conf_tmpl_p2_v4 = '''\
-command=env EXABGP_API_ACK=false /usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
+command=/usr/local/bin/exabgp --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
 '''
 
 

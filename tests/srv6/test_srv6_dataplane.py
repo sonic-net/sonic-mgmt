@@ -328,44 +328,45 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # get the drop counter before traffic test
     if duthost.facts["asic_type"] == "broadcom":
-        before_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        before_count = int(portstat[dut_port]['rx_drp'])
     elif duthost.facts["asic_type"] == "mellanox":
-        before_count = duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0]
+        before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
 
     # inject a number of packets with random payload
     pkt_count = 100
-    for i in range(pkt_count):
-        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-        if with_srh:
-            injected_pkt = simple_ipv6_sr_packet(
-                eth_dst=dut_mac,
-                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptfhost.mgmt_ipv6,
-                ipv6_dst="fcbb:bbbb:3:2::",
-                srh_seg_left=1,
-                srh_nh=41,
-                inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
-            )
-        else:
-            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:3:2::") \
-                / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+    if with_srh:
+        injected_pkt = simple_ipv6_sr_packet(
+            eth_dst=dut_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+            ipv6_src=ptfhost.mgmt_ipv6,
+            ipv6_dst="fcbb:bbbb:3:2::",
+            srh_seg_left=1,
+            srh_nh=41,
+            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+        )
+    else:
+        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+            / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:3:2::") \
+            / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
 
-        expected_pkt = injected_pkt.copy()
-        expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
-        expected_pkt['IPv6'].hlim -= 1
-        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+    expected_pkt = injected_pkt.copy()
+    expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
+    expected_pkt['IPv6'].hlim -= 1
+    logger.debug("Expected packet: {}".format(expected_pkt.summary()))
 
-        expected_pkt = Mask(expected_pkt)
-        expected_pkt.set_do_not_care_packet(Ether, "dst")
-        expected_pkt.set_do_not_care_packet(Ether, "src")
-        send_packet(ptfadapter, ptf_src_port, injected_pkt, 1)
-        verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
+    expected_pkt = Mask(expected_pkt)
+    expected_pkt.set_do_not_care_packet(Ether, "dst")
+    expected_pkt.set_do_not_care_packet(Ether, "src")
+    send_packet(ptfadapter, ptf_src_port, injected_pkt, count=pkt_count)
+    verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
 
     # verify that the RX_DROP counter is incremented
     if duthost.facts["asic_type"] == "broadcom":
-        after_count = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])[dut_port]['RX_DRP']
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        after_count = int(portstat[dut_port]['rx_drp'])
         assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
     elif duthost.facts["asic_type"] == "mellanox":
-        after_count = duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0]
+        after_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
         assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
