@@ -128,6 +128,11 @@ def pytest_addoption(parser):
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
     ############################
+    # sflow options            #
+    ############################
+    parser.addoption("--enable_sflow_feature", action="store_true", default=False, help="Enable sFlow feature on DUT")
+
+    ############################
     # pfc_asym options         #
     ############################
     parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
