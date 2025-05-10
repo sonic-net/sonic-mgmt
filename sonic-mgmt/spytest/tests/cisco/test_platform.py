@@ -12,7 +12,7 @@ import apis.switching.mac as mac_obj
 import apis.routing.ip as ip_obj
 from apis.system.connection import connect_to_device, ssh_disconnect, execute_command
 import re
-import datetime
+from datetime import datetime
 import apis.routing.ip as ipfeature
 
 
@@ -29,7 +29,8 @@ platform_summary_data = {
     "churchill-mono": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
     "churchill-mono-carib": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "Cisco-8101-O8C8A32S32", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
     "carib": {"platform": "x86_64-hf6100_32d-r0", "hwsku": "Cisco-HF6100-32D", "asic": "cisco-8000", "product_name": "HF6100-32D","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU Fixed System w"},
-    "siren": {"platform": "x86_64-hf6100_60l4d-r0", "hwsku": "Cisco-HF6100-60L4D", "asic": "cisco-8000", "product_name": "HF6100-60L4D","udi_desc":"Cisco HF6100"}
+    "siren": {"platform": "x86_64-hf6100_60l4d-r0", "hwsku": "Cisco-HF6100-60S4D", "asic": "cisco-8000", "product_name": "HF6100-60L4D","udi_desc":"Cisco HF6100"},
+    "laguna": {"platform": "x86_64-hf6100_64ed-r0", "hwsku": "Cisco-HF6100-64ED", "asic": "cisco-8000", "product_name": "HF6100-64ED","udi_desc":"Cisco HF6100"}
 }
 
 docker_data = {
@@ -55,7 +56,8 @@ platform_ssd_details = {
         "churchill-mono" : {"devicemodel" : "INTEL", "health" : "100.0%"},
         "churchill-mono-carib" : {"devicemodel" : "INTEL", "health" : "100.0%"},
         "carib" : {"devicemodel" : "INTEL", "health" : "100.0%"},
-        "siren" : {"devicemodel" : "Micron_5300_MTFDDAV480TDS_CISCO", "health" : "100.0%"}
+        "siren" : {"devicemodel" : "Micron_5300_MTFDDAV480TDS_CISCO", "health" : "100.0%"},
+        "laguna" : {"devicemodel" : "Micron_5400_MTFDDAV480TGA", "health" : "100.0%"}
 }
 
 pytest.fixture(scope="module", autouse=True)
@@ -950,6 +952,23 @@ def test_ft_platform_rebootcause():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+def parse_date(date_string):
+    # Normalize the date string by replacing space-padded day with zero-padded day
+    normalized_date_string = date_string.replace('  ', ' 0')
+
+    formats = [
+        "%a %d %b %Y %I:%M:%S %p %Z",  # Format for "Wed 07 May 2025 09:04:06 PM UTC"
+        "%a %b %d %I:%M:%S %p %Z %Y"   # Format for "Wed May  7 09:04:06 PM UTC 2025"
+    ]
+
+    for format_string in formats:
+        try:
+            return datetime.strptime(normalized_date_string, format_string)
+        except ValueError:
+            continue
+
+    raise Exception("Date string does not match any known formats")
+
 @pytest.mark.alpha
 def test_ft_platform_rebootcause_valid_with_reboot():
     """
@@ -964,7 +983,7 @@ def test_ft_platform_rebootcause_valid_with_reboot():
         date_before_reboot = basic_obj.get_dut_date_time(vars.D1)
         if date_before_reboot is None:
             raise Exception("The Parsed Date object retuned None")
-        date1 = datetime.datetime.strptime(date_before_reboot, '%a %d %b %Y %I:%M:%S %p %Z')
+        date1 = parse_date(date_before_reboot)
         reboot_obj.dut_reboot(vars.D1,max_time = 400)
         st.banner('restore helper file')
         restore_spytest_helper()
@@ -983,7 +1002,7 @@ def test_ft_platform_rebootcause_valid_with_reboot():
                     continue
                 output = match.group('user', 'time')
                 reboot_date = output[1]
-                date2 = datetime.datetime.strptime(reboot_date, '%a %d %b %Y %I:%M:%S %p %Z')
+                date2 = parse_date(reboot_date)
                 diff = date2 - date1
                 if(diff.total_seconds() > 360):
                     st.log("Time stamp expected to be less than 360 seconds after reboot cause is issued , failed")
