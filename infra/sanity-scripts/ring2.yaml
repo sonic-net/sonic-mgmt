@@ -271,8 +271,16 @@ L2: #Venkata Gouri Rajesh Etla / Bidipta Das
       #- fdb/test_fdb_flush.py
       - arp/test_neighbor_mac.py
 
-PFC: #Alpesh Patel
+PFC: #Alpesh Patel / Sonum Mathur
   t0-64:
+    mth64:
+      - cisco/platform_tests/test_serviceability_pfc.py
+      - pfcwd/test_pfc_config.py
+      - generic_config_updater/test_pfcwd_status.py
+      - generic_config_updater/test_pg_headroom_update.py
+      - cisco/qos/test_cpu_port_config.py
+      - cisco/qos/test_pg_profile_lookup.py
+  t1-64-lag:
     mth64:
       - cisco/platform_tests/test_serviceability_pfc.py
       - pfcwd/test_pfc_config.py
@@ -283,7 +291,9 @@ PFC: #Alpesh Patel
   t2-min:
     sfd:
       - cisco/platform_tests/test_serviceability_pfc.py
-      - pfcwd/test_pfc_config.py
+      - pfcwd/test_pfc_config.py #works with LC. Errors out for RP, which is ok
+      # - cisco/qos/test_cpu_port_config.py  (enable after fix for MIGSOFTWAR-22760)
+      # - cisco/qos/test_pg_profile_lookup.py (enable after fix for MIGSOFTWAR-22762)
   t1:
     lightning:
       #- cisco/platform_tests/test_serviceability_pfc.py
