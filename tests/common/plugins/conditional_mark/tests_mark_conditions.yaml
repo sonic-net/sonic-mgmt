@@ -1661,6 +1661,15 @@ override_config_table/test_override_config_table.py:
       - "is_multi_asic==True"
 
 #######################################
+######     packet trimming         #####
+########################################
+packet_trimming:
+  skip:
+    reason: "Nvidia SPC1-SPC3 platforms do not support packet trimming"
+    conditions:
+        - "asic_gen in ['spc1', 'spc2', 'spc3']"
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
