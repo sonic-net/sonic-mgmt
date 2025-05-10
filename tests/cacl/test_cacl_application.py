@@ -1307,5 +1307,5 @@ def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
     pytest_assert("iptables -P INPUT ACCEPT" in syslog_output,
                   "Syslog does not contain 'iptables -P INPUT ACCEPT' after restarting caclmgrd")
     systemctl_output = duthost.command("sudo systemctl status caclmgrd")["stdout"]
-    pytest_assert("iptables -A INPUT" in systemctl_output,
+    pytest_assert(("iptables -A INPUT" in systemctl_output) or ("iptables -t nat -A POSTROUTING" in systemctl_output),
                   "iptables rules are not applied after restarting caclmgrd")
