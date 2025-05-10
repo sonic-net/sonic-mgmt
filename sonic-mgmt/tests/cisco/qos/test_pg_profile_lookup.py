@@ -75,20 +75,23 @@ def test_pg_profile_lookup(duthosts):
         platform = duthost.facts["platform"]
         hwsku = duthost.facts["hwsku"]
         fname = "pg_profile_lookup.ini"
-        curr_pg_file = "{}/{}/{}/{}".format(prefix, platform, hwsku, fname)
-        output = duthost.shell("test -f {}".format(curr_pg_file))
-        file_exists = (output['rc'] == 0)
-        assert file_exists, "{} file is missing, required for PFC".format(curr_pg_file)
+        for asic in duthost.asics:
+            if duthost.is_multi_asic:
+                curr_pg_file = "{}/{}/{}/{}/{}".format(prefix, platform, hwsku, asic.asic_index, fname)
+            else: # single asic
+                curr_pg_file = "{}/{}/{}/{}".format(prefix, platform, hwsku, fname)
+            output = duthost.shell("test -f {}".format(curr_pg_file), module_ignore_errors=True)
+            file_exists = (output['rc'] == 0)
+            assert file_exists, "{} file is missing, required for PFC".format(curr_pg_file)
 
-        # pg_profile_lookup.ini should be picked up by the buffer config manager during
-        # minigraph deployment and PFC priority activation.
-        asic = duthost.asics[0]
-        lookup_table = parse_pg_profile_lookup(duthost, curr_pg_file)
-        profiles = redis(asic, "redis-cli -n 4 KEYS BUFFER_PROFILE|*")
-        lossless_profile_count = 0
-        for profile in profiles:
-            if profile.startswith("BUFFER_PROFILE|pg_lossless"):
-                verify_lossless_profile(asic, profile, lookup_table)
-                lossless_profile_count += 1
-        assert lossless_profile_count != 0, "Failed to find any lossless profiles in buffer profile list: {}".format(profiles)
-        logging.info("Found and verified {} lossless profiles".format(lossless_profile_count))
+            # pg_profile_lookup.ini should be picked up by the buffer config manager during
+            # minigraph deployment and PFC priority activation.
+            lookup_table = parse_pg_profile_lookup(duthost, curr_pg_file)
+            profiles = redis(asic, "redis-cli -n 4 KEYS BUFFER_PROFILE|*")
+            lossless_profile_count = 0
+            for profile in profiles:
+                if profile.startswith("BUFFER_PROFILE|pg_lossless"):
+                    verify_lossless_profile(asic, profile, lookup_table)
+                    lossless_profile_count += 1
+            assert lossless_profile_count != 0, "Failed to find any lossless profiles in buffer profile list: {}".format(profiles)
+            logging.info("Found and verified {} lossless profiles".format(lossless_profile_count))
