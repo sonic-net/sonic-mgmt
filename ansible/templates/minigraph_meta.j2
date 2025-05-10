@@ -31,7 +31,7 @@
           <a:DeviceProperty>
             <a:Name>MacSecEnabled</a:Name>
             <a:Reference i:nil="true"/>
-{% if dut_index|int == 0 %}
+{% if macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo %}
             <a:Value>True</a:Value>
 {% else %}
            <a:Value>False</a:Value>

@@ -35,6 +35,7 @@ import ptf
 import signal
 import threading
 import time
+import macsec  # noqa F401
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
