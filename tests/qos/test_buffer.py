@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
 from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerEnhanced as LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
@@ -400,8 +400,9 @@ def skip_traditional_model():
         pytest.skip("Skip test in traditional model")
 
 
-def init_log_analyzer(duthost, marker, expected, ignored=None):
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
+def init_log_analyzer(duthost, marker, expected, ignored=None, request=None):
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker,
+                              request=request)
     marker = loganalyzer.init()
 
     loganalyzer.load_common_config()
@@ -2396,7 +2397,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("disable_shp", [True, False])
-def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, disable_shp):       # noqa F811
+def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, disable_shp, request):    # noqa F811
     """The test case is to verify If the accumulative headroom(shared headroom) of a port exceeds the maximum threshold,
     the relevant configuration should not be applied successfully, and there will are the corresponding error logs.
 
@@ -2458,7 +2459,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             ['Failed to process table update',
              'oid is set to null object id on SAI_OBJECT_TYPE_BUFFER_PROFILE',
              'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
-             'doTask: Failed to process buffer task, drop it'])
+             'doTask: Failed to process buffer task, drop it'],
+            request)
         logging.info(
             '[Find out the longest cable length the port can support]')
         cable_length = int(original_cable_len[:-1])
@@ -2522,7 +2524,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             duthost,
             'Add addtional PGs',
             ['Update speed .* and cable length .* for port .* failed, accumulative headroom size exceeds the limit',
-             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'])
+             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'],
+            request)
 
         maximum_profile_name = make_expected_profile_name(
             original_speed, '{}m'.format(maximum_cable_length))
@@ -2561,7 +2564,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             duthost,
             'Static profile',
             ['Update speed .* and cable length .* for port .* failed, accumulative headroom size exceeds the limit',
-             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'])
+             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'],
+            request)
 
         logging.info('[Config headroom override to PG 3-4]')
         duthost.shell('config buffer profile add test-headroom --xon {} --xoff {} --size {}'.format(
@@ -2596,7 +2600,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             duthost,
             'Configure a larger size to a static profile',
             ['BUFFER_PROFILE .* cannot be updated because .* referencing it violates the resource limitation',
-             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'])
+             'Unable to update profile for port .*. Accumulative headroom size exceeds limit'],
+            request)
 
         def _update_headroom_exceed_Larger_size(param_name):
             logging.info(
@@ -2630,7 +2635,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             ['.*Unable to update profile for port .*. Accumulative headroom size exceeds limit',
              '.*ERR swss#buffermgrd: :- doTask: Failed to process table update.*',
              '.*ERR swss#buffermgrd: :- refreshPgsForPort: Update speed .* and cable length .* for port.* failed,'
-             ' accumulative headroom size exceeds the limit.*'])
+             ' accumulative headroom size exceeds the limit.*'],
+            request)
 
         # And then configure the cable length which causes the accumulative headroom exceed the limit
         duthost.shell(
