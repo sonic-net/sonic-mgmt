@@ -1,0 +1,579 @@
+# - This playbook is used to deploy the configuration for unified mode.
+# - It will be called form config_sonic_basedon_testbed.yml with options such as
+#     routing_config_mode and frr_mgmt_config are defined
+
+- name: Handle routing_config_mode & frr_mgmt_config configuration, and BGP config transformation
+  block:
+    - name: Validate routing_config_mode
+      fail:
+        msg: "Invalid routing_config_mode. Must be one of: separated, unified, split, split-unified"
+      when: routing_config_mode is defined and routing_config_mode not in ['separated', 'unified', 'split', 'split-unified']
+
+    - name: Validate frr_mgmt_config
+      fail:
+        msg: "Invalid frr_mgmt_config. Must be either true or false"
+      when: frr_mgmt_config is defined and frr_mgmt_config|string not in ['true', 'false']
+
+    - name: Check if config_db.json exists
+      stat:
+        path: /etc/sonic/config_db.json
+      register: config_db_stat
+      become: true
+
+    - name: backup config_db.json
+      copy:
+        src: /etc/sonic/config_db.json
+        dest: /etc/sonic/config_db.json.bak
+        remote_src: yes
+      become: true
+      when: config_db_stat.stat.exists
+
+    - name: Check if minigraph.xml exists
+      stat:
+        path: /etc/sonic/minigraph.xml
+      register: minigraph_stat
+      become: true
+
+    - name: backup minigraph.xml
+      copy:
+        src: /etc/sonic/minigraph.xml
+        dest: /etc/sonic/minigraph.xml.bak
+        remote_src: yes
+      become: true
+      when: minigraph_stat.stat.exists
+
+    - name: Check if golden_config_db.json exists
+      stat:
+        path: /etc/sonic/golden_config_db.json
+      register: golden_config_stat
+      become: true
+
+    - name: backup golden_config_db.json
+      copy:
+        src: /etc/sonic/golden_config_db.json
+        dest: /etc/sonic/golden_config_db.json.bak
+        remote_src: yes
+      become: true
+      when: golden_config_stat.stat.exists
+
+    # save current config to config_db.json and start the transformation.
+    - name: Save current running config into config_db.json file
+      shell: config save -y
+      become: true
+
+    - name: Load current config_db from config_db.json
+      shell: sonic-cfggen -j /etc/sonic/config_db.json --print-data
+      register: config_db_content
+      become: true
+
+    - name: Parse config_db from config_db.json
+      set_fact:
+        config_db: "{{ config_db_content.stdout | from_json }}"
+
+    # Update DEVICE_METADATA for docker_routing_config_mode, and frr_mgmt_framework_config
+    - name: Update DEVICE_METADATA for docker_routing_config_mode
+      set_fact:
+        config_db: "{{ config_db | combine({
+          'DEVICE_METADATA': {
+            'localhost': config_db['DEVICE_METADATA']['localhost'] | combine({
+              'docker_routing_config_mode': routing_config_mode
+            })
+          }
+        }, recursive=True) }}"
+      when: routing_config_mode is defined
+
+    - name: Update DEVICE_METADATA with frr_mgmt_framework_config
+      set_fact:
+        config_db: "{{ config_db | combine({
+          'DEVICE_METADATA': {
+            'localhost': config_db['DEVICE_METADATA']['localhost'] | combine({
+              'frr_mgmt_framework_config': frr_mgmt_config
+            })
+          }
+        }, recursive=True) }}"
+      when: frr_mgmt_config is defined
+
+    # If we need to make routing_config_mode persistent across config reload, we need to update the
+    # minigraph.xml and also golden_config_db.json.
+    # The value in minigraph is overwritten by the value in golden_config_db.json (if this exists), but
+    # the golden_config_db.json may or may not exist in the system. Hence, we are updating both files
+    # to ensure the persistency of the routing_config_mode.
+    # Please refer:
+    #   sonic-buildimage/src/sonic-utilities/scripts/db_migrator.py | function:migrate_routing_config_mode
+    #   sonic-utilities/utilities_common/helper.py | function: update_config
+    - name: Update minigraph.xml metadata
+      block:
+        - name: Update DockerRoutingConfigMode in minigraph.xml
+          xml:
+            path: "/etc/sonic/minigraph.xml"
+            xpath: >-
+                /ns:DeviceMiniGraph/ns:MetadataDeclaration/ns:Devices/a:DeviceMetadata/a:Properties/a:DeviceProperty[a:Name='DockerRoutingConfigMode']/a:Value
+            value: "{{ routing_config_mode | default('separated') }}"
+            namespaces:
+              ns: "Microsoft.Search.Autopilot.Evolution"
+              a: "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
+            pretty_print: yes
+          become: true
+          when: routing_config_mode is defined
+
+        - name: Update FrrMgmtFrameworkConfig in minigraph.xml
+          xml:
+            path: "/etc/sonic/minigraph.xml"
+            xpath: >-
+              /ns:DeviceMiniGraph/ns:MetadataDeclaration/ns:Devices/a:DeviceMetadata/a:Properties/a:DeviceProperty[a:Name='FrrMgmtFrameworkConfig']/a:Value
+            value: "{{ frr_mgmt_config | default('false') }}"
+            namespaces:
+              ns: "Microsoft.Search.Autopilot.Evolution"
+              a: "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
+            pretty_print: yes
+          become: true
+          when: frr_mgmt_config is defined
+
+        - name: Verify DockerRoutingConfigMode value
+          xml:
+            path: "/etc/sonic/minigraph.xml"
+            xpath: "/ns:DeviceMiniGraph/ns:MetadataDeclaration/ns:Devices/a:DeviceMetadata/a:Properties/a:DeviceProperty[a:Name='DockerRoutingConfigMode']/a:Value"
+            namespaces:
+              ns: "Microsoft.Search.Autopilot.Evolution"
+              a: "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
+            content: text
+          register: routing_mode_result
+
+        - name: Debug DockerRoutingConfigMode verification result
+          debug:
+            msg: "DockerRoutingConfigMode value: {{ routing_mode_result.matches[0]['{http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution}Value'] }}"
+
+        - name: Check DockerRoutingConfigMode verification result
+          fail:
+            msg: "Failed to verify DockerRoutingConfigMode in minigraph.xml. Expected value {{ routing_config_mode }} was not found."
+          when: routing_mode_result.failed or routing_mode_result.matches[0]['{http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution}Value'] != routing_config_mode
+
+        - name: Verify FrrMgmtFrameworkConfig value
+          xml:
+            path: "/etc/sonic/minigraph.xml"
+            xpath: "/ns:DeviceMiniGraph/ns:MetadataDeclaration/ns:Devices/a:DeviceMetadata/a:Properties/a:DeviceProperty[a:Name='FrrMgmtFrameworkConfig']/a:Value"
+            namespaces:
+              ns: "Microsoft.Search.Autopilot.Evolution"
+              a: "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
+            content: text
+          register: frr_config_result
+
+        - name: Debug FrrMgmtFrameworkConfig verification result
+          debug:
+            msg: "FrrMgmtFrameworkConfig value: {{ frr_config_result.matches[0]['{http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution}Value'] }}"
+
+        - name: Check FrrMgmtFrameworkConfig verification result
+          fail:
+            msg: "Failed to verify FrrMgmtFrameworkConfig in minigraph.xml. Expected value {{ frr_mgmt_config }} was not found."
+          when: frr_config_result.failed or frr_config_result.matches[0]['{http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution}Value'] != frr_mgmt_config
+
+    # update the golden_config_db.json
+    - name: Update golden_config_db.json
+      block:
+        - name: Load existing golden_config_db.json
+          shell: cat /etc/sonic/golden_config_db.json
+          register: golden_config_content
+          become: true
+
+        - name: Parse golden_config_db.json content
+          set_fact:
+            golden_config: "{{ golden_config_content.stdout | from_json }}"
+
+        - name: Ensure DEVICE_METADATA structure exists
+          set_fact:
+            golden_config: "{{ golden_config | combine({
+              'DEVICE_METADATA': {
+                'localhost': {}
+              }
+            }, recursive=True) }}"
+          when: "'DEVICE_METADATA' not in golden_config or 'localhost' not in golden_config['DEVICE_METADATA']"
+
+        - name: Update DEVICE_METADATA for docker_routing_config_mode
+          set_fact:
+            golden_config: "{{ golden_config | combine({
+              'DEVICE_METADATA': {
+                'localhost': golden_config['DEVICE_METADATA']['localhost'] | default({}) | combine({
+                  'docker_routing_config_mode': routing_config_mode
+                })
+              }
+            }, recursive=True) }}"
+          when: routing_config_mode is defined
+
+        - name: Update DEVICE_METADATA with frr config
+          set_fact:
+            golden_config: "{{ golden_config | combine({
+              'DEVICE_METADATA': {
+                'localhost': golden_config['DEVICE_METADATA']['localhost'] | default({}) | combine({
+                  'frr_mgmt_framework_config': frr_mgmt_config
+                })
+              }
+            }, recursive=True) }}"
+          when: frr_mgmt_config is defined
+
+        - name: Write updated golden_config_db.json
+          copy:
+            content: "{{ golden_config | to_nice_json }}"
+            dest: /etc/sonic/golden_config_db.json
+          become: true
+
+      when: golden_config_stat.stat.exists
+
+    # Transform BGP configurations
+    - name: Transform BGP configurations
+      block:
+        # BGP_GLOBALS configuration
+        - name: Set BGP ASN from testbed facts
+          set_fact:
+            bgp_asn: "{{ configuration_properties.common.dut_asn | default(config_db.DEVICE_METADATA.localhost.bgp_asn) | default(65100) }}"
+
+        - name: Update BGP_GLOBALS configuration
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'BGP_GLOBALS': {
+                'default': {
+                  'local_asn': bgp_asn
+                } | combine(
+                  {'router_id': configuration_properties.common.router_id}
+                  if configuration_properties.common.router_id is defined
+                  else {}
+                )
+              }
+            }, recursive=True) }}"
+
+        - name: Transform BGP_NEIGHBOR entries
+          vars:
+            excluded_keys: ['nhopself', 'rrclient', 'admin_status', 'holdtime', 'keepalive']
+          set_fact:
+            transformed_bgp_neighbors: >-
+              {% set result = {} %}
+              {% for key, value in config_db['BGP_NEIGHBOR'].items() %}
+              {% if not key.startswith('default|') %}
+              {% set actual_key = 'default|' + key %}
+              {% set filtered_value = {} %}
+              {% for k, v in value.items() %}
+              {% if k not in excluded_keys %}
+              {% set _ = filtered_value.update({k: v}) %}
+              {% endif %}
+              {% endfor %}
+              {% set _ = filtered_value.update({
+                'vrf_name': 'default',
+                'neighbor': key
+              }) %}
+              {% if '.' in key %}
+              {% set _ = filtered_value.update({'peer_group_name': 'peer4'}) %}
+              {% elif ':' in key %}
+              {% set _ = filtered_value.update({'peer_group_name': 'peer6'}) %}
+              {% endif %}
+              {% set _ = result.update({actual_key: filtered_value}) %}
+              {% endif %}
+              {% endfor %}
+              {{ result | to_json }}
+
+        - name: Fail if transformed BGP_NEIGHBOR is empty
+          fail:
+            msg: "Error: BGP_NEIGHBOR section is empty after transformation"
+          when: (transformed_bgp_neighbors | from_json) == {}
+
+        - name: Replace BGP_NEIGHBOR configuration
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'BGP_NEIGHBOR': transformed_bgp_neighbors | from_json
+            }, recursive=False) }}"
+
+        #making single task gives template error
+        - name: Replace BGP_NEIGHBOR_AF configuration
+          set_fact:
+            bgp_neighbor_af: >-
+              {% set result = {} %}
+              {# Add neighbor-specific AF entries only #}
+              {% for key, value in config_db['BGP_NEIGHBOR'].items() %}
+              {% set neighbor = key.split('|')[1] %}
+              {% if '.' in neighbor %}
+              {% set af_key = 'default|' ~ neighbor ~ '|ipv4_unicast' %}
+              {% set _ = result.update({af_key: {
+                'admin_status': 'up',
+                'vrf_name': 'default',
+                'neighbor': neighbor,
+                'afi_safi': 'ipv4_unicast',
+                'route_map_in': 'allow_all',
+                'route_map_out': 'all_prefix',
+              }}) %}
+              {% elif ':' in neighbor %}
+              {% set af_key = 'default|' ~ neighbor ~ '|ipv6_unicast' %}
+              {% set _ = result.update({af_key: {
+                'admin_status': 'up',
+                'vrf_name': 'default',
+                'neighbor': neighbor,
+                'afi_safi': 'ipv6_unicast',
+                'route_map_in': 'allow_all',
+                'route_map_out': 'all_prefix',
+              }}) %}
+              {% endif %}
+              {% endfor %}
+              {{ result | to_json }}
+
+        - name: Update config_db with BGP_NEIGHBOR_AF
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'BGP_NEIGHBOR_AF': bgp_neighbor_af | from_json
+            }, recursive=False) }}"
+
+        - name: Replace BGP_PEER_GROUP configuration
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'BGP_PEER_GROUP': {
+                'default|peer4': {
+                  'local_asn': bgp_asn,
+                  'name': 'peer4',
+                  'peer_group_name': 'peer4',
+                  'vrf_name': 'default'
+                },
+                'default|peer6': {
+                  'local_asn': bgp_asn,
+                  'name': 'peer6',
+                  'peer_group_name': 'peer6',
+                  'vrf_name': 'default'
+                }
+              }
+            }, recursive=False) }}"
+
+        - name: Replace BGP_PEER_GROUP_AF configuration
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'BGP_PEER_GROUP_AF': {
+                'default|peer4|ipv4_unicast': {
+                  'vrf_name': 'default',
+                  'peer_group_name': 'peer4',
+                  'afi_safi': 'ipv4_unicast',
+                  'route_map_in': 'allow_all',
+                  'route_map_out': 'all_prefix'
+                },
+                'default|peer6|ipv6_unicast': {
+                  'vrf_name': 'default',
+                  'peer_group_name': 'peer6',
+                  'afi_safi': 'ipv6_unicast',
+                  'route_map_in': 'allow_all',
+                  'route_map_out': 'all_prefix'
+                }
+              }
+            }, recursive=False) }}"
+
+        - name: Replace ROUTE_MAP configuration
+          set_fact:
+            config_db: "{{ config_db | combine({
+              'ROUTE_MAP': {
+                'all_prefix|100': {
+                  'name': 'all_prefix',
+                  'route_operation': 'permit'
+                },
+                'allow_all|100': {
+                  'name': 'allow_all',
+                  'route_operation': 'permit'
+                }
+              }
+            }, recursive=False) }}"
+
+        # Validate transformed DEVICE_METADATA configuration
+        - name: Validate DEVICE_METADATA configuration
+          block:
+            - name: Debug DEVICE_METADATA configuration
+              debug:
+                msg: "{{ config_db['DEVICE_METADATA'] | to_nice_json }}"
+              when: config_db['DEVICE_METADATA'] is defined
+
+            - name: Verify routing_config_mode value
+              fail:
+                msg: "Invalid docker_routing_config_mode value: {{ config_db['DEVICE_METADATA']['localhost']['docker_routing_config_mode'] }}"
+              when: >
+                routing_config_mode is defined and
+                config_db['DEVICE_METADATA']['localhost']['docker_routing_config_mode'] != routing_config_mode
+
+            - name: Verify frr_mgmt_framework_config value
+              fail:
+                msg: "Invalid frr_mgmt_framework_config value: {{ config_db['DEVICE_METADATA']['localhost']['frr_mgmt_framework_config'] }}"
+              when: >
+                frr_mgmt_config is defined and
+                config_db['DEVICE_METADATA']['localhost']['frr_mgmt_framework_config'] != frr_mgmt_config
+
+          when: config_db['DEVICE_METADATA'] is defined
+
+        # Validate transformed BGP_GLOBALS configuration
+        - name: Validate BGP_GLOBALS configuration
+          block:
+            - name: Debug BGP_GLOBALS configuration
+              debug:
+                msg: "{{ config_db['BGP_GLOBALS'] | to_nice_json }}"
+              when: config_db['BGP_GLOBALS'] is defined
+
+            - name: Verify BGP_GLOBALS local_asn value
+              fail:
+                msg: "Invalid or missing local_asn in BGP_GLOBALS.default: {{ config_db['BGP_GLOBALS']['default']['local_asn'] }}"
+              when: >
+                config_db['BGP_GLOBALS'] is defined and
+                (config_db['BGP_GLOBALS']['default'] is not defined or
+                config_db['BGP_GLOBALS']['default']['local_asn'] is not defined or
+                config_db['BGP_GLOBALS']['default']['local_asn']|string != bgp_asn|string)
+
+            - name: Verify BGP_GLOBALS router_id value
+              fail:
+                msg: "Invalid router_id in BGP_GLOBALS.default: {{ config_db['BGP_GLOBALS']['default']['router_id'] }}"
+              when: >
+                config_db['BGP_GLOBALS'] is defined and
+                configuration_properties.common.router_id is defined and
+                (config_db['BGP_GLOBALS']['default']['router_id'] is not defined or
+                config_db['BGP_GLOBALS']['default']['router_id'] != configuration_properties.common.router_id)
+          when: >
+            config_db['BGP_GLOBALS'] is defined
+
+        # Validate transformed BGP_NEIGHBOR configuration
+        - name: Validate BGP_NEIGHBOR configuration
+          block:
+            - name: Debug BGP_NEIGHBOR configuration
+              debug:
+                msg: "{{ config_db['BGP_NEIGHBOR'] | to_nice_json }}"
+              when: config_db['BGP_NEIGHBOR'] is defined
+
+            - name: Verify BGP_NEIGHBOR key format and peer group assignments
+              fail:
+                msg: "Invalid BGP_NEIGHBOR entry '{{ item.key }}': Missing 'default|' prefix or incorrect peer_group_name"
+              when: >
+                not item.key.startswith('default|') or
+                (('.' in item.key[7:] and item.value.peer_group_name != 'peer4') or
+                  (':' in item.key[7:] and item.value.peer_group_name != 'peer6'))
+              loop: "{{ config_db['BGP_NEIGHBOR'] | dict2items }}"
+
+            - name: Verify excluded attributes are removed
+              vars:
+                excluded_keys: ['nhopself', 'rrclient']
+              fail:
+                msg: "BGP_NEIGHBOR entry '{{ item.0.key }}' contains excluded attribute '{{ item.1 }}'"
+              loop: "{{ config_db['BGP_NEIGHBOR'] | dict2items | product(excluded_keys) | list }}"
+              loop_control:
+                label: "{{ item.0.key }} - {{ item.1 }}"
+              when: item.1 in item.0.value
+
+            # Validate BGP_NEIGHBOR_AF configuration
+            - name: Verify BGP_NEIGHBOR_AF entries
+              fail:
+                msg: "Missing or invalid BGP_NEIGHBOR_AF configuration for {{ item.key }}"
+              loop: "{{ config_db['BGP_NEIGHBOR_AF'] |  default({}) | dict2items }}"
+              when: >
+                not item.key.startswith('default|') or
+                item.value.vrf_name != 'default' or
+                item.value.admin_status != 'up' or
+                (('.' in item.key.split('|')[1] and item.value.afi_safi != 'ipv4_unicast') or
+                (':' in item.key.split('|')[1] and item.value.afi_safi != 'ipv6_unicast'))
+
+            # Validate BGP_PEER_GROUP configuration
+            - name: Verify BGP_PEER_GROUP entries
+              fail:
+                msg: "Missing or invalid BGP_PEER_GROUP configuration for {{ pg_key }}"
+              loop:
+                - "default|peer4"
+                - "default|peer6"
+              loop_control:
+                loop_var: pg_key
+              when: >
+                config_db['BGP_PEER_GROUP'][pg_key] is not defined or
+                config_db['BGP_PEER_GROUP'][pg_key].local_asn|string != bgp_asn|string or
+                config_db['BGP_PEER_GROUP'][pg_key].name != pg_key.split('|')[1] or
+                config_db['BGP_PEER_GROUP'][pg_key].vrf_name != 'default'
+
+            # Validate BGP_PEER_GROUP_AF configuration
+            - name: Verify BGP_PEER_GROUP_AF entries
+              fail:
+                msg: "Missing or invalid BGP_PEER_GROUP_AF configuration for {{ pgaf_key }}"
+              loop:
+                - "default|peer4|ipv4_unicast"
+                - "default|peer6|ipv6_unicast"
+              loop_control:
+                loop_var: pgaf_key
+              when: >
+                config_db['BGP_PEER_GROUP_AF'][pgaf_key] is not defined or
+                config_db['BGP_PEER_GROUP_AF'][pgaf_key].vrf_name != 'default' or
+                config_db['BGP_PEER_GROUP_AF'][pgaf_key].peer_group_name != pgaf_key.split('|')[1] or
+                config_db['BGP_PEER_GROUP_AF'][pgaf_key].afi_safi != pgaf_key.split('|')[2]
+
+            # Validate ROUTE_MAP configuration
+            - name: Verify ROUTE_MAP entries
+              fail:
+                msg: "Missing or invalid ROUTE_MAP configuration for {{ rm_key }}"
+              loop:
+                - "all_prefix|100"
+                - "allow_all|100"
+              loop_control:
+                loop_var: rm_key
+              when: >
+                config_db['ROUTE_MAP'][rm_key] is not defined or
+                config_db['ROUTE_MAP'][rm_key].route_operation != 'permit'
+
+          when: config_db['BGP_NEIGHBOR'] is defined and
+                (frr_mgmt_config is defined and frr_mgmt_config|string == 'true')
+
+      when: >
+        config_db['BGP_NEIGHBOR'] is defined and
+        (frr_mgmt_config is defined and frr_mgmt_config|string == 'true')
+
+    # Update config_db.json
+    - name: Write updated config_db.json
+      copy:
+        content: "{{ config_db | to_nice_json }}"
+        dest: /etc/sonic/config_db.json
+        mode: '0644'
+      become: true
+
+    - name: Reload configuration
+      become: true
+      command: config reload -y -f
+      register: reload_result
+      when: >
+        config_db['BGP_NEIGHBOR'] is defined and
+        (frr_mgmt_config is defined and frr_mgmt_config|string == 'true')
+
+    - name: Wait for switch to become reachable again
+      become: false
+      local_action: wait_for
+      args:
+        host: "{{ ansible_host }}"
+        port: 22
+        state: started
+        search_regex: "OpenSSH_[\\w\\.]+ Debian"
+        delay: 10
+        timeout: 600
+      changed_when: false
+
+  rescue:
+    - name: Restore config_db.json on failure
+      copy:
+        src: /etc/sonic/config_db.json.bak
+        dest: /etc/sonic/config_db.json
+        remote_src: yes
+      become: true
+      when: config_db_stat.stat.exists
+      ignore_errors: true
+
+    - name: Restore minigraph.xml on failure
+      copy:
+        src: /etc/sonic/minigraph.xml.bak
+        dest: /etc/sonic/minigraph.xml
+        remote_src: yes
+      become: true
+      when: minigraph_stat.stat.exists
+      ignore_errors: true
+
+    - name: Restore golden_config_db.json on failure
+      copy:
+        src: /etc/sonic/golden_config_db.json.bak
+        dest: /etc/sonic/golden_config_db.json
+        remote_src: yes
+      become: true
+      when: golden_config_stat.stat.exists
+      ignore_errors: true
+
+    - name: Fail with error message
+      fail:
+        msg: "Failed to deploy configuration in unified mode. Both minigraph.xml and config_db.json have been restored to their previous state."
+
+  when: >
+    (routing_config_mode is defined and routing_config_mode is not none and routing_config_mode | length > 0) or
+    (frr_mgmt_config is defined and frr_mgmt_config is not none and frr_mgmt_config | length > 0)
