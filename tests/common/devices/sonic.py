@@ -1847,6 +1847,9 @@ Totals               6450                 6449
     def is_nvidia_platform(self):
         return 'mellanox' == self.facts['asic_type']
 
+    def is_virtual_platform(self):
+        return self.facts['asic_type'] == 'vs'
+
     def _get_platform_asic(self, platform):
         platform_asic = os.path.join(
             "/usr/share/sonic/device", platform, "platform_asic"
