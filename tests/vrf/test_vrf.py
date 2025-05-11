@@ -344,9 +344,11 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     return vlan_peer_ips, vlan_peer_vrf2ns_map
 
 
-def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
+def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map, vlan_peer_ips):
+    for _, vlan_peer_port in vlan_peer_ips.keys():
+        ptfhost.shell(f"ip link del e{vlan_peer_port}mv1 || true")
     for vrf, ns in list(vlan_peer_vrf2ns_map.items()):
-        ptfhost.shell("ip netns del {}".format(ns))
+        ptfhost.shell(f"ip netns del {ns}")
 
 
 def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None,
@@ -475,8 +477,9 @@ def restore_config_db(localhost, duthost, ptfhost):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     reboot(duthost, localhost)
 
-    if 'vlan_peer_vrf2ns_map' in g_vars:
-        cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+    cleanup_vlan_peer(ptfhost,
+                      g_vars['vlan_peer_vrf2ns_map'] if 'vlan_peer_vrf2ns_map' in g_vars else {},
+                      g_vars['vlan_peer_ips'] if 'vlan_peer_ips' in g_vars else {})
 
 
 @pytest.fixture(scope="module", autouse=True)
