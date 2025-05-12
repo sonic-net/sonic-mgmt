@@ -21,31 +21,37 @@ steps:
     SOURCE_BRANCH=`git rev-parse HEAD`
     echo "SOURCE_BRANCH: $SOURCE_BRANCH"
     echo "TARGET_BRANCH: $TARGET_BRANCH"
-    CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH)
+    CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH | tr '\n' ' ')
     echo "Changed files:"
     echo "$CHANGED_FILES"
-
-    IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py --modified_files "$CHANGED_FILES" --feature_branch $SOURCE_BRANCH --target_branch $TARGET_BRANCH --directory tests --no-log)
-    echo "Impacted tests:"
-    echo "$IMPACTED_TESTS"
-
-    if [[ -n "$IMPACTED_TESTS" ]]; then
-      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py --files "$IMPACTED_TESTS")
-      echo "Test scripts:"
-      echo "$TEST_SCRIPTS"
-      sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
-      PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
-      rc=$?
-      echo "PR checkers:"
-      echo "$PR_CHECKERS"
-      if [[ $rc -ne 0 ]]; then
-        echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
-        exit 1
-      fi
-    else
-      echo "No impacted tests found."
+    if [ -z $CHANGED_FILES ]
+    then
+      echo "No changed files"
       PR_CHECKERS="[]"
       TEST_SCRIPTS="{}"
+    else
+      IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py --modified_files "$CHANGED_FILES" --feature_branch $SOURCE_BRANCH --target_branch $TARGET_BRANCH --directory tests --no-log)
+      echo "Impacted tests:"
+      echo "$IMPACTED_TESTS"
+
+      if [[ -n "$IMPACTED_TESTS" ]]; then
+        TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py --files "$IMPACTED_TESTS")
+        echo "Test scripts:"
+        echo "$TEST_SCRIPTS"
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+        PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+        rc=$?
+        echo "PR checkers:"
+        echo "$PR_CHECKERS"
+        if [[ $rc -ne 0 ]]; then
+          echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
+          exit 1
+        fi
+      else
+        echo "No impacted tests found."
+        PR_CHECKERS="[]"
+        TEST_SCRIPTS="{}"
+      fi
     fi
     echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
     echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
