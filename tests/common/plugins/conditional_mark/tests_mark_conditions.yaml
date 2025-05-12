@@ -1029,9 +1029,11 @@ fib/test_fib.py::test_ipinip_hash:
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
-    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*, and skip at dualtor-aa topology due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/17214'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17214"
   xfail:
     reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
     conditions:
@@ -1039,9 +1041,11 @@ fib/test_fib.py::test_nvgre_hash:
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*, and skip at dualtor-aa topology due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/17214'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+      - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17214"
 
 #######################################
 #####   generic_config_updater    #####
