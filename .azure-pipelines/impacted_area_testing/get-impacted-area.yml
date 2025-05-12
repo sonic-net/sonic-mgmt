@@ -24,13 +24,13 @@ steps:
     CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH | tr '\n' ' ')
     echo "Changed files:"
     echo "$CHANGED_FILES"
-    if [ -z $CHANGED_FILES ]
+    if [ -z "$CHANGED_FILES" ]
     then
       echo "No changed files"
       PR_CHECKERS="[]"
       TEST_SCRIPTS="{}"
     else
-      IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py --modified_files "$CHANGED_FILES" --feature_branch $SOURCE_BRANCH --target_branch $TARGET_BRANCH --directory tests --no-log)
+      IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py --modified_files $CHANGED_FILES --feature_branch $SOURCE_BRANCH --target_branch $TARGET_BRANCH --directory tests --no-log)
       echo "Impacted tests:"
       echo "$IMPACTED_TESTS"
 
