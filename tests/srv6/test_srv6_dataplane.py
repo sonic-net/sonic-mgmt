@@ -163,6 +163,11 @@ class SRv6Base():
 
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, self.params['ptf_downlink_port']).decode('utf-8')
         for srv6_packet in self.params['srv6_packets']:
+            if duthost.facts["asic_type"] == "broadcom" and \
+               (srv6_packet['srh_seg_left'] or srv6_packet['srh_seg_list']):
+                logger.info("Skip the test for Broadcom ASIC with SRH")
+                continue
+
             logger.info('-------------------------------------------------------------------------')
             logger.info(f'SRv6 tunnel decapsulation mode: {dscp_mode}')
             logger.info(f'Send {self.params["packet_num"]} SRv6 packets with action: {srv6_packet["action"]}')
