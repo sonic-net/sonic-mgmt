@@ -19,7 +19,7 @@ DEFAULT_PORT = 9
 DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
-ERR_MARGIN = 100
+ERR_MARGIN = 100  # millisecond
 
 
 def p2b(password: str) -> bytes:
