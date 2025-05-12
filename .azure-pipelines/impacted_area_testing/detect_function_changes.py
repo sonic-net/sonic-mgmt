@@ -90,22 +90,6 @@ def invoke_analyze_impact(function_name, directory, trace=False):
         return None
 
 
-def parse_modified_files(modified_files_str):
-    if not modified_files_str:
-        logging.warning("No modified files provided.")
-        return []
-
-    try:
-        # Split by newline and strip whitespace
-        files = [line.strip() for line in modified_files_str.strip().splitlines() if line.strip()]
-        if not files:
-            logging.warning("Modified files list is empty after parsing.")
-        return files
-    except Exception as e:
-        logging.error(f"Error parsing modified files: {e}")
-        return []
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect changed functions and invoke analyze_impact.py.")
     parser.add_argument("--modified_files", type=str, nargs="+", required=True, help="List of modified files.")
@@ -126,9 +110,7 @@ if __name__ == "__main__":
     logger.info(f"Feature branch: {args.feature_branch}")
     logger.info(f"Target branch: {args.target_branch}")
 
-    modified_files = parse_modified_files(args.modified_files)
-    logger.info(f'modified files: {modified_files}')
-    for file_path in modified_files:
+    for file_path in args.modified_files:
         if not file_path.endswith(".py"):
             logger.debug(f"Skipping non-Python file: {file_path}")
             continue
