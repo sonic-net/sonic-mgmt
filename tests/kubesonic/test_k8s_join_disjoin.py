@@ -277,6 +277,10 @@ def clean_configdb_k8s_table(duthost):
 
 @pytest.fixture()
 def setup_and_teardown(duthost, vmhost, creds):
+    # Capture initial iptables
+    duthost.shell("sudo iptables-save > /tmp/iptables_rules_before")
+    duthost.shell("sudo ip6tables-save > /tmp/ip6tables_rules_before")
+
     check_image_type_supported(duthost)
     check_dut_k8s_version_supported(duthost)
     logger.info("Start to setup test environment")
@@ -345,6 +349,12 @@ def setup_and_teardown(duthost, vmhost, creds):
         # Clean up the current env
         remove_k8s_master(vmhost)
         remove_minikube(vmhost)
+
+    # Restore original iptables and cleanup
+    duthost.shell("sudo iptables-restore < /tmp/iptables_rules_before")
+    duthost.shell("sudo ip6tables-restore < /tmp/ip6tables_rules_before")
+    duthost.shell("rm -f /tmp/iptables_rules_before")
+    duthost.shell("rm -f /tmp/ip6tables_rules_before")
 
 
 def trigger_join_and_check(duthost, vmhost):
