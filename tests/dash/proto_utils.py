@@ -154,15 +154,22 @@ def get_message_from_table_name(table_name):
 
 
 def prefix_to_ipv4(prefix_length):
+    if int(prefix_length) > 32:
+        return ""
     mask = 2**32 - 2**(32-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]
     hex_groups = [s[i:i+2] for i in range(0, len(s), 2)]
-    ipv4_address_str = '.'.join(hex_groups)
+    decimal_groups = []
+    for hex_string in hex_groups:
+        decimal_groups.append(str(int(hex_string, 16)))
+    ipv4_address_str = '.'.join(decimal_groups)
     return ipv4_address_str
 
 
 def prefix_to_ipv6(prefix_length):
+    if int(prefix_length) > 128:
+        return ""
     mask = 2**128 - 2**(128-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]
