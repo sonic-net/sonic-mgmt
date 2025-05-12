@@ -366,8 +366,10 @@ class GenerateGoldenConfigDBModule(object):
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
             if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
