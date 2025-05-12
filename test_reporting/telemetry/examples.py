@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 from typing import Dict
 from reporter_factory import TelemetryReporterFactory
-from metric_definitions import *    # noqa: F401
 from metrics import GaugeMetric
+# flake8: noqa
+from metric_definitions import *
 
 
 def MetricReporter():
@@ -66,7 +67,7 @@ def psuMetrics(metrics_reporter) -> Dict[str, GaugeMetric]:
     }
 
 
-def latencyMetrics(metrics_reporter) -> Dict[str, GaugeMetric]:
+def bgpMetrics(metrics_reporter) -> Dict[str, GaugeMetric]:
 
     # Create metrics
     bgp_port_restart = GaugeMetric(name=METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART,
@@ -110,8 +111,8 @@ def test_telemetry_example1(metrics_reporter, psu_metrics):
     psu_metrics[METRIC_NAME_PSU_VOLTAGE].record(metric_labels, 12.09)
     psu_metrics[METRIC_NAME_PSU_CURRENT].record(metric_labels, 18.38)
     psu_metrics[METRIC_NAME_PSU_POWER].record(metric_labels, 222.00)
-    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK)
-    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN)
+    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK.value)
+    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN.value)
 
     # Set non-shared metric labels
     metric_labels[METRIC_LABEL_DEVICE_PSU_ID] = "PSU 2"
@@ -122,8 +123,8 @@ def test_telemetry_example1(metrics_reporter, psu_metrics):
     psu_metrics[METRIC_NAME_PSU_VOLTAGE].record(metric_labels, 12.01)
     psu_metrics[METRIC_NAME_PSU_CURRENT].record(metric_labels, 17.72)
     psu_metrics[METRIC_NAME_PSU_POWER].record(metric_labels, 214.00)
-    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK)
-    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN)
+    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK.value)
+    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN.value)
 
     # Pass metrics to the reporter
     metrics_reporter.report()
@@ -150,8 +151,8 @@ def test_telemetry_example2(metrics_reporter, psu_metrics):
     psu_metrics[METRIC_NAME_PSU_VOLTAGE].record(metric_labels, 12.08)
     psu_metrics[METRIC_NAME_PSU_CURRENT].record(metric_labels, 19.12)
     psu_metrics[METRIC_NAME_PSU_POWER].record(metric_labels, 231.00)
-    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK)
-    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN)
+    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK.value)
+    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN.value)
 
     # Set non-shared metric labels
     metric_labels[METRIC_LABEL_DEVICE_PSU_ID] = "PSU 2"
@@ -162,22 +163,22 @@ def test_telemetry_example2(metrics_reporter, psu_metrics):
     psu_metrics[METRIC_NAME_PSU_VOLTAGE].record(metric_labels, 12.07)
     psu_metrics[METRIC_NAME_PSU_CURRENT].record(metric_labels, 18.75)
     psu_metrics[METRIC_NAME_PSU_POWER].record(metric_labels, 226.00)
-    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK)
-    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN)
+    psu_metrics[METRIC_NAME_PSU_STATUS].record(metric_labels, PSU_STATUS.OK.value)
+    psu_metrics[METRIC_NAME_PSU_LED].record(metric_labels, LED_STATE.GREEN.value)
 
     # Pass metrics to the reporter
     metrics_reporter.report()
 
 
-def test_telemetry_example3(metrics_reporter, latency_metrics):
+def test_telemetry_example3(metrics_reporter, bgp_metrics):
 
     # Set shared metric labels
     metric_labels = {METRIC_LABEL_DEVICE_ID: "switch-A"}
 
     # Set metric values
-    latency_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART].record(metric_labels, 15)
-    latency_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_CONTAINER_RESTART].record(metric_labels, 72)
-    latency_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_NEXTHOP_CHANGE].record(metric_labels, 60)
+    bgp_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART].record(metric_labels, 15)
+    bgp_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_CONTAINER_RESTART].record(metric_labels, 72)
+    bgp_metrics[METRIC_NAME_BGP_CONVERGENCE_TIME_NEXTHOP_CHANGE].record(metric_labels, 60)
 
     # Pass metrics to the reporter
     metrics_reporter.report()
@@ -188,12 +189,12 @@ def main():
     # Mimic pytest object resolution to create the metrics reporter and metrics automatically before running the tests.
     periodic_reporter, final_reporter = MetricReporter()
     psu_metrics = psuMetrics(periodic_reporter)
-    latency_metrics = latencyMetrics(final_reporter)
+    bgp_metrics = bgpMetrics(final_reporter)
 
     # Report telemetry metrics
     test_telemetry_example1(periodic_reporter, psu_metrics)
     test_telemetry_example2(periodic_reporter, psu_metrics)
-    test_telemetry_example3(final_reporter, latency_metrics)
+    test_telemetry_example3(final_reporter, bgp_metrics)
 
 
 if __name__ == '__main__':
