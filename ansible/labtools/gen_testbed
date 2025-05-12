@@ -36,9 +36,9 @@ def find_line_index(regex, lines):
     return filter(lambda item : re.match(regex, item[1]), enumerate(lines)).__next__()[0]
 
 
-def yaml_dump_lines(obj):
+def yaml_dump_lines(obj, indent=2):
     with io.StringIO() as sio:
-        yaml.dump(obj, sio, sort_keys=False)
+        yaml.dump(obj, sio, sort_keys=False, indent=indent)
         sio.seek(0, 0)
         lines = sio.readlines()
     return lines
@@ -174,6 +174,7 @@ class BJW(InvSpecific):
                 testbed_name =  re.sub("\d+$", str(start), testbed_name)
                 if testbed_name not in list(map(lambda testbed : testbed["conf-name"], self.filter_testbeds_in_network())):
                     break
+                start = start + 1
         return testbed_name
 
     def filter_servers_in_inv(self):
@@ -385,7 +386,8 @@ class GenTestbeds:
         for file_name, extra_vars in self.__new_extra_vars.items():
             with open(file_name, "r+") as f:
                 lines = f.readlines()
-                new_lines = yaml_dump_lines(extra_vars)[1:]
+                indent = 4 if file_name.endswith("mux_simulator_http_port_map.yml") else 2
+                new_lines = yaml_dump_lines(extra_vars, indent=indent)[1:]
                 for key, value in extra_vars.items():
                     for testbed_name, port in value.items():
                         new_line = new_lines[find_line_index("^\s+{}:".format(testbed_name), new_lines)]
