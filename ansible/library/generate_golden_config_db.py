@@ -45,6 +45,7 @@ def is_full_lossy_hwsku(hwsku):
                    'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'}
     return hwsku in lossy_hwsku
 
+
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
