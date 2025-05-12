@@ -18,7 +18,7 @@ steps:
     else
       TARGET_BRANCH="${{ parameters.TARGET_BRANCH }}"
     fi
-    SOURCE_BRANCH=`git branch`
+    SOURCE_BRANCH=`git rev-parse HEAD`
     echo "SOURCE_BRANCH: $SOURCE_BRANCH"
     echo "TARGET_BRANCH: $TARGET_BRANCH"
     CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH)
