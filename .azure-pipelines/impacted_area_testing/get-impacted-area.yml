@@ -14,9 +14,9 @@ steps:
     echo "GIT BRANCH: `git branch`"
     if [[ "${{ parameters.TARGET_BRANCH }}" == origin/* ]]
     then
-      TARGET_BRANCH="origin/${{ parameters.TARGET_BRANCH }}"
-    else
       TARGET_BRANCH="${{ parameters.TARGET_BRANCH }}"
+    else
+      TARGET_BRANCH="origin/${{ parameters.TARGET_BRANCH }}"
     fi
     SOURCE_BRANCH=`git rev-parse HEAD`
     echo "SOURCE_BRANCH: $SOURCE_BRANCH"
