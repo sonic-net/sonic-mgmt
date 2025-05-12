@@ -1565,6 +1565,15 @@ kubesonic/test_k8s_join_disjoin.py:
       - "branch in ['master']"
 
 #######################################
+#####        l2 config            #####
+#######################################
+l2/test_l2_configure.py:
+  skip:
+    reason: "Skipping l2 config test on dualtor due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17212"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17212"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
