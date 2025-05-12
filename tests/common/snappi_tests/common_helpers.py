@@ -23,6 +23,7 @@ from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
+from tests.conftest import parse_override
 
 
 def increment_ip_address(ip, incr=1):
@@ -1246,6 +1247,15 @@ def get_pfc_count(duthost, port):
         pfc_dict[duthost.hostname][port]['rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
 
     return pfc_dict
+
+
+def get_pfcQueueGroupSize(default=8):
+    testbed_name = get_testbed_from_args()
+    is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
+    if is_override:
+        return override_data
+    return default
+
 
 @lru_cache
 def get_testbed_from_args():
