@@ -107,6 +107,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -160,6 +161,7 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -185,7 +187,7 @@ stages:
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
-          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
 

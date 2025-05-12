@@ -215,7 +215,7 @@ class DutHosts(object):
         return getattr(self.nodes, attr)
 
     def __repr__(self):
-        return self.nodes.__repr__()
+        return f"DutHosts(nodes={list(self.nodes.keys())})"
 
     def config_facts(self, *module_args, **complex_args):
         result = {}

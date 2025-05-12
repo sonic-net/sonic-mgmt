@@ -55,10 +55,6 @@ DOCUMENTATION += """
           description: IPv6 address
           vars:
               - name: ansible_hostv6
-      host:
-          description: Hostname or IP address of the target machine.
-          vars:
-              - name: ansible_host
       current_password_hash:
           description: The hash of currently used password
 """.lstrip("\n")

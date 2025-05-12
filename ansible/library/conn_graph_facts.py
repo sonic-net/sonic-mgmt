@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import csv
 
 from ansible.module_utils.basic import AnsibleModule
