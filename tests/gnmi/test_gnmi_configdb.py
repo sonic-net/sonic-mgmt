@@ -297,6 +297,8 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
 
 
 def test_gnmi_configdb_full_replace_01(duthosts, rand_one_dut_hostname, ptfhost):
