@@ -82,7 +82,8 @@ hw_port_cfg = {
     'c448o16-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
                          'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
                          'peer_ports': [],
-                         'skip_ports': [16, 17, 44, 45, 48, 49],
+                         'pc_ports': {12: 2},
+                         'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                          "panel_port_step": 1},
 }
 
@@ -162,6 +163,9 @@ class VM:
             backplane_additional_offset_ipv6 = 1
             self.bp_ipv6 = calc_ipv6("fc0a::1", self.ip_offset+1+backplane_additional_offset_ipv6)
 
+    def update_port_channel(self, link_id_list):
+        self.vlans = link_id_list[:]
+
 
 class HostInterface:
     """ Class to represent a host interface in the topology """
@@ -214,6 +218,7 @@ def generate_topo(role: str,
                   panel_port_count: int,
                   uplink_ports: List[int],
                   peer_ports: List[int],
+                  pc_ports: dict,
                   skip_ports: List[int],
                   port_cfg_type: str = "default",
                   ) -> Tuple[List[VM], List[HostInterface]]:
@@ -227,6 +232,7 @@ def generate_topo(role: str,
     per_role_vm_count = {}
     tornum = 1
     link_id_start = 0
+    link_id_used = set()
     for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
         vm_role_cfg = None
         link_step = 1
@@ -261,6 +267,8 @@ def generate_topo(role: str,
         for link_id in range(link_id_start, link_id_end):
             vm = None
             hostif = None
+            if link_id in link_id_used:
+                continue
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
@@ -272,6 +280,14 @@ def generate_topo(role: str,
                     vm_role_cfg["asn"] += 1
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id)
+                    if panel_port_id in pc_ports:
+                        link_id_list = []
+                        for cur_link_id in range(link_id_start, link_id_start + pc_ports[panel_port_id]):
+                            link_id_used.add(cur_link_id)
+                            link_id_list.append(cur_link_id)
+                        vm.update_port_channel(link_id_list)
+                    else:
+                        link_id_used.add(link_id)
                     vm_list.append(vm)
                     if link_type == 'up':
                         uplinkif_list.append(link_id)
@@ -380,14 +396,15 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
         hw_port_cfg[link_cfg]['uplink_ports']
     peer_ports = [int(port) for port in peers.split(",")] if peers != "" else hw_port_cfg[link_cfg]['peer_ports']
     skip_ports = [int(port) for port in skips.split(",")] if skips != "" else hw_port_cfg[link_cfg]['skip_ports']
+    pc_ports = hw_port_cfg[link_cfg].get('pc_ports', {})
 
-    vm_list, downlinkif_list, uplinkif_list = generate_topo(role, port_count, uplink_ports, peer_ports,
+    vm_list, downlinkif_list, uplinkif_list = generate_topo(role, port_count, uplink_ports, peer_ports, pc_ports,
                                                             skip_ports, link_cfg)
     vlan_group_list = []
     if role == "t0":
         vlan_group_list = generate_vlan_groups(downlinkif_list)
     file_content = generate_topo_file(role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
-    write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
+    write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list)+len(pc_ports),
                     len(peer_ports), file_content)
 
 
