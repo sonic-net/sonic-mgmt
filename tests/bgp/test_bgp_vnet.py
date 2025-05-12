@@ -75,7 +75,7 @@ def get_cfg_facts(duthost):
     return tmp_facts
 
 
-def setup_vrf_cfg(duthost, localhost, cfg_facts):
+def setup_vnet_cfg(duthost, localhost, cfg_facts):
     '''
     setup vrf configuration on dut before test suite
     '''
@@ -148,7 +148,7 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
             "swss", "syncd", "database", "teamd", "bgp"]
         cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-        setup_vrf_cfg(duthost, localhost, cfg_t0)
+        setup_vnet_cfg(duthost, localhost, cfg_t0)
 
         duthost.shell("sonic-clear arp")
         duthost.shell("sonic-clear nd")
@@ -227,7 +227,7 @@ def modify_dynamic_peer_cfg(duthost, template):
     validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
 
 
-def dynamic_range_add_delete(duthost, cfg_facts, template):
+def dynamic_range_add_delete(duthost, template):
     '''
     Validate the behavior when a different dynamic range is added/deleted.
     '''
@@ -306,7 +306,7 @@ def get_core_dumps(duthost):
     return result.split('\n') if result else []
 
 
-def dynamic_peer_modify_stress_test(duthost, cfg_facts):
+def dynamic_peer_modify_stress_test(duthost):
     '''
     Stress test for modifying dynamic peer configuration.
     '''
@@ -320,8 +320,8 @@ def dynamic_peer_modify_stress_test(duthost, cfg_facts):
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
 
-    static_peer_uptime_after = static_peer_uptime_before + 20*20*1000
-    dynamic_peer_uptime_after = dynamic_peer_uptime_before + 20*20*1000
+    static_peer_uptime_before = static_peer_uptime_before + 20*20*1000
+    dynamic_peer_uptime_before = dynamic_peer_uptime_before + 20*20*1000
     bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
     bgp_summary = json.loads(bgp_summary_string)
     static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
@@ -336,7 +336,7 @@ def dynamic_peer_modify_stress_test(duthost, cfg_facts):
         "Core dumps should not be generated when modifying dynamic peer configuration!"
 
 
-def dynamic_peer_delete_stress_test(duthost, cfg_facts):
+def dynamic_peer_delete_stress_test(duthost):
     '''
     Stress test for deleting dynamic peer configuration.
     '''
@@ -372,7 +372,46 @@ def dynamic_peer_delete_stress_test(duthost, cfg_facts):
         "Core dumps should not be generated when deleting dynamic peer configuration!"
 
 
-def bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname):
+def get_ptf_port_index(interface_name):
+    """
+    Convert Ethernet interface name to PTF port index (Ethernet112 → 28).
+    """
+    return int(interface_name.replace("Ethernet", "")) // 4
+
+
+def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected):
+    portchannel_interfaces = cfg_facts.get("PORTCHANNEL_INTERFACE", {})
+    portchannel_members = cfg_facts.get("PORTCHANNEL_MEMBER", {})
+
+    # Identify portchannels per vnet
+    expected_portchannels = set()
+    unexpected_portchannels = set()
+
+    for key, value in portchannel_interfaces.items():
+        if "|" in key:
+            continue  # Skip sub-entries with IPs
+        vnet_name = value.get("vnet_name")
+        if vnet_name == vnet_expected:
+            expected_portchannels.add(key)
+        elif vnet_name == vnet_unexpected:
+            unexpected_portchannels.add(key)
+
+    # Map portchannels to their member interfaces
+    def collect_ptf_ports(portchannels):
+        ptf_ports = []
+        for key in portchannel_members:
+            pc, iface = key.split("|")
+            if pc in portchannels:
+                ptf_ports.append(get_ptf_port_index(iface))
+        return ptf_ports
+
+    expected_ptf_ports = collect_ptf_ports(expected_portchannels)
+    unexpected_ptf_ports = collect_ptf_ports(unexpected_portchannels)
+
+    return expected_ptf_ports, unexpected_ptf_ports
+
+
+def bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts):
     '''
     Verify that the traffic to the peer in Vnet1 is forwarded correctly.
     Send a UDP packet to with the destination as one of the routes learned via bgp in Vnet1
@@ -402,8 +441,7 @@ def bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname):
     expected_pkt.set_do_not_care_scapy(IP, "ttl")
     expected_pkt.set_do_not_care_scapy(IP, "chksum")
 
-    expected_ports = [28, 29]
-    unexpected_ports = [30, 31]
+    expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, "Vnet1", "Vnet2")
 
     logger.info(f"Sending UDP packet on port {send_port}")
     testutils.send(ptfadapter, send_port, inner_pkt)
@@ -448,7 +486,7 @@ def test_dynamic_peer_vnet(ptfadapter, duthosts, rand_one_dut_hostname, cfg_fact
                             validate_state_db_entry(duthost, peer, vnet, False)
 
         # Verify traffic to peers in Vnet1
-        bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname)
+        bgp_vnet_route_forwarding_test(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts)
 
         # Verify changing ip_range for dynamic peers
         bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
@@ -473,10 +511,10 @@ def test_dynamic_peer_vnet(ptfadapter, duthosts, rand_one_dut_hostname, cfg_fact
         ), "BGP peer 10.0.63 should not be in show bgp summary output"
 
         # Verify adding a new dynamic range
-        dynamic_range_add_delete(duthost, cfg_facts, 'vnet_dynamic_peer_add')
+        dynamic_range_add_delete(duthost, 'vnet_dynamic_peer_add')
 
         # Verify deleting a dynamic range
-        dynamic_range_add_delete(duthost, cfg_facts, 'vnet_dynamic_peer_del')
+        dynamic_range_add_delete(duthost, 'vnet_dynamic_peer_del')
 
         # Verify deleting a dynamic peer
         dynamic_peer_delete(duthost)
@@ -485,10 +523,10 @@ def test_dynamic_peer_vnet(ptfadapter, duthosts, rand_one_dut_hostname, cfg_fact
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
 
         # Perform stress test for modifying dynamic peer configuration
-        dynamic_peer_modify_stress_test(duthost, cfg_facts)
+        dynamic_peer_modify_stress_test(duthost)
 
         # Perform stress test for deleting dynamic peer configuration
-        dynamic_peer_delete_stress_test(duthost, cfg_facts)
+        dynamic_peer_delete_stress_test(duthost)
     except Exception as e:
         logger.error("Exception raised in test_setup_vnet: {}".format(repr(e)))
         pytest.fail("Vnet testing setup failed")
