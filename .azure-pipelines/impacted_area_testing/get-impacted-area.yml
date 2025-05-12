@@ -16,7 +16,7 @@ steps:
     then
       TARGET_BRANCH="origin/${{ parameters.TARGET_BRANCH }}"
     else
-      TARGET_BRANCH="{{ parameters.TARGET_BRANCH }}"
+      TARGET_BRANCH="${{ parameters.TARGET_BRANCH }}"
     fi
     SOURCE_BRANCH=`git branch`
     echo "SOURCE_BRANCH: $SOURCE_BRANCH"
