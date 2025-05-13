@@ -6,6 +6,7 @@ import time
 from copy import deepcopy
 from typing import Dict, Union
 
+
 class PeriodicMetricsReporter:
     def __init__(self, common_labels: Dict[str, str]):
         # Will be replaced with a real initializer such as OpenTelemetry
