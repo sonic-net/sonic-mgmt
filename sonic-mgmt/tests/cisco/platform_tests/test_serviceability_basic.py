@@ -5,6 +5,7 @@ import time
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.cisco.common.utils import CheckEnvironment
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -31,12 +32,21 @@ npu_cli_dict_general = {
         "switch": ["entries", "ports"],
         "temperatures": " ",
         "trap": " ",
-        "script": [f"-s {SCRIPT_FILE} -t 60"]
+        "script": [f"-s {SCRIPT_FILE} -t 60"],
+        "acl" : ["summary"],
+        "udf-hash" : " ",
+        "bfd" : ["summary"]
 }
 
 npu_cli_dict_t2 = {
         #feature cli keyword : list of options under the cli (only for t2 topology)
         "bp-interface-map" : " "
+}
+
+npu_cli_dict_hw = {
+        #feature cli keyword : list of options under the cli (only for hardware)
+        "cem-db" : " ",
+        "lpm-db" : " "
 }
 
 def get_asic_str(duthost, asic):
@@ -151,6 +161,9 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
     if 't2' in tbinfo['topo']['name']:
         npu_cli_dict.update(npu_cli_dict_t2)
 
+    if not CheckEnvironment.is_sim(duthost):
+        npu_cli_dict.update(npu_cli_dict_hw)
+    
     for cli in npu_cli_dict:
         if duthost.is_multi_asic:
             asic = enum_rand_one_asic_index

@@ -71,6 +71,7 @@ FWD:
       - everflow/test_everflow_ipv6.py
       - hash/test_generic_hash.py::test_algorithm_config
       - hash/test_generic_hash.py::test_backend_error_messages
+      - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t2-min:
     sfd:
       - cacl/test_cacl_application.py
