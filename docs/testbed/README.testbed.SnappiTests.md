@@ -247,7 +247,7 @@ sequenceDiagram
 | Ports stay “Reserved” in IxNetwork UI      | API server lacks `macvlan` access to chassis | Recreate container with correct `--network` settings.([openixia.com](https://www.openixia.com/tutorials?page=apiServer.html&subject=ixNetwork%2Fdockers "www.openixia.com"))    |
 | `No matching link in sonic_tgen_links.csv` | CSV missing a DUT port                       | Add row for every active interface, regenerate facts.                                                                                                                           |
 | `minigraph mismatch` during deploy         | Wrong `topo` in `testbed.yaml`               | Align `topo` with lab cabling and rerun `deploy-mg`.                                                                                                                            |
-| TRex script hangs on connect               | Server started in stateful mode              | Launch with `-i` for stateless STL mode.([trex-tgn.cisco.com](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html?utm_source=chatgpt.com "TRex Stateless support - Cisco")) |
+| TRex script hangs on connect               | Server started in stateful mode              | Launch with `-i` for stateless STL mode.([trex-tgn.cisco.com](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html "TRex Stateless support - Cisco")) |
 
 ---
 
@@ -270,16 +270,16 @@ The script relies exclusively on Snappi APIs and generic fixtures—no lab-speci
 
 ### 9.1 How the test works (high-level)
 
-1. **Fixture orchestration**  
+1. **Fixture orchestration**
     `snappi_api`, `snappi_testbed_config`, `conn_graph_facts`, etc. create a fresh Snappi session, discover port maps and pick a random loss-less priority.
     
-2. **Dynamic traffic matrix**  
+2. **Dynamic traffic matrix**
     Helper `__gen_all_to_all_traffic()` builds one flow per ordered port-pair (Tx ≠ Rx) and assigns an equal share of line-rate so aggregate load is 100%.
     
-3. **Execution & polling**  
+3. **Execution & polling**
     Traffic runs for 2 s; the script polls flow metrics until every stream reports `stopped`.
     
-4. **Assertions**  
+4. **Assertions**
     For each flow it asserts _Rx = Tx_ and that the actual packet count deviates ≤5 % from theory (based on speed, rate %, duration, and size).
     
 
