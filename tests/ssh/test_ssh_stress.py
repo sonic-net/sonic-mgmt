@@ -37,6 +37,7 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Copies over ACL configs for the ACL commands
+    duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
     duthost.copy(src="acl/templates/acltb_test_rules.j2",
                  dest="/tmp/acl.json", mode="0755")
 

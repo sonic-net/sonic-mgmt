@@ -1,6 +1,7 @@
 import logging
 import datetime
 import threading
+import time
 
 import pytest
 from tests.common import reboot, config_reload
@@ -33,6 +34,7 @@ SSH_STARTUP_TIMEOUT = 600
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
+TSA_TSB_SERVICE = "startup_tsa_tsb.service"
 
 lock = threading.Lock()
 _cached_frontend_nodes = None
@@ -332,7 +334,7 @@ def test_tsa_tsb_service_with_dut_cold_reboot(request, duthosts, localhost, nbrh
                 )
 
                 logging.info("DUT is not in normal state after cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -481,7 +483,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(request, duthosts, localhost, 
                 )
 
                 logging.info("DUT is not in normal state after abnormal reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -625,7 +627,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
                 )
 
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure DUT is in normal state after supervisor cold reboot
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -792,7 +794,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
                 )
 
                 logging.info("DUT is not in normal state after SUP abnormal reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure DUT is in normal state after supervisor abnormal reboot
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -920,7 +922,7 @@ def test_tsa_tsb_service_with_user_init_tsa(request, duthosts, localhost, nbrhos
             # Recover to Normal state
             lc.shell("TSB")
             lc.shell('sudo config save -y')
-            config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+            config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -1070,7 +1072,7 @@ def test_user_init_tsa_while_service_run_on_dut(request, duthosts, localhost, nb
                 )
 
                 logging.info("DUT is not in normal state after cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -1209,7 +1211,7 @@ def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nb
                 )
 
                 logging.info("DUT is not in normal state after cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -1359,7 +1361,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum
                 )
 
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         # Make sure linecards are in Normal state and save the config to proceed further
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1501,7 +1503,7 @@ def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffi
                 )
 
                 logging.info("DUT is not in normal state after cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in frontend_nodes_per_hwsku:
@@ -1644,7 +1646,7 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
                 )
 
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
-                config_reload(lc, safe_reload=True, check_intf_up_ports=True)
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for linecard in duthosts.frontend_nodes:
@@ -1665,3 +1667,86 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
         reboot_cause = get_reboot_cause(suphost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+
+
+@pytest.mark.disable_loganalyzer
+def test_tsa_tsb_service_consistency(request, duthosts):
+    """
+    Restart the startup_tsa_tsb service multiple times with varying intervals
+    and validate its behavior at each step.
+
+    Steps:
+    1. Restart the service twice per iteration with a specified interval in between.
+    2. Verify that the service is running after the last restart.
+    3. Ensure the DUT enters TSA (maintenance) state when the service is running.
+    4. Execute the TSB command and confirm the service stops as expected.
+    5. Verify that the DUT transitions back to the normal state after TSB.
+    6. If the DUT does not return to normal, perform a config reload.
+
+    This test is parameterized with different restart intervals to check
+    service consistency under various conditions.
+    """
+
+    frontend_nodes_per_hwsku = get_frontend_nodes_per_hwsku(duthosts, request)
+    masic_linecard = None
+
+    for lc in frontend_nodes_per_hwsku:
+        if not check_tsa_persistence_support(lc):
+            pytest.skip("TSA persistence not supported in the image")
+
+        if lc.is_multi_asic:
+            masic_linecard = lc
+            break
+
+    if not masic_linecard:
+        pytest.skip("No multi-ASIC linecard found in the testbed")
+
+    tsa_tsb_timer = {}
+    tsa_tsb_timer[masic_linecard] = get_startup_tsb_timer(masic_linecard)
+    if not tsa_tsb_timer[masic_linecard]:
+        pytest.skip("startup_tsa_tsb.service is not supported on {}".format(masic_linecard.hostname))
+
+    initial_tsa_check_before_and_after_test(duthosts)
+
+    try:
+        def restart_startup_tsa_tsb_and_verify(lc, interval):
+            logger.info("Restarting {} startup_tsa_tsb service with interval: {}".format(lc.hostname, interval))
+            lc.shell("systemctl restart {}".format(TSA_TSB_SERVICE))
+            time.sleep(interval)
+            lc.shell('systemctl restart {}'.format(TSA_TSB_SERVICE))
+
+            # for race condition/inconsistent state(where the second restart will be applying TSA to recover),
+            # TSC command check fails the pytest, Hence adding 10 second sleep before TSC is executed
+            time.sleep(10)
+
+            pytest_assert(wait_until(60, 5, 0, get_tsa_tsb_service_status, lc, 'running'),
+                          "startup_tsa_tsb service is not running after restart")
+
+            pytest_assert(wait_until(60, 5, 0,
+                          lambda: get_traffic_shift_state(lc, cmd='TSC no-stats') == TS_MAINTENANCE),
+                          "DUT is not in maintenance state when startup_tsa_tsb service is running")
+
+            lc.shell("TSB")
+            pytest_assert(wait_until(60, 5, 0, get_tsa_tsb_service_status, lc, 'inactive'),
+                          "startup_tsa_tsb service did not stop as expected")
+
+            pytest_assert(wait_until(60, 5, 0, lambda: get_traffic_shift_state(lc, cmd='TSC no-stats') == TS_NORMAL),
+                          "DUT did not return to normal state after executing TSB")
+
+        interval = 0
+        while interval < 10:
+            restart_startup_tsa_tsb_and_verify(masic_linecard, interval)
+            time.sleep(10)
+            interval += 1
+
+    finally:
+        initial_tsa_check_before_and_after_test(duthosts)
+
+        def config_reload_linecard_if_unhealthy(lc):
+            if not (get_traffic_shift_state(lc) == TS_NORMAL):
+                logging.info("DUT's current expected state: {}".format(TS_NORMAL))
+
+                logging.info("DUT is not in normal state, doing config-reload")
+                config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
+
+        config_reload_linecard_if_unhealthy(masic_linecard)
