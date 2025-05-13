@@ -35,6 +35,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.disable_memory_utilization
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -238,7 +239,7 @@ def get_t2_info(duthosts, tbinfo):
                         acl_table_ports[''].append(port)
                     else:
                         acl_table_ports[namespace].append(port)
-            else:
+            if len(downstream_rifs):
                 for port in downstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
@@ -1377,6 +1378,8 @@ class TestAclWithReboot(TestBasicAcl):
     Verify that configuration persists correctly after reboot and is applied properly
     upon startup.
     """
+    # Flag to ensure reboot only happens once
+    dut_rebooted = False
 
     def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
         """Save configuration and reboot after rules are applied.
@@ -1387,6 +1390,9 @@ class TestAclWithReboot(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        if TestAclWithReboot.dut_rebooted:
+            return
+        TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
@@ -1407,6 +1413,14 @@ class TestAclWithReboot(TestBasicAcl):
         # Delay 10 seconds for route convergence
         time.sleep(10)
 
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+            logger.info("Sleep 180s on Cisco chassis")
+            time.sleep(180)
+
         populate_vlan_arp_entries()
 
 
@@ -1416,6 +1430,9 @@ class TestAclWithPortToggle(TestBasicAcl):
 
     Verify that ACLs still function as expected after links flap.
     """
+    # Flag to ensure port toggle only happens once
+
+    dut_port_toggled = False
 
     def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
         """Toggle ports after rules are applied.
@@ -1426,6 +1443,9 @@ class TestAclWithPortToggle(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
+        if TestAclWithPortToggle.dut_port_toggled:
+            return
+        TestAclWithPortToggle.dut_port_toggled = True
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
