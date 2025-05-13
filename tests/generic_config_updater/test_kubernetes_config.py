@@ -284,8 +284,11 @@ def k8s_config_update(duthost, test_data):
                 expect_op_failure(output)
 
             k8s_config = get_k8s_runningconfig(duthost)
+            consistent = True
+            for i in range(len(k8s_config)):
+                consistent = consistent and compare_strings_ignore_whitespace(k8s_config[i], target_config[i])
             pytest_assert(
-                compare_strings_ignore_whitespace(k8s_config[0], target_config[0]),
+                consistent,
                 f"Failed to run num.{num+1} test case to update k8s config."
             )
 
