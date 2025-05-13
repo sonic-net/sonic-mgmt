@@ -1292,6 +1292,12 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
@@ -1304,6 +1310,13 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1320,6 +1333,12 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash not supported in broadcom SAI."
@@ -1332,6 +1351,12 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -1379,6 +1404,12 @@ hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
@@ -1391,6 +1422,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####           http              #####
