@@ -21,7 +21,7 @@ This test verifies the scalability and stability of multiple BGP sessions on a S
 
 ## Test Topology
 
-This test assumes the testbed is set up according to the multi-tier testbed design document, which incorporates the following key concepts:
+This test assumes the testbed is set up according to the [multi-tier testbed design document](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/snappi_tests/build_multi_tier_network.md), which incorporates the following key concepts:
 
 - A BGP session must be established between the traffic generator and the test device on each logical port.
 - The required routes should be advertised from the traffic generators to the test devices.
