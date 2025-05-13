@@ -715,7 +715,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
             return check_passed
         duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
-        wait_until(30, 5, 0,_verify_mux_simulator_status_passed)
+        wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:
             logger.warning(err_msg)
