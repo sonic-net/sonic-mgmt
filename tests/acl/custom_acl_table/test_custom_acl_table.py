@@ -10,7 +10,7 @@ import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.utilities import get_upstream_neigh_type
 from tests.common.utilities import get_neighbor_ptf_port_list
 
@@ -251,8 +251,8 @@ def build_exp_pkt(input_pkt):
 
 
 def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
-                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table):   # noqa F811
+                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                    setup_counterpoll_interval, remove_dataacl_table):   # noqa: F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps

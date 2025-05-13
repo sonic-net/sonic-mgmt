@@ -5,7 +5,10 @@ Base class for console connection of SONiC devices
 import logging
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
-from netmiko.ssh_exception import NetMikoAuthenticationException
+try:
+    from netmiko.ssh_exception import NetMikoAuthenticationException
+except ImportError:
+    from netmiko.exceptions import NetMikoAuthenticationException
 
 # For interactive shell
 import sys
@@ -40,7 +43,7 @@ class BaseConsoleConn(CiscoBaseConnection):
         key_to_rm = ['console_username', 'console_password',
                      'console_host', 'console_port',
                      'sonic_username', 'sonic_password',
-                     'console_type']
+                     'console_type', 'console_device']
         for key in key_to_rm:
             if key in kwargs:
                 del kwargs[key]

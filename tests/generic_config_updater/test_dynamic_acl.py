@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
+CREATE_FORWARD_RULES_SAME_PRIORITY_TEMPLATE = "create_forward_rules_same_priority.j2"
 CREATE_SECONDARY_FORWARD_RULES_TEMPLATE = "create_secondary_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
@@ -154,7 +155,12 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     downstream_port_ids = []
     upstream_port_ids = []
 
-    if topo == "m0_l3":
+    topos_no_portchannels = (
+        't0-isolated-d128u128s2',
+        't0-isolated-d16u16s2',
+    )
+
+    if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
         upstream_neigh_type = get_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
         pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
@@ -218,14 +224,17 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
     vlan_ips = {}
-    for vlan_ip_address in config_facts['VLAN_INTERFACE'][vlan_name].keys():
-        ip_address = vlan_ip_address.split("/")[0]
+    for vlan_ip_address, value in config_facts['VLAN_INTERFACE'][vlan_name].items():
         try:
+            if isinstance(value, dict) and value.get("secondary"):
+                continue
+            ip_address = vlan_ip_address.split("/")[0]
             if netaddr.IPAddress(str(ip_address)).version == 6:
                 vlan_ips["V6"] = ip_address
             elif netaddr.IPAddress(str(ip_address)).version == 4:
                 vlan_ips["V4"] = ip_address
-        except netaddr.core.AddrFormatError:
+        except Exception as e:
+            logger.error("Error parsing IP address {} {}: {}".format(vlan_ip_address, value, e))
             continue
 
     vlans = config_facts['VLAN']
@@ -372,7 +381,15 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
+    # Get the dictionary for the first VLAN (assumed to be Vlan1000)
+    vlan_interface = list(config_facts['VLAN_INTERFACE'].items())[0][1]
+
+    # Filter out addresses that have the "secondary" attribute set
+    vlan_addrs = []
+    for addr, attrs in vlan_interface.items():
+        if isinstance(attrs, dict) and not attrs.get("secondary", False):
+            vlan_addrs.append(addr)
+
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 
@@ -715,6 +732,46 @@ def dynamic_acl_create_forward_rules(duthost, setup):
 
     expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
     expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
+
+
+def dynamic_acl_create_forward_rules_same_priority(duthost, setup):
+    """Create forward ACL rules with same priority"""
+
+    IPV4_SUBNET = DST_IP_FORWARDED_ORIGINAL + "/32"
+    IPV4_SUBNET_2 = increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 1) + "/32"
+    IPV4_SUBNET_3 = increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 2) + "/32"
+
+    IPV6_SUBNET = DST_IPV6_FORWARDED_ORIGINAL + "/128"
+    IPV6_SUBNET_2 = increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 1) + "/128"
+    IPV6_SUBNET_3 = increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 2) + "/128"
+
+    extra_vars = {
+        'ipv4_subnet': IPV4_SUBNET,
+        'ipv4_subnet_2': IPV4_SUBNET_2,
+        'ipv4_subnet_3': IPV4_SUBNET_3,
+        'ipv6_subnet': IPV6_SUBNET,
+        'ipv6_subnet_2': IPV6_SUBNET_2,
+        'ipv6_subnet_3': IPV6_SUBNET_3
+        }
+
+    outputs = format_and_apply_template(duthost, CREATE_FORWARD_RULES_SAME_PRIORITY_TEMPLATE, extra_vars, setup)
+
+    expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
+    expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
+    expected_rule_4_content = ["DYNAMIC_ACL_TABLE", "RULE_4", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_2, "Active"]
+    expected_rule_5_content = ["DYNAMIC_ACL_TABLE", "RULE_5", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_2, "Active"]
+    expected_rule_6_content = ["DYNAMIC_ACL_TABLE", "RULE_6", "900", "FORWARD", "DST_IP: " + IPV4_SUBNET_3, "Active"]
+    expected_rule_7_content = ["DYNAMIC_ACL_TABLE", "RULE_7", "900", "FORWARD", "DST_IPV6: " + IPV6_SUBNET_3, "Active"]
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
+    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
+    expect_acl_rule_match(duthost, "RULE_4", expected_rule_4_content, setup)
+    expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content, setup)
+    expect_acl_rule_match(duthost, "RULE_6", expected_rule_6_content, setup)
+    expect_acl_rule_match(duthost, "RULE_7", expected_rule_7_content, setup)
 
 
 def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=None):
@@ -1195,6 +1252,34 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
 
     dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter,
+                               packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True)
+
+
+def test_gcu_acl_forward_rule_same_priority(rand_selected_dut,
+                                            rand_unselected_dut,
+                                            ptfadapter,
+                                            setup,
+                                            dynamic_acl_create_table,
+                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+    """Test that forward rules can have the exact same priority and still all be applied correctly
+    Then, perform a traffic test to confirm that packets that match both the forward
+    and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
+
+    dynamic_acl_create_forward_rules_same_priority(rand_selected_dut, setup)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup,
+                               increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 1),
+                               increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 1)),
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup,
+                               increment_ipv4_addr(DST_IP_FORWARDED_ORIGINAL, 2),
+                               increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 2)),
                                packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),

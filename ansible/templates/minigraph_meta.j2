@@ -31,7 +31,7 @@
           <a:DeviceProperty>
             <a:Name>MacSecEnabled</a:Name>
             <a:Reference i:nil="true"/>
-{% if dut_index|int == 0 %}
+{% if dut_index|int == 0 and 'lt2' not in topo %}
             <a:Value>True</a:Value>
 {% else %}
            <a:Value>False</a:Value>
@@ -226,7 +226,7 @@
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
 {% endif %}
-{% if macsec_card is defined and macsec_card == True and 't2' in topo %}
+{% if macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo %}
     <a:DeviceProperty>
       <a:Name>MacSecProfile</a:Name>
       <a:Value>PrimaryKey="MACSEC_PROFILE" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>

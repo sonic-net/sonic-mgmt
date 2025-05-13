@@ -1,11 +1,13 @@
 import argparse
 import logging
+import socket
 
 import scapy.all as scapyall
 
 
 class Sniffer(object):
     def __init__(self, filter=None, timeout=60):
+        self.ifaces = [iface for _, iface in socket.if_nameindex() if iface.startswith("eth")]
         self.filter = filter
         self.timeout = timeout
         self.packets = []
@@ -15,6 +17,7 @@ class Sniffer(object):
         logging.debug("scapy sniffer started: filter={}, timeout={}".format(
             self.filter, self.timeout))
         scapyall.sniff(
+            iface=self.ifaces,
             filter=self.filter,
             prn=self.process_pkt,
             timeout=self.timeout)
@@ -25,7 +28,7 @@ class Sniffer(object):
 
     def save_pcap(self, pcap_path):
         if not self.packets:
-            logging.warn("No packets were captured")
+            logging.warning("No packets were captured")
 
         scapyall.wrpcap(pcap_path, self.packets)
         logging.debug("Pcap file dumped to {}".format(pcap_path))

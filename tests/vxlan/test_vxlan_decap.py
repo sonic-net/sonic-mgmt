@@ -61,6 +61,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts=None):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
+        "minigraph_interfaces": mg_facts["minigraph_interfaces"],
         "dut_mac": duthost.facts["router_mac"],
         "vlan_mac": vlan_mac
     }

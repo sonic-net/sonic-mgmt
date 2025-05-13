@@ -15,7 +15,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 't2')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3', 't2')
 ]
 
 
@@ -77,7 +77,7 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     frr_demons_to_check = ['bgpd', 'zebra']
-    start_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check)
+    start_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, namespace)
     logging.info(f"memory usage at start: {start_time_frr_daemon_memory}")
 
     while loop_times > 0:
@@ -94,7 +94,7 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
                   "ipv6 route used after is not equal to it used before")
 
-    end_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check)
+    end_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, namespace)
     logging.info(f"memory usage at end: {end_time_frr_daemon_memory}")
     check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_daemon_memory,
                                    end_time_frr_daemon_memory)
@@ -122,17 +122,19 @@ def check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_
                       f"The increase memory should not exceed than {incr_frr_daemon_memory_threshold_dict[daemon]} MiB")
 
 
-def get_frr_daemon_memory_usage(duthost, daemon_list):
+def get_frr_daemon_memory_usage(duthost, daemon_list, namespace):
     frr_daemon_memory_dict = {}
     for daemon in daemon_list:
-        frr_daemon_memory_output = duthost.shell(f'vtysh -c "show memory {daemon}"')["stdout"]
+        frr_daemon_memory_output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+           f'vtysh -c "show memory {daemon}"', namespace))["stdout"]
         logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
-        output = duthost.shell(f'vtysh -c "show memory {daemon}" | grep "Free ordinary blocks"')["stdout"]
+        output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+           f'vtysh -c "show memory {daemon}" | grep "Free ordinary blocks"', namespace))["stdout"]
         frr_daemon_memory = int(output.split()[-2])
         unit = output.split()[-1]
         if unit == "KiB":
-            frr_daemon_memory = frr_daemon_memory / 1000
+            frr_daemon_memory = int(frr_daemon_memory) / 1000
         elif unit == "GiB":
-            frr_daemon_memory = frr_daemon_memory * 1000
+            frr_daemon_memory = int(frr_daemon_memory) * 1000
         frr_daemon_memory_dict[daemon] = frr_daemon_memory
     return frr_daemon_memory_dict

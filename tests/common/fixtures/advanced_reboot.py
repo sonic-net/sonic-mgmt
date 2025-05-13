@@ -21,6 +21,7 @@ from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,8 @@ class AdvancedReboot:
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer"\
                                                                             in kwargs else None
+        self.consistency_checker_provider = kwargs["consistency_checker_provider"] if "consistency_checker_provider"\
+                                                                                      in kwargs else None
         self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -203,9 +206,11 @@ class AdvancedReboot:
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
-        for vlan in self.mgFacts['minigraph_vlan_interfaces']:
-            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
-                vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        vlan_interfaces = get_vlan_interface_list(self.duthost)
+        for vlan_if_name in vlan_interfaces:
+            vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
+            vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
+        logger.info('Vlan IP range: {}'.format(vlan_ip_range))
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
@@ -216,7 +221,7 @@ class AdvancedReboot:
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
             (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
+            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa: F821
         )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
@@ -450,7 +455,7 @@ class AdvancedReboot:
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
             rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
-            capturePcap = '/tmp/capture.pcap'
+            capturePcap = '/tmp/capture.pcapng'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
@@ -557,6 +562,50 @@ class AdvancedReboot:
         if int(acl_proc_count) != 1:
             error_list.append("Expected one ACL manager process running. Actual: {}".format(acl_proc_count))
 
+    def check_asic_and_db_consistency(self):
+        """
+        Check ASIC_DB and ASIC consistency, logging out any inconsistencies that are found.
+        """
+        if not self.consistency_checker_provider.is_consistency_check_supported(self.duthost):
+            os_version = self.duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+            platform = self.duthost.facts['platform']
+            logger.info((f"Consistency check is not supported on this platform ({platform}) and "
+                        f"version ({os_version})"))
+            return
+
+        with self.consistency_checker_provider.get_consistency_checker(self.duthost) as consistency_checker:
+            inconsistencies = consistency_checker.check_consistency()
+            not_implemented_attributes = set()
+            mismatched_attributes = {}
+            failed_to_query_asic_attributes = {}
+
+            for sai_object, summary in inconsistencies.items():
+                # Not implemented attributes
+                object_name = sai_object.split(":")[1]
+                for attr in summary["attributeNotImplemented"]:
+                    not_implemented_attributes.add(f"{object_name}.{attr}")
+
+                # Mismatched attributes
+                mismatched_attributes = {
+                    attr: summary["attributes"][attr] for attr
+                    in summary["mismatchedAttributes"]
+                }
+                if mismatched_attributes:
+                    mismatched_attributes[sai_object] = mismatched_attributes
+
+                # Failed to query ASIC attributes
+                if summary["failedToQueryAsic"]:
+                    failed_to_query_asic_attributes[sai_object] = summary["failedToQueryAsic"]
+
+            if not_implemented_attributes:
+                logger.warning(f"Not implemented attributes: {not_implemented_attributes}")
+
+            if mismatched_attributes:
+                logger.error(f"Mismatched attributes found: {mismatched_attributes}")
+
+            if failed_to_query_asic_attributes:
+                logger.error(f"Failed to query ASIC attributes: {failed_to_query_asic_attributes}")
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -566,6 +615,7 @@ class AdvancedReboot:
             count += 1
             test_case_name = str(self.request.node.name) + str(rebootOper)
             test_results[test_case_name] = list()
+            post_reboot_analysis = None
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
@@ -597,6 +647,8 @@ class AdvancedReboot:
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
+                if self.consistency_checker_provider:
+                    self.check_asic_and_db_consistency()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
                 self.print_test_logs_summary(log_dir)
@@ -677,6 +729,9 @@ class AdvancedReboot:
                             self.duthost.hostname, upgrade_path_str))
                 if post_hop_teardown:
                     post_hop_teardown(hop_index)
+
+                if self.consistency_checker_provider:
+                    self.check_asic_and_db_consistency()
             except Exception:
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(

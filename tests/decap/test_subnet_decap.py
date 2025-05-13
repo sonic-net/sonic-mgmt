@@ -50,9 +50,11 @@ def prepare_subnet_decap_config(rand_selected_dut):
 def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+
+    if not mg_facts['minigraph_portchannels']:
+        pytest.skip('No portchannels found in minigraph')
+
     dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
-    if not dut_port:
-        pytest.skip('No portchannels found')
     dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
@@ -193,7 +195,7 @@ def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, de
 def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
                                 recv_ports=[], recv_port=None, timeout=10):    # noqa F811
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, send_port, pkt)
+    testutils.send(ptfadapter, send_port, pkt, 10)
     if stage == "positive":
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=timeout)
     elif stage == "negative":
