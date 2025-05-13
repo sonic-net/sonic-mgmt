@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 def is_full_lossy_hwsku(hwsku):
+    """
+    Return True if the platform is lossy-only and PFCWD should default to ‘disable’.
+    """
     lossy_hwsku = {'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
                    'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                    'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
