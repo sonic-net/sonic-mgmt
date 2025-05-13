@@ -7,11 +7,13 @@
 
 import copy
 from jinja2 import Template
+import logging
 import json
 import re
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -31,15 +33,9 @@ DUMMY_QUOTA = "dummy_single_quota"
 MACSEC_PROFILE_PATH = '/tmp/profile.json'
 GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
 GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
+DNS_CONFIG_PATH = '/tmp/dns_config.json'
 
-smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O-T1": {
-        "dpu_num": 8,
-        "port_key": "Ethernet-BP{}",
-        "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
-        "dpu_key": "dpu{}"
-    }
-}
+logger = logging.getLogger(__name__)
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -111,30 +107,21 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(dhcp_server_config_obj)
         return gold_config_db
 
-    def check_bmp_version(self):
-        # skip multi_asic first
-        if multi_asic.is_multi_asic():
-            return False
-
+    def check_version_for_bmp(self):
         output_version = device_info.get_sonic_version_info()
         build_version = output_version['build_version']
 
-        if re.match(r'^(\d{8})', build_version):
-            version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number > 20241130:
-                return True
-            else:
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
                 return False
-        elif re.match(r'^internal-(\d{8})', build_version):
-            internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number > 20241130:
-                return True
-            else:
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
                 return False
-        elif re.match(r'^master', build_version) or re.match(r'^HEAD', build_version):
-            return True
         else:
-            return False
+            return True
+        return True
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -142,7 +129,44 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def generate_bmp_golden_config_db(self, config):
+    def get_multiasic_feature_config(self):
+        rc, out, err = self.module.run_command("show runningconfiguration all")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
+
+        return out
+
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
+        full_config = json.loads(config)
+        if config == "{}" or "FEATURE" not in config["localhost"]:
+            # need dump running config FEATURE + selected feature
+            gold_config_db = json.loads(self.get_multiasic_feature_config())
+        else:
+            # need existing config + selected feature
+            gold_config_db = full_config
+
+        feature_data = {
+            feature_key: {
+                "auto_restart": "enabled",
+                "check_up_status": "false",
+                "delayed": "False",
+                "has_global_scope": "False",
+                "has_per_asic_scope": "True",
+                "high_mem_alert": "disabled",
+                "set_owner": "local",
+                "state": "enabled",
+                "support_syslog_rate_limit": "false"
+            }
+        }
+        for namespace, ns_data in gold_config_db.items():
+            if "FEATURE" in ns_data:
+                feature_section = ns_data["FEATURE"]
+                feature_section.update(feature_data)
+                ns_data["FEATURE"] = feature_section
+
+        return json.dumps(gold_config_db, indent=4)
+
+    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
@@ -154,8 +178,8 @@ class GenerateGoldenConfigDBModule(object):
             feature_config_db = json.loads(full_config)
             ori_config_db["FEATURE"] = feature_config_db.get("FEATURE", {})
 
-        # Append "bmp" section to the original "FEATURE" section
-        ori_config_db.setdefault("FEATURE", {}).setdefault("bmp", {}).update({
+        # Append the specified feature section to the original "FEATURE" section
+        ori_config_db.setdefault("FEATURE", {}).setdefault(feature_key, {}).update({
             "auto_restart": "enabled",
             "check_up_status": "false",
             "delayed": "False",
@@ -167,13 +191,14 @@ class GenerateGoldenConfigDBModule(object):
             "support_syslog_rate_limit": "false"
         })
 
-        # Create the gold_config_db dictionary with both "FEATURE" and "bmp" sections
+        # Create the gold_config_db dictionary with both "FEATURE" and the specified feature section
         if onlyFeature:
             gold_config_db = {
                 "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
             }
         else:
             gold_config_db = ori_config_db
+
         return json.dumps(gold_config_db, indent=4)
 
     def generate_smartswitch_golden_config_db(self):
@@ -211,15 +236,21 @@ class GenerateGoldenConfigDBModule(object):
         if "DHCP_SERVER_IPV4_PORT" not in ori_config_db:
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
 
+        hwsku_config = smartswitch_hwsku_config[hwsku]
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            port_key = smartswitch_hwsku_config[hwsku]["port_key"].format(i)
-            interface_key = smartswitch_hwsku_config[hwsku]["interface_key"].format(i, i)
-            dpu_key = smartswitch_hwsku_config[hwsku]["dpu_key"].format(i)
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+            if "interface_key" in hwsku_config:
+                interface_key = hwsku_config["interface_key"].format(i, i)
+            dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
-                ori_config_db["INTERFACE"][port_key] = {}
-                ori_config_db["INTERFACE"][interface_key] = {}
+                if "interface_key" in hwsku_config:
+                    ori_config_db["INTERFACE"][port_key] = {}
+                    ori_config_db["INTERFACE"][interface_key] = {}
 
             ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
 
@@ -230,15 +261,8 @@ class GenerateGoldenConfigDBModule(object):
             key = "bridge-midplane|dpu{}".format(i)
             if key not in ori_config_db["DHCP_SERVER_IPV4_PORT"]:
                 ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
-            ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i)]
+            ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i + 1)]
 
-        midplane_network_config = {
-             "midplane_network": {
-                 "bridge_name": "bridge-midplane",
-                 "bridge_address": "169.254.200.254/24"
-             }
-         }
-        ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
         mid_plane_bridge_config = {
                 "GLOBAL": {
                     "bridge": "bridge-midplane",
@@ -268,7 +292,6 @@ class GenerateGoldenConfigDBModule(object):
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
-            "MIDPLANE_NETWORK": copy.deepcopy(ori_config_db["MIDPLANE_NETWORK"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
@@ -301,24 +324,50 @@ class GenerateGoldenConfigDBModule(object):
 
         return rendered_json
 
+    def update_dns_config(self, config):
+        # Generate dns_server related configuration
+        rc, out, err = self.module.run_command("cat {}".format(DNS_CONFIG_PATH))
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get dns config: {}".format(err))
+        try:
+            dns_config_obj = json.loads(out)
+        except json.JSONDecodeError:
+            self.module.fail_json(msg="Invalid JSON in DNS config: {}".format(out))
+        if "DNS_NAMESERVER" in dns_config_obj:
+            ori_config_db = json.loads(config)
+            if multi_asic.is_multi_asic():
+                for key, value in ori_config_db.items():
+                    value.update(dns_config_obj)
+            else:
+                ori_config_db.update(dns_config_obj)
+            return json.dumps(ori_config_db, indent=4)
+        else:
+            return config
+
     def generate(self):
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name == "t1-28-lag":
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
             config = self.generate_smartswitch_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif "t2" in self.topo_name:
+        elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         else:
             config = "{}"
 
-        # version check
-        if self.check_bmp_version() is True:
-            config = self.generate_bmp_golden_config_db(config)
+        # update dns config
+        config = self.update_dns_config(config)
+
+        # To enable bmp feature
+        if self.check_version_for_bmp() is True:
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
