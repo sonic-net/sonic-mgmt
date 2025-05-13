@@ -1,6 +1,4 @@
 import pytest
-import os
-import yaml
 import logging
 import time
 import re
@@ -19,8 +17,6 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
-HWSKU_DIR_PREFIX = "/usr/share/sonic/device/"
-BCM_CONFIG_SUFFIX = "config.bcm"
 
 pytestmark = [
     pytest.mark.topology("any", "t1-multi-asic"),
@@ -62,52 +58,37 @@ def get_route_scale_per_role(tbinfo, ip_version):
     return set_num_routes
 
 
-def get_l3_alpm_template_from_config_bcm(duthost, platform, hwsku):
-    hwsku_dir = os.path.join(
-        HWSKU_DIR_PREFIX,
-        platform,
-        hwsku
-    )
-
-    def _find_config_bcm_file_on_dut(duthost, directory):
-        list_cmd = f"ls {hwsku_dir}/*{BCM_CONFIG_SUFFIX} 2>/dev/null"
-        result = duthost.shell(list_cmd)
-        if result["rc"] == 0:
-            return result["stdout_lines"][0]
+def get_l3_alpm_template_from_config_bcm(duthost):
+    """
+    Get l3_alpm_template from config.bcm file
+    :param duthost: DUT host object
+    :return: l3_alpm_template value
+    """
+    ls_command = "docker exec syncd cat /etc/sai.d/sai.profile | grep SAI_INIT_CONFIG_FILE"
+    ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
+    # Check if the file exists
+    if ls_output:
+        file_name = ls_output.split("=")[-1].strip()
+        logging.info("Config bcm file found:{}".format(file_name))
+        # Read the config.bcm file and find the l3_alpm_template variable
+        cat_command = "docker exec syncd cat {} | grep l3_alpm_template".format(file_name)
+        cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
+        if cat_output:
+            # Extract the value of l3_alpm_template
+            l3_alpm_template = cat_output.split(":")[-1].strip()
+            logging.info("l3_alpm_template found:{}".format(l3_alpm_template))
+            return int(l3_alpm_template)
         else:
-            return None
-
-    def _deep_get(d, keys):
-        for key in keys:
-            if isinstance(d, dict):
-                d = d.get(key)
-            else:
-                return None
-        return d
-
-    config_bcm_file_name = _find_config_bcm_file_on_dut(duthost, hwsku_dir)
-    if config_bcm_file_name is None:
-        raise RuntimeError(
-            "Unable to find config.bcm file in {}".format(hwsku_dir)
-        )
-    logging.info("config.bcm file:{}".format(config_bcm_file_name))
-
-    copy_file = duthost.fetch(src=os.path.join(hwsku_dir, config_bcm_file_name), dest="/tmp/", flat=True)
-    # Read the config.bcm file and find the l3_alpm_template variable
-    try:
-        with open(copy_file['dest'], 'r') as f:
-            # Skip commented lines
-            content = ''.join(
-                line for line in f if not line.strip().startswith('#')
+            logging.info("Unable to find l3_alpm_template in config.bcm file")
+            raise RuntimeError(
+                "Unable to find l3_alpm_template in config.bcm file"
             )
-            # Parse YAML and return value if present
-            for doc in yaml.safe_load_all(content):
-                if isinstance(doc, dict) and 'bcm_device' in doc:
-                    logging.info("doc.get('bcm_device') : {}".format(doc.get('bcm_device')))
-                    return _deep_get(doc, ['bcm_device', 0, 'global', 'l3_alpm_template'])
-    except (yaml.YAMLError, OSError) as e:
-        raise RuntimeError(f"Error reading or parsing {config_bcm_file_name}: {e}")
-
+    # If the file does not exist, raise an error
+    else:
+        logging.info("Unable to find config.bcm file in /etc/sai.d/sai.profile")
+        raise RuntimeError(
+            "Unable to find config.bcm file in /etc/sai.d/sai.profile"
+        )
     return None
 
 
@@ -123,7 +104,6 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
 
     asic = duthost.facts["asic_type"]
     platform = duthost.facts["platform"]
-    hwsku = duthost.facts["hwsku"]
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
@@ -132,7 +112,7 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
             # * 1 - Combined (By default)
             # * 2 - Parallel
             pytest_assert(
-                get_l3_alpm_template_from_config_bcm(duthost, platform, hwsku) == 1,
+                get_l3_alpm_template_from_config_bcm(duthost) == 1,
                 "l3_alpm_template is not set for route scaling"
             )
         else:
