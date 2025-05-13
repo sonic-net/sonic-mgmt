@@ -34,6 +34,8 @@ Since traffic generator ports are typically limited, a two-tier network topology
 - **First tier:** Only a subset of ports on each switch is connected to the traffic generator to generate traffic.
 - **Second tier:** All first-tier devices are connected to a single switch, ensuring that this switch establishes the maximum number of BGP sessions.
 
+For example, the DUT has X logical Ethernet ports and is connected to Y neighboring switches, the test will establish X/Y BGP sessions between each neighbor and the DUT. In the above example, the DUT has 256 logical Ethernet ports and is connected to 4 neighboring switches. This results in 64 BGP sessions being established between the DUT and each neighbor.
+
 ## Test Setup
 
 1. **Verify DUT BGP Sessions**
@@ -107,7 +109,7 @@ Evaluate the BGP datapath downtime when a port on the DUT goes down.
 
 #### Steps
 
-1. Define traffic items distributed across X logical Ethernet ports on the DUT. Ensure the per-port traffic rate is well below line rate, so the remaining active ports can handle the load if one goes down.
+1. Define traffic items distributed across all logical Ethernet ports on the DUT. Ensure the per-port traffic rate is well below line rate, so the remaining active ports can handle the load if one goes down.
 2. Start sending the traffic.
 3. Shut down one logical Ethernet port on the DUT.
 4. Measure the duration of packet loss, which represents the BGP datapath downtime.
