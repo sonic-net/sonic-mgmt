@@ -450,26 +450,22 @@ def print_env_info(data, device_type):
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports, spine_ports
 
-def update_controller_test(data, leaf_ports, host_ports):
+def update_controller_test(data, spine_ports, leaf_ports, host_ports):
 
     fabric_str = "FABRIC_NAME={}".format(data['fabric_name'])
     pyvxr_str = "PYVXR_HOST={}".format(data['L0']['HostAgent'])
     host_str = "HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports)))
     leaf_str = "LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports)))
-    spine_str1 = "SPINE_PORTS=1"
-    spine_str2 = "SPINE_PORTS=2"
+    spine_str = "SPINE_PORTS={}".format(format(','.join(str(item) for item in spine_ports)))
     print(fabric_str)
     print(pyvxr_str)
     print(host_str)
     print(leaf_str)
-    os.system("sed -i 's/.*FABRIC_NAME\=.*/{}/' ./tortuga_controller/test.sh".format(fabric_str))
-    os.system("sed -i 's/.*PYVXR_HOST\=.*/{}/' ./tortuga_controller/test.sh".format(pyvxr_str))
-    os.system("sed -i 's/.*HOST_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(host_str))
-    os.system("sed -i 's/.*LEAF_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(leaf_str))
-    if 'tortuga-controller-2' in data['topo_type']:
-        os.system("sed -i 's/.*SPINE_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str2))
-    else:
-        os.system("sed -i 's/.*SPINE_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str1))
+    os.system("sed -i '0,/FABRIC_NAME=/{{s/.*FABRIC_NAME=.*/{}/}}' ./tortuga_controller/test.sh".format(fabric_str))
+    os.system("sed -i '0,/PYVXR_HOST=/{{s/.*PYVXR_HOST\=.*/{}/}}' ./tortuga_controller/test.sh".format(pyvxr_str))
+    os.system("sed -i '0,/HOST_PORTS=/{{s/.*HOST_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(host_str))
+    os.system("sed -i '0,/LEAF_PORTS=/{{s/.*LEAF_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(leaf_str))
+    os.system("sed -i '0,/SPINE_PORTS=/{{s/.*SPINE_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(spine_str))
 
 def start_controller():
     test_path = "./tortuga_controller/test.sh"
@@ -719,7 +715,7 @@ def main():
         print_env_info(data, device_type)
     else:
         leaf_ports, host_ports, spine_ports = print_env_info(data, device_type)
-        update_controller_test(data, leaf_ports, host_ports)
+        update_controller_test(data, spine_ports, leaf_ports, host_ports)
         sanity_success = start_controller()
         if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
