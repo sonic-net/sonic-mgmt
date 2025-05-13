@@ -4,7 +4,7 @@ class MultiServersUtils:
         if not dut_interfaces:
             return values
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         if isinstance(values, dict):
@@ -29,19 +29,20 @@ class MultiServersUtils:
                 raise ValueError('Unsupported format "{}"'.format(intf_pattern))
         if len(intfs) != len(set(intfs)):
             raise ValueError('There are interface duplication/overlap in "{}"'.format(intf_pattern))
-        return intfs
+        return sorted(intfs)
 
     @staticmethod
     def get_vms_by_dut_interfaces(VMs, dut_interfaces):
         if not dut_interfaces:
             return VMs
 
-        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa F821
+        if isinstance(dut_interfaces, str) or isinstance(dut_interfaces, unicode):  # noqa: F821
             dut_interfaces = MultiServersUtils.parse_multi_servers_interface(dut_interfaces)
 
         result = {}
         offset = 0
-        for hostname, attr in VMs.items():
+        for hostname, _ in sorted(VMs.items(), key=lambda item: item[1]['vlans'][0]):
+            attr = VMs[hostname]
             if dut_interfaces and attr['vlans'][0] not in dut_interfaces:
                 continue
             result[hostname] = attr

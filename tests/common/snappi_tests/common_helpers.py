@@ -500,9 +500,9 @@ def config_wred(host_ans, kmin, kmax, pmax, kdrop=None, profile=None, asic_value
         kdrop_cmd = ' '.join(['sudo ecnconfig -p {}', kdrop_arg, '{}'])
 
         if asic_value is not None:
-            kmax_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmax_arg, '{}'])
-            kmin_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmin_arg, '{}'])
-            kdrop_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kdrop_arg, '{}'])
+            kmax_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kmax_arg, '{}'])
+            kmin_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kmin_arg, '{}'])
+            kdrop_cmd = ' '.join(['sudo ecnconfig -n', asic_value, '-p {}', kdrop_arg, '{}'])
             if asic_type == 'broadcom':
                 disable_packet_aging(host_ans, asic_value)
 
@@ -537,8 +537,8 @@ def enable_ecn(host_ans, prio, asic_value=None):
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     else:
-        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
-        results = host_ans.shell('sudo ip netns exec {} ecnconfig -q {}'.format(asic_value, prio))
+        host_ans.shell('sudo ecnconfig -n {} -q {} on'.format(asic_value, prio))
+        results = host_ans.shell('sudo ecnconfig -n {} -q {}'.format(asic_value, prio))
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     return False
@@ -560,7 +560,7 @@ def disable_ecn(host_ans, prio, asic_value=None):
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         asic_type = str(host_ans.facts["asic_type"])
-        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
+        host_ans.shell('sudo ecnconfig -n {} -q {} off'.format(asic_value, prio))
         if asic_type == 'broadcom':
             enable_packet_aging(host_ans, asic_value)
 
@@ -930,6 +930,18 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     pause_frame_count = raw_out.split()[priority + 1]
 
     return int(pause_frame_count.replace(',', ''))
+
+
+def get_all_port_stats(duthost):
+    """
+    Runs the portstat command and retrieves JSON output.
+
+    Returns:
+        dict: Parsed JSON output from portstat.
+    """
+    raw_output = duthost.shell("portstat -j -s all")['stdout']
+    raw_out_stripped = re.sub(r'^(?:(?!{).)*\n', '', raw_output, count=1)
+    return json.loads(raw_out_stripped)
 
 
 def get_port_stats(duthost, port, stat):
