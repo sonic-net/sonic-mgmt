@@ -111,6 +111,20 @@ def pfcwd_feature_enabled(duthost):
     switch_role = device_metadata['localhost'].get('type', '')
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
+def is_upstream_t2(duthost):
+    """
+    Check if the DUT is an upstream T2 device.
+    :param duthost: The DUT host object.
+    :return: True if the DUT is an upstream T2 device, False otherwise.
+    """
+    if duthost.is_modular_chassis():
+        output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" subtype',
+                                module_ignore_errors=True)
+        return (output and output.get('stdout') == 'UpstreamLC')
+    
+    dut_type = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" type',
+                              module_ignore_errors=True)
+    return (dut_type and dut_type.get('stdout') == 'UpperSpineRouter')
 
 @support_ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
@@ -173,14 +187,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
             sonic_host.shell('enable-dynamic-buffer.py')
-        if modular_chassis:
-            output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" subtype',
-                                      module_ignore_errors=True)
-            upstreamt2 = (output and output.get('stdout') == 'UpstreamLC')
-            if config_source == "minigraph" and upstreamt2:
-                cmds = ["azng_migration -d", "azng_migration -i", "azng_migration -o", "azng_migration -p"]
-                for cmd in cmds:
-                    sonic_host.shell(cmd)
+
+        upstreamt2 = is_upstream_t2(sonic_host)
+        if config_source == "minigraph" and upstreamt2:
+            cmds = ["azng_migration -d", "azng_migration -i", "azng_migration -o", "azng_migration -p"]
+            for cmd in cmds:
+                sonic_host.shell(cmd)
         sonic_host.shell('config save -y')
     elif config_source == 'config_db':
         cmd = 'config reload -y &>/dev/null'
