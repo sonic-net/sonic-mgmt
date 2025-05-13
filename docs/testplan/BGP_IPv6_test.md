@@ -1,6 +1,6 @@
-# SONiC Switch High-Scale IPv6 BGP Test
+# SONiC Switch High-Scale BGP Test
 
-- [SONiC Switch High-Scale IPv6 BGP Test](#sonic-switch-high-scale-ipv6-bgp-test)
+- [SONiC Switch High-Scale BGP Test](#sonic-switch-high-scale-bgp-test)
   - [Test Objective](#test-objective)
   - [Test Setup](#test-setup)
   - [Test Cases](#test-cases)
@@ -19,40 +19,39 @@
 
 This test verifies the scalability and stability of multiple BGP sessions on a SONiC switch. BGP sessions will be established between each Ethernet logical port of the DUT and its neighboring devices. The test evaluates the DUT’s ability to initiate and maintain BGP sessions, validates proper route learning, and measures BGP update convergence time under various conditions.
 
+## Test Topology
+
+This test assumes the testbed is set up according to the multi-tier testbed design document, which incorporates the following key concepts:
+
+- A BGP session must be established between the traffic generator and the test device on each logical port.
+- The required routes should be advertised from the traffic generators to the test devices.
+- All devices in the network under test must establish BGP sessions between them, to ensure route propagation throughout the entire system.
+
+![Test Setup](./example_bgp_test_layout.png)
+
+Since traffic generator ports are typically limited, a two-tier network topology can be used to ensure that all logical ports on a single device have active BGP sessions.
+
+- **First tier:** Only a subset of ports on each switch is connected to the traffic generator to generate traffic.
+- **Second tier:** All first-tier devices are connected to a single switch, ensuring that this switch establishes the maximum number of BGP sessions.
+
 ## Test Setup
 
-This test is designed to be topology-independent:
-
-- It does not assume or enforce a specific network layout.
-- The only requirement is that the DUT is fully connected to handle full traffic loads under stress.
-- All logical Ethernet ports are utilized to establish BGP sessions. If the DUT has X logical Ethernet ports and is connected to Y neighboring switches, the test will establish X/Y BGP sessions between each neighbor and the DUT. In the example below, the DUT has 256 logical Ethernet ports and is connected to 4 neighboring switches. This results in 64 BGP sessions being established between the DUT and each neighbor.
-
-![Test Setup](./example_layout.png)
-
-1. **Assign Unique ASNs**
-
-   Assign a distinct Autonomous System (AS) number to each of the five switches in the setup.
-2. **Establish BGP Sessions Between DUT and Neighbors**
-
-   For each neighboring switch connected to the Device Under Test (DUT), configure BGP sessions.
-   - Each BGP session should use a dedicated pair of Ethernet ports (one on the DUT, one on the neighbor), configured with IPv6 addresses in the same subnet.
-   - Set up the corresponding BGP neighbors, device neighbor mappings, and port IPv6 addresses.
-3. **Verify DUT BGP Sessions**
+1. **Verify DUT BGP Sessions**
 
    On the DUT, confirm that all BGP sessions are successfully established and error-free, by run `show ipv6 bgp summary`.
-4. **Establish BGP Sessions Between Neighbors and Traffic Generators**
+2. **Establish BGP Sessions Between Neighbors and Traffic Generators**
 
    For each neighboring switch, identify its directly connected traffic generator. Configure Z BGP sessions, where Z is the number of links connecting the neighboring switch and the traffic generator.
    - Again, each session should use a dedicated port pair with IPv6 addresses in the same subnet.
    - Configure the BGP neighbors, device neighbors mappings, and port IPv6 addresses accordingly.
    - Initialize route advertisement from the traffic generators.
-5. **Verify Neighbor BGP Sessions**
+3. **Verify Neighbor BGP Sessions**
 
    On each neighboring switch, run `show ipv6 bgp summary` to verify session establishment.
-6. **Configure Routes on Traffic Generators**
+4. **Configure Routes on Traffic Generators**
 
    - Configure the required number of IPv6 routes on each traffic generator, based on the test scenario.
-7. **Verify Route Learning on the DUT**
+5. **Verify Route Learning on the DUT**
 
    - On the DUT, run `show ipv6 route bgp` to confirm that all expected routes are learned and properly installed into the routing table.
 
@@ -99,6 +98,20 @@ Measure BGP convergence time during nexthop withdrawal (reduction) and subsequen
 5. Restore the previously removed nexthops.
 6. Again, monitor the route information until it matches originalRoutes. Record the time taken — this is the BGP convergence time for route restoration.
 7. Repeat the test multiple times and calculate the average convergence time for this scenario.
+
+### Case 4
+
+#### Objective
+
+Evaluate the BGP datapath downtime when a port on the DUT goes down.
+
+#### Steps
+
+1. Define traffic items distributed across X logical Ethernet ports on the DUT. Ensure the per-port traffic rate is well below line rate, so the remaining active ports can handle the load if one goes down.
+2. Start sending the traffic.
+3. Shut down one logical Ethernet port on the DUT.
+4. Measure the duration of packet loss, which represents the BGP datapath downtime.
+5. Repeat the test multiple times and compute the average downtime observed.
 
 ## Metrics
 
