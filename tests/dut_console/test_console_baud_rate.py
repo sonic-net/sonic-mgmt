@@ -7,7 +7,8 @@ from tests.common.reboot import reboot
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 BOOT_TYPE = {

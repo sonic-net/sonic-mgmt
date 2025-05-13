@@ -14,6 +14,7 @@ from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
@@ -570,7 +571,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -594,7 +595,7 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -624,6 +625,10 @@ def wait_bgp_sessions(duthost, timeout=120):
     A helper function to wait bgp sessions on DUT
     """
     bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if duthost.get_facts().get("modular_chassis"):
+        timeout = 900
+    logging.info("Wait until all bgp sessions are up in {} sec"
+                 .format(timeout))
     pt_assert(
         wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
@@ -755,24 +760,34 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                     snmp_ipv6_address[duthost.hostname].append(ip_addr.lower())
 
     # Do config_reload after processing BOTH SNMP and MGMT config
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
-            logger.info(f"config changed. Doing config reload for {duthost.hostname}")
+    def config_reload_if_modified(dut):
+        if config_db_modified[dut.hostname]:
+            logger.info(f"config changed. Doing config reload for {dut.hostname}")
             try:
-                config_reload(duthost, wait=300, wait_for_bgp=True)
+                config_reload(dut, safe_reload=True, wait_for_bgp=True)
             except AnsibleConnectionFailure as e:
                 # IPV4 mgmt interface been deleted by config reload
                 # In latest SONiC, config reload command will exit after mgmt interface restart
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(config_reload_if_modified, duthost)
+
     duthosts.reset()
 
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
+    def wait_for_processes_and_bgp(dut):
+        if config_db_modified[dut.hostname]:
             # Wait until all critical processes are up,
             # especially snmpd as it needs to be up for SNMP status verification
-            wait_critical_processes(duthost)
-            wait_bgp_sessions(duthost)
+            wait_critical_processes(dut)
+            if not dut.is_supervisor_node():
+                wait_bgp_sessions(dut)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(wait_for_processes_and_bgp, duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"

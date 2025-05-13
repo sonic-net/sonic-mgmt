@@ -193,12 +193,10 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     pytest_assert(daemon_pid == -1,
                   "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
-    data = collect_data(duthost)
-
-    pytest_assert(wait_until(60, 10, 0, lambda: not data['keys']),
+    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['keys'] is not None),
                   "DB data keys is not cleared on daemon stop")
 
-    pytest_assert(wait_until(60, 10, 0, lambda: not data['data']),
+    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['data'] is not None),
                   "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)

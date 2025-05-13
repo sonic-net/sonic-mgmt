@@ -75,6 +75,7 @@ def setup_acl_rules(duthost, acl_setup):
     }
     logger.info('Extra variables for ACL table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
 
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE), dest=dut_conf_file_path)
 
@@ -410,6 +411,7 @@ def validate_dump_file_content(duthost, dump_folder_path):
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
                                      "Test expects not less than 50 files. Available files: {}".format(etc)
     assert len(log), "Folder 'log' in dump archive is empty. Expected not empty folder"
+    assert "interface.xcvrs.eeprom.raw" in dump, "EEPROM hexdump no exist in the dump"
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
@@ -527,7 +529,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 }
             )
     # Remove /proc/dma for armh
-    elif duthost.facts["asic_type"] == "marvell":
+    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 

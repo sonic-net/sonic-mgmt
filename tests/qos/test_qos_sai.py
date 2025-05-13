@@ -34,6 +34,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -143,6 +144,42 @@ def get_portspeed_cablelen(asic_instance):
     return ""
 
 
+@pytest.fixture(autouse=False)
+def check_skip_xon_hysteresis_test(xonHysteresisKey, dutQosConfig,
+                                   get_src_dst_asic_and_duts, dutConfig):
+    portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+    qosConfig = dutQosConfig["param"][portSpeedCableLength]
+    src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+    src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+    dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+    dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+    src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+    dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+    if xonHysteresisKey not in qosConfig.keys():
+        pytest.skip(
+            "Xon Hysteresis parametrization '%s' "
+            "is not enabled" % xonHysteresisKey)
+
+    src_port_idx_to_id = list(src_testPortIps.keys())
+    dst_port_idx_to_id = list(dst_testPortIps.keys())
+    # Translate requested port indices to available port IDs
+    try:
+        src_port_ids = [src_port_idx_to_id[idx] for idx in qosConfig[xonHysteresisKey]["src_port_i"]]
+        dst_port_ids = [dst_port_idx_to_id[idx] for idx in qosConfig[xonHysteresisKey]["dst_port_i"]]
+        return (True, src_port_ids, dst_port_ids)
+    except IndexError:
+        # Not enough ports.
+        pytest.skip(
+            "This test cannot be run since there are not enough ports."
+            " Pls see qos.yaml for the port idx's that are needed.")
+
+
+def skip_test_on_no_lossless_pg(portSpeedCableLength):
+    if portSpeedCableLength == "0_0m":
+        pytest.skip("skip the test due to no buffer lossless pg")
+
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
@@ -156,6 +193,7 @@ class TestQosSai(QosSaiBase):
         'Arista-7060CX-32S-C32',
         'Celestica-DX010-C32',
         'Arista-7260CX3-D108C8',
+        'Arista-7260CX3-D108C10',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
@@ -378,6 +416,7 @@ class TestQosSai(QosSaiBase):
                 "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
@@ -475,6 +514,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Shared Headroom has to be enabled for this test")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -648,6 +688,7 @@ class TestQosSai(QosSaiBase):
                 "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -803,7 +844,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, disable_ipv6
+        ingressLosslessProfile, disable_ipv6    # noqa F811
     ):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
@@ -825,6 +866,7 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
 
@@ -1583,6 +1625,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         qosConfig = dutQosConfig["param"]
         if "wrr" in qosConfig[portSpeedCableLength]:
             qosConfigWrr = qosConfig[portSpeedCableLength]["wrr"]
@@ -1662,6 +1705,9 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if pgProfile == "wm_pg_shared_lossless":
+            skip_test_on_no_lossless_pg(portSpeedCableLength)
+
         if pgProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -1765,6 +1811,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
@@ -1877,6 +1924,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if queueProfile == "wm_q_shared_lossless":
+            skip_test_on_no_lossless_pg(portSpeedCableLength)
 
         if queueProfile == "wm_q_shared_lossless":
             if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
@@ -1939,7 +1988,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpToPgMapping(
         self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
-            change_lag_lacp_timer):
+            change_lag_lacp_timer, dutQosConfig):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -1957,6 +2006,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
                  dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox"]):
@@ -2444,3 +2495,56 @@ class TestQosSai(QosSaiBase):
         # Execute with one set of dst port at a time,  avoids ptf run getting timed out
         for start, end in zip([0] + split_points, split_points + [len(all_keys)]):
             run_test_for_dst_port(start, end)
+
+    @pytest.mark.parametrize("xonHysteresisKey", ["xon_hysteresis_1", "xon_hysteresis_2",
+                                                  "xon_hysteresis_3", "xon_hysteresis_4",
+                                                  "xon_hysteresis_5", "xon_hysteresis_6",
+                                                  "xon_hysteresis_7", "xon_hysteresis_8",
+                                                  "xon_hysteresis_9"])
+    def testQosSaiXonHysteresis(
+            self, xonHysteresisKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, check_skip_xon_hysteresis_test
+    ):
+        """
+            Test QoS SAI SQG transitions
+            Args:
+                xonHysteresisKey (pytest parameter): XON hysteresis profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Xon Hysteresis test is not supported")
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+        (_, src_port_ids, dst_port_ids) = check_skip_xon_hysteresis_test
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        test_params = dict()
+        test_params.update(dutTestParams["basicParams"])
+        test_params.update(qosConfig[xonHysteresisKey])
+        test_params.update({
+            "testbed_type": dutTestParams["topo"],
+            "src_port_ids": src_port_ids,
+            "src_port_ips": [src_testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "dst_port_ids": dst_port_ids,
+            "dst_port_ips": [dst_testPortIps[port]['peer_addr'] for port in dst_port_ids]
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
+            testParams=test_params)

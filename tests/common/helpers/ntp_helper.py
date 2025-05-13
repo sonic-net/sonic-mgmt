@@ -24,6 +24,13 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
 
+    # When using Chrony as the NTP daemon on the DUT, Chrony will not use NTP sources that have a
+    # root dispersion of more than 3 seconds (configurable via /etc/chrony/chrony.conf, but we currently
+    # don't touch that setting). Therefore, block here until the root dispersion is less than 3 seconds
+    # so that we don't incorrectly fail the test.
+    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, NtpDaemon.NTP),
+                  "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
+
     # check to see if iburst option is present
     ntp_add_help = duthost.command("config ntp add --help")
     ntp_add_iburst_present = False
@@ -60,18 +67,22 @@ def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
         yield result
 
 
-@pytest.fixture(scope="module")
-def ntp_daemon_in_use(duthost):
-    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+def get_ntp_daemon_in_use(host):
+    ntpsec_conf_stat = host.stat(path="/etc/ntpsec/ntp.conf")
     if ntpsec_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTPSEC
-    chrony_conf_stat = duthost.stat(path="/etc/chrony/chrony.conf")
+    chrony_conf_stat = host.stat(path="/etc/chrony/chrony.conf")
     if chrony_conf_stat["stat"]["exists"]:
         return NtpDaemon.CHRONY
-    ntp_conf_stat = duthost.stat(path="/etc/ntp.conf")
+    ntp_conf_stat = host.stat(path="/etc/ntp.conf")
     if ntp_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTP
     pytest.fail("Unable to determine NTP daemon in use")
+
+
+@pytest.fixture(scope="module")
+def ntp_daemon_in_use(duthost):
+    return get_ntp_daemon_in_use(duthost)
 
 
 def check_ntp_status(host, ntp_daemon_in_use):
@@ -81,6 +92,19 @@ def check_ntp_status(host, ntp_daemon_in_use):
     elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
         res = host.command("ntpstat", module_ignore_errors=True)
         return res['rc'] == 0
+    else:
+        return False
+
+
+def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        res = host.command("sudo chronyc -n -c ntpdata")
+        root_dispersion = float(res["stdout"].split(",")[14]) / 100
+        return root_dispersion < max_dispersion
+    elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
+        res = host.shell("ntpq -c sysinfo | grep 'root dispersion' | awk '{ print $3; }'")
+        root_dispersion = float(res["stdout"]) / 1000
+        return root_dispersion < max_dispersion
     else:
         return False
 

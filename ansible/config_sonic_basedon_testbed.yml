@@ -93,12 +93,23 @@
     delegate_to: localhost
     ignore_errors: true
 
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
+
+  - name: determine whether to sort port_alias by index
+    set_fact:
+      sort_by_index: false
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
+      num_asic: "{{ num_asics }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -109,6 +120,7 @@
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
       slotid: "{{ slot_num | default(None) }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -573,6 +585,11 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
+      - name: Preload minigraph to flush config_db for Virtual Chassis
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "'t2' in topo and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
@@ -580,17 +597,21 @@
         when: topo == "mx"
 
       - name: Copy smartswitch config
-        copy: src=golden_config_db/smartswitch_t1-28-lag.json
+        copy: src=golden_config_db/smartswitch_t1.json
               dest=/tmp/smartswitch.json
         become: true
-        when: topo == "t1-28-lag"
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
+      - name: Create dns config
+        template: src=templates/dns_config.j2
+                  dest=/tmp/dns_config.json
+        become: true
 
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
         become: true
-        when: "'t2' not in topo"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -658,6 +679,22 @@
 
       - name: Sync DUT system time with NTP server with ntpd
         block:
+          - name: Check if "TimeoutSec=" exists in the file
+            command: grep -q 'TimeoutSec=' /lib/systemd/system/ntpsec.service
+            register: timeoutsec_check
+            ignore_errors: yes
+            changed_when: false
+
+          - name: Add the TimeoutSec for ntp.service on DUT
+            become: true
+            shell: sed -i '/^\[Service\]/a TimeoutSec=600' /lib/systemd/system/ntpsec.service
+            when: "'t2' in topo and type == 'kvm' and timeoutsec_check.rc != 0"
+
+          - name: Reload systemd daemon
+            become: true
+            command: systemctl daemon-reload
+            when: "'t2' in topo and type == 'kvm'"
+
           - name: Wait for ntp.service restart after reload minigraph
             become: true
             service: name=ntp state=started
@@ -716,6 +753,20 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          host_username: "{{ dpu_username | default('admin') }}"
+          host_password: "{{ dpu_password | default('password') }}"
+        become: true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
 
       - name: Configure TACACS
         become: true
@@ -818,6 +869,11 @@
           when: stat_result.stat.exists
 
         when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
+
+      - name: execute "TSB" on T2 DUTs
+        become: True
+        shell: "TSB"
+        when: "'t2' in topo"
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
