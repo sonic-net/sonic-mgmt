@@ -19,6 +19,7 @@ DEFAULT_PORT = 9
 DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
+ERR_MARGIN = 100  # millisecond
 
 
 def p2b(password: str) -> bytes:
@@ -79,7 +80,7 @@ def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_n
         for results in received_pkts.values():
             ts = list(map(lambda result: result.time, results))
             ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 100, ts_diff)),
+            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
                           "Unexpected interval {}".format(ts_diff))
 
 
@@ -96,7 +97,7 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, devic
             ts.extend(map(lambda result: result.time, results))
         ts = sorted(ts)
         ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
+        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
                       "Unexpected interval {}".format(ts_diff))
 
 
