@@ -11,7 +11,8 @@ COMMANDS = [
     "show platform summary",
     "show interface status",
     "show ip bgp sum",
-    "lspci"
+    "lspci",
+    "ls /etc/sonic"
 ]
 
 pytestmark = [
