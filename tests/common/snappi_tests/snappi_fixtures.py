@@ -7,7 +7,6 @@ import logging
 import snappi
 import sys
 import random
-import snappi_convergence
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
