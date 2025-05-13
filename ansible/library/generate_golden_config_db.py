@@ -38,9 +38,10 @@ DNS_CONFIG_PATH = '/tmp/dns_config.json'
 logger = logging.getLogger(__name__)
 
 LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
-               'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
-               'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-               'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+                         'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
+                         'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+
 
 def is_full_lossy_hwsku(hwsku):
     """
@@ -410,6 +411,7 @@ class GenerateGoldenConfigDBModule(object):
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
+
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
