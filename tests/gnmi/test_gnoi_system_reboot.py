@@ -2,7 +2,7 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -90,6 +90,10 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     # Wait for critical processses before ending
     wait_critical_processes(duthost)
 
+    # This is an adhoc workaround because the cert config is cleared after reboot.
+    # We should refactor the test to always use the default config.
+    apply_cert_config(duthost)
+
     # Check device is actually rebooted by comparing uptime
     uptime_after = duthost.get_up_time(utc_timezone=True)
     logging.info('Uptime before reboot: %s, after reboot: %s', uptime_before, uptime_after)
@@ -126,3 +130,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
 
     # Wait for critical processses before ending
     wait_critical_processes(duthost)
+
+    # This is an adhoc workaround because the cert config is cleared after reboot.
+    # We should refactor the test to always use the default config.
+    apply_cert_config(duthost)
