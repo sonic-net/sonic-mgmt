@@ -24,7 +24,7 @@ Next, define a unidirectional traffic item and distribute the traffic destinatio
 
 1. Validate the DUT’s ability to distribute traffic evenly across multiple equal-cost paths.
 
-2. Scale up the total number of routes by 10 times. Repeat the test to analyze the impact of route scaling on performance.
+2. Scale up the total number of routes to 10240. Repeat the test to analyze the impact of route scaling on performance.
 
 ## Key Test Cases
 
