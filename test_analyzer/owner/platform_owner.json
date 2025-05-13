@@ -726,5 +726,21 @@
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN5640-C512S2",
+        "topo": "t0-isolated-d32u32s2",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN5640-C448O16",
+        "topo": "t1-isolated-d56u2",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]

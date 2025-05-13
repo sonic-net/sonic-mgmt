@@ -189,7 +189,7 @@ class KustoConnector(object):
                     BranchName !in ('master', 'internal') and (
                         TestBranch == strcat('internal-', BranchVersion) or
                         TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                        TestBranch == strcat('internal-', BranchVersion, '-hack')
+                        TestBranch == strcat('internal-', BranchVersion, '-dev')
                     )
                 ) or
                     isempty(TestBranch)
@@ -242,7 +242,7 @@ class KustoConnector(object):
                 BranchName !in ('master', 'internal') and (
                     TestBranch == strcat('internal-', BranchVersion) or
                     TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    TestBranch == strcat('internal-', BranchVersion, '-dev')
                 )
             ) or
                 isempty(TestBranch)
@@ -295,7 +295,7 @@ class KustoConnector(object):
                 BranchName !in ('master', 'internal') and (
                     TestBranch == strcat('internal-', BranchVersion) or
                     TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    TestBranch == strcat('internal-', BranchVersion, '-dev')
                 )
             ) or
                 isempty(TestBranch)
@@ -349,7 +349,7 @@ class KustoConnector(object):
                 BranchName !in ('master', 'internal') and (
                     TestBranch == strcat('internal-', BranchVersion) or
                     TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    TestBranch == strcat('internal-', BranchVersion, '-dev')
                 )
             ) or
                 isempty(TestBranch)
@@ -387,7 +387,7 @@ class KustoConnector(object):
                 BranchName !in ('master', 'internal') and (
                     TestBranch == strcat('internal-', BranchVersion) or
                     TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    TestBranch == strcat('internal-', BranchVersion, '-dev')
                 )
             ) or
                 isempty(TestBranch)
@@ -422,7 +422,7 @@ class KustoConnector(object):
                 BranchName !in ('master', 'internal') and (
                     TestBranch == strcat('internal-', BranchVersion) or
                     TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-hack')
+                    TestBranch == strcat('internal-', BranchVersion, '-dev')
                 )
             ) or
                 isempty(TestBranch)
@@ -466,7 +466,7 @@ class KustoConnector(object):
                         BranchName !in ('master', 'internal') and (
                             TestBranch == strcat('internal-', BranchVersion) or
                             TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                            TestBranch == strcat('internal-', BranchVersion, '-hack')
+                            TestBranch == strcat('internal-', BranchVersion, '-dev')
                         )
                     ) or
                         isempty(TestBranch)
