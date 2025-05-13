@@ -2218,7 +2218,7 @@ route/test_default_route.py:
 
 route/test_route_flap.py:
   skip:
-    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo. Does not apply to standalone topos"
+    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo. Does not apply to standalone topos."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11323 and 't0-56-po2vlan' in topo_name"
