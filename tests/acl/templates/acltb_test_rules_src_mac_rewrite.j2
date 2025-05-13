@@ -2,10 +2,14 @@
     "ACL_RULE": {
         "{{ table_name }}|rule_1": {
             "priority": "1005",
-            "VNI": "{{ vni }}",
+            "TUNNEL_VNI": "{{ vni }}",
             "INNER_SRC_IP": "{{ inner_src_ip }}",
-            "PACKET_ACTION": "{{ action }}",
-            "INNER_SRC_MAC": "{{ new_src_mac }}"
+            "INNER_MAC_REWRITE_ACTION": "{{ new_src_mac }}"
+        }
+    },
+    "ACL_RULE":
+        "{{ table_name }}|rule_1|COUNTER": {
+            "name": "rule_1"
         }
     }
 }
