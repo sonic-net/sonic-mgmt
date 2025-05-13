@@ -1,5 +1,5 @@
 [program:dual_tor_sniffer]
-command=/usr/bin/python {{ ptf_sniffer }} {{ ptf_sniffer_args }}
+command=/usr/bin/python3 {{ ptf_sniffer }} {{ ptf_sniffer_args }}
 process_name=dual_tor_sniffer
 stdout_logfile=/tmp/dual_tor_sniffer.out.log
 stderr_logfile=/tmp/dual_tor_sniffer.err.log
