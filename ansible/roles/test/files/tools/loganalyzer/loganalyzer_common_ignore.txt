@@ -291,6 +291,8 @@ r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_n
 r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
+r, ".* ERR syncd\d*#syncd:.* SAI_LOG|SAI_API_SWITCH: tam_notification_handler: critical message - Type(SAI_TAM_EVENT_TYPE_SWITCH), Switch Event Type(SAI_SWITCH_EVENT_TYPE_LACK_OF_RESOURCES).*"
+r, ".* ERR syncd\d*#syncd:.* -E-INTERRUPT-0- collect_npu_host_events: eventq wrapped arrived \d+ dropped \d+.*"
 
 # Ignore ACL EGRESS feature unavailable error on fabric cards
 r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
