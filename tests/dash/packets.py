@@ -71,7 +71,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def inbound_pl_packets(config, no_floatingnic=False, inner_packet_type='udp', vxlan_udp_dport=4789):
+def inbound_pl_packets(config, no_floatingnic=True, inner_packet_type='udp', vxlan_udp_dport=4789):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA,
         pl.PL_OVERLAY_DIP,
