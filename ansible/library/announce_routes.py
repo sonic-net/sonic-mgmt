@@ -77,7 +77,7 @@ ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE = True
 
 # Describe default number of COLOs
 COLO_NUMBER = 30
-# Describe default number of M1 devices connected to M2 device
+# Describe default number of M1 devices connected to MA device
 M1_NUMBER = 4
 # Describe default number of M0 devices in 1 colo
 M0_NUMBER = 16
@@ -150,6 +150,7 @@ def read_topo(topo_name, path):
 
 
 def change_routes(action, ptf_ip, port, routes):
+    logging.debug("action = {}, ptf_ip = {}, port = {}, routes = {}".format(action, ptf_ip, port, routes))
     messages = []
     for prefix, nexthop, aspath in routes:
         if aspath:
@@ -341,9 +342,10 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     nexthop_v6, tor_subnet_size, max_tor_subnet_number, topo,
                     router_type="leaf", tor_index=None, set_num=None,
                     no_default_route=False, core_ra_asn=CORE_RA_ASN,
-                    ipv6_address_pattern=IPV6_ADDRESS_PATTERN_DEFAULT_VALUE):
+                    ipv6_address_pattern=IPV6_ADDRESS_PATTERN_DEFAULT_VALUE,
+                    tor_default_route=False):
     routes = []
-    if not no_default_route and router_type != "tor":
+    if not no_default_route and (router_type != "tor" or tor_default_route):
         default_route_as_path = get_uplink_router_as_path(
             router_type, spine_asn)
 
@@ -511,7 +513,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
+def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce", tor_default_route=False):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -562,7 +564,7 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
                                             None, leaf_asn_start, tor_asn_start,
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                             router_type=router_type, tor_index=tor_index,
-                                            no_default_route=no_default_route)
+                                            no_default_route=no_default_route, tor_default_route=tor_default_route)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
@@ -573,7 +575,8 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                             router_type=router_type, tor_index=tor_index,
                                             no_default_route=no_default_route,
-                                            ipv6_address_pattern=ipv6_address_pattern)
+                                            ipv6_address_pattern=ipv6_address_pattern,
+                                            tor_default_route=tor_default_route)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
@@ -894,8 +897,9 @@ def fib_mx(topo, ptf_ip, action="announce"):
 
 
 """
-For M1, we have 3 sets of routes:
-    - M2 routes - advertised by the upstream M2 VMs
+For M1, we have 4 sets of routes:
+    - MA routes - advertised by the upstream MA VMs
+    - MB routes - advertised by the upstream MB VMs
     - M0 routes - advertised by the downstream M0 VMs
     - C0 routes - advertised by the downstream C0 VMs
 
@@ -903,9 +907,9 @@ The total number of routes is controlled by parameters:
     - m1_number: number of M1 devices (including the DUT itself)
     - m0_number: number of M0 devices connected to each M1
     - m0_subnet_number: number of subnets on each M0
-    - mx_number, mx_subnet_number, c0_number, and the number of M2/M0/C0 devices from topology definition.
+    - mx_number, mx_subnet_number, c0_number, and the number of MA/MB/M0/C0 devices from topology definition.
 
-- M2 routes:
+- MA routes:
     - Default route, prefix: 0.0.0.0/0
     - Routes advertised by DUT's peer M1. Each peer M1 advertises: (count of peer M1: m1_number - 1)
         - Loopback IP of M1,   count: 1
@@ -914,6 +918,8 @@ The total number of routes is controlled by parameters:
         - Loopback IPs of Mx,  count: m0_number * mx_number
         - Subnet routes of Mx, count: m0_number * mx_number * mx_subnet_number
         - Loopback IP of C0,   count: c0_number
+- MB routes:
+    - Default route, prefix: 0.0.0.0/0
 - Routes advertised by each M0:
     - Loopback IP of M0,   count: 1
     - Subnet routes of M0, count: m0_subnet_number
@@ -924,12 +930,12 @@ The total number of routes is controlled by parameters:
 """
 
 
-def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
+def generate_m1_ma_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
                           m0_number, m0_subnet_number, m0_subnet_size, m0_lo_ip, m0_asn,
                           mx_number, mx_subnet_number, mx_subnet_size, mx_lo_ip, mx_asn,
                           c0_number, c0_lo_ip, c0_asn):
     """
-    Generate subnet routes for M2 devices in M1 topo
+    Generate subnet routes for MA devices in M1 topo
     """
     routes = []
 
@@ -966,6 +972,11 @@ def generate_m1_m2_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
             routes.append((c0_lo_ip, nexthop, "{} {}".format(m1_asn, c0_asn)))
             c0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(c0_lo_ip))
     return routes, ip_base, m1_lo_ip, m0_lo_ip, mx_lo_ip, c0_lo_ip
+
+
+def generate_m1_mb_routes(nexthop, ip_base):
+    routes = [("0.0.0.0/0" if ip_base.version == 4 else "::/0", nexthop, None)]
+    return routes
 
 
 def generate_m1_m0_routes(nexthop, ip_base, m0_subnet_number, m0_subnet_size, m0_asn,
@@ -1032,25 +1043,30 @@ def fib_m1(topo, ptf_ip, action="announce"):
         port6 = IPV6_BASE_PORT + vm_offset
 
         router_type = None
-        if "m2" in v["properties"]:
-            router_type = "m2"
+        if "ma" in v["properties"]:
+            router_type = "ma"
+        if "mb" in v["properties"]:
+            router_type = "mb"
         elif "m0" in v["properties"]:
             router_type = "m0"
         elif "c0" in v["properties"]:
             router_type = "c0"
 
         routes_v4, routes_v6 = [], []
-        if router_type == "m2":
+        if router_type == "ma":
             routes_v4, ipv4_base, m1_lo_v4_start, m0_lo_v4_start, mx_lo_v4_start, c0_lo_v4_start = \
-                generate_m1_m2_routes(nhipv4, ipv4_base, m1_number, m1_lo_v4_start, m1_asn,
+                generate_m1_ma_routes(nhipv4, ipv4_base, m1_number, m1_lo_v4_start, m1_asn,
                                       m0_number, m0_subnet_number, m0_subnet_size, m0_lo_v4_start, m0_asn,
                                       mx_number, mx_subnet_number, mx_subnet_size, mx_lo_v4_start, mx_asn,
                                       c0_number, c0_lo_v4_start, c0_asn)
             routes_v6, ipv6_base, m1_lo_v6_start, m0_lo_v6_start, mx_lo_v6_start, c0_lo_v6_start = \
-                generate_m1_m2_routes(nhipv6, ipv6_base, m1_number, m1_lo_v6_start, m1_asn,
+                generate_m1_ma_routes(nhipv6, ipv6_base, m1_number, m1_lo_v6_start, m1_asn,
                                       m0_number, m0_subnet_number, m0_subnet_size_v6, m0_lo_v6_start, m0_asn,
                                       mx_number, mx_subnet_number, mx_subnet_size_v6, mx_lo_v6_start, mx_asn,
                                       c0_number, c0_lo_v6_start, c0_asn)
+        elif router_type == "mb":
+            routes_v4 = generate_m1_mb_routes(nhipv4, ipv4_base)
+            routes_v6 = generate_m1_mb_routes(nhipv6, ipv6_base)
         elif router_type == "m0":
             routes_v4, ipv4_base, mx_lo_v4_start = \
                 generate_m1_m0_routes(nhipv4, ipv4_base, m0_subnet_number, m0_subnet_size, m0_asn,
@@ -1107,10 +1123,12 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
     t1_vms = {}
     # T3 VMs per linecard(asic) - key is the dut index, and value is a list of T3 VMs
     t3_vms = {}
-
     for key, value in vms.items():
-        m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
-        dut_index = int(m.group(1))
+        if type(value['vlans'][0]) == int:
+            dut_index = 0
+        else:
+            m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
+            dut_index = int(m.group(1))
         if 'T1' in key:
             if dut_index not in t1_vms:
                 t1_vms[dut_index] = list()
@@ -1120,6 +1138,7 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
+
     route_set += generate_t2_routes(t1_vms, topo, ptf_ip, action)
     route_set += generate_t2_routes(t3_vms, topo, ptf_ip, action)
     send_routes_in_parallel(route_set)
@@ -1292,6 +1311,23 @@ def fib_dpu(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
+    vms = topo['topology']['VMs']
+
+    for hostname, routes in peers_routes_to_change.items():
+        vm_offset = vms[hostname]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        ipv4_routes = [r for r in routes if '.' in r[0]]
+        if ipv4_routes:
+            change_routes(action, ptf_ip, port, ipv4_routes)
+
+        ipv6_routes = [r for r in routes if ':' in r[0]]
+        if ipv6_routes:
+            change_routes(action, ptf_ip, port6, ipv6_routes)
+
+
 def get_ipv4_routes(routes):
     return [r for r in routes if ipaddress.ip_network(UNICODE_TYPE(r[0])).version == 4]
 
@@ -1329,6 +1365,8 @@ def main():
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
             dut_interfaces=dict(required=False, type='str', default=''),
+            adhoc=dict(required=False, type='bool', default=False),
+            peers_routes_to_change=dict(required=False, type='dict', default={}),
             log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
@@ -1341,6 +1379,8 @@ def main():
     action = module.params['action']
     dut_interfaces = module.params['dut_interfaces']
     path = module.params['path']
+    adhoc = module.params['adhoc']
+    peers_routes_to_change = module.params['peers_routes_to_change']
 
     topo = read_topo(topo_name, path)
     if not topo:
@@ -1352,16 +1392,20 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
+    tor_default_route = "t1-isolated" in topo_name
 
     topo_type = get_topo_type(topo_name)
 
     try:
-        if topo_type == "t0":
+        if adhoc:
+            adhoc_routes(topo, ptf_ip, peers_routes_to_change, action)
+            module.exit_json(change=True)
+        elif topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
-                topo, ptf_ip, no_default_route=is_storage_backend, action=action)
+                topo, ptf_ip, no_default_route=is_storage_backend, action=action, tor_default_route=tor_default_route)
             module.exit_json(changed=True)
         elif topo_type == "t2":
             fib_t2_lag(topo, ptf_ip, action=action)
