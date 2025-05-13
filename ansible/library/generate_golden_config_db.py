@@ -37,16 +37,16 @@ DNS_CONFIG_PATH = '/tmp/dns_config.json'
 
 logger = logging.getLogger(__name__)
 
+LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
+               'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
+               'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
+               'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
 
 def is_full_lossy_hwsku(hwsku):
     """
     Return True if the platform is lossy-only and PFCWD should default to ‘disable’.
     """
-    lossy_hwsku = {'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
-                   'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
-                   'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-                   'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'}
-    return hwsku in lossy_hwsku
+    return hwsku in LOSSY_HWSKU
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -375,18 +375,23 @@ class GenerateGoldenConfigDBModule(object):
             return config
 
     def generate(self):
+        module_msg = "Success to generate golden_config_db.json"
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
+            module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
             config = self.generate_smartswitch_golden_config_db()
+            module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
+            module_msg = module_msg + " for t2"
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
-        elif 'isolated' in self.topo_name and is_full_lossy_hwsku(self.hwsku):
+        elif self.hwsku and is_full_lossy_hwsku(self.hwsku):
+            module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
         else:
             config = "{}"
@@ -404,8 +409,7 @@ class GenerateGoldenConfigDBModule(object):
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
-        self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
-
+        self.module.exit_json(change=True, msg=module_msg)
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
