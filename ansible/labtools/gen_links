@@ -1441,7 +1441,7 @@ if __name__ == "__main__":
     parser.add_argument("--inv", "-i", required=True, help="inventory")
     parser.add_argument("--dut", "-d", required=False, help="list of duts separated by comma")
     parser.add_argument("--fanout", "-f", required=False, help="list of fanouts separated by comma, fanout can be empty string")
-    parser.add_argument("--override_hwsku", "-o", required=False, help="override recorded hwsku with another, format ORIG_HWSKU=NEW_HWSKU, work on both dut and fanout")
+    parser.add_argument("--override-hwsku", "-o", required=False, help="override recorded hwsku with another, format ORIG_HWSKU=NEW_HWSKU, work on both dut and fanout")
     parser.add_argument("--console", "-c", required=False, help="console device for all the devices")
     parser.add_argument("--shared-fanout", "-b", required=False, help="shared fanout name for case where one fanout is not enough")
     parser.add_argument("--vlan", "-v", required=False, type=int, help="If starting vlan is not provided, will pick the largest vlan + 1 from inventory")
