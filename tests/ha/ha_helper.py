@@ -1,11 +1,5 @@
 import pytest
-import json
-import logging
-
-from ipaddress import ip_interface
-
-
-logger = logging.getLogger(__name__)
+from common.plugins.ptfadapter import PtfTestAdapter
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
@@ -51,7 +45,6 @@ def remove_namespace(ptfhost, name_of_namespace, port_name, port_ip):
 
         ptfhost.shell_cmds(cmds=cmds)
 
-
 def add_static_route_to_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
     """
     Add static route on the PTF
@@ -69,7 +62,6 @@ def add_static_route_to_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=
     else:
         ptfhost.shell('ip route add {} nexthop via {}'
                       .format(network_ip, next_hop_ip))
-
 
 def add_static_route_to_dut(duthost, network_ip, next_hop_ip):
     """
@@ -116,14 +108,20 @@ def dpu_ip(duthost, dpu_index):
     return npu_interface_ip.ip + 1
 
 
-def get_dpu_dataplane_port(duthost, dpu_index):
-    platform = duthost.facts["platform"]
-    platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
-    try:
-        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
-    except KeyError:
-        if_dpu_index = 224 + dpu_index*8
-        interface = f"Ethernet{if_dpu_index}"
+class PtfTcpTestAdapter(PtfTestAdapter):
+    def __init__(self, base_adapter: PtfTestAdapter):
+        self.__dict__.update(base_adapter.__dict__)
 
-    logger.info(f"DPU dataplane interface: {interface}")
-    return interface
+    def start_tcp_server(self, namespace=None):
+        cmd = "python3 /root/tcp_server.py &"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+    def start_tcp_client(self, namespace=None):
+        cmd = f"python3 /root/tcp_client.py "
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+
