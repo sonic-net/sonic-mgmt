@@ -86,7 +86,8 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter' \
+                and 'router_subtype' in self.facts and self.facts['router_subtype'] != 'lowerspinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
         feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
@@ -208,7 +209,8 @@ class SonicHost(AnsibleHostBase):
                 self._get_switch_type,
                 self._get_router_type,
                 self.get_asics_present_from_inventory,
-                lambda: self._get_platform_asic(facts["platform"])
+                lambda: self._get_platform_asic(facts["platform"]),
+                self._get_router_sub_type
             ],
             timeout=180,
             thread_count=5
@@ -225,7 +227,7 @@ class SonicHost(AnsibleHostBase):
 
         if results[7]:
             facts["platform_asic"] = results[7]
-
+        facts["router_subtype"] = results[8]
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
 
@@ -308,6 +310,13 @@ class SonicHost(AnsibleHostBase):
     def _get_router_type(self):
         try:
             return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.type'")["stdout_lines"][0] \
+                .encode().decode("utf-8").lower()
+        except Exception:
+            return ''
+
+    def _get_router_sub_type(self):
+        try:
+            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.subtype'")["stdout_lines"][0] \
                 .encode().decode("utf-8").lower()
         except Exception:
             return ''
