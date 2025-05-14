@@ -137,7 +137,7 @@ def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
+    dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
