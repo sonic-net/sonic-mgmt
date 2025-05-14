@@ -443,7 +443,7 @@ def set_test_flow_rate(dut, test_def):
         dut (object): Device under test.
         test_def (dict): Test definition containing the flow rate and background traffic.
     Returns:
-        dict: Updated test definition with the calculated flow rate.
+        None: The function modifies the `test_def` dictionary in place.
     '''
     safety_margin = 0.5
     if dut.facts["platform_asic"] != 'cisco-8000':
@@ -453,4 +453,3 @@ def set_test_flow_rate(dut, test_def):
         test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = (
             test_def['TEST_FLOW_AGGR_RATE_PERCENT'] - test_def.get('BG_FLOW_AGGR_RATE_PERCENT', 0)
             )
-    return test_def
