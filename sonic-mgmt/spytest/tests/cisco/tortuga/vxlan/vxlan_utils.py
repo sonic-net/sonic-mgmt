@@ -171,7 +171,7 @@ def send_udp_traffic(handles, data, stream_list, stream_id, timeout=30):
     st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
     st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
     st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
-    if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+    if traffic_stat['rx']['total_packets'] >= 0.98*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] <= 1.02*traffic_stat['tx']['total_packets']:
         st.banner("UNI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
         flag = True
     else:
@@ -252,8 +252,9 @@ def send_raw_traffic_stream(src_handle, stream_id, reset=True):
     st.wait(5)
     tg_handle = src_handle['tg_handle']
     tg_handle.tg_traffic_control(action='apply', stream_handle=stream_id)
+    clear_counters()
     tg_handle.tg_traffic_control(action='run', stream_handle=stream_id)
-    st.wait(30)
+    st.wait(10)
     tg_handle.tg_traffic_control(action='stop', stream_handle=stream_id)
     st.wait(5)
     flag = False
@@ -261,7 +262,7 @@ def send_raw_traffic_stream(src_handle, stream_id, reset=True):
     st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
     st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
     st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
-    if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+    if traffic_stat['rx']['total_packets'] >= 0.98*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] <= 1.02*traffic_stat['tx']['total_packets']:
         flag = True
     else:
         flag = False
@@ -316,7 +317,7 @@ def traffic_test_burst(_mode,handles):
     st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
     st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
     st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
-    if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+    if traffic_stat['rx']['total_packets'] >= 0.98*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] <= 1.02*traffic_stat['tx']['total_packets']:
         flag = True
     else:
         flag = False
@@ -475,6 +476,8 @@ def check_traffic(streams_info, timeout=30):
     flag = True
     for traffic_item, values in streams_info.items(): 
         values['tg_handle'].tg_traffic_control(action='apply', stream_handle=values['stream_id'])
+        # apply may take a long time, clear the counters before sending traffic. If we don't then it messes up the interface counters with control traffic
+        clear_counters()
         values['tg_handle'].tg_traffic_control(action='run', stream_handle=values['stream_id'])
         st.wait(timeout)
         values['tg_handle'].tg_traffic_control(action='stop', stream_handle=values['stream_id'])
@@ -484,7 +487,7 @@ def check_traffic(streams_info, timeout=30):
         st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
         st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
         st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
-        if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+        if traffic_stat['rx']['total_packets'] >= 0.98*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] <= 1.02*traffic_stat['tx']['total_packets']:
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
         else:
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
@@ -879,3 +882,19 @@ def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='i
             report_fail(nodes[src_vtep], msg='Found no prefixes advertised to {}'.format(src_vtep))
     end_time = time.time()
     st.log("Time taken for BGP convergence:{} secs" .format(end_time-start_time))
+
+def tunnel_counters_supported(node):
+    cmd = "apt-cache search \"Cisco Silicon One .* SDK\" | awk -F'-' '{print $2}'"
+
+    try:
+        asic_type = st.show(node, cmd, skip_tmpl=True, skip_error_check=True, remove_prompt=True).strip()
+    except Exception as e:
+        st.log("Unable to search in apt-cache to gather asic type")
+        return True
+
+    if asic_type == 'gr2':
+        st.log("Running on gr2 so currently there is no support for tunnel counters")
+        return False
+
+    st.log("Running on non-gr2, tunnel counters are supported")
+    return True

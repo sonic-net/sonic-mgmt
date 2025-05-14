@@ -19,7 +19,8 @@ devices:
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
     os_type: sonic
-    memory: 20GB
+    memory: 32GB
+    vcpu: 16
     platform: spitfire_f
     xr_port_redir:
     - 22
@@ -56,7 +57,7 @@ devices:
     linux_password : 'cisco123'
     linux_prompt: 'vxr@ubuntu:~\$'
     xr_port_redir: [22]
-    vcpu: 4
+    vcpu: 2
     memory: '4G'
 
 connections:
