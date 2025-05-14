@@ -493,12 +493,13 @@ class VMTopology(object):
     def get_vm_bridges(self, vmname):
         brs = []
         vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
+        # Use ip link instead of ifconfig to speed up
         out = VMTopology.cmd(
-            'ifconfig -a', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
+            'ip link', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
         for row in out.split('\n'):
             fields = row.split(':')
-            if len(fields) > 0:
-                brs.append(fields[0])
+            if len(fields) >= 2:
+                brs.append(fields[1].strip())
 
         return brs
 
