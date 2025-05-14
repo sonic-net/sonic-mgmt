@@ -51,25 +51,25 @@ def find_function_and_method_calls(filepath):
         'ClassName.method_name': {'func_d', 'func_e'}
     }
     """
-    calls = {}
-    tree = None
-    with open(filepath, 'r') as file:
+    function_calls = {}
+    ast_tree = None
+    with open(filepath, 'r') as py_file:
         try:
-            tree = ast.parse(file.read())
+            ast_tree = ast.parse(py_file.read())
         except SyntaxError as e:
             logger.error(f'Error parsing file {filepath}: {e}')
-            return calls
+            return function_calls
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):  # Standalone function
-            calls[node.name] = get_called_methods_or_functions(node)
-        elif isinstance(node, ast.ClassDef):  # Class with methods
-            for class_node in node.body:
+    for ast_node in ast.walk(ast_tree):
+        if isinstance(ast_node, ast.FunctionDef):  # Standalone function
+            function_calls[ast_node.name] = get_called_methods_or_functions(ast_node)
+        elif isinstance(ast_node, ast.ClassDef):  # Class with methods
+            for class_node in ast_node.body:
                 if isinstance(class_node, ast.FunctionDef):  # Method in class
-                    method_name = f"{node.name}.{class_node.name}"
-                    calls[method_name] = get_called_methods_or_functions(class_node)
+                    method_name = f"{ast_node.name}.{class_node.name}"
+                    function_calls[method_name] = get_called_methods_or_functions(class_node)
 
-    return calls
+    return function_calls
 
 
 def find_dependent_functions_and_methods(function_name, calls):
@@ -98,9 +98,9 @@ def find_tests_using_fixture(fixture_name, python_files):
     """
     affected_test_files = set()
     for py_file in python_files:
-        with open(py_file, 'r') as file:
+        with open(py_file, 'r') as f:
             try:
-                tree = ast.parse(file.read())
+                tree = ast.parse(f.read())
             except SyntaxError as e:
                 logger.error(f'Error parsing file {py_file}: {e}')
                 continue
@@ -145,28 +145,28 @@ find all functions that directly or indirectly call the given function or use th
     function_calls = {}
     function_calls_per_file = {}
     for py_file in python_files:
-        f_calls = find_function_and_method_calls(py_file)
-        for func_name, called_items in f_calls.items():
+        file_function_calls = find_function_and_method_calls(py_file)
+        for func_name, called_items in file_function_calls.items():
             if func_name in function_calls:
                 function_calls[func_name].update(called_items)
             else:
                 function_calls[func_name] = called_items.copy()
-        function_calls_per_file[py_file] = f_calls.keys()
+        function_calls_per_file[py_file] = file_function_calls.keys()
 
     dependent_items = find_dependent_functions_and_methods(args.function_name, function_calls)
 
     affected_files = set()
     for item in dependent_items:
-        for file, items in function_calls_per_file.items():
-            if item in items:
-                affected_files.add(file)
+        for file_path, function_items in function_calls_per_file.items():
+            if item in function_items:
+                affected_files.add(file_path)
                 break
 
     affected_test_files = set()
-    for file in affected_files:
-        p = pathlib.Path(file)
+    for file_path in affected_files:
+        p = pathlib.Path(file_path)
         if p.name.startswith('test'):
-            affected_test_files.add(file)
+            affected_test_files.add(file_path)
 
     # Check if the function_name is a fixture
     fixture_test_files = find_tests_using_fixture(args.function_name, python_files)
@@ -174,9 +174,9 @@ find all functions that directly or indirectly call the given function or use th
 
     # Check if the function_name is a test function
     if args.function_name.startswith('test'):
-        for file, items in function_calls_per_file.items():
-            if args.function_name in items:
-                affected_test_files.add(file)
+        for file_path, function_items in function_calls_per_file.items():
+            if args.function_name in function_items:
+                affected_test_files.add(file_path)
 
     impacted_files = {
         'total_scanned': len(python_files),
