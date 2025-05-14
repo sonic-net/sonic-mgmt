@@ -126,7 +126,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1|ft2)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -240,6 +240,12 @@ def get_core_uplink_as_path():
     return "{}".format(default_route_as_path)
 
 
+# AS path from lower T2 to FT2
+def get_ft2_uplink_as_path():
+    default_route_as_path = "6666 6667"
+    return "{}".format(default_route_as_path)
+
+
 # Get AS path to append to uplink routers AS for routes being advertised by this uplink router.
 def get_uplink_router_as_path(uplink_router_type, spine_asn):
     default_route_as_path = None
@@ -248,6 +254,8 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
         default_route_as_path = get_leaf_uplink_as_path(spine_asn)
     elif uplink_router_type == "spine":
         default_route_as_path = get_spine_uplink_as_path()
+    elif uplink_router_type == "lowerspine":
+        default_route_as_path = get_ft2_uplink_as_path()
     elif uplink_router_type == "core":
         default_route_as_path = get_core_uplink_as_path()
     return default_route_as_path
@@ -1144,6 +1152,61 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
     send_routes_in_parallel(route_set)
 
 
+def fib_ft2_routes(topo, ptf_ip, action="announce"):
+    """
+    Generate routes from LT2 to FT2 in the FT2 topology.
+    """
+    GROUP_SIZE = 4  # Number if LT2s per group
+    PREFIX_LEN_V6 = 124  # Prefix length for IPv6
+    PREFIX_LEN_V4 = 24  # Prefix length for IPv4
+    ROUTE_NUMBER = 16384  # Number of routes to be generated for one single address family
+    BASE_NETWORK_V4 = "192.0.0.0/8"
+    BASE_NETWORK_V6 = "2001:db8::0:0/108"
+
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
+    tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+
+    default_route_as_path = get_uplink_router_as_path("lowerspan", None)
+
+    vms = sorted(topo['topology']['VMs'])
+
+    group_number = len(vms) // GROUP_SIZE
+    routes_per_group = ROUTE_NUMBER // group_number  # Number of routes per group
+    subnets_ipv4 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_NETWORK_V4)).subnets(new_prefix=PREFIX_LEN_V4))
+    subnets_ipv6 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_NETWORK_V6)).subnets(new_prefix=PREFIX_LEN_V6))
+    route_offset = 0
+    # Generate routes for each group
+    for group_index in range(group_number):
+        group_subnets_ipv4 = subnets_ipv4[route_offset:route_offset + routes_per_group]
+        group_subnets_ipv6 = subnets_ipv6[route_offset:route_offset + routes_per_group]
+        route_offset += routes_per_group
+        as_path = "{} {}".format(leaf_asn_start + group_index, tor_asn_start + group_index)
+        # Get the index of the VM in the group
+        for lt2_index in range(GROUP_SIZE):
+            vm_index = group_index * GROUP_SIZE + lt2_index
+            vm_name = vms[vm_index]
+            vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
+            port = IPV4_BASE_PORT + vm_offset
+            port6 = IPV6_BASE_PORT + vm_offset
+            ipv4_routes = []
+            for subnet in group_subnets_ipv4:
+                # Generate IPv4 routes
+                ipv4_routes.append((str(subnet), nhipv4, as_path))
+            ipv6_routes = []
+            for subnet in group_subnets_ipv6:
+                # Generate IPv6 routes
+                ipv6_routes.append((str(subnet), nhipv6, as_path))
+            # Generate default routes for both IPv4 and IPv6
+            ipv4_routes.append(("0.0.0.0/0", nhipv4, default_route_as_path))
+            ipv6_routes.append(("::/0", nhipv6, default_route_as_path))
+            # Send the routes to the PTF
+            change_routes(action, ptf_ip, port, ipv4_routes)
+            change_routes(action, ptf_ip, port6, ipv6_routes)
+
+
 def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     vms = topo['topology']['VMs']
@@ -1424,6 +1487,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "dpu":
             fib_dpu(topo, ptf_ip, action=action)
+            module.exit_json(change=True)
+        elif topo_type == "ft2":
+            fib_ft2_routes(topo, ptf_ip, action=action)
             module.exit_json(change=True)
         else:
             module.exit_json(
