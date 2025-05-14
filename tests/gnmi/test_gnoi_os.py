@@ -60,7 +60,7 @@ def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, localhost
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Activate an invalid image
+    # Activate a valid image
     os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
 
     request_json = json.dumps({"version": os_version_ansible})
