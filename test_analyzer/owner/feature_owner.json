@@ -1686,6 +1686,20 @@
         ]
     },
     {
+        "feature": "testbed_setup",
+        "owner": "Xin Wang",
+        "email": "xiwang5@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "testbed_setup.test_populate_fdb"
+                ],
+                "owner": "Xin Wang",
+                "email": "xiwang5@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "vlan",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",
