@@ -96,7 +96,6 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                               tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
