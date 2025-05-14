@@ -124,7 +124,7 @@ def inbound_pl_packets(config, no_floatingnic=True, inner_packet_type='udp', vxl
         eth_dst=config[LOCAL_PTF_MAC],
         ip_src=pl.APPLIANCE_VIP,
         ip_dst=pl.VM1_PA,
-        ip_ttl=63 if no_floatingnic else 254,
+        ip_ttl=63,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         vxlan_vni=int(pl.VNET1_VNI) if no_floatingnic else int(pl.VM_VNI),
@@ -208,7 +208,7 @@ def outbound_pl_packets(config, outer_encap, no_floatingnic=True,
         gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
         ip_id=0,
-        ip_ttl=63 if no_floatingnic else 254,
+        ip_ttl=63,
     )
 
     masked_exp_packet = Mask(exp_encap_packet)
