@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,6 @@ def test_k8s_cleanup(duthosts, rand_one_dut_hostname, containers):
             pytest.fail("Kubesonic cleanup container error log is found")
         if loganalyzer_summary["total"]["expected_match"] == 0:
             pytest.fail("Kubesonic cleanup container disk size log is not found")
-        
+
     except Exception as e:
         pytest.fail(f"Failed to check syslog for kubesonic cleanup test: {e}")
