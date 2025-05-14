@@ -2620,20 +2620,20 @@ sonic_cisco_8101_tornado:
       ansible_hostv6: 2a01:111:e210:3000::a03:92e7
       mgmt_subnet_mask_length: 24
       model: 8101-32FH-O-C01
-      serial: WZP28509E68
-      base_mac: 48:00:B3:A1:1C:96
+      serial: WZP28509E5S
+      base_mac: 48:00:B3:A0:F6:96
       syseeprom_info:
         "0x21": "8101-32FH-O-C01"
         "0x22": "000000"
-        "0x23": "WZP28509E68"
-        "0x24": "48:00:B3:A1:1C:96"
+        "0x23": "WZP28509E5S"
+        "0x24": "48:00:B3:A0:F6:96"
         "0x26": "0"
         "0x28": "x86_64-8101_32fh_o_c01-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0xA2F0E152"
+        "0xFE": "0x400EDB4E"
       plt_reboot_dict:
         cold:
           timeout: 600
@@ -2652,20 +2652,20 @@ sonic_cisco_8101_tornado:
       ansible_hostv6: 2a01:111:e210:3000::a03:92dc
       mgmt_subnet_mask_length: 24
       model: 8101-32FH-O-C01
-      serial: WZP28509E61
-      base_mac: 48:00:B3:A1:14:96
+      serial: WZP28489YD5
+      base_mac: 48:00:B3:A1:24:96
       syseeprom_info:
         "0x21": "8101-32FH-O-C01"
         "0x22": "000000"
-        "0x23": "WZP28509E61"
-        "0x24": "48:00:B3:A1:14:96"
+        "0x23": "WZP28489YD5"
+        "0x24": "48:00:B3:A1:24:96"
         "0x26": "0"
         "0x28": "x86_64-8101_32fh_o_c01-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x2466A104"
+        "0xFE": "0x200C6EE7"
       plt_reboot_dict:
         cold:
           timeout: 600
