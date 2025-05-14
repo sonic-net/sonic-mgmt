@@ -6,7 +6,8 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
     snappi_testbed_config, get_snappi_ports_single_dut, \
     get_snappi_ports, is_snappi_multidut                                        # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, reboot_duts  # noqa: F401
+from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, reboot_duts, \
+    reboot_duts_and_disable_wd                                              # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list, disable_pfcwd          # noqa F401
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
@@ -204,14 +205,13 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                duthosts,
                                                localhost,
                                                enum_one_dut_lossless_prio_with_completeness_level,    # noqa: F811
-                                               prio_dscp_map,            # noqa: F811
-                                               lossless_prio_list,         # noqa: F811
-                                               all_prio_list,        # noqa: F811
-                                               get_snappi_ports,         # noqa: F811
-                                               tbinfo,              # noqa: F811
-                                               setup_ports_and_dut,          # noqa: F811
-                                               disable_pfcwd,                # noqa: F811
-                                               reboot_duts):                 # noqa: F811
+                                               prio_dscp_map,               # noqa: F811
+                                               lossless_prio_list,          # noqa: F811
+                                               all_prio_list,               # noqa: F811
+                                               get_snappi_ports,            # noqa: F811
+                                               tbinfo,                      # noqa: F811
+                                               reboot_duts_and_disable_wd,  # noqa: F811
+                                               setup_ports_and_dut):        # noqa: F811
     """
     Test if PFC can pause a single lossless priority even after various types of reboot in multidut setup
 
@@ -226,7 +226,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        reboot_duts_and_disable_wd (pytest fixture): fixture reboots associated DUTs and disables Credit and PFC WD
+        setup_ports_and_dut (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """
@@ -268,9 +269,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                                               lossless_prio_list,           # noqa: F811
                                               get_snappi_ports,             # noqa: F811
                                               tbinfo,                       # noqa: F811
-                                              setup_ports_and_dut,          # noqa: F811
-                                              disable_pfcwd,                # noqa: F811
-                                              reboot_duts):                 # noqa: F811
+                                              reboot_duts_and_disable_wd,   # noqa: F811
+                                              setup_ports_and_dut):         # noqa: F811
     """
     Test if PFC can pause multiple lossless priorities even after various types of reboot in multidut setup
 
@@ -284,7 +284,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        reboot_duts_and_disable_wd (pytest fixture): fixture reboots associated DUTs and disables Credit and PFC WD
+        setup_ports_and_dut (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """
