@@ -46,7 +46,7 @@ def test_commands_output_is_ascii(duthost_console):
             try:
                 # Wait for a prompt pattern that matches admin@<hostname>:~$
                 output = duthost_console.send_command(
-                    cmd, 
+                    cmd,
                     expect_string=r"admin@.*:~\$",
                     delay_factor=2,
                     max_loops=500
