@@ -62,7 +62,8 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --log-file-level=debug --kube_master=unset --showlocals \
                       --assert=plain --show-capture=no -rav --allow_recover \
                       --skip_sanity --disable_loganalyzer \
-                      --log-file={log_file} --junit-xml={log_xml}"
+                      --log-file={log_file} --junit-xml={log_xml} \
+                      --containers={required_container_upgrade_params["containers"]}"
             try:
                 localhost.shell(command)
             except Exception:
