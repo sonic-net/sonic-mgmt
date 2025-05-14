@@ -64,26 +64,41 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
             if dynamic_th_in_appl_db != value:
                 return False
 
-        # Retrieve dynamic_th from ASIC_DB
-        ingress_lossless_pool_oid = duthost.shell("sonic-db-cli {} COUNTERS_DB hget COUNTERS_BUFFER_POOL_NAME_MAP "
-                                                  "ingress_lossless_pool"
-                                                  .format(cli_namespace_prefix))["stdout"]
-        buffer_pool_keys = duthost.shell("{} redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:"
-                                         "oid*".format(ip_netns_namespace_prefix))["stdout_lines"]
+        sample_ports_with_pg_lossless_profile = []
+        for pg_lossless_profile in pg_lossless_profiles:
+            keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BUFFER_PG|*"'
+                                 .format(cli_namespace_prefix))["stdout_lines"]
+            for key in keys:
+                port_pg_profile = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" profile'
+                                                .format(cli_namespace_prefix, key))["stdout"]
+                if port_pg_profile == pg_lossless_profile:
+                    # Found port with pg_lossless_profile. key format - BUFFER_PG|EthernetX|X-X.
+                    parts = key.split("|")
+                    port_name = parts[1]
+                    queue_number = parts[2].split("-")[0]
 
-        for buffer_pool in buffer_pool_keys:
-            pool_oid = duthost.shell("sonic-db-cli {} ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
-                                     "POOL_ID".format(cli_namespace_prefix, buffer_pool))["stdout"]
+                    sample_ports_with_pg_lossless_profile.append(port_name + ":" + queue_number)
+                    break
 
-            if pool_oid == ingress_lossless_pool_oid:
-                xoff_val = duthost.shell("sonic-db-cli {} ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
-                                         "XOFF_TH".format(cli_namespace_prefix, buffer_pool))["stdout"]
-                dynamic_th_in_asic_db = duthost.shell("sonic-db-cli {} ASIC_DB hget {} SAI_BUFFER_PROFILE_"
-                                                      "ATTR_SHARED_DYNAMIC_TH"
-                                                      .format(cli_namespace_prefix, buffer_pool))["stdout"]
-                # Dynamic threshold values are a mismatch for pg_lossless profiles
-                if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
-                    return False
+        if len(sample_ports_with_pg_lossless_profile) != len(pg_lossless_profiles):
+            return False
+
+        for port in sample_ports_with_pg_lossless_profile:
+            ingress_priority_group_oid = duthost.shell('sonic-db-cli {} COUNTERS_DB hget COUNTERS_PG_NAME_MAP "{}"'
+                                                       .format(cli_namespace_prefix, port))["stdout"]
+
+            buffer_profile_oid = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_INGRESS_"
+                                               "PRIORITY_GROUP:{} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE"
+                                               .format(cli_namespace_prefix, ingress_priority_group_oid))["stdout"]
+
+            xoff_val = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+                                     "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
+                                     .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
+            dynamic_th_in_asic_db = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+                                                  "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
+                                                  .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
+            if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
+                return False
 
         return True
 
