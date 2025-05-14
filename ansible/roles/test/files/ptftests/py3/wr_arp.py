@@ -353,7 +353,7 @@ class ArpTest(BaseTest):
         self.warm_reboot()
 
         test_port_thr.join(timeout=self.how_long)
-        if test_port_thr.isAlive():
+        if test_port_thr.is_alive():
             self.log("Timed out waiting for traffic-sender (test_port_thr thread)")
             self.req_dut('quit')
             self.assertTrue(
@@ -436,7 +436,7 @@ class ArpTest(BaseTest):
             if wr_state is not False:
                 self.assertTrue(False, "CPA quit before warm reboot finished")
 
-            if test_non_broadcast_reply_thread.isAlive():
+            if test_non_broadcast_reply_thread.is_alive():
                 self.log("Timed out waiting for test_non_broadcast_reply_thread")
                 self.assertTrue(
                     False, "Timed out waiting for test_non_broadcast_reply_thread")
