@@ -445,10 +445,10 @@ def set_test_flow_rate(dut, test_def):
     Returns:
         None: The function modifies the `test_def` dictionary in place.
     '''
-    safety_margin = 0.5
+    SAFETY_MARGIN = 0.5
     if dut.facts["platform_asic"] != 'cisco-8000':
         return
-    test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = 100 - safety_margin
+    test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = 100 - SAFETY_MARGIN
     if test_def.get('background_traffic'):
         test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = (
             test_def['TEST_FLOW_AGGR_RATE_PERCENT'] - test_def.get('BG_FLOW_AGGR_RATE_PERCENT', 0)
