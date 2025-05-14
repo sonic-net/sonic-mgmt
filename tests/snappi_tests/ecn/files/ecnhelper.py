@@ -3,7 +3,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts # noqa F401
+fanout_graph_facts # noqa F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
 get_lossless_buffer_size, get_pg_dropped_packets,\
 stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
@@ -62,92 +62,93 @@ pytest_assert(flow4_ecn > 0,
 # ecn counter is per TC, both TC has same dwrr weight
 
 def run_ecn_test_cisco8000(api,
-                           testbed_config,
-                           port_config_list,
-                           conn_data,
-                           fanout_data,
-                           duthost,
-                           dut_port,
-                           test_prio_list,
-                           prio_dscp_map,
-                           snappi_extra_params=None,
-                           snappi_ports=None):
-    """
-    Run a PFC test
-    Args:
-        api (obj): snappi session
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        duthost (Ansible host instance): device under test
-        dut_port (str): DUT port to test
-        test_prio_list (list): priorities of test flows
-        prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+testbed_config,
+port_config_list,
+conn_data,
+fanout_data,
+duthost,
+dut_port,
+test_prio_list,
+prio_dscp_map,
+snappi_extra_params=None,
+snappi_ports=None):
+"""
+Run a PFC test
+Args:
+api (obj): snappi session
+testbed_config (obj): testbed L1/L2/L3 configuration
+port_config_list (list): list of port configuration
+conn_data (dict): the dictionary returned by conn_graph_fact.
+fanout_data (dict): the dictionary returned by fanout_graph_fact.
+duthost (Ansible host instance): device under test
+dut_port (str): DUT port to test
+test_prio_list (list): priorities of test flows
+prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
-    Returns:
-        N/A
-    """
+```
+Returns:
+    N/A
+"""
 
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
+pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
 
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()
+if snappi_extra_params is None:
+    snappi_extra_params = SnappiTestParams()
 
-    stop_pfcwd(duthost)
-    disable_packet_aging(duthost)
+stop_pfcwd(duthost)
+disable_packet_aging(duthost)
 
-    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
+init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
-    # Get the ID of the port to test
-    for i in range(len(snappi_ports)):
-        if snappi_ports[i]['peer_port'] == dut_port:
-            port_id = snappi_ports[i]['port_id']
-            break
+# Get the ID of the port to test
+for i in range(len(snappi_ports)):
+    if snappi_ports[i]['peer_port'] == dut_port:
+        port_id = snappi_ports[i]['port_id']
+        break
 
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+pytest_assert(port_id is not None,
+              'Fail to get ID for port {}'.format(dut_port))
 
-    # Generate base traffic config
-    base_flow_config1 = setup_base_traffic_config(testbed_config=testbed_config,
-                                                  port_config_list=port_config_list,
-                                                  port_id=port_id)
-    port_config_list2 = [x for x in port_config_list if x != base_flow_config1['tx_port_config']]
-    base_flow_config2 = setup_base_traffic_config(testbed_config=testbed_config,
-                                                  port_config_list=port_config_list2,
-                                                  port_id=port_id)
+# Generate base traffic config
+base_flow_config1 = setup_base_traffic_config(testbed_config=testbed_config,
+                                              port_config_list=port_config_list,
+                                              port_id=port_id)
+port_config_list2 = [x for x in port_config_list if x != base_flow_config1['tx_port_config']]
+base_flow_config2 = setup_base_traffic_config(testbed_config=testbed_config,
+                                              port_config_list=port_config_list2,
+                                              port_id=port_id)
 
-    # Generate test flow config
-    traffic_rate = 99.98
-    test_flow_rate_percent = int(traffic_rate / len(test_prio_list))
+# Generate test flow config
+traffic_rate = 99.98
+test_flow_rate_percent = int(traffic_rate / len(test_prio_list))
 
-    snappi_extra_params.base_flow_config = base_flow_config1
+snappi_extra_params.base_flow_config = base_flow_config1
 
-    # Set default traffic flow configs if not set
-    if snappi_extra_params.traffic_flow_config.data_flow_config is None:
-        snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "flow_name": TEST_FLOW_NAME[0],
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
-            "flow_rate_percent": test_flow_rate_percent,
-            "flow_rate_pps": None,
-            "flow_rate_bps": None,
-            "flow_pkt_size": DATA_FLOW_PKT_SIZE,
-            "flow_pkt_count": None,
-            "flow_delay_sec": DATA_FLOW_DELAY_SEC,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
-        }
+# Set default traffic flow configs if not set
+if snappi_extra_params.traffic_flow_config.data_flow_config is None:
+    snappi_extra_params.traffic_flow_config.data_flow_config = {
+        "flow_name": TEST_FLOW_NAME[0],
+        "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+        "flow_rate_percent": test_flow_rate_percent,
+        "flow_rate_pps": None,
+        "flow_rate_bps": None,
+        "flow_pkt_size": DATA_FLOW_PKT_SIZE,
+        "flow_pkt_count": None,
+        "flow_delay_sec": DATA_FLOW_DELAY_SEC,
+        "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+    }
 
-    generate_test_flows(testbed_config=testbed_config,
-                        test_flow_prio_list=test_prio_list,
-                        prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params,
-                        number_of_streams=2)
+generate_test_flows(testbed_config=testbed_config,
+                    test_flow_prio_list=test_prio_list,
+                    prio_dscp_map=prio_dscp_map,
+                    snappi_extra_params=snappi_extra_params,
+                    number_of_streams=2)
 
-    snappi_extra_params.base_flow_config = base_flow_config2
-
+snappi_extra_params.base_flow_config = base_flow_config2
+```
 
 def run_ecn_test_cisco8000(api,
 testbed_config,
