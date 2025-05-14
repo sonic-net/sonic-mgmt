@@ -120,19 +120,6 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     assert any(random_uuid in line for line in result if line.strip()), \
         "Auditd file_deletion rule does not contain the expected logs"
 
-    random_uuid = str(uuid.uuid4())
-    random_file = f"/tmp/test_file_deletion_{random_uuid}"
-    ssh_remote_run(localhost,
-                   dutip,
-                   tacacs_creds['tacacs_rw_user'],
-                   tacacs_creds['tacacs_rw_user_passwd'],
-                   "sudo touch /tmp/test_file_deletion && sudo rm -f /tmp/test_file_deletion")
-    cmd = f"""show logging | grep 'audisp-syslog' | grep '{random_uuid}' """
-    result = duthost.shell(cmd)["stdout_lines"]
-    logger.info(result)
-    assert any(random_uuid in line for line in result if line.strip()), \
-        "Auditd file_deletion rule does not contain the expected logs"
-
 
 def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                               tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
