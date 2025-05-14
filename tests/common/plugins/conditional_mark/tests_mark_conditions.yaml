@@ -1713,12 +1713,6 @@ pc/test_lag_member.py:
     conditions:
         - "'dualtor' in topo_name or 't0-backend' in topo_name"
 
-pc/test_lag_member.py::test_lag_member_traffic:
-  skip:
-    reason: "Have an issue on kvm t0"
-    conditions:
-        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/13898"
-
 pc/test_lag_member_forwarding.py:
   xfail:
     reason: "Not supported on BRCM before SDK 13.x"
