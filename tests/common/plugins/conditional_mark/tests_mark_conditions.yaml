@@ -2859,5 +2859,7 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 zmq/test_gnmi_zmq.py:
   skip:
     reason: "Test is for smartswitch"
+    conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'isolated' in topo_name"
