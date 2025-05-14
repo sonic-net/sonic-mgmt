@@ -15,7 +15,6 @@ from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
-
 logger = logging.getLogger(__name__)
 
 # Create the waiting power on event
@@ -142,6 +141,26 @@ reboot_ctrl_dict = {
     }
 }
 
+'''
+command : command to reboot the smartswitch DUT
+'''
+reboot_ss_ctrl_dict = {
+    REBOOT_TYPE_COLD: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
+        "test_reboot_cause_only": False
+        },
+    REBOOT_TYPE_WATCHDOG: {
+        "command": "watchdogutil arm -s 5",
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Watchdog",
+        "test_reboot_cause_only": True
+    }
+}
+
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
 REBOOT_TYPE_HISTOYR_QUEUE = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
 REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
@@ -225,6 +244,37 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 
 @support_ignore_loganalyzer
+def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
+    """
+    reboots SmartSwitch or a DPU
+    :param duthost: DUT host object
+    :param reboot_type: reboot type (cold)
+    """
+
+    if reboot_type not in reboot_ss_ctrl_dict:
+        logger.info("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
+        return
+
+    hostname = duthost.hostname
+    dut_datetime = duthost.get_now_time(utc_timezone=True)
+
+    logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
+
+    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"])
+
+    return [reboot_res, dut_datetime]
+
+
+def check_dshell_ready(duthost):
+    show_command = "sudo show platform npu rx cgm_global"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        return False
+    return True
+
+
+@support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
@@ -278,13 +328,23 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
-    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+    logger.info('DUT OS Version: {}'.format(duthost.os_version))
+    prev_reboot_cause_history = None
+    # prev_reboot_cause_history is only used for T2 device.
+    if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        logger.info('Fetching reboot cause history before rebooting')
+        prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
     time.sleep(wait_conlsole_connection)
-    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+    # Perform reboot
+    if duthost.is_smartswitch():
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
+    else:
+        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
+                                                  reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
@@ -317,6 +377,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "{}: Not all ports that are admin up on are operationally up".format(hostname))
+
+        if duthost.facts['asic_type'] == "cisco-8000":
+            # Wait dshell initialization finish
+            pytest_assert(wait_until(wait + 300, 20, 0, check_dshell_ready, duthost),
+                          "dshell not ready")
     else:
         time.sleep(wait)
 

@@ -1,6 +1,6 @@
 import ptf
 from ptf.base_tests import BaseTest
-from ptf.testutils import send, simple_eth_packet, test_params_get
+from ptf.testutils import send, simple_arp_packet, test_params_get
 
 
 class FdbMacLearningTest(BaseTest):
@@ -20,10 +20,9 @@ class FdbMacLearningTest(BaseTest):
     def populateFdbForInterface(self):
         for dut_port, ptf_port in self.dut_ptf_ports:
             mac = self.dummy_mac_prefix + ":" + "{:02X}".format(ptf_port)
-            pkt = simple_eth_packet(eth_dst=self.router_mac,        # noqa: F405
-                                    eth_src=mac,
-                                    eth_type=0x1234)
-            send(self, ptf_port, pkt)
+            pkt = simple_arp_packet(eth_dst=self.router_mac,        # noqa: F405
+                                    eth_src=mac)
+            send(self, ptf_port, pkt, count=10)
             self.mac_table.append((ptf_port, mac))
 
     # --------------------------------------------------------------------------
