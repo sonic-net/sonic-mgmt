@@ -86,7 +86,7 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        
+
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
