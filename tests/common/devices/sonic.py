@@ -90,7 +90,7 @@ class SonicHost(AnsibleHostBase):
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
-        if (device_type == 'UpperSpinerouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
+        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
 
         feature_status = self.get_feature_status(disable_cache=False)
