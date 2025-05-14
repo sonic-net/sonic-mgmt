@@ -521,17 +521,9 @@
     },
     {
         "hwsku": "Arista-7060X6-64PE-C256S2",
-        "topo": "t0",
-        "owner": "Shawn Dashuai Zhang",
-        "email": "dashuaizhang@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
-    },
-    {
-        "hwsku": "Arista-7060X6-64PE-C256S2",
-        "topo": "t1",
-        "owner": "Shawn Dashuai Zhang",
-        "email": "dashuaizhang@microsoft.com",
+        "topo": "t0-isolated-v6-d16u16s2",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
@@ -664,8 +656,8 @@
         "tag": "Yes"
     },
     {
-        "hwsku": "Arista-7060X6-64PE-C256S2",
-        "topo": "t0",
+        "hwsku": "Mellanox-SN5600-C256S1",
+        "topo": "t0-isolated-d16u16s1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -673,7 +665,7 @@
     },
     {
         "hwsku": "Mellanox-SN5600-C256S1",
-        "topo": "t0",
+        "topo": "t1-isolated-v6-d28u1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -697,7 +689,7 @@
     },
     {
         "hwsku": "Mellanox-SN5600-C224O8",
-        "topo": "t1",
+        "topo": "t1-isolated-d28u1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -706,8 +698,8 @@
     {
         "hwsku": "Arista-7050CX3-32S-C28S4",
         "topo": "t0-d18u8s4",
-        "owner": "Riff Jiang",
-        "email": "riffjiang@microsoft.com",
+        "owner": "Ziting Guo",
+        "email": "zitingguo@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
@@ -738,6 +730,14 @@
     {
         "hwsku": "Mellanox-SN5640-C448O16",
         "topo": "t1-isolated-d56u2",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-O128S2",
+        "topo": "t1-isolated-d128",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
