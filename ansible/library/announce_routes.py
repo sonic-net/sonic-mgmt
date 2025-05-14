@@ -479,7 +479,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
+def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", skip_peer_switches=False):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -501,6 +501,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
 
     vms = topo['topology']['VMs']
     for vm_name, vm in vms.items():
+        if 'P' in vm_name and skip_peer_switches:
+            continue
         router_type = "leaf"
         if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
@@ -1487,6 +1489,7 @@ def main():
 
     is_storage_backend = "backend" in topo_name
     tor_default_route = "t1-isolated-d128" in topo_name
+    skip_peer_switches = topo_name in ['t0-isolated-d16u16s2', 't0-isolated-d96u32s2', 't0-isolated-d128u128s2']
 
     topo_type = get_topo_type(topo_name)
 
@@ -1495,7 +1498,7 @@ def main():
             adhoc_routes(topo, ptf_ip, peers_routes_to_change, action)
             module.exit_json(change=True)
         elif topo_type == "t0":
-            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
+            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action, skip_peer_switches=skip_peer_switches)
             module.exit_json(changed=True)
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
