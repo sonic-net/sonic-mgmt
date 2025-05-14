@@ -1782,6 +1782,7 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     elif "enum_rand_one_frontend_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_frontend_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+    logger.info("Using DUTs {} and ASICs {} in testbed '{}'".format(str(duts_selected), str(asics_selected), tbname))
 
     # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
     if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
