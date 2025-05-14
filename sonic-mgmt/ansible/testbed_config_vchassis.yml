@@ -59,6 +59,7 @@
         become: true
 
       - name: Set routeCheck timeout to 600 seconds
+        become: true
         lineinfile:
           path: /etc/monit/conf.d/sonic-host
           regexp: '^check program routeCheck with path "/usr/local/bin/route_check.py"'

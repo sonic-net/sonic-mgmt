@@ -210,7 +210,7 @@ misc_show_cmds = [
     "show interface transceiver eeprom --dom",
     "show ip interface",
     "show interface counters",
-    "{}show queue counters",
+    "show queue counters",
     "{}netstat -i",
     "{}ifconfig -a",
 ]

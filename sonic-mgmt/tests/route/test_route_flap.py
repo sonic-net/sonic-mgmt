@@ -13,6 +13,7 @@ from tests.common.dualtor.mux_simulator_control import \
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -219,12 +220,11 @@ def check_route(duthost, route, dev_port, operation):
         out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
         nexthops = out[route][0]['nexthops']
         result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
+
     if operation == WITHDRAW:
-        pytest_assert(dev_port not in result,
-                      "Route {} was not withdraw {}".format(route, result))
+        return dev_port not in result
     else:
-        pytest_assert(dev_port in result,
-                      "Route {} was not announced {}".format(route, result))
+        return dev_port in result
 
 
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip, tbinfo):
@@ -498,16 +498,16 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
-                time.sleep(1)
-                check_route(duthost, dst_prefix, dev_port, WITHDRAW)
+                pytest_assert(wait_until(20, 1, 0, check_route, duthost, dst_prefix, dev_port, WITHDRAW),
+                              "Route {} was not withdrawn".format(dst_prefix))
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
-                time.sleep(1)
-                check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
+                pytest_assert(wait_until(20, 1, 0, check_route, duthost, dst_prefix, dev_port, ANNOUNCE),
+                              "Route {} was not announced".format(dst_prefix))
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 

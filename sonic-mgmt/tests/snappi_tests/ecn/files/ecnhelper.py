@@ -4,7 +4,6 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts # noqa F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
@@ -69,7 +68,8 @@ def run_ecn_test_cisco8000(api,
                            dut_port,
                            test_prio_list,
                            prio_dscp_map,
-                           snappi_extra_params=None):
+                           snappi_extra_params=None,
+                           snappi_ports=None):
     """
     Run a PFC test
     Args:
@@ -101,10 +101,10 @@ def run_ecn_test_cisco8000(api,
     init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
     # Get the ID of the port to test
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
+    for i in range(len(snappi_ports)):
+        if snappi_ports[i]['peer_port'] == dut_port:
+            port_id = snappi_ports[i]['port_id']
+            break
 
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))

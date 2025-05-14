@@ -1,5 +1,6 @@
 from dash_api.eni_pb2 import State
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
+from dash_api.types_pb2 import IpVersion
 
 VNET = "vnet"
 VNET_ENCAP = "vnet_encap"
@@ -151,7 +152,7 @@ ENI_ROUTE_GROUP1_CONFIG = {
 
 METER_POLICY_V4_CONFIG = {
     f"DASH_METER_POLICY_TABLE:{METER_POLICY_V4}": {
-        "ip_version": "ipv4"
+        "ip_version": IpVersion.IP_VERSION_IPV4
     }
 }
 

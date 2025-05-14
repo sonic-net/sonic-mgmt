@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut      # noqa: F401
+    get_snappi_ports_single_dut     # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
@@ -71,7 +71,7 @@ def test_mixed_speed_pfcwd_enable(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
@@ -205,7 +205,7 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
