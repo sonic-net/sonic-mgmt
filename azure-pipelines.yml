@@ -77,7 +77,7 @@ stages:
 # Below are Impacted Area Based PR checkers
   - job: get_impacted_area
     displayName: "Get impacted area"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
