@@ -1,48 +1,136 @@
 import pytest
 import logging
+import json
 
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
-from tests.gnmi.grpc_utils import get_gnoi_system_stubs
+from tests.common.platform.processes_utils import wait_critical_processes
+
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology('any'),
+    # Reboot triggers kernel warnings on VS.
+    pytest.mark.disable_loganalyzer,
 ]
 
 
 """
-This module contains tests for the gNOI System Services, using gRPC python API.
+This module contains tests for the gNOI System API.
 """
 
+# Enum mapping for RebootMethod for readability
+RebootMethod = {
+    "UNKNOWN": 0,
+    "COLD": 1,
+    "POWERDOWN": 2,
+    "HALT": 3,
+    "WARM": 4,
+    "NSF": 5,
+    # 6 is reserved
+    "POWERUP": 7
+}
 
-system_pb2_grpc, system_pb2 = get_gnoi_system_stubs()
+REBOOT_MESSAGE = "gnoi test reboot"
 
 
-def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, grpc_channel):
+def check_reboot_status(duthost, localhost, expected_active, expected_reason, expected_method):
     """
-    Verify the gNOI System Reboot API functions correctly.
+    Call gNOI System.RebootStatus and assert the fields and values of the response.
+    """
+    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
+    pytest_assert(ret == 0, "System.RebootStatus API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.RebootStatus API returned msg: {}".format(msg))
+
+    status = extract_gnoi_response(msg)
+    pytest_assert(status is not None, "Failed to extract JSON from gNOI response")
+
+    pytest_assert("active" in status, "Missing 'active' in RebootStatus")
+    pytest_assert("when" in status, "Missing 'when' in RebootStatus")
+    pytest_assert("reason" in status, "Missing 'reason' in RebootStatus")
+    pytest_assert("count" in status, "Missing 'count' in RebootStatus")
+    pytest_assert("method" in status, "Missing 'method' in RebootStatus")
+    pytest_assert(status["active"] is expected_active, "'active' should be True after reboot")
+    pytest_assert(status["reason"] == expected_reason, f"'reason' should be '{expected_reason}'")
+    pytest_assert(status["method"] == expected_method, f"'method' should be {expected_method}")
+    pytest_assert(isinstance(status["when"], int) and status["when"] > 0, "'when' should be a positive integer")
+    pytest_assert(isinstance(status["count"], int) and status["count"] >= 1, "'count' should be >= 1")
+
+
+def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Test gNOI System.Reboot API with COLD method.
+    Verifies that the reboot is triggered, RebootStatus is correct before and after reboot,
+    and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Use the shared gRPC channel
-    stub = system_pb2_grpc.SystemStub(grpc_channel)
+    reboot_args = {
+        "message": REBOOT_MESSAGE,
+        "method": RebootMethod["COLD"]
+    }
+    # Record uptime before reboot
+    uptime_before = duthost.get_up_time(utc_timezone=True)
 
-    # Create and send reboot request
-    request = system_pb2.RebootRequest(
-        method=system_pb2.RebootMethod.COLD,
-        delay=0,
-        message="Test reboot request",
-        force=False
+    ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
+    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.Reboot API returned msg: {}".format(msg))
+
+    check_reboot_status(
+        duthost, localhost,
+        expected_active=True,
+        expected_reason=REBOOT_MESSAGE,
+        expected_method=RebootMethod["COLD"]
     )
 
-    logging.info("Sending reboot request: %s", request)
-    response = stub.Reboot(request)
+    # Wait until the system is back up
+    wait_for_startup(duthost, localhost, delay=20, timeout=600)
+    logging.info("System is back up after reboot")
 
-    # Log the response
-    logging.info("Received reboot response: %s", response)
+    # Wait for critical processses before ending
+    wait_critical_processes(duthost)
 
-    # A successful response means the reboot was initiated successfully
-    assert response is not None, "Reboot request failed to get a response"
+    # This is an adhoc workaround because the cert config is cleared after reboot.
+    # We should refactor the test to always use the default config.
+    apply_cert_config(duthost)
 
-    # Wait for the DUT to reboot and come back online
-    logging.info("Waiting for DUT to reboot...")
-    wait_for_startup(duthost, localhost, 0, 300)
+    # Check device is actually rebooted by comparing uptime
+    uptime_after = duthost.get_up_time(utc_timezone=True)
+    logging.info('Uptime before reboot: %s, after reboot: %s', uptime_before, uptime_after)
+    assert uptime_after > uptime_before, "Device did not reboot, uptime did not reset"
+
+
+def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Test gNOI System.Reboot API with WARM method.
+    Verifies that the reboot is triggered, RebootStatus is correct before reboot,
+    and the system recovers with all critical processes running.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    reboot_args = {
+        "message": REBOOT_MESSAGE,
+        "method": RebootMethod["WARM"]
+    }
+
+    ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
+    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+    logging.info("System.Reboot API returned msg: {}".format(msg))
+
+    check_reboot_status(
+        duthost, localhost,
+        expected_active=True,
+        expected_reason=REBOOT_MESSAGE,
+        expected_method=RebootMethod["WARM"]
+    )
+
+    # Wait until the system is back up
+    wait_for_startup(duthost, localhost, delay=20, timeout=600)
+    logging.info("System is back up after reboot")
+
+    # Wait for critical processses before ending
+    wait_critical_processes(duthost)
+
+    # This is an adhoc workaround because the cert config is cleared after reboot.
+    # We should refactor the test to always use the default config.
+    apply_cert_config(duthost)
