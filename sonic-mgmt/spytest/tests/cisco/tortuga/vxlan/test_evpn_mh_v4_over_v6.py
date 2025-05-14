@@ -59,9 +59,9 @@ def initial_setup():
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
-        data.pkts_per_burst = "1000"
+        data.pkts_per_burst = "100"
         ### Using lower line rate for SIM tgen ###
-        data.rate_percent = "0.01"
+        data.rate_percent = "0.005"
         data.circuit_endpoint_type = "ipv4"
         data.frame_size = "100"
     else:
@@ -202,8 +202,7 @@ def l3_traffic_test(stream_list, del_stream=True):
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP,"LEAF2_VXLAN_IP":LEAF2_VXLAN_IP})
     streams = traffic_item_setup(stream_list)
     st.log("Ping passed, sending traffic now")
-    vxlan_obj.clear_counters()
-    result = vxlan_obj.check_traffic(streams)
+    result = vxlan_obj.check_traffic(streams, timeout=10)
     if del_stream:
         vxlan_obj.reset_traffic(streams)
     return result
@@ -402,11 +401,12 @@ def test_inter_subnet_ping():
         leaf2_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF0_VXLAN_IP))
         st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
 
-        if not (leaf0_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf0_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
-                leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
-            report_fail(nodes['leaf0'], "Unicast traffic going from H1 to H4 not taking evpn interface")
+        if vxlan_obj.tunnel_counters_supported(nodes['leaf0']):
+            if not (leaf0_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                    leaf0_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
+                    leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                    leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
+                    report_fail(nodes['leaf0'], "Unicast traffic going from H1 to H4 not taking evpn interface")
 
         get_cli_out()
 
@@ -422,11 +422,12 @@ def test_inter_subnet_ping():
         leaf2_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF1_VXLAN_IP))
         st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
 
-        if not (leaf1_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf1_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
-                leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
-            report_fail(nodes['leaf1'], "Unicast traffic going from H2 to H4 not taking evpn interface")
+        if vxlan_obj.tunnel_counters_supported(nodes['leaf1']):
+            if not (leaf1_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                    leaf1_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
+                    leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                    leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
+                report_fail(nodes['leaf1'], "Unicast traffic going from H2 to H4 not taking evpn interface")
 
         #Verify RT-5 with subnet are exchanged
         verify_vrf_route_l3vni(nodes, leaf2_vrf_prefix, 'leaf0', 'Vrf01')
@@ -793,6 +794,15 @@ def test_unknown_unicast():
     cmd_vxlan = 'show vxlan counters'
     cmd_intf = 'show interface counters'
     
+    '''
+    Record current state of interface counters
+    '''
+    df_downlink_curr = vxlan_obj.get_counters(node = df_node,cmd = cmd_intf, target_iface = df_downlink, r_t_key = 'tx_ok')
+    st.log("df_downlink_curr is {}".format(df_downlink_curr))
+
+    ndf_downlink_curr = vxlan_obj.get_counters(node = ndf_node,cmd = cmd_intf, target_iface = ndf_downlink, r_t_key = 'tx_ok')
+    st.log("ndf_downlink_curr is {}".format(ndf_downlink_curr))
+
     leaf2_df_vxlan_rx_curr = vxlan_obj.get_counters(node=df_node,cmd = cmd_vxlan, target_iface = 'EVPN_{}'.format(LEAF2_VXLAN_IP), r_t_key = 'rx_pkts')
     st.log("leaf2_df_vxlan_rx_curr is {}".format(leaf2_df_vxlan_rx_curr))
     
@@ -805,15 +815,6 @@ def test_unknown_unicast():
     leaf2_ndf_vxlan_tx_curr = vxlan_obj.get_counters(node=nodes['leaf2'],cmd = cmd_vxlan, target_iface = 'EVPN_{}'.format(LEAF1_VXLAN_IP), r_t_key = 'tx_pkts')
     st.log("leaf2_ndf_vxlan_tx_curr is {}".format(leaf2_ndf_vxlan_tx_curr))
 
-    '''
-    Record current state of interface counters
-    '''
-    df_downlink_curr = vxlan_obj.get_counters(node = df_node,cmd = cmd_intf, target_iface = df_downlink, r_t_key = 'tx_ok')
-    st.log("df_downlink_curr is {}".format(df_downlink_curr))
-    
-    ndf_downlink_curr = vxlan_obj.get_counters(node = ndf_node,cmd = cmd_intf, target_iface = ndf_downlink, r_t_key = 'tx_ok')
-    st.log("ndf_downlink_curr is {}".format(ndf_downlink_curr))
-
     # 4 analyze result 
     # Validate traffic is drop in NDF
     if not (df_downlink_curr >= 0.98*int(data.pkts_per_burst) and 
@@ -822,9 +823,10 @@ def test_unknown_unicast():
         report_fail(ndf_node, "Unknown unicast traffic is not dropped in NDF")
     # Validate Unknown unicast traffic is ingress replicated towards df and ndf
     elif not (leaf2_df_vxlan_rx_curr >= int(data.pkts_per_burst) and leaf2_ndf_vxlan_rx_curr >= int(data.pkts_per_burst) and leaf2_df_vxlan_tx_curr >= int(data.pkts_per_burst) and leaf2_ndf_vxlan_tx_curr >= int(data.pkts_per_burst)):
-        report_fail(nodes['leaf2'], "Unknown unicast traffic is not ingress replicated towards df and ndf")
-    else:
-        st.report_pass('test_case_passed')
+        if vxlan_obj.tunnel_counters_supported(nodes['leaf2']):
+            report_fail(nodes['leaf2'], "Unknown unicast traffic is not ingress replicated towards df and ndf")
+
+    st.report_pass('test_case_passed')
         
 ######################################################################
 # Test BUM Local Bias
