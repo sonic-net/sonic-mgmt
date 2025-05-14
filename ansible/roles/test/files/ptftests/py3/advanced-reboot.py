@@ -1147,7 +1147,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
             time.sleep(1)
 
         self.log("IO sender and sniffer threads have started, wait until completion")
