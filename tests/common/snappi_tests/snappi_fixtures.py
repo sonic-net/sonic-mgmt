@@ -545,7 +545,7 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
 @pytest.fixture(scope='module')
 def cvg_api(snappi_api_serv_ip,
             snappi_api_serv_port):
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
+    api = None
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
