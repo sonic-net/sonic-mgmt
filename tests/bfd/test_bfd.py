@@ -236,7 +236,22 @@ def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert expected_state in bfd_state[0]  # If all attempts fail, raise an assertion error
+    assert expected_state in bfd_state[0], (
+        "BFD session state verification failed. "
+        "Expected state: '{}', but the actual state was: '{}'. "
+        "This indicates that the BFD session did not transition to the expected state within the allowed attempts. "
+        "Possible causes include: "
+        "1. Network connectivity issues between the DUT and the neighbor. "
+        "2. Incorrect BFD configuration on the DUT or the neighbor. "
+        "3. Delays in BFD session establishment due to high system load or other factors. "
+        "4. Issues with the BFD responder on the PTF host. "
+        "Please verify the following: "
+        "- The network connectivity between the DUT and the neighbor. "
+        "- The BFD session configuration on both the DUT and the neighbor. "
+        "- The logs on the DUT and the PTF host for any errors or warnings related to BFD. "
+        "- The system load and resource availability on the DUT and the PTF host."
+        .format(expected_state, bfd_state[0] if bfd_state else "No state found")
+    )
 
 
 def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test=False):
