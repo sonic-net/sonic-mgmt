@@ -217,7 +217,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic(object):
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params, queue):
+    def __init__(self, ptf, router_mac, pfc_params, queue, ip_version='IPv4'):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -236,6 +236,7 @@ class SendVerifyTraffic(object):
         self.pfc_wd_rx_neighbor_addr = pfc_params['rx_neighbor_addr']
         self.port_type = pfc_params['port_type']
         self.queue = queue
+        self.ip_version = ip_version
 
     def verify_tx_egress(self, wd_action):
         """
@@ -256,7 +257,8 @@ class SendVerifyTraffic(object):
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
-                      'wd_action': wd_action}
+                      'wd_action': wd_action,
+                      'ip_version': self.ip_version}
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -282,7 +284,8 @@ class SendVerifyTraffic(object):
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_type,
-                      'wd_action': wd_action}
+                      'wd_action': wd_action,
+                      'ip_version': self.ip_version}
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -511,6 +514,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             fanouthosts(AnsibleHost): fanout instance
         """
         setup_info = setup_pfc_test
+        ip_version = setup_info["ip_version"]
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -590,7 +594,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         else:
                             self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
-                    self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd, queue)
+                    self.traffic_inst = SendVerifyTraffic(
+                        self.ptf, dut_facts['router_mac'], self.pfc_wd, queue, ip_version)
                     try:
                         pfcwd_show_status(
                             self.dut,
