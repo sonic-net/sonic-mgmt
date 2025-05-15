@@ -179,7 +179,7 @@ const-naming-style=UPPER_CASE
 
 # Minimum line length for functions/classes that require docstrings, shorter
 # ones are exempt.
-docstring-min-length=-1
+docstring-min-length=20
 
 # Naming style matching correct function names.
 function-naming-style=snake_case
@@ -442,7 +442,56 @@ disable=raw-checker-failed,
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
-enable=
+
+enable=missing-docstring,
+       invalid-name,
+       too-many-arguments,
+       too-many-locals,
+       too-many-branches,
+       too-many-statements,
+       too-many-return-statements,
+       too-many-instance-attributes,
+       too-many-public-methods,
+       too-many-nested-blocks,
+       duplicate-code,
+       line-too-long,
+       trailing-whitespace,
+       unnecessary-pass,
+       unused-import,
+       unused-variable,
+       redefined-outer-name,
+       redefined-builtin,
+       import-error,
+       cyclic-import,
+       wrong-import-order,
+       wrong-import-position,
+       wrong-import-order,
+       no-member,
+       attribute-defined-outside-init,
+       inconsistent-return-statements,
+       dangerous-default-value,
+       broad-except,
+       bare-except,
+       super-init-not-called,
+       bad-indentation,
+       bad-continuation,
+       bad-whitespace,
+       pointless-string-statement,
+       consider-using-with,
+       consider-using-f-string,
+       consider-using-enumerate,
+       consider-using-generator,
+       consider-using-dict-items,
+       consider-using-in,
+       consider-using-set-comprehension,
+       consider-using-join,
+       consider-using-min-builtin,
+       consider-using-max-builtin,
+       consider-using-any,
+       consider-using-all,
+       consider-using-namedtuple-or-dataclass,
+       consider-using-assignment-expr
+
 
 
 [METHOD_ARGS]
@@ -531,7 +580,7 @@ max-spelling-suggestions=4
 
 # Spelling dictionary name. Available dictionaries: en (aspell), en_AU
 # (aspell), en_CA (aspell), en_GB (aspell), en_US (aspell).
-spelling-dict=
+spelling-dict=en_US
 
 # List of comma separated words that should be considered directives if they
 # appear at the beginning of a comment and should not be checked.
