@@ -86,8 +86,13 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+
+        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        device_type = device_metadata.get('type')
+        device_subtype = device_metadata.get('subtype')
+        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+
         feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
