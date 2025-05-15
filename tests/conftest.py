@@ -124,6 +124,10 @@ def pytest_addoption(parser):
     parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
+    # ceos neighbor lacp multiplier
+    parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
+                     help="LACP multiplier for ceos neighbors")
+
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
