@@ -126,7 +126,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1|ft2)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1|lt2|ft2)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -240,6 +240,12 @@ def get_core_uplink_as_path():
     return "{}".format(default_route_as_path)
 
 
+# AS path from LT2 to UT2
+def get_ut2_uplink_as_path():
+    default_route_as_path = "6666 6667"
+    return "{}".format(default_route_as_path)
+
+
 # AS path from lower T2 to FT2
 def get_ft2_uplink_as_path():
     default_route_as_path = "6666 6667"
@@ -256,6 +262,8 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
         default_route_as_path = get_spine_uplink_as_path()
     elif uplink_router_type == "lowerspine":
         default_route_as_path = get_ft2_uplink_as_path()
+    elif uplink_router_type == "upperspine":
+        default_route_as_path = get_ut2_uplink_as_path()
     elif uplink_router_type == "core":
         default_route_as_path = get_core_uplink_as_path()
     return default_route_as_path
@@ -1169,7 +1177,7 @@ def fib_ft2_routes(topo, ptf_ip, action="announce"):
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
 
-    default_route_as_path = get_uplink_router_as_path("lowerspan", None)
+    default_route_as_path = get_uplink_router_as_path("lowerspine", None)
 
     vms = sorted(topo['topology']['VMs'])
 
@@ -1353,6 +1361,73 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
             change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def fib_lt2_routes(topo, ptf_ip, action="annouce"):
+    T1_GROUP_SIZE = 2
+    BASE_ADDR_V4 = "192.0.0.0/8"
+    BASE_ADDR_V6 = "2001:db8::0:0/108"
+    ROUTE_NUMBER_T1 = 16000
+
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get('nhipv4', NHIPV4)
+    nhipv6 = common_config.get('nhipv6', NHIPV6)
+
+    leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
+    tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+
+    vms = sorted(topo['topology']['VMs'])
+    t1_vms = list(filter(lambda vm: "T1" in vm, vms))
+    ut2_vms = list(filter(lambda vm: "UT2" in vm, vms))
+
+    default_route_as_path = get_uplink_router_as_path("upperspine", None)
+
+    all_subnetv4 = list(ipaddress.ip_network(BASE_ADDR_V4).subnets(new_prefix=24))
+    all_subnetv6 = list(ipaddress.ip_network(BASE_ADDR_V6).subnets(new_prefix=124))
+
+    group_nums = len(t1_vms) // T1_GROUP_SIZE
+    t1_route_per_group = math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums)
+
+    for group in range(group_nums):
+        selected_v4_subnets = all_subnetv4[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
+        selected_v6_subnets = all_subnetv6[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
+
+        as_path = "{} {}".format(leaf_asn_start + group, tor_asn_start + group)
+
+        for vm_index in range(T1_GROUP_SIZE):
+            vm_name = t1_vms[group * T1_GROUP_SIZE + vm_index]
+            vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
+
+            ipv4_routes = []
+            ipv6_routes = []
+
+            for subnetv4, subnetv6 in zip(selected_v4_subnets, selected_v6_subnets):
+                ipv4_routes.append((str(subnetv4), nhipv4, as_path))
+                ipv6_routes.append((str(subnetv6), nhipv6, as_path))
+
+            change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
+            change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
+
+    for device in range(len(ut2_vms)):
+        ipv4_routes = [
+            ("0.0.0.0/0", nhipv4, default_route_as_path),
+        ]
+
+        ipv6_routes = [
+            ("::/0", nhipv6, default_route_as_path),
+        ]
+
+        group += 1
+        as_path = "{} {}".format(leaf_asn_start + group, tor_asn_start + group)
+
+        vm_name = ut2_vms[device]
+        vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
+
+        ipv4_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv4'], nhipv4, as_path))
+        ipv6_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv6'], nhipv6, as_path))
+
+        change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
+        change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
+
+
 def fib_dpu(topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
@@ -1487,6 +1562,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "dpu":
             fib_dpu(topo, ptf_ip, action=action)
+            module.exit_json(change=True)
+        elif topo_type == "lt2":
+            fib_lt2_routes(topo, ptf_ip, action=action)
             module.exit_json(change=True)
         elif topo_type == "ft2":
             fib_ft2_routes(topo, ptf_ip, action=action)
