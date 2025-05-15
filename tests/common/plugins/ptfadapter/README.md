@@ -20,7 +20,7 @@ import ptf.mask as mask
 def test_some_traffic(duthost, ptfadapter):
     pkt = testutils.simple_tcp_packet(
         eth_dst=duthost.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src='1.1.1.1',
         ip_dst='192.168.0.1',
         ip_ttl=64,
