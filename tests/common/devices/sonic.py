@@ -1543,6 +1543,20 @@ Totals               6450                 6449
 
         return ipv4_summary, ipv6_summary
 
+    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
+        ns_prefix = ''
+        if self.is_multi_asic:
+            ns_prefix = '-n {}'.format(self.get_asic_id_from_namespace(namespace))
+
+        if ipaddress.ip_network(prefix.encode().decode()).version == 4:
+            out = self.command("vtysh {} -c \"show bgp ipv4 unicast {} json\"".format(ns_prefix, prefix))
+        else:
+            out = self.command("vtysh {} -c \"show bgp ipv6 unicast {} json\"".format(ns_prefix, prefix))
+
+        prefix_info = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
+        logging.info("bgp {} info {}".format(prefix, prefix_info))
+        return prefix_info
+
     def get_dut_iface_mac(self, iface_name):
         """
         Gets the MAC address of specified interface.
@@ -2149,9 +2163,6 @@ Totals               6450                 6449
             "docker rm {}".format(service), module_ignore_errors=True
         )
 
-    def start_bgpd(self):
-        return self.command("sudo config feature state bgp enabled")
-
     def no_shutdown_bgp(self, asn):
         command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
         logging.info('No shut BGP: {}'.format(asn))
@@ -2753,6 +2764,135 @@ Totals               6450                 6449
             result_dict[counter_type]['interval'] = interval
             result_dict[counter_type]['status'] = status
         return result_dict
+
+    def config(self, lines=None, parents=None, module_ignore_errors=False, asic_id=DEFAULT_ASIC_ID):
+        # Convert string inputs to lists
+        if isinstance(lines, str):
+            lines = [lines]
+        if isinstance(parents, str):
+            parents = [parents]
+
+        lines = lines or []
+        parents = parents or []
+        # conf t, add parent commands, add lines, exit for all config contexts
+        commands = ['configure terminal'] + parents + lines + ['exit'] * (len(parents) + 1)
+        try:
+            vtysh = "vtysh"
+            if asic_id is not None:
+                vtysh = "vtysh -n {}".format(asic_id)
+
+            vtysh_cmd = "\n".join(commands)
+            logger.info("sonic.config Executing vtysh commands: {}".format(vtysh_cmd))
+            result = self.shell(f'{vtysh} -c "{vtysh_cmd}"')
+            logger.info("sonic.config vtysh command result: {}".format(result))
+            stderr, stdout = result.get('stderr', ''), result.get('stdout', '')
+            if any(err in (stderr + stdout).lower() for err in ['error', 'invalid']):
+                return {
+                    'changed': False,
+                    'failed': not module_ignore_errors,
+                    'msg': 'Configuration error detected' if not module_ignore_errors
+                    else 'Configuration error ignored',
+                    'stderr': stderr,
+                    'stdout': stdout
+                }
+            return {
+                'changed': True,
+                'failed': False,
+                'msg': 'Configuration successfully applied',
+                'stderr': stderr,
+                'stdout': stdout
+            }
+        except Exception as e:
+            return {
+                'changed': False,
+                'failed': not module_ignore_errors,
+                'msg': str(e),
+                'stderr': str(e),
+                'stdout': ''
+            }
+
+    def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
+        neigh_ips = [ip.lower() for ip in neigh_ips]
+        neigh_ips_ok, neigh_desc_ok = [], []
+        neigh_desc_available = False
+        num_asics = int(self.facts["num_asic"])
+        for neighbor_ip in neigh_ips:
+            if num_asics == 1:
+                nbinfo = self.get_bgp_neighbor_info(neighbor_ip, None)
+                if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Established".lower():
+                    neigh_ips_ok.append(neighbor_ip)
+                if 'nbrDesc' in nbinfo:
+                    neigh_desc_available = True
+                    neigh_desc_ok.append(nbinfo['nbrDesc'])
+            else:
+                for asic in range(0, num_asics):
+                    nbinfo = self.get_bgp_neighbor_info(neighbor_ip, asic)
+                    if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Established".lower():
+                        neigh_ips_ok.append(neighbor_ip)
+                    if 'nbrDesc' in nbinfo:
+                        neigh_desc_available = True
+                        neigh_desc_ok.append(nbinfo['nbrDesc'])
+
+        logging.info(
+            f"neigh_ips_ok={neigh_ips_ok} neigh_desc_available={neigh_desc_available} "
+            f"neigh_desc_ok={neigh_desc_ok}")
+        if neigh_desc_available:
+            return len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok)
+        return len(neigh_ips) == len(neigh_ips_ok)
+
+    def get_frr_mgmt_framework_config(self):
+        frr_config = self.shell(
+            'sudo sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" '
+            '"frr_mgmt_framework_config"'
+        )['stdout'].strip()
+        return frr_config == "true"
+
+    def get_bgp_docker_names(self):
+        bgp_docker_names = []
+        if self.facts["num_asic"] == 1:
+            bgp_docker_names.append("bgp")
+        else:
+            num_asics = self.facts["num_asic"]
+            for asic in range(0, num_asics):
+                bgp_docker_names.append("bgp{}".format(asic))
+        return bgp_docker_names
+
+    def kill_bgpd(self):
+        bgp_names = self.get_bgp_docker_names()
+        for bgp_name in bgp_names:
+            try:
+                result = self.command(f"sudo docker exec {bgp_name} supervisorctl stop bgpd")
+                if result['rc'] == 0:
+                    logging.info("Successfully stopped bgpd process on {}".format(self.hostname))
+                else:
+                    logging.error("Failed to stop bgpd process on {}: {}".format(self.hostname, result['stderr']))
+                return result
+            except Exception as e:
+                logging.error(f"Error stopping bgpd process: {str(e)}")
+                return {'rc': 1, 'stdout': '', 'stderr': str(e)}
+
+    def start_bgpd(self):
+        """Start the BGP daemon (bgpd) on the SONiC device."""
+        bgp_names = self.get_bgp_docker_names()
+        frr_config_mode = self.get_frr_mgmt_framework_config()
+        for bgp_name in bgp_names:
+            try:
+                result = self.command(f"sudo docker exec {bgp_name} supervisorctl start bgpd")
+                if result['rc'] != 0:
+                    logging.error(f"Failed to start bgpd process on {self.hostname}: {result['stderr']}")
+                    return result
+                # restart bgpcfgd to apply back config (for non frr-mgmt-framework mode)
+                if frr_config_mode is False:
+                    time.sleep(10)
+                    result = self.command(f"docker exec {bgp_name} supervisorctl restart bgpcfgd")
+                    if result['rc'] != 0:
+                        logging.error(f"Failed to restart bgpcfgd on {self.hostname}: {result['stderr']}")
+                        return result
+
+                return {'rc': 0, 'stdout': 'bgpd process started successfully', 'stderr': ''}
+            except Exception as e:
+                logging.error(f"Error starting bgpd process: {str(e)}")
+                return {'rc': 1, 'stdout': '', 'stderr': str(e)}
 
 
 def assert_exit_non_zero(shell_output):
