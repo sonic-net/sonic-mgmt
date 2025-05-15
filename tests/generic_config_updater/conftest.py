@@ -12,7 +12,7 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def selected_dut_hostname(request, rand_one_dut_hostname):
     """Fixture that returns either `rand_one_dut_hostname` or `rand_one_dut_front_end_hostname`
     depending on availability."""
@@ -25,7 +25,7 @@ def selected_dut_hostname(request, rand_one_dut_hostname):
 
 
 # Module Fixture
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def cfg_facts(duthosts, selected_dut_hostname, selected_asic_index):
     """
     Config facts for selected DUT
