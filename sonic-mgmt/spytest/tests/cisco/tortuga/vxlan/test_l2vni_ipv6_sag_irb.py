@@ -29,6 +29,22 @@ data.my_dut_list = None
 data.local = None
 data.remote = None
 
+@pytest.fixture(scope="module", autouse=True)
+def initial_setup():
+    vars = st.get_testbed_vars()
+    ### Check dut is HW or SIM ###
+    dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])
+
+    if  dut_type == "sim":
+        data.pkts_per_burst = "100"
+        ### Using lower line rate for SIM tgen ###
+        data.rate_percent = "0.005"
+    else:
+        data.pkts_per_burst = "500"
+        data.rate_percent = "0.01"
+    yield
+    st.log("Module config done")
+
 #Tgen Stream Config
 data.d3tp1_ip6_addr = "2002:db8:1::1"
 data.tp1d3_ip6_addr = "2002:db8:1::2"
@@ -59,7 +75,6 @@ VRF_NAME = "Vrf43"
 VRF_VLAN = "43"
 VRF_VNI = "5043"
 
-data.pkts_per_burst = "500"
 data.mask = "24"
 data.counters_threshold = 10
 data.tgen_stats_threshold = 20
@@ -68,7 +83,6 @@ data.tgen_l3_len = '500'
 data.traffic_run_time = 20
 data.clear_parallel = True
 data.transmit_mode = "single_burst"
-data.rate_percent = "0.01"
 data.circuit_endpoint_type = "ipv6"
 data.frame_size = "100"
 data.vlan_id = "100"

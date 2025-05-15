@@ -33,9 +33,9 @@ def initial_setup():
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
-        data.pkts_per_burst = "500"
+        data.pkts_per_burst = "100"
         ### Using lower line rate for SIM tgen ###
-        data.rate_percent = "0.01"
+        data.rate_percent = "0.005"
         data.circuit_endpoint_type = "ipv6"
         data.frame_size = "100"
     else:
@@ -58,7 +58,6 @@ data.t1d4_ip_addr = "100.100.101.200"
 data.d4t1_ip6_addr = "2003:db8:1::1"
 data.t1d4_ip6_addr = "2003:db8:1::2"
 data.t1d4_mac_addr = "00:0a:01:00:12:01"
-data.pkts_per_burst = "500"
 data.mask = "24"
 data.counters_threshold = 10
 data.tgen_stats_threshold = 20

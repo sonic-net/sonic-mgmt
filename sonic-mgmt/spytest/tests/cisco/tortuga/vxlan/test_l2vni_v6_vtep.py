@@ -23,6 +23,31 @@ ACL_JSON_FILE = "acl_v4_v6_rules.json"
 ACL_JSON_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) +  '/' + ACL_JSON_FILE
 
 data = SpyTestDict()
+data_v4 = SpyTestDict()
+
+@pytest.fixture(scope="module", autouse=True)
+def initial_setup():
+    vars = st.get_testbed_vars()
+    ### Check dut is HW or SIM ###
+    dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])
+
+    if  dut_type == "sim":
+        data.pkts_per_burst = "100"
+        ### Using lower line rate for SIM tgen ###
+        data.rate_percent = "0.005"
+
+        data_v4.pkts_per_burst = "100"
+        data_v4.rate_percent = "0.005"
+    else:
+        data.pkts_per_burst = "500"
+        data.rate_percent = "0.01"
+
+        data_v4.pkts_per_burst = "500"
+        data_v4.rate_percent = "0.01"
+    yield
+    st.log("Module config done")
+
+
 data.my_dut_list = None
 data.local = None
 data.remote = None
@@ -32,7 +57,6 @@ data.t1d3_mac_addr = "00:0a:01:00:11:01"
 data.d4t1_ip6_addr = "2001::4"
 data.t1d4_ip6_addr = "2001::3"
 data.t1d4_mac_addr = "00:0a:01:00:12:01"
-data.pkts_per_burst = "500"
 data.mask = "24"
 data.counters_threshold = 10
 data.tgen_stats_threshold = 20
@@ -41,7 +65,6 @@ data.tgen_l3_len = '500'
 data.traffic_run_time = 20
 data.clear_parallel = True
 data.transmit_mode = "single_burst"
-data.rate_percent = "0.01"
 data.circuit_endpoint_type = "ipv6"
 data.frame_size = "100"
 data.vlan_id = "100"
@@ -50,14 +73,11 @@ data.acl = {
     'TORTUGA_ACL_INGRESS_V6' : 'L3V6'
 }
 
-data_v4 = SpyTestDict()
 data_v4.t1d3_ip_addr = "1.1.1.1"
 data_v4.t1d3_mac_addr = "00:0a:01:00:11:01"
 data_v4.t1d4_ip_addr = "1.1.1.2"
 data_v4.t1d4_mac_addr = "00:0a:01:00:12:01"
 data_v4.transmit_mode = "single_burst"
-data_v4.pkts_per_burst = "500"
-data_v4.rate_percent = "0.01"
 data_v4.circuit_endpoint_type = "ipv4"
 data_v4.frame_size = "100"
 
