@@ -635,6 +635,7 @@
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
+          hwsku: "{{ hwsku }}"
         become: true
 
       - name: Copy macsec profile json to dut
