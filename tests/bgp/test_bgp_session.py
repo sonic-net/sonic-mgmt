@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
+vrfname = 'default'
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", 'm1', 'm2', 'm3'),
@@ -37,7 +38,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
+    if check_frr_mgmt_framework_config(duthost):
+        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        bgp_neighbors = bgp_neighbors[vrfname]
+    else:
+        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     bgp_neighbor = list(bgp_neighbors.keys())[0]
@@ -50,10 +56,11 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     logger.debug("setup test_neighbor {}".format(bgp_neighbor))
 
     # verify sessions are established
-    pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+    pytest_assert(wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                   "Not all BGP sessions are established on DUT")
 
     ip_intfs = duthost.show_and_parse('show ip interface')
+    ipv6_intfs = duthost.show_and_parse('show ipv6 interfaces')
     logger.debug("setup ip_intfs {}".format(ip_intfs))
 
     # Create a mapping of neighbor IP to interfaces and their details
@@ -75,10 +82,34 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
         elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ip_intf['bgp neighbor']:
             neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
 
+    # Loop through the ip_intfs list to populate the mapping
+    for ipv6_intf in ipv6_intfs:
+        neighbor_ip = ipv6_intf['neighbor ip']
+        interface_name = ipv6_intf['interface']
+        if neighbor_ip not in neighbor_ip_to_interfaces:
+            neighbor_ip_to_interfaces[neighbor_ip] = {}
+
+        # Check if the interface is in portchannels and get the relevant devices
+        if interface_name in portchannels:
+            for dev_name in portchannels[interface_name]:
+                if dev_name in dev_nbrs and dev_nbrs[dev_name]['name'] == ipv6_intf['bgp neighbor']:
+                    neighbor_ip_to_interfaces[neighbor_ip][dev_name] = dev_nbrs[dev_name]
+        # If not in portchannels, check directly in dev_nbrs
+        elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ipv6_intf['bgp neighbor']:
+            neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
+
     # Update bgp_neighbors with the new 'interface' key
+    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
     for ip, details in bgp_neighbors.items():
-        if ip in neighbor_ip_to_interfaces:
-            details['interface'] = neighbor_ip_to_interfaces[ip]
+        logger.debug(ip)
+        if check_frr_mgmt_framework_config(duthost):
+            get_ip = f"({vrfname}, '{ip}')"
+        else:
+            get_ip = ip
+        logger.debug(neighbor_ip_to_interfaces)
+        logger.debug(neighbor_ip_to_interfaces[get_ip])
+        if get_ip in neighbor_ip_to_interfaces:
+            details['interface'] = neighbor_ip_to_interfaces[get_ip]
 
     setup_info = {
         'neighhosts': bgp_neighbors,
@@ -103,8 +134,22 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-        pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+        pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
+
+
+def check_frr_mgmt_framework_config(duthost):
+    """
+    Check if frr_mgmt_framework_config is set to "true" in DEVICE_METADATA
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if frr_mgmt_framework_config is "true", False otherwise
+    """
+    frr_config = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
+    return frr_config == "true"
 
 
 def verify_bgp_session_down(duthost, bgp_neighbor):
