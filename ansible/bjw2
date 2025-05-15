@@ -89,6 +89,9 @@ all:
         bjw2-2-8:
           ansible_host: 10.150.23.101
           ansible_hostv6: 2404:f801:10:2200::a96:1765
+        bjw2-2-9:
+          ansible_host: 10.150.23.102
+          ansible_hostv6: 2404:f801:10:2200::a96:1766
         bjw2-3-1:
           ansible_host: 10.150.23.103
           ansible_hostv6: 2404:f801:10:2200::a96:1767
@@ -403,6 +406,10 @@ fanout:
     bjw2-can-7260-leaf-18:
       ansible_host: 10.150.22.42
       ansible_hostv6: 2404:f801:10:2200::a96:162a
+    bjw2-can-8101-leaf-1:
+      ansible_host: 10.150.22.56
+      ansible_hostv6: 2404:f801:10:2200::a96:1638
+      os: sonic
     bjw2-can-8101-leaf-2:
       ansible_host: 10.150.22.58
       ansible_hostv6: 2404:f801:10:2200::a96:163a
@@ -461,11 +468,11 @@ fanout:
     bjw2-can-7260-leaf-33:
       ansible_host: 10.150.22.215
       ansible_hostv6: 2404:f801:10:2200::a96:16d7
-    bjw2-can-8101-leaf-6:
+    bjw2-can-8101c1-leaf-1:
       ansible_host: 10.150.23.242
       ansible_hostv6: 2404:f801:10:2200::a96:17f2
       os: sonic
-    bjw2-can-8101-leaf-7:
+    bjw2-can-8101c1-leaf-2:
       ansible_host: 10.150.23.244
       ansible_hostv6: 2404:f801:10:2200::a96:17f4
       os: sonic
@@ -1497,6 +1504,38 @@ sonic_cisco_8101:
     hwsku: Cisco-8101-O32
     iface_speed: 100000
   hosts:
+    bjw2-can-8101-1:
+      ansible_host: 10.150.22.55
+      ansible_hostv6: 2404:f801:10:2200::a96:1637
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O
+      serial: FLM272809K7
+      base_mac: 34:88:18:BA:0E:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM272809K7"
+        "0x24": "34:88:18:BA:0E:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x69A1AF76"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8101-2:
       ansible_host: 10.150.22.57
       ansible_hostv6: 2404:f801:10:2200::a96:1639
