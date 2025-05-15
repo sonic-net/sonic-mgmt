@@ -161,18 +161,11 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
                 return False
         return True
 
-    assert (wait_until(60, 15, 0, _check_routes)), (
-        "Failed to verify route redistribution. "
-        "The expected prefix '{}' was not found in the advertised routes of all BGP neighbors. "
-        "This could indicate that the static route was not properly configured, "
-        "BGP sessions are not fully established, or there is an issue with route advertisement. "
-        "Please check the following:\n"
-        "1. Ensure the static route is correctly configured on the DUT.\n"
-        "2. Verify that all BGP sessions are up using 'show ip bgp summary' or 'show ipv6 bgp summary'.\n"
-        "3. Check the advertised routes for each BGP neighbor using 'show ip bgp neighbor <neighbor> advertised-routes' "
-        "or 'show ipv6 bgp neighbor <neighbor> advertised-routes'.\n"
-        "4. Inspect the DUT logs for any errors related to BGP or route configuration."
-    )
+    assert wait_until(60, 15, 0, _check_routes), (
+    "Failed to verify route redistribution: '{}' not found in advertised routes of BGP".format(expected_prefix) # type: ignore
+)
+
+
 
 
 # output example of ip [-6] route show
