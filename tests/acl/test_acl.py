@@ -265,7 +265,7 @@ def get_t2_info(duthosts, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
-          tbinfo, ptfadapter, topo_scenario, vlan_name):
+          tbinfo, ptfadapter, topo_scenario, vlan_name, is_macsec_enabled_for_test):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -464,6 +464,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     for duthost in duthosts:
         duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
+    # Set the flag force_reload_macsec to True, if enable_macsec is set for this test run
+    if is_macsec_enabled_for_test:
+        setattr(ptfadapter, "force_reload_macsec", True)
+
     yield setup_information
 
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
@@ -542,13 +546,14 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
+def stage(request, duthosts, rand_one_dut_hostname, tbinfo, is_macsec_enabled_for_test):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
         request: A fixture to interact with Pytest data.
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        is_macsec_enabled_for_test: flag for macsec topology selected for run.
 
     Returns:
         str: The ACL stage to be tested.
@@ -560,6 +565,11 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
         or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
+
+    # Skip ACL egress tests when run on macsec enabled toplogy with braodcom DNX
+    if request.param == "egress" and is_macsec_enabled_for_test and \
+            duthost.facts.get("platform_asic") == "broadcom-dnx":
+        pytest.skip("Egress ACLs not supported with MACSEC on \"{}\" ASICs".format(duthost.facts["asic_type"]))
 
     return request.param
 
