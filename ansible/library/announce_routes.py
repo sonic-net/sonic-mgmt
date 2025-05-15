@@ -1498,7 +1498,8 @@ def main():
             adhoc_routes(topo, ptf_ip, peers_routes_to_change, action)
             module.exit_json(change=True)
         elif topo_type == "t0":
-            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action, skip_peer_switches=skip_peer_switches)
+            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action,
+                   skip_peer_switches=skip_peer_switches)
             module.exit_json(changed=True)
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
