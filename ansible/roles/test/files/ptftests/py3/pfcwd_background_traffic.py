@@ -29,6 +29,7 @@ from scapy.all import sendp
 import ptf.packet as scapy
 from ptf.mask import Mask
 import ptf
+import macsec  # noqa F401
 
 
 class BG_pkt_sender(BaseTest):

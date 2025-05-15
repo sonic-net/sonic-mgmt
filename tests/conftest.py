@@ -577,6 +577,16 @@ def macsec_duthost(duthosts, tbinfo):
     return macsec_dut
 
 
+@pytest.fixture(scope="session")
+def is_macsec_enabled_for_test(duthosts):
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
+    request = duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+    return macsec_en
+
+
 # Make sure in same test module, always use same random DUT
 rand_one_dut_hostname_var = None
 
