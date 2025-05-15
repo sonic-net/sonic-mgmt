@@ -217,7 +217,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
         for key, value in list(minigraph_neighbors.items()):
-            if 'T1' in value['name']:
+            if 'T1' in value['name'] or 'LT2' in value['name']:
                 dutA = a_dut
                 break
         if dutA:

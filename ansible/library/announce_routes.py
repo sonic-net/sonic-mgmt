@@ -1137,7 +1137,7 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
         else:
             m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
             dut_index = int(m.group(1))
-        if 'T1' in key:
+        if 'T1' in key or 'LT2' in key:
             if dut_index not in t1_vms:
                 t1_vms[dut_index] = list()
             t1_vms[dut_index].append(key)
