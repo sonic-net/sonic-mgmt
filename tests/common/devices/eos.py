@@ -575,3 +575,6 @@ class EosHost(AnsibleHostBase):
             parents=['interface {}'.format(interface_name)])
         logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
         return out
+
+    def config(self, lines=None, parents=None, module_ignore_errors=False):
+        return self.eos_config(lines=lines, parents=parents)
