@@ -269,7 +269,7 @@ def generate_topo(role: str,
     def _find_lag_port(port_id: int) -> bool:
         nonlocal port_cfg
         if not isinstance(port_cfg["uplink_ports"], PortList):
-            return False,
+            return False, None
 
         lag_port = next(
             (lp for lp in port_cfg["uplink_ports"] if isinstance(lp, LagPort) and port_id in lp), None)
