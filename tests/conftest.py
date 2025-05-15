@@ -1338,12 +1338,18 @@ def generate_params_frontend_hostname(request):
 
 def generate_params_macsec_hostname(request):
     macsec_duts = []
-    tbname, _ = get_tbinfo(request)
+    tbname, tbinfo = get_tbinfo(request)
     duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_macsec_capable_node(inv_files, dut):
-            macsec_duts.append(dut)
+
+    if 't2' in tbinfo['topo']['name']:
+        # currently in the T2 topo only the uplink linecard will have
+        # macsec enabled
+        for dut in duts:
+            if is_macsec_capable_node(inv_files, dut):
+                macsec_duts.append(dut)
+    else:
+        macsec_duts.append(duts[0])
     assert len(macsec_duts) > 0, \
         "Test selected require at-least one macsec node, " \
         "none of the DUTs '{}' in testbed '{}' are a macsec node".format(duts, tbname)
