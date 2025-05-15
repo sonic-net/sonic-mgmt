@@ -198,7 +198,6 @@ def run_ecn_test_cisco8000(api,
     # Collect all port names
     port_names = [port.name for port in config.ports]
     # Create a control state object for all ports
-    link_state = api.link_state()
     cs = api.control_state()
     cs.choice = cs.PORT
     cs.port.choice = cs.port.LINK
