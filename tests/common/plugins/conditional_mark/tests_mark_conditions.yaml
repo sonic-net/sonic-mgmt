@@ -1038,11 +1038,36 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
+fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
+
+fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
+
 fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+
+fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
+      -
+
+fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
 
 #######################################
 #####   generic_config_updater    #####
@@ -1249,9 +1274,10 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000 or issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
