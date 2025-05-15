@@ -414,6 +414,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
     if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag",
                                                                               "t1-isolated-d28u1", "t1-isolated-d28",
+                                                                              "t1-isolated-d56u2",
                                                                               "t1-isolated-d128"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -424,7 +425,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                                                                                                "t1-64-lag-clet",
                                                                                                "t1-56-lag",
                                                                                                "t1-28-lag",
-                                                                                               "t1-32-lag"):
+                                                                                               "t1-32-lag",
+                                                                                               "t1-isolated-d56u2"):
 
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
