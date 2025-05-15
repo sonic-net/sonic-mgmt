@@ -117,7 +117,9 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
                 packets = [
                     testutils.simple_ipv6ip_packet(ipv6_src=selected_addrs2[0],
-                                                   eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                                                   eth_src=ptfadapter.dataplane.get_mac(
+                                                       *list(ptfadapter.dataplane.ports.keys())[0]
+                                                    ),
                                                    eth_dst=setup_info[everflow_direction]["ingress_router_mac"],
                                                    ipv6_dst=selected_addrs2[1],
                                                    inner_frame=inner_pkt2),
@@ -682,7 +684,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            dport=8080,
                            flags=0x10):
         pkt = testutils.simple_tcpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
@@ -709,7 +711,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            sport=2020,
                            dport=8080):
         pkt = testutils.simple_udpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
