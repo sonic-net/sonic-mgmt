@@ -6,6 +6,7 @@ import os
 import time
 import logging
 import pytest
+import json
 import ptf.testutils as testutils
 from ptf import mask
 import ptf.packet as scapy
@@ -18,7 +19,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0'),  # Only run on T0 testbed
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
@@ -28,13 +29,10 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 ACL_REMOVE_RULES_FILE = "acl_rules_del.json"
-ACL_ADD_RULES_FILE = "acltb_test_rules_srcmac_rewrite.j2"
 ACL_RULES_FILE = 'acl_config.json'
 TMP_DIR = '/tmp'
 INGRESS = 'ingress'
-EGRESS = 'egress'
 IPV4 = 'ipv4'
-IPV6 = 'ipv6'
 
 ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
@@ -105,9 +103,9 @@ def get_portchannel_for_eth_ports(rand_selected_dut, tbinfo):
 
     # Pick two distinct Ethernet ports with ptf indices
     eth_ports = list(mg_facts["minigraph_ptf_indices"].keys())
-    assert len(eth_ports) >= 3, "Need at least two Ethernet ports"
+    assert len(eth_ports) >= 3, "Need at least three Ethernet ports"
 
-    selected_ports = eth_ports[:3]  # Use the first two ports
+    selected_ports = eth_ports[:3]  # Use the first three ports
     result = []
 
     for eth_port in selected_ports:
@@ -131,7 +129,7 @@ def prepare_test_ports(get_portchannel_for_eth_ports):
     Each test_port is either a PortChannel or Ethernet port, depending on availability.
     """
     ports = get_portchannel_for_eth_ports
-    assert len(ports) == 3, "Expected exactly two test ports"
+    assert len(ports) == 3, "Expected exactly three test ports"
 
     eth1, pc1, ptf1 = ports[1]
     eth2, pc2, ptf2 = ports[2]
@@ -147,9 +145,37 @@ def prepare_test_ports(get_portchannel_for_eth_ports):
     return ptf1, ptf2, test_port_1, test_port_2
 
 
-def setup_acl_table(duthost, prepare_test_ports):
-    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
-    ports = [dut_port_1, dut_port_2]
+
+@pytest.fixture(scope='module')
+def get_all_bindable_ports(rand_selected_dut, tbinfo):
+    """
+    Returns a list of all Ethernet ports and PortChannels that can be bound to the ACL table.
+    Avoids duplicate binding by preferring PortChannels over member Ethernet ports.
+    """
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+
+    eth_ports = set(mg_facts["minigraph_interfaces"].keys())
+    portchannels = mg_facts["minigraph_portchannels"]
+    pc_names = []
+    eth_in_pc = set()
+
+    for pc_name, pc_data in portchannels.items():
+        pc_names.append(pc_name)
+        eth_in_pc.update(pc_data["members"])
+
+    # Exclude Ethernet members already part of a PortChannel
+    standalone_eth_ports = eth_ports - eth_in_pc
+    bind_ports = pc_names + list(standalone_eth_ports)
+
+    logger.info("Bindable ports for ACL table:")
+    for port in bind_ports:
+        logger.info("  %s", port)
+
+    return bind_ports
+
+
+def setup_acl_table(duthost, get_all_bindable_ports):
+    ports = get_all_bindable_ports
     duthost.shell(f"config acl remove table {ACL_TABLE_NAME}", module_ignore_errors=True)
 
     cmd = "config acl add table {} {} -s {} -p {}".format(
@@ -186,29 +212,48 @@ def remove_acl_table(duthost):
 
 
 def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
-    extra_vars = {
-        'table_name': ACL_TABLE_NAME,
-        'vni': vni,
-        'inner_src_ip': inner_src_ip,
-        'new_src_mac': new_src_mac
+    acl_rule = {
+        "ACL_RULE": {
+            f"{ACL_TABLE_NAME}|rule_1": {
+                "priority": "1005",
+                "TUNNEL_VNI": vni,
+                "INNER_SRC_IP": inner_src_ip,
+                "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
+            }
         }
+    }
+    # Convert to JSON string
+    acl_rule_json = json.dumps(acl_rule, indent=4)
     dest_path = os.path.join(TMP_DIR, ACL_RULES_FILE)
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    duthost.file(path=dest_path, state='absent')
-    duthost.template(src=os.path.join(TEMPLATES_DIR, ACL_ADD_RULES_FILE), dest=dest_path)
-    logger.info("Creating ACL rule matching src_ip {}".format(inner_src_ip))
-    duthost.shell("config load -y {}".format(dest_path))
 
-    logger.info("Waiting for ACL rule to be applied")
+    logger.info("Writing ACL rule to %s:\n%s", dest_path, acl_rule_json)
+    duthost.copy(content=acl_rule_json, dest=dest_path)
 
+    logger.info("Loading ACL rule from %s", dest_path)
+    duthost.shell(f"config load -y {dest_path}")
+
+    logger.info("Waiting for ACL rule to be applied...")
     time.sleep(5)
 
-    logger.info("Waiting for ACL rule to become active...")
+    logger.info("Verifying ACL rule installation with 'show acl rule'")
     output = duthost.shell("show acl rule")["stdout"]
     logger.info("ACL rule dump:\n%s", output)
 
+    # === STATE_DB verification ===
+    logger.info("Verifying ACL rule presence in STATE_DB...")
+    state_db_key = f"ACL_RULE_TABLE:{ACL_TABLE_NAME}|rule_1"
+    db_cmd = f"redis-cli -n 6 HGETALL \"{state_db_key}\""
+    state_db_output = duthost.shell(db_cmd)["stdout"]
+
+    logger.info("STATE_DB entry for ACL rule:\n%s", state_db_output)
+    pytest_assert("TUNNEL_VNI" in state_db_output and vni in state_db_output, "TUNNEL_VNI not found in STATE_DB")
+    pytest_assert("INNER_SRC_IP" in state_db_output and inner_src_ip in state_db_output, "INNER_SRC_IP not found in STATE_DB")
+    pytest_assert("INNER_SRC_MAC_REWRITE_ACTION" in state_db_output and new_src_mac in state_db_output, "MAC rewrite action missing in STATE_DB")
+
+    # === COUNTERS check ===
     if duthost.facts['asic_type'] != 'vs':
-        pytest_assert(wait_until(60, 2, 0, check_rule_counters, duthost), "Acl rule counters are not ready")
+        logger.info("Waiting for ACL rule counters to become ready...")
+        pytest_assert(wait_until(60, 2, 0, check_rule_counters, duthost), "ACL rule counters are not ready")
 
 
 def remove_acl_rules(self, duthost):
@@ -217,8 +262,17 @@ def remove_acl_rules(self, duthost):
     duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
     time.sleep(5)
 
+    # === STATE_DB Deletion Check ===
+    logger.info("Checking STATE_DB to confirm ACL rule deletion...")
+    state_db_key = f"ACL_RULE_TABLE:{ACL_TABLE_NAME}|rule_1"
+    db_cmd = f"redis-cli -n 6 EXISTS \"{state_db_key}\""
+    exists_output = duthost.shell(db_cmd)["stdout"]
 
-def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
+    logger.info(f"STATE_DB EXISTS check for {state_db_key}: {exists_output}")
+    pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
+
+
+def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports):
     # Define test parameters
     inner_dst_ip = "192.168.0.2"
     inner_src_ip = "192.168.0.1"
@@ -226,27 +280,31 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
     original_inner_src_mac = "00:66:77:88:99:aa"
     modified_inner_src_mac = "00:11:22:33:44:55"
     outer_src_mac = "00:11:22:33:44:66"
-    outer_dst_mac = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
+    outer_dst_mac = duthost.facts['router_mac']  # MAC address should be router_mac
     outer_src_ip = "10.1.1.1"
     outer_dst_ip = "20.1.1.1"
     table_name = ACL_TABLE_NAME
     RULE_1 = 'rule_1'
 
-    ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
+    setup_acl_table(duthost, get_all_bindable_ports)
+    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     setup_acl_rules(duthost, inner_src_ip, vni_id, modified_inner_src_mac)
-    # Create VXLAN-encapsulated packet sent by server
-    inner_pkt = testutils.simple_udp_packet(
-            eth_dst=duthost.facts['router_mac'],
-            eth_src=original_inner_src_mac,
-            ip_src=inner_src_ip,
-            ip_dst=inner_dst_ip,
-            ip_id=0,
-            ip_ihl=5,
-            udp_sport=1234,
-            udp_dport=4321,
-            ip_ttl=121)
-    pkt = testutils.simple_vxlan_packet(
+
+    # Build expected inner packet with modified inner src MAC
+    expected_inner_pkt = testutils.simple_udp_packet(
+        eth_dst=duthost.facts['router_mac'],
+        eth_src=modified_inner_src_mac,
+        ip_src=inner_src_ip,
+        ip_dst=inner_dst_ip,
+        ip_id=0,
+        ip_ihl=5,
+        udp_sport=1234,
+        udp_dport=4321,
+        ip_ttl=121
+    )
+
+    expected_pkt = testutils.simple_vxlan_packet(
         eth_dst=outer_dst_mac,
         eth_src=outer_src_mac,
         ip_src=outer_src_ip,
@@ -254,40 +312,49 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_port):
         udp_sport=1234,
         udp_dport=4789,
         vxlan_vni=vni_id,
-        inner_frame=inner_pkt
+        inner_frame=expected_inner_pkt
     )
 
-    expected_pkt = mask.Mask(pkt)
+    masked_expected_pkt = mask.Mask(expected_pkt)
+    masked_expected_pkt.set_do_not_care_scapy(Ether, 'dst')
+    masked_expected_pkt.set_do_not_care_scapy(Ether, 'src')
 
-    # Mask outer Ethernet
-    expected_pkt.set_do_not_care_scapy(Ether, 'dst')
-    expected_pkt.set_do_not_care_scapy(Ether, 'src')
+    # Build original packet to send
+    input_inner_pkt = testutils.simple_udp_packet(
+        eth_dst=duthost.facts['router_mac'],
+        eth_src=original_inner_src_mac,
+        ip_src=inner_src_ip,
+        ip_dst=inner_dst_ip,
+        ip_id=0,
+        ip_ihl=5,
+        udp_sport=1234,
+        udp_dport=4321,
+        ip_ttl=121
+    )
+
+    input_pkt = testutils.simple_vxlan_packet(
+        eth_dst=outer_dst_mac,
+        eth_src=outer_src_mac,
+        ip_src=outer_src_ip,
+        ip_dst=outer_dst_ip,
+        udp_sport=1234,
+        udp_dport=4789,
+        vxlan_vni=vni_id,
+        inner_frame=input_inner_pkt
+    )
 
     count_before = get_acl_counter(duthost, table_name, RULE_1, timeout=0)
-    # Send packet from server into the DUT
-    testutils.send(ptfadapter, ptf_src_port, pkt)
-    time.sleep(2)
-    result = testutils.dp_poll(ptfadapter, exp_pkt=expected_pkt, port_number=ptf_src_port, timeout=2)
+
+    logger.info("Sending original packet with inner src MAC: %s", original_inner_src_mac)
+    testutils.send(ptfadapter, ptf_port_1, input_pkt)
+
+    testutils.verify_packet(ptfadapter, masked_expected_pkt, ptf_port_2)
+
     count_after = get_acl_counter(duthost, table_name, RULE_1)
+    logger.info("Verify ACL counter incremented: before=%s, after=%s", count_before, count_after)
 
-    logger.info("Verify Acl counter incremented {} > {}".format(count_after, count_before))
     pytest_assert(count_after >= count_before + 1,
-                  "Unexpected results, counter_after {} > counter_before {}"
-                  .format(count_after, count_before))
-
-    # Check and extract inner source MAC
-    if result:
-        actual_pkt = scapy.Ether(result.packet)
-
-        # Get the second Ethernet header (inner Ethernet)
-        inner_eth = actual_pkt.getlayer(scapy.Ether, 1)
-        inner_src_mac = inner_eth.src if inner_eth else None
-
-        logger.info("Inner source MAC: {inner_src_mac}")
-
-        assert inner_src_mac == modified_inner_src_mac, f"Expected {modified_inner_src_mac},got {inner_src_mac}"
-    else:
-        assert False, "No packet received on port 0"
+                  f"Expected ACL counter increment, but saw before={count_before}, after={count_after}")
 
     remove_acl_rules(duthost)
     remove_acl_table(duthost)
