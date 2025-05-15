@@ -4,6 +4,7 @@ import random
 from ptf.base_tests import BaseTest
 import time
 from ptf.testutils import test_params_get, simple_udp_packet, send_packet
+import macsec  # noqa F401
 
 
 class PfcWdBackgroundTrafficTest(BaseTest):
