@@ -270,7 +270,7 @@ class MacsecPluginT2(MacsecPlugin):
         return ctrl_nbr_names
 
     def downstream_neighbor(self,tbinfo, neighbor):
-        if ("t2" in tbinfo["topo"]["type"] and "T1" in neighbor["name"]):
+        if ("t2" in tbinfo["topo"]["type"] and ("T1" in neighbor["name"] or "LT2" in neighbor["name"])):
             return True
         return False
 

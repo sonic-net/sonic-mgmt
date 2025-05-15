@@ -32,47 +32,47 @@ topology:
       vlans:
         - 7
       vm_offset: 7
-    ARISTA21T1:
+    ARISTA21LT2:
       vlans:
         - 8
       vm_offset: 8
-    ARISTA22T1:
+    ARISTA22LT2:
       vlans:
         - 9
         - 10
       vm_offset: 9
-    ARISTA24T1:
+    ARISTA24LT2:
       vlans:
         - 11
         - 12
       vm_offset: 10
-    ARISTA26T1:
+    ARISTA26LT2:
       vlans:
         - 13
         - 14
       vm_offset: 11
-    ARISTA28T1:
+    ARISTA28LT2:
       vlans:
         - 15
         - 16
       vm_offset: 12
-    ARISTA30T1:
+    ARISTA30LT2:
       vlans:
         - 17
       vm_offset: 13
-    ARISTA31T1:
+    ARISTA31LT2:
       vlans:
         - 18
       vm_offset: 14
-    ARISTA32T1:
+    ARISTA32LT2:
       vlans:
         - 19
       vm_offset: 15
-    ARISTA33T1:
+    ARISTA33LT2:
       vlans:
         - 20
       vm_offset: 16
-    ARISTA34T1:
+    ARISTA34LT2:
       vlans:
         - 21
       vm_offset: 17
@@ -112,11 +112,11 @@ topology:
         - 32
         - 33
       vm_offset: 25
-    ARISTA35T1:
+    ARISTA35LT2:
       vlans:
         - 34
       vm_offset: 26
-    ARISTA36T1:
+    ARISTA36LT2:
       vlans:
         - 35
       vm_offset: 27
@@ -136,7 +136,7 @@ configuration_properties:
     max_tor_subnet_number: 32
     tor_subnet_size: 128
     dut_asn: 65100
-    dut_type: SpineRouter
+    dut_type: UpperSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
   core:
@@ -321,7 +321,7 @@ configuration:
       ipv4: 10.10.246.9/24
       ipv6: fc0a::10/64
 
-  ARISTA21T1:
+  ARISTA21LT2:
     properties:
       - common
       - leaf
@@ -342,7 +342,7 @@ configuration:
       ipv4: 10.10.246.101/24
       ipv6: fc0a::64/64
 
-  ARISTA22T1:
+  ARISTA22LT2:
     properties:
       - common
       - leaf
@@ -367,7 +367,7 @@ configuration:
       ipv4: 10.10.246.103/24
       ipv6: fc0a::66/64
 
-  ARISTA24T1:
+  ARISTA24LT2:
     properties:
       - common
       - leaf
@@ -392,7 +392,7 @@ configuration:
       ipv4: 10.10.246.107/24
       ipv6: fc0a::6a/64
 
-  ARISTA26T1:
+  ARISTA26LT2:
     properties:
       - common
       - leaf
@@ -418,7 +418,7 @@ configuration:
       ipv4: 10.10.246.111/24
       ipv6: fc0a::6e/64
 
-  ARISTA28T1:
+  ARISTA28LT2:
     properties:
       - common
       - leaf
@@ -443,7 +443,7 @@ configuration:
       ipv4: 10.10.246.115/24
       ipv6: fc0a::72/64
 
-  ARISTA30T1:
+  ARISTA30LT2:
     properties:
       - common
       - leaf
@@ -464,7 +464,7 @@ configuration:
       ipv4: 10.10.246.119/24
       ipv6: fc0a::76/64
 
-  ARISTA31T1:
+  ARISTA31LT2:
     properties:
       - common
       - leaf
@@ -485,7 +485,7 @@ configuration:
       ipv4: 10.10.246.120/24
       ipv6: fc0a::78/64
 
-  ARISTA32T1:
+  ARISTA32LT2:
     properties:
       - common
       - leaf
@@ -506,7 +506,7 @@ configuration:
       ipv4: 10.10.246.121/24
       ipv6: fc0a::7a/64
 
-  ARISTA33T1:
+  ARISTA33LT2:
     properties:
       - common
       - leaf
@@ -527,7 +527,7 @@ configuration:
       ipv4: 10.10.246.122/24
       ipv6: fc0a::7c/64
 
-  ARISTA34T1:
+  ARISTA34LT2:
     properties:
       - common
       - leaf
@@ -732,7 +732,7 @@ configuration:
       ipv4: 10.10.246.20/24
       ipv6: fc0a::26/64
 
-  ARISTA35T1:
+  ARISTA35LT2:
     properties:
       - common
       - leaf
@@ -753,7 +753,7 @@ configuration:
       ipv4: 10.10.246.124/24
       ipv6: fc0a::80/64
 
-  ARISTA36T1:
+  ARISTA36LT2:
     properties:
       - common
       - leaf
