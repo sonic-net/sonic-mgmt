@@ -251,7 +251,14 @@ MGMT:
       #- snmp/test_snmp_link_local.py
       - tacacs/test_authorization.py
       - tacacs/test_ro_disk.py
-    
+      - restapi/test_restapi.py
+      - restapi/test_restapi_vxlan_ecmp.py
+      - console/test_console_availability.py
+      - console/test_console_driver.py
+      - console/test_console_loopback.py
+      - console/test_console_reversessh.py
+      - console/test_console_udevrule.py
+
 L2:
   t0-64:
     all_pids:
