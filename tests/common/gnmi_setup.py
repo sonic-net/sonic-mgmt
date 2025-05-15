@@ -21,7 +21,7 @@ from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   #
 
 logger = logging.getLogger(__name__)
 
-# Wait 15 seconds after starting GNMI server
+# Wait time in seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 5
 
 
