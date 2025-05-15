@@ -83,6 +83,34 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         host.command("lldpcli configure system bond-slave-src-mac-type real")
 
 
+def is_macsec_configured(host, mac_profile, ctrl_links):
+    is_profile_present = False
+    is_port_profile_present = False
+    profile_name = mac_profile['name']
+
+    # Check macsec profile is configured in all namespaces
+    if host.is_multi_asic:
+        for ns in host.get_asic_namespace_list():
+            CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
+            cmd = "sonic-db-cli {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            output = host.command(cmd)['stdout'].strip()
+            profile = output.split('|')[1] if output else None
+            is_profile_present = (profile == profile_name)
+    else:
+        cmd = "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
+        output = host.command(cmd)['stdout'].strip()
+        profile = output.split('|')[1] if output else None
+        is_profile_present = (profile == profile_name)
+
+    # Check if macsec profile is configured on interfaces
+    for port, nbr in ctrl_links.items():
+        cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(getns_prefix(host, port), port)
+        output = host.command(cmd)['stdout'].strip()
+        is_port_profile_present = (output == profile_name)
+
+    return is_profile_present and is_port_profile_present
+
+
 def delete_macsec_profile(host, port, profile_name):
     if isinstance(host, EosHost):
         host.eos_config(
