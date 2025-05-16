@@ -40,7 +40,7 @@ def cfg_facts(duthosts, selected_dut_hostname, selected_asic_index):
     return duthost.config_facts(host=duthost.hostname, source="persistent", namespace=asic_namespace)['ansible_facts']
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthosts, selected_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202111
 
@@ -55,7 +55,7 @@ def check_image_version(duthosts, selected_dut_hostname):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def reset_and_restore_test_environment(duthosts, selected_dut_hostname):
     """Reset and restore test env if initial Config cannot pass Yang
 
@@ -93,7 +93,7 @@ def reset_and_restore_test_environment(duthosts, selected_dut_hostname):
         config_reload(duthost)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def verify_configdb_with_empty_input(duthosts, selected_dut_hostname):
     """Fail immediately if empty input test failure
 
