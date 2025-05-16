@@ -45,9 +45,10 @@ def test_k8s_cleanup(duthosts, rand_one_dut_hostname, containers):
     exec_watchdog_cmd = f"docker exec {CLEANUP_CONTAINER_NAME} /watchdog.sh"
     exec_watchdog_status = duthost.shell(exec_watchdog_cmd, module_ignore_errors=True)
     if exec_watchdog_status["rc"] != 0:
-        pytest.fail("Kubesonic cleanup container watchdog script exited with non-zero status")
+        pytest.fail("Kubesonic watchdog script exited with non-zero code: {}".format(
+            exec_watchdog_status["rc"]))
     else:
-        logger.info("Kubesonic cleanup container watchdog script executed successfully")
+        logger.info("Kubesonic watchdog script executed successfully")
 
     # Check if the syslog contains the expected message
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="kubesonic_cleanup_test")
@@ -58,16 +59,18 @@ def test_k8s_cleanup(duthosts, rand_one_dut_hostname, containers):
         exec_cleanup_script_cmd = f"docker exec {CLEANUP_CONTAINER_NAME} /image_cleanup.sh"
         exec_cleanup_script_status = duthost.shell(exec_cleanup_script_cmd, module_ignore_errors=True)
         if exec_cleanup_script_status["rc"] != 0:
-            pytest.fail("Kubesonic cleanup container cleanup script exited with non-zero status")
+            pytest.fail("Kubesonic cleanup script exited with non-zero code: {}".format(
+                exec_cleanup_script_status["rc"]))
         else:
-            logger.info("Kubesonic cleanup container cleanup script executed successfully")
+            logger.info("Kubesonic cleanup script executed successfully")
 
         exec_report_disk_size_cmd = f"docker exec {CLEANUP_CONTAINER_NAME} /report_disk_size.sh"
         exec_report_disk_size_status = duthost.shell(exec_report_disk_size_cmd, module_ignore_errors=True)
         if exec_report_disk_size_status["rc"] != 0:
-            pytest.fail("Kubesonic cleanup container report disk size script exited with non-zero status")
+            pytest.fail("Kubesonic report disk size script exited with non-zero code: {}".format(
+                exec_report_disk_size_status["rc"]))
         else:
-            logger.info("Kubesonic cleanup container report disk size script executed successfully")
+            logger.info("Kubesonic report disk size script executed successfully")
 
         loganalyzer_summary = loganalyzer.analyze(marker, fail=False)
         if loganalyzer_summary["total"]["match"] != 0:
