@@ -2493,7 +2493,7 @@
   ptf_ip: 10.212.65.60/24
   ptf_ipv6: 2603:10e2:140:3000::12b/122
   server: server_tk5_4
-  vm_base: VM54084
+  vm_base: VM54000
   dut:
   - strtk5-7260-01
   inv_name: strtk5
@@ -3512,24 +3512,6 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: bjw2-can-dual-t0-8101-1
-  group-name: bjw2-5-8
-  topo: dualtor-aa
-  ptf_image_name: docker-ptf
-  ptf: bjw2-5-8
-  ptf_ip: 10.150.23.104/23
-  ptf_ipv6: 2404:f801:10:2200::a96:1768/52
-  ptf_extra_mgmt_ip: ["172.16.188.104/17"]
-  netns_mgmt_ip: 10.150.23.47/23
-  server: server_bjw2_5
-  vm_base: VM85119
-  dut:
-    - bjw2-can-8101-3
-    - bjw2-can-8101-4
-  inv_name: bjw2
-  auto_recover: 'True'
-  comment: Beijing Lab
-
 - conf-name: testbed-bjw2-can-t1-8102-1
   group-name: bjw2-3-4
   topo: t1-64-lag
@@ -3943,7 +3925,7 @@
   auto_recover: 'True'
   comment: zitingguo
 
-- conf-name: vms18-dual-t0-8101-01
+- conf-name: vms18-dual-t0-8101c1-01
   group-name: vms18-3
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
@@ -3954,8 +3936,8 @@
   server: server_18
   vm_base: VM18024
   dut:
-  - str2-8101-01
-  - str2-8101-02
+  - str2-8101c1-01
+  - str2-8101c1-02
   inv_name: str2
   auto_recover: 'True'
   comment: yawenni
@@ -4023,7 +4005,7 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms29-dual-t0-8101-02
+- conf-name: vms29-dual-t0-8101c1-02
   group-name: vms29-1
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
@@ -4034,8 +4016,8 @@
   server: server_29
   vm_base: VM29000
   dut:
-  - str2-8101-03
-  - str2-8101-04
+  - str2-8101c1-03
+  - str2-8101c1-04
   inv_name: str2
   auto_recover: 'True'
   comment: yawenni
@@ -4263,7 +4245,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.134/17
 
-- conf-name: vms66-dual-t0-8101-03
+- conf-name: vms66-dual-t0-8101c1-03
   group-name: vms66-7
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
@@ -4274,8 +4256,8 @@
   server: server_66
   vm_base: VM66024
   dut:
-  - str3-8101-03
-  - str3-8101-04
+  - str3-8101c1-05
+  - str3-8101c1-06
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni

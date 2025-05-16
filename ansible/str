@@ -405,7 +405,7 @@ sonic_arista_40:
 sonic_mlnx_40:
   hosts:
     str-msn2700-01:
-      hwsku: Mellanox-SN2700-A1
+      hwsku: Mellanox-SN2700
       ansible_host: 10.3.146.215
       ansible_hostv6: 2a01:111:e210:3000::a03:92d7
       mgmt_subnet_mask_length: 24
@@ -425,7 +425,7 @@ sonic_mlnx_40:
         "0x2B": "Mellanox"
         "0xFE": "0x02012007"
     str-msn2700-02:
-      hwsku: Mellanox-SN2700-A1
+      hwsku: Mellanox-SN2700
       ansible_host: 10.3.146.163
       ansible_hostv6: 2a01:111:e210:3000::a03:92a3
       model: MSN2700-CS2R2OS
@@ -463,7 +463,7 @@ sonic_mlnx_40:
         "0x2B": "Mellanox"
         "0xFE": "0xA394E79E"
   vars:
-    hwsku: Mellanox-SN2700-A1
+    hwsku: Mellanox-SN2700
     iface_speed: 100000
     msft_an_enabled: True
 
@@ -666,7 +666,7 @@ fanout:
   hosts:
     str-7260cx3-11:
       ansible_host: 10.3.146.223
-      ansible_hostv6: 
+      ansible_hostv6:
     str-7260-08:
       ansible_host: 10.3.146.91
       ansible_hostv6: 2a01:111:e210:3000::a03:925b

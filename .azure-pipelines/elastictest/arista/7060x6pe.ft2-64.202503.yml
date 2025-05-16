@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 4 * * 1,3,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -18,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7250-1"
+    default: "vms71-ft2-7060x6-7"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -31,12 +39,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_DNX_CHASSIS)
+    default: $(IMAGE_BRCM_ABOOT_202503)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: voq_qual/internal-202405-chassis
+    default: internal-202503-chassis
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -47,56 +55,28 @@ parameters:
   - name: FEATURES
     type: string
     default: " "
-    values:
-      - " "
-      - "copp,decap,everflow,fib,ipfwd"
-      - "arp,bgp,lldp,cacl"
-      - "snmp,syslog,telemetry,tacacs,ntp,show_techsupport,scp,gnmi"
-      - "platform_tests,system_health"
-      - "autorestart,container_checker,memory_checker,process_monitoring,monit"
-      - "route,ecmp,stress,crm,drop_packets"
-      - "acl"
-      - "qos,pfcwd"
-      - "macsec"
-      - "voq"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: ""
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
-  # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(BJW_SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
+    default: "--topology ft2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202503)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 8640
-
-  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
-  - name: RETRY_TIMES
-    type: string
-    default: "2"
-
-  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
-  - name: RETRY_CASES_INCLUDE
-    type: string
-    default: " "
-
-  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
-  - name: RETRY_CASES_EXCLUDE
-    type: string
-    default: " "
+    default: 3600
 
 stages:
 - stage: Test
@@ -106,7 +86,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7250.t2.202405.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.ft2-64.202503.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -124,6 +104,3 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
-        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
-        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}

@@ -9,6 +9,15 @@ import ipaddress
 import io
 
 
+ANSIBLE = "../"
+TESTBED = os.path.join(ANSIBLE, "testbed.yaml")
+VEOS = os.path.join(ANSIBLE, "veos")
+GROUP_VARS_ALL = os.path.join(ANSIBLE, "group_vars/all/")
+MUX_SIMULATOR_HTTP_PORT_MAP = os.path.join(GROUP_VARS_ALL, "mux_simulator_http_port_map.yml")
+NIC_SIMULATOR_GRPC_PORT_MAP = os.path.join(GROUP_VARS_ALL, "nic_simulator_grpc_port_map.yml")
+VARS = os.path.join(ANSIBLE, "vars/")
+
+
 def ip_interface_add(self, num):
     return ipaddress.ip_interface(str(self.ip + num) + "/" + str(self.network.prefixlen))
 
@@ -32,13 +41,25 @@ def merge_dict_recursive(self, other):
             self[key] = value
 
 
+def del_dict_recursive(self, other):
+    for key, value in other.items():
+        if key not in self:
+            raise Exception("Dict {} cannot be deleted from {}".format(other, self))
+        if type(value) == dict:
+            del_dict_recursive(self[key], value)
+            if len(self[key]) == 0:
+                del self[key]
+        else:
+            del self[key]
+
+
 def find_line_index(regex, lines):
     return filter(lambda item : re.match(regex, item[1]), enumerate(lines)).__next__()[0]
 
 
-def yaml_dump_lines(obj, indent=2):
+def yaml_dump_lines(obj, sort_keys=False, indent=2):
     with io.StringIO() as sio:
-        yaml.dump(obj, sio, sort_keys=False, indent=indent)
+        yaml.dump(obj, sio, sort_keys=sort_keys, indent=indent)
         sio.seek(0, 0)
         lines = sio.readlines()
     return lines
@@ -67,6 +88,54 @@ def is_mgmt_topo(topo):
     return any(map(lambda abbr : abbr in topo, ["m0", "mc0", "mx"]))
 
 
+testbed_key_order = ["conf-name", "group-name", "topo", "ptf_image_name", "ptf", "ptf_ip", "ptf_ipv6",
+                     "netns_mgmt_ip", "server", "vm_base", "dut", "inv_name", "auto_recover", "comment",
+                     "ptf_extra_mgmt_ip"]
+
+extract_key_regex = re.compile("^\s+(\S+):")
+
+def sort_key(line):
+    key = extract_key_regex.findall(line)[0]
+    if key.startswith("VM"):
+        return int(key[2:])
+    if key == "ansible_host":
+        return 4
+    if key == "ansible_hostv6":
+        return 6
+    return testbed_key_order.index(key)
+
+# yaml does not support customizing deserialize order
+# so we have to do that ourself
+# we expect input to be something like
+# - key1: 3
+#   key2: 5
+#   key3:
+#    - 4
+def sort_yaml_lines(lines):
+    if not lines:
+        return lines
+    startswith_dash = lines[0].startswith("- ")
+    if startswith_dash:
+        lines[0] = " " + lines[0][1:]
+    merged_lines = []
+    for line in lines:
+        if extract_key_regex.match(line):
+            merged_lines.append(line)
+        else:
+            if merged_lines:
+                merged_lines[-1] = merged_lines[-1] + line
+            else:
+                raise Exception("Line {} is not expected".format(line))
+    sorted_lines = sorted(merged_lines, key=sort_key)
+    if startswith_dash:
+        sorted_lines[0] = "-" + sorted_lines[0][1:]
+    return sorted_lines
+
+
+def ip_intf_to_addr(ip_intf):
+    return str(ipaddress.ip_interface(ip_intf).ip)
+
+
 class InvSpecific(ABC):
 
     def register_data(self, testbeds, veos_config, inv_file):
@@ -83,11 +152,14 @@ class InvSpecific(ABC):
     def filter_testbeds_in_inv(self):
         return filter(lambda testbed : "inv_name" in testbed and testbed["inv_name"] == self.inv, self.testbeds)
 
+    def filter_testbeds_in_server(self, server):
+        return filter(lambda testbed : testbed["server"] == server, self.filter_testbeds_in_inv())
+
     def testbed_in_inv(self, testbed_name):
         return any(map(lambda testbed : testbed["conf-name"] == testbed_name, self.filter_testbeds_in_inv()))
 
     def testbed_in_server(self, testbed_name, server):
-        return any(map(lambda testbed : testbed["server"] == server and testbed["conf-name"] == testbed_name, self.filter_testbeds_in_inv()))
+        return any(map(lambda testbed : testbed["conf-name"] == testbed_name, self.filter_testbeds_in_server(server)))
 
     def allocate_server(self, vm_required):
         for server, server_config in self.filter_servers_in_inv():
@@ -98,7 +170,9 @@ class InvSpecific(ABC):
                 num_vm = len(vm_hosts)
                 if num_vm + vm_required > self.get_max_vm_for_server(server):
                     continue
-                if num_vm == 1:
+                if num_vm == 0:
+                    raise Exception("Please put in base VM for server {}".format(server))
+                elif num_vm == 1:
                     vm_base = vm_hosts.keys().__iter__().__next__()
                     vm_base_ip = vm_hosts[vm_base]["ansible_host"]
                 else:
@@ -201,10 +275,7 @@ class BJW(InvSpecific):
             group = self.__increment_group(max(ptf_host_names_in_server))
         else:
             group = ptf_name_prefix + "1"
-        # assume there is at least on ptf already, otherwise we don't know where the ip should start
-        ansible_host = max(map(lambda val : ipaddress.ip_address(val["ansible_host"]), ptf_hosts.values())) + 1
-        ansible_hostv6 = max(map(lambda val : ipaddress.ip_address(val["ansible_hostv6"]), ptf_hosts.values())) + 1
-        return group, str(ansible_host), str(ansible_hostv6)
+        return group
 
     def get_extra_vars(self, **kwargs):
         ptf_extra_mgmt_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_extra_mgmt_ip"][0]), self.filter_testbeds_in_inv())) + 1)
@@ -234,28 +305,40 @@ class GenTestbeds:
         self.__inv_specific.register_data(self.__testbeds, self.__veos_config, self.__inv_file)
 
     def __load_data(self):
-        with open("../testbed.yaml") as f:
+        with open(TESTBED) as f:
             self.__testbeds = yaml.safe_load(f)
-        with open("../veos") as f:
+        with open(VEOS) as f:
             self.__veos_config = yaml.safe_load(f)
-        with open("../{}".format(self.inv)) as f:
+        with open(os.path.join(ANSIBLE, self.inv)) as f:
             self.__inv_file = yaml.safe_load(f)
-        if os.path.exists("../group_vars/all/mux_simulator_http_port_map.yml"):
-            with open("../group_vars/all/mux_simulator_http_port_map.yml") as f:
+        if os.path.exists(MUX_SIMULATOR_HTTP_PORT_MAP):
+            with open(MUX_SIMULATOR_HTTP_PORT_MAP) as f:
                 self.__mux_simulator_http_port_map = yaml.safe_load(f)
         else:
             self.__mux_simulator_http_port_map = {"mux_simulator_http_port": {}}
+        if os.path.exists(NIC_SIMULATOR_GRPC_PORT_MAP):
+            with open(NIC_SIMULATOR_GRPC_PORT_MAP) as f:
+                self.__nic_simulator_grpc_port_map = yaml.safe_load(f)
+        else:
+            self.__nic_simulator_grpc_port_map = {"nic_simulator_grpc_port": {}}
 
     def __reset_cache(self):
+        self.__topo_vm = {}
         self.__new_testbeds = []
         self.__new_veos_config = {}
         self.__new_inv_file = {}
         self.__new_extra_vars = {}
+        self.__old_testbeds = []
+        self.__old_veos_config = {}
+        self.__old_inv_file = {}
+        self.__old_extra_vars = {}
 
     def __get_vm_required(self, topo):
-        with open("../vars/topo_{}.yml".format(topo)) as f:
-            topo_vars = yaml.safe_load(f)
-        return len(topo_vars["topology"]["VMs"])
+        if topo not in self.__topo_vm:
+            with open(os.path.join(VARS, "topo_{}.yml".format(topo))) as f:
+                topo_vars = yaml.safe_load(f)
+            self.__topo_vm[topo] = len(topo_vars["topology"]["VMs"])
+        return self.__topo_vm[topo]
 
     def __get_topo_specific_extra_testbed_vars(self, topo):
         if topo == "dualtor-aa":
@@ -264,8 +347,10 @@ class GenTestbeds:
 
     def __get_mux_simulator_http_port_map_port(self, server):
         for _, value in self.__mux_simulator_http_port_map.items():
-            entries_in_inv = filter(lambda item : self.__inv_specific.testbed_in_inv(item[0]), value.items())
-            entries_in_server = filter(lambda item : self.__inv_specific.testbed_in_server(item[0], server), entries_in_inv)
+            entries_in_inv = filter(lambda item : self.__inv_specific.testbed_in_inv(item[0]),
+                                    value.items())
+            entries_in_server = filter(lambda item : self.__inv_specific.testbed_in_server(item[0], server),
+                                       entries_in_inv)
             ports_in_server = list(map(lambda item : item[1], entries_in_server))
             if ports_in_server:
                 return max(ports_in_server) + 2
@@ -275,53 +360,39 @@ class GenTestbeds:
     def __get_topo_specific_extra_vars(self, topo, server, testbed_name):
         extra_vars = {}
         if "dualtor" in topo:
-            extra_vars["../group_vars/all/mux_simulator_http_port_map.yml"] = {
+            extra_vars[MUX_SIMULATOR_HTTP_PORT_MAP] = {
                     "mux_simulator_http_port": {
                         testbed_name: self.__get_mux_simulator_http_port_map_port(server),
                         },
                     }
         if "dualtor-aa" in topo:
-            extra_vars["../group_vars/all/nic_simulator_grpc_port_map.yml"] = {
+            extra_vars[NIC_SIMULATOR_GRPC_PORT_MAP] = {
                     "nic_simulator_grpc_port": {
                         testbed_name: 50075,
                         }
                     }
         return extra_vars
 
-    def __gen_testbed_info(self, topo, duts):
-        conf_name = self.__inv_specific.gen_testbed_name(topo, duts)
+    # we already have a prefilled testbed
+    # we keep the name, topo, ptf ip and some others
+    def __gen_testbed_info_from_testbed(self, testbed):
+        conf_name = testbed["conf-name"]
+        topo = testbed["topo"]
         server, server_child, vm_base, new_vm_hosts = self.__inv_specific.allocate_server(self.__get_vm_required(topo))
-        group, ansible_host, ansible_hostv6 = self.__inv_specific.allocate_group(server)
-        ptf_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ip"]), self.__inv_specific.filter_testbeds_in_network())) + 1)
-        ptf_ipv6 = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ipv6"]), self.__inv_specific.filter_testbeds_in_network())) + 1)
-        inv_specific_extra_vars = self.__inv_specific.get_extra_vars()
-        topo_specific_extra_testbed_vars = self.__get_topo_specific_extra_testbed_vars(topo)
-        comment = self.__inv_specific.comment()
-        new_testbed = {
-            "conf-name": conf_name,
-            "group-name": group,
-            "topo": topo,
-            "ptf_image_name": "docker-ptf",
-            "ptf": group,
-            "ptf_ip": ptf_ip,
-            "ptf_ipv6": ptf_ipv6,
-            "server": server,
-            "vm_base": vm_base,
-            "dut": duts,
-            "inv_name": self.inv,
-            "auto_recover": "True",
-            "comment": comment,
-            }
-        new_testbed.update(inv_specific_extra_vars)
-        new_testbed.update(topo_specific_extra_testbed_vars)
+        group = self.__inv_specific.allocate_group(server)
+        new_testbed = dict(testbed)
+        new_testbed["group-name"] = group
+        new_testbed["ptf"] = group
+        new_testbed["server"] = server
+        new_testbed["vm_base"] = vm_base
         new_ptf_host = {
                 "all": {
                     "children": {
                         "ptf": {
                             "hosts": {
                                 group: {
-                                    "ansible_host": ansible_host,
-                                    "ansible_hostv6": ansible_hostv6,
+                                    "ansible_host": ip_intf_to_addr(new_testbed["ptf_ip"]),
+                                    "ansible_hostv6": ip_intf_to_addr(new_testbed["ptf_ipv6"]),
                                     }
                                 }
                             }
@@ -331,7 +402,31 @@ class GenTestbeds:
         topo_specific_extra_vars = self.__get_topo_specific_extra_vars(topo, server, conf_name)
         return new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars
 
-    def __update_all_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+    def __gen_testbed_info(self, topo, duts):
+        conf_name = self.__inv_specific.gen_testbed_name(topo, duts)
+        ptf_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ip"]),
+                             self.__inv_specific.filter_testbeds_in_network())) + 1)
+        ptf_ipv6 = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ipv6"]),
+                               self.__inv_specific.filter_testbeds_in_network())) + 1)
+        inv_specific_extra_vars = self.__inv_specific.get_extra_vars()
+        topo_specific_extra_testbed_vars = self.__get_topo_specific_extra_testbed_vars(topo)
+        comment = self.__inv_specific.comment()
+        new_testbed = {
+            "conf-name": conf_name,
+            "topo": topo,
+            "ptf_image_name": "docker-ptf",
+            "ptf_ip": ptf_ip,
+            "ptf_ipv6": ptf_ipv6,
+            "dut": duts,
+            "inv_name": self.inv,
+            "auto_recover": "True",
+            "comment": comment,
+            }
+        new_testbed.update(inv_specific_extra_vars)
+        new_testbed.update(topo_specific_extra_testbed_vars)
+        return self.__gen_testbed_info_from_testbed(new_testbed)
+
+    def __add_all_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
         self.__testbeds.append(new_testbed)
         merge_dict_recursive(self.__veos_config, new_vm_hosts)
         merge_dict_recursive(self.__inv_file, new_ptf_host)
@@ -339,61 +434,258 @@ class GenTestbeds:
             if file_name == "../group_vars/all/mux_simulator_http_port_map.yml":
                 self.__mux_simulator_http_port_map["mux_simulator_http_port"].update(extra_vars["mux_simulator_http_port"])
             elif file_name == "../group_vars/all/nic_simulator_grpc_port_map.yml":
-                pass
+                self.__nic_simulator_grpc_port_map["nic_simulator_grpc_port"].update(extra_vars["nic_simulator_grpc_port"])
             else:
                 raise Exception("Unrecognized extra_vars file name {}".format(file_name))
 
-    def __update_incremental_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+    def __add_incremental_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
         self.__new_testbeds.append(new_testbed)
         merge_dict_recursive(self.__new_veos_config, new_vm_hosts)
         merge_dict_recursive(self.__new_inv_file, new_ptf_host)
         merge_dict_recursive(self.__new_extra_vars, topo_specific_extra_vars)
 
-    def __update_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
-        self.__update_all_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
-        self.__update_incremental_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+    def __add_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
+        self.__add_all_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+        self.__add_incremental_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
 
-    def add_testbed(self, topo, duts):
-        new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars = self.__gen_testbed_info(topo, duts)
-        self.__update_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
+    def __add_testbed(self, topo, duts):
+        new_testbed_info = self.__gen_testbed_info(topo, duts)
+        self.__add_testbed_info(*new_testbed_info)
+
+    def add_testbeds(self, topos, duts):
+        topos = topos.split(",")
+        duts = duts.split(",")
+        for topo in topos:
+            if "dual" in topo:
+                self.__add_testbed(topo, duts[:2])
+                duts = duts[2:]
+            else:
+                self.__add_testbed(topo, duts[:1])
+                duts = duts[1:]
+        yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_inv_file, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_extra_vars, sys.stdout, sort_keys=False)
+
+    def __add_testbeds_from_testbeds(self, testbeds):
+        for testbed in testbeds:
+            new_testbed_info = self.__gen_testbed_info_from_testbed(testbed)
+            self.__add_testbed_info(*new_testbed_info)
+        yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_inv_file, sys.stdout, sort_keys=False)
+        yaml.dump(self.__new_extra_vars, sys.stdout, sort_keys=False)
+
+    def __show_testbed_stats(self, testbeds, indent=0):
+        testbeds = list(testbeds)
+        total_testbeds = len(testbeds)
+        print("\t" * indent + "total_testbeds: {}".format(total_testbeds))
+        total_vm = sum(map(lambda testbed : self.__get_vm_required(testbed["topo"]), testbeds))
+        print("\t" * indent + "total_vm: {}".format(total_vm))
+        if total_vm == 0:
+            return
+        average_vm_per_testbed = total_vm / total_testbeds
+        print("\t" * indent + "average_vm_per_testbed: {}".format(average_vm_per_testbed))
+        sorted_testbeds = sorted(testbeds, key=lambda testbed : self.__get_vm_required(testbed["topo"]))
+        vm_in_testbeds = ", ".join(map(lambda testbed : "{}({})".format(testbed["conf-name"],
+                                                                        self.__get_vm_required(testbed["topo"])),
+                                       sorted_testbeds))
+        print("\t" * indent + "vm_in_testbeds: " + vm_in_testbeds)
+
+    def show_testbeds(self):
+        print("all testbeds in {}:".format(self.inv))
+        self.__show_testbed_stats(self.__inv_specific.filter_testbeds_in_inv(), indent=1)
+        for server, _ in self.__inv_specific.filter_servers_in_inv():
+            print("{}:".format(server))
+            self.__show_testbed_stats(self.__inv_specific.filter_testbeds_in_server(server), indent=1)
+
+    def __find_testbed_info(self, testbed_name):
+        testbed = filter(lambda testbed : testbed["conf-name"] == testbed_name, self.__testbeds).__next__()
+        vm_hosts = {}
+        for child, hosts in self.__veos_config.items():
+            if "hosts" not in hosts or testbed["vm_base"] not in hosts["hosts"]:
+                continue
+            sorted_hosts = sorted(hosts["hosts"].keys(), key=lambda host : int(host[2:]))
+            vm_base = testbed["vm_base"]
+            vm_base_index = sorted_hosts.index(vm_base)
+            sorted_hosts = sorted_hosts[vm_base_index: vm_base_index + self.__get_vm_required(testbed["topo"])]
+            vm_hosts[child] = {}
+            vm_hosts[child]["hosts"] = {host: dict(hosts["hosts"][host]) for host in sorted_hosts}
+            break
+        ptf_host = {
+                "all": {
+                    "children": {
+                        "ptf": {
+                            "hosts": {
+                                testbed["group-name"]: {
+                                    "ansible_host": ip_intf_to_addr(testbed["ptf_ip"]),
+                                    "ansible_hostv6": ip_intf_to_addr(testbed["ptf_ipv6"]),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+        extra_vars = {}
+        if testbed_name in self.__mux_simulator_http_port_map["mux_simulator_http_port"]:
+            value = self.__mux_simulator_http_port_map["mux_simulator_http_port"][testbed_name]
+            extra_vars[MUX_SIMULATOR_HTTP_PORT_MAP] = {"mux_simulator_http_port": {testbed_name: value}}
+        if testbed_name in self.__nic_simulator_grpc_port_map["nic_simulator_grpc_port"]:
+            value = self.__nic_simulator_grpc_port_map["nic_simulator_grpc_port"][testbed_name]
+            extra_vars[NIC_SIMULATOR_GRPC_PORT_MAP] = {"nic_simulator_grpc_port": {testbed_name: value}}
+        return testbed, vm_hosts, ptf_host, extra_vars
+
+    def __del_testbed_info(self, testbed, vm_hosts, ptf_host, extra_vars):
+        testbed_name = testbed["conf-name"]
+        self.__testbeds = list(filter(lambda testbed : testbed["conf-name"] == testbed_name, self.__testbeds))
+        del_dict_recursive(self.__veos_config, vm_hosts)
+        del_dict_recursive(self.__inv_file, ptf_host)
+        for file_name, content in extra_vars.items():
+            if file_name == MUX_SIMULATOR_HTTP_PORT_MAP:
+                del_dict_recursive(self.__mux_simulator_http_port_map, content)
+            if file_name == NIC_SIMULATOR_GRPC_PORT_MAP:
+                del_dict_recursive(self.__nic_simulator_grpc_port_map, content)
+        self.__old_testbeds.append(testbed)
+        merge_dict_recursive(self.__old_veos_config, vm_hosts)
+        merge_dict_recursive(self.__old_inv_file, ptf_host)
+        merge_dict_recursive(self.__old_extra_vars, extra_vars)
+
+    def __del_testbed(self, testbed_name):
+        testbed, vm_hosts, ptf_host, extra_vars = self.__find_testbed_info(testbed_name)
+        self.__del_testbed_info(testbed, vm_hosts, ptf_host, extra_vars)
+
+    def del_testbeds(self, testbed_names):
+        for testbed_name in testbed_names:
+            self.__del_testbed(testbed_name)
+        yaml.dump(self.__old_testbeds, sys.stdout, sort_keys=False)
+        yaml.dump(self.__old_veos_config, sys.stdout, sort_keys=False)
+        yaml.dump(self.__old_inv_file, sys.stdout, sort_keys=False)
+        yaml.dump(self.__old_extra_vars, sys.stdout, sort_keys=False)
+
+    def adjust_testbeds(self, testbed_names):
+        self.del_testbeds(testbed_names)
+        self.__add_testbeds_from_testbeds(self.__old_testbeds)
 
     def update_to_file(self):
-        with open("../testbed.yaml", "a+") as f:
-            for testbed in self.__new_testbeds:
-                f.write("\n")
-                yaml.dump([testbed], f, sort_keys=False)
-        with open("../veos", "r+") as f:
-            lines = f.readlines()
+        if self.__old_testbeds:
+            with open("../testbed.yaml", "r") as f:
+                lines = f.readlines()
+            # match via conf-name, then remove all following nonblank lines
+            for testbed in self.__old_testbeds:
+                testbed_name = testbed["conf-name"]
+                index = lines.index("- conf-name: {}\n".format(testbed_name))
+                end = index
+                while end < len(lines) and lines[end] != "\n":
+                    end = end + 1
+                lines = lines[:index] + lines[end + 1:]
+                while lines[-1] == "\n":
+                    lines = lines.pop()
+            with open("../testbed.yaml", "w") as f:
+                f.writelines(lines)
+        if self.__new_testbeds:
+            with open("../testbed.yaml", "a+") as f:
+                for testbed in self.__new_testbeds:
+                    f.write("\n")
+                    lines = yaml_dump_lines([testbed])
+                    lines = sort_yaml_lines(lines)
+                    f.writelines(lines)
+        if self.__old_veos_config:
+            with open("../veos", "r") as f:
+                lines = f.readlines()
+            # there are less surprises with vm, simply remove all
+            # matching lines regardless of order
+            for key, value in self.__old_veos_config.items():
+                old_lines = yaml_dump_lines({key: value})[2:]
+                old_lines = sort_yaml_lines(old_lines)
+                start_index = lines.index(key + ":\n") + 2
+                # same thing, if we are removing the first few vm, leave the
+                # first one as place holder
+                if lines[start_index] == old_lines[0]:
+                    start_index = start_index + 1
+                end_index = start_index
+                while end_index < len(lines) and lines[end_index] != "\n":
+                    end_index = end_index + 1
+                lines = lines[:start_index] + \
+                        list(filter(lambda line : line not in old_lines, lines[start_index:end_index])) + \
+                        lines[end_index:]
+            with open("../veos", "w") as f:
+                f.writelines(lines)
+        if self.__new_veos_config:
+            with open("../veos", "r") as f:
+                lines = f.readlines()
+            # new vm entries are always in order and we can directly added to the end
             for key, value in self.__new_veos_config.items():
-                new_lines = yaml_dump_lines({key: value})[2:]
+                new_lines = yaml_dump_lines({key: value}, sort_keys=True)[2:]
                 key_index = lines.index(key + ":\n")
+                # we have a starting vm in every server as a place holder
+                # if we are adding vm for the first time as override the starting
+                # place holder vm
                 if lines[key_index + 2] == new_lines[0]:
-                    lines = lines[key_index + 2:] + new_lines + lines[key_index + 4:]
+                    lines = lines[:key_index + 2] + new_lines + lines[key_index + 3:]
                 else:
                     next_empty_index = lines[key_index:].index("\n")
                     lines = lines[:key_index + next_empty_index] + new_lines + lines[key_index + next_empty_index:]
-                f.seek(0, 0)
+            with open("../veos", "w") as f:
                 f.writelines(lines)
-        with open("../{}".format(self.inv), "r+") as f:
-            lines = f.readlines()
+        if self.__old_inv_file:
+            with open("../{}".format(self.inv), "r") as f:
+                lines = f.readlines()
+            # since there is only one ptf section for a inventory
+            # and we do not expect duplicate entries
+            # simply search for the line and remove it 
+            old_lines = yaml_dump_lines(self.__old_inv_file)[4:]
+            lines = list(filter(lambda line : line not in old_lines, lines))
+            with open("../{}".format(self.inv), "w") as f:
+                f.writelines(lines)
+        if self.__new_inv_file:
+            with open("../{}".format(self.inv), "r") as f:
+                lines = f.readlines()
+            # since there is only one ptf section for a inventory
+            # all new lines are directly place at the end of ptf section
             new_lines = yaml_dump_lines(self.__new_inv_file)[2:]
             ptf_index = lines.index(new_lines[0])
             ptf_hosts_index = ptf_index + lines[ptf_index:].index(new_lines[1])
             ptf_hosts_end_index = ptf_hosts_index + lines[ptf_hosts_index:].index("\n")
-            lines = lines[:ptf_hosts_end_index] + new_lines[2:] + lines[ptf_hosts_end_index:]
-            f.seek(0, 0)
-            f.writelines(lines)
-        for file_name, extra_vars in self.__new_extra_vars.items():
-            with open(file_name, "r+") as f:
-                lines = f.readlines()
-                indent = 4 if file_name.endswith("mux_simulator_http_port_map.yml") else 2
+            lines = lines[:ptf_hosts_end_index] + new_lines[2:3] + sort_yaml_lines(new_lines[3:]) + \
+                    lines[ptf_hosts_end_index:]
+            with open("../{}".format(self.inv), "w") as f:
+                f.writelines(lines)
+        if self.__old_extra_vars:
+            # since there should not be duplicate entries,
+            # simply search for the expected line and remove
+            for file_name, extra_vars in self.__old_extra_vars.items():
+                with open(file_name, "r") as f:
+                    lines = f.readlines()
+                indent = 4 if file_name == MUX_SIMULATOR_HTTP_PORT_MAP else 2
+                old_lines = yaml_dump_lines(extra_vars, indent=indent)[1:]
+                lines = list(filter(lambda line : line not in old_lines, lines))
+                to_delete = []
+                for index, line in enumerate(lines):
+                    if line == "\n":
+                        if index > 0 and lines[index - 1] == "\n":
+                            to_delete.append(index)
+                    if "# On " in line:
+                        if index == len(lines) - 1 or lines[index + 1] == "\n":
+                            to_delete.append(index)
+                            to_delete.append(index + 1)
+                lines = list(map(lambda item : item[1],
+                                 filter(lambda item : item[0] not in to_delete, enumerate(lines))))
+                with open(file_name, "w") as f:
+                    f.writelines(lines)
+        if self.__new_extra_vars:
+            for file_name, extra_vars in self.__new_extra_vars.items():
+                with open(file_name, "r") as f:
+                    lines = f.readlines()
+                indent = 4 if file_name == MUX_SIMULATOR_HTTP_PORT_MAP else 2
                 new_lines = yaml_dump_lines(extra_vars, indent=indent)[1:]
                 for key, value in extra_vars.items():
                     for testbed_name, port in value.items():
                         new_line = new_lines[find_line_index("^\s+{}:".format(testbed_name), new_lines)]
-                        server = filter(lambda testbed : testbed["conf-name"] == testbed_name, self.__testbeds).__next__()["server"]
-                        regex = re.compile("^\s+(\S+):")
-                        same_server_checker = lambda item : regex.match(item[1]) and self.__inv_specific.testbed_in_server(regex.findall(item[1])[0], server)
+                        server = filter(lambda testbed : testbed["conf-name"] == testbed_name,
+                                        self.__testbeds).__next__()["server"]
+                        def same_server_checker(item):
+                            return extract_key_regex.match(item[1]) and \
+                                   self.__inv_specific.testbed_in_server(extract_key_regex.findall(item[1])[0], server)
                         filter_same_server = list(filter(same_server_checker, enumerate(lines)))
                         if filter_same_server:
                             new_line_index = max(map(lambda item : item[0], filter_same_server)) + 1
@@ -402,35 +694,58 @@ class GenTestbeds:
                             lines.append("  # On {}\n".format(server))
                             new_line_index = len(lines)
                         lines.insert(new_line_index, new_line)
-                f.seek(0, 0)
-                f.writelines(lines)
+                with open(file_name, "w") as f:
+                    f.writelines(lines)
         self.__reset_cache()
 
 
-    def print_to_terminal(self):
-        yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
-        yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
-        yaml.dump(self.__new_inv_file, sys.stdout, sort_keys=False)
-        yaml.dump(self.__new_extra_vars, sys.stdout, sort_keys=False)
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='gen_testbed tool')
-    parser.add_argument("--inv", "-i", required=True, help="inventory")
-    parser.add_argument("--topo", "-t", required=True, help="list of topo separated by comma")
-    parser.add_argument("--dut", "-d", required=True, help="list of duts separated by comma")
+    description = "labtool to generate testbed info"
+    epilog = """
+    This tool has 4 major functions:
+    1. add for adding new testbeds
+    2. del for deleting existing testbeds
+    3. adjust for deleting existing testbed and adding them again, ideally at better location
+    4. show for showing stats on servers and the testbeds they host
+    There will be no changes to files unless -u is specified. Please verify the changes before updating them to files.
+    Examples:
+        ./gen_testbed -i lab add -t t0,t1 -d DUT1,DUT2 # generate info for 2 testbeds with {t0, DUT1} and {t1, DUT2}
+        ./gen_testbed -i lab -u add -t t0,t1 -d DUT1,DUT2 # update the generated info to files
+        ./gen_testbed -i lab del -t TESTBED # remove testbed named TESTBED
+        ./gen_testbed -i lab adjust -t TESTBED # remove testbed named TESTBED
+        ./gen_testbed -i lab show # show stats on servers in inventory
+    """
+    parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--update-to-file", "-u", action="store_true", help="directly update the info to testbed files")
+    parser.add_argument("--inv", "-i", required=True, help="inventory")
+    subcommand = parser.add_subparsers(help="add, del, show and adjust", dest="subcommand")
+
+    add = subcommand.add_parser("add", help="add new testbeds")
+    add.add_argument("--topo", "-t", required=True, help="list of topo separated by comma")
+    add.add_argument("--dut", "-d", required=True, help="list of duts separated by comma")
+
+    del_command = subcommand.add_parser("del", help="del old testbeds")
+    del_command.add_argument("--testbed", "-t", required=True, help="list of testbeds separated by comma")
+
+    show = subcommand.add_parser("show", help="show server and testbed stats")
+
+    adjust = subcommand.add_parser("adjust", help="adjust testbeds to better locations")
+    adjust.add_argument("--testbed", "-t", required=True, help="list of testbeds separated by comma")
+
     args = parser.parse_args()
     gen_testbeds = GenTestbeds(args.inv)
-    duts = args.dut.split(",")
-    for topo in args.topo.split(","):
-        if "dual" in topo:
-            gen_testbeds.add_testbed(topo, duts[:2])
-            duts = duts[2:]
-        else:
-            gen_testbeds.add_testbed(topo, duts[:1])
-            duts = duts[1:]
+
+    if args.subcommand == "add":
+        gen_testbeds.add_testbeds(args.topo, args.dut)
+
+    if args.subcommand == "show":
+        gen_testbeds.show_testbeds()
+
+    if args.subcommand == "del":
+        gen_testbeds.del_testbeds(args.testbed.split(","))
+
+    if args.subcommand == "adjust":
+        gen_testbeds.adjust_testbeds(args.testbed.split(","))
+
     if args.update_to_file:
         gen_testbeds.update_to_file()
-    else:
-        gen_testbeds.print_to_terminal()

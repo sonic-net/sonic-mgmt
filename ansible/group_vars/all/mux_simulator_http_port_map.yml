@@ -31,7 +31,7 @@ mux_simulator_http_port:
 
     #### Add your own port assignment after here ###
 
-    vms18-dual-t0-8101-01: 8080
+    vms18-dual-t0-8101c1-01: 8080
 
     vms20-dual-t0-4700-7: 8080
 
@@ -44,7 +44,7 @@ mux_simulator_http_port:
     vms28-dual-t0-8102: 8080
     vms28-dual-t0-7260: 8082
 
-    vms29-dual-t0-8101-02: 8080
+    vms29-dual-t0-8101c1-02: 8080
 
     vms61-dual-t0-8102: 8080
 
@@ -57,7 +57,7 @@ mux_simulator_http_port:
     # On server64
     vms64-dual-t0-7260-1: 8080
 
-    vms66-dual-t0-8101-03: 8080
+    vms66-dual-t0-8101c1-03: 8080
 
     vms68-dual-t0-4700-8: 8080
 
@@ -67,9 +67,6 @@ mux_simulator_http_port:
     # On bjw2 server 2
     bjw2-can-dual-t0-7260-1: 8080
     bjw2-can-dual-t0-7260-2: 8082
-
-    # On bjw2 server 5
-    bjw2-can-dual-t0-8101-1: 8080
 
     # On strtk5-server-7
     tbtk5-dualtor-4600-1: 8080
