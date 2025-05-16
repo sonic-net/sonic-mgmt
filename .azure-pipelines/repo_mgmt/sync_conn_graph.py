@@ -18,10 +18,10 @@ MSSONIC_PUBLIC_TOKEN = os.environ.get('MSSONIC_PUBLIC_TOKEN')
 
 SOURCE_BRANCH = 'internal'
 TARGET_BRANCHES = [
-    'internal-202205',
     'internal-202305',
     'internal-202311',
     'internal-202405',
+    'internal-202405-chassis',
     'internal-202411',
     'internal-202412',
     'internal-202412-dev',
