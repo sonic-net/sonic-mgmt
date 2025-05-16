@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms66-dual-t0-8101-03"
+    default: "vms66-dual-t0-8101c1-03"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -87,7 +87,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: 2
+    default: 1
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
