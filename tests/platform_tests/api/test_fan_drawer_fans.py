@@ -264,6 +264,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
                     speed_target_val = random.randint(speed_minimum, speed_maximum)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, speed_target_val)     # noqa F841
+                time.sleep(3)
                 target_speed = fan_drawer_fan.get_target_speed(platform_api_conn, j, i)
                 if self.expect(target_speed is not None,
                                "Unable to retrieve Fan drawer {} fan {} target speed".format(j, i)):
