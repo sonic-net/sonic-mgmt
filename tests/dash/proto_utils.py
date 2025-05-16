@@ -15,6 +15,7 @@ from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
+from dash_api.tunnel_pb2 import Tunnel
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -45,6 +46,7 @@ PB_CLASS_MAP = {
     "ENI_ROUTE": EniRoute,
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
+    "TUNNEL": Tunnel
 }
 
 
@@ -79,7 +81,10 @@ def parse_dash_proto(key: str, proto_dict: dict):
         if field_map[key].type == field_map[key].TYPE_MESSAGE:
 
             if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
+                if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                    new_dict[key] = [parse_ip_address(val) for val in value]
+                else:
+                    new_dict[key] = parse_ip_address(value)
             elif field_map[key].message_type.name == "IpPrefix":
                 new_dict[key] = parse_ip_prefix(value)
             elif field_map[key].message_type.name == "Guid":
