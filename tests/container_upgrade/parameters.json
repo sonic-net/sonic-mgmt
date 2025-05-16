@@ -19,5 +19,8 @@
     },
     "docker-bmp-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "kubesonic-cleanup": {
+        "parameters": "--privileged --pid=host --net=host"
     }
 }

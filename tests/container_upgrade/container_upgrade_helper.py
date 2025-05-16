@@ -28,6 +28,7 @@ container_name_mapping = {
     "docker-auditd-watchdog": "auditd_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
+    "kubesonic-cleanup": "k8s_cleanup",
 }
 
 existing_service_list = [
