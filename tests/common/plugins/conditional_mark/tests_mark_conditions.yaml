@@ -1713,12 +1713,6 @@ pc/test_lag_member.py:
     conditions:
         - "'dualtor' in topo_name or 't0-backend' in topo_name"
 
-pc/test_lag_member.py::test_lag_member_traffic:
-  skip:
-    reason: "Have an issue on kvm t0"
-    conditions:
-        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/13898"
-
 pc/test_lag_member_forwarding.py:
   xfail:
     reason: "Not supported on BRCM before SDK 13.x"
@@ -2568,16 +2562,6 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
-#####         pktgen              #####
-#######################################
-test_pktgen.py:
-  skip:
-    reason: "Have known issue, only running for 'cisco-8000', skipping for all other ASIC types"
-    conditions:
-      - "asic_type not in ['cisco-8000']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
-
-#######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
@@ -2859,5 +2843,7 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 zmq/test_gnmi_zmq.py:
   skip:
     reason: "Test is for smartswitch"
+    conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'isolated' in topo_name"

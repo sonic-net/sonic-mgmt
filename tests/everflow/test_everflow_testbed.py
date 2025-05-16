@@ -712,7 +712,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                     ip_src=selected_addrs2[0],
                     eth_dst=router_mac,
                     ip_dst=selected_addrs2[1],
-                    eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                    eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                     inner_frame=inner_pkt2[scapy.IP]
                 ),
                 self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip=selected_addrs3[0],
@@ -893,7 +893,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         flags=0x10
     ):
         pkt = testutils.simple_tcp_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=router_mac,
             ip_src=src_ip,
             ip_dst=dst_ip,
