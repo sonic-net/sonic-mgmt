@@ -404,6 +404,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         flap_interfaces(rand_selected_dut, [interface], times=3)
         pytest_assert(wait_until(10, 2, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
                       'The default route is not restored after the flapping.')
+        time.sleep(5)
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
