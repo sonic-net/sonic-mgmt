@@ -28,7 +28,10 @@ def verify_data_in_db(post_change_db_dump, tmp_pc, pc_members, duthosts, pc_nbr_
     # Verifcation on SYSTEM_LAG_MEMBER_TABLE
     voq_lag.verify_lag_member_in_chassis_db(duthosts, pc_members)
     # Verification on SYSTEM_NEIGH for pc_nbr_ip
-    voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    if len(duthosts) == 1:
+        voqdb = VoqDbCli(duthosts.frontend_nodes[0])
+    else:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
     neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ip)
     if tmp_pc not in neigh_key:
         pytest.fail("Portchannel Neigh ip {} is not allocatioed to tmp portchannel {}".format(pc_nbr_ip, tmp_pc))
@@ -249,7 +252,15 @@ def get_db_dump(duthosts, duthost):
     chassis_app_db_sysparams = {}
     system_lag_id = {}
     key = "*SYSTEM*|*" + duthost.sonichost.hostname + "*"
-    chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    if len(duthosts) == 1:
+        chassis_app_db_result = redis_get_keys(duthosts.frontend_nodes[0],
+"CHASSIS_APP_DB", key)
+        voqdb = VoqDbCli(duthosts.frontend_nodes[0])
+    elif len(duthosts) > 1:
+        chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    else:
+        raise RuntimeError("Length of duthosts is:{}".format(len(duthosts)))
     if chassis_app_db_result is not None:
         chassis_app_db_sysparams["CHASSIS_APP_DB"] = chassis_app_db_result
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
