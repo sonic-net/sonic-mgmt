@@ -1341,6 +1341,7 @@ class TestBasicAcl(BaseAclTest):
 
         logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
         dut.command("config acl update full {}".format(dut_conf_file_path))
+        logger.info("Completed applying ACL rules config \"{}\"".format(dut_conf_file_path))
 
 
 class TestIncrementalAcl(BaseAclTest):

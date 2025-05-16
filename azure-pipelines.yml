@@ -82,6 +82,9 @@ stages:
     pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+        parameters:
+          TARGET_BRANCH: $(BUILD_BRANCH)
+          SOURCE_BRANCH: $(Build.SourceBranchName)
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
