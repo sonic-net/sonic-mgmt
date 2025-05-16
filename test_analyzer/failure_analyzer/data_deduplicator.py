@@ -28,6 +28,14 @@ class DataDeduplicator:
             setattr(self, icm_branch_limit_key, icm_branch_limit)
 
         self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']
+        self.HOST_RE = re.compile(
+            r'^(?:[A-Za-z0-9]*(?:str|bjw)[A-Za-z0-9]*)'  # first part must contain 'str' or 'bjw'
+            r'-'                        # first hyphen
+            r'(?:[A-Za-z0-9]+(?:x\d+)?)' # platform: alnum+, optional x+digits
+            r'(?:-[A-Za-z0-9]+)*'       # any additional segments, hyphen + alnum+
+            r'-(?:u\d+|\d+)$'          # final hyphen + either 'u' followed by digits or just digits
+        )
+
 
     def deduplication(self, common_summary_new_icm_table, original_failure_dict, branches):
         """
@@ -201,6 +209,8 @@ class DataDeduplicator:
         # Create a copy and initialize the aggregated column
         df = dataframe_data.copy()
         df['aggregated'] = df['failure_summary'].apply(lambda x: False if pd.isna(x) or not x else True)
+        # Create processed_summary column for storing preprocessed versions
+        df['processed_summary'] = df['failure_summary'].copy()
 
         # Track rows to drop and add
         rows_to_drop = []
@@ -235,7 +245,8 @@ class DataDeduplicator:
                     for _, match_row in matches.iterrows():
                         if not pd.isna(match_row['Summary']) and match_row['Summary']:
                             new_row = row.copy()
-                            new_row['failure_summary'] = match_row['Summary']
+                            new_row['failure_summary'] = match_row['Summary']  # Keep original summary as is
+                            new_row['processed_summary'] = match_row['Summary']  # Will be processed later
                             rows_to_add.append(new_row)
                             logger.info(f"Subject '{row['subject']}': Added new row with summary {new_row['failure_summary'][:80]}")
 
@@ -262,26 +273,29 @@ class DataDeduplicator:
         # Process each branch separately for clustering
         for branch, branch_df in df.groupby('branch'):
             # Skip empty summaries
-            to_cluster = branch_df[~branch_df['failure_summary'].isna() & (branch_df['failure_summary'] != '')]
+            to_cluster = branch_df[~branch_df['processed_summary'].isna() & (branch_df['processed_summary'] != '')]
 
             if to_cluster.empty:
                 logger.error(f"Branch {branch}: No summaries to cluster")
                 continue
 
-            # Preprocess the summaries and save to a new column
-            branch_df['failure_summary'] = branch_df['failure_summary'].apply(self.__preprocess_summary)
+            # Preprocess the summaries and save to processed_summary column
+            # This preserves the original failure_summary
+            branch_df['processed_summary'] = branch_df['processed_summary'].apply(self.__preprocess_summary)
 
             # logger.info summaries before clustering for debugging
             logger.info(f"\nSummaries for branch {branch}:")
             for i, (idx, row) in enumerate(branch_df.iterrows()):
-                logger.info(f"{i}: Subject '{row['subject']}': {row['failure_summary'][:100]}...")
+                logger.info(f"{i}: Subject '{row['subject']}': {row['processed_summary'][:100]}...")
 
             # Get the cluster assignments with a stricter eps value based on processed summaries
-            clusters = self.cluster_summaries(branch_df['failure_summary'], eps=0.1, min_samples=1)
+            eps = configuration["threshold"]["eps"]
+            clusters = self.cluster_summaries(branch_df['processed_summary'], eps=eps, min_samples=1)
 
-            # Update the failure_summary column in the main dataframe
+            # Update the processed_summary column in the main dataframe
             for i, idx in enumerate(branch_df.index):
-                df.loc[idx, 'failure_summary'] = branch_df['failure_summary'].iloc[i]
+                df.loc[idx, 'processed_summary'] = branch_df['processed_summary'].iloc[i]
+
             # logger.info clustering results for debugging
             logger.info(f"\nClustering results for branch {branch}:")
             for i, (idx, row) in enumerate(branch_df.iterrows()):
@@ -663,11 +677,40 @@ class DataDeduplicator:
         if pd.isna(text) or not text:
             return ''
 
-        # text = text.lower()
+        text = text.lower()
         # text = re.sub(r'\d+', '', text)           # remove numbers
         # text = re.sub(r'[^\w\s]', '', text)         # remove punctuation
-        # text = re.sub(r'\s+', ' ', text)            # collapse whitespace
-        return text.strip()
+        # Pattern to match timestamps in both formats:
+        # 1. At start of line: YYYY MMM DD HH:MM:SS.mmmmmm
+        # 2. In middle of line: YYYY-MM-DD HH:MM:SS.mmmmmm
+        # 3. Delta format: 0:00:00.039462
+        timestamp_patterns = [
+            r'^\d{4}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+',  # Start of line format
+            r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+',  # Middle of line format
+            r'\d+:\d{2}:\d{2}\.\d+'  # Delta format
+        ]
+
+        # Process each line
+        cleaned_lines = []
+        for line in text.split('\n'):
+            if line.strip():  # Skip empty lines
+                # Remove timestamps
+                for pattern in timestamp_patterns:
+                    line = re.sub(pattern, '', line)
+
+                # Pattern to match hostname with various delimiters
+                # Matches: (start of line or space or hyphen or [ or " or ' or :) + hostname + (space or quote or angle bracket or square bracket or - or , or })
+                hostname_pattern = r'(?:^|\s+|-|\[|"|\'|:)(' + self.HOST_RE.pattern[1:-1] + r')(?=[\s\'">\]]|-|,|}|$)'
+
+                # Remove hostnames
+                line = re.sub(hostname_pattern, '', line)
+                cleaned_lines.append(line)
+        cleaned_lines = '\n'.join(cleaned_lines)
+        if "traceback" in cleaned_lines:
+            logger.info("Remove numbers from summary since it's a traceback log")
+            cleaned_lines = re.sub(r'\d+', '', cleaned_lines)           # remove numbers
+        return cleaned_lines
+
 
     def cluster_summaries(self, summaries, eps=0.1, min_samples=1):
         """
@@ -676,6 +719,8 @@ class DataDeduplicator:
             You might need to tune this parameter.
         min_samples: Minimum samples in a cluster (set to 1 so every summary is in some cluster).
         Returns the cluster labels.
+
+        Note: The input summaries should already be preprocessed.
         """
         # Vectorize summaries with TF-IDF (removing common stopwords)
         vectorizer = TfidfVectorizer(stop_words='english')
