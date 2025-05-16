@@ -580,6 +580,7 @@ class BaseEverflowTest(object):
 
     @staticmethod
     def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
+        commands_list = list()
         if config_method == CONFIG_MODE_CLI:
             if erspan_ip_ver == 4:
                 command = f"config mirror_session add {session_info['session_name']} \
@@ -588,19 +589,36 @@ class BaseEverflowTest(object):
                             {session_info['session_gre']}"
                 if policer:
                     command += f" --policer {policer}"
+                commands_list.append(command)
             else:
-                # Adding IPv6 ERSPAN sessions from the CLI is currently not supported.
-                command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
-                            'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
-                            'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
-                            'ttl' '{session_info['session_ttl']}'"
-                if policer:
-                    command += f" 'policer' {policer}"
+                for asic_index in duthost.get_frontend_asic_ids():
+                    if asic_index is not None:
+                        # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
+                        command = f"sonic-db-cli -n asic{asic_index} CONFIG_DB HSET " \
+                                  f"'MIRROR_SESSION|{session_info['session_name']}' " \
+                                  f"'dscp' '{session_info['session_dscp']}' " \
+                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
+                                  f"'gre_type' '{session_info['session_gre']}' " \
+                                  f"'type' '{session_info['session_type']}' " \
+                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
+                        if policer:
+                            command += f" 'policer' {policer}"
+                    else:
+                        # Adding IPv6 ERSPAN sessions, from the CLI is currently not supported.
+                        command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' " \
+                                  f"'dscp' '{session_info['session_dscp']}' " \
+                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
+                                  f"'gre_type' '{session_info['session_gre']}' " \
+                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
+                        if policer:
+                            command += f" 'policer' {policer}"
+                    commands_list.append(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        for command in commands_list:
+            duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
@@ -992,6 +1010,7 @@ class BaseEverflowTest(object):
         session_dst_ipv6 = "2222::2:2:2:2"
         session_dscp = "8"
         session_ttl = "4"
+        session_type = "ERSPAN"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -1020,6 +1039,7 @@ class BaseEverflowTest(object):
             "session_dscp": session_dscp,
             "session_ttl": session_ttl,
             "session_gre": session_gre,
+            "session_type": session_type,
             "session_prefixes": session_prefixes,
             "session_prefixes_ipv6": session_prefixes_ipv6
         }
