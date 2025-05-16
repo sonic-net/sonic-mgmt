@@ -18,6 +18,7 @@ pr:
        - LICENSE
        - README.md
        - SECURITY.md
+       - sdn_tests/**
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
@@ -77,7 +78,7 @@ stages:
 # Below are Impacted Area Based PR checkers
   - job: get_impacted_area
     displayName: "Get impacted area"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
