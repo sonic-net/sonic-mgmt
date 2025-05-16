@@ -1,5 +1,5 @@
 mgmt_bridge: br1
 mgmt_prefixlen: 17
-mgmt_gw: 10.212.65.1
+mgmt_gw: 10.212.65.7
 vm_mgmt_gw: 172.16.176.5
 external_port: enp0
