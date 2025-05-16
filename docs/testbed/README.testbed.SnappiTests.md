@@ -36,7 +36,7 @@ Each block describes one logical topology; the `ptf_ip` is the management addres
 ```yaml
 - conf-name: lab-t0-dut1
   group-name: lab-grp
-  topo: t0
+  topo: tgen
   ptf_image_name: docker-api-server
   ptf: tgen1
   ptf_ip: 10.0.0.10/23      # ← API-Docker IP
