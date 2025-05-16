@@ -22,7 +22,10 @@ Each DUT front-panel port is cabled 1-to-1 to a traffic-generator port of equal 
 
 The CSV file that carries this information is called **`sonic_tgen_links.csv`** and must reside next to the Ansible playbooks (`/ansible` directory) so that `conn_graph_facts.py` can feed the tests.
 
----
+#### Topology Rules
+* Snappi tests treat every DUT front-panel port listed in `sonic_tgen_links.csv` as *test-traffic* capable; they do **not** distinguish between traditional “uplink” and “down-link” roles.
+* Any port that is cabled to the traffic generator **must** appear in the CSV; ports omitted from the file are ignored by the test harness.
+* Good practice is to keep the port numbering symmetric (e.g. `Ethernet1 ↔ P1`, `Ethernet2 ↔ P2`) but the framework does not enforce this.
 
 ## 2 Testbed Configuration Files
 
@@ -34,7 +37,7 @@ Each block describes one logical topology; the `ptf_ip` is the management addres
 - conf-name: lab-t0-dut1
   group-name: lab-grp
   topo: t0
-  ptf_image_name: docker-ptf
+  ptf_image_name: docker-api-server
   ptf: tgen1
   ptf_ip: 10.0.0.10/23      # ← API-Docker IP
   server: tgen_host
@@ -47,12 +50,56 @@ Each block describes one logical topology; the `ptf_ip` is the management addres
 
 Key fields:
 
-| Field       | Description                                                             |
-| ----------- | ----------------------------------------------------------------------- |
-| `conf-name` | Also referred to as the **testbed-name** in CLI scripts.                |
-| `topo`      | SONiC topology (e.g., `t0`, `t1`).                                      |
-| `ptf_ip`    | IPv4/6 reachable from the testbed server running the Docker API Server. |
-| `dut`       | One or more switches under test                                         |
+| Field           | Description                                                                                                           |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------|
+| `conf-name`     | Referred to as the **testbed-name** in CLI scripts.                                                                   |
+| `topo`          | Specifies the SONiC topology (e.g., `t0`, `t1`).                                                                      |
+| `ptf_image_name`| Name of the API Docker server; can be arbitrary.                                                                      |
+| `ptf`           | Not relevant for Snappi tests; can be any value.                                                                      |
+| `ptf_ip`        | IP address (IPv4/6) accessible from the testbed server running the Docker API Server.                                 |
+| `vm_base`       | Not relevant for Snappi tests; can be any value.                                                                      |
+| `server`        | The physical or virtual server (as listed in the Ansible inventory) hosting the Docker API Server.                    |
+| `dut`           | Lists one or more devices under test.                                                                                 |
+
+> **Note — `ptf_image_name`**
+> For legacy PTF tests this field points to the container image pushed to the ptf based traffic-generator VM. In Snappi workflows the same key is parsed by the `deploy-mg` helper to know **which API-server Docker image to copy and start** on the traffic generator server during `add-topo`. Leaving it blank disables automatic deployment.
+
+```mermaid
+flowchart LR
+    %% ---------- Host #1 ----------
+    subgraph PS1["Physical Server 1"]
+        direction TB
+        SMG["sonic-mgmt Docker<br/>(snappi_config)"]
+    end
+
+    %% ---------- Host #2 ----------
+    subgraph PS2["Physical Server 2 (tgen_host)"]
+        direction TB
+        APID["API Docker Server<br/>(ptf_ip ≈ 10.0.0.10/23)<br/>(snappi_config)"]
+    end
+
+    %% ---------- External gear ----------
+    TG["Physical Traffic Generator"]
+    DUT["DUT / Switch"]
+
+    %% control-plane path
+    SMG  -- "api.set_config" --> APID
+    APID -- "control-plane"  --> TG
+
+    %% data-plane cabling
+    TG -- "P1" --> DUT
+    TG -- "P2" --> DUT
+    TG -- "P3" --> DUT
+```
+
+### Single-server alternative
+
+> **Transparency note** — **PS1** and **PS2** can be the *same* physical machine.
+> Just ensure:
+>
+> 1. The host NIC (or a dedicated NIC) is placed in **promiscuous / macvlan** mode so each container obtains its own routable MAC/IP address.
+> 2. The host has enough CPU / RAM to accommodate both the `sonic-mgmt` control-plane container and the traffic-generator API-server workload concurrently.
+
 
 ### 2.2 `sonic_tgen_links.csv`
 
@@ -80,11 +127,17 @@ To deploy the IxNetwork API Server Docker, follow these steps:
     
 2. **Transfer the Image to the Host**: Copy the `.tar`/`tar.bz2` file to your testbed server (can be a Linux machine).
 
-3. Make sure the interface has promiscuous mode enabled
+3. Make sure the management interface has promiscuous mode enabled
 
 ```bash
- ifconfig ens160  promisc
+ ifconfig eth1  promisc
 ```
+
+*Enable promiscuous mode on **the physical NIC that fronts the macvlan bridge** (example: `eth1` on Linux hosts as this is the management port). Promiscuous mode is required so the parent interface can forward frames for all container MAC addresses created by the macvlan driver.*
+([OpenIxia][1], [Docker Community Forums][2])
+
+[1]: https://www.openixia.com/tutorials?page=apiServer.html&subject=ixNetwork%2Fdockers "Deploying IxNetwork Web Edition as a Docker container"
+[2]: https://forums.docker.com/t/why-is-promiscuous-mode-needed-for-macvlan-driver/37416 "Why is promiscuous mode needed for macvlan driver? - General"
 
 4. Decompress the file (it may take a few minutes):
 
@@ -184,6 +237,8 @@ To install `snappi-trex` on your testbed server and run tests using your physica
     ```
     
     The `add-topo` action provisions the API Docker container.
+
+> **Important** — Build & network the API-server container *before* running `add-topo`. The automation assumes the container is already reachable at `ptf_ip`; it does **not** import images or create macvlan bridges for you. Follow § 3.2.1 steps 1-8 first.
     
 
 ---
