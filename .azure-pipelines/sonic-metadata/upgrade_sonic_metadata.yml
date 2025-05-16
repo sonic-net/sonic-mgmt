@@ -125,6 +125,8 @@ steps:
               IMAGE_SUFFIX=20240510
           elif [[ $IMAGE_URL == *"202411"* ]]; then
               IMAGE_SUFFIX=20241110
+          elif [[ $IMAGE_URL == *"202412"* ]]; then
+              IMAGE_SUFFIX=20241211
           fi
           echo "$IMAGE_URL_PREFIX-$IMAGE_SUFFIX"
         }
