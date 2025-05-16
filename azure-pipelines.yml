@@ -18,6 +18,8 @@ pr:
        - LICENSE
        - README.md
        - SECURITY.md
+       - azure-pipelines.yml
+       - sdn_tests/**
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
