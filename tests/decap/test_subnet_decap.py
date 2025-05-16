@@ -124,7 +124,7 @@ def setup_arp_responder(rand_selected_dut, ptfhost, prepare_negative_ip_port_map
 
 def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage):
     eth_dst = rand_selected_dut.facts["router_mac"]
-    eth_src = ptfadapter.dataplane.get_mac(0, 0)
+    eth_src = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     logger.info("eth_src: {}, eth_dst: {}".format(eth_src, eth_dst))
 
     if ip_version == "IPv4":
