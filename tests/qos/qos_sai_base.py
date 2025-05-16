@@ -224,7 +224,7 @@ class QosSaiBase(QosBase):
             table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
         db = "0"
         port_profile_res = dut_asic.run_redis_cmd(
-            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]
+            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"] # noqa E231
         )[0]
         port_profile_list = port_profile_res.split(",")
 
@@ -252,7 +252,7 @@ class QosSaiBase(QosBase):
 
             pg_q_alpha = calculate_alpha(pg_q_buffer_profile['dynamic_th'])
             port_alpha = calculate_alpha(port_dynamic_th)
-            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'
+            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}' # noqa E231
             buffer_size = int(
                 dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -276,7 +276,7 @@ class QosSaiBase(QosBase):
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
-            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}') # noqa E231
         else:
             raise Exception("Not found port dynamic th")
 
@@ -390,6 +390,7 @@ class QosSaiBase(QosBase):
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
             platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
+                                                                    "x86_64-nvidia_sn5640-r0",
                                                                     "x86_64-nvidia_sn5400-r0"]
             if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
@@ -2175,7 +2176,7 @@ class QosSaiBase(QosBase):
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
             egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
-        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
+        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}") # noqa E231
 
         yield egress_lossy_profile
 
