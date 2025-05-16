@@ -33,7 +33,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def rand_portchannel_name(cfg_facts):
     portchannel_dict = cfg_facts.get('PORTCHANNEL', {})
     pytest_require(portchannel_dict, "Portchannel table is empty")
@@ -41,7 +41,7 @@ def rand_portchannel_name(cfg_facts):
         return portchannel_key
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def portchannel_table(cfg_facts):
     def _is_ipv4_address(ip_addr):
         return ipaddress.ip_address(ip_addr).version == 4
