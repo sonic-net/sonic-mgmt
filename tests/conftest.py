@@ -3020,7 +3020,7 @@ def gnxi_path(ptfhost):
     return gnxipath
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def selected_asic_index(request):
     asic_index = DEFAULT_ASIC_ID
     if "enum_asic_index" in request.fixturenames:
@@ -3037,7 +3037,7 @@ def selected_asic_index(request):
     return asic_index
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def ip_netns_namespace_prefix(request, selected_asic_index):
     """
     Construct the formatted namespace prefix for executed commands inside the specific
@@ -3049,7 +3049,7 @@ def ip_netns_namespace_prefix(request, selected_asic_index):
         return f'sudo ip netns exec {NAMESPACE_PREFIX}{selected_asic_index}'
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def cli_namespace_prefix(request, selected_asic_index):
     """
     Construct the formatted namespace prefix for executed commands inside the specific
