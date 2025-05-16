@@ -117,7 +117,7 @@ def is_upstream_t2(duthost):
     :param duthost: The DUT host object.
     :return: True if the DUT is an upstream T2 device, False otherwise.
     """
-    if duthost.is_modular_chassis():
+    if duthost.get_facts().get("modular_chassis"):
         output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" subtype',
                                 module_ignore_errors=True)
         return (output and output.get('stdout') == 'UpstreamLC')
@@ -164,8 +164,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if is_dut:
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
-
-    modular_chassis = sonic_host.get_facts().get("modular_chassis")
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
