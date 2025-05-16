@@ -1,6 +1,6 @@
 import grpc
-import tests.common.sai_validation.gnmi_pb2 as gnmi_pb2
-import tests.common.sai_validation.gnmi_pb2_grpc as gnmi_pb2_grpc
+import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
+import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2_grpc as gnmi_pb2_grpc
 import tests.common.sai_validation.gnmi_client_internal as internal
 import logging
 import json

@@ -1,6 +1,6 @@
 import grpc
 import json
-import tests.common.sai_validation.gnmi_pb2 as gnmi_pb2
+import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
 import logging
 from typing import List, Dict
 

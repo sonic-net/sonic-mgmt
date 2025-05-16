@@ -16,6 +16,7 @@ import time
 import subprocess
 import threading
 import pathlib
+import importlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -64,7 +65,6 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.sai_validation.gnmi_client import create_gnmi_stub
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -461,6 +461,35 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            session.exitstatus = 1  # Fail the pytest session
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -1906,8 +1935,8 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_one_dut_lossy_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_one_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy',
-                                                                                one_dut_only=True))
+        metafunc.parametrize("enum_one_dut_lossy_prio",
+                             generate_priority_lists(metafunc, 'lossy', one_dut_only=True))
     if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
@@ -2193,7 +2222,7 @@ def cleanup_cache_for_session(request):
         cache.cleanup(zone=a_dut)
     inv_data = get_host_visible_vars(inv_files, a_dut)
     if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
-        for asic_id in range(inv_data['num_asics']):
+        for asic_id in range(0, inv_data['num_asics']):
             cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
 
 
@@ -3120,6 +3149,10 @@ def setup_connection(request, setup_gnmi_server):
         yield None
         return
     else:
+        # Dynamically import create_gnmi_stub
+        gnmi_client_module = importlib.import_module("tests.common.sai_validation.gnmi_client")
+        create_gnmi_stub = getattr(gnmi_client_module, "create_gnmi_stub")
+
         # if cert_path is None then it is insecure mode
         gnmi_insecure = request.config.getoption("--gnmi_insecure")
         gnmi_target_port = int(request.config.getoption("--gnmi_port"))
