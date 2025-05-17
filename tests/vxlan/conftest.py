@@ -60,14 +60,6 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
-        "--num_routes",
-        action="store",
-        default=16000,
-        type=int,
-        help="number of routes for VNET VxLAN test"
-    )
-
-    vxlan_group.addoption(
         "--num_endpoints",
         action="store",
         default=4000,
@@ -121,12 +113,6 @@ def pytest_addoption(parser):
         type=str2bool,
         default=True,
         help="Test IPV6 in IPv6"
-    )
-
-    vxlan_group.addoption(
-        "--skip_cleanup",
-        action="store_true",
-        help="Do not cleanup after VNET VxLAN test"
     )
 
     vxlan_group.addoption(
@@ -259,6 +245,8 @@ def scaled_vnet_params(request):
     params = {}
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
+    if params[NUM_ROUTES_KEY] is None:
+        params[NUM_ROUTES_KEY] = 16000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
