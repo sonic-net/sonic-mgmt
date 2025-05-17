@@ -319,10 +319,21 @@ def verify_orchagent_running_or_assert(duthost):
     """
 
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent'
-        output = duthost.shell(cmds, module_ignore_errors=True)
-        pytest_assert(not output['rc'], "Unable to check orchagent status output")
-        return 'RUNNING' in output['stdout']
+        if duthost.is_multi_asic:
+            num_asic = duthost.facts.get('num_asic')
+            for asic_index in range(num_asic):
+                cmd = 'docker exec swss{} supervisorctl status orchagent'.format(asic_index)
+                output = duthost.shell(cmd, module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Unable to check orchagent status output for asic_id {}"
+                              .format(asic_index))
+                if 'RUNNING' not in output['stdout']:
+                    return False
+            return True
+        else:
+            cmds = 'docker exec swss supervisorctl status orchagent'
+            output = duthost.shell(cmds, module_ignore_errors=True)
+            pytest_assert(not output['rc'], "Unable to check orchagent status output")
+            return 'RUNNING' in output['stdout']
 
     pytest_assert(
         wait_until(120, 10, 0, _orchagent_running),
