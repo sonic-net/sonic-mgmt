@@ -997,13 +997,18 @@ def pre_configure_dut_interface(duthost, snappi_ports):
         port['peer_ipv6'] = dutv6Ips[port_id]
         port['ipv6_prefix'] = v6_prefix_length
         port['ipv6'] = tgenv6Ips[port_id]
+        port['asic_value'] = duthost.get_port_asic_instance(port['peer_port'])
+        asic_cmd = ""
+        if port['asic_value'] is not None:
+            asic_cmd = " -n {} ".format(port['asic_value'])
         try:
             logger.info('Pre-Configuring Dut: {} with port {} with IP {}/{}'.format(
                                                                                 duthost.hostname,
                                                                                 port['peer_port'],
                                                                                 dutIps[port_id],
                                                                                 prefix_length))
-            duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
+                                                                                asic_cmd,
                                                                                 port['peer_port'],
                                                                                 dutIps[port_id],
                                                                                 prefix_length))
@@ -1012,10 +1017,13 @@ def pre_configure_dut_interface(duthost, snappi_ports):
                                                                                 port['peer_port'],
                                                                                 dutv6Ips[port_id],
                                                                                 v6_prefix_length))
-            duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
+                                                                                asic_cmd,
                                                                                 port['peer_port'],
                                                                                 dutv6Ips[port_id],
                                                                                 v6_prefix_length))
+            static_routes_cisco_8000(tgenIps[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
+            static_routes_cisco_8000(tgenv6Ips[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
