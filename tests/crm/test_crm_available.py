@@ -1,7 +1,6 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.broadcom_data import is_broadcom_device
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3'),
@@ -27,8 +26,6 @@ def test_crm_next_hop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # Example check: ensure next-hop group usage is below a certain threshold
     # This is a placeholder for the actual resource name; adjust as needed
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not is_broadcom_device(duthost):
-        pytest.skip("Skipping test for non broadcom devices")
 
     hwsku = duthost.facts["hwsku"].lower()
     # If "7215" is in hwsku, take the second split element (index=2); otherwise use index=1
@@ -45,6 +42,6 @@ def test_crm_next_hop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         available = crm_resources[resource_name]["available"]
         total = used + available
         pytest_assert(total >= nexthop_group_threshold,
-                      f"next-hop groups ({total}) should be greater than or equal to {nexthop_group_threshold}")
+                      f"next-hop groups ({total}) should be greater than or equal to {nexthop_group_threshold} on platform '{hwsku}'") # noqa
     else:
-        pytest.fail(f"Resource '{resource_name}' not found in CRM resources output.")
+        pytest.fail(f"Resource '{resource_name}' not found in CRM resources output on platform '{hwsku}'.")
