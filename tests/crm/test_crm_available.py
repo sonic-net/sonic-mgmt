@@ -11,9 +11,10 @@ logger = logging.getLogger(__name__)
 NEXTHOP_GROUP_TOTAL = 256
 
 SKU_NEXTHOP_THRESHOLDS = {
-    # arista
-    '720dt': 15,
-    '7215': 126,
+    'arista-720dt-g48s4': 15,
+    'nokia-m0-7215': 126,
+    'nokia-7215-a1': 126,
+    'nokia-7215': 126,
 }
 
 DEFAULT_NEXTHOP_THRESHOLD = 256
@@ -28,13 +29,8 @@ def test_crm_next_hop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     hwsku = duthost.facts["hwsku"].lower()
-    # If "7215" is in hwsku, take the second split element (index=2); otherwise use index=1
-    if "7215" in hwsku:
-        model_str = hwsku.split('-')[2]
-    else:
-        model_str = hwsku.split('-')[1]
 
-    nexthop_group_threshold = SKU_NEXTHOP_THRESHOLDS.get(model_str, DEFAULT_NEXTHOP_THRESHOLD)
+    nexthop_group_threshold = SKU_NEXTHOP_THRESHOLDS.get(hwsku, DEFAULT_NEXTHOP_THRESHOLD)
 
     resource_name = "nexthop_group"
     if resource_name in crm_resources:
