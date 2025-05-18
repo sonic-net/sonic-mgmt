@@ -44,7 +44,6 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
     tb_file = request.config.option.testbed_file
     inventory = ",".join(request.config.option.ansible_inventory)
     hostname = duthost.hostname
-    containers = required_container_upgrade_params["containers"]
     test_results = {}
 
     while env.version_pointer < len(env.osversions):
@@ -63,8 +62,7 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --log-file-level=debug --kube_master=unset --showlocals \
                       --assert=plain --show-capture=no -rav --allow_recover \
                       --skip_sanity --disable_loganalyzer \
-                      --log-file={log_file} --junit-xml={log_xml} \
-                      --containers={containers}"
+                      --log-file={log_file} --junit-xml={log_xml}"
             try:
                 localhost.shell(command)
             except Exception:
