@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import argparse
 import base64
 import json
-import sys
 import time
-
+import sys
+import argparse
 from six.moves.urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
 
 _start_time = None
@@ -155,17 +154,13 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                     sys.exit(1)
 
 
-def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
+def find_latest_build_id(branch, success_flag="succeeded"):
     """find latest successful build id for a branch"""
 
-    if not pipeline_id:
-        # 1 is Azure.sonic-buildimage
-        # 2511 is Azure.sonic-buildimage-msft.PR
-        # 2925 is Azure.sonic-buildimage.official_build_vs_with_test
-        pipeline_id = 2511 if branch == "202412" else 2925
+    definition_id = 2511 if branch == "202412" else 1
 
-    builds_url = (f"https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={pipeline_id}&"
-                  f"branchName=refs/heads/{branch}&resultFilter={result_filter}&statusFilter=completed&api-version=6.0")
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}" \
+                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(definition_id, branch, success_flag)
 
     resp = urlopen(builds_url)
 
@@ -205,15 +200,13 @@ def main():
                         default='', nargs='?', const='', required=False, help='access token (PAT)')
     parser.add_argument('--token', metavar='token', type=str,
                         default='', nargs='?', const='', required=False, help='bearer token')
-    parser.add_argument('--build_pipeline_id', metavar='build_pipeline_id', type=int,
-                        default=None, nargs='?', const=None, required=False, help='Build Pipeline ID (download image)')
 
     args = parser.parse_args()
 
     if args.buildid is None:
-        buildid_succ = find_latest_build_id(args.branch, "succeeded", args.build_pipeline_id)
+        buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(
-            args.branch, "partiallySucceeded", args.build_pipeline_id)
+            args.branch, "partiallySucceeded")
         print(('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(
             buildid_succ, buildid_partial)))
         if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
