@@ -4,6 +4,9 @@ topology:
     {{ vm.name }}:
       vlans:
         - {{ vm.vlans[0] }}
+      {%- if vm.vlans|length > 1 %}
+        - {{ vm.vlans[1] }}
+      {%- endif %}
       vm_offset: {{ vm.vm_offset }}
 {%- endfor %}
 
