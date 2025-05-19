@@ -97,7 +97,7 @@ class TestVoqWatchdog(QosBase):
             testParams=testParams
         )
 
-        time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS)
+        time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS + 10)
 
         # check log
         verify_log(dst_dut, pre_offsets)
@@ -111,7 +111,7 @@ class TestVoqWatchdog(QosBase):
             dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
 
     def testVoqWatchdogDisable(self, get_src_dst_asic_and_duts, dutConfig, dutTestParams, ptfhost,
-                               disable_voq_watchdog):
+                               function_scope_disable_voq_watchdog):
         """
         disable voq watchdog
         tx disable, send traffic, sleep 60 seconds, verify no soft_reset in sai.log

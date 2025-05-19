@@ -317,6 +317,9 @@ class QosBase:
                     "Dest port id passed in qos.yml not valid"
                 )
                 dstPorts = dst_port_ids
+            elif len(dst_test_port_ids) >= 5 and (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["asic_type"]
+                                                  in ['cisco-8000']):
+                dstPorts = [2, 3, 4]
             elif len(dst_test_port_ids) >= 4:
                 dstPorts = [0, 2, 3]
             elif len(dst_test_port_ids) == 3:
@@ -947,7 +950,6 @@ set_voq_watchdog({})
         self.copy_dshell_script_cisco_8000(dut, asic, dshell_script,
                                            script_name="set_voq_watchdog.py")
 
-    @pytest.fixture
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -994,3 +996,7 @@ set_voq_watchdog({})
             dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
         return
+
+    @pytest.fixture(scope="function")
+    def function_scope_disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts):
+        yield from self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts)
