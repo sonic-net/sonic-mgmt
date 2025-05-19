@@ -10,7 +10,7 @@ from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa F401
 from tests.common.helpers.upgrade_helpers import restore_image                                          # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper
+    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, restore_image                    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
