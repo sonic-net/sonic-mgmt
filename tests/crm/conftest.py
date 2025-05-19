@@ -55,6 +55,9 @@ def pytest_runtest_teardown(item, nextitem):
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
         # cleanup commands was not cleared
+        if test_name not in RESTORE_CMDS:
+            return
+
         for cmd in RESTORE_CMDS[test_name]:
             logger.info(cmd)
             try:
@@ -303,3 +306,48 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
         if "Ethernet1" not in output['stdout']:
             asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
         ptfhost.remove_ip_addresses()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def crm_resources(duthosts, rand_one_dut_hostname):
+    """
+    Parse the CRM resource table from the 'crm show resources all' command output
+    and return a dictionary of the form:
+    {
+        "ipv4_route": {"used": 6475, "available": 140981},
+        "ipv6_route": {"used": 6460, "available": 9924},
+        ...
+    }
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    cmd_output = duthost.shell("crm show resources all")["stdout"]
+
+    resources_dict = {}
+    lines = cmd_output.splitlines()
+    started = False
+
+    for line in lines:
+        # Detect the start of the first resource table
+        if re.search(r"^Resource Name\s+Used Count\s+Available Count", line):
+            started = True
+            continue
+
+        if started:
+            # Once we hit an empty or non-data line, stop
+            if not line.strip() or re.search(r"^Stage\s+Bind Point", line):
+                break
+            if re.match(r"^-+\s+-+\s+-+$", line):
+                continue
+
+            parts = line.split()
+            if len(parts) >= 3:
+                resource_name = parts[0].strip()
+                used_count = int(parts[1])
+                available_count = int(parts[2])
+                resources_dict[resource_name] = {
+                    "used": used_count,
+                    "available": available_count
+                }
+
+    return resources_dict

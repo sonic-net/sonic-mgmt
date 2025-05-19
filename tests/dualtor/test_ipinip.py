@@ -76,7 +76,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
     )[IP]
     packet = testutils.simple_ipv4ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
         ip_dscp=inner_dscp,

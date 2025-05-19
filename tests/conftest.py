@@ -1,4 +1,5 @@
 import concurrent.futures
+from functools import lru_cache
 import os
 import json
 import logging
@@ -6,6 +7,7 @@ import getpass
 import random
 from concurrent.futures import as_completed
 import re
+import sys
 
 import pytest
 import yaml
@@ -43,6 +45,7 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -122,6 +125,10 @@ def pytest_addoption(parser):
     parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
+    # ceos neighbor lacp multiplier
+    parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
+                     help="LACP multiplier for ceos neighbors")
+
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
@@ -180,6 +187,8 @@ def pytest_addoption(parser):
     #  keysight ixanvl options #
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
+    parser.addoption("--enable-snappi-dynamic-ports", action="store_true", default=False,
+                     help="Force to use dynamic port allocation for snappi port selections")
 
     ##################################
     # advance-reboot,upgrade options #
@@ -567,6 +576,16 @@ def macsec_duthost(duthosts, tbinfo):
     else:
         return duthosts[0]
     return macsec_dut
+
+
+@pytest.fixture(scope="session")
+def is_macsec_enabled_for_test(duthosts):
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
+    request = duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+    return macsec_en
 
 
 # Make sure in same test module, always use same random DUT
@@ -1935,12 +1954,40 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
 
 
+@lru_cache
+def parse_override(testbed, field):
+    is_dynamic_only = "--enable-snappi-dynamic-ports" in sys.argv
+
+    if is_dynamic_only and field != "pfcQueueGroupSize":
+        # Args "--enable-snappi-dynamic-ports" should not affect field `pfcQueueGroupSize`
+        return False, None
+
+    override_file = "snappi_tests/variables.override.yml"
+
+    with open(override_file, 'r') as f:
+        all_values = yaml.safe_load(f)
+        if testbed not in all_values or field not in all_values[testbed]:
+            return False, None
+
+        return True, all_values[testbed][field]
+
+    return False, None
+
+
 def generate_skeleton_port_info(request):
     """
     Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
 
     ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
     """
+    is_override, override_data = parse_override(
+        request.config.getoption("--testbed"),
+        'multidut_port_info'
+    )
+
+    if is_override:
+        return override_data
+
     dut_info = get_snappi_testbed_metadata(request) or []
     available_interfaces = {}
     matrix = {}
@@ -3022,3 +3069,119 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+
+def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
+    """
+    Find out active IP interfaces and use the list to
+    remove inactive ports from test_ports
+    """
+    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
+    port_list = []
+    for iface in list(ip_ifaces.keys()):
+        if iface.startswith("PortChannel"):
+            port_list.extend(
+                mg_facts["minigraph_portchannels"][iface]["members"]
+            )
+        else:
+            port_list.append(iface)
+    port_list_set = set(port_list)
+    for port in list(test_ports.keys()):
+        if port not in port_list_set:
+            del test_ports[port]
+    return test_ports
+
+
+@pytest.fixture(scope="module")
+def setup_pfc_test(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+):
+    """
+    Sets up all the parameters needed for the PFC Watchdog tests
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        ptfhost: AnsibleHost instance for PTF
+        conn_graph_facts: fixture that contains the parsed topology info
+
+    Yields:
+        setup_info: dictionary containing pfc timers, generated test ports and selected test ports
+    """
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag", "t1-28-lag", "t1-32-lag"}
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    port_list = list(mg_facts['minigraph_ports'].keys())
+    neighbors = conn_graph_facts['device_conn'].get(duthost.hostname, {})
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    dut_eth0_ip = duthost.mgmt_ip
+    vlan_nw = None
+
+    if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
+            if len(vlan_data['members']) < 2:
+                unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
+        # gather all vlan specific info
+        vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
+        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
+        vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
+        vlan_ips = duthost.get_ip_in_range(
+            num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
+            exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
+        vlan_nw = vlan_ips[0].split('/')[0]
+
+    topo = tbinfo["topo"]["name"]
+    # build the port list for the test
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
+    test_ports = tp_handle.build_port_list()
+
+    # In T1 topology update test ports by removing inactive ports
+    if topo in SUPPORTED_T1_TOPOS:
+        test_ports = update_t1_test_ports(
+            duthost, mg_facts, test_ports, tbinfo
+        )
+    # select a subset of ports from the generated port list
+    selected_ports = select_test_ports(test_ports)
+
+    setup_info = {'test_ports': test_ports,
+                  'port_list': port_list,
+                  'selected_test_ports': selected_ports,
+                  'pfc_timers': set_pfc_timers(),
+                  'neighbors': neighbors,
+                  'eth0_ip': dut_eth0_ip
+                  }
+
+    if mg_facts['minigraph_vlans']:
+        setup_info['vlan'] = {'addr': vlan_addr,
+                              'prefix': vlan_prefix,
+                              'dev': vlan_dev
+                              }
+    else:
+        setup_info['vlan'] = None
+
+    # stop pfcwd
+    logger.info("--- Stopping Pfcwd ---")
+    duthost.command("pfcwd stop")
+
+    # set poll interval
+    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+
+    # set bulk counter chunk size
+    logger.info("--- Setting bulk counter polling chunk size ---")
+    duthost.command('redis-cli -n 4 hset "FLEX_COUNTER_TABLE|PORT" BULK_CHUNK_SIZE 64'
+                    ' BULK_CHUNK_SIZE_PER_PREFIX "SAI_PORT_STAT_IF_OUT_QLEN:0;SAI_PORT_STAT_IF_IN_FEC:32"')
+
+    logger.info("setup_info : {}".format(setup_info))
+    yield setup_info

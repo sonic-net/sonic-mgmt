@@ -203,6 +203,8 @@
 {% set dev_type = 'BackEndLeafRouter' %}
 {% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
+{% elif 'UT2' in dev %}
+{% set dev_type = 'UpperSpineRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
 {% elif 'Snappi_T3' in dev %}

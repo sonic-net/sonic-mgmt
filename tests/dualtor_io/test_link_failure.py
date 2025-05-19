@@ -13,6 +13,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.config_reload import config_reload
@@ -21,6 +22,18 @@ from tests.common.config_reload import config_reload
 pytestmark = [
     pytest.mark.topology("dualtor")
 ]
+
+
+@pytest.fixture
+def link_down_downstream_active_duplication_setting(duthost, mux_config):   # noqa F811
+    """Setup duplication setting based on the platform."""
+    hwsku = duthost.facts['hwsku'].lower()
+    allowed_duplication = None
+    merge_duplications_into_disruptions = False
+    if "cisco" in hwsku or "mellanox" in hwsku:
+        allowed_duplication = (1, len(mux_config))
+        merge_duplications_into_disruptions = True
+    return allowed_duplication, merge_duplications_into_disruptions
 
 
 @pytest.mark.enable_active_active
@@ -64,7 +77,8 @@ def test_active_link_down_upstream(
 def test_active_link_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa F811
+    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa F811
+    link_down_downstream_active_duplication_setting                     # noqa F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
@@ -82,9 +96,12 @@ def test_active_link_down_downstream_active(
         )
 
     if cable_type == CableType.active_active:
+        allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=allowed_duplication,
+            action=shutdown_fanout_upper_tor_intfs,
+            merge_duplications_into_disruptions=merge_duplications
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -323,16 +340,20 @@ def test_active_link_down_upstream_soc(
 @pytest.mark.skip_active_standby
 def test_active_link_down_downstream_active_soc(
     upper_tor_host, lower_tor_host, send_t1_to_soc_with_action,         # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa F811
+    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa F811
+    link_down_downstream_active_duplication_setting                     # noqa F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
     Verify switchover and disruption lasts < 1 second
     """
     if cable_type == CableType.active_active:
+        allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
         send_t1_to_soc_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, allowed_duplication=allowed_duplication,
+            action=shutdown_fanout_upper_tor_intfs,
+            merge_duplications_into_disruptions=merge_duplications
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
