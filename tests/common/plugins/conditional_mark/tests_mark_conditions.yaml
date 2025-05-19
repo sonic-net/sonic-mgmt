@@ -1835,17 +1835,6 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
 #######################################
 #####     platform_tests          #####
 #######################################
-platform_tests/cli/test_show_chassis_module.py:
-  skip:
-    reason: "Skip modular chassis specific commands on disaggregated chassis"
-    conditions:
-      - "'t2_single_node' in topo_name"
-
-platform_tests/test_chassis_reboot.py:
-  skip:
-    reason: "Skip modular chassis specific test on disaggregated chassis"
-    conditions:
-      - "'t2_single_node' in topo_name"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
