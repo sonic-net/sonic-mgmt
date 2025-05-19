@@ -80,12 +80,7 @@
   become: yes
 
 - name: add Cisco to swss_dependent
-  shell: |
-    dep=`cat /etc/sonic/swss_dependent | grep cisco`
-    if [ "$dep" != "cisco" ]
-    then
-    sudo bash -c 'echo -e "\ncisco" >> /etc/sonic/swss_dependent'
-    fi
+  shell: cat /etc/sonic/swss_dependent | grep cisco || echo -e "\ncisco" >> /etc/sonic/swss_dependent
   become: yes
 
 - name: enable Cisco service
