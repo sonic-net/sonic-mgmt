@@ -1322,46 +1322,41 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request):
+def generate_params_frontend_hostname(request, macsec_only=False):
     frontend_duts = []
-    tbname, _ = get_tbinfo(request)
-    duts = get_specified_duts(request)
-    inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_frontend_node(inv_files, dut):
-            frontend_duts.append(dut)
-    assert len(frontend_duts) > 0, \
-        "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
-    return frontend_duts
-
-
-def generate_params_macsec_hostname(request):
-    macsec_duts = []
     tbname, tbinfo = get_tbinfo(request)
     duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
+    host_type = "frontend"
 
-    if 't2' in tbinfo['topo']['name']:
-        # currently in the T2 topo only the uplink linecard will have
-        # macsec enabled
-        for dut in duts:
-            if is_macsec_capable_node(inv_files, dut):
-                macsec_duts.append(dut)
+    if macsec_only:
+        host_type = "macsec"
+        if 't2' in tbinfo['topo']['name']:
+            # currently in the T2 topo only the uplink linecard will have
+            # macsec enabled
+            for dut in duts:
+                if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
+                    frontend_duts.append(dut)
+        else:
+            frontend_duts.append(duts[0])
     else:
-        macsec_duts.append(duts[0])
-    assert len(macsec_duts) > 0, \
-        "Test selected require at-least one macsec node, " \
-        "none of the DUTs '{}' in testbed '{}' are a macsec node".format(duts, tbname)
-    return macsec_duts
+        for dut in duts:
+            if is_frontend_node(inv_files, dut):
+                frontend_duts.append(dut)
+
+    assert len(frontend_duts) > 0, \
+        "Test selected require at-least one {} node, " \
+        "none of the DUTs '{}' in testbed '{}' are a {} node".format(host_type, duts, tbname, host_type)
+    return frontend_duts
 
 
 def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
-        hosts = generate_params_frontend_hostname(request)
-    elif macsec_only:
-        hosts = generate_params_macsec_hostname(request)
+        if macsec_only:
+            hosts = generate_params_frontend_hostname(request, macsec_only=True)
+        else:
+            hosts = generate_params_frontend_hostname(request)
 
     hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
     return hosts_per_hwsku
@@ -1800,7 +1795,9 @@ def pytest_generate_tests(metafunc):        # noqa: E302
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
         elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
             if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
-                hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, macsec_only=True)
+                hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(
+                    metafunc, frontend_only=True, macsec_only=True
+                )
                 _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
             duts_selected = _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module]
             dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
