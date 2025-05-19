@@ -549,7 +549,9 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         snappi_ports = pre_configure_dut_interface(duthost, snappi_ports)
         logger.info(snappi_ports)
 
-    return snappi_ports
+    yield snappi_ports
+
+    remove_static_route_cisco_8000([duthost])
 
 
 def snappi_multi_base_config(duthost_list,
@@ -932,7 +934,7 @@ def create_ip_list(value, count, mask=32, incr=0):
     return ip_list
 
 
-def cleanup_config(duthost_list, snappi_ports):
+def remove_static_route_cisco_8000(duthost_list):
     if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
             duthost_list[0].get_facts().get("modular_chassis", None)):
         global DEST_TO_GATEWAY_MAP
@@ -946,6 +948,12 @@ def cleanup_config(duthost_list, snappi_ports):
                 setup=False)
 
         time.sleep(4)
+
+
+def cleanup_config(duthost_list, snappi_ports):
+
+    remove_static_route_cisco_8000(duthost_list)
+
     for index, duthost in enumerate(duthost_list):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
