@@ -84,7 +84,7 @@
   become: yes
 
 - name: enable Cisco service
-  systemd_service:
+  service:
     name: cisco.service
     enabled: true
     state: started
