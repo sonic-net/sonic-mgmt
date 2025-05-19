@@ -209,6 +209,43 @@ def validate_state_db_entry(duthost, peer, vnet, dynamic_peer):
         "Peer {} vnet {} state in state db is not {}. Found {}".format(peer, vnet, expected_state, peer_state)
 
 
+def get_bgp_peer_uptime(duthost, static_peer, dynamic_peer=None):
+    '''
+    Get the uptime of the static and dynamic peers.
+    '''
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    static_peer_uptime = bgp_summary['ipv4Unicast']['peers'][static_peer]['peerUptimeMsec']
+    if dynamic_peer is not None:
+        dynamic_peer_uptime = bgp_summary['ipv4Unicast']['peers'][dynamic_peer]['peerUptimeMsec']
+        return static_peer_uptime, dynamic_peer_uptime
+    else:
+        return static_peer_uptime
+
+
+def validate_dynamic_peer_established(bgp_summary, template):
+    '''
+    Validate that the dynamic peer is in the established state.
+    '''
+    if template == 'vnet_dynamic_peer_add':
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
+        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
+    elif template == 'vnet_dynamic_peer_del':
+        assert (
+            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
+        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+        assert (
+            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
+            ), "BGP peer 10.0.63 should not be in show bgp summary output"
+
+
 def modify_dynamic_peer_cfg(duthost, template):
     '''
     modify dynamic peer configuration on DUT
@@ -232,20 +269,16 @@ def dynamic_range_add_delete(duthost, template):
     '''
     Validate the behavior when a different dynamic range is added/deleted.
     '''
-    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-    bgp_summary = json.loads(bgp_summary_string)
-    dynamic_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
-    static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+    static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
+        duthost, 'fc00::7a', '10.0.0.61')
     time.sleep(10)
     modify_dynamic_peer_cfg(duthost, template)
     if template == 'vnet_dynamic_peer_add':
         time.sleep(120)
 
-    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-    bgp_summary = json.loads(bgp_summary_string)
-    dynamic_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
-    static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
-    # add 20 seconds to the uptime to account for the sleep timer
+    static_peer_uptime_after, dynamic_peer_uptime_after = get_bgp_peer_uptime(
+        duthost, 'fc00::7a', '10.0.0.61')
+
     dynamic_peer_uptime_before = dynamic_peer_uptime_before + 2*10*1000
     static_peer_uptime_before = static_peer_uptime_before + 2*10*1000
 
@@ -253,25 +286,10 @@ def dynamic_range_add_delete(duthost, template):
         "Peer from other range should not flap when a different dynamic range is added/deleted!"
     assert static_peer_uptime_after >= static_peer_uptime_before, \
         "Static peer should not flap when a dynamic range is added/deleted!"
-    if template == 'vnet_dynamic_peer_add':
-        assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
-        assert (
-            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
-        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
-    elif template == 'vnet_dynamic_peer_del':
-        assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
-        assert (
-            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
-            ), "BGP peer 10.0.63 should not be in show bgp summary output"
-    else:
-        assert False, "Invalid template name {}".format(template)
+
+    bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+    bgp_summary = json.loads(bgp_summary_string)
+    validate_dynamic_peer_established(bgp_summary, template)
 
 
 def get_core_dumps(duthost):
@@ -358,24 +376,11 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         # Verify changing ip_range for dynamic peers
         bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
         bgp_summary = json.loads(bgp_summary_string)
-        assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
-        assert (
-            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
-        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
+        validate_dynamic_peer_established(bgp_summary, 'vnet_dynamic_peer_add')
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
         bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
         bgp_summary = json.loads(bgp_summary_string)
-        assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
-        assert (
-            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
-        ), "BGP peer 10.0.63 should not be in show bgp summary output"
+        validate_dynamic_peer_established(bgp_summary, 'vnet_dynamic_peer_del')
 
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
@@ -460,21 +465,21 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     try:
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
-        static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+        static_peer_uptime_before = get_bgp_peer_uptime(duthost, 'fc00::7a')
         redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
         duthost.shell(redis_cmd)
         time.sleep(10)
 
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
         static_peer_uptime_before = static_peer_uptime_before + 10000
-        static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+        static_peer_uptime_after = get_bgp_peer_uptime(duthost, 'fc00::7a')
         assert static_peer_uptime_after >= static_peer_uptime_before, \
             "Static peer should not flap when a dynamic peer is deleted."
+
+        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(bgp_summary_string)
         total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
         assert int(total_peers) == 0, "There should be no dynamic peer. Found {}".format(total_peers)
+
         validate_state_db_entry(duthost, "BGPSLBPassive", "Vnet2", True)
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
@@ -491,10 +496,8 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
     try:
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
         time.sleep(120)
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
-        static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
-        dynamic_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+        static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
+            duthost, 'fc00::7a', '10.0.0.61')
         core_dumps_before = get_core_dumps(duthost)
 
         for i in range(20):
@@ -503,10 +506,9 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
 
         static_peer_uptime_before = static_peer_uptime_before + 20*20*1000
         dynamic_peer_uptime_before = dynamic_peer_uptime_before + 20*20*1000
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
-        static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
-        dynamic_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['peerUptimeMsec']
+
+        static_peer_uptime_after, dynamic_peer_uptime_after = get_bgp_peer_uptime(
+            duthost, 'fc00::7a', '10.0.0.61')
 
         assert static_peer_uptime_after >= static_peer_uptime_before, \
             "Static peer should not flap when a dynamic peer is modified."
@@ -531,9 +533,7 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
     try:
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
         time.sleep(120)
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
-        static_peer_uptime_before = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+        static_peer_uptime_before = get_bgp_peer_uptime(duthost, 'fc00::7a')
         core_dumps_before = get_core_dumps(duthost)
 
         for i in range(20):
@@ -543,19 +543,10 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
             bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
             bgp_summary = json.loads(bgp_summary_string)
-            assert (
-                '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-                and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-            ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
-            assert (
-                '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
-                and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
-            ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
+            validate_dynamic_peer_established(bgp_summary, 'vnet_dynamic_peer_add')
 
         static_peer_uptime_before = static_peer_uptime_before + 20*20*1000
-        bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-        bgp_summary = json.loads(bgp_summary_string)
-        static_peer_uptime_after = bgp_summary['ipv4Unicast']['peers']['fc00::7a']['peerUptimeMsec']
+        static_peer_uptime_after = get_bgp_peer_uptime(duthost, 'fc00::7a')
         assert static_peer_uptime_after >= static_peer_uptime_before, \
             "Static peer should not flap when a dynamic peer is deleted."
         core_dumps_after = get_core_dumps(duthost)
