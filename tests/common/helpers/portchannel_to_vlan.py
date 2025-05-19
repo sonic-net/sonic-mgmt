@@ -69,9 +69,10 @@ def ptf_teardown(ptfhost, ptf_lag_map):
     """
     ptfhost.set_dev_no_master(PTF_LAG_NAME)
 
-    for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
-        ptfhost.set_dev_no_master(ptf_lag_member)
-        ptfhost.set_dev_up_or_down(ptf_lag_member, True)
+    if ptf_lag_map is not None:
+        for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+            ptfhost.set_dev_no_master(ptf_lag_member)
+            ptfhost.set_dev_up_or_down(ptf_lag_member, True)
 
     ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
     ptfhost.ptf_nn_agent()
@@ -421,6 +422,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         yield
         return
     # --------------------- Setup -----------------------
+    ptf_lag_map = None
     try:
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
 
