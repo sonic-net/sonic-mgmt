@@ -34,6 +34,7 @@ from ptf import testutils
 from ptf.testutils import simple_tcp_packet
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.helpers.pfc_storm import PFCStorm
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 
 
 pytestmark = [
@@ -354,32 +355,34 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
         counter_poll_config(rand_selected_dut, 'queue', 10000)
 
 
-def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue, pkt, src_port, exp_pkt, dst_ports):
+def pfc_pause_test(ptfhost, storm_handler, peer_info, prio, ptfadapter, dut, port, queue, pkt, src_port, exp_pkt,
+                   dst_ports, test_ports_info):
     try:
-        # Start PFC storm from leaf fanout switch
-        start_pfc_storm(storm_handler, peer_info, prio)
-        ptfadapter.dataplane.flush()
-        # Record the queue counter before sending test packet
-        base_queue_count = get_queue_counter(dut, port, queue, False)   # noqa F841
-        # Send testing packet again
-        testutils.send_packet(ptfadapter, src_port, pkt, 1)
-        # The packet should be paused
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
-        # Check the queue counter didn't increase
-        queue_count = get_queue_counter(dut, port, queue, False)        # noqa F841
-        # after 10 sec delay in queue counter reading, pfc frames sending might actually had already stopped.
-        # so bounce back packet might still send out, and queue counter increased accordingly.
-        # and then caused flaky test faiure.
-        # temporarily disable the assert queue counter here until find a better solution,
-        # such as reading counter using sai thrift API
-        # assert base_queue_count == queue_count
-        return True
+        with send_background_traffic(dut, ptfhost, queue, [port], test_ports_info):
+            # Start PFC storm from leaf fanout switch
+            start_pfc_storm(storm_handler, peer_info, prio)
+            ptfadapter.dataplane.flush()
+            # Record the queue counter before sending test packet
+            base_queue_count = get_queue_counter(dut, port, queue, False)   # noqa F841
+            # Send testing packet again
+            testutils.send_packet(ptfadapter, src_port, pkt, 1)
+            # The packet should be paused
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
+            # Check the queue counter didn't increase
+            queue_count = get_queue_counter(dut, port, queue, False)        # noqa F841
+            # after 10 sec delay in queue counter reading, pfc frames sending might actually had already stopped.
+            # so bounce back packet might still send out, and queue counter increased accordingly.
+            # and then caused flaky test faiure.
+            # temporarily disable the assert queue counter here until find a better solution,
+            # such as reading counter using sai thrift API
+            # assert base_queue_count == queue_count
+            return True
     finally:
         stop_pfc_storm(storm_handler)
 
 
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                          setup_standby_ports_on_rand_selected_tor,
+                                          setup_standby_ports_on_rand_selected_tor, setup_pfc_test,  # noqa F811
         toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -389,6 +392,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
     3. Generate PFC pause on fanout switch (T1 ports)
     4. Verify lossless traffic are paused
     """
+    setup_info = setup_pfc_test
     if "cisco-8000" in dut_config["asic_type"]:
         pytest.skip("Replacing test with test_pfc_watermark_extra_lossless_standby for Cisco-8000.")
     TEST_DATA = {
@@ -440,8 +444,8 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
-                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
-                                  queue, pkt, src_port, exp_pkt, dst_ports):
+                if pfc_pause_test(ptfhost, storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
+                                  actual_port_name, queue, pkt, src_port, exp_pkt, dst_ports, setup_info['test_ports']):
                     break
             except AssertionError as err:
                 retry += 1
@@ -457,7 +461,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
 
 
 def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                         setup_standby_ports_on_rand_unselected_tor,
+                                         setup_standby_ports_on_rand_unselected_tor, setup_pfc_test,  # noqa F811
         toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -467,6 +471,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
     3. Generate PFC pause on fanout switch (Server facing ports)
     4. Verify lossless traffic are paused
     """
+    setup_info = setup_pfc_test
     if "cisco-8000" in dut_config["asic_type"]:
         pytest.skip("Replacing test with test_pfc_watermark_extra_lossless_active for Cisco-8000.")
     TEST_DATA = {
@@ -516,9 +521,9 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
-                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
+                if pfc_pause_test(ptfhost, storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
-                                  dst_ports):
+                                  dst_ports, setup_info['test_ports']):
                     break
             except AssertionError as err:
                 retry += 1
