@@ -71,11 +71,13 @@
   copy:
     src: "templates/cisco.service"
     dest: "/lib/systemd/system/cisco.service"
+  become: yes
 
 - name: copy Cisco 8101 fanout script file
   copy:
     src: "templates/cisco_fanout.py"
     dest: "/usr/bin/cisco_fanout.py"
+  become: yes
 
 - name: add Cisco to swss_dependent
   shell: |
@@ -84,9 +86,11 @@
     then
     sudo bash -c 'echo -e "\ncisco" >> /etc/sonic/swss_dependent'
     fi
+  become: yes
 
 - name: enable Cisco service
   systemd_service:
     name: cisco.service
     enabled: true
     state: started
+  become: yes
