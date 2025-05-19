@@ -1350,20 +1350,6 @@ def generate_params_frontend_hostname(request, macsec_only=False):
     return frontend_duts
 
 
-def generate_params_macsec_hostname(request):
-    macsec_duts = []
-    tbname, _ = get_tbinfo(request)
-    duts = get_specified_duts(request)
-    inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_macsec_capable_node(inv_files, dut):
-            macsec_duts.append(dut)
-    assert len(macsec_duts) > 0, \
-        "Test selected require at-least one macsec node, " \
-        "none of the DUTs '{}' in testbed '{}' are a macsec node".format(duts, tbname)
-    return macsec_duts
-
-
 def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
