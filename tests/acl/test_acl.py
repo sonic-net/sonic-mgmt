@@ -206,7 +206,7 @@ def get_t2_info(duthosts, tbinfo):
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if "T1" in neighbor["name"]:
+                if "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
                     downstream_ports_per_dut[namespace].append(interface)
                     downstream_port_ids.append(port_id)
                     downstream_port_id_to_router_mac_map[port_id] = router_mac
@@ -239,7 +239,7 @@ def get_t2_info(duthosts, tbinfo):
                         acl_table_ports[''].append(port)
                     else:
                         acl_table_ports[namespace].append(port)
-            else:
+            if len(downstream_rifs):
                 for port in downstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
@@ -265,7 +265,7 @@ def get_t2_info(duthosts, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, rand_unselected_dut,
-          tbinfo, ptfadapter, topo_scenario, vlan_name):
+          tbinfo, ptfadapter, topo_scenario, vlan_name, is_macsec_enabled_for_test):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -358,20 +358,34 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
-        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            port_id = mg_facts["minigraph_ptf_indices"][interface]
-            if downstream_neigh_type in neighbor["name"].upper():
-                if topo in ["t0", "mx", "m0_vlan"]:
-                    if interface not in mg_vlans[vlan_name]["members"]:
-                        continue
+        if tbinfo["topo"]["name"] in ("t1-isolated-d28", "t1-isolated-d128"):
+            count = 0
+            for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if count % 2 == 0:
+                    downstream_ports[neighbor['namespace']].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+                else:
+                    upstream_ports[neighbor['namespace']].append(interface)
+                    upstream_port_ids.append(port_id)
+                    upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                count += 1
+        else:
+            for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if downstream_neigh_type in neighbor["name"].upper():
+                    if topo in ["t0", "mx", "m0_vlan"]:
+                        if interface not in mg_vlans[vlan_name]["members"]:
+                            continue
 
-                downstream_ports[neighbor['namespace']].append(interface)
-                downstream_port_ids.append(port_id)
-                downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-            elif upstream_neigh_type in neighbor["name"].upper():
-                upstream_ports[neighbor['namespace']].append(interface)
-                upstream_port_ids.append(port_id)
-                upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                    downstream_ports[neighbor['namespace']].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+                elif upstream_neigh_type in neighbor["name"].upper():
+                    upstream_ports[neighbor['namespace']].append(interface)
+                    upstream_port_ids.append(port_id)
+                    upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -399,7 +413,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     acl_table_ports = defaultdict(list)
 
     if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag",
-                                                                              "t1-isolated-d28u1"):
+                                                                              "t1-isolated-d28u1", "t1-isolated-d28",
+                                                                              "t1-isolated-d128"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
@@ -448,6 +463,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     logger.info("Creating temporary folder \"{}\" for ACL test".format(DUT_TMP_DIR))
     for duthost in duthosts:
         duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+
+    # Set the flag force_reload_macsec to True, if enable_macsec is set for this test run
+    if is_macsec_enabled_for_test:
+        setattr(ptfadapter, "force_reload_macsec", True)
 
     yield setup_information
 
@@ -527,13 +546,14 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
+def stage(request, duthosts, rand_one_dut_hostname, tbinfo, is_macsec_enabled_for_test):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
         request: A fixture to interact with Pytest data.
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        is_macsec_enabled_for_test: flag for macsec topology selected for run.
 
     Returns:
         str: The ACL stage to be tested.
@@ -545,6 +565,11 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
         or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
+
+    # Skip ACL egress tests when run on macsec enabled toplogy with braodcom DNX
+    if request.param == "egress" and is_macsec_enabled_for_test and \
+            duthost.facts.get("platform_asic") == "broadcom-dnx":
+        pytest.skip("Egress ACLs not supported with MACSEC on \"{}\" ASICs".format(duthost.facts["asic_type"]))
 
     return request.param
 
@@ -890,6 +915,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def get_dst_ports(self, setup, direction):
         """Get the set of possible destination ports for the current test."""
+        if setup["topo_name"] in ("t1-isolated-d28", "t1-isolated-d128"):
+            return setup["upstream_port_ids"] + setup["downstream_port_ids"] if direction == "downlink->uplink" \
+                    else setup["downstream_port_ids"]
         return setup["upstream_port_ids"] if direction == "downlink->uplink" else setup["downstream_port_ids"]
 
     def get_dst_ip(self, direction, ip_version):
@@ -904,7 +932,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 tcp_sport=sport,
@@ -917,7 +945,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             pkt = testutils.simple_tcpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 tcp_sport=sport,
@@ -940,7 +968,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 udp_sport=sport,
@@ -950,7 +978,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             return testutils.simple_udpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 udp_sport=sport,
@@ -965,7 +993,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
                 icmp_type=icmp_type,
@@ -975,7 +1003,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         else:
             return testutils.simple_icmpv6_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
-                eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
                 icmp_type=icmp_type,
@@ -1370,7 +1398,8 @@ class TestAclWithReboot(TestBasicAcl):
     """
     # Flag to ensure reboot only happens once
     dut_rebooted = False
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
+
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1420,8 +1449,10 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
     # Flag to ensure port toggle only happens once
+
     dut_port_toggled = False
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa F811
+
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):     # noqa: F811
         """Toggle ports after rules are applied.
 
         Args:
