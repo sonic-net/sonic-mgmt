@@ -378,7 +378,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=20)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception(f"HTTP execute failure, url: {tp_url}, raw_resp: {raw_resp}, exception: {str(exception)}")
