@@ -109,7 +109,7 @@ def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp',
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.REMOTE_MAC if use_pkt_alt_attrs else pl.ENI_MAC,
-        eth_dst=pl.ENI_MAC if use_pkt_alt_attrs else pl.REMOTE_MAC,
+        eth_dst=pl.ENI_MAC if use_pkt_alt_attrs else pl.VM_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
@@ -143,7 +143,7 @@ def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp',
 def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
                         inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC if use_pkt_alt_attrs else pl.REMOTE_MAC,
+        eth_src=pl.ENI_MAC if use_pkt_alt_attrs else pl.VM_MAC,
         eth_dst=pl.REMOTE_MAC if use_pkt_alt_attrs else pl.ENI_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
@@ -215,6 +215,7 @@ def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care(336, 48)  # Inner Ether dst
 
     return outer_packet, masked_exp_packet
 
