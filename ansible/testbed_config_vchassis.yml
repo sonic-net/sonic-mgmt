@@ -65,13 +65,6 @@
           regexp: '^check program routeCheck with path "/usr/local/bin/route_check.py"'
           line: "check program routeCheck with path \"/usr/local/bin/route_check.py\" timeout 600 seconds"
 
-      - name: Set routeCheck timeout to 600 seconds
-        become: true
-        lineinfile:
-          path: /usr/local/bin/route_check.py
-          regexp: '^TIMEOUT_SECONDS ='
-          line: "TIMEOUT_SECONDS = 600"
-
       - name: Execute setup_vs_chassis.sh to configure the DUT as a chassis device
         shell: bash /usr/bin/setup_vs_chassis.sh
         become: true
