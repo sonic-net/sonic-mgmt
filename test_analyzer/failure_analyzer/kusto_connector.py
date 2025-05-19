@@ -246,8 +246,8 @@ class KustoConnector(object):
                 )
             ) or
                 isempty(TestBranch)
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
+        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType, Summary, BuildId, PipeStatus
+        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount, HardwareSku, Asic, AsicType, Topology, TopologyType
         | where ReproCount >= {configuration['threshold']['repro_count_limit']}
         | sort by ReproCount, ModulePath
         '''.strip()

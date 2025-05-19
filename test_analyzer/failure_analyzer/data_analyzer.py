@@ -1,4 +1,3 @@
-
 from config import configuration, logger, AUTH, ICM_PREFIX, BRANCH_PREFIX_LEN, ALL_FAILURES_CSV, ALL_RESUTLS_CSV
 from data_deduplicator import DataDeduplicator
 from kusto_connector import KustoConnector
@@ -479,8 +478,12 @@ class DataAnalyzer(BasicAnalyzer):
         ModulePath,BranchName,ReproCount, Result,Summary
         """
         summary_response = self.kusto_connector.query_common_summary_results()
+        summary_failures_df = dataframe_from_result_table(summary_response.primary_results[0])
+        logger.debug("Found {} failed test cases for common summary.".format(len(summary_response.primary_results[0])))
+        summary_failures_df_after_filter = self.filter_testcase(summary_failures_df)
+        logger.debug("Found {} failed test cases for common summary after filtering.".format(len(summary_failures_df_after_filter)))
         summary_cases = {}
-        for row in summary_response.primary_results[0].rows:
+        for idx, row in summary_failures_df_after_filter.iterrows():
             module_path = row['ModulePath']
             if module_path is None or module_path == "":
                 continue
@@ -720,9 +723,51 @@ class DataAnalyzer(BasicAnalyzer):
             'hwsku_osversion': 'HardwareSku_OSVersion',
             'topology_hwsku': 'Topology_HardwareSku'
         }
+
+        # Initialize valid_indexes to all rows
+        valid_indexes = case_df_copy.index
+
         # replace all the sub types with their type names
         for level in configuration['level_priority']:
-            if level != 'hwsku_osversion' and level != 'topology_hwsku':
+            if level == 'topology':
+                # replace topology with topology type, if those topologies are not in the topology type list, then filter out them
+                column = column_look_up[level]
+                # Create a set to track all topologies that have been matched to a type
+                matched_topologies = set()
+                # Find all unique topology values in the dataframe
+                all_topologies = set(case_df_copy[column].unique())
+                # Replace topologies with their type names
+                for type_config in configuration["icm_decision_config"].get(level, {}).get("types", []):
+                    type_list = type_config.get('testbed_{}'.format(level), [])
+                    for single_type in type_list:
+                        if single_type.startswith('REG'):
+                            regex_str = single_type.split('_')[1]
+                            # Find matching values using regex and add to matched set
+                            matches = case_df_copy[case_df_copy[column].str.contains(regex_str, regex=True)][column].unique()
+                            matched_topologies.update(matches)
+                            # Replace the matches with the type name
+                            case_df_copy.loc[:, column] = case_df_copy[column].replace(regex_str, type_config["name"], regex=True)
+                        else:
+                            # Add the exact match to the matched set
+                            if single_type in case_df_copy[column].values:
+                                matched_topologies.add(single_type)
+                            # Replace with the type name
+                            case_df_copy.loc[:, column] = case_df_copy[column].replace(single_type, type_config["name"])
+
+                # Identify topologies that weren't matched to any type
+                unmatched_topologies = all_topologies - matched_topologies
+
+                # For tracking and debugging
+                if unmatched_topologies:
+                    logger.info("Filtering out unmatched topologies: {}".format(unmatched_topologies))
+
+                # Filter out rows with unmatched topologies
+                for topology in unmatched_topologies:
+                    case_df_copy = case_df_copy[case_df_copy[column] != topology]
+                # Keep track of the indexes that should be kept after filtering
+                valid_indexes = case_df_copy.index
+                continue
+            elif level != 'hwsku_osversion' and level != 'topology_hwsku':
                 column = column_look_up[level]
                 for type_config in configuration["icm_decision_config"].get(level, {}).get("types", []):
                     type_list = type_config.get('testbed_{}'.format(level), [])
@@ -744,8 +789,14 @@ class DataAnalyzer(BasicAnalyzer):
                         case_df_copy.loc[:, column] = case_df_copy[column].replace(regex_str, type_config["name"], regex=True)
                     else:
                         case_df_copy.loc[:, column] = case_df_copy[column].replace(single_type, type_config["name"])
+        # First, filter the testcase_df to only keep rows that matched a topology type
+        # (use the index from case_df_copy after it was filtered for topology matches)
+        if 'topology' in configuration['level_priority']:
+            filtered_testcase_df = testcase_df.loc[valid_indexes]
+        else:
+            filtered_testcase_df = testcase_df
         # reserve original BranchName, Topology, HardwareSku, OSVersion, AsicType information and add additional columns for type names
-        case_df_after_filter = copy.deepcopy(testcase_df)
+        case_df_after_filter = copy.deepcopy(filtered_testcase_df)
         case_df_after_filter['HardwareSku_OSVersion'] = case_df_copy['HardwareSku_OSVersion']
         case_df_after_filter['Topology_HardwareSku'] = case_df_copy['Topology_HardwareSku']
         case_df_after_filter['BranchNameName'] = case_df_copy['BranchName']
@@ -761,7 +812,6 @@ class DataAnalyzer(BasicAnalyzer):
                                        (~case_df_after_filter['HardwareSkuName'].isin(configuration['hwsku_excluded_types'])) &
                                        (~case_df_after_filter['HardwareSku_OSVersion'].isin(configuration['hwsku_osversion_excluded_types'])) &
                                        (~case_df_after_filter['Topology_HardwareSku'].isin(configuration['topology_hwsku_excluded_types']))]
-
         return case_df_after_filter
 
     def analysis_process(self, case_info_dict):
