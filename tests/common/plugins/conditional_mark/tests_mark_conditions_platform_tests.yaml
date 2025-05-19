@@ -1085,6 +1085,15 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "release in ['202412']"
 
 #######################################
+#####   test_chassis_reboot.py  #####
+#######################################
+platform_tests/test_chassis_reboot.py:
+  skip:
+    reason: "Skip modular chassis specific test on disaggregated chassis"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+#######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
 platform_tests/test_cont_warm_reboot.py:
@@ -1193,12 +1202,6 @@ platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
 #######################################
 #####        test_reboot.py       #####
 #######################################
-platform_tests/test_chassis_reboot.py:
-  skip:
-    reason: "Skip modular chassis specific test on disaggregated chassis"
-    conditions:
-      - "'t2_single_node' in topo_name"
-
 platform_tests/test_power_off_reboot.py:
   skip:
     reason: "Skip power off reboot test for Wistron/Nokia-7215"
