@@ -84,11 +84,20 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
             # For queue4_group3, use the default value in copp
-            # configuration as this is lower than 600 PPS
+            # configuration as this is lower than 600 PPS.
+            # For queue1_group3, we aim to rate limit punted traffic to a very low rate of 200 PPS.
+            # This is done to prevent any impact on more critical punted traffic and
+            # is specifically applied to traffic associated with the NEIGHBOR_MISS trap ID.
             if tg == "queue4_group3":
                 if asic_type == "cisco-8000":
                     group_config["cir"] = "400"
                     group_config["cbs"] = "400"
+                else:
+                    continue
+            elif tg == "queue1_group3":
+                if asic_type == "cisco-8000":
+                    group_config["cir"] = "200"
+                    group_config["cbs"] = "200"
                 else:
                     continue
             else:
