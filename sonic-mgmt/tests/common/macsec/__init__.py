@@ -16,6 +16,10 @@ from .macsec_config_helper import enable_macsec_feature
 from .macsec_config_helper import disable_macsec_feature
 from .macsec_config_helper import setup_macsec_configuration
 from .macsec_config_helper import cleanup_macsec_configuration
+from .macsec_config_helper import is_macsec_configured
+from .macsec_config_helper import get_macsec_enable_status, get_macsec_profile
+from .macsec_helper import load_all_macsec_info
+
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 
@@ -107,7 +111,7 @@ class MacsecPlugin(object):
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
-    @pytest.fixture(scope="module", autouse=True)
+    @pytest.fixture(scope="module")
     def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
@@ -115,6 +119,14 @@ class MacsecPlugin(object):
         startup_macsec()
         yield
         shutdown_macsec()
+
+    @pytest.fixture(scope="module", autouse=True)
+    def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+        if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+            if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
+                load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+            else:
+                request.getfixturevalue('macsec_setup')
 
     @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
@@ -251,12 +263,14 @@ class MacsecPluginT2(MacsecPlugin):
          super(MacsecPluginT2, self).__init__()
 
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        ctrl_nbr_names = []
         mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
-        ctrl_nbr_names = mg_facts['macsec_neighbors']
+        if 'macsec_neighbors' in mg_facts:
+            ctrl_nbr_names = mg_facts['macsec_neighbors']
         return ctrl_nbr_names
 
     def downstream_neighbor(self,tbinfo, neighbor):
-        if ("t2" in tbinfo["topo"]["type"] and "T1" in neighbor["name"]):
+        if ("t2" in tbinfo["topo"]["type"] and ("T1" in neighbor["name"] or "LT2" in neighbor["name"])):
             return True
         return False
 

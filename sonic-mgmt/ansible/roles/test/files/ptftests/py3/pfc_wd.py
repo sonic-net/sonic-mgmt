@@ -10,6 +10,7 @@ import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import test_params_get, simple_tcp_packet, send_packet, verify_no_packet_any, verify_packet_any_port
+import macsec  # noqa F401
 
 
 class PfcWdTest(BaseTest):

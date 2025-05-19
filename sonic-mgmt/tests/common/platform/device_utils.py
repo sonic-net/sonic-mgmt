@@ -88,14 +88,14 @@ def get_dut_psu_line_pattern(dut):
         w+ cannot match following examples properly:
 
         example 1:
-            PSU 1  PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
-            PSU 2  PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
+            psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
+            psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
         example 2:
-            PSU 1  N/A      N/A               12.05           3.38        40.62  OK        green
-            PSU 2  N/A      N/A               12.01           4.12        49.50  OK        green
+            psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
+            psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
 
         """
-        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        psu_line_pattern = re.compile(r"^(\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 

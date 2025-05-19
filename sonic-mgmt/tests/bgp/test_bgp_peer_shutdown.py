@@ -211,7 +211,7 @@ def test_bgp_peer_shutdown(
             if not announced_route_on_dut_before_shutdown:
                 pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
-            timestamp_before_teardown = time.time()
+            timestamp_before_teardown = float(duthost.shell("date +%s.%6N")['stdout'])
             # tear down BGP session on n0
             bgp_pcap = BGP_DOWN_LOG_TMPL
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
