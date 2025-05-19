@@ -69,7 +69,7 @@ def wait_bgp_neighbor(duthost):
     '''
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    pytest_assert(wait_until(180, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+    pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                   "Not all BGP sessions are established on DUT")
 
 
