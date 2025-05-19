@@ -1353,10 +1353,7 @@ def generate_params_frontend_hostname(request, macsec_only=False):
 def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
-        if macsec_only:
-            hosts = generate_params_frontend_hostname(request, macsec_only=True)
-        else:
-            hosts = generate_params_frontend_hostname(request)
+        hosts = generate_params_frontend_hostname(request, macsec_only=macsec_only)
 
     hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
     return hosts_per_hwsku
