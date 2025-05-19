@@ -61,6 +61,9 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface '{}' not found in 'sfputil show eeprom' output.".format(intf)
             assert parsed_eeprom[intf] == "SFP EEPROM detected", (
-                "The EEPROM information for interface '{}' is not as expected. Expected: 'SFP EEPROM detected', but got: '{}'. Full parsed EEPROM output: {}"
-                .format(intf, parsed_eeprom.get(intf, "No data found"), parsed_eeprom)
+                (
+                    "The EEPROM information for interface '{}' is not as expected. "
+                    "Expected: 'SFP EEPROM detected', but got: '{}'. "
+                    "Full parsed EEPROM output: {}"
+                ).format(intf, parsed_eeprom.get(intf, "No data found"), parsed_eeprom)
             )
