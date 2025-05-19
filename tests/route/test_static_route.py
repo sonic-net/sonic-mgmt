@@ -162,8 +162,13 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
         return True
 
     assert wait_until(60, 15, 0, _check_routes), (
-    "Failed to verify route redistribution: '{}' not found in advertised routes of BGP".format(expected_prefix) # type: ignore
-)
+    "Failed to verify route redistribution: prefix '{}' not found in advertised routes of BGP neighbors within the timeout period. "
+    "Key variables:\n"
+    "- Prefix: {}\n"
+    "- Removed: {}\n"
+    "- BGP Neighbors: {}\n"
+).format(prefix, prefix, removed, bgp_neighbors)
+
 
 
 
