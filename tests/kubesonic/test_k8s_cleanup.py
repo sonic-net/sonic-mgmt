@@ -10,25 +10,18 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
-CLEANUP_CONTAINER_IMAGE = "kubesonic-cleanup"
 CLEANUP_CONTAINER_NAME = "k8s_cleanup"
 
 
-def pytest_generate_tests(metafunc):
-    if "containers" in metafunc.fixturenames:
-        metafunc.parametrize("containers", [metafunc.config.getoption("containers")], scope="module")
-
-
-def test_k8s_cleanup(duthosts, rand_one_dut_hostname, containers):
+def test_k8s_cleanup(duthosts, rand_one_dut_hostname, request):
     """
     Test the cleanup of kubesonic containers
     """
     # Check if the test is called from container upgrade test
-    if not containers:
+    log_file = request.config.getoption("--log-file", default=None)
+    logger.info(f"Kubesonic cleanup test log_file: {log_file}")
+    if not (log_file and "container_upgrade" in log_file):
         pytest.skip("Skipping test as this test is not called from container upgrade test")
-
-    if CLEANUP_CONTAINER_IMAGE not in containers:
-        pytest.skip("Skipping test as the cleanup container is not included in the container upgrade test")
 
     duthost = duthosts[rand_one_dut_hostname]
     status_cmd = r"docker inspect {} --format \{{\{{.State.Running\}}\}}".format(CLEANUP_CONTAINER_NAME)
