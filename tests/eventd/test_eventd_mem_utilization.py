@@ -77,7 +77,8 @@ def read_events(duthost, localhost, ptfhost, gnxi_path):
         env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         dut_ip = duthost.mgmt_ip
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe -x all[heartbeat=2] -xt \
-              EVENTS -o "ndastreamingservertest" --subscribe_mode 0 --submode 1 --update_count 30'.format(dut_ip, env.gnmi_port)
+              EVENTS -o "ndastreamingservertest" --subscribe_mode 0 --submode 1 \
+              --update_count 30'.format(dut_ip, env.gnmi_port)
         ret = ptfhost.shell(cmd)["rc"]
         pytest_assert(ret == 0, "gnmi client call to EVENTS fails")
 
@@ -93,8 +94,8 @@ def test_eventd_mem_utilization_no_connections(duthosts, enum_rand_one_per_hwsku
 
     initial_mem_usage = get_eventd_mem_usage(duthost)
 
-
-    # Repeat max cach events and max overflow cache events publishing 5 times, ensure difference after and before is less than 100 MB
+    # Repeat max cach events and max overflow cache events publishing 5 times
+    # Ensure difference after and before is less than 100 MB
 
     for _ in range(MAX_PUBLISH_CYCLES):
         mass_publish_events(duthost)
@@ -115,8 +116,7 @@ def test_eventd_mem_utilization_connections(duthosts, enum_rand_one_per_hwsku_ho
     initial_mem_usage = get_eventd_mem_usage(duthost)
 
     # Repeat max cach events and max overflow cache events publishing 5 times, then read
-    # ensure difference after and before each read/write is less than 25 MB
-
+    # Ensure difference after and before each read/write is less than 25 MB for all cycles
 
     for _ in range(MAX_READ_WRITE_CYCLES):
         mass_publish_events(duthost)
