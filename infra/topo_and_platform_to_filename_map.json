@@ -111,20 +111,15 @@
             "pyvxr_yaml_file": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
         }
     },
-    "tortuga-controller": {
-        "churchill-mono": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller.yaml"
-        },
-        "carib": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib.yaml"
-        }
-    },
     "tortuga-controller-2x2": {
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2.yaml"
         },
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2_carib.yaml"
+        },
+        "laguna": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2_laguna.yaml"
         }
     },
     "tortuga-controller-2x3": {
@@ -133,14 +128,20 @@
         },
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x3_carib.yaml"
+        },
+        "laguna": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x3_laguna.yaml"
         }
     },
-    "tortuga-controller-carib-1x3": {
+    "tortuga-controller-1x3": {
         "churchill-mono": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib_1x3.yaml"
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_1x3_carib.yaml"
         },
         "carib": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib_1x3.yaml"
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_1x3_carib.yaml"
+        },
+        "laguna": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_1x3_laguna.yaml"
         }
     },
     "platform-test-HW": {

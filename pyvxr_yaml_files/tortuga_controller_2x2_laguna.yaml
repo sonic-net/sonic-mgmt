@@ -1,0 +1,145 @@
+simulation:
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  slurm_flags:
+    partition: regression
+    cluster: rch-slurm-m1
+
+
+devices:
+  trex1: &host
+    data_ports:
+      - eth1
+      - eth2
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2.old
+          type: reference
+    memory: 2GB
+    platform: linux
+    vcpu: 2
+    xr_port_redir:
+      - 22
+
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+
+  L0: &switch
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso 
+    linecard_types: ['HF6100-64ED']
+    port_breakout:
+       lc0:
+          0..63: 1x800
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /ws/yadeng-sjc/images/sonic-cisco-8000.bin.202405c
+    vxr_sim_config:
+      shelf:
+        # the below config prevet packet reaching nsim before the full initialization. We observer dsim crash when the packets are sent before the full initialization.
+        # the below config can be removed when dsim issue is fixed
+        ConfigS1EgressSeen: 'true'
+        ConfigS1DelayAfterEgressSeen: '60'
+    os_type: sonic
+    memory: 20GB
+    vcpu: 10
+    platform: spitfire_f
+    data_ports:
+      - Ethernet1_[1..64]
+    xr_port_redir:
+      - 22
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-deng-g200-leaf0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  L1:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-deng-g200-leaf1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  S0:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-deng-g200-spine0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  S1:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-deng-g200-spine1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+connections:
+  hubs:
+    L0_trex1_1:
+      - L0.Ethernet1_9
+      - trex1.eth1
+    L0_trex5_2:
+      - L0.Ethernet1_13
+      - trex5.eth2
+    L0_trex2_1:
+      - L0.Ethernet1_10
+      - trex2.eth1
+    L0_trex3_1:
+      - L0.Ethernet1_11
+      - trex3.eth1
+    L0_trex4_1:
+      - L0.Ethernet1_12
+      - trex4.eth1
+    L1_trex5_1:
+      - L1.Ethernet1_9
+      - trex5.eth1
+    L1_trex1_2:
+      - L1.Ethernet1_13
+      - trex1.eth2
+    L1_trex6_1:
+      - L1.Ethernet1_10
+      - trex6.eth1
+    L1_trex7_1:
+      - L1.Ethernet1_11
+      - trex7.eth1
+    S0_L0_conn1:
+      - S0.Ethernet1_1
+      - L0.Ethernet1_1
+    S0_L1_conn1:
+      - S0.Ethernet1_2
+      - L1.Ethernet1_1
+    S1_L0_conn1:
+      - S1.Ethernet1_1
+      - L0.Ethernet1_2
+    S1_L1_conn1:
+      - S1.Ethernet1_2
+      - L1.Ethernet1_2

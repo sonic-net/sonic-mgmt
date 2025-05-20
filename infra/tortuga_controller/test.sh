@@ -41,7 +41,7 @@ PYVXR_VRFS=""
 PYVXR_STPS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
 START_TIME=$(date +%s)
-TEST_TAGS="sonic-test,ipv4,ipv6,loopback"
+TEST_TAGS="sonic-test,ipv4,ipv6,loopback,no-claim"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
@@ -120,13 +120,13 @@ do
     CGEN_TEST="${2}"
     shift; shift;;
   -g200)
-    STP_PORT1="Ethernet1_8_2"
-    STP_PORT2="Ethernet1_9_1"
-    DHCP_PORT="Ethernet1_6_2"
-    LAG_PORT1="Ethernet1_5_1"
-    LAG_PORT2="Ethernet1_7_1"
-    ROUTE_PORT="Ethernet1_32_1"
-    SUBINF_PORT="Ethernet1_6_1"
+    STP_PORT1="Ethernet1_16"
+    STP_PORT2="Ethernet1_17"
+    DHCP_PORT="Ethernet1_12"
+    LAG_PORT1="Ethernet1_9"
+    LAG_PORT2="Ethernet1_13"
+    ROUTE_PORT="Ethernet1_63"
+    SUBINF_PORT="Ethernet1_11"
     BREAKOUTS="*"
     shift;;
   *)

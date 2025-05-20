@@ -71,7 +71,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-carib-1x3'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-1x3'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -80,8 +80,8 @@ def _create_parser():
                       required=False,default="cisco")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono','carib'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib, laguna',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono','carib', 'laguna'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -368,6 +368,8 @@ def get_dut_platform(device_type):
         return 'churchill-mono'
     elif device_type == 'carib':
         return 'carib'
+    elif device_type == 'laguna':
+        return 'laguna'
     else:
         return "mathilda"
 
@@ -467,11 +469,15 @@ def update_controller_test(data, spine_ports, leaf_ports, host_ports):
     os.system("sed -i '0,/LEAF_PORTS=/{{s/.*LEAF_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(leaf_str))
     os.system("sed -i '0,/SPINE_PORTS=/{{s/.*SPINE_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(spine_str))
 
-def start_controller():
+def start_controller(device_type):
     test_path = "./tortuga_controller/test.sh"
     cwd = os.getcwd()
     os.chdir('./tortuga_controller')
-    os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
+
+    if device_type == 'laguna':
+        os.system("bash -c './test.sh -no-breakout -g200 -no-stp |& tee test_op.log'".format(test_path))
+    else:
+        os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
 
     test_output = subprocess.check_output("grep -i 'Completed in' test_op.log | wc -l", shell=True).strip()
 
@@ -716,7 +722,7 @@ def main():
     else:
         leaf_ports, host_ports, spine_ports = print_env_info(data, device_type)
         update_controller_test(data, spine_ports, leaf_ports, host_ports)
-        sanity_success = start_controller()
+        sanity_success = start_controller(device_type)
         if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
             ret = 0
