@@ -66,7 +66,7 @@ def invoke_multi_publish_tool(duthost):
 
 def mass_publish_events(duthost):
     logger.info("Publishing 300K events")
-    # Publish max cache events ~300K
+    # Publish max cache events ~300K (150K bgp-state up and 150K bgp-state down events)
     event_publish_tool(duthost, "", 150000)
     # Publish max overflow cache events
     invoke_multi_publish_tool(duthost)

@@ -1494,11 +1494,7 @@ def cleanup_prev_images(duthost):
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
 
 
-def event_publish_tool(duthost, json_file='', count=1):
-    cmd = "docker exec eventd python /usr/bin/events_publish_tool.py"
-    if json_file == '':
-        cmd += " -c {}".format(count)
-    else:
-        cmd += " -f /{}".format(json_file)
+def event_publish_tool(duthost, count=1):
+    cmd = "docker exec eventd python /usr/bin/events_publish_tool.py -c {}".format(count)
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
