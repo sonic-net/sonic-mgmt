@@ -150,10 +150,11 @@ BYTES_COUNT = "bytes_count"
 
 
 @pytest.fixture(scope="module", autouse=True)
-def remove_dataacl_table(duthosts):
+def remove_existing_acl_tables(duthosts):
     """
     Remove DATAACL to free TCAM resources.
     The change is written to configdb as we don't want DATAACL recovered after reboot
+    Remove EVERFLOW table for VPP only.
     """
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
