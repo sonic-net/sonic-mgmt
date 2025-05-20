@@ -179,25 +179,29 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     return dropped_packets
 
 
-def get_addrs_in_subnet(subnet, number_of_ip):
+def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=[]):
     """
-    Get N IP addresses in a subnet.
+    Get N IP addresses in a subnet (supports both IPv4 and IPv6).
+
     Args:
-        subnet (str): IPv4 subnet, e.g., '192.168.1.1/24'
-        number_of_ip (int): Number of IP addresses to get
-    Return:
-        Return n IPv4 addresses in this subnet in a list.
+        subnet (str): IPv4 or IPv6 subnet, e.g., '192.168.1.0/24' or '2001:db8::/32'
+        number_of_ip (int): Number of IP addresses to retrieve
+        exclude_ips (list): List of IP addresses to exclude from the result
+
+    Returns:
+        list: List of N IP addresses in this subnet, excluding specified addresses.
     """
-    ip_addr = subnet.split('/')[0]
-    ip_addrs = [str(x) for x in list(IPNetwork(subnet))]
-    ip_addrs.remove(ip_addr)
-
-    """ Try to avoid network and broadcast addresses """
-    if len(ip_addrs) >= number_of_ip + 2:
-        del ip_addrs[0]
-        del ip_addrs[-1]
-
-    return ip_addrs[:number_of_ip]
+    try:
+        ip_network = IPNetwork(subnet)
+        # Generate the list of usable IP addresses
+        ip_addrs = [str(ip) for ip in ip_network.iter_hosts()]
+        # Exclude provided IPs
+        ip_addrs = [ip for ip in ip_addrs if ip not in exclude_ips]
+        # Return the first 'number_of_ips' addresses
+        return ip_addrs[:number_of_ip]
+    except Exception as e:
+        print(f"Error processing subnet {subnet}: {e}")
+        return []
 
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
