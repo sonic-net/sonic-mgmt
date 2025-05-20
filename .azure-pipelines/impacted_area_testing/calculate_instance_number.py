@@ -25,7 +25,7 @@ def get_access_token():
     managed_identity_id = os.environ.get("SONIC_AUTOMATION_UMI")
 
     # 1. Run az login with re-try
-    az_login_cmd = f"az login --identity --username {managed_identity_id}"
+    az_login_cmd = f"az login --identity --client-id {managed_identity_id}"
     az_login_attempts = 0
     while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
         try:
