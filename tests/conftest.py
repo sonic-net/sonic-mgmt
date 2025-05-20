@@ -1720,11 +1720,14 @@ def pfc_pause_delay_test_params(request):
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
+_rand_one_asic_per_module = {}
+_rand_one_frontend_asic_per_module = {}
 def pytest_generate_tests(metafunc):        # noqa: E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    global _rand_one_asic_per_module, _rand_one_frontend_asic_per_module
     # Enumerators for duts are mutually exclusive
     target_hostname = get_target_hostname(metafunc)
     if target_hostname:
@@ -1793,10 +1796,18 @@ def pytest_generate_tests(metafunc):        # noqa: E302
         asics_selected = generate_dut_backend_asics(metafunc, duts_selected)
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+        if metafunc.module not in _rand_one_asic_per_module:
+            asics_selected = generate_param_asic_index(metafunc, duts_selected,
+                                                       ASIC_PARAM_TYPE_ALL, random_asic=True)
+            _rand_one_asic_per_module[metafunc.module] = asics_selected
+        asics_selected = _rand_one_asic_per_module[metafunc.module]
     elif "enum_rand_one_frontend_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_frontend_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+        if metafunc.module not in _rand_one_frontend_asic_per_module:
+            asics_selected = generate_param_asic_index(metafunc, duts_selected,
+                                                       ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+            _rand_one_frontend_asic_per_module[metafunc.module] = asics_selected
+        asics_selected = _rand_one_frontend_asic_per_module[metafunc.module]
 
     # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
     if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
