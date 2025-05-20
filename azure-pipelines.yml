@@ -168,8 +168,8 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dpu
-          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          MIN_WORKER: $(DPU_INSTANCE_NUM)
+          MAX_WORKER: $(DPU_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
 
