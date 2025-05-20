@@ -353,11 +353,11 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     duthost = None
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
-        downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
-    elif 't2' in topo:
+    if 't2' in topo:
         pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+    else:
+        downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
@@ -683,7 +683,9 @@ class BaseEverflowTest(object):
                 command += " --stage {}".format(self.acl_stage())
 
             if bind_ports_list:
-                command += " -p {}".format(",".join(bind_ports_list))
+                filtered_ports = [p for p in bind_ports_list if p and p != "Not Applicable"]
+                if filtered_ports:
+                    command += " -p {}".format(",".join(filtered_ports))
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass

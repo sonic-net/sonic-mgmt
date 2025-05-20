@@ -44,6 +44,8 @@ def build_candidate_ports(duthost, tbinfo, ns):
         candidate_neigh_name = 'MX'
     elif tbinfo['topo']['type'] == 't1':
         candidate_neigh_name = 'T0'
+    elif tbinfo['topo']['type'] == 'm1':
+        candidate_neigh_name = 'M0'
     else:
         candidate_neigh_name = 'T1'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -171,9 +173,19 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
 def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, pkt_ip_ver,
                             erspan_ip_ver=4):  # noqa F811
     if pkt_ip_ver == 'ipv4':
-        packet = testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
+        packet = testutils.simple_tcp_packet(
+            eth_src=ptfadapter.dataplane.get_mac(
+                *list(ptfadapter.dataplane.ports.keys())[0]
+            ),
+            eth_dst=router_mac
+        )
     else:
-        packet = testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
+        packet = testutils.simple_tcpv6_packet(
+            eth_src=ptfadapter.dataplane.get_mac(
+                *list(ptfadapter.dataplane.ports.keys())[0]
+            ),
+            eth_dst=router_mac
+        )
 
     dec_ttl = 0
 

@@ -116,7 +116,8 @@ def pfcwd_feature_enabled(duthost):
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False,
+                  yang_validate=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -150,6 +151,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # Retrieve the enable_macsec passed by user for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    request = sonic_host.duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
@@ -160,7 +167,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y &>/dev/null'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config:
+        if override_config or macsec_en:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -239,3 +246,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if exec_tsb:
         sonic_host.shell("TSB")
+
+    if yang_validate:
+        pytest_assert(
+            wait_until(60, 15, 0, sonic_host.yang_validate),
+            "Yang validation failed after config_reload"
+        )
