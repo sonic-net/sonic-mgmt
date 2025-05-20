@@ -1055,9 +1055,10 @@ generic_config_updater:
 
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
-    reason: "Cisco 8122 backend compute ai platform is not supported."
+    reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
