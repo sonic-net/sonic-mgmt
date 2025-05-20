@@ -1025,7 +1025,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
-    src_mac = ptfadapter.dataplane.get_mac(0, 0)
+    src_mac = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     dst_mac = duthost.facts["router_mac"]
 
     # initialize the packets cache
@@ -1425,7 +1425,7 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_ttl = random.choice(list(range(3, 65)))
     pkt = testutils.simple_ip_packet(
         eth_dst=duthost.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src="1.1.1.1",
         ip_dst=target_server_ip,
         ip_dscp=pkt_dscp,
@@ -1451,7 +1451,12 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_hl = random.choice(list(range(3, 65)))
     pktlen = 100
     pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
-    pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
+    pkt = Ether(
+        src=ptfadapter.dataplane.get_mac(
+            *list(ptfadapter.dataplane.ports.keys())[0]
+        ),
+        dst=duthost.facts["router_mac"]
+    )
     pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
     pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
     logging.info(
