@@ -17,7 +17,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common import reboot
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_types
 from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
 
@@ -62,8 +62,10 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     upstream_ports = []
     if len(mg_facts["minigraph_portchannels"]) == 0:
         topo = tbinfo["topo"]["type"]
-        upstream_neigh_type = get_upstream_neigh_type(topo)
-        upstream_ports = get_neighbor_port_list(duthost, upstream_neigh_type)
+        upstream_neigh_types = get_upstream_neigh_types(topo)
+        upstream_ports = []
+        for neigh_type in upstream_neigh_types:
+            upstream_ports += get_neighbor_port_list(duthost, neigh_type)
     else:
         for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
             upstream_ports.extend(interfaces['members'])
