@@ -3659,8 +3659,8 @@ bjw2-can-8101c1-2,etp29a,bjw2-can-8101-leaf-7,etp29a,100000,3953,Access,Off
 bjw2-can-8101c1-2,etp29b,bjw2-can-8101-leaf-7,etp29b,100000,3954,Access,Off
 bjw2-can-8101c1-2,etp30a,bjw2-can-8101-leaf-7,etp30a,100000,3955,Access,Off
 bjw2-can-8101c1-2,etp30b,bjw2-can-8101-leaf-7,etp30b,100000,3956,Access,Off
-bjw2-can-8101c1-2,etp31a,bjw2-can-7260-leaf-25,Ethernet6/3,100000,3957,Access,Off
-bjw2-can-8101c1-2,etp31b,bjw2-can-7260-leaf-25,Ethernet6/4,100000,3958,Access,Off
+bjw2-can-8101c1-2,etp31a,bjw2-can-7260-leaf-25,Ethernet63/1,100000,3957,Access,Off
+bjw2-can-8101c1-2,etp31b,bjw2-can-7260-leaf-25,Ethernet64/1,100000,3958,Access,Off
 bjw2-can-8101c1-3,etp0a,bjw2-can-8101-leaf-8,etp0a,100000,3959,Access,Off
 bjw2-can-8101c1-3,etp0b,bjw2-can-8101-leaf-8,etp0b,100000,3960,Access,Off
 bjw2-can-8101c1-3,etp1a,bjw2-can-8101-leaf-8,etp1a,100000,3961,Access,Off
