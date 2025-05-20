@@ -22,6 +22,14 @@ trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 stages:
 - stage: Pre_test
   jobs:
@@ -73,7 +81,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t0
         MIN_WORKER: $(T0_INSTANCE_NUM)
@@ -87,7 +95,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t0
         TEST_SET: t0-2vlans
@@ -103,7 +111,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t1-lag
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
@@ -117,7 +125,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dualtor
           MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
@@ -132,7 +140,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-8-lag
           TEST_SET: multi-asic-t1-lag
@@ -148,7 +156,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0-64-32
           MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
@@ -165,7 +173,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dpu
           MIN_WORKER: $(DPU_INSTANCE_NUM)
