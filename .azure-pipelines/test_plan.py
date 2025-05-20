@@ -207,7 +207,8 @@ class TestPlanManager(object):
     def get_token(self):
 
         # 1. Run az login with re-try
-        az_login_cmd = f"az login --identity --username {self.managed_identity_id}"
+        print("az login --identity --client-id")
+        az_login_cmd = f"az login --identity --client-id {self.managed_identity_id}"
         az_login_attempts = 0
         while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
             try:
@@ -378,7 +379,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=20)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception(f"HTTP execute failure, url: {tp_url}, raw_resp: {raw_resp}, exception: {str(exception)}")
