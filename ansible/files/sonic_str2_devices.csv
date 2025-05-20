@@ -110,7 +110,7 @@ str2-8800-lc2-3,10.3.146.205/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
 str2-8800-lc3-3,10.3.146.214/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
 str2-8800-lc1-4,10.3.146.244/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-8800-lc2-4,10.3.146.245/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
-str2-8800-lc3-4,10.3.146.246/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
+str2-8800-lc3-4,10.3.146.253/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-7250-sup-1,10.3.146.108/24,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
 str2-7250-lc1-1,10.3.146.147/24,Nokia-IXR7250E-36x400G,DevSonic,,sonic
 str2-7250-lc2-1,10.3.146.148/24,Nokia-IXR7250E-36x400G,DevSonic,,sonic
