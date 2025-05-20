@@ -676,40 +676,19 @@ dualtor_io/test_grpc_server_failure.py:
     conditions:
       - "'dualtor-aa' not in topo_name"
 
-dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
-  xfail:
-    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
-
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
