@@ -29,8 +29,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 4G
-      memory_swap: 4G
+      memory: 2G
+      memory_swap: 2G
       env:
         CEOS=1
         container=docker
