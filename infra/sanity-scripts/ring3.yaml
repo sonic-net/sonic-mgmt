@@ -74,11 +74,7 @@ FWD:
       - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t2-min:
     sfd:
-      - cacl/test_cacl_application.py
-      - cacl/test_cacl_function.py
-      - cacl/test_ebtables_application.py
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop  
+      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop 
   t1:
     lightning:
       - drop_packets/test_drop_counters.py::test_absent_ip_header
