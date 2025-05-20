@@ -4,7 +4,10 @@ import time
 
 from tests.gnmi.grpc_utils import get_gnoi_system_stubs
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.disable_memory_utilization
+]
 
 
 """

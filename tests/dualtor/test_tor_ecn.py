@@ -120,7 +120,7 @@ def build_encapsulated_ip_packet(
     )[IP]
     packet = testutils.simple_ipv4ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
         ip_dscp=outer_dscp,
@@ -162,7 +162,7 @@ def build_non_encapsulated_ip_packet(
 
     packet = testutils.simple_ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src="1.1.1.1",
         ip_dst=server_ipv4,
         ip_dscp=dscp,
