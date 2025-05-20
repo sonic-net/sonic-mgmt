@@ -293,6 +293,17 @@ crm/test_crm.py::test_crm_fdb_entry:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
 #######################################
+#####           dash              #####
+#######################################
+dash/test_dash_vnet.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "platform in ['x86_64-nvidia_sn4280-r0']"
+
+#######################################
 #####            decap            #####
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
