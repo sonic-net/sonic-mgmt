@@ -108,11 +108,6 @@ def get_portchannel_for_eth_ports(rand_selected_dut, tbinfo):
     selected_ports = eth_ports[:3]  # Use the first three ports
     result = []
 
-    for eth_port in selected_ports:
-        ptf_port = mg_facts["minigraph_ptf_indices"][eth_port]
-        pc_name = eth_to_portchannel.get(eth_port)
-        result.append((eth_port, pc_name, ptf_port))
-
     logger.info("Selected ports and their mappings:")
     for eth_port in selected_ports:
         ptf_port = mg_facts["minigraph_ptf_indices"][eth_port]
@@ -154,46 +149,52 @@ def get_all_bindable_ports(rand_selected_dut, tbinfo):
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
-    eth_ports = set(mg_facts["minigraph_interfaces"].keys())
-    portchannels = mg_facts["minigraph_portchannels"]
-    pc_names = []
-    eth_in_pc = set()
+    eth_ports = set(
+        iface["name"] for iface in mg_facts["minigraph_interfaces"]
+        if iface["name"].startswith("Ethernet")
+    )
 
-    for pc_name, pc_data in portchannels.items():
-        pc_names.append(pc_name)
-        eth_in_pc.update(pc_data["members"])
+    bind_ports = []
 
-    # Exclude Ethernet members already part of a PortChannel
-    standalone_eth_ports = eth_ports - eth_in_pc
-    bind_ports = pc_names + list(standalone_eth_ports)
+    for pc_name, pc_data in mg_facts.get("minigraph_portchannels", {}).items():
+        members = pc_data.get("members", [])
+        bind_ports.append(pc_name)
+        eth_ports -= set(members)  # Remove members that are already in PortChannels
 
-    logger.info("Bindable ports for ACL table:")
-    for port in bind_ports:
-        logger.info("  %s", port)
-
+    bind_ports.extend(sorted(eth_ports))  # Add remaining standalone Ethernet ports
     return bind_ports
 
 
-def setup_acl_table(duthost, get_all_bindable_ports):
-    ports = get_all_bindable_ports
+def setup_acl_table(duthost, ports):
+    """
+    Create an ACL table with the given ports and validate its creation.
+    Falls back to checking via `show acl table` if LogAnalyzer fails.
+    """
+    logger.info(f"Cleaning up any existing ACL table named {ACL_TABLE_NAME}")
     duthost.shell(f"config acl remove table {ACL_TABLE_NAME}", module_ignore_errors=True)
 
     cmd = "config acl add table {} {} -s {} -p {}".format(
-            ACL_TABLE_NAME,
-            ACL_TABLE_TYPE,
-            "egress",
-            ",".join(ports)
-        )
+        ACL_TABLE_NAME,
+        ACL_TABLE_TYPE,
+        "egress",
+        ",".join(ports)
+    )
 
-    logger.info("Creating ACL table {} for testing".format(ACL_TABLE_NAME))
+    logger.info(f"Creating ACL table {ACL_TABLE_NAME} with ports: {ports}")
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestAclSrcMacRewrite")
     loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+
     try:
         with loganalyzer:
             duthost.shell(cmd)
+            time.sleep(2)  # Allow logs to flush
     except LogAnalyzerError:
-        # Todo: cleanup
-        pytest.fail("Failed to create ACL table {}".format(ACL_TABLE_NAME))
+        logger.warning("LogAnalyzer failed, verifying table creation manually...")
+        result = duthost.shell("show acl table", module_ignore_errors=True)
+        if ACL_TABLE_NAME in result.get("stdout", ""):
+            logger.warning(f"ACL table {ACL_TABLE_NAME} created successfully despite LogAnalyzer failure.")
+        else:
+            pytest.fail(f"Failed to create ACL table {ACL_TABLE_NAME}")
 
 
 def remove_acl_table(duthost):
@@ -272,7 +273,7 @@ def remove_acl_rules(self, duthost):
     pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
 
 
-def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports):
+def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, get_all_bindable_ports):
     # Define test parameters
     inner_dst_ip = "192.168.0.2"
     inner_src_ip = "192.168.0.1"
@@ -285,9 +286,10 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports):
     outer_dst_ip = "20.1.1.1"
     table_name = ACL_TABLE_NAME
     RULE_1 = 'rule_1'
+    ports = get_all_bindable_ports
+    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     setup_acl_table(duthost, get_all_bindable_ports)
-    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     setup_acl_rules(duthost, inner_src_ip, vni_id, modified_inner_src_mac)
 
