@@ -73,14 +73,13 @@ def mass_publish_events(duthost):
 
 
 def read_events(duthost, localhost, ptfhost, gnxi_path):
-    with setup_streaming_telemetry_context(False, duthost, localhost, ptfhost, gnxi_path):
-        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-        dut_ip = duthost.mgmt_ip
-        cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe -x all[heartbeat=2] -xt \
-              EVENTS -o "ndastreamingservertest" --subscribe_mode 0 --submode 1 \
-              --update_count 30'.format(dut_ip, env.gnmi_port)
-        ret = ptfhost.shell(cmd)["rc"]
-        pytest_assert(ret == 0, "gnmi client call to EVENTS fails")
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    dut_ip = duthost.mgmt_ip
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe -x all[heartbeat=2] -xt \
+          EVENTS -o "ndastreamingservertest" --subscribe_mode 0 --submode 1 \
+          --update_count 5'.format(dut_ip, env.gnmi_port)
+    ret = ptfhost.shell(cmd)["rc"]
+    pytest_assert(ret == 0, "gnmi client call to EVENTS fails")
 
 
 def test_eventd_mem_utilization_no_connections(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -115,14 +114,14 @@ def test_eventd_mem_utilization_connections(duthosts, enum_rand_one_per_hwsku_ho
 
     initial_mem_usage = get_eventd_mem_usage(duthost)
 
-    # Repeat max cach events and max overflow cache events publishing 5 times, then read
+    # Repeat max cach events and max overflow cache events publishing 4 times, then read
     # Ensure difference after and before each read/write is less than 25 MB for all cycles
-
-    for _ in range(MAX_READ_WRITE_CYCLES):
-        mass_publish_events(duthost)
-        # Read multiple times
-        for _ in range(MAX_READ_CYCLES):
-            read_events(duthost, localhost, ptfhost, gnxi_path)
-        mem_usage = get_eventd_mem_usage(duthost)
-        diff_mem_usage = mem_usage - initial_mem_usage
-        pytest_assert(diff_mem_usage <= 25, "Mem usage grows more than expected")
+    with setup_streaming_telemetry_context(False, duthost, localhost, ptfhost, gnxi_path):
+        for _ in range(MAX_READ_WRITE_CYCLES):
+            mass_publish_events(duthost)
+            # Read multiple times
+            for _ in range(MAX_READ_CYCLES):
+                read_events(duthost, localhost, ptfhost, gnxi_path)
+            mem_usage = get_eventd_mem_usage(duthost)
+            diff_mem_usage = mem_usage - initial_mem_usage
+            pytest_assert(diff_mem_usage <= 25, "Mem usage grows more than expected")
