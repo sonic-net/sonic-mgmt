@@ -472,7 +472,7 @@ def get_reboot_cause(dut):
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if dut.facts['asic_type'] == "cisco-8000" and dut.get_facts().get("modular_chassis") \
-            and type == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS:
+           and type == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS:
             # Skip the check for SUP heartbeat loss on T2 chassis
             if re.search(r"Heartbeat|headless|Power Loss", cause):
                 return type
