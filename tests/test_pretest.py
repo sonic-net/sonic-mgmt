@@ -240,7 +240,7 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     info = {tbname: metadata}
     try:
         if not os.path.exists(folder):
-            os.mkdir(folder)
+            os.makedirs(folder)
         with open(filepath, 'w') as yf:
             json.dump(info, yf, indent=4)
     except IOError as e:
