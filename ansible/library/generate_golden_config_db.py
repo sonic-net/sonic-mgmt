@@ -169,7 +169,7 @@ class GenerateGoldenConfigDBModule(object):
 
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, feature_data=None):
         full_config = json.loads(config)
-        if config == "{}" or "FEATURE" not in config["localhost"]:
+        if config == "{}" or "FEATURE" not in full_config["localhost"]:
             # need dump running config FEATURE + selected feature
             gold_config_db = json.loads(self.get_multiasic_feature_config())
         else:
