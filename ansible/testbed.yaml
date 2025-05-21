@@ -4199,6 +4199,7 @@
   ptf: bjw2-1-t
   ptf_ip: 10.150.23.132/23
   ptf_ipv6: 2404:f801:10:2200::a96:1784/52
+  netns_mgmt_ip: 10.150.23.47/23
   server: server_bjw2_1
   vm_base: VM81203
   dut:
@@ -4217,6 +4218,7 @@
   ptf: bjw2-1-u
   ptf_ip: 10.150.23.133/23
   ptf_ipv6: 2404:f801:10:2200::a96:1785/52
+  netns_mgmt_ip: 10.150.23.46/23
   server: server_bjw2_1
   vm_base: VM81207
   dut:
