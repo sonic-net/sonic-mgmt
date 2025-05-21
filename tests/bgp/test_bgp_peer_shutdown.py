@@ -53,9 +53,10 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter":
+        neigh_type = "SpineRouter"
     else:
         neigh_type = "ToRRouter"
-
     logging.info(
         "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
             conn0["neighbor_addr"].split("/")[0],
@@ -211,7 +212,7 @@ def test_bgp_peer_shutdown(
             if not announced_route_on_dut_before_shutdown:
                 pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
-            timestamp_before_teardown = time.time()
+            timestamp_before_teardown = float(duthost.shell("date +%s.%6N")['stdout'])
             # tear down BGP session on n0
             bgp_pcap = BGP_DOWN_LOG_TMPL
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
