@@ -417,7 +417,7 @@ def run_tx_drop_counter(
         cs.choice = cs.PORT
         cs.port.choice = cs.port.LINK
         # Apply the state to  port
-        cs.link.port_names = [port_names]
+        cs.port.link.port_names = [port_names]
         # Set  port down (shut)
         cs.port.link.state = cs.port.link.DOWN
         api.set_control_state(cs)
