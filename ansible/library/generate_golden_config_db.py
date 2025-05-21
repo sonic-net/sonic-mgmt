@@ -196,6 +196,8 @@ class GenerateGoldenConfigDBModule(object):
                 feature_section = ns_data["FEATURE"]
                 feature_section.update(feature_data)
                 ns_data["FEATURE"] = feature_section
+            else:
+                ns_data["FEATURE"] = feature_data
 
         return json.dumps(gold_config_db, indent=4)
 
@@ -442,6 +444,8 @@ class GenerateGoldenConfigDBModule(object):
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
+        golden_config = json.loads(config)
+        assert "FEATURE" in golden_config["localhost"]
         self.module.exit_json(change=True, msg=module_msg)
 
 
