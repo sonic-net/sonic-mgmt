@@ -15,6 +15,7 @@
     - [4.4 Error Handling](#44-error-handling)
     - [4.5 Source IP Configuration](#45-source-ip-configuration)
     - [4.6 Management VRF](#46-management-vrf)
+    - [4.7 IPv6 RADIUS Server Support](#47-ipv6-radius-server-support)
   - [5 Implementation Details](#5-implementation-details)
     - [5.1 Test Framework](#51-test-framework)
     - [5.2 Key Utilities](#52-key-utilities)
@@ -151,6 +152,45 @@ Configuration files:
 - Clean up:
   * Remove management VRF
   * Verify SSH accessibility after VRF removal
+
+### 4.7 IPv6 RADIUS Server Support
+
+**Test Case 8: IPv6-only RADIUS Authentication (`test_radius_ipv6_only`)**
+- Configure RADIUS server with IPv6 address only
+- Verify RADIUS server configuration:
+  * Check IPv6 address is properly configured
+  * Verify connectivity to RADIUS server over IPv6
+- Test read-write user authentication:
+  * Verify successful authentication
+  * Check user group membership
+  * Verify RADIUS statistics:
+    - Access-Accept counter increments
+    - Access-Reject counter remains unchanged
+- Test read-only user authentication:
+  * Verify successful authentication
+  * Check user group membership
+  * Verify RADIUS statistics:
+    - Access-Accept counter increments
+    - Access-Reject counter remains unchanged
+- Test command authorization for both user types
+- Test authentication failure with invalid credentials
+- Verify RADIUS packets use correct IPv6 source and destination addresses
+- Clean up:
+  * Remove IPv6 RADIUS server configuration
+  * Restore IPv4 RADIUS server configuration
+
+**Test Case 9: Dual-Stack RADIUS Server Failover (`test_radius_ipv6_failover`)**
+- Configure RADIUS server with both IPv4 and IPv6 addresses
+- Set priority to prefer IPv6 server
+- Verify primary (IPv6) server authentication works
+- Disable IPv6 connectivity to RADIUS server
+- Verify failover to IPv4 RADIUS server:
+  * Confirm authentication still succeeds
+  * Verify RADIUS statistics show IPv4 server is being used
+- Re-enable IPv6 connectivity
+- Verify system fails back to IPv6 RADIUS server
+- Clean up:
+  * Restore original RADIUS server configuration
 
 ## 5 Implementation Details
 
