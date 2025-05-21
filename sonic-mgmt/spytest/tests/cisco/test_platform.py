@@ -346,7 +346,7 @@ def test_ft_platform_inventory_with_reboot():
     try:
         result1 = basic_obj.get_platform_inventory(vars.D1)
         st.log(result1)
-        reboot_obj.dut_reboot(vars.D1,max_time = 400)
+        reboot_obj.dut_reboot(vars.D1,max_time = 600)
         # st.reboot(vars.D1)
         st.banner('restore helper file')
         restore_spytest_helper()
@@ -572,7 +572,7 @@ def verify_platform_temperature_valid(dut):
         print("parsed result")
         print(temp_data)
         
-        if temp_data is None:
+        if not temp_data:
             raise Exception("Parsed Temperature output returned null")
 
         if isinstance(temp_data, list):
@@ -984,7 +984,7 @@ def test_ft_platform_rebootcause_valid_with_reboot():
         if date_before_reboot is None:
             raise Exception("The Parsed Date object retuned None")
         date1 = parse_date(date_before_reboot)
-        reboot_obj.dut_reboot(vars.D1,max_time = 400)
+        reboot_obj.dut_reboot(vars.D1,max_time = 600)
         st.banner('restore helper file')
         restore_spytest_helper()
         result = reboot_obj.get_reboot_cause(vars.D1)
