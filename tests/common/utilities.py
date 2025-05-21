@@ -33,7 +33,8 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 from netaddr import valid_ipv6
 
