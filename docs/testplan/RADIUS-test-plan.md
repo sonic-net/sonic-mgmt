@@ -100,7 +100,6 @@ Configuration files:
   * show lldp table
   * show ip bgp summary
   * show ip route
-  * docker ps
   * sudo cat /var/log/syslog
 - Test read-only user access to restricted commands:
   * sudo config -h
