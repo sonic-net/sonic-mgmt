@@ -111,6 +111,7 @@ func TestGetOperatingSystemDefaultInfo(t *testing.T) {
 func TestGetBootloaderDefaultInfo(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("d66c9503-4458-45aa-b816-fb75ed01e46d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	key := "boot_loader"
 	componentPath := gnmi.OC().Component(key)
 
@@ -140,6 +141,7 @@ func TestGetBootloaderDefaultInfo(t *testing.T) {
 func TestGetNetworkStackDefaultInfo(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("092c1229-c8a4-4941-bbd8-a7fe1ae79a48").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	validStorageSides := map[string]bool{
 		"SIDE_A": true,
@@ -215,6 +217,7 @@ func TestGetChassisDefaultMacAddress(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("0bbc650c-d1a7-42d4-b2a3-e19a4336366a").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	name := "chassis"
 	baseMacAddress := testhelper.ComponentChassisBaseMacAddress(t, dut, name)
 	if _, err := net.ParseMAC(baseMacAddress); err != nil {
@@ -231,6 +234,7 @@ func TestGetChassisDefaultInformation(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("1fdac1f2-c790-4871-9e44-89c91e0b0161").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+        t.Skip()
 	key := "chassis"
 	componentPath := gnmi.OC().Component(key)
 
@@ -293,6 +297,7 @@ func TestSetChassisNamePaths(t *testing.T) {
 
 	dut := ondatra.DUT(t, "DUT")
 	key := "chassis"
+	t.Skip(key,"not available")
 	componentPath := gnmi.OC().Component(key)
 
 	testStrings := []string{

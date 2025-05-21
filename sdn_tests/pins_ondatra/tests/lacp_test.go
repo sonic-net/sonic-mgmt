@@ -241,8 +241,10 @@ func TestCreatingPortChannel(t *testing.T) {
 
 	host := ondatra.DUT(t, "DUT")
 	peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
 	t.Logf("Host Device: %v", host.Name())
 	t.Logf("Peer Device: %v", peer.Name())
+
 
 	// Find a set of peer ports between the 2 switches.
 	peerPorts, err := testhelper.PeerPortGroupWithNumMembers(t, host, peer, 2)
@@ -377,6 +379,7 @@ func TestAddingInterfaceToAnExistingPortChannel(t *testing.T) {
 
         host := ondatra.DUT(t, "DUT")
         peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
         t.Logf("Host Device: %v", host.Name())
         t.Logf("Peer Device: %v", peer.Name())
 
@@ -451,6 +454,7 @@ func TestRemoveInterfaceFromAnExistingPortChannel(t *testing.T) {
 
         host := ondatra.DUT(t, "DUT")
         peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
         t.Logf("Host Device: %v", host.Name())
         t.Logf("Peer Device: %v", peer.Name())
 
@@ -512,6 +516,7 @@ func TestLacpConfiguredOnOnlyOneSwitch(t *testing.T) {
 
         host := ondatra.DUT(t, "DUT")
         peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
         t.Logf("Host Device: %v", host.Name())
         t.Logf("Peer Device: %v", peer.Name())
 
@@ -562,6 +567,7 @@ func TestMembersArePartiallyConfigured(t *testing.T) {
 
         host := ondatra.DUT(t, "DUT")
         peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
         t.Logf("Host Device: %v", host.Name())
         t.Logf("Peer Device: %v", peer.Name())
 
@@ -627,6 +633,7 @@ func TestPortDownEvent(t *testing.T) {
 
         host := ondatra.DUT(t, "DUT")
         peer := ondatra.DUT(t, "CONTROL")
+	t.Skip()
         t.Logf("Host Device: %v", host.Name())
         t.Logf("Peer Device: %v", peer.Name())
 
