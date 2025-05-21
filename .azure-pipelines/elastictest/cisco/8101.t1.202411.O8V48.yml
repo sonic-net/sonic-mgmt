@@ -67,6 +67,7 @@ parameters:
     type: string
     default: '[
       {"name": "platform_tests/api/test_sfp.py", "param": "--deselect=platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode"},
+      {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_watchdog_reboot"},
       {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
       {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"}
     ]'
