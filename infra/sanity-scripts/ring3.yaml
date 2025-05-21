@@ -2,16 +2,18 @@
 #                         CICD test list - Ring3                               #
 ################################################################################
 #
-# This structure organizes a list of tests in two layers:
+# This structure organizes a list of tests in 4 layers:
 #     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
 #     TOPOLOGY: Defines the type of topology in which the test is run.
 #     PLATFORM: Defines the type of platform in which the test is run
+#     SIM_OR_HW: Defines sim/hw specific test cases
 #
 # In other words, the hierarchy is:
-#     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> [list of tests]
+#     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> SIM_OR_HW -> [list of tests]
 #
 # TOPOLOGY section will always include a 't0-64' key, which serves as a base.
 # PLATFORM section will always include a 'mth64'
+# SIM_OR_HW key can be either 'sim', or 'hw'
 #
 # Example:
 #
@@ -20,31 +22,44 @@
 # FWD:
 #   t0-64:
 #     mth64:
-#     - fwd/test/case_1.py
-#     - fwd/test/case_2.py
-#     - fwd/test/case_3.py
-#     - fwd/test/case_4.py
-#     - fwd/test/case_5.py
+#       sim:
+#         - fwd/test/case_1.py
+#         - fwd/test/case_2.py
+#         - fwd/test/case_3.py
+#         - fwd/test/case_4.py
+#         - fwd/test/case_5.py
+#       hw:
+#         - fwd/test/case_6.py
+#         - fwd/test/case_7.py
+#         - fwd/test/case_8.py
 #   t0-64:
 #     mth64:
-#     - telemetry/test_telemetry.py::test_config_db_parameters
-#     - example/t0/specific/fwd/test.py
+#       sim:
+#         - telemetry/test_telemetry.py::test_config_db_parameters
+#         - example/t0/specific/fwd/test.py
+#       hw:
+#         - example/t0/specific/fwd/hw/test1.py
+#         - example/t0/specific/fwd/hw/test2.py
+#         - example/t0/specific/fwd/hw/test3.py
 # PLT:
 #   t0-64:
 #     mth64:
-#     - plt/test/case_1.py
-#     - plt/test/case_2.py
-#     - plt/test/case_3.py
-#     - plt/test/case_4.py
-#     - plt/test/case_5.py
+#       sim:
+#         - plt/test/case_1.py
+#         - plt/test/case_2.py
+#         - plt/test/case_3.py
+#         - plt/test/case_4.py
+#         - plt/test/case_5.py
 #   t0-64:
 #     mth64:
-#     - example/t0/specific/plt/test.py
-#     - example/t0/specific/plt/test2.py
+#       sim:
+#         - example/t0/specific/plt/test.py
+#         - example/t0/specific/plt/test2.py
 #   t1-64-lag:
 #     mth64:
-#     - example/t1/specific/plt/test.py
-#     - example/t1/specific/plt/test2.py
+#       sim:
+#         - example/t1/specific/plt/test.py
+#         - example/t1/specific/plt/test2.py
 #
 # How the test list is created
 # - a list of TEST_CATEGORY is given(must have at least one)
@@ -52,6 +67,7 @@
 #     - tests in TEST_CATEGORY/t0-64/mth64 are included
 #     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY/mth64 are included
 #     - if TOPOLOGY and PLATFORM are specified, and TEST_CATEGORY/TOPOLOGY/PLATFORM exists, tests in TEST_CATEGORY/TOPOLOGY/PLATFORM are included
+#     - depending on sim/hw run, test cases in 'sim' or 'hw' are included
 # - Any duplicate test entries are removed.
 # - You now have your final test list!
 
@@ -59,242 +75,257 @@
 FWD:
   t0-64:
     mth64:
-      - crm/test_crm.py::test_crm_neighbor
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-      - ipfwd/test_dip_sip.py
-      - drop_packets/test_drop_counters.py::test_acl_drop
-      - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
-      - drop_packets/test_drop_counters.py::test_absent_ip_header
-      - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
-      - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
-      - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
-      - everflow/test_everflow_ipv6.py
-      - hash/test_generic_hash.py::test_algorithm_config
-      - hash/test_generic_hash.py::test_backend_error_messages
-      - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+      sim:
+        - crm/test_crm.py::test_crm_neighbor
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+        - ipfwd/test_dip_sip.py
+        - drop_packets/test_drop_counters.py::test_acl_drop
+        - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
+        - drop_packets/test_drop_counters.py::test_absent_ip_header
+        - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
+        - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
+        - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
+        - everflow/test_everflow_ipv6.py
+        - hash/test_generic_hash.py::test_algorithm_config
+        - hash/test_generic_hash.py::test_backend_error_messages
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t2-min:
     sfd:
-      - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop 
+      sim:
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop 
   t1:
     lightning:
-      - drop_packets/test_drop_counters.py::test_absent_ip_header
-      - drop_packets/test_drop_counters.py::test_acl_drop
-      - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
-      - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
-      - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
-      - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
-      - everflow/test_everflow_ipv6.py::test_src_ipv6_mirroring
-      - everflow/test_everflow_ipv6.py::test_invalid_tcp_rule
+      sim:
+        - drop_packets/test_drop_counters.py::test_absent_ip_header
+        - drop_packets/test_drop_counters.py::test_acl_drop
+        - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
+        - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
+        - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
+        - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
+        - everflow/test_everflow_ipv6.py::test_src_ipv6_mirroring
+        - everflow/test_everflow_ipv6.py::test_invalid_tcp_rule
   
 PLT:
   t0-64:
     mth64:
-      - platform_tests/api/test_chassis.py
-      - platform_tests/api/test_component.py
-      - platform_tests/test_cpu_memory_usage.py
-      - platform_tests/test_port_toggle.py
-      - platform_tests/test_power_budget_info.py
-      - platform_tests/test_thermal_state_db.py
-      - platform_tests/sfp/test_sfpshow.py
-      - platform_tests/sfp/test_sfputil.py
-      - platform_tests/test_thermal_state_db.py
-      - platform_tests/api/test_module.py
-      - platform_tests/api/test_sfp.py
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
-      - platform_tests/cli/test_show_platform.py::test_show_platform_summary
-      - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
-      - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
-      - platform_tests/daemon/test_ledd.py
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
-      - platform_tests/daemon/test_psud.py
-      - platform_tests/daemon/test_syseepromd.py
-      - platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus
-      - platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked
-      - platform_tests/test_platform_info.py::test_show_platform_temperature_mocked
-      - platform_tests/test_platform_info.py::test_thermal_control_fan_status
-      - platform_tests/test_reboot.py::test_cold_reboot
-      - platform_tests/test_reboot.py::test_soft_reboot
-      - platform_tests/test_reboot.py::test_fast_reboot
-      - platform_tests/test_reboot.py::test_warm_reboot
-      - platform_tests/test_reboot.py::test_continuous_reboot
+      sim:
+        - platform_tests/api/test_chassis.py
+        - platform_tests/api/test_component.py
+        - platform_tests/test_cpu_memory_usage.py
+        - platform_tests/test_port_toggle.py
+        - platform_tests/test_power_budget_info.py
+        - platform_tests/test_thermal_state_db.py
+        - platform_tests/sfp/test_sfpshow.py
+        - platform_tests/sfp/test_sfputil.py
+        - platform_tests/test_thermal_state_db.py
+        - platform_tests/api/test_module.py
+        - platform_tests/api/test_sfp.py
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
+        - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+        - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+        - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+        - platform_tests/daemon/test_ledd.py
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
+        - platform_tests/daemon/test_psud.py
+        - platform_tests/daemon/test_syseepromd.py
+        - platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus
+        - platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked
+        - platform_tests/test_platform_info.py::test_show_platform_temperature_mocked
+        - platform_tests/test_platform_info.py::test_thermal_control_fan_status
+        - platform_tests/test_reboot.py::test_cold_reboot
+        - platform_tests/test_reboot.py::test_soft_reboot
+        - platform_tests/test_reboot.py::test_fast_reboot
+        - platform_tests/test_reboot.py::test_warm_reboot
+        - platform_tests/test_reboot.py::test_continuous_reboot
   t2-min:
     sfd:
-      - platform_tests/api/test_chassis.py
-      - platform_tests/api/test_component.py
-      - platform_tests/test_cpu_memory_usage.py
-      - platform_tests/test_port_toggle.py
-      - platform_tests/test_power_budget_info.py
-      - platform_tests/sfp/test_sfpshow.py
-      - platform_tests/sfp/test_sfputil.py
-      - platform_tests/api/test_module.py
-      - platform_tests/api/test_sfp.py
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
-      - platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
-      - platform_tests/cli/test_show_platform.py::test_show_platform_summary
-      - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
-      - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
-      - platform_tests/daemon/test_ledd.py
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
-      - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
-      - platform_tests/daemon/test_syseepromd.py
+      sim:
+        - platform_tests/api/test_chassis.py
+        - platform_tests/api/test_component.py
+        - platform_tests/test_cpu_memory_usage.py
+        - platform_tests/test_port_toggle.py
+        - platform_tests/test_power_budget_info.py
+        - platform_tests/sfp/test_sfpshow.py
+        - platform_tests/sfp/test_sfputil.py
+        - platform_tests/api/test_module.py
+        - platform_tests/api/test_sfp.py
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
+        - platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
+        - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+        - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+        - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+        - platform_tests/daemon/test_ledd.py
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
+        - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
+        - platform_tests/daemon/test_syseepromd.py
 
 
 INFRA:
   t0-64:
     mth64:
-      - cacl/test_cacl_application.py
-      - cacl/test_cacl_function.py
-      - cacl/test_ebtables_application.py
-      - iface_namingmode/test_iface_namingmode.py
-      - monit/test_monit_status.py
-      - system_health/test_system_health.py
-      - container_checker/test_container_checker.py
-      - container_hardening/test_container_hardening.py
-      - database/test_db_scripts.py
-      - syslog/test_syslog_rate_limit.py
-      - test_announce_routes.py
-      - test_procdockerstatsd.py
-      - test_nbr_health.py
-      - portstat/test_portstat.py
-      - override_config_table/test_override_config_table.py
+      sim:
+        - cacl/test_cacl_application.py
+        - cacl/test_cacl_function.py
+        - cacl/test_ebtables_application.py
+        - iface_namingmode/test_iface_namingmode.py
+        - monit/test_monit_status.py
+        - system_health/test_system_health.py
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - syslog/test_syslog_rate_limit.py
+        - test_announce_routes.py
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+        - portstat/test_portstat.py
+        - override_config_table/test_override_config_table.py
   t2-min:
     sfd:
-      - iface_namingmode/test_iface_namingmode.py
-      - monit/test_monit_status.py
-      - system_health/test_system_health.py
-      - database/test_db_scripts.py
-      - syslog/test_syslog_rate_limit.py
-      - test_procdockerstatsd.py
-      - test_nbr_health.py
-      - portstat/test_portstat.py
+      sim:
+        - iface_namingmode/test_iface_namingmode.py
+        - monit/test_monit_status.py
+        - system_health/test_system_health.py
+        - database/test_db_scripts.py
+        - syslog/test_syslog_rate_limit.py
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+        - portstat/test_portstat.py
 
 MGMT:
   t0-64:
     mth64:
-      #- snmp/test_snmp_interfaces.py
-      #- snmp/test_snmp_loopback.py
-      #- snmp/test_snmp_lldp.py
-      #- telemetry/test_telemetry.py
-      - dns/static_dns/test_static_dns.py
-      - generic_config_updater/test_aaa.py
-      - generic_config_updater/test_dhcp_relay.py
-      - generic_config_updater/test_ip_bgp.py
-      - generic_config_updater/test_ntp.py
-      - memory_checker/test_memory_checker.py
-      - ssh/test_ssh_ciphers.py
-      - ssh/test_ssh_limit.py
-      - snmp/test_snmp_cpu.py
-      #- snmp/test_snmp_default_route.py
-      - snmp/test_snmp_memory.py
-      - snmp/test_snmp_queue.py
-      - snmp/test_snmp_v2mib.py
-      #- gnmi/test_gnmi.py
-      #- gnmi/test_gnmi_configdb.py
-      #- snmp/test_snmp_link_local.py
-      - tacacs/test_authorization.py
-      - tacacs/test_ro_disk.py
-      - restapi/test_restapi.py
-      - restapi/test_restapi_vxlan_ecmp.py
-      - console/test_console_availability.py
-      - console/test_console_driver.py
-      - console/test_console_loopback.py
-      - console/test_console_reversessh.py
-      - console/test_console_udevrule.py
+      sim:
+        #- snmp/test_snmp_interfaces.py
+        #- snmp/test_snmp_loopback.py
+        #- snmp/test_snmp_lldp.py
+        #- telemetry/test_telemetry.py
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
+        - memory_checker/test_memory_checker.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - snmp/test_snmp_cpu.py
+        #- snmp/test_snmp_default_route.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        #- gnmi/test_gnmi.py
+        #- gnmi/test_gnmi_configdb.py
+        #- snmp/test_snmp_link_local.py
+        - tacacs/test_authorization.py
+        - tacacs/test_ro_disk.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
 
 L2:
   t0-64:
     all_pids:
-      - lldp/test_lldp.py
-      - arp/test_arp_extended.py
-      - arp/test_neighbor_mac_noptf.py
-      #- arp/test_tagged_arp.py
-      - fdb/test_fdb.py
-      - fdb/test_fdb_flush.py
-      #- fdb/test_fdb_mac_expire.py
-      #- fdb/test_fdb_mac_move.py
-      #- snmp/test_snmp_fdb.py
-      - pc/test_po_cleanup.py
-      - pc/test_po_update.py
-      - vlan/test_autostate_disabled.py
-      - vlan/test_host_vlan.py
-      #- vlan/test_vlan_ping.py
-      - vlan/test_vlan.py
-      - generic_config_updater/test_portchannel_interface.py
-      - generic_config_updater/test_vlan_interface.py
-      - dhcp_relay/test_dhcp_relay.py
+      sim:
+        - lldp/test_lldp.py
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        #- arp/test_tagged_arp.py
+        - fdb/test_fdb.py
+        - fdb/test_fdb_flush.py
+        #- fdb/test_fdb_mac_expire.py
+        #- fdb/test_fdb_mac_move.py
+        #- snmp/test_snmp_fdb.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+        - vlan/test_autostate_disabled.py
+        - vlan/test_host_vlan.py
+        #- vlan/test_vlan_ping.py
+        - vlan/test_vlan.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        - dhcp_relay/test_dhcp_relay.py
   t2-min:
     sfd:
-      - lldp/test_lldp.py
-      - arp/test_neighbor_mac_noptf.py
-      - pc/test_po_cleanup.py::test_po_cleanup
-      - pc/test_po_update.py::test_po_update      
+      sim:
+        - lldp/test_lldp.py
+        - arp/test_neighbor_mac_noptf.py
+        - pc/test_po_cleanup.py::test_po_cleanup
+        - pc/test_po_update.py::test_po_update      
 
 ROUTING: #Sridhar Santhanam
   t0-64:
     mth64:
-      #- bgp/test_bgp_fact.py
-      #- bgp/test_bgp_gr_helper.py
-      - bgp/test_bgp_update_timer.py
-      - bgp/test_bgpmon.py
-      #- bgp/test_bgp_dual_asn.py
-      #- bgp/test_bgp_speaker.py
-      #- bgp/test_bgp_allow_list.py
-      #- bgp/test_bgp_bbr.py
-      #- bgp/test_bgp_bounce.py
-      #- bgp/test_bgp_multipath_relax.py
-      - bgp/test_bgp_session_flap.py
-      # - route/test_route_consistency.py
-      # - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
-      # - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
-      # - route/test_default_route.py::test_default_route_set_src
-      # - route/test_default_route.py::test_default_route_with_bgp_flap
-      # - route/test_route_perf.py
-      # - route/test_route_flap.py
-      # - route/test_duplicate_route.py
-      # - route/test_static_route.py
-      #- generic_config_updater/test_bgpl.py
-      - log_fidelity/test_bgp_shutdown.py
+      sim:
+        #- bgp/test_bgp_fact.py
+        #- bgp/test_bgp_gr_helper.py
+        - bgp/test_bgp_update_timer.py
+        - bgp/test_bgpmon.py
+        #- bgp/test_bgp_dual_asn.py
+        #- bgp/test_bgp_speaker.py
+        #- bgp/test_bgp_allow_list.py
+        #- bgp/test_bgp_bbr.py
+        #- bgp/test_bgp_bounce.py
+        #- bgp/test_bgp_multipath_relax.py
+        - bgp/test_bgp_session_flap.py
+        # - route/test_route_consistency.py
+        # - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        # - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        # - route/test_default_route.py::test_default_route_set_src
+        # - route/test_default_route.py::test_default_route_with_bgp_flap
+        # - route/test_route_perf.py
+        # - route/test_route_flap.py
+        # - route/test_duplicate_route.py
+        # - route/test_static_route.py
+        #- generic_config_updater/test_bgpl.py
+        - log_fidelity/test_bgp_shutdown.py
   t2-min:
     sfd:
-      - bgp/test_bgp_fact.py
-      - bgp/test_bgp_session_flap.py
+      sim:
+        - bgp/test_bgp_fact.py
+        - bgp/test_bgp_session_flap.py
 
 TUNNEL: #Thushar Gowda
   # t0-64:
   #   mth64:
-  #     # Disable the tunnel test cases for now
-  #     #- decap/test_decap.py
-  #     #- vxlan/test_vxlan_decap.py
+  #     sim:
+  #       # Disable the tunnel test cases for now
+  #       #- decap/test_decap.py
+  #       #- vxlan/test_vxlan_decap.py
   t1-64-lag:
     mth64:
-      - vxlan/test_vxlan_ecmp_switchover.py
-      - vxlan/test_vxlan_route_advertisement.py  
+      sim:
+        - vxlan/test_vxlan_ecmp_switchover.py
+        - vxlan/test_vxlan_route_advertisement.py  
 
 PFC: #Alpesh Patel
   t0-64:
     mth64:
-      - generic_config_updater/test_incremental_qos.py
-      - generic_config_updater/test_pfcwd_interval.py
+      sim:
+        - generic_config_updater/test_incremental_qos.py
+        - generic_config_updater/test_pfcwd_interval.py
 

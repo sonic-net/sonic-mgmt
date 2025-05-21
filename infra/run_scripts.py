@@ -137,7 +137,7 @@ def convert_keys_to_strings_and_lower(d):
     else:
         return d
 
-def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_type=None):
+def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_type=None, hw_or_sim='sim'):
     """
     Loads a test case YAML and returns a subset of test cases, determined by these rules:
 
@@ -152,6 +152,11 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
     :param topology: string indicating the topology (e.g. 't1-64-lag').
     :return: List of test file paths (strings) in the final test list.
     """
+    if hw_or_sim not in ['hw', 'sim']:
+        err_msg = f"ERROR! Invalid choice for parameter hw_or_sim. choices are 'sim' or 'hw', given: '{hw_or_sim}'"
+        print(err_msg)
+        raise ValueError(err_msg)
+
     with open(yaml_file, 'r') as f:
         data = yaml.safe_load(f)
 
@@ -174,20 +179,20 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
 
         if 'all_topo' in data[category]:
             if 'all_pids' in data[category]['all_topo']:
-                final_tests.extend(data[category]['all_topo']['all_pids'])
+                final_tests.extend(data[category]['all_topo']['all_pids'][hw_or_sim])
 
             if device_type is not None and device_type in data[category]['all_topo']:
-                final_tests.extend(data[category]['all_topo'][device_type])
+                final_tests.extend(data[category]['all_topo'][device_type][hw_or_sim])
 
         if topology and topology in data[category]:
             if 'all_pids' in data[category][topology]:
-                final_tests.extend(data[category][topology]['all_pids'])
+                final_tests.extend(data[category][topology]['all_pids'][hw_or_sim])
             for pid_list in data[category][topology].keys():
                 if isinstance(pid_list, str):
                     # Split the string by commas and strip whitespace
                     pids_list = [item.strip() for item in pid_list.split(",")]
                 if device_type is not None and device_type in pids_list:
-                    final_tests.extend(data[category][topology][pid_list])
+                    final_tests.extend(data[category][topology][pid_list][hw_or_sim])
 
     # 5. Remove duplicates while preserving the order
     seen = set()
