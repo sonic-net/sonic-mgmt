@@ -66,6 +66,8 @@ At least two frontend DUT hosts are required to perform traffic. Modifications v
 - Select a random BGP neighbor from that namespace and announce a static route for a DST_IP that is advertised only via this neighbor.
 - Verify the route table in the downstream DUT host to ensure that the static route is visible.
 
+![](../testplan/images/Add_Cluster_Setup.PNG)
+
 Remove Peers from Downstream Namespace:
 - Remove all BGP neighbors for the selected ASIC namespace via apply-patch.
 - Verify the route table. All routes for BGP neighbors should be gone. Additionally, all kernel and directly connected routes toward the neighbor IPs should be removed.
@@ -74,6 +76,8 @@ Remove Peers from Downstream Namespace:
 - Perform data traffic tests toward a randomly selected neighbor. Traffic should fail.
 - Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should fail.
 
+![](../testplan/images/Add_Cluster_Remove_Peers.PNG)
+
 Re-add Peers and Re-enable Interfaces:
 - Change cable lengths.
 - Re-add peers in the downstream namespace. -
@@ -81,12 +85,18 @@ Re-add Peers and Re-enable Interfaces:
 - Verify that the peers are re-added, BGP sessions are established, and the route table is updated.
 - Verify the buffer profile exists in CONFIG_DB, APPL_DB, and ASIC_DB.
 
+![](../testplan/images/Add_Cluster_Readd_Peers.PNG)
+
 #### Testing Steps
 
 Data traffic verifications:
 - Perform data traffic tests toward a randomly selected neighbor/the static route from the randomly selected neighbor. Traffic should pass. Verify there are no packet drops via checking pkt counters.
 - Perform data traffic from upsteram to downstream linecard (interlinecard). Perform data traffic from the other asic of the same downsteram linecard (innerlinecard).
 - Variation with acl config (DATAACL, CTRLPLANE) verifies traffic passes/drops based on acl rules and src/dst port criterion.
+
+![](../testplan/images/Add_Cluster_Data_Validation_up-down.PNG)
+
+![](../testplan/images/Add_Cluster_Data_Validation_down-down.PNG)
 
 [to be enhanced]
 As a test variation, instead of applying changes per ASIC namespace, the same scenario shall be adapted to apply changes to a randomly selected interface that is a member of a portchannel from a randomly selected namespace.
