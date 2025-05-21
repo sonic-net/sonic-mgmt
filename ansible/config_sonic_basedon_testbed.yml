@@ -608,10 +608,10 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
-      - name: Preload minigraph to flush config_db for Virtual Chassis
+      - name: Preload minigraph to flush config_db for Virtual Chassis and Multi-ASIC platforms
         shell: config load_minigraph -y && config save -y
         become: true
-        when: "'t2' in topo and type == 'kvm'"
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
 
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
