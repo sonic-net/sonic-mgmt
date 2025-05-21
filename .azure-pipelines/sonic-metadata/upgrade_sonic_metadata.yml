@@ -184,6 +184,32 @@ steps:
                     to_url=${{ parameters.TO_IMAGE_URL }}
                   fi
                 fi
+
+                # Since we have 20241211 and 20241210 images, we need to check the image number
+                if [[ $from_url == *"20241211"* ]]; then
+                  # Extract the numeric part of from_image
+                  if [[ $from_image =~ ([0-9]+) ]]; then
+                    image_number=${BASH_REMATCH[0]}
+                    # If image number is less than 10, replace 20241211 with 20241210
+                    if [ $image_number -lt 10 ]; then
+                      from_url=${from_url/20241211/20241210}
+                      echo "Modified From URL to $from_url due to image number < 10"
+                    fi
+                  fi
+                fi
+
+                if [[ $to_url == *"20241211"* ]]; then
+                  # Extract the numeric part of to_image
+                  if [[ $to_image =~ ([0-9]+) ]]; then
+                    image_number=${BASH_REMATCH[0]}
+                    # If image number is less than 10, replace 20241211 with 20241210
+                    if [ $image_number -lt 10 ]; then
+                      to_url=${to_url/20241211/20241210}
+                      echo "Modified To URL to $to_url due to image number < 10"
+                    fi
+                  fi
+                fi
+
                 echo From URL is $from_url
                 echo To URL is $to_url
 
