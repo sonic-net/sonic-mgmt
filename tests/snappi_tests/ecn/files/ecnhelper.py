@@ -202,7 +202,7 @@ def run_ecn_test_cisco8000(api,
     cs.choice = cs.PORT
     cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    cs.link.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
     cs.port.link.state = cs.port.link.DOWN
     api.set_control_state(cs)
