@@ -1,0 +1,122 @@
+{
+{% for k in cfg_t0 %}
+{%     if k == 'BGP_NEIGHBOR' %}
+    "BGP_NEIGHBOR": {
+{%         set neighbors = cfg_t0['BGP_NEIGHBOR'] %}
+{%         set vnet1_names = ['ARISTA01T1', 'ARISTA02T1'] %}
+{%         set ns = namespace(entries=[]) %}
+{%         for neigh, data in neighbors.items() | sort %}
+{%             set is_ipv6 = ':' in neigh %}
+{%             set is_vnet1 = data['name'] in vnet1_names %}
+{%             if is_vnet1 %}
+{%                 set ns.entries = ns.entries + [('Vnet1|' ~ neigh, data)] %}
+{%             elif is_ipv6 %}
+{%                 set ns.entries = ns.entries + [('Vnet2|' ~ neigh, data)] %}
+{%             endif %}
+{%         endfor %}
+{%         for key, val in ns.entries %}
+{{ '\n        ' if not loop.first else '        ' }}"{{ key }}": {{ val | to_nice_json | indent(width=8) }}{% if not loop.last %},{% endif %}
+{%         endfor %}
+{{ '\n    ' }}},
+{%     elif k == 'BGP_PEER_RANGE' %}
+    "BGP_PEER_RANGE": {
+        "Vnet2|BGPSLBPassive": {
+            "ip_range": [
+                "10.0.0.60/30"
+            ],
+            "peer_asn": "64600",
+            "src_address": "10.0.0.60",
+            "name": "BGPSLBPassive"
+        }
+    },
+{%     elif k == 'LOOPBACK_INTERFACE' %}
+    "LOOPBACK_INTERFACE": {
+        "Loopback0": {"vnet_name": "Vnet1"},
+        "Loopback2": {"vnet_name": "Vnet2"},
+        "Loopback0|10.1.0.32/32": {},
+        "Loopback0|FC00:1::32/128": {},
+        "Loopback2|10.1.0.32/32": {},
+        "Loopback2|FC00:1::32/128": {}
+    },
+{%     elif k == 'PORTCHANNEL_INTERFACE' %}
+    "PORTCHANNEL_INTERFACE": {
+{%        for pc in cfg_t0['PORTCHANNEL_INTERFACE'] | sort %}
+{#     each pc have 3 keys: pc, pc|ipv4 and pc|ipv6 #}
+{%             if cfg_t0['PORTCHANNEL_INTERFACE'] | length == 12  %}
+{%                 if pc in ['PortChannel101', 'PortChannel102'] %}
+        "{{ pc }}": {"vnet_name": "Vnet1"}
+{%-                elif pc in ['PortChannel103', 'PortChannel104'] %}
+        "{{ pc }}": {"vnet_name": "Vnet2"}
+{%-                else %}
+        "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
+{%-                endif %}
+{%-            else %}
+{%                 if pc in ['PortChannel101', 'PortChannel102', 'PortChannel103', 'PortChannel104'] %}
+        "{{ pc }}": {"vnet_name": "Vnet1"}
+{%-                elif pc in ['PortChannel105', 'PortChannel106', 'PortChannel107', 'PortChannel108'] %}
+        "{{ pc }}": {"vnet_name": "Vnet2"}
+{%-                else %}
+        "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
+{%-                endif %}
+{%-            endif %}
+{%-            if not loop.last %},{% endif %}
+
+{%        endfor %}
+    },
+{%     elif k == 'VLAN' %}
+    "VLAN": {
+        "Vlan1000": {
+            "dhcp_servers": [
+{%              for dhcp in cfg_t0['VLAN']['Vlan1000']['dhcp_servers'] %}
+                {{ dhcp | to_nice_json }}{% if not loop.last %},
+{% endif %}
+{% endfor %}
+
+            ],
+            "vlanid": "1000"},
+        "Vlan2000": {
+            "vlanid": "2000"}
+    },
+{%     elif k == 'VLAN_INTERFACE' %}
+    "VLAN_INTERFACE": {
+        "Vlan1000": {"vnet_name": "Vnet1"},
+        "Vlan2000": {"vnet_name": "Vnet2"},
+        "Vlan1000|192.168.0.1/21": {},
+        "Vlan1000|FC00:168::1/117": {},
+        "Vlan2000|192.168.0.1/21": {},
+        "Vlan2000|FC00:168::1/117": {}
+    },
+{%     elif k == 'VLAN_MEMBER' %}
+    "VLAN_MEMBER": {
+{%         for port in vlan_ports['Vlan1000'] %}
+        "Vlan1000|{{ port }}": {
+            "tagging_mode": "untagged"
+        },
+{%         endfor %}
+{%         for port in vlan_ports['Vlan2000'] %}
+        "Vlan2000|{{ port }}": {
+            "tagging_mode": "untagged"
+        }{%             if not loop.last %},{% endif %}
+
+{%         endfor %}
+    },
+{%     else %}
+    "{{ k }}": {{ cfg_t0[k] | to_nice_json | indent}},
+{%     endif %}
+{% endfor %}
+    "VNET": {
+        "Vnet1": {
+            "vni": "799999",
+            "vxlan_tunnel": "vtep_v4"
+        },
+        "Vnet2": {
+            "vni": "799998",
+            "vxlan_tunnel": "vtep_v4"
+        }
+    },
+    "VXLAN_TUNNEL": {
+        "vtep_v4": {
+            "src_ip": "10.1.0.32"
+        }
+    }
+}
