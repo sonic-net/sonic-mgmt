@@ -341,7 +341,7 @@ class GenTestbeds:
         return self.__topo_vm[topo]
 
     def __get_topo_specific_extra_testbed_vars(self, topo):
-        if topo == "dualtor-aa":
+        if topo.startswith("dualtor-aa"):
             return {"netns_mgmt_ip": self.__inv_specific.pop_reserved_ip()}
         return {}
 
