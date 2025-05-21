@@ -67,7 +67,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_advanced_reboot.py"
+    default: " "
     displayName: "Scripts to be excluded"
 
   # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
