@@ -22,6 +22,7 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization,
     pytest.mark.skip_check_dut_health
 ]
 logger = logging.getLogger(__name__)
