@@ -412,13 +412,15 @@ def run_tx_drop_counter(
 
         # Set port name of the Ixia port connected to dut_port
         port_names = snappi_extra_params.base_flow_config["rx_port_name"]
-        # Create a link state object for ports
-        link_state = api.link_state()
+        # Create a control state object for ports
+        cs = api.control_state()
+        cs.choice = cs.PORT
+        cs.port.choice = cs.port.LINK
         # Apply the state to  port
-        link_state.port_names = [port_names]
+        cs.port.link.port_names = [port_names]
         # Set  port down (shut)
-        link_state.state = link_state.DOWN
-        api.set_link_state(link_state)
+        cs.port.link.state = cs.port.link.DOWN
+        api.set_control_state(cs)
         logger.info("Snappi port {} is set to DOWN".format(port_names))
         time.sleep(1)
         # Collect metrics from DUT  again
@@ -434,7 +436,7 @@ def run_tx_drop_counter(
     finally:
         if link_state:
             # Bring the link back up
-            link_state.state = link_state.UP
-            api.set_link_state(link_state)
+            cs.port.link.state = cs.port.link.UP
+            api.set_control_state(cs)
             logger.info("Snappi port {} is set to UP".format(port_names))
     return

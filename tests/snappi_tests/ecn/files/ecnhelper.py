@@ -197,18 +197,20 @@ def run_ecn_test_cisco8000(api,
     config = api.get_config()
     # Collect all port names
     port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
+    # Create a control state object for all ports
+    cs = api.control_state()
+    cs.choice = cs.PORT
+    cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    link_state.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.DOWN
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to DOWN")
     time.sleep(0.2)
     # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.UP
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to UP")
 
     init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
