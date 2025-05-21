@@ -9,6 +9,7 @@ import logging
 import json
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
+import functools
 
 
 def parse_intf_status(lines):
@@ -282,3 +283,30 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
             logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
 
     return interfaces
+
+
+@functools.lru_cache(maxsize=1)
+def get_interfaces_info(duthost):
+    asics_name_list = [f' -n {asic.namespace}' for asic in duthost.frontend_asics] if duthost.is_multi_asic else ['']
+    interfaces_info = {}
+    for asic in asics_name_list:
+        cmd = f"sonic-cfggen{asic} -d --print-data"
+        db_output = json.loads(duthost.command(cmd)["stdout"])
+        interfaces_info.update(db_output["PORT"])
+    return interfaces_info
+
+
+def get_interface_index_and_subport(duthost, interface):
+    interfaces_info = get_interfaces_info(duthost)
+    return interfaces_info[interface]["index"], interfaces_info[interface].get("subport", "")
+
+
+def get_first_port_in_split(duthost):
+    interfaces_info = get_interfaces_info(duthost)
+    first_port_in_split = []
+    for port in interfaces_info.keys():
+        index, subport = get_interface_index_and_subport(duthost, port)
+        is_first_port_in_split = subport in ['', '0', '1']
+        if is_first_port_in_split:
+            first_port_in_split.append(port)
+    return first_port_in_split
