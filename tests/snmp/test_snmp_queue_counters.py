@@ -10,6 +10,7 @@ UNICAST_CTRS = 4
 MULTICAST_CTRS = 4
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
