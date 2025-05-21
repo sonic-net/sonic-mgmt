@@ -71,7 +71,7 @@ def get_transceiver_info_firmware_versions(conn, index):
 
 
 def get_transceiver_bulk_status(conn, index):
-    return sfp_api(conn, index, 'get_transceiver_bulk_status')
+    return sfp_api(conn, index, 'get_transceiver_dom_real_value')
 
 
 def get_transceiver_threshold_info(conn, index):

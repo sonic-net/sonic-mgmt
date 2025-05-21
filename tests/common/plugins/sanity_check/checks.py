@@ -7,7 +7,7 @@ import pytest
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import wait, wait_until, is_ipv4_address
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa: F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa: F401
@@ -127,7 +127,10 @@ def check_interfaces(duthosts):
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
+                for vlan in cfg_facts["VLAN_INTERFACE"]:
+                    # check for IPv4 address only for now.
+                    if any(is_ipv4_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
+                        ip_interfaces.append(vlan)
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
@@ -197,6 +200,10 @@ def check_bgp(duthosts, tbinfo):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
+                num_v4_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 4])
+                num_v6_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 6])
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
@@ -217,12 +224,12 @@ def check_bgp(duthosts, tbinfo):
                 # Chassis and multi_asic is not supported for now
                 if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis") is True or
                                                   dut.get_facts().get("modular_chassis") == "True"):
-                    if not _check_default_route(4, dut):
+                    if (num_v4_neighbors > 0) and not _check_default_route(4, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v4_default_route"] = True
                         a_asic_result = True
-                    if not _check_default_route(6, dut):
+                    if (num_v6_neighbors > 0) and not _check_default_route(6, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v6_default_route"] = True
@@ -702,6 +709,17 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         reason = ''
 
         check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+
+        if not check_passed:
+            def _verify_mux_simulator_status_passed():
+                nonlocal check_passed, err_msg, duts_mux_status
+                check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+                return check_passed
+
+            logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
+            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
+
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
@@ -1165,6 +1183,7 @@ def check_bfd_up_count(duthosts):
         return list(result.values())
 
     def _check_bfd_up_count(dut, asic_id, check_result):
+        check_result["failed"] = False
         res = dut.shell(
             "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
             module_ignore_errors=True,
