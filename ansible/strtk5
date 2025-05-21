@@ -1746,21 +1746,25 @@ sonic_arista_7050:
       ansible_hostv6: 2603:10e2:140:3000::4d
       mgmt_subnet_mask_length: 27
       hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
+      model: DCS-7050CX3-32S
       serial: JPN2426P06C
       base_mac: 68:8b:f4:88:63:58
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S"
-        "0x22": "ASY0288213A0"
-        "0x23": "JPN2426P06C"
-        "0x24": "68:8b:f4:88:63:58"
-        "0x25": "2020/01/01 00:00:00"
-        "0x26": "01"
-        "0x27": "12.02"
-        "0x28": "x86_64-arista_7050cx3_32s"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPN2426P06C"
+        '0x21': 'DCS-7050CX3-32S'
+        '0x22': 'ASY0288213A0'
+        '0x23': 'JPN2426P06C'
+        '0x24': '68:8b:f4:88:63:58'
+        '0x25': '2020/01/01 00:00:00'
+        '0x26': '01'
+        '0x27': '01.00'
+        '0x28': 'x86_64-arista_7050cx3_32s'
+        '0x2a': '0xffff'
+        '0x2b': 'Arista Networks'
+        '0x2c': 'US'
+        '0x2d': 'Arista Networks'
+        '0x2e': 'Aboot-norcal6-6.1.10-14653765'
+        '0x2f': 'JPN2426P06C'
+        '0xfe': '0xdeadbeef'
     strtk5-7050cx3-02:
       ansible_host: 10.212.69.47
       ansible_hostv6: 2603:10e2:140:3000::4e
@@ -1770,14 +1774,18 @@ sonic_arista_7050:
       serial: JPN2426P03J
       base_mac: 68:8b:f4:88:3b:a4
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S"
-        "0x22": "ASY0288213A0"
-        "0x23": "JPE21041573"
-        "0x24": "68:8b:f4:88:3b:a4"
-        "0x25": "2020/01/01 00:00:00"
-        "0x26": "01"
-        "0x27": "12.02"
-        "0x28": "x86_64-arista_7050cx3_32s"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPN2426P03J"
+        '0x21': 'DCS-7050CX3-32S'
+        '0x22': 'ASY0288213A0'
+        '0x23': 'JPN2426P03J'
+        '0x24': '68:8b:f4:88:3b:a4'
+        '0x25': '2020/01/01 00:00:00'
+        '0x26': '01'
+        '0x27': '01.00'
+        '0x28': 'x86_64-arista_7050cx3_32s'
+        '0x2a': '0xffff'
+        '0x2b': 'Arista Networks'
+        '0x2c': 'US'
+        '0x2d': 'Arista Networks'
+        '0x2e': 'Aboot-norcal6-6.1.10-14653765'
+        '0x2f': 'JPN2426P03J'
+        '0xfe': '0xdeadbeef'
