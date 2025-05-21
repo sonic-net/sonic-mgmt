@@ -63,44 +63,26 @@ devices:
 connections:
   hubs:
     hub0_0:
-      - SD1.Ethernet0/[0..1]
-      - SD3.Ethernet0/[0..1]
-    hub0_1:
-      - SD1.Ethernet1/[0..1]
-      - SD3.Ethernet1/[0..1]
+      - SD1.Ethernet28/[0..1]
+      - SD3.Ethernet28/[0..1]
     hub1_0:
-      - SD1.Ethernet2/[0..1]
-      - SD4.Ethernet0/[0..1]
-    hub1_1:
-      - SD1.Ethernet3/[0..1]
-      - SD4.Ethernet1/[0..1]
+      - SD1.Ethernet29/[0..1]
+      - SD4.Ethernet28/[0..1]
     hub2_0:
-      - SD2.Ethernet0/[0..1]
-      - SD3.Ethernet2/[0..1]
-    hub2_1:
-      - SD2.Ethernet1/[0..1]
-      - SD3.Ethernet3/[0..1]
+      - SD2.Ethernet28/[0..1]
+      - SD3.Ethernet29/[0..1]
     hub3_0:
-      - SD2.Ethernet2/[0..1]
-      - SD4.Ethernet2/[0..1]
-    hub3_1:
-      - SD2.Ethernet3/[0..1]
-      - SD4.Ethernet3/[0..1]
+      - SD2.Ethernet29/[0..1]
+      - SD4.Ethernet29/[0..1]
     hub4_0:
-      - SD3.Ethernet4/[0..1]
+      - SD3.Ethernet30/[0..1]
       - ixia.data[0..1]
     hub4_1:
-      - SD3.Ethernet5/[0..1]
+      - SD3.Ethernet31/[0..1]
       - ixia.data[2..3]
     hub5_0:
-      - SD4.Ethernet4/[0..1]
+      - SD4.Ethernet30/[0..1]
       - ixia.data[4..5]
-    hub6_0:
-      - SD1.Ethernet4/[0..1]
-      - SD2.Ethernet4/[0..1]
-    hub6_1:
-      - SD1.Ethernet5/[0..1]
-      - SD2.Ethernet5/[0..1]
-    hub7_0:
-      - SD2.Ethernet6/[0..1]
+    hub5_1:
+      - SD4.Ethernet31/[0..1]
       - ixia.data[6..7]
