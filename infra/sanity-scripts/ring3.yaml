@@ -193,13 +193,14 @@ INFRA:
 MGMT:
   t0-64:
     mth64:
-      #- generic_config_updater/test_aaa.py
-      #- generic_config_updater/test_dhcp_relay.py
       #- snmp/test_snmp_interfaces.py
       #- snmp/test_snmp_loopback.py
       #- snmp/test_snmp_lldp.py
       #- telemetry/test_telemetry.py
       - dns/static_dns/test_static_dns.py
+      - generic_config_updater/test_aaa.py
+      - generic_config_updater/test_dhcp_relay.py
+      - generic_config_updater/test_ip_bgp.py
       - generic_config_updater/test_ntp.py
       - memory_checker/test_memory_checker.py
       - ssh/test_ssh_ciphers.py
