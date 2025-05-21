@@ -470,7 +470,7 @@ def toggle_dut_port_state(api):
     cs.choice = cs.PORT
     cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    cs.link.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
     cs.port.link.state = cs.port.link.DOWN
     api.set_control_state(cs)
