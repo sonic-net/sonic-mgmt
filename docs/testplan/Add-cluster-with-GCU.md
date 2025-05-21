@@ -38,18 +38,15 @@ The test will run on T2 testbeds.
 #### Test Objective
 
 To verify updates in config paths:
-    /asic/BGP_NEIGHBOR
-    /asic/DEVICE_NEIGHBOR
-    /asic/DEVICE_NEIGHBOR_METADATA
-    /asic/PORTCHANNEL_MEMBER
-    /asic/PORTCHANNEL_INTERFACE
-    /asic/INTERFACE
-    /asic/PORT
-    /localhost/BGP_NEIGHBOR
-    /localhost/DEVICE_NEIGHBOR_METADATA
-    /localhost/INTERFACE
-    /localhost/PORTCHANNEL_INTERFACE
-    /localhost/PORTCHANNEL_MEMBER
+<pre>
+/BGP_NEIGHBOR
+/DEVICE_NEIGHBOR
+/DEVICE_NEIGHBOR_METADATA
+/PORTCHANNEL_MEMBER
+/PORTCHANNEL_INTERFACE
+/INTERFACE
+/PORT
+</pre>
 
 #### Test Requirements:
 
@@ -104,7 +101,11 @@ As a test variation, instead of applying changes per ASIC namespace, the same sc
 ### Test Case # 2 - Update CABLE Length
 
 #### Test Objective
-To verify updates in config path "CABLE_LENGTH".
+
+To verify updates in config path
+</pre>
+/CABLE_LENGTH
+</pre>
 
 #### Testing Steps
 
@@ -119,7 +120,14 @@ To verify updates in config path "CABLE_LENGTH".
 ### Test Case # 3 - Load QoS
 
 #### Test Objective
-To verify qos updates in multi-asic t2 platform. To verify updates in tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
+To verify qos updates in multi-asic t2 platform.
+To verify updates in tables
+<pre>
+/BUFFER_PG
+/BUFFER_QUEUE
+/PORT_QOS_MAP
+/QUEUE
+</pre>
 
 #### Testing Steps
 
