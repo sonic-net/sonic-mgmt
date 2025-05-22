@@ -156,9 +156,12 @@ def remove_existing_acl_tables(duthosts):
     Remove EVERFLOW table for VPP only.
     The change is written to configdb as we don't want the tables recovered after reboot.
     """
+    tables = ["DATAACL"]
+    if duthost.facts["asic_type"] == "vpp":
+        tables.append("EVERFLOW")
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
-            executor.submit(remove_tables_single_dut, duthost)
+            executor.submit(remove_tables_single_dut, tables, duthost)
     yield
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
@@ -172,11 +175,7 @@ def remove_existing_acl_tables(duthosts):
             )
 
 
-def remove_tables_single_dut(duthost):
-    tables = ["DATAACL"]
-    if duthost.facts["asic_type"] == "vpp":
-        tables.append("EVERFLOW")
-
+def remove_tables_single_dut(tables, duthost):
     for table_name in tables:
         lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
         table_existing = False
