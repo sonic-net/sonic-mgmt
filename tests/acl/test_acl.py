@@ -151,16 +151,9 @@ BYTES_COUNT = "bytes_count"
 
 @pytest.fixture(scope="module", autouse=True)
 def remove_existing_acl_tables(duthosts):
-    """
-    Remove DATAACL to free TCAM resources.
-    The change is written to configdb as we don't want DATAACL recovered after reboot
-    Remove EVERFLOW table for VPP only.
-    """
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
-            executor.submit(remove_table_single_dut, "DATAACL", duthost)
-            if (duthost.facts["asic_type"] == "vpp"):
-                executor.submit(remove_table_single_dut, "EVERFLOW", duthost)
+            executor.submit(remove_tables_single_dut, duthost)
     yield
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
@@ -174,20 +167,28 @@ def remove_existing_acl_tables(duthosts):
             )
 
 
-def remove_table_single_dut(table_name, duthost):
-    lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
-    table_existing = False
-    for line in lines:
-        if table_name in line:
-            table_existing = True
-            break
-    if table_existing:
-        logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
-        cmds = [
-            "config acl remove table {}".format(table_name),
-            "config save -y"
-        ]
-        duthost.shell_cmds(cmds=cmds)
+def remove_tables_single_dut(duthost):
+    """
+    Remove DATAACL to free TCAM resources.
+    Remove EVERFLOW table for VPP only.
+    The change is written to configdb as we don't want the tables recovered after reboot.
+    """
+    tables = ["DATAACL"]
+    if duthost.facts["asic_type"] == "vpp":
+        tables.append("EVERFLOW")
+
+    for table_name in tables:
+        lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
+        table_existing = False
+        for line in lines:
+            if table_name in line:
+                table_existing = True
+                break
+        if table_existing:
+            logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
+            duthost.shell("config acl remove table {}".format(table_name))
+
+    duthost.shell("config save -y")
 
 
 def get_t2_info(duthosts, tbinfo):
