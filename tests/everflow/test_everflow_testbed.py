@@ -15,6 +15,7 @@ from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_ST
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
 from .everflow_test_utilities import setup_info, setup_arp_responder, erspan_ip_ver, EVERFLOW_DSCP_RULES  # noqa: F401
+from .everflow_test_utilities import skip_ipv6_everflow_tests                                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
@@ -712,7 +713,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                     ip_src=selected_addrs2[0],
                     eth_dst=router_mac,
                     ip_dst=selected_addrs2[1],
-                    eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                    eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                     inner_frame=inner_pkt2[scapy.IP]
                 ),
                 self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip=selected_addrs3[0],
@@ -893,7 +894,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         flags=0x10
     ):
         pkt = testutils.simple_tcp_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=router_mac,
             ip_src=src_ip,
             ip_dst=dst_ip,

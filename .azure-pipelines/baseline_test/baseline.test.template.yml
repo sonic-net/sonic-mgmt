@@ -71,7 +71,7 @@ jobs:
       COMMON_EXTRA_PARAMS: ""
       DEPLOY_MG_EXTRA_PARAMS: ""
       SPECIFIC_PARAM: "[]"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 300
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -98,3 +98,4 @@ jobs:
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)
+          MAX_RUN_TEST_MINUTES: 240

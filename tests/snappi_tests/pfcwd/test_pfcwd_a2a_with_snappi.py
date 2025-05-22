@@ -32,8 +32,18 @@ def test_multidut_pfcwd_all_to_all(snappi_api,                  # noqa: F811
                                    lossy_prio_list):            # noqa: F811
 
     """
-    Run multidut PFC watchdog test under all to all traffic pattern
-
+    Ports Involved:
+        Port A, Port B, Port C
+    Traffic Pattern(all-to-all):
+        Each IXIA port sends traffic to every other port.
+        Port A sends traffic to Port B and Port C.
+        Port B sends traffic to Port A and Port C.
+        Port C sends traffic to Port A and Port B.
+    PFC Storm:
+        Port C is subjected to a PFC storm for the duration of the test.
+    Impact on Traffic:
+        Traffic entering and exiting Port C experiences loss due to the PFC storm.
+        Traffic between Port A and Port B remains unaffected by the storm on Port C, ensuring no loss.
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph

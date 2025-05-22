@@ -48,6 +48,7 @@ __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_int
            'setup_standby_ports_on_rand_selected_tor',
            'setup_standby_ports_on_rand_unselected_tor',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m',
            'setup_standby_ports_on_rand_unselected_tor_unconditionally',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
            ]
@@ -1024,7 +1025,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
-    src_mac = ptfadapter.dataplane.get_mac(0, 0)
+    src_mac = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     dst_mac = duthost.facts["router_mac"]
 
     # initialize the packets cache
@@ -1424,7 +1425,7 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_ttl = random.choice(list(range(3, 65)))
     pkt = testutils.simple_ip_packet(
         eth_dst=duthost.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src="1.1.1.1",
         ip_dst=target_server_ip,
         ip_dscp=pkt_dscp,
@@ -1450,7 +1451,12 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_hl = random.choice(list(range(3, 65)))
     pktlen = 100
     pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
-    pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
+    pkt = Ether(
+        src=ptfadapter.dataplane.get_mac(
+            *list(ptfadapter.dataplane.ports.keys())[0]
+        ),
+        dst=duthost.facts["router_mac"]
+    )
     pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
     pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
     logging.info(
@@ -1901,6 +1907,23 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
 ):
     if active_active_ports:
         active_tor = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+        config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m(
+    active_active_ports,                                                   # noqa F811
+    enum_rand_one_per_hwsku_hostname,
+    config_active_active_dualtor_active_standby,
+    validate_active_active_dualtor_setup,
+    upper_tor_host,
+    lower_tor_host,
+    duthosts
+):
+    if active_active_ports:
+        active_tor = duthosts[enum_rand_one_per_hwsku_hostname]
         standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
         config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
     return
