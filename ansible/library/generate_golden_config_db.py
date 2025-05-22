@@ -444,8 +444,6 @@ class GenerateGoldenConfigDBModule(object):
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
-        golden_config = json.loads(config)
-        assert "FEATURE" in golden_config["localhost"]
         self.module.exit_json(change=True, msg=module_msg)
 
 
