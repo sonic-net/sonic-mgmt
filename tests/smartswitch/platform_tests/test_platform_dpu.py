@@ -318,3 +318,38 @@ def test_system_health_summary(duthosts, dpuhosts,
         pytest_assert(result,
                       "{} health status is not ok"
                       .format(dpu_name))
+
+
+def test_watchdog_status_check(duthosts, dpuhosts,
+                               enum_rand_one_per_hwsku_hostname,
+                               platform_api_conn, num_dpu_modules):  # noqa: F811
+    """
+    @summary: To Verify watchdog armed only on DPUs
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Collecting DPU informations")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
+
+    watchdog_status_cmd = "watchdogutil status"
+
+    logging.info("Checking watchdog status on Switch")
+    output_watchdog_status = duthost.shell(watchdog_status_cmd)
+    pytest_assert("unarmed" in output_watchdog_status['stdout'].lower(),
+                   "Switch watchdog status is armed")
+
+    for index in range(len(dpu_on_list)):
+        dpu_name = module.get_name(platform_api_conn, index)
+
+        logging.info("Checking watchdog status on {}"
+                     .format(dpu_name))
+        dpu_watchdog_status = dpuhosts[index].shell(watchdog_status_cmd)
+
+
+        logging.info("Checking watchdog status on DPU")
+        pytest_assert("armed" in output_watchdog_status['stdout'].lower(),
+                      "{} watchdog status is unarmed"
+                      .format(dpu_name))
