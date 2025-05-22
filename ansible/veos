@@ -319,6 +319,8 @@ all:
           - t1-smartswitch-ha
           - ft2-64
           - lt2-o128-d110u14
+          - lt2-p32o64
+          - lt2-o128
 
 vm_host_1:
   hosts:

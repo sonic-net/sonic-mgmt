@@ -264,7 +264,7 @@
   - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "(hwsku in hwsku_list_compute_ai) and 'isolated' in topo"
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed) and 'isolated' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -655,6 +655,7 @@
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
+          hwsku: "{{ hwsku }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -828,12 +829,12 @@
         loop_control:
           loop_var: azng_config_cmd
         ignore_errors: false
-        when: > 
-         't2' in topo 
+        when: >
+         't2' in topo
          and 'lt2' not in topo
          and 'ft2' not in topo
-         and testbed_facts['duts_map'][inventory_hostname] == 0 
-         and not is_ixia_testbed 
+         and testbed_facts['duts_map'][inventory_hostname] == 0
+         and not is_ixia_testbed
 
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json

@@ -202,7 +202,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
             upstream_port_neighbor_ips[interface] = ipv4_addr
 
     dst_ip_addr = None
-    if tbinfo["topo"]['name'] == "t1-isolated-d28u1":
+    if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u16"]:
         dst_ip_addr = random.choices(list(upstream_port_neighbor_ips.values()))
     return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
 
@@ -319,7 +319,7 @@ def tcp_packet(rand_selected_dut, ptfadapter, ip_version,
     if ip_version == "ipv4":
         pkt = testutils.simple_tcp_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ip_dst=dst_ip,
             ip_src=src_ip,
             tcp_sport=int(sport),
@@ -332,7 +332,7 @@ def tcp_packet(rand_selected_dut, ptfadapter, ip_version,
     else:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ipv6_dst=dst_ip,
             ipv6_src=src_ip,
             tcp_sport=int(sport),
@@ -357,7 +357,7 @@ def udp_packet(rand_selected_dut, ptfadapter, ip_version,
     if ip_version == "ipv4":
         return testutils.simple_udp_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ip_dst=dst_ip,
             ip_src=src_ip,
             udp_sport=int(sport),
@@ -367,7 +367,7 @@ def udp_packet(rand_selected_dut, ptfadapter, ip_version,
     else:
         return testutils.simple_udpv6_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ipv6_dst=dst_ip,
             ipv6_src=src_ip,
             udp_sport=int(sport),

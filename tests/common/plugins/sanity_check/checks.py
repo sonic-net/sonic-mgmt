@@ -712,6 +712,17 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         reason = ''
 
         check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+
+        if not check_passed:
+            def _verify_mux_simulator_status_passed():
+                nonlocal check_passed, err_msg, duts_mux_status
+                check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+                return check_passed
+
+            logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
+            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
+
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
@@ -1175,6 +1186,7 @@ def check_bfd_up_count(duthosts):
         return list(result.values())
 
     def _check_bfd_up_count(dut, asic_id, check_result):
+        check_result["failed"] = False
         res = dut.shell(
             "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
             module_ignore_errors=True,
