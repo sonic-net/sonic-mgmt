@@ -754,7 +754,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -2133,8 +2133,13 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert (timeout >= 0)
-
+        assert (timeout >= 0), (
+            "Timeout expired while waiting for CRM counters to become ready. "
+            "CRM resource data was not available within the allotted time. "
+            "- Timeout value: {}\n"
+            "- Polling interval: {}\n"
+            "- Last CRM facts: {}\n"
+        ).format(timeout, crm_facts.get('polling_interval', 'N/A'), crm_facts)
         return crm_facts
 
     def start_service(self, service_name, docker_name):
