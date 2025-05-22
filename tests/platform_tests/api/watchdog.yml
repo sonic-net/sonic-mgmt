@@ -162,3 +162,15 @@ x86_64-8111_32eh_o-r0:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
+
+x86_64-8122_64ehf_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8122_64eh_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
