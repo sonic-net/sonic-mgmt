@@ -1365,7 +1365,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
     T1_GROUP_SIZE = 2
     BASE_ADDR_V4 = "192.0.0.0/8"
     BASE_ADDR_V6 = "2001:db8::0:0/108"
-    ROUTE_NUMBER_T1 = 16000
+    ROUTE_NUMBER_T1 = 16000 * 2  # x2 for unique route
 
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get('nhipv4', NHIPV4)
