@@ -135,6 +135,7 @@ class GenerateGoldenConfigDBModule(object):
             if ("localhost" in golden_config_db["DEVICE_METADATA"] and
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
+                golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         return json.dumps(golden_config_db, indent=4)
 
