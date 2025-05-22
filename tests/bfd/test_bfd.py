@@ -6,6 +6,7 @@ import logging
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -16,6 +17,27 @@ BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_respond
 BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
 
 logger = logging.getLogger(__name__)
+
+
+def verify_bfd_states(duthost, ptfhost, neighbor_addrs, local_addrs, update_idx):
+    """Verify BFD states for all sessions after a state change
+    Args:
+        duthost: DUT host object
+        ptfhost: PTF host object
+        neighbor_addrs: List of neighbor addresses
+        local_addrs: List of local addresses
+        update_idx: Index of the session that was updated
+    Returns:
+        bool: True if all states match expected values
+    """
+    for idx, neighbor_addr in enumerate(neighbor_addrs):
+        if idx == update_idx:
+            check_dut_bfd_status(duthost, neighbor_addr, "Down")
+            check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Init")
+        else:
+            check_dut_bfd_status(duthost, neighbor_addr, "Up")
+            check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
+    return True
 
 
 def is_dualtor(tbinfo):
@@ -421,15 +443,9 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
-        time.sleep(5)
 
-        for idx, neighbor_addr in enumerate(neighbor_addrs):
-            if idx == update_idx:
-                check_dut_bfd_status(duthost, neighbor_addr, "Down")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Init")
-            else:
-                check_dut_bfd_status(duthost, neighbor_addr, "Up")
-                check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
+        assert wait_until(30, 5, 0, verify_bfd_states, duthost, ptfhost, neighbor_addrs, local_addrs, update_idx), \
+            "BFD states did not reach expected values within timeout"
 
     finally:
         stop_ptf_bfd(ptfhost)
