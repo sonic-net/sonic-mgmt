@@ -528,7 +528,7 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
                      hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
                      duts_minigraph_facts, request):                                # noqa F811
-    # Skip test on none T1 testbed
+    # Only run this test on T1 or T0 (including dualtor) topologies
     pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
     logging.info(f"Topology type: {tbinfo['topo']['type']}")
     fib_files = fib_info_files_per_function(duthosts,
