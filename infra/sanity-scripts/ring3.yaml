@@ -253,6 +253,9 @@ MGMT:
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
+        - http/test_http_copy.py 
+        - mvrf/test_mgmtvrf.py
+        - ssh/test_ssh_default_password.py
 
 L2:
   t0-64:
@@ -335,4 +338,3 @@ PFC: #Alpesh Patel
       sim:
         - generic_config_updater/test_incremental_qos.py
         - generic_config_updater/test_pfcwd_interval.py
-
