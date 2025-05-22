@@ -6,12 +6,11 @@ import random
 import logging
 import time
 from multiprocessing.pool import ThreadPool
+import concurrent.futures
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.reboot import wait_for_startup,\
-                                wait_for_shutdown,\
-                                sync_reboot_history_queue_with_dut,\
-                                REBOOT_TYPE_HISTOYR_QUEUE
+from tests.common.reboot import wait_for_startup, wait_for_shutdown,\
+                                sync_reboot_history_queue_with_dut
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 
@@ -40,7 +39,7 @@ def chassis_cold_reboot(dut, pool, localhost):
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append("cold")
+    dut.reboot_type_history_queue.append("cold")
 
     return shutdown_res
 

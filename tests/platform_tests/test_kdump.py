@@ -4,8 +4,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
-    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
+from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup, \
+    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, \
+    sync_reboot_history_queue_with_duthosts
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
@@ -19,6 +20,7 @@ SSH_STARTUP_TIMEOUT = 420
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
 
+logger = logging.getLogger(__name__)
 
 class TestKernelPanic:
     """
@@ -28,7 +30,7 @@ class TestKernelPanic:
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
-            if any(hwsku in duthost.facts.get('hwsku') for hwsku in ['Cisco-8800-RP', 'Nokia-IXR7250E']):
+            if any(hwsku in duthost.facts.get('hwsku') for hwsku in ['Cisco-8800-RP', 'Nokia-IXR7250E-SUP-10']):
                 reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
             else:
                 reboot_type = REBOOT_TYPE_COLD
@@ -69,7 +71,19 @@ class TestKernelPanic:
         if "Enabled" not in out["stdout"]:
             pytest.skip('DUT {}: Skip test since kdump is not enabled'.format(hostname))
 
+        logging.info("Sync reboot cause history queue with DUT reboot type history queue")
+        sync_reboot_history_queue_with_duthosts(duthosts, enum_rand_one_per_hwsku_hostname)
+
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_KERNEL_PANIC, safe_reboot=True)
+
+        # Append the last reboot type to the queue
+        logging.info("Append the latest reboot type to the queue")
+        duthost.reboot_type_history_queue.append(REBOOT_TYPE_KERNEL_PANIC)
+
+        if duthost.is_supervisor_node():
+            for lc in duthosts.frontend_nodes:
+                # append reboot type for Linecards
+                lc.reboot_type_history_queue.append(REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS)
 
         check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname],
                                       xcvr_skip_list, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
