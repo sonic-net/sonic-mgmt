@@ -9,7 +9,9 @@ import jinja2
 from .controller_base import PduControllerBase
 
 from pysnmp.proto import rfc1902
-from pysnmp.entity.rfc3413.oneliner import cmdgen
+from pysnmp.hlapi.v3arch.asyncio import cmdgen
+from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
+from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -117,17 +119,20 @@ class snmpPduController(PduControllerBase):
         self.port_oid_dict[port_oid] = {'label': label}
         self.port_label_dict[label] = {'port_oid': port_oid}
 
-    def _probe_lane(self, lane_id, cmdGen, snmp_auth):
+    def _probe_lane(self, lane_id, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
         query_oid = '.' + pdu_port_base
         if self.has_lanes:
             query_oid = query_oid + '.' + str(lane_id)
 
-        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
+            cmdgen.SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(query_oid)
+            UdpTransportTarget((self.controller, 161)),
+            cmdgen.ContextData(),
+            ObjectType(ObjectIdentity(query_oid))
         )
+
         if errorIndication:
             logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
         else:
@@ -151,11 +156,10 @@ class snmpPduController(PduControllerBase):
             logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
 
-        cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
 
         for lane_id in range(1, self.max_lanes + 1):
-            self._probe_lane(lane_id, cmdGen, snmp_auth)
+            self._probe_lane(lane_id, snmp_auth)
 
     def __init__(self, controller, pdu, hwsku, psu_peer_type):
         logger.info("Initializing " + self.__class__.__name__)
@@ -192,12 +196,14 @@ class snmpPduController(PduControllerBase):
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
+        errorIndication, errorStatus, _, _ = cmdgen.setCmd(
+                cmdgen.SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
+                UdpTransportTarget((self.controller, 161)),
+                cmdgen.ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
+
         if errorIndication or errorStatus != 0:
             logger.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
@@ -221,10 +227,11 @@ class snmpPduController(PduControllerBase):
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
+        errorIndication, errorStatus, _, _ = cmdgen.setCmd(
+                cmdgen.SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
+                UdpTransportTarget((self.controller, 161)),
+                cmdgen.ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
         if errorIndication or errorStatus != 0:
@@ -232,7 +239,7 @@ class snmpPduController(PduControllerBase):
             return False
         return True
 
-    def _get_one_outlet_power(self, cmdGen, snmp_auth, port_id, status):
+    def _get_one_outlet_power(self, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
             return
 
@@ -244,9 +251,11 @@ class snmpPduController(PduControllerBase):
         query_id = '.' + self.PORT_POWER_BASE_OID + port_id
         if self.pduType == "Raritan":
             query_id = query_id + ".5"  # 5 = watts for Raritan PDU
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+        errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
+            cmdgen.SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
+            UdpTransportTarget((self.controller, 161)),
+            cmdgen.ContextData(),
             cmdgen.MibVariable(query_id)
         )
         if errorIndication:
@@ -264,11 +273,13 @@ class snmpPduController(PduControllerBase):
                     status['output_watts'] = current_val
                 return
 
-    def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
+    def _get_one_outlet_status(self, snmp_auth, port_id):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+        errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
+            cmdgen.SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
+            UdpTransportTarget((self.controller, 161)),
+            cmdgen.ContextData(),
             cmdgen.MibVariable(query_id)
         )
         if errorIndication:
@@ -281,7 +292,7 @@ class snmpPduController(PduControllerBase):
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
-                self._get_one_outlet_power(cmdGen, snmp_auth, port_id, status)
+                self._get_one_outlet_power(snmp_auth, port_id, status)
                 return status
 
         return None
@@ -321,11 +332,10 @@ class snmpPduController(PduControllerBase):
             if not ports:
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
-        cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
 
         for port in ports:
-            status = self._get_one_outlet_status(cmdGen, snmp_auth, port)
+            status = self._get_one_outlet_status(snmp_auth, port)
             if status:
                 results.append(status)
 
