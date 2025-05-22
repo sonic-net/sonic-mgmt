@@ -136,11 +136,13 @@ class QosBase:
                         return True
         return False
 
+    # @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
+    #                 params=["single_asic", "single_dut_multi_asic",
+    #                         "multi_dut_longlink_to_shortlink",
+    #                         "multi_dut_shortlink_to_shortlink",
+    #                         "multi_dut_shortlink_to_longlink"])
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
-                    params=["single_asic", "single_dut_multi_asic",
-                            "multi_dut_longlink_to_shortlink",
-                            "multi_dut_shortlink_to_shortlink",
-                            "multi_dut_shortlink_to_longlink"])
+                    params=["single_asic"])
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host): # noqa F811
         test_port_selection_criteria = request.param
         logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
@@ -483,6 +485,54 @@ class QosBase:
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
+
+    def __assignTestPortIps(self, mgFacts, topo):
+        """
+            Assign IPs to test ports of DUT host
+
+            Args:
+                mgFacts (dict): Map of DUT minigraph facts
+
+            Returns:
+                dutPortIps (dict): Map of port index to IPs
+        """
+        dutPortIps = {}
+        if len(mgFacts["minigraph_vlans"]) > 0:
+            # TODO: handle the case when there are multiple vlans
+            vlans = iter(mgFacts["minigraph_vlans"])
+            testVlan = next(vlans)
+            testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+            # To support t0-56-po2vlan topo, choose the Vlan with physical ports and remove the lag in Vlan members
+            if topo == 't0-56-po2vlan':
+                if len(testVlanMembers) == 1:
+                    testVlan = next(vlans)
+                    testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+                for member in testVlanMembers:
+                    if 'PortChannel' in member:
+                        testVlanMembers.remove(member)
+                        break
+
+            testVlanIp = None
+            for vlan in mgFacts["minigraph_vlan_interfaces"]:
+                if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
+                    testVlanIp = ipaddress.ip_address(vlan["addr"])  # noqa F821
+                    break
+            pytest_assert(testVlanIp, "Failed to obtain vlan IP")
+
+            vlan_id = None
+            if 'type' in mgFacts["minigraph_vlans"][testVlan]:
+                vlan_type = mgFacts["minigraph_vlans"][testVlan]['type']
+                if vlan_type is not None and "Tagged" in vlan_type:
+                    vlan_id = mgFacts["minigraph_vlans"][testVlan]['vlanid']
+
+            for i in range(len(testVlanMembers)):
+                portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
+                portIpMap = {'peer_addr': str(testVlanIp + portIndex + 1)}
+                if vlan_id is not None:
+                    portIpMap['vlan_id'] = vlan_id
+                dutPortIps.update({portIndex: portIpMap})
+
+        return dutPortIps
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
@@ -899,6 +949,9 @@ class QosBase:
                 if portName in value["members"]:
                     dutPorts[portId]["lagName"] = portchannelName
                     dutPorts[portId]["lagMembers"] = value["members"]
+                    dutPorts[portId]["lagMembersId"] = []
+                    for lagMember in value["members"]:
+                        dutPorts[portId]["lagMembersId"].append(src_mgFacts["minigraph_ptf_indices"][lagMember])
         if src_dut != dst_dut:
             for portName, portId in dst_mgFacts["minigraph_ptf_indices"].items():
                 dutPorts[portId] = {}

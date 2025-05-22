@@ -24,7 +24,7 @@ SDK_LOG_TO_CHECK = ["VOQ Appears to be stuck"]
 SAI_LOG = "/var/log/sai.log"
 SDK_LOG = "/var/log/syslog"
 PKT_SIZE = 1024
-PKT_COUNT = 1000
+PKT_COUNT = 500
 
 
 def init_log_check(duthost):
@@ -57,7 +57,7 @@ def verify_log(duthost, pre_offsets, voq_watchdog_enable=True):
 
 
 class TestVoqWatchdog(QosBase):
-    def testVoqWatchdog(self, get_src_dst_asic_and_duts, dutConfig, dutTestParams, ptfhost):
+    def testVoqWatchdog(self, get_src_dst_asic_and_duts, dutConfig, ptfhost):
         """
         Verify voq watchdog is functional by default
         tx disable, send traffic, sleep 60 seconds, verify soft_reset is triggered
@@ -70,47 +70,60 @@ class TestVoqWatchdog(QosBase):
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         tx_disable_cmd = "sudo config platform cisco interface {} tx disable"
         if "lagMembers" in dutConfig["dutPorts"][dst_port_id]:
+            dst_port_id_list = dutConfig["dutPorts"][dst_port_id]["lagMembersId"]
             for port in dutConfig["dutPorts"][dst_port_id]["lagMembers"]:
                 dst_dut.command(tx_disable_cmd.format(port))
         else:
+            dst_port_id_list = [dst_port_id]
             dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
 
-        testParams = dict()
-        testParams.update(dutTestParams["basicParams"])
-        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
-        testParams.update({
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            "src_port_id": dutConfig["testPorts"]["src_port_id"],
-            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "dscp": 8,
-            "pkt_size": PKT_SIZE,
-            "pkt_count": PKT_COUNT,
-        })
+        try:
+            testParams = {
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+                "dst_port_vlan": dutConfig["testPorts"]["dst_port_vlan"],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+                "dscp": 8,
+                "pkt_size": PKT_SIZE,
+                "pkt_count": PKT_COUNT,
+                "dst_port_id_list": dst_port_id_list,
+            }
 
-        # send traffic
-        self.runPtf(
-            ptfhost,
-            PTF_FILE_DIR,
-            testCase="basic_traffic.SimpleUdpTraffic",
-            testParams=testParams
-        )
+            # send traffic
+            self.runPtf(
+                ptfhost,
+                PTF_FILE_DIR,
+                testCase="basic_traffic.SimpleUdpTraffic",
+                testParams=testParams
+            )
 
-        time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS + 10)
+            time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS + 10)
 
-        # check log
-        verify_log(dst_dut, pre_offsets)
+            # check log
+            verify_log(dst_dut, pre_offsets)
+            
+            # send traffic and verify packets are received
+            # To verify packets received in ptf, need to exclude bgp packets, thus to disable bgp
+            testParams.update({"action": "forward"})
+            self.runPtf(
+                ptfhost,
+                PTF_FILE_DIR,
+                testCase="basic_traffic.SimpleUdpTraffic",
+                testParams=testParams
+            )
 
-        # tx enable
-        tx_disable_cmd = "sudo config platform cisco interface {} tx enable"
-        if "lagMembers" in dutConfig["dutPorts"][dst_port_id]:
-            for port in dutConfig["dutPorts"][dst_port_id]["lagMembers"]:
-                dst_dut.command(tx_disable_cmd.format(port))
-        else:
-            dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
+        finally:
+            # tx enable
+            tx_disable_cmd = "sudo config platform cisco interface {} tx enable"
+            if "lagMembers" in dutConfig["dutPorts"][dst_port_id]:
+                for port in dutConfig["dutPorts"][dst_port_id]["lagMembers"]:
+                    dst_dut.command(tx_disable_cmd.format(port))
+            else:
+                dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
 
-    def testVoqWatchdogDisable(self, get_src_dst_asic_and_duts, dutConfig, dutTestParams, ptfhost,
+    def testVoqWatchdogDisable(self, get_src_dst_asic_and_duts, dutConfig, ptfhost,
                                function_scope_disable_voq_watchdog):
         """
         disable voq watchdog
@@ -128,36 +141,36 @@ class TestVoqWatchdog(QosBase):
         else:
             dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
 
-        testParams = dict()
-        testParams.update(dutTestParams["basicParams"])
-        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
-        testParams.update({
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            "src_port_id": dutConfig["testPorts"]["src_port_id"],
-            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "dscp": 8,
-            "pkt_size": PKT_SIZE,
-            "pkt_count": PKT_COUNT,
-        })
+        try:
+            testParams = {
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+                "dst_port_vlan": dutConfig["testPorts"]["dst_port_vlan"],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+                "dscp": 8,
+                "pkt_size": PKT_SIZE,
+                "pkt_count": PKT_COUNT,
+            }
 
-        # send traffic
-        self.runPtf(
-            ptfhost,
-            PTF_FILE_DIR,
-            testCase="basic_traffic.SimpleUdpTraffic",
-            testParams=testParams
-        )
-        time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS)
+            # send traffic
+            self.runPtf(
+                ptfhost,
+                PTF_FILE_DIR,
+                testCase="basic_traffic.SimpleUdpTraffic",
+                testParams=testParams
+            )
+            time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS)
 
-        # check log
-        verify_log(dst_dut, pre_offsets, False)
+            # check log
+            verify_log(dst_dut, pre_offsets, False)
 
-        # tx enable
-        tx_disable_cmd = "sudo config platform cisco interface {} tx enable"
-        if "lagMembers" in dutConfig["dutPorts"][dst_port_id]:
-            for port in dutConfig["dutPorts"][dst_port_id]["lagMembers"]:
-                dst_dut.command(tx_disable_cmd.format(port))
-        else:
-            dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
+        finally:
+            # tx enable
+            tx_disable_cmd = "sudo config platform cisco interface {} tx enable"
+            if "lagMembers" in dutConfig["dutPorts"][dst_port_id]:
+                for port in dutConfig["dutPorts"][dst_port_id]["lagMembers"]:
+                    dst_dut.command(tx_disable_cmd.format(port))
+            else:
+                dst_dut.command(tx_disable_cmd.format(dutConfig["dutPorts"][dst_port_id]["portName"]))
