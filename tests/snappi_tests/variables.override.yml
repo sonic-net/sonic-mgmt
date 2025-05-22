@@ -1,34 +1,42 @@
-vms-snappi-sonic-multidut:
+vms69-t2-8800-2-ixia:
   multidut_port_info:
-    - multi-dut-single-asic:
+    - multi-dut-multi-asic-to-short-link:
         rx_ports:
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet72
-          - host_name: sonic-s6100-dut2
-            port_name: Ethernet76
+          - hostname: str3-8800-lc3-1
+            port_name: Ethernet128
         tx_ports:
-          - hostname: sonic-s6100-dut2
-            port_name: Ethernet64
-          - hostname: sonic-s6100-dut2
-            port_name: Ethernet68
-    - single-dut-single-asic:
+          - hostname: str3-8800-lc3-1
+            port_name: Ethernet136
+          - hostname: str3-8800-lc3-1
+            port_name: Ethernet200
+    - multi-dut-single-asic-to-short-link:
         rx_ports:
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet72
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet76
+          - hostname: str3-8800-lc3-1
+            port_name: Ethernet136
         tx_ports:
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet64
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet68
-  mixed_speed_port_info:
-    vms-snappi-sonic-multidut:
-      - multidut-any-asic:
+          - hostname: str3-8800-lc3-1
+            port_name: Ethernet128
+  pfcQueueGroupSize: 4
+vmsvc5-t2-8800-ixia:
+  multidut_port_info:
+    - multi-dut-multi-asic-to-short-link:
         rx_ports:
-          - hostname: sonic-s6100-dut1
-            port_name: Ethernet0
+          - hostname: svcstr2-8800-lc2-1
+            port_name: Ethernet280
         tx_ports:
-          - hostname: sonic-s6100-dut2
-            port_name: Ethernet0
+          - hostname: svcstr2-8800-lc2-1
+            port_name: Ethernet272
+          - hostname: svcstr2-8800-lc1-1
+            port_name: Ethernet256
+          - hostname: svcstr2-8800-lc1-1
+            port_name: Ethernet264
+    - multi-dut-multi-asic-to-longlink:
+        rx_ports:
+          - hostname: svcstr2-8800-lc1-1
+            port_name: Ethernet256
+        tx_ports:
+          - hostname: svcstr2-8800-lc2-1
+            port_name: Ethernet272
+          - hostname: svcstr2-8800-lc2-1
+            port_name: Ethernet280
   pfcQueueGroupSize: 8
