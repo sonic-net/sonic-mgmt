@@ -234,7 +234,14 @@ MGMT:
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
         - snmp/test_snmp_v2mib.py
-        #- gnmi/test_gnmi.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_countersdb.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnoi_os.py
+        - gnmi/test_gnoi_system_grpc.py
+        - gnmi/test_gnoi_system.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
         #- gnmi/test_gnmi_configdb.py
         #- snmp/test_snmp_link_local.py
         - tacacs/test_authorization.py
