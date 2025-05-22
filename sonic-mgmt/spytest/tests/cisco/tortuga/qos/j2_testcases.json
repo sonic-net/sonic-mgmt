@@ -1,0 +1,314 @@
+{
+    "testcases": [
+        {
+            "#": "108MB platforms - hyperfabric pids (hf6100) specific",
+            "metadata": [
+                {"platform" : "x86_64-hf6100_32d-r0", "hwsku" : "Cisco-HF6100-32D"},
+                {"platform" : "x86_64-hf6100_60l4d-r0", "hwsku" : "Cisco-HF6100-60L4D"}
+            ],
+            "results": {
+                "BUFFER_POOL": {
+                    "ingress_lossless_pool": {
+                        "size": "67108864",
+                        "xoff": "25165824"
+                    },
+                    "egress_lossy_pool": {
+                        "size": "50331648"
+                    }
+                },
+                "BUFFER_PROFILE": {
+                    "egress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "0"
+                    },
+                    "egress_lossless_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    },
+                    "ingress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    }
+                },
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "wred_green_enable"      : "true",
+                        "wred_yellow_enable"     : "true",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "1048576",
+                        "green_max_threshold"    : "4194304",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                },
+                "SCHEDULER": {
+                    "scheduler.0": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
+                    },
+                    "scheduler.1": {
+                        "type": "DWRR",
+                        "weight": "20"
+                    },
+                    "scheduler.2": {
+                        "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.3": {
+                        "type": "DWRR",
+                        "weight": "30"
+                    }
+                }
+            }
+        },
+        {
+            "#": "hyperfabric hf6100 pids only based on, Graphene2 (g200/ gr2)",
+            "metadata": [
+                {"platform" : "x86_64-hf6100_64ed-r0", "hwsku" : "Cisco-HF6100-64ED"}
+            ],
+            "results": {
+                "BUFFER_POOL": {
+                    "ingress_lossless_pool": {
+                        "size": "201326592",
+                        "xoff": "47185920"
+                    },
+                    "egress_lossy_pool": {
+                        "size": "132120576"
+                    }
+                },
+                "BUFFER_PROFILE": {
+                    "egress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "1"
+                    },
+                    "egress_lossless_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    },
+                    "ingress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    }
+                },
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "^wred_green_enable"     : "",
+                        "^wred_yellow_enable"    : "",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "2097152",
+                        "green_max_threshold"    : "10485760",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                },
+                "SCHEDULER": {
+                    "scheduler.0": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
+                    },
+                    "scheduler.1": {
+                        "type": "DWRR",
+                        "weight": "20"
+                    },
+                    "scheduler.2": {
+                        "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.3": {
+                        "type": "DWRR",
+                        "weight": "30"
+                    }
+                }
+            }
+        },
+        {
+            "#": "64MB platforms based on Q200",
+            "metadata": [
+                {"platform" : "x86_64-8102_64h_o-r0", "hwsku" : "Cisco-8102-C64", "type" : "LeafRouter"},
+                {"platform" : "x86_64-8101_32h_o-r0", "hwsku" : "32x100Gb"}
+            ],
+            "results": {
+                "BUFFER_POOL": {
+                    "ingress_lossless_pool": {
+                        "size": "41943040",
+                        "xoff": "12582912"
+                    },
+                    "egress_lossy_pool": {
+                        "size": "31457280"
+                    }
+                },
+                "BUFFER_PROFILE": {
+                    "egress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "0"
+                    },
+                    "egress_lossless_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    },
+                    "ingress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    }
+                },
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "wred_green_enable"      : "true",
+                        "wred_yellow_enable"     : "true",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "1048576",
+                        "green_max_threshold"    : "4194304",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                }
+            }
+        },
+        {
+            "#": "Graphene(g100), wred_profile is same as default",
+            "metadata": [
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-32EH-O"},
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-C32"},
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-O32"},
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-O62C2"},
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-O64"}
+            ],
+            "results": {
+                "BUFFER_POOL": {
+                    "ingress_lossless_pool": {
+                        "size": "83886080",
+                        "xoff": "8388608"
+                    },
+                    "egress_lossy_pool": {
+                        "size": "62914560"
+                    }
+                },
+                "BUFFER_PROFILE": {
+                    "egress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "0"
+                    },
+                    "egress_lossless_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    },
+                    "ingress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    }
+                },
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "wred_green_enable"      : "true",
+                        "wred_yellow_enable"     : "true",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "1048576",
+                        "green_max_threshold"    : "4194304",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                }
+            }
+        },
+        {
+            "#": "Graphene2 (g200/gr2), Larger SMS and customized wred profile with some field removal",
+            "metadata": [
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-64EH-O"},
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-64x800G2S"},
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-C512S2"},
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-O128S2"},
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-O64S2"}
+            ],
+            "results": {
+                "BUFFER_POOL": {
+                    "ingress_lossless_pool": {
+                        "size": "201326592",
+                        "xoff": "47185920"
+                    },
+                    "egress_lossy_pool": {
+                        "size": "132120576"
+                    }
+                },
+                "BUFFER_PROFILE": {
+                    "egress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "1"
+                    },
+                    "egress_lossless_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    },
+                    "ingress_lossy_profile": {
+                        "size": "0",
+                        "dynamic_th": "7"
+                    }
+                },
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "^wred_green_enable"     : "",
+                        "^wred_yellow_enable"    : "",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "2097152",
+                        "green_max_threshold"    : "10485760",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                }
+            }
+        },
+        {
+            "#": "Compute AI for backend role, Graphene200 (g200/gr2)",
+            "metadata": [
+                {"platform" : "x86_64-8122_64eh_o-r0", "hwsku" : "Cisco-8122-64EH-O",
+                 "type": "BackEndToRRouter", "resource_type": "ComputeAI"}
+            ],
+            "results": {
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "^wred_green_enable"     : "",
+                        "^wred_yellow_enable"    : "",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "2097152",
+                        "green_max_threshold"    : "10485760",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                }
+            }
+        },
+        {
+            "#": "Compute AI, non-GR2",
+            "metadata": [
+                {"platform" : "x86_64-8111_32eh_o-r0", "hwsku" : "Cisco-8111-32EH-O",
+                 "type": "BackEndToRRouter", "resource_type": "ComputeAI"}
+            ],
+            "results": {
+                "WRED_PROFILE": {
+                    "AZURE_LOSSLESS": {
+                        "wred_green_enable"      : "true",
+                        "wred_yellow_enable"     : "true",
+                        "ecn"                    : "ecn_green_yellow",
+                        "green_drop_probability" : "5",
+                        "green_min_threshold"    : "2097152",
+                        "green_max_threshold"    : "10485760",
+                        "yellow_min_threshold"   : "0",
+                        "yellow_drop_probability": "0",
+                        "yellow_max_threshold"   : "6144000"
+                    }
+                }
+            }
+        }
+    ]
+}
