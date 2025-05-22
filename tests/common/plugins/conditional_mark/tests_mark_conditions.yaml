@@ -977,6 +977,10 @@ fib/test_fib.py::test_nvgre_hash:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*'
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx']"
+  xfail:
+    reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
+    conditions:
+      - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
@@ -1240,6 +1244,12 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
@@ -1252,6 +1262,13 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1274,6 +1291,12 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCO
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
@@ -1286,6 +1309,12 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -1345,6 +1374,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
@@ -1357,6 +1392,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
+  skip:
+    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####           http              #####
@@ -2797,5 +2838,7 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 zmq/test_gnmi_zmq.py:
   skip:
     reason: "Test is for smartswitch"
+    conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'isolated' in topo_name"
