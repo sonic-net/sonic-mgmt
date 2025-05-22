@@ -158,7 +158,7 @@ def apply_tc_to_dscp_map_config(
     duthost.copy(content=json.dumps(config_db_dict, indent=4), dest=CONFIG_DB_JSON_PATH)
 
     logger.info(log_message)
-    duthost.shell("sudo config qos reload -y")
+    duthost.shell("sudo config qos reload")
     wait_critical_processes(duthost)
 
     if missing_tc:
