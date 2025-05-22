@@ -17,6 +17,7 @@ str-msn4700-fanout-01,10.3.146.204/24,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str-msn4700-02,10.64.247.80/23,Mellanox-SN4700-O32,DevSonic,,sonic
 str-msn4700-fanout-02,10.64.247.79/23,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str-7050qx-32s-acs-04,10.3.146.113/24,Arista-7050QX32S-Q32,DevSonic,,sonic
+str-7060-cx32-1,10.3.146.165/23,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str-7260-02,10.3.146.168/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-06,10.3.146.106/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-08,10.3.146.91/24,Arista-7260CX3,FanoutLeaf,,
@@ -83,3 +84,4 @@ console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
 console-213,10.3.145.184,Cisco,ConsoleServer,ssh,
+console-196,10.3.145.196,Cisco,ConsoleServer,ssh,

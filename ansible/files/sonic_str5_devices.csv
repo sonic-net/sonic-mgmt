@@ -1,5 +1,6 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str5-7060x6-pe64-root,10.64.247.160/23,Arista-7060X6-64PE,FanoutRoot,,
+str5-7260cx3-acs-root,10.64.247.161/23,Arista-7260CX3-64,FanoutRoot,,
 str5-acs-serv-91,10.64.247.191/23,TestServ,Server,,
 str5-acs-serv-92,10.64.247.192/23,TestServ,Server,,
 str5-acs-serv-93,10.64.247.193/23,TestServ,Server,,
