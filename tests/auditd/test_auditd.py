@@ -84,7 +84,8 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
         "auditd_rules",
         "auditd_service",
         "auditd_active",
-        "auditd_reload"
+        "auditd_reload",
+        "rate_limit"
     ]
 
     # Check if all expected keys exist and have the value "OK"
@@ -267,3 +268,34 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
     pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
+
+
+def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_failure_32bit, check_auditd):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    container_name = "auditd_watchdog"
+    verify_container_running(duthost, container_name)
+
+    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+                             "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    try:
+        response = json.loads(output)
+    except json.JSONDecodeError:
+        pytest.fail("Invalid JSON response from auditd watchdog: {}".format(output))
+
+    rate_limit_status = response.get("rate_limit")
+    pytest_assert(rate_limit_status == "OK",
+                      "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+
+    # change rate limit config
+    duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
+    duthost.command(r"sudo sed -i -e '$a\'$'\n''-r 1000' /etc/audit/rules.d/audit.rules")
+    duthost.command(r"sudo auditctl -r 2000")
+
+    rate_limit_status = response.get("rate_limit")
+
+    # revert change before check result, so assert failed will not break next test
+    duthost.command(r"sudo cp /etc/audit.rules_backup /etc/audit/rules.d/audit.rules")
+    duthost.command(r"sudo auditctl -R /etc/audit/audit.rules")
+
+    pytest_assert(rate_limit_status.startswith("FAIL"),
+                      "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
