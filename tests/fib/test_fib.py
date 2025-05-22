@@ -522,19 +522,18 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
 
 # The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
 # used as hash keys
-
-
 def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
                      hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
                      duts_minigraph_facts, request):                                # noqa F811
-    # Skip test on none T1 testbed
-    pytest_require('t1' == tbinfo['topo']['type'],
-                   "The test case runs on T1 topology")
-
-    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+    # Only run this test on T1 or T0 (including dualtor) topologies
+    pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
+    logging.info(f"Topology type: {tbinfo['topo']['type']}")
+    fib_files = fib_info_files_per_function(duthosts,
+                                            ptfhost,
+                                            duts_running_config_facts,
+                                            duts_minigraph_facts,
                                             tbinfo, request)
-
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
         ipver, timestamp)
