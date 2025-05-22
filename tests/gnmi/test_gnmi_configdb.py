@@ -66,6 +66,16 @@ def get_sonic_cfggen_output(duthost, namespace=None):
     return (json.loads(output["stdout"]))
 
 
+def wait_bgp_neighbor(duthost):
+    '''
+    Wait for BGP neighbor to be up
+    '''
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
+
+
 def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     Verify GNMI native write, incremental config for configDB
@@ -103,6 +113,8 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert status == "up", "Incremental config failed to toggle interface %s status" % interface
     msg_list = gnmi_get(duthost, ptfhost, path_list)
     assert msg_list[0] == "\"up\"", msg_list[0]
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
 
 
 def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
@@ -285,6 +297,8 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
 
 
 def test_gnmi_configdb_full_replace_01(duthosts, rand_one_dut_hostname, ptfhost):
@@ -336,6 +350,8 @@ def test_gnmi_configdb_full_replace_01(duthosts, rand_one_dut_hostname, ptfhost)
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
     duthost.shell("config save -y")
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
 
 
 def test_gnmi_configdb_set_authenticate(duthosts, rand_one_dut_hostname, ptfhost):
