@@ -1083,7 +1083,6 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
-      - "'t2' in topo_name"
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                            'Mellanox-SN5640-C448O16']"
 
