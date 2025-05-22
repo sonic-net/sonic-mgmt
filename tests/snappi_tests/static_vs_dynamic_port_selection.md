@@ -36,7 +36,7 @@ Users can customize or extend subtypes as needed by modifying the `variables.py`
 
 **Disadvantages:**
 
-- Not portable across different setups�requires manual updates to `variables.py` for each new environment.
+- Not portable across different setups, hence requires manual updates to `variables.py` for each new environment.
 - Cannot easily handle setups with interfaces of varying speeds unless subtypes are explicitly defined for each speed.
 
 ---
