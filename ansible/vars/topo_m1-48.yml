@@ -201,15 +201,8 @@ configuration_properties:
     nhipv6: FC0A::FF
     ma_asn: 65201
     mb_asn: 65211
-    m1_number: 2
-    m1_loopback_v4_start: 100.11.0.1/32
-    m1_loopback_v6_start: 2064:1100::1/128
-    m1_asn: 65101
-    m0_number: 36
     m0_subnet_number: 1
     m0_subnet_size: 64
-    m0_loopback_v4_start: 100.10.0.1/32
-    m0_loopback_v6_start: 2064:1000::1/128
     m0_asn: 65001
     mx_number: 20
     mx_subnet_number: 1
@@ -217,10 +210,6 @@ configuration_properties:
     mx_asn: 64801
     mx_loopback_v4_start: 100.8.0.1/32
     mx_loopback_v6_start: 2064:800::1/128
-    c0_number: 8
-    c0_asn: 64901
-    c0_loopback_v4_start: 100.9.0.1/32
-    c0_loopback_v6_start: 2064:900::1/128
   ma:
     swrole: ma
   mb:
