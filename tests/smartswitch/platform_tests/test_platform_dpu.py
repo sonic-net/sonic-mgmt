@@ -339,7 +339,7 @@ def test_watchdog_status_check(duthosts, dpuhosts,
     logging.info("Checking watchdog status on Switch")
     output_watchdog_status = duthost.shell(watchdog_status_cmd)
     pytest_assert("unarmed" in output_watchdog_status['stdout'].lower(),
-                   "Switch watchdog status is armed")
+                  "Switch watchdog status is armed")
 
     for index in range(len(dpu_on_list)):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -348,8 +348,7 @@ def test_watchdog_status_check(duthosts, dpuhosts,
                      .format(dpu_name))
         dpu_watchdog_status = dpuhosts[index].shell(watchdog_status_cmd)
 
-
         logging.info("Checking watchdog status on DPU")
-        pytest_assert("armed" in output_watchdog_status['stdout'].lower(),
+        pytest_assert("armed" in dpu_watchdog_status['stdout'].lower(),
                       "{} watchdog status is unarmed"
                       .format(dpu_name))
