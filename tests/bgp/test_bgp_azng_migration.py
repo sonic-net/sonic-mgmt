@@ -1,4 +1,4 @@
-import ipaddr as ipaddress
+import ipaddress
 import json
 import pytest
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -158,8 +158,22 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 assert routes_json['totalPrefixCounter'] == original_ipv6_route_adv_count
                 assert routes_json['filteredPrefixCounter'] == original_ipv6_route_adv_filter_count
             else:
-                assert routes_json['totalPrefixCounter'] == original_ipv4_route_adv_count
-                assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count
+                assert routes_json['totalPrefixCounter'] == original_ipv4_route_adv_count, (
+                    "Mismatch in total advertised IPv4 route count after AZNG migration. "
+                    "Expected: {}, Actual: {}. "
+                    "- original_ipv4_route_adv_count: {}\n"
+                    "- routes_json['totalPrefixCounter']: {}\n"
+                    "- Command: {}\n"
+                    "- routes_json: {}"
+                ).format(
+                  original_ipv4_route_adv_count,
+                  routes_json['totalPrefixCounter'],
+                  original_ipv4_route_adv_count,
+                  routes_json['totalPrefixCounter'],
+                  bgp_nbr_adv_cmd,
+                  routes_json
+                )
+            assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count
 
         rc = duthost.shell('sudo azng_migration -o')
         pytest_assert(not rc['failed'], "AZNG Migration Inbound Route-map permit apply failed")

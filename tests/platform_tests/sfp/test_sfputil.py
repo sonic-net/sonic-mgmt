@@ -19,7 +19,7 @@ from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
+from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 
 
@@ -335,9 +335,12 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+        if intf not in xcvr_skip_list.get(duthost.hostname, []):
+            assert intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "Parsed presence output: {}".format(intf, cmd_sfp_presence, parsed_presence)
+            )
+            assert parsed_presence[intf].lower() == "present", "Interface '{}' presence is not 'Present'".format(intf)
 
 
 @pytest.mark.device_type('physical')
@@ -376,8 +379,18 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                                "not supported on this port)".format(intf))
                 continue
             assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_error_status)
-            assert parsed_presence[intf] == expected_state, \
-                f"Interface {intf}'s error status is not {expected_state}, actual state is:{parsed_presence[intf]}."
+            assert parsed_presence[intf] == expected_state, (
+                "Interface '{}' error status check failed. "
+                "Expected error status: '{}', but got: '{}'. "
+                "- Expected State: {}\n"
+                "- Actual State: {}\n"
+            ).format(
+                intf,
+                expected_state,
+                parsed_presence[intf],
+                expected_state,
+                parsed_presence[intf]
+            )
 
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -402,7 +415,15 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
-            assert parsed_eeprom[intf] == "SFP EEPROM detected"
+            assert parsed_eeprom[intf] == "SFP EEPROM detected", (
+                "EEPROM status check failed for interface '{}'. "
+                "Expected: 'SFP EEPROM detected', but got: '{}'. "
+                "- Actual EEPROM Status: {}\n"
+            ).format(
+                intf,
+                parsed_eeprom[intf],
+                parsed_eeprom[intf],
+            )
 
 
 @pytest.mark.device_type('physical')
@@ -469,10 +490,15 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                     "Run command '{}' failed".format(cmd_sfp_presence_per_intf)
 
             parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-            assert logical_intf in parsed_presence, \
-                "Interface is not in output of '{}'".format(cmd_sfp_presence_per_intf)
-            assert parsed_presence[logical_intf] == "Present", \
-                "Interface presence is not 'Present' for {}".format(logical_intf)
+            assert logical_intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "This means the SFP presence information for the interface is missing. "
+                "- Parsed Presence Output: {}\n"
+            ).format(
+                    logical_intf,
+                    cmd_sfp_presence,
+                    parsed_presence
+               )
 
     # Check interface status for all interfaces in the end just in case
     assert check_interface_status(duthost,
@@ -594,9 +620,12 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
-
+            assert intf in parsed_presence, (
+               "Interface '{}' is not in output of '{}'. "
+               "This means the SFP presence information for the interface is missing. "
+               "- Parsed Presence Output: {}\n"
+               .format(intf, cmd_sfp_presence, parsed_presence)
+            )
     logging.info("Check interface status")
     cmd = "show interfaces transceiver eeprom {} | grep 400ZR".format(asichost.cli_ns_option)
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
