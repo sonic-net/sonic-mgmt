@@ -1170,11 +1170,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
 
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
-  skip:
-    reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
-
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
+gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
