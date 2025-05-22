@@ -80,6 +80,9 @@ all:
           - mc0
           - mx
           - dpu-1
+          - ft2-64
+          - lt2-p32o64
+          - lt2-o128
       children:
         server_1:
         server_2:
