@@ -676,40 +676,19 @@ dualtor_io/test_grpc_server_failure.py:
     conditions:
       - "'dualtor-aa' not in topo_name"
 
-dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
-  xfail:
-    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
-
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
@@ -901,7 +880,7 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-erspan:
   skip:
     reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
     conditions_logical_operator: or
@@ -931,7 +910,7 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan:
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
     conditions_logical_operator: or
@@ -1055,9 +1034,10 @@ generic_config_updater:
 
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
-    reason: "Cisco 8122 backend compute ai platform is not supported."
+    reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -1712,12 +1692,6 @@ pc/test_lag_member.py:
     reason: "Not support dualtor or t0 backend topo"
     conditions:
         - "'dualtor' in topo_name or 't0-backend' in topo_name"
-
-pc/test_lag_member.py::test_lag_member_traffic:
-  skip:
-    reason: "Have an issue on kvm t0"
-    conditions:
-        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/13898"
 
 pc/test_lag_member_forwarding.py:
   xfail:
@@ -2568,16 +2542,6 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
-#####         pktgen              #####
-#######################################
-test_pktgen.py:
-  skip:
-    reason: "Have known issue, only running for 'cisco-8000', skipping for all other ASIC types"
-    conditions:
-      - "asic_type not in ['cisco-8000']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
-
-#######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
@@ -2859,5 +2823,7 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 zmq/test_gnmi_zmq.py:
   skip:
     reason: "Test is for smartswitch"
+    conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'isolated' in topo_name"
