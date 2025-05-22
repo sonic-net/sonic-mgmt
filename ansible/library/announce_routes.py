@@ -927,13 +927,6 @@ The total number of routes is controlled by parameters:
 
 - MA routes:
     - Default route, prefix: 0.0.0.0/0
-    - Routes advertised by DUT's peer M1. Each peer M1 advertises: (count of peer M1: m1_number - 1)
-        - Loopback IP of M1,   count: 1
-        - Loopback IPs of M0,  count: m0_number
-        - Subnet routes of M0, count: m0_number * m0_subnet_number
-        - Loopback IPs of Mx,  count: m0_number * mx_number
-        - Subnet routes of Mx, count: m0_number * mx_number * mx_subnet_number
-        - Loopback IP of C0,   count: c0_number
 - MB routes:
     - Default route, prefix: 0.0.0.0/0
 - Routes advertised by each M0:
@@ -946,48 +939,12 @@ The total number of routes is controlled by parameters:
 """
 
 
-def generate_m1_ma_routes(nexthop, ip_base, m1_number, m1_lo_ip, m1_asn,
-                          m0_number, m0_subnet_number, m0_subnet_size, m0_lo_ip, m0_asn,
-                          mx_number, mx_subnet_number, mx_subnet_size, mx_lo_ip, mx_asn,
-                          c0_number, c0_lo_ip, c0_asn):
+def generate_m1_ma_routes(nexthop, ip_base):
     """
     Generate subnet routes for MA devices in M1 topo
     """
-    routes = []
-
-    # Generate default route
-    routes.append(("0.0.0.0/0" if ip_base.version == 4 else "::/0", nexthop, None))
-
-    # Generate routes by DUT's peer M1.
-    for _ in range(m1_number - 1):
-        # Generate loopback IP of M1
-        routes.append((m1_lo_ip, nexthop, str(m1_asn)))
-        m1_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m1_lo_ip))
-        for _ in range(m0_number):
-            # Generate loopback IP of M0
-            routes.append((m0_lo_ip, nexthop, "{} {}".format(m1_asn, m0_asn)))
-            m0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(m0_lo_ip))
-            # Generate M0 subnet routes
-            m0_subnets, prefix = generate_m0_subnet_routes(m0_subnet_number, m0_subnet_size,
-                                                           ip_base, nexthop, 0, m0_asn)
-            m0_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in m0_subnets]  # Add M1 asn to asn-path
-            routes += m0_subnets
-            ip_base = get_next_ip_by_net(prefix)
-            # Generate loopback IP of Mx
-            for _ in range(mx_number):
-                routes.append((mx_lo_ip, nexthop, "{} {} {}".format(m1_asn, m0_asn, mx_asn)))
-                mx_lo_ip = ipaddress.ip_network(get_next_ip_by_net(mx_lo_ip))
-            # Generate Mx subnet routes
-            mx_subnets, prefix = generate_m0_mx_routes(mx_subnet_number, mx_subnet_size, mx_number, mx_asn,
-                                                       ip_base, nexthop, m0_asn)
-            mx_subnets = [(s[0], s[1], "{} {}".format(m1_asn, s[2])) for s in mx_subnets]  # Add M1 asn to asn-path
-            routes += mx_subnets
-            ip_base = get_next_ip_by_net(prefix)
-        for _ in range(c0_number):
-            # Generate loopback IP of C0
-            routes.append((c0_lo_ip, nexthop, "{} {}".format(m1_asn, c0_asn)))
-            c0_lo_ip = ipaddress.ip_network(get_next_ip_by_net(c0_lo_ip))
-    return routes, ip_base, m1_lo_ip, m0_lo_ip, mx_lo_ip, c0_lo_ip
+    routes = [("0.0.0.0/0" if ip_base.version == 4 else "::/0", nexthop, None)]
+    return routes
 
 
 def generate_m1_mb_routes(nexthop, ip_base):
@@ -1024,16 +981,9 @@ def fib_m1(topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
-    m1_number = common_config.get("m1_number", M1_NUMBER)
-    m1_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v4_start")))
-    m1_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m1_loopback_v6_start")))
-    m1_asn = common_config.get("m1_asn")
-    m0_number = common_config.get("m0_number", M0_NUMBER)
     m0_subnet_number = common_config.get("m0_subnet_number", M0_SUBNET_NUMBER)
     m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
     m0_subnet_size_v6 = 2 ** (128 - common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6))
-    m0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v4_start")))
-    m0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("m0_loopback_v6_start")))
     m0_asn = common_config.get("m0_asn")
     mx_number = common_config.get("mx_number", MX_NUMBER)
     mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
@@ -1042,15 +992,11 @@ def fib_m1(topo, ptf_ip, action="announce"):
     mx_asn = common_config.get("mx_asn")
     mx_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v4_start")))
     mx_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v6_start")))
-    c0_number = common_config.get("c0_number", C0_NUMBER)
-    c0_asn = common_config.get("c0_asn")
-    c0_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v4_start")))
-    c0_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("c0_loopback_v6_start")))
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
 
-    ipv4_base = ipaddress.IPv4Address(UNICODE_TYPE("192.168.1.0"))
+    ipv4_base = ipaddress.IPv4Address(UNICODE_TYPE("192.168.0.0"))
     ipv6_base = ipaddress.IPv6Address(UNICODE_TYPE("20c0:a800::0"))
 
     for k, v in vms_config.items():
@@ -1070,16 +1016,8 @@ def fib_m1(topo, ptf_ip, action="announce"):
 
         routes_v4, routes_v6 = [], []
         if router_type == "ma":
-            routes_v4, ipv4_base, m1_lo_v4_start, m0_lo_v4_start, mx_lo_v4_start, c0_lo_v4_start = \
-                generate_m1_ma_routes(nhipv4, ipv4_base, m1_number, m1_lo_v4_start, m1_asn,
-                                      m0_number, m0_subnet_number, m0_subnet_size, m0_lo_v4_start, m0_asn,
-                                      mx_number, mx_subnet_number, mx_subnet_size, mx_lo_v4_start, mx_asn,
-                                      c0_number, c0_lo_v4_start, c0_asn)
-            routes_v6, ipv6_base, m1_lo_v6_start, m0_lo_v6_start, mx_lo_v6_start, c0_lo_v6_start = \
-                generate_m1_ma_routes(nhipv6, ipv6_base, m1_number, m1_lo_v6_start, m1_asn,
-                                      m0_number, m0_subnet_number, m0_subnet_size_v6, m0_lo_v6_start, m0_asn,
-                                      mx_number, mx_subnet_number, mx_subnet_size_v6, mx_lo_v6_start, mx_asn,
-                                      c0_number, c0_lo_v6_start, c0_asn)
+            routes_v4 = generate_m1_ma_routes(nhipv4, ipv4_base)
+            routes_v6 = generate_m1_ma_routes(nhipv6, ipv6_base)
         elif router_type == "mb":
             routes_v4 = generate_m1_mb_routes(nhipv4, ipv4_base)
             routes_v6 = generate_m1_mb_routes(nhipv6, ipv6_base)
