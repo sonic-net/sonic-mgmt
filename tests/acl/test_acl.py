@@ -22,7 +22,8 @@ from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
+from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -353,9 +354,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_types = get_all_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
-        pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
+        pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
         if tbinfo["topo"]["name"] in ("t1-isolated-d28", "t1-isolated-d128"):
@@ -382,10 +383,11 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                     downstream_ports[neighbor['namespace']].append(interface)
                     downstream_port_ids.append(port_id)
                     downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-                elif upstream_neigh_type in neighbor["name"].upper():
-                    upstream_ports[neighbor['namespace']].append(interface)
-                    upstream_port_ids.append(port_id)
-                    upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                for neigh_type in upstream_neigh_types:
+                    if neigh_type in neighbor["name"].upper():
+                        upstream_ports[neighbor['namespace']].append(interface)
+                        upstream_port_ids.append(port_id)
+                        upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
