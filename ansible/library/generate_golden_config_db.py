@@ -167,7 +167,8 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled", state="enabled"):
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key,
+                                                     auto_restart="enabled", state="enabled"):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
@@ -197,7 +198,8 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(gold_config_db, indent=4)
 
-    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key, auto_restart="enabled", state="enabled"):
+    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key,
+                                                      auto_restart="enabled", state="enabled"):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
