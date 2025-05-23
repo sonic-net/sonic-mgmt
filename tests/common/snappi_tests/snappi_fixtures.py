@@ -152,7 +152,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         if len(port_ids) != 1:
             continue
 
-        static_routes_cisco_8000(ip, duthost, intf, setup=setup)
+        gen_data_flow_dest_ip(ip, duthost, intf, setup=setup)
 
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
@@ -860,7 +860,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
         else:
             cmd = "remove"
         if not setup:
-            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
 
         if port['asic_value'] is None:
             duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
@@ -876,7 +876,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     dutIp,
                                                                                     prefix_length))
         if setup:
-            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
             continue
         port['intf_config_changed'] = True
@@ -939,7 +939,7 @@ def cleanup_config(duthost_list, snappi_ports):
         global DEST_TO_GATEWAY_MAP
         copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
         for addr in copy_DEST_TO_GATEWAY_MAP:
-            static_routes_cisco_8000(
+            gen_data_flow_dest_ip(
                 addr,
                 dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
                 intf=None,
@@ -1024,8 +1024,8 @@ def pre_configure_dut_interface(duthost, snappi_ports):
                                                                                 port['peer_port'],
                                                                                 dutv6Ips[port_id],
                                                                                 v6_prefix_length))
-            static_routes_cisco_8000(tgenIps[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
-            static_routes_cisco_8000(tgenv6Ips[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
+            gen_data_flow_dest_ip(tgenIps[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
+            gen_data_flow_dest_ip(tgenv6Ips[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
@@ -1328,7 +1328,7 @@ DEST_TO_GATEWAY_MAP = {}
 
 
 # Add static routes using CLI WAY.
-def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=True):
+def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True):
     '''
         Return a static route-d IP address for the given IP gateway(Ixia port address).
         Also configure the same in the DUT.
