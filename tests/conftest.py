@@ -56,7 +56,7 @@ from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -1322,24 +1322,38 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request):
+def generate_params_frontend_hostname(request, macsec_only=False):
     frontend_duts = []
-    tbname, _ = get_tbinfo(request)
+    tbname, tbinfo = get_tbinfo(request)
     duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_frontend_node(inv_files, dut):
-            frontend_duts.append(dut)
+    host_type = "frontend"
+
+    if macsec_only:
+        host_type = "macsec"
+        if 't2' in tbinfo['topo']['name']:
+            # currently in the T2 topo only the uplink linecard will have
+            # macsec enabled
+            for dut in duts:
+                if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
+                    frontend_duts.append(dut)
+        else:
+            frontend_duts.append(duts[0])
+    else:
+        for dut in duts:
+            if is_frontend_node(inv_files, dut):
+                frontend_duts.append(dut)
+
     assert len(frontend_duts) > 0, \
-        "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
+        "Test selected require at-least one {} node, " \
+        "none of the DUTs '{}' in testbed '{}' are a {} node".format(host_type, duts, tbname, host_type)
     return frontend_duts
 
 
-def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
-        hosts = generate_params_frontend_hostname(request)
+        hosts = generate_params_frontend_hostname(request, macsec_only=macsec_only)
 
     hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
     return hosts_per_hwsku
@@ -1722,11 +1736,13 @@ _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
 _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
+_macsec_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):        # noqa: E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    global _macsec_frontend_hosts_per_hwsku_per_module
     global _rand_one_asic_per_module, _rand_one_frontend_asic_per_module
     # Enumerators for duts are mutually exclusive
     target_hostname = get_target_hostname(metafunc)
@@ -1748,6 +1764,10 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
 
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
     else:
         if "enum_dut_hostname" in metafunc.fixturenames:
             duts_selected = generate_params_dut_hostname(metafunc)
@@ -1770,6 +1790,14 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
             duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(
+                    metafunc, frontend_only=True, macsec_only=True
+                )
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+            duts_selected = _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module]
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
 
     asics_selected = None
     asic_fixture_name = None
@@ -2106,6 +2134,11 @@ def enum_rand_one_per_hwsku_hostname(request):
 
 @pytest.fixture(scope="module")
 def enum_rand_one_per_hwsku_frontend_hostname(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_macsec_frontend_hostname(request):
     return request.param
 
 
