@@ -263,3 +263,21 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
         traceback_found = "Traceback" in result["stdout"]
         assert not traceback_found, "Traceback found in show platform npu global"
         assert result["stdout"], "No output for this CLI"
+
+@pytest.mark.topology("t2")
+def test_config_platform_cisco_voq_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, request):
+    """
+    @summary: Verify output of `config platform cisco voq-watchdog`
+    """
+    global chosen_duthost
+    duthost = chosen_duthost
+    if not ('modular_chassis' in duthost.facts and duthost.facts["modular_chassis"]):
+        pytest.skip("This test is skipped since voq watchdog cmd is supported on cisco-8000 "
+                    "T2 only.")
+    options = ["disable", "enable"]
+    for option in options:
+        config_command = "config platform cisco voq-watchdog {}"
+        result = duthost.command(config_command.format(option))
+        traceback_found = "Traceback" in result["stdout"]
+        assert not traceback_found, "Traceback found in config platform cisco voq-watchdog"
+        assert "Successfully" in result["stdout"], "Failed at config platform cisco voq-watchdog"
