@@ -388,6 +388,15 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     time.sleep(60)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
+    """
+    Skip IPv6 Everflow tests if the DUT is a virtual switch.
+    """
+    if erspan_ip_ver == 6 and setup_info[UP_STREAM]["everflow_dut"].facts["asic_type"] == "vs":
+        pytest.skip("Skipping IPv6 Everflow tests to speed up PR test execution.")
+
+
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
