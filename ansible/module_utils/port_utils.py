@@ -534,6 +534,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                         eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
                         port_alias_to_name_map[alias] = eth_name
             port_alias_to_name_map['etp65'] = "Ethernet512"
+            port_alias_to_name_map['etp66'] = "Ethernet520"
         elif hwsku == "ACS-SN4280":
             for i in range(0, 256, 8):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
