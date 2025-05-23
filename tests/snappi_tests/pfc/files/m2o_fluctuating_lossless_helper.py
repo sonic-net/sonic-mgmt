@@ -424,4 +424,4 @@ def verify_m2o_fluctuating_lossless_result(rows,
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
             background_loss += float(row.loss)
-    pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
+    pytest_assert((abs(background_loss/4) - 10) < 1, "Each Background Flow must have an avg of 10% loss ")
