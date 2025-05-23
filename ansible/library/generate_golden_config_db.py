@@ -168,33 +168,37 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, feature_data=None):
         full_config = json.loads(config)
-        if config == "{}" or "FEATURE" not in config["localhost"]:
+        if config == "{}" or "FEATURE" not in full_config["localhost"]:
             # need dump running config FEATURE + selected feature
             gold_config_db = json.loads(self.get_multiasic_feature_config())
         else:
             # need existing config + selected feature
             gold_config_db = full_config
 
-        feature_data = {
-            feature_key: {
-                "auto_restart": "enabled",
-                "check_up_status": "false",
-                "delayed": "False",
-                "has_global_scope": "False",
-                "has_per_asic_scope": "True",
-                "high_mem_alert": "disabled",
-                "set_owner": "local",
-                "state": "enabled",
-                "support_syslog_rate_limit": "false"
+        if feature_data is None:
+            feature_data = {
+                feature_key: {
+                    "auto_restart": "enabled",
+                    "check_up_status": "false",
+                    "delayed": "False",
+                    "has_global_scope": "False",
+                    "has_per_asic_scope": "True",
+                    "high_mem_alert": "disabled",
+                    "set_owner": "local",
+                    "state": "enabled",
+                    "support_syslog_rate_limit": "false"
+                }
             }
-        }
+
         for namespace, ns_data in gold_config_db.items():
             if "FEATURE" in ns_data:
                 feature_section = ns_data["FEATURE"]
                 feature_section.update(feature_data)
                 ns_data["FEATURE"] = feature_section
+            else:
+                ns_data["FEATURE"] = feature_data
 
         return json.dumps(gold_config_db, indent=4)
 
@@ -428,6 +432,16 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Disable dash-ha feature for all multi-asic platforms
+        if multi_asic.is_multi_asic():
+            config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
+                "dash-ha": {
+                    "auto_restart": "disabled",
+                    "state": "disabled",
+                    "has_per_asic_scope": "True",
+                }
+            })
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
