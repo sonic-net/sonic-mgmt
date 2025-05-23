@@ -1201,6 +1201,7 @@ class TestQosSai(QosSaiBase):
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_pfc"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
             buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
+            other_buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
         elif "wm_buf_pool_lossy" in bufPool:
             baseQosConfig = dutQosConfig["param"]
             qosConfig = baseQosConfig.get(portSpeedCableLength, baseQosConfig)
@@ -1211,6 +1212,7 @@ class TestQosSai(QosSaiBase):
                 triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_egr_min"]
             buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
+            other_buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
         else:
             pytest.fail("Unknown pool type")
 
@@ -1230,7 +1232,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": fillMin,
             "pkts_num_fill_shared": triggerDrop - 1,
             "cell_size": qosConfig[bufPool]["cell_size"],
-            "buf_pool_roid": buf_pool_roid
+            "buf_pool_roid": buf_pool_roid,
+            "other_buf_pool_roid": other_buf_pool_roid
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
