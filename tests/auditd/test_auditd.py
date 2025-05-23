@@ -103,8 +103,9 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     random_file = f"/tmp/test_file_deletion_{random_uuid}"
     duthost.command(f"touch {random_file}")
     duthost.command(f"rm -f  {random_file}")
-    cmd = "show logging | grep 'audisp-syslog' | grep '{random_uuid}'"
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
     result = duthost.shell(cmd)["stdout_lines"]
+    print(result)
     logger.info(result)
     assert any(random_uuid in line for line in result if line.strip()), \
         "Auditd file_deletion rule does not contain the expected logs"
@@ -113,8 +114,9 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     random_file = f"/tmp/test_file_deletion_{random_uuid}"
     duthost.command(f"touch {random_file}")
     duthost.command(f"sudo rm -f {random_file}")
-    cmd = "show logging | grep 'audisp-syslog' | grep '{random_uuid}'"
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
     result = duthost.shell(cmd)["stdout_lines"]
+    print(result)
     logger.info(result)
     assert any(random_uuid in line for line in result if line.strip()), \
         "Auditd file_deletion rule does not contain the expected logs"
