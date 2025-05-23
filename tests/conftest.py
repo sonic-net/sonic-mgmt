@@ -15,6 +15,8 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
+import importlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -65,6 +67,8 @@ from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
+import tests.common.gnmi_setup as gnmi_setup
+
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
@@ -75,6 +79,7 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -226,6 +231,16 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # gnmi connection options      #
+    ##############################
+    # The gNMI target port number to connect to the DUT gNMI server.
+    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
+                     help="gNMI target port number")
+    parser.addoption("--gnmi_insecure", action="store_true", default=True,
+                     help="Use insecure connection to gNMI target")
+    parser.addoption("--disable_sai_validation", action="store_true", default=False,
+                     help="Disable SAI validation")
     ############################
     #   Parallel run options   #
     ############################
@@ -447,6 +462,35 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            session.exitstatus = 1  # Fail the pytest session
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -1931,8 +1975,8 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_one_dut_lossy_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_one_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy',
-                                                                                one_dut_only=True))
+        metafunc.parametrize("enum_one_dut_lossy_prio",
+                             generate_priority_lists(metafunc, 'lossy', one_dut_only=True))
     if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
@@ -2223,7 +2267,7 @@ def cleanup_cache_for_session(request):
         cache.cleanup(zone=a_dut)
     inv_data = get_host_visible_vars(inv_files, a_dut)
     if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
-        for asic_id in range(inv_data['num_asics']):
+        for asic_id in range(0, inv_data['num_asics']):
             cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
 
 
@@ -3229,3 +3273,70 @@ def setup_pfc_test(
 
     logger.info("setup_info : {}".format(setup_info))
     yield setup_info
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost):
+    """
+    SAI validation library uses gNMI to access sonic-db data
+    objects. This fixture is used by tests to set up gNMI server
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield duthost, None
+        return
+    gnmi_insecure = request.config.getoption("--gnmi_insecure")
+    if gnmi_insecure:
+        logger.info("gNMI insecure mode is enabled")
+        yield duthost, None
+        return
+    else:
+        checkpoint_name = "before-applying-gnmi-certs"
+        cert_path = pathlib.Path("/tmp/gnmi_certificates")
+        gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+        gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+        gnmi_setup.apply_certs(duthost, checkpoint_name)
+        yield duthost, cert_path
+        gnmi_setup.remove_certs(duthost, checkpoint_name)
+
+
+@pytest.fixture(scope="session")
+def setup_connection(request, setup_gnmi_server):
+    duthost, cert_path = setup_gnmi_server
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield None
+        return
+    else:
+        # Dynamically import create_gnmi_stub
+        gnmi_client_module = importlib.import_module("tests.common.sai_validation.gnmi_client")
+        create_gnmi_stub = getattr(gnmi_client_module, "create_gnmi_stub")
+
+        # if cert_path is None then it is insecure mode
+        gnmi_insecure = request.config.getoption("--gnmi_insecure")
+        gnmi_target_port = int(request.config.getoption("--gnmi_port"))
+        duthost_mgmt_ip = duthost.mgmt_ip
+        channel = None
+        gnmi_connection = None
+        if gnmi_insecure:
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=False)
+        else:
+            root_cert = str(cert_path / 'gnmiCA.pem')
+            client_cert = str(cert_path / 'gnmiclient.crt')
+            client_key = str(cert_path / 'gnmiclient.key')
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=True,
+                                                        root_cert_path=root_cert,
+                                                        client_cert_path=client_cert,
+                                                        client_key_path=client_key)
+        yield gnmi_connection
+        channel.close()
+
+
+@pytest.fixture(scope="session")
+def gnmi_connection(request, setup_connection):
+    connection = setup_connection
+    yield connection
