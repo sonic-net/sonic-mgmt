@@ -195,7 +195,7 @@ def main():
     parser.add_argument('--branch', metavar='branch',
                         type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-                        choices=['broadcom', 'mellanox', 'vs'],
+                        choices=['broadcom', 'mellanox', 'vs', 'vpp'],
                         help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
                         choices=['all', 'image'], default='image',
