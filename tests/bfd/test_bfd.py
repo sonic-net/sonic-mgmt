@@ -246,7 +246,10 @@ def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert expected_state in bfd_state[0]  # If all attempts fail, raise an assertion error
+    assert expected_state in bfd_state[0], (
+        "BFD session state verification failed: expected '{}', got '{}'."
+        .format(expected_state, bfd_state[0] if bfd_state else "No state found")
+    )
 
 
 def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test=False):
