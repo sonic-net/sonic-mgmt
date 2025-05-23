@@ -2799,9 +2799,9 @@ vxlan/test_vxlan_ecmp_switchover.py:
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
-    reason: "VxLAN route advertisement can only run on cisco and mnlx platforms."
+    reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
     conditions:
-      - "asic_type not in ['cisco-8000', 'mellanox', 'vs']"
+      - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs']"
 
 #######################################
 #####           wan_lacp          #####
