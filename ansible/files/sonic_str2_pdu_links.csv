@@ -206,7 +206,7 @@ pdu-81,11,str2-8102-smartswitch-03,PSU1
 pdu-81,12,str2-8102-smartswitch-03,PSU2
 pdu-81,13,str2-8101-fanout-13,PSU1
 pdu-81,14,str2-8101-fanout-13,PSU2
-pdu-98,32,str2-8101c1-01,PSU1
+pdu-100,26,str2-8101c1-01,PSU1
 pdu-99,32,str2-8101c1-01,PSU2
 pdu-98,34,str2-8101c1-02,PSU1
 pdu-99,34,str2-8101c1-02,PSU2
