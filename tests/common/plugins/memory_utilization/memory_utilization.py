@@ -76,6 +76,7 @@ class MemoryMonitor:
                     continue
 
                 logger.debug("Processing thresholds for {}:{} - previous: {}, current: {}".format(
+                    name, mem_item, previous_value, current_value))
                 print("!@ Processing thresholds for {}:{} - previous: {}, current: {}".format(
                     name, mem_item, previous_value, current_value))
 
@@ -246,6 +247,7 @@ class MemoryMonitor:
         # Format threshold for display in a more readable format
         threshold_str = self._format_threshold_for_display(threshold)
         logger.debug("Threshold exceeded - measured value: {}, formatted threshold: {}".format(
+            value, threshold_str))
         print("!@ Threshold exceeded - measured value: {}, formatted threshold: {}".format(
             value, threshold_str))
 
