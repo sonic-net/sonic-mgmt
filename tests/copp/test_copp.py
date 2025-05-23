@@ -39,8 +39,8 @@ from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
 # Module-level fixtures
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3")
@@ -103,7 +103,7 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                 ptfhost, check_image_version, copp_testbed, dut_type,
-                                ip_versions, packet_type):    # noqa F811
+                                ip_versions, packet_type):    # noqa: F811
         """
         Validates that neighbor miss (subnet hit) packets are rate-limited
 
@@ -191,7 +191,7 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                                            ptfhost, check_image_version, copp_testbed, dut_type,
-                                           backup_restore_config_db, request):   # noqa F811
+                                           backup_restore_config_db, request):   # noqa: F811
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
 
@@ -296,7 +296,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa F811
+                 ip_version="4"):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
@@ -523,7 +523,7 @@ def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     copp_utils.restore_config_db(duthost)
 
 
-def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa F811
+def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa: F811
     copp_utils.install_trap(duthost, feature_name)
     logger.info("Set always_enabled of {} to false".format(trap_id))
     copp_utils.configure_always_enabled_for_trap(duthost, trap_id, "false")
