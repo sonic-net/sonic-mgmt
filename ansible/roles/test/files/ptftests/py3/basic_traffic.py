@@ -40,10 +40,11 @@ class SimpleUdpTraffic(BaseTest):
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
-        self.port_src = int(self.test_params['src_port_id'])
+        self.router_mac = self.test_params.get('router_mac', '')
+        self.port_src = self.test_params['src_port_id']
         self.port_dst = self.test_params['dst_port_id']
-        self.mac_src = self.dataplane.get_mac(0, self.port_src)
-        self.mac_dst = self.dataplane.get_mac(0, self.port_dst)
+        self.src_port_mac = self.dataplane.get_mac(0, self.port_src)
+        self.dst_port_mac = self.dataplane.get_mac(0, self.port_dst)
         self.ip_src = self.test_params['src_port_ip']
         self.ip_dst = self.test_params['dst_port_ip']
         self.dscp = self.test_params.get('dscp', 8)
@@ -57,11 +58,11 @@ class SimpleUdpTraffic(BaseTest):
 
     def construct_pkt(self, sport, dport):
         tos = self.dscp << 2
-
+        pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
         pkt_args = {
             'pktlen': self.pkt_size,
-            'eth_dst': self.mac_dst,
-            'eth_src': self.mac_src,
+            'eth_dst': pkt_dst_mac,
+            'eth_src': self.src_port_mac,
             'ip_src': self.ip_src,
             'ip_dst': self.ip_dst,
             'ip_tos': tos,
@@ -75,29 +76,11 @@ class SimpleUdpTraffic(BaseTest):
             pkt_args['vlan_vid'] = int(self.port_src_vlan_id)
             pkt_args['vlan_pcp'] = self.dscp
         pkt = simple_udp_packet(**pkt_args)
-        exp_pkt_args = {
-            'eth_src': self.mac_src,
-            'ip_src': self.ip_src,
-            'ip_dst': self.ip_dst,
-            'ip_tos': tos,
-            'udp_sport': sport,
-            'udp_dport': dport
-        }
-        if self.port_dst_vlan_id is not None:
-            exp_pkt_args['dl_vlan_enable'] = True
-            exp_pkt_args['vlan_vid'] = int(self.port_dst_vlan_id)
-            exp_pkt_args['vlan_pcp'] = self.dscp
-        exp_pkt = simple_udp_packet(**exp_pkt_args)
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
-        return pkt, masked_exp_pkt
+        return pkt
 
     def runTest(self):
-        pkt, masked_exp_pkt = self.construct_pkt(sport=1024, dport=1024)
+        pkt = self.construct_pkt(sport=1024, dport=1024)
         send_packet(self, self.port_src, pkt, self.pkt_count)
         if self.action == 'forward':
             verify_packet_rx(self, self.dst_port_list, self.ip_src, self.ip_dst, self.exp_ip_id, self.pkt_count)
