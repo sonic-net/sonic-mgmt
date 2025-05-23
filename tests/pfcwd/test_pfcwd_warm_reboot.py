@@ -304,7 +304,7 @@ class SendVerifyTraffic(object):
             tx_action = "forward"
             wd_action = "forward"
 
-        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000', 'innovium']:
+        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000', 'marvell-teralynx']:
             rx_action = "forward"
 
         logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---"
