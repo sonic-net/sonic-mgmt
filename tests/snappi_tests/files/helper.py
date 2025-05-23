@@ -437,3 +437,25 @@ def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
     # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
     for duthost in args:
         revert_config_and_reload(node=duthost)
+
+
+def adjust_test_flow_rate(dut, test_def):
+    '''
+    Set the test flow rate for Cisco 8000 series switches.
+    Args:
+        dut (object): Device under test.
+        test_def (dict): Test definition containing the flow rate and background traffic.
+    Returns:
+        None: The function modifies the `test_def` dictionary in place.
+    '''
+    # Cisco devices send continuous XOFF packets this can reduce the effective bandwidth
+    # available for test traffic. To accommodate this limitation and avoid oversubscription, we define
+    # a SAFETY_MARGIN to ensure the aggregated traffic rate remains below 100% line rate.
+    SAFETY_MARGIN = 0.5
+    if dut.facts["platform_asic"] != 'cisco-8000':
+        return
+    test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = 100 - SAFETY_MARGIN
+    if test_def.get('background_traffic'):
+        test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = (
+            test_def['TEST_FLOW_AGGR_RATE_PERCENT'] - test_def.get('BG_FLOW_AGGR_RATE_PERCENT', 0)
+            )
