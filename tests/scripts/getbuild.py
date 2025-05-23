@@ -107,6 +107,8 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 filename = 'sonic-4asic-vs.img.gz'
             else:
                 filename = 'sonic-vs.img.gz'
+        elif platform == "vpp":
+            filename = 'sonic-vpp.img.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
 
