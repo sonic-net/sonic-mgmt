@@ -284,7 +284,7 @@ def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_fai
 
     rate_limit_status = response.get("rate_limit")
     pytest_assert(rate_limit_status == "OK",
-                      "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
 
     # change rate limit config
     duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
@@ -298,4 +298,16 @@ def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_fai
     duthost.command(r"sudo auditctl -R /etc/audit/audit.rules")
 
     pytest_assert(rate_limit_status.startswith("FAIL"),
-                      "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+
+    # delete rate limit config
+    duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
+    duthost.command(r"sudo rm /etc/audit.rules")
+
+    rate_limit_status = response.get("rate_limit")
+
+    # revert change before check result, so assert failed will not break next test
+    duthost.command(r"sudo cp /etc/audit.rules_backup /etc/audit/rules.d/audit.rules")
+
+    pytest_assert(rate_limit_status.startswith("FAIL"),
+                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
