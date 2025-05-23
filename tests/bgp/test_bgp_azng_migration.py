@@ -173,7 +173,21 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                   bgp_nbr_adv_cmd,
                   routes_json
                 )
-            assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count
+                assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count, (
+                   "Mismatch in filtered advertised IPv4 route count after AZNG migration. "
+                   "Expected: {}, Actual: {}. "
+                   "- original_ipv4_route_adv_filter_count: {}\n"
+                   "- routes_json['filteredPrefixCounter']: {}\n"
+                   "- Command: {}\n"
+                   "- routes_json: {}"
+                ).format(
+                  original_ipv4_route_adv_filter_count,
+                  routes_json['filteredPrefixCounter'],
+                  original_ipv4_route_adv_filter_count,
+                  routes_json['filteredPrefixCounter'],
+                  bgp_nbr_adv_cmd,
+                  routes_json
+                )
 
         rc = duthost.shell('sudo azng_migration -o')
         pytest_assert(not rc['failed'], "AZNG Migration Inbound Route-map permit apply failed")
