@@ -7,3 +7,5 @@ pdu-85,7,str5-7060x6-512-4,PSU1
 pdu-85,6,str5-7060x6-512-fan-4,PSU1
 pdu-96,21,str5-7060x6-64pe-shared-fan-1,PSU1
 pdu-97,21,str5-7060x6-64pe-shared-fan-1,PSU2
+pdu-115,30,str5-7260cx3-acs-root,PSU1
+pdu-116,30,str5-7260cx3-acs-root,PSU2
