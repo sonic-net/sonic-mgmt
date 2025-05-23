@@ -2720,9 +2720,22 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+    def copy_dshell_script_cisco_8000(self, dut, asic, dshell_script, script_name):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
+
+        script_path = "/tmp/{}".format(script_name)
+        dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
+        dut.docker_copy_to_all_asics(
+            container_name=dest,
+            src=script_path,
+            dst="/")
+
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
 from sai_utils import *
@@ -2738,16 +2751,7 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        script_path = "/tmp/set_scheduler.py"
-        dut.copy(content=dshell_script, dest=script_path)
-        if dut.sonichost.is_multi_asic:
-            dest = f"syncd{asic}"
-        else:
-            dest = "syncd"
-        dut.docker_copy_to_all_asics(
-            container_name=dest,
-            src=script_path,
-            dst="/")
+        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2779,4 +2783,62 @@ def set_port_cir(interface, rate):
             speed=5 * 1000 * 1000 * 1000)
 
         yield
+        return
+
+    def copy_set_voq_watchdog_script_cisco_8000(self, dut, asic="", enable=True):
+        dshell_script = '''
+from common import d0
+def set_voq_watchdog(enable):
+    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
+set_voq_watchdog({})
+'''.format(enable)
+
+        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
+
+    @pytest.fixture(scope='class', autouse=True)
+    def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dut_list = [dst_dut]
+        asic_index_list = [dst_asic.asic_index]
+
+        if not get_src_dst_asic_and_duts["single_asic_test"]:
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = get_src_dst_asic_and_duts['src_asic']
+            dut_list.append(src_dut)
+            asic_index_list.append(src_asic.asic_index)
+            # fabric card asics
+            for rp_dut in duthosts.supervisor_nodes:
+                for asic in rp_dut.asics:
+                    dut_list.append(rp_dut)
+                    asic_index_list.append(asic.asic_index)
+
+        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+            yield
+            return
+
+        # Disable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=False)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+        yield
+
+        # Enable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=True)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
         return
