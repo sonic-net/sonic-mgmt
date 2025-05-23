@@ -1183,6 +1183,7 @@ def check_bfd_up_count(duthosts):
         return list(result.values())
 
     def _check_bfd_up_count(dut, asic_id, check_result):
+        check_result["failed"] = False
         res = dut.shell(
             "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
             module_ignore_errors=True,
