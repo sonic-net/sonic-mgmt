@@ -1194,14 +1194,6 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-        port_speed = None
-        for i in range(len(snappi_ports)):
-            if port_speed is None:
-                port_speed = int(snappi_ports[i]['speed'])
-
-            elif port_speed != int(snappi_ports[i]['speed']):
-                """ All the ports should have the same bandwidth """
-                return None
 
         for port in snappi_ports:
             port['intf_config_changed'] = False
