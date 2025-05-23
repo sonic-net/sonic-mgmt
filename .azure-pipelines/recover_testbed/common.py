@@ -12,10 +12,10 @@ from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, ONIE_INSTALL_MODEL
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
 if base_path not in sys.path:
-    sys.path.append(base_path)
+    sys.path.insert(0, base_path)
 ansible_path = os.path.realpath(os.path.join(_self_dir, "../../ansible"))
 if ansible_path not in sys.path:
-    sys.path.append(ansible_path)
+    sys.path.insert(0, ansible_path)
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa: E402
 

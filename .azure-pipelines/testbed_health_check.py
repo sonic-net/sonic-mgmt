@@ -20,10 +20,10 @@ from netaddr import valid_ipv4
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
-    sys.path.append(base_path)
+    sys.path.insert(0, base_path)
 ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
-    sys.path.append(ansible_path)
+    sys.path.insert(0, ansible_path)
 
 from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
