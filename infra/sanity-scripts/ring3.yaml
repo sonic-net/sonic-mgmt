@@ -217,9 +217,9 @@ MGMT:
   t0-64:
     mth64:
       sim:
-        #- snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_interfaces.py
         #- snmp/test_snmp_loopback.py
-        #- snmp/test_snmp_lldp.py
+        - snmp/test_snmp_lldp.py
         #- telemetry/test_telemetry.py
         - dns/static_dns/test_static_dns.py
         - generic_config_updater/test_aaa.py
@@ -243,7 +243,7 @@ MGMT:
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
         #- gnmi/test_gnmi_configdb.py
-        #- snmp/test_snmp_link_local.py
+        - snmp/test_snmp_link_local.py
         - tacacs/test_authorization.py
         - tacacs/test_ro_disk.py
         - restapi/test_restapi.py
