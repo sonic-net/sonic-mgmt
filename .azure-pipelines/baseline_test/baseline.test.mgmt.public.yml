@@ -8,7 +8,7 @@ schedules:
     displayName: Baseline test Scheduler
     branches:
       include:
-        - master
+        - 202505
     always: true
 
 stages:
