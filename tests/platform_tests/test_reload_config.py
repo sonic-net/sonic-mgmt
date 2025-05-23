@@ -73,8 +73,22 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.facts["platform"] in ["x86_64-cel_e1031-r0", "x86_64-88_lc0_36fh_m-r0"]:
         max_wait_time_for_transceivers = 900
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
-                      duthost, interfaces, xcvr_skip_list), "Not all transceivers are detected \
-    in {} seconds".format(max_wait_time_for_transceivers)
+                      duthost, interfaces, xcvr_skip_list), (
+        "Not all transceivers are detected in {} seconds. "
+        "This means some interfaces did not report transceiver presence or status as expected after config reload. "
+        "- Hostname: {}\n"
+        "- Platform: {}\n"
+        "- HWSKU: {}\n"
+        "- Interfaces checked: {}\n"
+        "- Max wait time (seconds): {}\n"
+    ).format(
+        max_wait_time_for_transceivers,
+        duthost.hostname,
+        duthost.facts.get('platform'),
+        duthost.facts.get('hwsku'),
+        list(interfaces.keys()),
+        max_wait_time_for_transceivers
+    )
 
     logging.info("Check transceiver status")
     for asic_index in duthost.get_frontend_asic_ids():
@@ -175,9 +189,22 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
-        assert wait_until(300, 10, 0, check_docker_status, duthost)
-        # To ensure the system is stable enough, wait for another 30s
-        time.sleep(30)
+        assert wait_until(300, 10, 0, check_docker_status, duthost), (
+            "Not all Docker containers reached the 'fully started' state within 300 seconds after config reload. "
+            "This means at least one required container did not start or was not healthy in the expected time window. "
+            "- Hostname: {}\n"
+            "- Containers: {}\n"
+            "- Platform: {}\n"
+            "- HWSKU: {}\n"
+        ).format(
+            duthost.hostname,
+            duthost.get_all_containers(),
+            duthost.facts.get("platform"),
+            duthost.facts.get("hwsku")
+        )
+
+    # To ensure the system is stable enough, wait for another 30s
+    time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)

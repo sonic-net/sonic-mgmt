@@ -2133,8 +2133,13 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert (timeout >= 0)
-
+        assert (timeout >= 0), (
+            "Timeout expired while waiting for CRM counters to become ready. "
+            "CRM resource data was not available within the allotted time. "
+            "- Timeout value: {}\n"
+            "- Polling interval: {}\n"
+            "- Last CRM facts: {}\n"
+        ).format(timeout, crm_facts.get('polling_interval', 'N/A'), crm_facts)
         return crm_facts
 
     def start_service(self, service_name, docker_name):
