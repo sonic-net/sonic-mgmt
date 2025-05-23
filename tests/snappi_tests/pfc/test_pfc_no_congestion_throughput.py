@@ -12,6 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.files.helper import adjust_test_flow_rate
 
 import logging
 logger = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'imix': False,
                 'test_check': test_check,
                 'verify_flows': True}
+
+    adjust_test_flow_rate(duthosts[0], test_def)
 
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
@@ -267,6 +270,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'test_check': test_check,
                 'verify_flows': True}
 
+    adjust_test_flow_rate(duthosts[0], test_def)
+
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
     bg_prio_list = random.sample(lossy_prio_list, 3)
@@ -408,6 +413,8 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                 'imix': False,
                 'test_check': test_check,
                 'verify_flows': True}
+
+    adjust_test_flow_rate(duthosts[0], test_def)
 
     # Selecting only one lossless priority for the test.
     test_prio_list = random.sample(lossless_prio_list, 1)
