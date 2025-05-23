@@ -204,14 +204,14 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
 
     return unique_tests
 
-def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_type=None):
+def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_type=None, hw_or_sim='sim'):
     #adding all testcases from all files into one list, ordered
     tcs_dict = {}
     tcs = []
     tc_list = []
 
     if script_file.endswith(('.yaml', '.yml')):
-        tcs = get_testcases_yaml(script_file, test_tag, topo_type, device_type)
+        tcs = get_testcases_yaml(script_file, test_tag, topo_type, device_type, hw_or_sim)
 
     elif script_file.endswith(('.txt')):
         for filename in script_file.split(","):

@@ -1,0 +1,1524 @@
+{
+    "default-info":
+    {
+        "sonic_installer_commands": [
+            "sudo show boot",
+            "sudo sonic-installer install $image_url",
+            "sudo show boot",
+            "sudo reboot"
+        ]
+    },
+    "testbed-info":
+        {
+            "t1-m6-22-m64":{ 
+                "ucs_host_name":"sonic-ucs-m6-22", 
+                "ucs_host": "172.27.146.243", 
+                "ucs_username": "sonic", 
+                "ucs_password": "roZes@123", 
+                "mth_tb": "m64-zz-2", 
+                "ucs_tb": "m64-t1-lag", 
+                "telnet_host": ["172.27.146.33"], 
+                "telnet_port": ["2008"],
+                "telnet_details": ["172.27.146.33 2008"],
+                "dut_ssh": ["1.72.33.5"],
+                "admin_cmd_prompt": "admin@m64-zz-2:", 
+                "pre_selection": "root@m64-zz-2:/home/cisco# ",
+                "dut_ssh_prompt": "cisco@1.72.33.5",
+                "ucs_ssh_prompt": "sonic@172.27.146.243", 
+                "power_cycle": "./psu_outlet_action.py 172.27.146.34 11,12 cycle",
+                "grub_selection": "The highlighted entry will be executed automatically in 4s.",
+                "docker_prompt":"@sonic-ucs-m6-22",
+                "topology": "t1",
+                "telnet_flag": "False",
+                "installer_mode":"sonic",
+                "run_type_check": "run_tests",
+                "sonic_mgmt_container_202305": "cicd_prod_202305",
+                "sonic_mgmt_container_202311": "cicd_prod_202311",
+                "sonic_mgmt_container_202411": "cicd_prod_202411",
+                "sonic_mgmt_container_202405": "cicd_prod_202405",
+                "sonic_mgmt_container_master": "cicd_prod_master",
+                "skip_tests": "qos/test_qos_sai.py copp/test_copp.py memory_checker/test_memory_checker.py",
+                "skip_folder":"cisco",
+                "testbed-setup": {
+                    "cmd": [
+                            "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
+                            "python3 sonic-mgmt/tests/run_commands_in_docker.py --username sonic --password roZes@123 --host-address 172.27.145.101 --docker-container-name $DOCKER_MGMT_CONTAINER --command 'cd /data/tests/; ./run_tests.sh -n aaa14-t2  -u -l info -e -s -e --disable_loganalyzer -e --skip_sanity -m individual -e -rapP -c cisco/install_image/install_image.py -e --image_loc=$P2_BUILD_IMAGE_URL -e --build_id=$P2_BUILD_JOB_ID'"
+                    ]
+                }
+    },
+        "t1-m3-4-cmono": { 
+            "ucs_host_name":"sonic-ucs-m3-4", 
+            "ucs_host": "172.27.147.237", 
+            "ucs_username": "sonic", 
+            "ucs_password": "roZes@123", 
+            "mth_tb": "chu-dut",
+            "scp_ip": "1.74.25.13",
+            "installer_mode":"sonic",
+            "ucs_tb": "chu-t1-56-lag",
+            "telnet_host": ["172.27.147.153"], 
+            "telnet_port": ["2005"],
+            "telnet_details": ["172.27.147.153 2005"],
+            "dut_ssh": ["1.74.25.72"],
+            "topology": "t1",
+            "telnet_flag": "False",
+            "docker_prompt":"@sonic-ucs-m3-4",
+            "run_type_check": "run_tests",
+            "skip_tests": "platform_tests/test_sim_reboot.py platform_tests/test_serviceability_basic.py test_serviceability_pfc.py bgp/test_bgp_stress_link_flap.py",
+            "skip_folder":"pfc pfc_asym ixia cisco ",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "sonic_mgmt_container_master": "cicd_prod_master ",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+    },
+        "t1-m5-5-cmono": { 
+            "ucs_host_name":"sonic-ucs-m5-5", 
+            "ucs_host": "172.27.147.43", 
+            "ucs_username": "sonic", 
+            "ucs_password": "cicd_sonic", 
+            "mth_tb": "dut-400g",
+            "ucs_tb": "400g-t1", 
+            "telnet_host": ["172.27.147.44"], 
+            "telnet_port": ["2015"],
+            "telnet_details": ["172.27.147.44 2015"],
+            "dut_ssh": ["1.75.44.101"],
+            "admin_cmd_prompt": "admin@dut-400g:", 
+            "pre_selection": "root@dut-400g:/home/cisco# ",
+            "dut_ssh_prompt": "cisco@1.75.44.101",
+            "ucs_ssh_prompt": "sonic@172.27.147.43",
+            "grub_selection": "Use the ^ and v keys to select which entry is highlighted.",
+            "docker_prompt":"@sonic-ucs-m5-5",
+            "topology": "t1",
+            "sonic_mgmt_container_202205": "cicd_prod_202205",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202012": "cicd_prod_202012",
+            "sonic_mgmt_container_master": "cicd_prod_master_may_15",
+            "skip_tests": "qos/test_qos_sai.py copp/test_copp.py memory_checker/test_memory_checker.py",
+            "skip_folder":"cisco",
+            "telnet_flag": "False",
+            "run_type_check": "run_tests",
+            "testbed-setup": {
+                "cmd": [
+                    "set -e",
+                    "git clone --progress --verbose git@wwwin-github.cisco.com:whitebox/sonic-cicd.git -b $GIT_BRANCH ./",
+                    "sh 'python3 ./script/do_hw_setup.py fetch-pipeline -t $TEST_BED'",
+                    "sh 'python3 ./script/do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED' --stream $STREAM",
+                    "sh 'python3 ./script/do_hw_setup.py deploy -t $TEST_BED' --stream $STREAM"
+                ]
+            }
+    },
+        "t0-m5-3-m64": { 
+            "ucs_host_name":"sonic-ucs-m5-3", 
+            "ucs_host": "172.27.147.151", 
+            "ucs_username": "ubuntu", 
+            "ucs_password": "cicd_sonic", 
+            "mth_tb": "mth-t0-64",
+            "ucs_tb": "mth-t0-64", 
+            "telnet_host": ["172.27.147.157"], 
+            "telnet_port": ["2016"], 
+            "telnet_details": ["172.27.147.157 2016"],
+            "dut_ssh": ["1.74.23.33"],
+            "admin_cmd_prompt": "admin@mth-t0-64:", 
+            "pre_selection": "root@mth-t0-64:/home/cisco# ",
+            "dut_ssh_prompt": "cisco@1.74.23.33",
+            "ucs_ssh_prompt": "sonic@172.27.147.151",
+            "installer_mode":"sonic",
+            "grub_selection": "Use the ^ and v keys to select which entry is highlighted.",
+            "power_cycle": "./psu_outlet_action.py 172.27.147.219 8,18 cycle",
+            "docker_prompt":"@sonic-ucs-m5-3",
+            "topology": "t0",
+            "sonic_mgmt_container_202205": "cicd_prod_202205",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202405",
+            "sonic_mgmt_container_202012": "cicd_prod_202012",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "sonic_mgmt_container_202405":"cicd_prod_202405",
+            "sonic_mgmt_container_202405c":"cicd_prod_202405c",
+            "skip_tests": "qos/test_qos_sai.py route/test_static_route.py copp/test_copp.py memory_checker/test_memory_checker.py platform_tests/test_advanced_reboot.py",
+            "skip_folder":"cisco mvrf",
+            "added_folders": "",
+            "run_type_check": "run_tests",
+            "add_folders": "generic_config_updater ip dualtor cisco/snmp tacacs iface_namingmode everflow platform_tests.api fdb dut_console telemetry lldp arp show_techsupport pfcwd mvrf gnmi platform_tests vlan",
+            "telnet_flag": "False",
+            "sonic_installer_commands":[
+		        "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "testbed-setup": {
+                "cmd": [
+                    "set -e",
+                    "git clone --progress --verbose git@wwwin-github.cisco.com:whitebox/sonic-cicd.git ./",
+                    "git checkout $GIT_BRANCH",
+                    "python3 ./script/do_hw_setup.py fetch-pipeline -t $TEST_BED",
+                    "python3 ./script/do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED --stream $STREAM",
+                    "python3 ./script/do_hw_setup.py deploy -t $TEST_BED --stream $STREAM"
+                ]
+            }
+    },
+        "aaa14-t2": { 
+            "ucs_host_name": "sonic-ucs-m5-10",
+            "ucs_host": "172.27.145.101",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",    
+            "mth_tb": "aaa14-t2", 
+            "ucs_tb": "aaa14-t2",
+            "sonic_mgmt_container_202205": "st_202205",
+            "sonic_mgmt_container_202305": "st_202305",
+            "testbed-setup": {
+                "cmd": [
+                    "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
+                    "python3 sonic-mgmt/tests/run_commands_in_docker.py --username sonic --password roZes@123 --host-address 172.27.145.101 --docker-container-name $DOCKER_MGMT_CONTAINER --command 'cd /data/tests/; ./run_tests.sh -n aaa14-t2  -u -l info -e -s -e --disable_loganalyzer -e --skip_sanity -m individual -e -rapP -c cisco/install_image/install_image.py -e --image_loc=$P2_BUILD_IMAGE_URL -e --build_id=$P2_BUILD_JOB_ID'"
+                ]
+            }
+    },
+        "t1-topo5": { 
+            "ucs_host_name":"sonic-ucs-m6-19",
+            "ucs_host":"sonic-ucs-m6-19",
+            "ucs_username": "sonic", 
+            "ucs_password": "roZes@123", 
+            "mth_tb": "MtFuji-dut",
+            "ucs_tb": "cmono_t1", 
+            "telnet_host": ["10.194.89.28"], 
+            "telnet_port": ["2008"], 
+            "telnet_details": ["10.194.89.28 2008"],
+            "dut_ssh":["7.7.7.3"],
+            "admin_cmd_prompt": "admin@MtFuji-dut", 
+            "pre_selection": "root@MtFuji-dut:/home/cisco# ",
+            "dut_ssh_prompt": "cisco@7.7.7.3",
+            "ucs_ssh_prompt": "sonic@sonic-ucs-m6-19",
+            "docker_prompt":"sonic@",
+            "topology": "t1",
+            "telnet_flag": "False",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202311": "202311-sonic-mgmt",
+            "sonic_mgmt_container_202405": "202405-sonic-mgmt",
+            "sonic_mgmt_container_master": "202311-sonic-mgmt",
+            "skip_folder":"cisco acl autorestart arp bgp acl.custom_acl_table acl.null_route bfd cacl clock configlet console container_checker container_hardening crm dash dash.crm database decap dhcp_relay dhcp_server disk dns dns.static_dns drop_packets dualtor dualtor_io dualtor_mgmt dut_console ecmp ecmp.inner_hashing everflow fdb fib generic_config_updater gnmi golden_config_infra http iface_loopback_action iface_namingmode ip ipfwd ixia ixia.ecn ixia.ixanvl ixia.pfc ixia.pfcwd lldp",
+            "skip_tests": "qos/test_qos_sai.py route/test_static_route.py copp/test_copp.py memory_checker/test_memory_checker.py platform_tests/test_advanced_reboot.py",
+            "testbed-setup": {
+                "cmd": [
+                        "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
+                        "python3 sonic-mgmt/tests/run_commands_in_docker.py --username sonic --password roZes@123 --host-address 172.27.145.101 --docker-container-name $DOCKER_MGMT_CONTAINER --command 'cd /data/tests/; ./run_tests.sh -n aaa14-t2  -u -l info -e -s -e --disable_loganalyzer -e --skip_sanity -m individual -e -rapP -c cisco/install_image/install_image.py -e --image_loc=$P2_BUILD_IMAGE_URL -e --build_id=$P2_BUILD_JOB_ID'"
+                ]
+            }
+    },
+        "t1-m6-18-MtFuji": { 
+            "_comment": "topo4",
+            "ucs_host_name":"sonic-ucs-m6-18",
+            "ucs_host":"10.194.89.129",
+            "ucs_username": "sonic", 
+            "ucs_password": "roZes@123", 
+            "mth_tb": "MtFuji-dut",
+            "ucs_tb": "cmono_t1", 
+            "scp_ip": "1.2.22.10",
+            "onie_ip": "1.2.24.135",
+            "telnet_host": ["10.194.89.27"], 
+            "telnet_port": ["2023"], 
+            "telnet_details": ["10.194.89.27 2023"],
+            "dut_ssh": ["1.2.22.10"],
+            "installer_mode":"onie",
+            "admin_cmd_prompt": "admin@MtFuji-dut:", 
+            "pre_selection": "root@MtFuji-dut:/home/cisco# ",
+            "dut_ssh_prompt": "cisco@1.2.20.10",
+            "ucs_ssh_prompt": "sonic@sonic-ucs-m6-18",
+            "docker_prompt":"sonic@",
+            "topology": "t1",
+            "telnet_flag": "True",
+            "sonic_mgmt_container_master": "master-Nov28-sonic-mgmt",
+            "skip_folder":"cisco mvrf",
+            "run_type_check": "run_tests",
+            "skip_tests": "qos/test_qos_sai.py route/test_static_route.py copp/test_copp.py memory_checker/test_memory_checker.py platform_tests/test_advanced_reboot.py",
+            "testbed-setup": {
+                "cmd": [
+                        "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
+                        "python3 sonic-mgmt/tests/run_commands_in_docker.py --username sonic --password roZes@123 --host-address 172.27.145.101 --docker-container-name $DOCKER_MGMT_CONTAINER --command 'cd /data/tests/; ./run_tests.sh -n aaa14-t2  -u -l info -e -s -e --disable_loganalyzer -e --skip_sanity -m individual -e -rapP -c cisco/install_image/install_image.py -e --image_loc=$P2_BUILD_IMAGE_URL -e --build_id=$P2_BUILD_JOB_ID'"
+                ]
+            }
+    },
+        "t1-dsf": { 
+            "ucs_host_name":"sonic-ucs-m6-5", 
+            "ucs_host": "172.27.147.210", 
+            "ucs_username": "sonic", 
+            "ucs_password": "roZes@123", 
+            "ucs_ssh_prompt": "sonic@sonic-ucs-m6-5", 
+            "docker_prompt":"AzDevOps@c3c3f6fc3fa4:",
+            "sonic_mgmt_container_202311": "docker-sonic-mgmt",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_tests": "",
+            "skip_folder":""
+    },
+        "t0-m6-2-m64": {
+            "ucs_host_name": "sonic-ucs-m6-2",
+            "ucs_host": "172.27.147.206",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "mth-t0-64",
+            "scp_ip":"1.75.47.1",
+            "installer_mode":"sonic",
+            "ucs_tb": "t0-64-2",
+            "telnet_host": ["172.27.147.45"],
+            "telnet_port": ["2008"],
+            "telnet_details": ["172.27.147.45 2008"],
+            "dut_ssh": ["1.75.47.20"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_count": "14",
+            "sonic_mgmt_container_202405": "202405_whitebox_prod",
+            "sonic_mgmt_container_202305": "202305_whitebox_latest",
+            "sonic_mgmt_container_202311": "202311_whitebox_latest",
+            "sonic_mgmt_container_202411": "202411-sonic-mgmt",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py platform_tests/test_sim_reboot.py",
+            "skip_folder": "configlet vrf mvrf cisco",
+            "admin_cmd_prompt": "admin@mth-t0-64:", 
+            "pre_selection": "root@mth-t0-64:/home/cisco# ",
+            "dut_ssh_prompt": "cisco@1.75.47.20",
+            "ucs_ssh_prompt": "sonic@172.27.147.206",
+            "grub_selection": "Use the ^ and v keys to select which entry is highlighted.",
+            "power_cycle": "",
+            "run_type_check": "run_tests",
+            "docker_prompt":"@sonic-ucs-m6-2",
+            "sonic_installer_commands":[
+		        "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "b2b-tu-2-siren-optics": { 
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "telnet_host": ["10.29.158.4", "10.29.158.4"],
+            "telnet_port": ["2036", "2037"],
+            "telnet_details": ["10.29.158.4 2036", "10.29.158.4 2037"],
+            "dut_ssh": ["10.29.158.73", "10.29.158.74"],
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "ucs_ssh_prompt": "sonic@tu2",
+            "hw_type":"siren",
+            "docker_prompt":"root@tu2",
+            "run_type_check": "siren-b2b-full.yaml",
+            "logs_folder":"/data/run_logs/",
+            "git_update_flag": "true",
+            "sonic_test_dir": "/home/sonic/test_logs/tortuga",
+            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202405": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v9_20",
+            "skip_tests": "",
+            "allure_flag": "false",
+            "skip_folder":"",
+            "external_ucs": "none",
+            "lldp_count": 62,
+            "collect_spytest_flag":"true",
+            "testbed_yaml": "/data/spytest_tb_files/siren-b2b-full.yaml",
+            "tests_list": ["/data/sonic-mgmt/spytest/tests/optics/test_optics_pdb.py", "/data/sonic-mgmt/spytest/tests/optics/test_optics.py"],
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest/",
+                "mkdir /run_logs/tortuga_optics/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $test_name --logs-path /run_logs/tortuga_optics/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
+                "ls -l"
+            ],
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "b2b-tu-2-carib": { 
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "dut_ssh":["10.29.158.157"],
+            "ucs_ssh_prompt": "sonic@tu2", 
+            "docker_prompt":"root@tu2",
+            "dut_ssh_prompt": "cisco@10.29.158.157",
+            "sonic_mgmt_container_202305": "tortuga_cicd2",
+            "sonic_test_dir": "/home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/run_logs",
+            "installer_mode": "sonic",
+            "skip_tests": "",
+            "skip_folder":"",
+            "git_update_flag": "true",
+            "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
+            "hw_type":"carib",
+            "run_type_check": "spytest_topo_carib_only",
+            "logs_folder":"/data/run_logs/",
+            "allure_flag": "false",
+            "collect_spytest_flag":"true",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ],
+            "optional_run_params": {
+                "optional_params":{
+                    "default": "",
+                    "cisco/test_platform.py": "-m alpha"
+                },
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/tortuga_spytest_topo_carib_only_HW.yaml",
+                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",
+                "./bin/spytest --testbed $testbed_yaml $optional_params --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "ls -l"
+            ],
+            "special_imfs_run_commands": [
+                "cd /home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/tests/cisco/tortuga/image_mgmt",
+                "python3 image_mgmt_test.py 10.29.158.157 http://10.29.158.30/IMAGES/$image_id/sonic-cisco-8000.bin | tee output.log",
+                "python3 count_test.py > imfs_result.txt",
+                "cd  /var/www/html/imfs_results/",
+                "mkdir -p $image_id",
+                "cd $image_id",
+                "cp /home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/tests/cisco/tortuga/image_mgmt/imfs_result.txt /var/www/html/imfs_results/$image_id",
+                "ls -l"
+            ]
+        },
+        "b2b-tu-2-siren": { 
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "dut_ssh": ["10.29.158.161"],
+            "ucs_ssh_prompt": "sonic@tu2", 
+            "docker_prompt":"root@tu2",
+            "dut_ssh_prompt": "cisco@10.29.158.161",
+            "sonic_mgmt_container_202305": "tortuga_cicd2",
+            "sonic_mgmt_container_202405c": "tortuga_cicd2",
+            "sonic_test_dir": "/home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/run_logs",
+            "installer_mode": "sonic",
+            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga",
+            "skip_tests": "",
+            "skip_folder":"",
+            "git_update_flag": "true",
+            "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
+            "hw_type":"siren",
+            "run_type_check": "spytest_topo_siren_only",
+            "logs_folder":"/data/run_logs/",
+            "allure_flag": "false",
+            "collect_spytest_flag":"true",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ],
+            "optional_run_params": {
+                "optional_params":{
+                    "default": "",
+                    "cisco/tortuga/security/cisco-security-uefi-key-plugin.py": "--skip-init-checks",
+                    "cisco/test_platform.py": "-m alpha"
+                },
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/tortuga_spytest_topo_siren_only_HW.yaml",
+                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $optional_params --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "ls -l"
+            ],
+            "special_imfs_run_commands": [
+                "cd /home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/tests/cisco/tortuga/image_mgmt",
+                "python3 image_mgmt_test.py 10.29.158.161 http://10.29.158.30/IMAGES/$image_id/sonic-cisco-8000.bin | tee output.log",
+                "python3 count_test.py > imfs_result.txt",
+                "cd  /var/www/html/imfs_results/",
+                "mkdir -p $image_id",
+                "cd $image_id",
+                "cp /home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/tests/cisco/tortuga/image_mgmt/imfs_result.txt /var/www/html/imfs_results/$image_id",
+                "ls -l"
+            ]
+
+        },
+        "b2b-tu-2-siren2": {
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "dut_ssh": ["10.29.158.160"],
+            "ucs_ssh_prompt": "sonic@tu2", 
+            "docker_prompt":"root@tu2",
+            "dut_ssh_prompt": "cisco@10.29.158.160",
+            "sonic_mgmt_container_202305": "tortuga_cicd2",
+            "installer_mode": "sonic",
+            "hw_type":"siren",
+            "git_update_flag": "true",
+            "run_type_check": "spytest",
+            "logs_folder":"/data/run_logs/",
+            "allure_flag": "false",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ]
+        },
+        "b2b-tu-2-carib2": {
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "dut_ssh": ["10.29.158.158"],
+            "ucs_ssh_prompt": "sonic@tu2", 
+            "docker_prompt":"root@tu2",
+            "dut_ssh_prompt": "cisco@10.29.158.158",
+            "sonic_mgmt_container_202305": "tortuga_cicd2",
+            "installer_mode": "sonic",
+            "hw_type":"carib",
+            "git_update_flag": "true",
+            "run_type_check": "spytest",
+            "logs_folder":"/data/run_logs/",
+            "allure_flag": "false",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ]
+        },
+        "b2b-m3-2-m64": {
+            "ucs_host_name":"sonic-ucs-m3-2", 
+            "ucs_host": "172.27.146.35", 
+            "ucs_username": "rraghav",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.27.146.33"],
+            "telnet_port": ["2009", "2011"],
+            "telnet_details": ["172.27.146.33 2009", "172.27.146.33 2011"],
+            "dut_ssh": ["1.72.33.151", "1.72.33.152"],
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "pre_selection": ":/home/cisco",
+            "allure_flag": "false",
+            "docker_prompt":"root@sonic-ucs-m3-2",
+            "sonic_mgmt_container_202305": "cicd_prod_master",
+            "sonic_mgmt_container_202405": "cicd_prod_master",
+            "sonic_mgmt_container_202311": "cicd_prod_master",
+            "sonic_mgmt_container_202411": "cicd_prod_master",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_tests": "",
+            "docker_count":"14  ",
+            "skip_folder":"",
+            "custom_result_url":"http://172.27.146.35/run_logs/cicd_runs/",
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/combined_m64_optics.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",
+                "mkdir /run_logs/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
+                "ls -l"
+            ]
+        },
+        "b2b-m3-2-croc": {
+            "ucs_host_name":"sonic-ucs-m3-2", 
+            "ucs_host": "172.27.146.35", 
+            "ucs_username": "rraghav",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.27.147.157"],
+            "telnet_port": ["2007", "2008"],
+            "telnet_details": ["172.27.147.157 2007", "172.27.147.157 2008"],
+            "dut_ssh": ["1.74.25.70", "1.74.25.71"],
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "1.74.25.7",
+            "pre_selection": ":/home/cisco",
+            "allure_flag": "false",
+            "docker_prompt":"root@sonic-ucs-m3-2",
+            "sonic_mgmt_container_202411": "cicd_prod_master",
+            "sonic_mgmt_container_202305": "cicd_prod_master",
+            "sonic_mgmt_container_202405": "cicd_prod_master",
+            "sonic_mgmt_container_202311": "cicd_prod_master",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_tests": "",
+            "docker_count": "14  ",
+            "skip_folder":"",
+            "lldp_count": 10,
+            "tests_list": ["/data/sonic-mgmt/spytest/tests/optics/test_optics.py"],
+            "custom_result_url": "http://172.27.146.35/run_logs/cicd_runs/",
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [[
+                "sudo config interface speed Ethernet0 100000", 
+		        "sudo config interface speed Ethernet4 100000", 
+		        "sudo config save -y"
+            ],
+            [
+                "sudo config interface speed Ethernet0 100000", 
+		        "sudo config interface speed Ethernet4 100000", 
+		        "sudo config save -y"
+            ]
+            ],
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/crocodile_b2b.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",                
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
+        "t0-m6-13-cmono" : {
+            "ucs_host_name": "sonic-ucs-m6-13",
+            "ucs_host": "172.27.145.103",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "cmono-t0-dut",
+            "installer_mode":"sonic",
+            "ucs_tb": "cmono_t0",
+            "telnet_host": ["172.27.145.53"],
+            "telnet_port": ["2006"],
+            "telnet_details": ["172.27.145.53 2006"],
+            "dut_ssh": ["1.71.53.195"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_count": "14",
+            "docker_prompt":"@sonic-ucs-m6-13",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "run_type_check": "run_tests",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "arp/test_stress_arp.py platform_tests/test_advanced_reboot.py bgp/test_bgp_slb.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py platform_tests/test_reboot.py::test_warm_reboot platform_tests/test_reboot.py::test_fast_reboot platform_tests/test_serviceability_basic.py platform_tests/test_serviceability_pfc.py mvrf/test_mgmtvrf.py vrf/test_vrf.py vrf/test_vrf_attr.py",
+            "skip_folder": "cisco dualtor pfc_asym ixia"
+            
+        },
+        "b2b-m3-2-cmono" : {
+            "ucs_host_name":"sonic-ucs-m3-2",
+            "ucs_host": "172.27.146.35",
+            "ucs_username": "rraghav",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.27.147.50", "172.27.147.157"],
+            "telnet_port": ["2007", "2010"],
+            "telnet_details": ["172.27.147.50 2007", "172.27.147.157 2010"],
+            "dut_ssh": ["1.74.23.223", "1.74.23.32"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "1.74.23.250",
+            "scp_ip": "1.74.23.250",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m3-2:",
+            "sonic_mgmt_container_202305": "cicd_prod_master",
+            "sonic_mgmt_container_202405": "cicd_prod_master",
+            "sonic_mgmt_container_202311": "cicd_prod_master",
+            "sonic_mgmt_container_202411": "cicd_prod_master",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.27.146.35/run_logs/cicd_runs/",
+            "lldp_count": 7,
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/comcast_cmono_b2b.yaml"
+                }
+            },
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o-r0/32x400Gb/",
+                    "scp rraghav@1.74.23.7:/var/www/html/ztp/platform_cisco_cfg.yaml .",
+                    "rm /etc/sonic/config_db.json",
+                    "reboot"
+                ],
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8201_32fh_o-r0/32x400Gb/",
+                    "scp rraghav@1.74.23.7:/var/www/html/ztp-B2/platform_cisco_cfg.yaml .",
+                    "rm /etc/sonic/config_db.json",
+                    "reboot",
+                    "show lldp table",
+                    "sudo config interface fec Ethernet96 none",
+                    "sudo config interface fec Ethernet104 none",
+                    "sudo config interface fec Ethernet112 none",
+                    "sudo config interface fec Ethernet120 none",
+                    "sudo config save -y"
+                ]
+            ],
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",             
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
+        
+        "b2b-tu-2-carib-optics": { 
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "telnet_host": ["10.29.158.4", "10.29.158.4"],
+            "telnet_port": ["2035", "2034"],
+            "telnet_details": ["10.29.158.4 2035", "10.29.158.4 2034"],
+            "dut_ssh": ["10.29.158.71", "10.29.158.72"],
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "ucs_ssh_prompt": "sonic@tu2",
+            "hw_type":"carib",
+            "run_type_check": "carib-b2b-full.yaml",
+            "logs_folder":"/data/run_logs/",
+            "git_update_flag": "true",
+            "docker_prompt":"root@tu2",
+            "sonic_mgmt_container_202205": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202405": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v9_20",
+            "skip_tests": "",
+            "skip_folder":"",
+            "external_ucs": "none",
+            "lldp_count": 41,
+            "testbed_yaml": "/data/spytest_tb_files/carib-b2b-full.yaml",
+            "tests_list": ["/data/sonic-mgmt/spytest/tests/optics/test_optics_pdb.py", "/data/sonic-mgmt/spytest/tests/optics/test_optics.py"],
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest/",
+                "mkdir /run_logs/$image_folder/carib",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $test_name --logs-path /run_logs/$image_folder/carib --skip-load-config base --skip-init-config --tc-max-timeout=86400 --module-init-max-timeout=86400",
+                "ls -l"
+            ],
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t0-m6-8-croc": {
+            "ucs_host_name": "sonic-ucs-m6-8",
+            "ucs_host": "172.27.148.250",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "croc-xx36-dut",
+            "ucs_tb": "croc-t0",
+            "telnet_host": ["172.27.148.26"],
+            "telnet_port": ["2014"],
+            "telnet_details": ["172.27.148.26 2014"],
+            "dut_ssh": ["1.76.26.51"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_prompt":"@sonic-ucs-m6-8",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "installer_mode":"sonic",
+            "run_type_check": "run_tests",
+            "skip_tests": "platform_tests/test_advanced_reboot.py bgp/test_bgp_slb.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py qos/test_qos_sai.py platform_tests/test_sim_reboot.py platform_tests/test_reboot.py::test_warm_reboot ipfwd/test_dir_bcast.py",
+            "skip_folder": "dualtor pfc_asym ixia cisco vrf mvrf",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "rdma-m3-2-m64": {
+            "ucs_host_name": "sonic-ucs-m3-2",
+            "ucs_host": "172.27.146.35",
+            "ucs_username": "rraghav",
+            "ucs_password": "roZes@123",
+            "mth_tb": "rdma-m64",
+            "ucs_tb": "ixia-sonic2",
+            "telnet_host": ["172.27.146.33"],
+            "telnet_port": ["2014"],
+            "telnet_details": ["172.27.146.33 2014"],
+            "dut_ssh": ["1.72.33.250"],
+            "topology": "ptf32",
+            "deploy_flag": "False",
+            "extra_sonic_commands": ["scp /home/sonic/$sonic-mgmt-folder/sonic-test/tbfiles_ixia/$topology/config_db.json cisco@1.72.33.250:~/", "sudo mv config_db.json /etc/sonic/", "sudo config reload -y"],
+            "docker_prompt":"sonic@",
+            "tests_list": ["snappi_tests"],
+            "extra_run_params": "-e -rA -O -l error -e -s",
+            "sonic_mgmt_folders": {
+                "202405": "cicd_prod_202405",
+                "202411": "cicd_prod_202411",
+                "default": "cicd_prod_202405"
+            },
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "snappi-202305-sonic-mgmt",
+            "sonic_mgmt_container_202311": "snappi-202311-sonic-mgmt-rdma-m64",
+            "installer_mode":"sonic",
+            "run_type_check": "run_tests",
+            "skip_tests": "",
+            "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "ixia-m5-14-lighting": {
+            "ucs_host_name": "sonic-ucs-m5-14",
+            "dut_host_name": "ixia-light-dut",
+            "ucs_host": "172.26.235.44",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "ixia_light_dut",
+            "ucs_tb": "sjc4_light_ixia",
+            "telnet_host": ["172.26.235.13"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.26.235.13 2004"],
+            "dut_ssh": ["1.3.103.51"],
+            "topology": "tgen",
+            "deploy_flag": "False",
+            "extra_sonic_commands": [
+                "scp /home/sonic/$sonic-mgmt-folder/sonic-test/tbfiles_ixia/$topology/config_db.json cisco@1.3.103.51:~/",
+                "sudo mv config_db.json /etc/sonic/",
+                "scp /home/sonic/$sonic-mgmt-folder/sonic-test/tbfiles_ixia/$topology/minigraph.xml cisco@1.3.103.51:~/",
+                "sudo mv minigraph.xml /etc/sonic/",
+                "sudo rm /etc/sonic/running_golden_config.json",
+                "sudo config reload -y"],
+            "docker_prompt":"sonic@",
+            "extra_run_params": "-e -rA -O -l error -e -s",
+            "sonic_mgmt_container_202411": "cicd_prod_202411_lighting",
+            "sonic_mgmt_container_202405": "cicd_prod_202405_lighting",
+            "sonic_mgmt_container_202305": "snappi-202305-sonic-mgmt",
+            "sonic_mgmt_container_202311": "snappi-202311-sonic-mgmt-rdma-m64",
+            "installer_mode":"sonic",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_folders": {
+                "202405": "cicd_prod_202405_Lighting",
+                "202411": "cicd_prod_202411_Lighting",
+                "default": "cicd_prod_202405_Lighting"
+            },
+            "tests_list": ["snappi_tests"],
+            "skip_tests": "snappi_tests/bgp/test_bgp_remote_link_failover.py",
+            "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "ixia-m5-14-churchill": {
+            "ucs_host_name": "sonic-ucs-m5-14",
+            "ucs_host": "172.26.235.44",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "Chur-ve-b2b-2",
+            "ucs_tb": "sjc20_chur_ve_ixia",
+            "telnet_host": ["172.26.235.41"],
+            "telnet_port": ["2040"],
+            "telnet_details": ["172.26.235.41 2040"],
+            "dut_ssh": ["1.3.103.31"],
+            "topology": "tgen",
+            "deploy_flag": "False",
+            "docker_prompt":"sonic@",
+            "extra_run_params": "-e -rA -O -l error -e -s",
+            "sonic_mgmt_folders": {
+                "202405": "cicd_prod_202405_churchill",
+                "202411": "cicd_prod_202411_churchill",
+                "default": "cicd_prod_202405_churchill"
+            },
+            "sonic_mgmt_container_202411": "cicd_prod_202411_churchill",
+            "sonic_mgmt_container_202405": "cicd_prod_202405_churchill",
+            "sonic_mgmt_container_202305": "snappi-202305-sonic-mgmt",
+            "sonic_mgmt_container_202311": "snappi-202311-sonic-mgmt-rdma-m64",
+            "extra_sonic_commands": [
+                "scp /home/sonic/$sonic-mgmt-folder/sonic-test/tbfiles_ixia/$topology/config_db.json cisco@1.3.103.31:~/",
+                "scp /home/sonic/$sonic-mgmt-folder/sonic-test/tbfiles_ixia/$topology/minigraph.xml cisco@1.3.103.31:~/",
+                "sudo mv minigraph.xml /etc/sonic/",
+                "sudo mv config_db.json /etc/sonic/",
+                "sudo rm /etc/sonic/running_golden_config.json",
+                "sudo config reload -y"],
+            "installer_mode":"sonic",
+            "run_type_check": "run_tests",
+            "tests_list": ["snappi_tests"],
+            "skip_tests": "snappi_tests/bgp/test_bgp_remote_link_failover.py",
+            "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t1-m4-3-croc": {
+            "ucs_host_name": "sonic-ucs-m4-3",
+            "ucs_host": "172.27.147.253",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "croc-t1-dut",
+            "ucs_tb": "croc-t1",
+            "telnet_host": ["172.27.147.44"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.27.147.44 2004"],
+            "dut_ssh": ["1.75.44.251"],
+            "topology": "t1",
+            "telnet_flag": "True",
+            "docker_prompt":"@sonic-ucs-m4-3",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "installer_mode":"sonic",
+            "run_type_check": "run_tests",
+            "skip_tests": "qos/test_qos_sai.py platform_tests/test_sim_reboot.py",
+            "skip_folder": "pfc_asym ixia cisco vrf mvrf",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t1-m5-2-m64": {
+            "ucs_host_name": "sonic-ucs-m5-2",
+            "ucs_host": "172.27.147.154",
+            "ucs_username": "lab",
+            "ucs_password": "roZes@123",
+            "ucs_key": "ssh-keygen -f \"/users/sonicci/.ssh/known_hosts\" -R \"172.27.147.154\"",
+            "mth_tb": "mth64-m5-2",
+            "scp_ip":" 1.74.23.14",
+            "installer_mode":"sonic",
+            "ucs_tb": "ucs-m5-2",
+            "telnet_host": ["172.27.147.153"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.27.147.153 2004"],
+            "dut_ssh": ["1.74.23.17"],
+            "topology": "t1",
+            "telnet_flag": "True",
+            "docker_prompt":"@sonic-ucs-m5-2",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "run_type_check": "run_tests",
+            "skip_tests": "",
+            "skip_folder": "",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t0-m6-28-superbolt": {
+            "ucs_host_name": "sonic-ucs-m6-28",
+            "ucs_host": "172.26.235.47",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "sup-t0-dut",
+            "installer_mode":"sonic",
+            "ucs_tb": "super-t0",
+            "telnet_host": ["172.26.235.13"],
+            "telnet_port": ["2026"],
+            "telnet_details": ["172.26.235.13 2026"],
+            "dut_ssh": ["4.164.1.242"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "scp_ip": "4.164.1.220",
+            "docker_prompt":"@sonic-ucs-m6-28",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405",
+            "sonic_mgmt_container_202311": "202311-whitebox-sonic-mgmt",
+            "run_type_check": "run_tests",
+            "skip_tests": "bgp/test_bgp_stress_link_flap.py arp/test_stress_arp.py platform_tests/test_advanced_reboot.py bgp/test_bgp_slb.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py platform_tests/test_reboot.py::test_warm_reboot mvrf/test_mgmtvrf.py vrf/test_vrf.py vrf/test_vrf_attr.py platform_tests/test_sim_reboot.py",
+            "skip_folder":"dualtor pfc_asym ixia cisco",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t1-m6-23-superbolt": {
+            "ucs_host_name": "sonic-ucs-m6-23",
+            "ucs_host": "172.26.235.40",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "m623-dut",
+            "scp_ip":"4.164.1.220",
+            "installer_mode":"sonic",
+            "ucs_tb": "super-t1",
+            "telnet_host": ["172.26.235.13"],
+            "telnet_port": ["2030"],
+            "telnet_details": ["172.26.235.13 2030"],
+            "dut_ssh": ["4.164.1.192"],
+            "topology": "t1",
+            "docker_prompt":"@sonic-ucs-m6-23",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405",
+            "run_type_check": "run_tests",
+            "skip_tests": "bgp/test_bgp_stress_link_flap.py platform_tests/test_sim_reboot.py mvrf/test_mgmtvrf.py platform_tests/test_advanced_reboot.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py",
+            "skip_folder":"dualtor pfc_asym ixia cisco",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "b2b-m5-14-superbolt": {
+            "ucs_host_name":"sonic-ucs-m5-14",
+            "ucs_host": "172.26.235.44",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.26.235.13"],
+            "telnet_port": ["2012", "2013"],
+            "telnet_details": ["172.26.235.13 2012", "172.26.235.13 2013"],
+            "dut_ssh": ["1.3.103.45", "1.3.103.49"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "onie",
+            "onie_ip": "1.3.103.20",
+            "scp_ip": "1.3.103.20",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m5-14:",
+            "sonic_mgmt_container_202405": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202411": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v10_0",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.26.235.44/ixia_v10_cicd_logs",
+            "lldp_count": 6,
+            "external_ucs": "none",
+            "tests_list": ["/data/sonic-mgmt/spytest/tests/optics/test_optics.py"],
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/superbolt-b2b.yaml"
+                }
+            },
+            "extra_onie_check": "none",
+            "extra_onie_commands": "none",
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest/",
+                "mkdir /run_logs/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=86400 --module-init-max-timeout=86400",
+                "ls -l"
+            ]
+        },
+        "t0-m6-20-lightning" : {
+            "ucs_host_name": "sonic-ucs-m6-20",
+            "ucs_host": "172.26.235.20",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "light-dut",
+            "installer_mode":"sonic",
+            "ucs_tb": "light-t0",
+            "telnet_host": ["172.26.235.15"],
+            "telnet_port": ["2008"],
+            "telnet_details": ["172.26.235.15 2008"],
+            "dut_ssh": ["4.164.1.121"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_count": "13",
+            "scp_ip": "4.164.1.220",
+            "docker_prompt":"@sonic-ucs-m6-20",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202405c":"202405c_whitebox",
+            "sonic_mgmt_container_202311": "202311_prod_repo_whitebox",
+            "run_type_check": "run_tests",
+            "skip_tests": "bgp/test_bgp_stress_link_flap.py arp/test_stress_arp.py platform_tests/test_advanced_reboot.py bgp/test_bgp_slb.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py platform_tests/test_reboot.py::test_warm_reboot mvrf/test_mgmtvrf.py vrf/test_vrf.py vrf/test_vrf_attr.py platform_tests/test_sim_reboot.py",
+            "skip_folder":"dualtor pfc_asym ixia cisco",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+    "sol-tu-4-siren": { 
+            "ucs_host_name":"tu4",
+            "ucs_host": "10.29.158.34", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["10.29.158.18", "10.29.158.18", "10.29.158.18", "10.29.158.18"],
+            "telnet_port": ["2018", "2019", "2020", "2021"],
+            "dut_ssh": ["10.29.158.209", "10.29.158.210", "10.29.158.211", "10.29.158.212"],
+            "ucs_ssh_prompt": "sonic@tu4", 
+            "docker_prompt":"root@tu4",
+            "sonic_mgmt_container_202305": "tortuga_sol3_cicd",
+            "sonic_test_dir": "/var/www/html/run_logs/sol3_cicd",
+            "installer_mode": "sonic",
+            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga_solution",
+            "skip_tests": "",
+            "skip_folder":"",
+            "git_update_flag": "true",
+            "tests_list": ["cisco/test_vxlan_multi_homing.py"],
+            "hw_type":"siren",
+            "run_type_check": "spytest_topo_siren_only",
+            "logs_folder":"/run_logs/",
+            "allure_flag": "false",
+            "collect_spytest_flag":"true",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/frr/frr.conf",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ],
+            "optional_run_params": {
+                "optional_params":{
+                    "default": ""
+                },
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $optional_params --module-init-max-timeout=36000 --tc-max-timeout=36000 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "ls -l"
+            ]
+
+        },
+    "sol-tu-4-carib": { 
+            "ucs_host_name":"tu4",
+            "ucs_host": "10.29.158.34", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["10.29.158.18", "10.29.158.18", "10.29.158.18", "10.29.158.18"],
+            "telnet_port": ["2035", "2037", "2048", "2049"],
+            "dut_ssh": ["10.29.158.205", "10.29.158.206", "10.29.158.207", "10.29.158.208"],
+            "ucs_ssh_prompt": "sonic@tu4", 
+            "docker_prompt":"root@tu4",
+            "sonic_mgmt_container_202305": "tortuga_sol3_cicd",
+            "sonic_test_dir": "/var/www/html/run_logs/sol3_cicd",
+            "installer_mode": "sonic",
+            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga_solution",
+            "skip_tests": "",
+            "skip_folder":"",
+            "git_update_flag": "true",
+            "tests_list": ["cisco/test_vxlan_multi_homing.py"],
+            "hw_type":"carib",
+            "run_type_check": "spytest_topo_siren_only",
+            "logs_folder":"/run_logs/",
+            "allure_flag": "false",
+            "collect_spytest_flag":"true",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/frr/frr.conf",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ],
+            "optional_run_params": {
+                "optional_params":{
+                    "default": ""
+                },
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml"
+                }
+            },
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $optional_params --module-init-max-timeout=36000 --tc-max-timeout=36000 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "ls -l"
+            ]
+
+    },
+        "t1-m5-16-lightning" : {
+            "ucs_host_name": "sonic-ucs-m5-16",
+            "ucs_host": "172.26.235.12",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "light-dut",
+            "installer_mode":"sonic",
+            "ucs_tb": "light-tb",
+            "telnet_host": ["172.26.235.155"],
+            "telnet_port": ["2003"],
+            "telnet_details": ["172.26.235.15 2003"],
+            "dut_ssh": ["4.164.1.20"],
+            "topology": "t1",
+            "telnet_flag": "False",
+            "docker_count": "13",
+            "scp_ip": "4.164.1.220",
+            "docker_prompt":"@sonic-ucs-m5-16",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202405c":"202405c-sonic-mgmt",
+            "sonic_mgmt_container_202311": "cicd_prod_202311",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "run_type_check": "run_tests",
+            "skip_tests": "platform_tests/test_sim_reboot.py mvrf/test_mgmtvrf.py platform_tests/test_advanced_reboot.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py platform_tests/test_xcvr_info_in_db.py",
+            "skip_folder":"dualtor pfc_asym ixia cisco",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
+        "t0-m6-1-m64": {
+            "ucs_host_name": "sonic-ucs-m6-1",
+            "ucs_host": "172.27.147.204",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "m6-1-dut",
+            "scp_ip":"1.71.44.10",
+            "installer_mode":"sonic",
+            "ucs_tb": "m64-dtor-yy41",
+            "telnet_host": ["172.27.147.47"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.27.147.47 2004"],
+            "dut_ssh": ["1.75.47.10"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_count": "14",
+            "docker_prompt": "@sonic-ucs-m6-1",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202405": "cicd_prod_202405_T0",
+            "sonic_mgmt_container_202411": "cicd_prod_202411_T0",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py  platform_tests/test_sim_reboot.py bgp/test_bgp_stress_link_flap.py",
+            "skip_folder":"configlet vrf mvrf cisco"
+        }
+    },
+    "testbed-streams" : {
+        "t1-m6-22-m64": "None",
+        "t1-m5-5-cmono": [
+            "azure.202311.main",
+            "cisco.202305.1",
+            "cisco.202311.1",
+            "azure.202305.main",
+            "cisco.202205.2",
+            "cisco.202205.3",
+            "cisco.202305.1.tortuga",
+            "cisco.202305.1.0.tortuga",
+            "cisco.master.signed",
+            "cisco.202311.smartswitch",
+            "cisco.master.smartswitch",
+            "cisco.202405.signed",
+            "cisco.202405.signed.smartswitch",
+            "cisco.202305.1.tortuga.v4",
+            "cisco.202305.1.tortuga.mfg.v4"
+        ],
+        "t1-m6-18-MtFuji": [
+            "azure.202311.smartswitch",
+            "cisco.202311.smartswitch",
+            "cisco.master.signed"
+        ],
+        "t1-topo5": [
+            "azure.202311.smartswitch",
+            "cisco.202311.smartswitch",
+            "cisco.master.smartswitch",
+            "cisco.202405.signed.smartswitch"
+        ],
+        "t0-m5-3-m64": [
+            "cisco.202205.2",
+            "cisco.202205.3",
+            "cisco.202205.2.T0",
+            "cisco.202205.main",
+            "cisco.202205.main.tortuga",
+            "cisco.202305.manageability",
+            "cisco.202305.1.tortuga",
+            "cisco.202305.1.0.tortuga",
+            "cisco.202305.1",
+            "cisco.202305.1.signed",
+            "cisco.202405.signed",
+            "cisco.202311.1",
+            "cisco.202311.2",
+            "cisco.202305.1.tortuga.v4",
+            "cisco.202405cz.1.1.release",
+            "cisco.202305.1.tortuga.mfg.v4"
+        ],
+        "t0-m6-2-m64": "None",
+        "b2b-tu-2-carib":  [
+            "cisco.202305.1.tortuga.carib.no-agents",
+            "cisco.202305.1.tortuga.carib.no-agents.v4",
+            "cisco.202305.1.tortuga.carib",
+            "cisco.202305.1.tortuga.carib.v4",
+            "cisco.202305.1.tortuga.carib.mfg.v4"
+        ],
+        "b2b-tu-2-siren":  [
+            "cisco.202305.1.tortuga.siren.no-agents",
+            "cisco.202305.1.tortuga.siren.no-agents.v4",
+            "cisco.202305.1.tortuga.siren",
+            "cisco.202305.1.tortuga.siren.v4",
+            "cisco.202305.1.tortuga.siren.mfg.v4"
+        ],
+        "b2b-tu-2-carib2":  [
+            "cisco.202305.1.tortuga.carib.no-agents",
+            "cisco.202305.1.tortuga.carib.no-agents.v4",
+            "cisco.202305.1.tortuga.carib",
+            "cisco.202305.1.tortuga.carib.v4",
+            "cisco.202305.1.tortuga.carib.mfg.v4"
+        ],
+        "b2b-tu-2-siren2":  [
+            "cisco.202305.1.tortuga.siren.no-agents",
+            "cisco.202305.1.tortuga.siren.no-agents.v4",
+            "cisco.202305.1.tortuga.siren",
+            "cisco.202305.1.tortuga.siren.v4",
+            "cisco.202305.1.tortuga.siren.mfg.v4"
+        ],
+        "b2b-tu-2-siren-optics":  [
+            "cisco.202305.1.tortuga.siren.no-agents",
+            "cisco.202305.1.tortuga.siren.no-agents.v4",
+            "cisco.202305.1.tortuga.siren",
+            "cisco.202305.1.tortuga.siren.v4",
+            "cisco.202305.1.tortuga.siren.mfg.v4"
+        ],
+        "b2b-tu-2-carib-optics":[
+            "cisco.202305.1.tortuga.carib.no-agents",
+            "cisco.202305.1.tortuga.carib.no-agents.v4",
+            "cisco.202305.1.tortuga.carib"
+        ],
+        "forwarding": [
+            "cisco.202405c.2.tortuga.carib.no-agents",
+            "cisco.202405c.2.tortuga.siren.no-agents"
+        ],
+        "b2b-m3-2-m64": "None",
+        "b2b-m3-2-croc": "None",
+        "b2b-m3-2-cmono": "None",
+        "t0-m6-8-croc": "None",
+        "t1-m4-3-croc": "None",
+        "rdma-m3-2-m64": "None",
+        "ixia-m5-14-lighting": "None",
+        "ixia-m5-14-churchill": "None",
+        "t0-m6-13-cmono": "None",
+        "t1-m5-2-m64": "None",
+        "t1-m3-4-cmono": "None",
+        "t0-m6-28-superbolt": "None",
+        "t0-m6-20-lightning": "None",
+        "t1-m5-16-lightning": "None",
+        "t1-m6-23-superbolt": "None",
+        "b2b-m5-14-superbolt": "None",
+        "t0-m6-1-m64": "None"
+    },
+    "testbeds": {
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64"],
+        "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning"]
+    },
+    "testbed_image_ucs_map" : {
+        "t1-m6-22-m64":"ucs_m3_2",
+        "t0-m5-3-m64":"ucs_m3_1",
+        "t1-m5-5-cmono":"ucs_m4_2",
+        "t1-m6-18-MtFuji":"ucs_m6_18",
+        "t1-topo5":"ucs_m6_19",
+        "t0-m6-2-m64": "ucs_m6_2",
+        "b2b-tu-2-carib":"tu2-carib-siren",
+        "b2b-tu-2-carib2":"tu2-carib-siren",
+        "b2b-tu-2-siren":"tu2-carib-siren",
+        "b2b-tu-2-siren2":"tu2-carib-siren",
+        "b2b-tu-2-siren-optics": "tu2-carib-siren",
+        "b2b-tu-2-carib-optics": "tu2-carib-siren",
+        "b2b-m3-2-m64": "ucs_m3_2",
+        "b2b-m3-2-croc": "ucs_m3_2",
+        "b2b-m3-2-cmono": "ucs_m3_2",
+        "rdma-m3-2-m64": "ucs_m3_2",
+        "ixia-m5-14-lighting": "ucs_m5_14",
+        "ixia-m5-14-churchill": "ucs_m5_14",
+        "t0-m6-13-cmono":"ucs_m6_13",
+        "t0-m6-8-croc": "ucs_m6_8",
+        "t1-m4-3-croc": "ucs_m4_3",
+        "t1-m5-2-m64": "ucs_m5_2",
+        "t1-m3-4-cmono": "ucs_m3_4",
+        "t0-m6-28-superbolt": "ucs_m5_16",
+        "t1-m6-23-superbolt": "ucs_m5_16",
+        "t0-m6-20-lightning": "ucs_m5_16",
+        "t1-m5-16-lightning": "ucs_m5_16",
+        "b2b-m5-14-superbolt": "ucs_m5_14",
+        "t0-m6-1-m64": "ucs_m4_2"
+    },
+    "file_server_dict" : {
+        "ucs_m3_1" : {
+            "host" : "sonic-ucs-m3-1",
+            "username" : "rraghav",
+            "password" : "roZes@123",
+            "ip" : "172.27.147.152",
+            "scp_prompt" : "rraghav@1.74.23.7:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m3_2": {
+            "host" : "sonic-ucs-m3-2",
+            "username" : "rraghav",
+            "password" : "roZes@123",
+            "ip" : "1.72.33.1",
+            "scp_prompt" : "rraghav@1.72.33.1:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m3_2_sonic": {
+            "host" : "sonic-ucs-m3-2",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.72.33.1",
+            "scp_prompt" : "sonic@1.72.33.1:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m4_2": {
+            "host" : "sonic-ucs-m4-2",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.75.44.10",
+            "scp_prompt" : "sonic@1.75.44.10:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m6_19": {
+            "host" : "sonic-ucs-m6-19",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "7.7.7.2",
+            "scp_prompt" : "sonic@7.7.7.2:/home/sonic/images/",
+            "images_folder" : "/home/sonic/images",
+            "wget" : "wget"
+        },
+        "ucs_m6_18": {
+            "host" : "sonic-ucs-m6-18",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.2.22.10",
+            "scp_prompt" : "sonic@1.2.24.135:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m6_2": {
+            "host" : "sonic-ucs-m6-2",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.75.47.1",
+            "scp_prompt" : "sonic@1.75.47.1:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m6_13": {
+            "host" : "sonic-ucs-m6-13",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.71.53.193",
+            "scp_prompt" : "sonic@1.71.53.193:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "tu2-carib-siren": {
+            "host" : "tu2",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "10.29.158.30",
+            "scp_prompt" : "sonic@tu2:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m6_8": {
+            "host" : "sonic-ucs-m6-8",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.76.26.50",
+            "scp_prompt" : "sonic@1.76.26.50:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m4_3": {
+            "host" : "sonic-ucs-m4-3",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.75.44.20",
+            "scp_prompt" : "sonic@1.75.44.20:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m5_2": {
+            "host" : "sonic-ucs-m5-2",
+            "username" : "lab",
+            "password" : "roZes@123",
+            "ip" : "1.74.23.14",
+            "scp_prompt" : "lab@1.74.23.14:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m3_4": {
+            "host" : "sonic-ucs-m3-4",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.74.25.13",
+            "scp_prompt" : "sonic@1.74.25.13:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m5_16": {
+            "host" : "sonic-ucs-m5-16",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "4.164.1.220",
+            "scp_prompt" : "sonic@4.164.1.220:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m5_14": {
+            "host" : "sonic-ucs-m5-14",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.3.103.20",
+            "scp_prompt" : "sonic@1.3.103.20:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        }
+    }
+}
