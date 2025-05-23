@@ -23,6 +23,14 @@ trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 stages:
 - stage: Pre_test
   jobs:
@@ -32,7 +40,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/pre-commit-check.yml
+    - template: .azure-pipelines/pre-commit-check.yml@sonic-mgmt
 
   - job: validate_test_cases
     displayName: "Validate Test Cases"
@@ -40,7 +48,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-    - template: .azure-pipelines/pytest-collect-only.yml
+    - template: .azure-pipelines/pytest-collect-only.yml@sonic-mgmt
       parameters:
         MGMT_BRANCH: ""
 
@@ -49,14 +57,14 @@ stages:
     timeoutInMinutes: 10
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/dependency-check.yml
+      - template: .azure-pipelines/dependency-check.yml@sonic-mgmt
 
   - job: markers_check
     displayName: "Markers Check"
     timeoutInMinutes: 10
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/markers-check.yml
+      - template: .azure-pipelines/markers-check.yml@sonic-mgmt
 
 
 - stage: Test
@@ -82,7 +90,7 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml@sonic-mgmt
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
@@ -95,12 +103,12 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -120,12 +128,12 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0-2vlans
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -146,14 +154,14 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
           # 40 mins for preparing testbed, 10 mins for pre-test and post-test
           PREPARE_TIME: 50
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
@@ -173,14 +181,14 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dualtor
           BUILD_BRANCH: $(BUILD_BRANCH)
           # 30 mins for preparing testbed, 30 mins for pre-test and 20 mins for post-test
           PREPARE_TIME: 80
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
@@ -201,12 +209,12 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-multi-asic
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
@@ -227,13 +235,13 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0-sonic
           BUILD_BRANCH: $(BUILD_BRANCH)
           PREPARE_TIME: 40
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
@@ -259,12 +267,12 @@ stages:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dpu
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
@@ -288,12 +296,12 @@ stages:
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-8-lag
           STOP_ON_FAILURE: "False"
