@@ -1,74 +1,37 @@
 from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)  # noqa F401
 from tests.common.helpers.assertions import pytest_assert  # noqa F401
+from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 import snappi
-import ipaddress
 import re
-import macaddress
 import time
+import json
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-ipp = ipaddress.ip_address
-maca = macaddress.MAC
 
-ENI_START = 1
-ENI_COUNT = 1  # 64
-ENI_MAC_STEP = '00:00:00:18:00:00'
-ENI_STEP = 1
-ENI_L2R_STEP = 1000
-
-PAL = ipp("221.1.0.1")
-PAR = ipp("221.2.0.1")
-
-ACL_TABLE_MAC_STEP = '00:00:00:02:00:00'
-ACL_POLICY_MAC_STEP = '00:00:00:00:00:32'
-
-ACL_RULES_NSG = 1000  # 1000
-ACL_TABLE_COUNT = 5
-
-IP_PER_ACL_RULE = 25  # 128
-IP_MAPPED_PER_ACL_RULE = IP_PER_ACL_RULE  # 40
-IP_ROUTE_DIVIDER_PER_ACL_RULE = 64  # 8, must be a power of 2 number
-
-IP_STEP1 = int(ipp('0.0.0.1'))
-# IP_STEP2 = int(ipp('0.0.1.0'))
-# IP_STEP3 = int(ipp('0.1.0.0'))
-# IP_STEP4 = int(ipp('1.0.0.0'))
-IP_STEP_ENI = int(ipp('0.64.0.0'))  # IP_STEP4
-IP_STEP_NSG = int(ipp('0.2.0.0'))  # IP_STEP3 * 4
-IP_STEP_ACL = int(ipp('0.0.0.50'))  # IP_STEP2 * 2
-IP_STEPE = int(ipp('0.0.0.2'))
-
-IP_L_START = ipaddress.ip_address('1.1.0.1')
-IP_R_START = ipaddress.ip_address('1.4.0.1')
-
-MAC_L_START = macaddress.MAC('00:1A:C5:00:00:01')
-MAC_R_START = macaddress.MAC('00:1B:6E:00:00:01')
-
-
-def run_ha_test(duthost, localhost, ha_test_case, config_snappi_ixl):
+def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_ixl):
 
     test_type_dict = config_snappi_ixl['test_type_dict']
     connection_dict = config_snappi_ixl['connection_dict']
+    ports_list = config_snappi_ixl['ports_list']
+
+    nw_config = NetworkConfigSettings()
+    nw_config.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
 
     # Configure SmartSwitch
-    duthost_ha_config(duthost, ha_test_case)
+    duthost_ha_config(duthost, nw_config, ha_test_case)
 
     # Configure IxLoad traffic
-    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'],
+    api, config, initial_cps_value = main(ports_list, connection_dict, nw_config, test_type_dict['cps'],
                                           test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
 
     # Traffic Starts
     if ha_test_case == 'cps':
         api = run_cps_search(api, initial_cps_value)
-        # cs.app.state = 'stop' #cs.app.state.START
-        # api.set_control_state(cs)
-        print("Test Ending")
-
-    # ha_switchTraffic(duthost, ha_test_case)
+        logger.info("Test Ending")
 
     return
 
@@ -106,7 +69,7 @@ def ha_switchTraffic(duthost, ha_test_case):
     return
 
 
-def duthost_ha_config(duthost, ha_test_case):
+def duthost_ha_config(duthost, nw_config, ha_test_case):
 
     # Smartswitch configure
     """
@@ -120,15 +83,32 @@ def duthost_ha_config(duthost, ha_test_case):
                              duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
     """
+    config_db_stdout = duthost.shell("cat /etc/sonic/config_db.json")["stdout"]
+    config_db = json.loads(config_db_stdout)
+
+    static_ips = []
+    for key in config_db['STATIC_ROUTE'].keys():
+        if key.endswith('/16'):
+            ip = config_db['STATIC_ROUTE'][key]['nexthop']
+            static_ips.append(ip)
+
+    tmp_mac = ""
+    static_macs = []
+    for x, arp_mac in enumerate(range(len(static_ips))):
+        if x == 0:
+            tmp_mac = nw_config.first_staticArpMac
+            static_macs.append(nw_config.first_staticArpMac)
+        else:
+            tmp = tmp_mac.split(':')
+            tmp[5] = "0{}".format(int(tmp[5]) + 1)
+            static_arp_mac = ":".join(tmp)
+            static_macs.append(static_arp_mac)
+            tmp_mac = static_arp_mac
 
     # Install Static Routes
     logger.info('Configuring static routes')
-    duthost.shell('sudo arp -s 220.0.1.2 80:09:02:02:00:01')
-    duthost.shell('sudo arp -s 220.0.2.2 80:09:02:02:00:02')
-    duthost.shell('sudo arp -s 220.0.3.2 80:09:02:02:00:03')
-    duthost.shell('sudo arp -s 220.0.4.2 80:09:02:02:00:04')
-
-    # Load DPUs
+    for x, arp in enumerate(range(len(static_ips))):
+        duthost.shell('sudo arp -s {} {}'.format(static_ips[x], static_macs[x]))
 
     return
 
@@ -170,61 +150,57 @@ def assignPorts(api, ports_list):
     return
 
 
-def build_node_ips(count, vpc, nodetype="client"):
+def build_node_ips(count, vpc, nw_config, nodetype="client"):
     if nodetype in "client":
-        ip = ipp(int(IP_R_START) + (IP_STEP_NSG * count) + int(ipp('0.64.0.0')) * (vpc - 1))
+        ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
+                           + int(nw_config.IP_STEP_ENI) * (vpc - 1))
     if nodetype in "server":
-        ip = ipp(int(IP_L_START) + int(ipp('0.64.0.0')) * (vpc - 1))
+        ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
 
     return str(ip)
 
 
-def build_node_macs(count, vpc, nodetype="client"):
+def build_node_macs(count, vpc, nw_config, nodetype="client"):
 
     if nodetype in "client":
-        m = maca(int(MAC_R_START) + int(maca('00-00-00-18-00-00')) * (vpc - 1) +
-                 (int(maca(ACL_TABLE_MAC_STEP)) * count))
+        m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
+                           + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
     if nodetype in "server":
-        m = maca(int(MAC_L_START) + int(maca('00-00-00-18-00-00')) * (vpc - 1))
+        m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
 
     return str(m).replace('-', ':')
 
 
-def build_node_vlan(index, nodetype="client"):
+def build_node_vlan(index, nw_config, nodetype="client"):
 
     hero_b2b = False
 
-    """
-    if index > 0:
-        index = index + 1 * index
-        #index = index + 1
-    """
-
     if nodetype == 'client':
-        vlan = ENI_L2R_STEP + index + 1
+        vlan = nw_config.ENI_L2R_STEP + index + 1
     else:
-        ENI_STEP = 1
         if hero_b2b is True:
             vlan = 0
         else:
-            vlan = ENI_STEP + index
+            vlan = nw_config.ENI_STEP + index
 
     return vlan
 
 
-def create_ip_list():
+def create_ip_list(nw_config):
 
     ip_list = []
 
-    for eni in range(ENI_START, ENI_COUNT + 1):
-        ip_dict_temp = {}
-        ip_client = build_node_ips(0, eni, nodetype="client")
-        mac_client = build_node_macs(0, eni, nodetype="client")
-        vlan_client = build_node_vlan(eni - 1, nodetype="client")
+    ENI_COUNT = 1  # Change when scale up
 
-        ip_server = build_node_ips(0, eni, nodetype="server")
-        mac_server = build_node_macs(0, eni, nodetype="server")
-        vlan_server = build_node_vlan(eni - 1, nodetype="server")
+    for eni in range(nw_config.ENI_START, ENI_COUNT + 1):
+        ip_dict_temp = {}
+        ip_client = build_node_ips(0, eni, nw_config, nodetype="client")
+        mac_client = build_node_macs(0, eni, nw_config, nodetype="client")
+        vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="client")
+
+        ip_server = build_node_ips(0, eni, nw_config, nodetype="server")
+        mac_server = build_node_macs(0, eni, nw_config, nodetype="server")
+        vlan_server = build_node_vlan(eni - 1, nw_config, nodetype="server")
 
         ip_dict_temp['eni'] = eni
         ip_dict_temp['ip_client'] = ip_client
@@ -562,29 +538,31 @@ def test_saveAs(api, test_filename):
 """
 
 
-def main(connection_dict, test_type, test_filename, initial_cps_value):
+def main(ports_list, connection_dict, nw_config, test_type, test_filename, initial_cps_value):
 
     # Start Here ######
     main_start_time = time.time()
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = connection_dict['chassis_ip']
-    api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version="11.00.0.292")
+    ixl_version = connection_dict['version']
+
+    api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version=ixl_version)
     config = api.config()
 
     port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]  # noqa: F841
     port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]  # noqa: F841
 
     # client/server IP ranges created here
-    ip_list = create_ip_list()
+    ip_list = create_ip_list(nw_config)
 
-    print("Setting devices")
+    logger.info("Setting devices")
     time_device_time = time.time()
     (d1, d2) = config.devices.device(name="d1").device(name="d2")
     time_device_finish = time.time()
-    print("Devices completed: {}".format(time_device_finish - time_device_time))
+    logger.info("Devices completed: {}".format(time_device_finish - time_device_time))
 
-    print("Building Network traffic")
+    logger.info("Building Network traffic")
     for eni, eni_info in enumerate(ip_list):
         test_role = find_test_role(test_type, eni_info['vlan_server'])
 
@@ -749,6 +727,7 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     logger.info("HTTP server completed")
 
     # Traffic Profile
+    ENI_COUNT = 1  # Change when scale up
     logger.info("Configuring Traffic Profile settings")
     (tp1,) = config.trafficprofile.trafficprofile()
     # traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
@@ -800,17 +779,6 @@ def main(connection_dict, test_type, test_filename, initial_cps_value):
     logger.info("Custom settings completed: {}".format(time_custom_finish - time_custom_time))
 
     logger.info("Configuring custom port settings")
-    """
-    ports_list = {
-        'Traffic1@Network1': [(1,1,1), (1,2,1), (1,3,1), (1,4,1), (1,5,1), (1,6,1), (1,7,1), (1,8,1)],
-        'Traffic2@Network2': [(1,1,2), (1,2,2), (1,3,2), (1,4,2), (1,5,2), (1,6,2), (1,7,2), (1,8,2)]
-    }
-    """
-    ports_list = {
-        'Traffic1@Network1': [(1, 1, 1)],
-        'Traffic2@Network2': [(1, 1, 2)]
-    }
-
     time_assignPort_time = time.time()
     assignPorts(api, ports_list)
     time_assignPort_finish = time.time()

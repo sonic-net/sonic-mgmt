@@ -9,7 +9,7 @@ import sys
 import random
 import subprocess
 import json
-import snappi_convergence
+import os
 from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
@@ -1317,7 +1317,7 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True, scope="session")
 def config_uhd_connect(request, duthost, tbinfo):
     """
     Fixture configures UHD connect
@@ -1330,11 +1330,11 @@ def config_uhd_connect(request, duthost, tbinfo):
     logger.info("Configuring UHD connect")
     uhdConnect_ip = tbinfo['uhd_ip']
 
-    num_cps_cards = 8
-    num_tcpbg_cards = 4
-    num_udpbg_cards = 0
-    num_dpus = 1
-    dpu_ports_list = [5, 6]
+    num_cps_cards = tbinfo['num_cps_cards']
+    num_tcpbg_cards = tbinfo['num_tcpbg_cards']
+    num_udpbg_cards = tbinfo['num_udpbg_cards']
+    num_dpus = tbinfo['num_dpus']
+    dpu_ports_list = tbinfo['dpu_ports_list']
 
     cards_dict = {
         'num_cps_cards': num_cps_cards,
@@ -1346,18 +1346,18 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
 
-    subnet_mask = 10
-    ip_list = create_uhdIp_list(subnet_mask)  # noqa: F405
+    uhdSettings = NetworkConfigSettings()  # noqa: F405
+    uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+    subnet_mask = uhdSettings.subnet_mask
 
-    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict)  # noqa: F405
-
-    connections_list = []
-    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)  # noqa: F405
-    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict,  # noqa: F405
+    ip_list = create_uhdIp_list(subnet_mask, uhdSettings)  # noqa: F405
+    fp_ports_list = create_front_panel_ports(int(total_cards*2), uhdSettings, cards_dict)  # noqa: F405
+    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
+    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,  # noqa: F405
                                           arp_bypass_list)  # noqa: F405
 
     config = {
-        "profiles": create_profiles(),  # noqa: F405
+        "profiles": create_profiles(uhdSettings),  # noqa: F405
         "front_panel_ports": fp_ports_list,
         "connections": connections_list
     }
@@ -1365,14 +1365,16 @@ def config_uhd_connect(request, duthost, tbinfo):
     headers = {  # noqa: F841
         'Content-Type': 'application/json'
     }
-    file_name = "smartswitch.json"
-    file_location = "/var/src/sonic-mgmt/tests/snappi_tests/dash"
-    url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)  # noqa: F841
+
+    file_name = "tempUhdConfig.json"
+    file_location = os.getcwd()
+    uhd_post_url = uhdSettings.uhd_post_url
+    url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
     json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
     uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
-                   'https://{}/connect/api/v1/config').format(file_location, file_name, uhdConnect_ip)
-    result = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+                   '{}').format(file_location, file_name, url)
+    subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
 
     rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
     result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841

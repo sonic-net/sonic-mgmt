@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.topology('snappi')]
 @pytest.mark.parametrize('ha_test_case', ['cps'])
 def test_cps_baby_hero(
                        duthost,
-                       localhost,
+                       tbinfo,
                        ha_test_case,
                        config_snappi_ixl,  # noqa F811
                        config_uhd_connect,  # noqa F811
@@ -32,7 +32,7 @@ def test_cps_baby_hero(
 
     run_ha_test(  # noqa F405
                 duthost,
-                localhost,
+                tbinfo,
                 ha_test_case,
                 config_snappi_ixl)
 
