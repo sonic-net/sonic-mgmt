@@ -194,6 +194,8 @@ def test_disable_rsyslog_rate_limit(duthosts):
             if (is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and
                     feature_name == "dhcp_relay"):
                 continue
+            if feature_name == "frr_bmp":
+                continue
             if feature_name == "telemetry":
                 # Skip telemetry if there's no docker image
                 output = dut.shell("docker images", module_ignore_errors=True)['stdout']
