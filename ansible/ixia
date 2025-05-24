@@ -33,19 +33,9 @@ sonic:
     sonic_str3_arista_7808_sup:
     sonic_str3_cisco_8800:
     sonic_str2_7260cx3:
-    sonic_str_7060x6_stress1:
-    sonic_str_7060x6_stress2:
-    sonic_str_7060x6_stress3:
-    sonic_str_7060x6_stress4:
     sonic_str2_arista_7808:
-    sonic_str_sn5600_I11-U02:
-    sonic_str_sn5600_I11-U04:
-    sonic_str_sn5600_I11-U13:
-    sonic_str_sn5600_I11-U15:
-    sonic_str_sn5600_I11-U17:
-    sonic_str_sn5600_I11-U19:
-    str-sn5640-stress-01:
-    str-sn5640-stress-02:
+    sonic_nvidia_sn5600_stress:
+    sonic_nvidia_sn5640_stress:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -378,36 +368,40 @@ sonic_str3_cisco_8800:
     hwsku: Cisco-88-LC0-36FH-O36
     iface_speed: 100000    
 
-sonic_str_7060x6_stress1:
+sonic_nvidia_sn5600_stress:
   hosts:
-    str-7060x6-64pe-stress-01:
-      ansible_host: 10.64.246.81
+    str-sn5600-I11-U02:
+      ansible_host: 10.3.147.53
+    str-sn5600-I11-U04:
+      ansible_host: 10.3.147.54
+    str-sn5600-I11-U13:
+      ansible_host: 10.3.147.56
+    str-sn5600-I11-U15:
+      ansible_host: 10.3.147.57
+    str-sn5600-I11-U17:
+      ansible_host: 10.3.147.58
+    str-sn5600-I11-U19:
+      ansible_host: 10.3.147.59
   vars:
-    hwsku: Arista-7060X6-64PE-C256S2
+    hwsku: Mellanox-SN5600-C256S1
     iface_speed: 100000
 
-sonic_str_7060x6_stress2:
+sonic_nvidia_sn5640_stress:
   hosts:
-    str-7060x6-64pe-stress-02:
-      ansible_host: 10.64.246.85
-  vars:
-    hwsku: Arista-7060X6-64PE-C256S2
-    iface_speed: 100000
-
-sonic_str_7060x6_stress3:
-  hosts:
-    str-7060x6-64pe-stress-03:
+    str-sn5640-stress-01:
+      ansible_host: 10.64.246.113
+    str-sn5640-stress-02:
+      ansible_host: 10.64.246.115
+    str-sn5640-stress-03:
       ansible_host: 10.64.246.86
-  vars:
-    hwsku: Arista-7060X6-64PE-C256S2
-    iface_speed: 100000
-
-sonic_str_7060x6_stress4:
-  hosts:
-    str-7060x6-64pe-stress-04:
+    str-sn5640-stress-04:
       ansible_host: 10.64.246.87
+    str-sn5640-stress-11:
+      ansible_host: 10.64.246.88
+    str-sn5640-stress-12:
+      ansible_host: 10.64.246.89
   vars:
-    hwsku: Arista-7060X6-64PE-C256S2
+    hwsku: Mellanox-SN5640-C512S2
     iface_speed: 100000
 
 sonic_str2_arista_7808:
@@ -467,67 +461,3 @@ l1_switch:
       ansible_host: 10.64.246.185
     str-ocs-dlx64-acs-11:
       ansible_host: 10.64.246.186
-
-sonic_str_sn5600_I11-U02:
-  hosts:
-    str-sn5600-I11-U02:
-      ansible_host: 10.3.147.53
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-sonic_str_sn5600_I11-U04:
-  hosts:
-    str-sn5600-I11-U04:
-      ansible_host: 10.3.147.54
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-sonic_str_sn5600_I11-U13:
-  hosts:
-    str-sn5600-I11-U13:
-      ansible_host: 10.3.147.56
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-sonic_str_sn5600_I11-U15:
-  hosts:
-    str-sn5600-I11-U15:
-      ansible_host: 10.3.147.57
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-sonic_str_sn5600_I11-U17:
-  hosts:
-    str-sn5600-I11-U17:
-      ansible_host: 10.3.147.58
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-sonic_str_sn5600_I11-U19:
-  hosts:
-    str-sn5600-I11-U19:
-      ansible_host: 10.3.147.59
-  vars:
-    hwsku: Mellanox-SN5600-C256S1
-    iface_speed: 100000
-
-str-sn5640-stress-01:
-  hosts:
-    str-sn5640-stress-01:
-      ansible_host: 10.64.246.113
-  vars:
-    hwsku: Mellanox-SN5640-C512S2
-    iface_speed: 100000
-
-str-sn5640-stress-02:
-  hosts:
-    str-sn5640-stress-02:
-      ansible_host: 10.64.246.115
-  vars:
-    hwsku: Mellanox-SN5640-C512S2
-    iface_speed: 100000
