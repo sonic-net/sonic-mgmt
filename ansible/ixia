@@ -44,6 +44,8 @@ sonic:
     sonic_str_sn5600_I11-U15:
     sonic_str_sn5600_I11-U17:
     sonic_str_sn5600_I11-U19:
+    str-sn5640-stress-01:
+    str-sn5640-stress-02:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -461,6 +463,10 @@ l1_switch:
       ansible_host: 10.64.247.250
     STR-W2W-SONIC-03-B:
       ansible_host: 10.64.247.251
+    str-ocs-dlx64-acs-10:
+      ansible_host: 10.64.246.185
+    str-ocs-dlx64-acs-11:
+      ansible_host: 10.64.246.186
 
 sonic_str_sn5600_I11-U02:
   hosts:
@@ -508,4 +514,20 @@ sonic_str_sn5600_I11-U19:
       ansible_host: 10.3.147.59
   vars:
     hwsku: Mellanox-SN5600-C256S1
+    iface_speed: 100000
+
+str-sn5640-stress-01:
+  hosts:
+    str-sn5640-stress-01:
+      ansible_host: 10.64.246.113
+  vars:
+    hwsku: Mellanox-SN5640-C512S2
+    iface_speed: 100000
+
+str-sn5640-stress-02:
+  hosts:
+    str-sn5640-stress-02:
+      ansible_host: 10.64.246.115
+  vars:
+    hwsku: Mellanox-SN5640-C512S2
     iface_speed: 100000
