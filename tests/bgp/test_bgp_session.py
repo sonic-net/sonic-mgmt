@@ -20,6 +20,7 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
     # Enable autorestart for all features
     duthost = duthosts[rand_one_dut_hostname]
     feature_list, _ = duthost.get_feature_status()
+    feature_list.pop('frr_bmp', None)
     container_autorestart_states = duthost.get_container_autorestart_states()
     for feature, status in list(feature_list.items()):
         # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
