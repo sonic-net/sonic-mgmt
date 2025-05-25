@@ -136,7 +136,9 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
                     field, port_xcvr_dom_sensor["stdout"], intf)
 
 
-def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_status(
+        dut, asic_index, interfaces, first_ports_in_split, xcvr_skip_list, port_list_with_flat_memory
+        ):
     """
     @summary: Check transceiver information of all the specified interfaces in redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -144,8 +146,10 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_l
     """
     check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list)
-    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
-    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
+    check_transceiver_dom_sensor_basic(
+        dut, asic_index, first_ports_in_split, xcvr_skip_list, port_list_with_flat_memory)
+    check_transceiver_dom_sensor_details(
+        dut, asic_index, first_ports_in_split, xcvr_skip_list, port_list_with_flat_memory)
 
 
 def get_sfp_eeprom_map_per_port(eeprom_infos):
