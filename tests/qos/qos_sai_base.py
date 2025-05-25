@@ -2833,7 +2833,7 @@ set_voq_watchdog({})
 
         self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
 
-    @pytest.fixture(scope='class', autouse=True)
+    @pytest.fixture(scope='function', autouse=False)
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']

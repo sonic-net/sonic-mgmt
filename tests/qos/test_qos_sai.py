@@ -387,7 +387,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer, disable_voq_watchdog
     ):
         # NOTE: this test will be skipped for t2 cisco 8800 if it's not xoff_1 or xoff_2
         """
@@ -662,7 +662,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, get_src_dst_asic_and_duts, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, change_lag_lacp_timer
+        ingressLosslessProfile, change_lag_lacp_timer, disable_voq_watchdog
     ):
         # NOTE: cisco 8800 will skip this test if it's not xon_1 or xon_2
         """
@@ -773,7 +773,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts, skip_longlink
+            dutQosConfig, get_src_dst_asic_and_duts, skip_longlink, disable_voq_watchdog
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -974,7 +974,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
     def testQosSaiSharedReservationSize(
         self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        get_src_dst_asic_and_duts, check_skip_shared_res_test
+        get_src_dst_asic_and_duts, check_skip_shared_res_test, disable_voq_watchdog
     ):
         # NOTE: Cisco T2 skip due to reduced number of port in multi asic
         """
@@ -1160,7 +1160,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiBufferPoolWatermark(
         self, request, get_src_dst_asic_and_duts, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile, egressLossyProfile, resetWatermark,
-        skip_src_dst_different_asic
+        skip_src_dst_different_asic, disable_voq_watchdog
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -1251,7 +1251,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1324,7 +1324,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_src_dst_different_asic, dut_qos_maps    # noqa:  F811
+            skip_src_dst_different_asic, dut_qos_maps, disable_voq_watchdog    # noqa:  F811
     ):
         # NOTE: cisco 8800 will skip this test, this test only for single asic with long link
         """
@@ -1428,7 +1428,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
-        tc_to_dscp_count, change_lag_lacp_timer
+        tc_to_dscp_count, change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1480,7 +1480,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams,
-                                            dutConfig, direction, dut_qos_maps):        # noqa F811
+                                            dutConfig, direction, dut_qos_maps, disable_voq_watchdog):        # noqa F811
         # NOTE: cisco t2 8800 will skip this test since because of the topology
         """
             Test QoS SAI DSCP to queue mapping.
@@ -1621,7 +1621,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-            skip_src_dst_different_asic, set_cir_change, change_lag_lacp_timer
+            skip_src_dst_different_asic, set_cir_change, change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI DWRR
@@ -1699,7 +1699,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1873,7 +1873,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink, disable_voq_watchdog
     ):
         """
             Test QoS SAI PG drop counter
@@ -1919,7 +1919,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -2004,7 +2004,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpToPgMapping(
         self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
-            change_lag_lacp_timer, dutQosConfig):
+            change_lag_lacp_timer, dutQosConfig, disable_voq_watchdog):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -2060,7 +2060,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa F811
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode, disable_voq_watchdog  # noqa F811
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -2130,7 +2130,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost,
-                                           dutTestParams, dutConfig, direction, dut_qos_maps):      # noqa F811
+                                           dutTestParams, dutConfig, direction, dut_qos_maps, disable_voq_watchdog):      # noqa F811
         # NOTE: cisco 8800 will skip this test for both upstream and downstream
         """
             Test QoS SAI DSCP to PG mapping ptf test.
@@ -2192,7 +2192,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             updateSchedProfile, skip_src_dst_different_asic, set_cir_change,
-            change_lag_lacp_timer
+            change_lag_lacp_timer, disable_voq_watchdog
     ):
         """
             Test QoS SAI DWRR runtime weight change
@@ -2253,7 +2253,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, resetWatermark, _skip_watermark_multi_DUT,
-        skip_pacific_dst_asic, dut_qos_maps    # noqa F811
+        skip_pacific_dst_asic, dut_qos_maps, disable_voq_watchdog    # noqa F811
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -2352,7 +2352,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueueVoqMultiSrc(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, skip_longlink
+            get_src_dst_asic_and_duts, skip_longlink, disable_voq_watchdog
     ):
         # NOTE: testQosSaiLossyQueueVoqMultiSrc[lossy_queue_voq_3] will be skipped for t2 cisco since it's multi-asic
         """
@@ -2428,7 +2428,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiFullMeshTrafficSanity(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, dut_qos_maps, # noqa F811
-            set_static_route_ptf64
+            set_static_route_ptf64, disable_voq_watchdog
     ):
         # NOTE: this test will skip for t2 cisco 8800 since it requires ptf64 topo
         """
@@ -2519,7 +2519,7 @@ class TestQosSai(QosSaiBase):
                                                   "xon_hysteresis_9"])
     def testQosSaiXonHysteresis(
             self, xonHysteresisKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, check_skip_xon_hysteresis_test
+            get_src_dst_asic_and_duts, check_skip_xon_hysteresis_test, disable_voq_watchdog
     ):
         """
             Test QoS SAI SQG transitions
@@ -2564,3 +2564,86 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
+
+    @pytest.mark.disable_loganalyzer
+    def testQosSaiVoqWatchdog(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts
+    ):
+        """
+            Test VOQ watchdog
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
+            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
+            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": 8,
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "packet_size": 1350,
+            "pkts_num": 100,
+            "voq_watchdog_enabled": True,
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+            testParams=testParams)
+
+    def testQosSaiVoqWatchdogDisable(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, disable_voq_watchdog
+    ):
+        """
+            Test VOQ watchdog
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
+            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
+            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": 8,
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "packet_size": 1350,
+            "pkts_num": 100,
+            "voq_watchdog_enabled": False,
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+            testParams=testParams)
