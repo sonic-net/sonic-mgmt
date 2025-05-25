@@ -1,15 +1,14 @@
-# SONiC Switch Capacity Test
+# Snappi-based Switch Capacity Test
 
-- [SONiC Switch Capacity Test](#sonic-switch-capacity-test)
-  - [Test Objective](#test-objective)
-  - [Test Setup](#test-setup)
-  - [Test Steps](#test-steps)
-  - [Label Structure](#label-structure)
-    - [Metric labels](#metric-labels)
-      - [Interface Metrics](#interface-metrics)
-      - [Queue Metrics](#queue-metrics)
-      - [PSU Metrics](#psu-metrics)
-      - [Sensor Temperature Metrics](#sensor-temperature-metrics)
+1. [Test Objective](#test-objective)
+2. [Test Setup](#test-setup)
+3. [Test Steps](#test-steps)
+4. [Label Structure](#label-structure)
+   1. [Metric labels](#metric-labels)
+      1. [Interface Metrics](#interface-metrics)
+      2. [Queue Metrics](#queue-metrics)
+      3. [PSU Metrics](#psu-metrics)
+      4. [Sensor Temperature Metrics](#sensor-temperature-metrics)
 
 ## Test Objective
 
