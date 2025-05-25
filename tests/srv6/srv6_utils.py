@@ -1,11 +1,9 @@
 import logging
 import time
 import requests
-import random
 import ptf.packet as scapy
 import ptf.testutils as testutils
-from tests.common.reboot import reboot
-from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
     extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
@@ -63,22 +61,6 @@ def validate_srv6_in_appl_db(duthost,
             logger.error(f"Failed to check SRV6_MY_SID_TABLE - prefix:{prefix} in Application DB")
             raise err
     return True
-
-
-def random_reboot(duthost, localhost):
-    """
-    Randomly choose one action from reload/cold reboot and do the action and wait system recovery
-    """
-    reboot_type_list = ["reload", "cold"]
-    reboot_type = random.choice(reboot_type_list)
-    logger.info(f'Randomly choose {reboot_type} from {reboot_type_list}')
-
-    if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-    else:
-        logger.info(f'Do {reboot_type}')
-        reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True, safe_reboot=True,
-               check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
@@ -410,6 +392,288 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
 def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
     appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
     return key in appl_db_my_sids if exist else key not in appl_db_my_sids
+
+
+def enable_srv6_counterpoll(duthost):
+    """
+    Enable SRv6 counterpoll on the DUT.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo counterpoll srv6 enable'
+        duthost.shell(cmd)
+        logger.info("Successfully enabled SRv6 counterpoll")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to enable SRv6 counterpoll: {str(e)}")
+
+
+def disable_srv6_counterpoll(duthost):
+    """
+    Disable SRv6 counterpoll on the DUT.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo counterpoll srv6 disable'
+        duthost.shell(cmd)
+        logger.info("Successfully disabled SRv6 counterpoll")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to disable SRv6 counterpoll: {str(e)}")
+
+
+def set_srv6_counterpoll_interval(duthost, interval_ms, wait_for_new_interval=True):
+    """
+    Set the polling interval for SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        interval_ms (int): Polling interval in milliseconds
+        wait_for_new_interval (bool): Whether to wait for the new interval to take effect
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get current interval
+        current_status = duthost.get_counter_poll_status()
+        if 'SRV6_STAT' not in current_status:
+            logger.error("SRv6 counterpoll is not available")
+            return False
+
+        current_interval = current_status['SRV6_STAT']['interval']
+
+        # Set new interval
+        cmd = f'sudo counterpoll srv6 interval {interval_ms}'
+        duthost.shell(cmd)
+
+        # Wait for the new interval to take effect if requested
+        if wait_for_new_interval:
+            wait_time = current_interval / 1000 + 1  # Convert to seconds and add 1 second buffer
+            logger.info(f"Waiting {wait_time} seconds for new interval to take effect")
+            time.sleep(wait_time)
+
+        logger.info(f"Successfully set SRv6 counterpoll interval to {interval_ms} ms")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to set SRv6 counterpoll interval: {str(e)}")
+
+
+def get_srv6_counterpoll_status(duthost):
+    """
+    Get the current status of SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        dict: Dictionary containing status information or None if failed
+    """
+    try:
+        status = duthost.get_counter_poll_status()
+        if 'SRV6_STAT' in status:
+            return status['SRV6_STAT']
+        return None
+    except Exception as e:
+        raise Exception(f"Failed to get SRv6 counterpoll status: {str(e)}")
+
+
+def verify_srv6_counterpoll_status(duthost, expected_status, expected_interval=None):
+    """
+    Verify the status of SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        expected_status (str): Expected status ('enable' or 'disable')
+        expected_interval (str): Expected interval in milliseconds
+    Returns:
+        bool: True if status matches expected, False otherwise
+    """
+    try:
+        status = get_srv6_counterpoll_status(duthost)
+        if status is None:
+            return False
+
+        actual_status = status['status'].lower()
+        expected_status = expected_status.lower()
+        actual_interval = status['interval']
+
+        if expected_interval:
+            if actual_interval != expected_interval:
+                logger.error(f"SRv6 counterpoll interval mismatch. Expected: {expected_interval}, "
+                             f"Actual: {actual_interval}")
+                return False
+
+        if actual_status == expected_status:
+            logger.info(f"SRv6 counterpoll status verified as {expected_status}")
+            return True
+        else:
+            logger.error(f"SRv6 counterpoll status mismatch. Expected: {expected_status}, Actual: {actual_status}")
+            return False
+    except Exception as e:
+        raise Exception(f"Failed to verify SRv6 counterpoll status: {str(e)}")
+
+
+def verify_srv6_stats(duthost, mysid, expected_packets, expected_bytes):
+    """
+    Verify SRv6 statistics for a specific MySID.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        mysid (str): MySID to check (e.g., '2001:1000:100::/48')
+        expected_packets (int): Expected number of packets
+        expected_bytes (int): Expected number of bytes
+
+    Returns:
+        bool: True if statistics match expected values, False otherwise
+    """
+    try:
+        # Get SRv6 statistics using show_and_parse
+        stats_list = duthost.show_and_parse('show srv6 stats')
+
+        # Convert list to dictionary with MySID as key
+        stats_dict = {item['mysid']: item for item in stats_list}
+
+        # Check if MySID exists in the dictionary
+        if mysid not in stats_dict:
+            logger.error(f"MySID {mysid} not found in SRv6 statistics")
+            return False
+
+        # Get current values
+        current_stats = stats_dict[mysid]
+        current_packets = int(current_stats['packets'])
+        current_bytes = int(current_stats['bytes'])
+
+        # Compare with expected values
+        if current_packets == expected_packets and current_bytes == expected_bytes:
+            logger.info(f"SRv6 statistics match expected values for MySID {mysid}: "
+                        f"Packets={current_packets}, Bytes={current_bytes}")
+            return True
+        else:
+            logger.error(f"SRv6 statistics mismatch for MySID {mysid}: "
+                         f"Expected Packets={expected_packets}, Bytes={expected_bytes}, "
+                         f"Actual Packets={current_packets}, Bytes={current_bytes}")
+            return False
+
+    except Exception as e:
+        raise Exception(f"Failed to verify SRv6 statistics: {str(e)}")
+
+
+def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
+    """
+    Validate SRv6 counters based on the list of SRv6 packets.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        srv6_pkt_list (list): List of SRv6 packets
+        mysid_list (list): List of MySID to validate
+        pkt_num (int): Number of packets to validate
+
+    Returns:
+        bool: True if counters match expected values, False otherwise
+    """
+    for srv6_pkt, mysid in zip(srv6_pkt_list, mysid_list):
+        # Wireshark and PTF do not include FCS field when calculating frame length, but the switch does,
+        # so add 4 bytes when validating SRv6 counters at switch
+        single_pkt_len = len(srv6_pkt) + 4
+        mysid_with_prefix = mysid[1] + '/' + str(SRv6.prefix_len)
+        assert wait_until(10, 1, 0, verify_srv6_stats, duthost, mysid_with_prefix, pkt_num, pkt_num * single_pkt_len)
+
+
+def get_srv6_mysid_entry_usage(duthost):
+    """
+    Get the usage information of SRv6 MySID Entry resources.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        dict: Dictionary containing usage information with keys:
+            - 'used_count': Number of used entries
+            - 'available_count': Number of available entries
+            - 'total_count': Total number of entries
+        Returns None if failed to get the information
+    """
+    try:
+        # Get SRv6 MySID Entry usage information using show_and_parse
+        usage_list = duthost.show_and_parse('crm show resources srv6-my-sid-entry')
+
+        # Find the entry for srv6_my_sid_entry
+        for entry in usage_list:
+            if entry['resource name'] == 'srv6_my_sid_entry':
+                used_count = int(entry['used count'])
+                available_count = int(entry['available count'])
+                total_count = used_count + available_count
+
+                result = {
+                    'used_count': used_count,
+                    'available_count': available_count,
+                    'total_count': total_count
+                }
+
+                logger.info(f"SRv6 MySID Entry usage: Used={used_count}, Available={available_count}, "
+                            f"Total={total_count}")
+                return result
+
+        logger.error("SRv6 MySID Entry resource not found in CRM output")
+        return None
+
+    except Exception as e:
+        raise Exception(f"Failed to get SRv6 MySID Entry usage: {str(e)}")
+
+
+def clear_srv6_counters(duthost):
+    """
+    Clear all SRv6 counters using sonic-clear command.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo sonic-clear srv6counters'
+        duthost.shell(cmd)
+        logger.info("Successfully cleared SRv6 counters")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to clear SRv6 counters: {str(e)}")
+
+
+def verify_srv6_crm_status(duthost, expected_used_count, expected_available_count):
+    '''
+    Verify the CRM status of SRv6 SID.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        expected_used_count (int): Expected number of used entries
+        expected_available_count (int): Expected number of available entries
+    '''
+    mysid_crm_status = get_srv6_mysid_entry_usage(duthost)
+    if not mysid_crm_status:
+        logger.info("Failed to get SRv6 MySID Entry usage")
+        return False
+    if mysid_crm_status['used_count'] != expected_used_count:
+        logger.info(f"Expected {expected_used_count} used SRv6 MySID Entries, but got {mysid_crm_status['used_count']}")
+        return False
+    if mysid_crm_status['available_count'] != expected_available_count:
+        logger.info(f"Expected {expected_available_count} available SRv6 MySID Entries, "
+                    f"but got {mysid_crm_status['available_count']}")
+        return False
+
+    logger.info("SRv6 MySID Entry usage verified successfully")
+    return True
 
 
 #

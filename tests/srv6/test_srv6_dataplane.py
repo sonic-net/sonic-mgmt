@@ -8,9 +8,12 @@ from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
-from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
-    validate_srv6_in_appl_db, validate_techsupport_generation, get_neighbor_mac
+from tests.srv6.srv6_utils import MySIDs, runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
+    validate_srv6_in_appl_db, validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
+    get_neighbor_mac
 from tests.common.reboot import reboot
+from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -157,7 +160,19 @@ class SRv6Base():
     def use_param(self, prepare_param):
         self.params = prepare_param
 
+    def _validate_bgp_session(self, duthost):
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
+            "bgp sessions {} are not up".format(bgp_neighbors)
+        )
+
     def _validate_srv6_function(self, duthost, ptfadapter, dscp_mode):
+        srv6_pkt_list = []
+        logger.info('Clear the SRv6 counters')
+        clear_srv6_counters(duthost)
+
         logger.info('Validate SRv6 table in APPL DB')
         wait_until(60, 5, 0, validate_srv6_in_appl_db, duthost)
 
@@ -228,23 +243,63 @@ class SRv6Base():
                 packet_num=self.params['packet_num']
             )
 
+            srv6_pkt_list.append(srv6_pkt)
 
-class TestSRv6Base(SRv6Base):
+        return srv6_pkt_list
 
-    def test_srv6_full_func(self, config_setup, default_tunnel_mode,
+
+class TestSRv6DataPlaneBase(SRv6Base):
+
+    def test_srv6_full_func(self, config_setup, default_tunnel_mode, srv6_crm_total_sids,
                             setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-                            ptfadapter, rand_selected_dut, localhost):
-        with allure.step('Validate SRv6 packet process'):
-            self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index):
 
-        # TODO: WA for issue https://github.com/sonic-net/sonic-buildimage/issues/21867, remove after it is closed
-        # if not is_mellanox_device(rand_selected_dut) or default_tunnel_mode == config_setup:
-        #     with allure.step('Randomly choose one action from reload/cold reboot and do the action and wait'):
-        #         random_reboot(rand_selected_dut, localhost)
-        #
-        #     with allure.step('Validate SRv6 packet process'):
-        #         self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+        with allure.step('Validate SRv6 packet process'):
+            srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+
+        with allure.step('Validate SRv6 counters'):
+            validate_srv6_counters(rand_selected_dut, srv6_pkt_list, MySIDs.MY_SID_LIST, self.params['packet_num'])
+
+        with allure.step('Execute reboot test'):
+            reboot_type = request.config.getoption("--srv6_reboot_type")
+
+            if reboot_type == "random":
+                reboot_type = random.choice(["cold", "reload"])
+
+            if reboot_type == "cold":
+                reboot(rand_selected_dut, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
+                       safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+            else:
+                config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
+
+            with allure.step('Validate SRv6 packet process'):
+                self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+
+            with allure.step('Validate SRv6 counters'):
+                validate_srv6_counters(rand_selected_dut, srv6_pkt_list, MySIDs.MY_SID_LIST,
+                                       self.params['packet_num'])
+
+        with allure.step('Validate SRv6 function after BGP restart'):
+
+            with allure.step('Execute BGP restart'):
+                if rand_selected_dut.is_multi_asic:
+                    rand_selected_dut.command(f"systemctl restart bgp@{enum_frontend_asic_index}")
+                else:
+                    rand_selected_dut.command("systemctl restart bgp")
+
+            with allure.step('Validate BGP docker UP'):
+                pytest_assert(wait_until(100, 10, 0, rand_selected_dut.is_service_fully_started_per_asic_or_host,
+                                         "bgp"), "BGP not started.")
+
+            with allure.step('Validate BGP sessions UP'):
+                self._validate_bgp_session(rand_selected_dut)
+
+            with allure.step('Validate SRv6 packet process'):
+                self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+
+            with allure.step('Validate SRv6 counters'):
+                validate_srv6_counters(rand_selected_dut, srv6_pkt_list, MySIDs.MY_SID_LIST, self.params['packet_num'])
 
         if is_mellanox_device(rand_selected_dut) and config_setup == SRv6.pipe_mode:
             with allure.step('Validate SAI SDK dump contains SRv6 information'):
