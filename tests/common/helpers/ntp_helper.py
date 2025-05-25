@@ -109,21 +109,22 @@ def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
         return False
 
 
-def run_ntp(duthost, ntp_daemon_in_use):
+def run_ntp(duthost, ntp_daemon_in_use, mvrf=False):
     """ Verify that DUT is synchronized with configured NTP server """
 
+    prefix = "ip vrf exec mgmt " if mvrf else ""
     if ntp_daemon_in_use == NtpDaemon.NTPSEC:
         duthost.service(name='ntp', state='stopped')
-        duthost.command("timeout 20 ntpd -gq -u ntpsec:ntpsec")
+        duthost.command(prefix + "timeout 20 ntpd -gq -u ntpsec:ntpsec")
         duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.NTP:
         duthost.service(name='ntp', state='stopped')
         ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
-        duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
+        duthost.command(prefix + "timeout 20 ntpd -gq -u {}".format(ntp_uid))
         duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.CHRONY:
         duthost.service(name='chrony', state='stopped')
-        duthost.command("timeout 20 chronyd -q -F 1")
+        duthost.command(prefix + "timeout 20 chronyd -q -F 1")
         duthost.service(name='chrony', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
