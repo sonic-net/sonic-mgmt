@@ -45,10 +45,8 @@ INTERFACE_KEY = "Ethernet"
 
 # port_config.ini header
 PORTCONFIG_HEADER = ["# name", "lanes", "alias", "index", "speed"]
-platform_4 = ['x86_64-mlnx_lssn2700-r0', 'x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0',
-              'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2740-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn3700-r0',
-              'x86_64-mlnx_msn3800-r0']
-platform_8 = ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0']
+platform_4 = ['x86_64-mlnx_lssn2700-r0','x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn3700-r0']
+platform_8 = ['x86_64-mlnx_msn4700-r0']
 
 bko_dict_4 = {
     "1x100": {"lanes": 4, "speed": 100000, "step": 4, "bko": 0, "name": "etp"},

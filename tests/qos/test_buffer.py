@@ -3209,15 +3209,8 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
             "failed to get MTU from config db for port {}".format(port_to_test))
         return False, None
 
-    # Determine gearbox_delay with platform name, so far only MSN3800 has gear_box installed
-    if duthost.facts["platform"] not in ["x86_64-mlnx_msn3800-r0"]:
-        gearbox_delay = 0
-    else:
-        gearbox_delay_keys = duthost.shell(
-            'redis-cli -n 6 keys PERIPHERAL_TABLE*')['stdout']
-        gearbox_delay = float(duthost.shell(
-            'redis-cli -n 6 hget "{}" "gearbox_delay"'.format(gearbox_delay_keys))['stdout'])
-
+    gearbox_delay = 0
+    
     # Get cable length from config DB
     # Command: redis-cli -n 4 hget "CABLE_LENGTH|AZURE"  'Ethernet0'
     cable_length_keys = duthost.shell(
