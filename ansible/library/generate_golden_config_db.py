@@ -135,6 +135,7 @@ class GenerateGoldenConfigDBModule(object):
             if ("localhost" in golden_config_db["DEVICE_METADATA"] and
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
+                golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         return json.dumps(golden_config_db, indent=4)
 
@@ -204,6 +205,7 @@ class GenerateGoldenConfigDBModule(object):
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
             full_config = self.get_config_from_minigraph()
+
         ori_config_db = json.loads(full_config)
         if "FEATURE" not in ori_config_db:
             full_config = self.get_config_from_minigraph()
@@ -230,6 +232,7 @@ class GenerateGoldenConfigDBModule(object):
             }
         else:
             gold_config_db = ori_config_db
+
         return json.dumps(gold_config_db, indent=4)
 
     def generate_smartswitch_golden_config_db(self):

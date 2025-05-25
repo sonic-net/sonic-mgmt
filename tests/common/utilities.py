@@ -33,7 +33,8 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 from netaddr import valid_ipv6
 
@@ -933,6 +934,19 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
+def get_all_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL upstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["ma", "mb"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
 def get_downstream_neigh_type(topo_type, is_upper=True):
     """
     @summary: Get neighbor type by topo type
@@ -945,6 +959,19 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_all_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL downstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["m0", "c0"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
