@@ -208,19 +208,11 @@ def test_disable_rsyslog_rate_limit(duthosts):
         if feature_exception_dict:
             pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
 
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        # for duthost in duthosts:
-        #     executor.submit(disable_rsyslog_rate_limit, duthost)
-        futures = []
-        for dut in duthosts:
-            futures.append(executor.submit(disable_rsyslog_rate_limit, dut))
-
-        for future in futures:
-            try:
-                future.result()
-            except Exception as e:
-                logger.exception(f"Exception in thread: {e}")
-                raise
+    for duthost in duthosts:
+        try:
+            disable_rsyslog_rate_limit(duthost)
+        except Exception as e:
+            logger.exception(f"Exception when disabling rsyslog rate limit for {duthost.hostname}: {e}")
 
 
 def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
