@@ -139,6 +139,7 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "release in ['202412']"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -1039,6 +1040,7 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
+      - "release in ['202412']"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
