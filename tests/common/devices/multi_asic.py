@@ -318,10 +318,7 @@ class MultiAsicSonicHost(object):
         else:
             ns_prefix = '-n ' + str(asic_id)
         cmd = 'show bgp ipv4' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show bgp ipv6'
-        stdout = self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout']
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode('utf-8')
-        return json.loads(stdout)
+        return json.loads(self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout'])
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
@@ -658,10 +655,7 @@ class MultiAsicSonicHost(object):
         check_cmd %= prefix
         if ns is not None:
             check_cmd = self.get_vtysh_cmd_for_namespace(check_cmd, ns)
-        stdout = self.shell(check_cmd, verbose=False)['stdout']
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode('utf-8')
-        return json.loads(stdout)
+        return json.loads(self.shell(check_cmd, verbose=False)['stdout'])
 
     def check_bgp_default_route(self, ipv4=True,  ipv6=True):
         """
