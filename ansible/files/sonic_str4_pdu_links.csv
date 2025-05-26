@@ -62,7 +62,3 @@ pdu-95,24,str4-7060x6-512-2,PSU1
 pdu-94,23,str4-7060x6-512-2,PSU2
 pdu-95,20,str4-7060x6-512-fan-2,PSU1
 pdu-94,20,str4-7060x6-512-fan-2,PSU2
-pdu-92,8,str4-acs-serv-100,PSU1
-pdu-93,8,str4-acs-serv-100,PSU2
-pdu-92,9,str4-acs-serv-101,PSU1
-pdu-93,9,str4-acs-serv-101,PSU2
