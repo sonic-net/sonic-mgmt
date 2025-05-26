@@ -385,7 +385,7 @@ def test_nexthop_group_member_scale(
     startup_routes = get_all_bgp_ipv6_routes(duthost)
     ecmp_routes = {
         r: v for r, v in startup_routes.items()
-        if len(v[0]['nexthops']) == len(bgp_peers_info) and r not in STATIC_ROUTES
+        if len(v[0]['nexthops']) >= len(bgp_peers_info) and r not in STATIC_ROUTES
     }
     pkts = generate_packets(
         ecmp_routes,
