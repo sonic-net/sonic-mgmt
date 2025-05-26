@@ -4,9 +4,9 @@ import time
 import logging
 import re
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.gcu_utils import generate_tmpfile, create_checkpoint, \
     apply_patch, expect_op_success, delete_tmpfile, \
     rollback_or_reload, delete_checkpoint
@@ -187,9 +187,9 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                            setup_standby_ports_on_rand_unselected_tor,												# noqa F811
-                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
-                            verify_acl_drop_on_standby_tor):     # noqa F811
+                            setup_standby_ports_on_rand_unselected_tor,												# noqa: F811
+                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa: F811
+                            verify_acl_drop_on_standby_tor):     # noqa: F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -277,11 +277,16 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
-def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay_data,
-                                                         validate_dut_routes_exist, testing_config,
-                                                         setup_standby_ports_on_rand_unselected_tor,												# noqa F811
-                                                         rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
-                                                         enable_source_port_ip_in_relay, verify_acl_drop_on_standby_tor):     # noqa F811
+def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
+        ptfhost,
+        dut_dhcp_relay_data,
+        validate_dut_routes_exist, testing_config,
+        setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+        rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+        enable_source_port_ip_in_relay,
+        verify_acl_drop_on_standby_tor  # noqa: F811
+):
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -477,8 +482,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                                setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                                setup_standby_ports_on_rand_unselected_tor,				 # noqa: F811
+                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa: F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
@@ -515,9 +520,9 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                 toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
-                                 verify_acl_drop_on_standby_tor):    # noqa F811
+                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa: F811
+                                 toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa: F811
+                                 verify_acl_drop_on_standby_tor):    # noqa: F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
@@ -585,7 +590,7 @@ def init_counter(duthost, ifname):
 
 def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,
-                            toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                            toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa: F811
     testing_mode, duthost = testing_config
 
     skip_release(duthost, ["201811", "201911", "202012"])

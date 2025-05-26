@@ -2,8 +2,8 @@ import pytest
 import time
 import ptf.packet as scapy
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
@@ -21,7 +21,7 @@ DEFAULT_DHCP_SERVER_PORT = 67
 
 def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                         request, setup_standby_ports_on_rand_unselected_tor,
-                                        toggle_all_simulator_ports_to_rand_selected_tor_m):      # noqa F811
+                                        toggle_all_simulator_ports_to_rand_selected_tor_m):      # noqa: F811
     """
     This test case is to make sure DHCPv4 relay would work well when startup with stress packets coming
     """
@@ -133,7 +133,7 @@ def check_dhcp_stress_status(duthost, test_duration_seconds):
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
 def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                            setup_standby_ports_on_rand_unselected_tor,
-                           toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa: F811
                            dhcp_type, clean_processes_after_stress_test):
     """Test DHCP relay functionality on T0 topology
        and verify that HCP relay service can handle the maximum load without failure.
