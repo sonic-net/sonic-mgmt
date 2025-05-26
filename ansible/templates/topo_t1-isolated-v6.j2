@@ -3,7 +3,9 @@ topology:
 {%- for vm in vm_list %}
     {{ vm.name }}:
       vlans:
-        - {{ vm.vlans[0] }}
+      {%- for vlan_id in vm.vlans %}
+        - {{ vlan_id }}
+      {%- endfor %}
       vm_offset: {{ vm.vm_offset }}
 {%- endfor %}
 
@@ -45,8 +47,17 @@ configuration:
     interfaces:
       Loopback0:
         ipv6: {{vm.loopback_ipv6}}/128
+      {%- if vm.vlans|length > 1 %}
+      {%- for idx in range(vm.vlans|length) %}
+      Ethernet{{idx+1}}:
+        lacp: 1
+      {%- endfor %}
+      Port-Channel1:
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- else %}
       Ethernet1:
         ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- endif %}
     bp_interface:
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}

@@ -107,9 +107,9 @@ hw_port_cfg = {
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c448o16-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
-                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
+                         'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
                          'peer_ports': [],
-                         'skip_ports': [16, 17, 44, 45, 48, 49],
+                         'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                          "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
@@ -362,7 +362,10 @@ def generate_topo(role: str,
             vm_list.append(vm)
 
             if link_type == 'up':
-                uplinkif_list.append(link_id_start)
+                if role == 't1':
+                    uplinkif_list.extend(list(range(link_id_start, link_id_end+1, link_step)))
+                else:
+                    uplink_ports.append(link_id_start)
             elif link_type == 'down':
                 tornum += 1
                 downlinkif_list.append(link_id_start)
