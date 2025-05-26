@@ -4,25 +4,7 @@ This file defines the classes receiving metrics from snappi tests and processing
 import time
 
 from copy import deepcopy
-from typing import Dict, Final, Union
-
-# Only certain labels are allowed
-METRIC_LABEL_TESTBED: Final[str] = "test.testbed"                   # testbed name/ID
-METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"             # Software/build version
-METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"                # test case name/ID
-METRIC_LABEL_TEST_FILE: Final[str] = "test.file"                    # test file name
-METRIC_LABEL_TEST_JOBID: Final[str] = "test.job.id"                 # test job ID
-METRIC_LABEL_DEVICE_ID: Final[str] = "device.id"                    # device refers to the level of switch
-METRIC_LABEL_DEVICE_PORT_ID: Final[str] = "device.port.id"
-METRIC_LABEL_DEVICE_PSU_ID: Final[str] = "device.psu.id"
-METRIC_LABEL_DEVICE_PSU_MODEL: Final[str] = "device.psu.model"
-METRIC_LABEL_DEVICE_PSU_SERIAL: Final[str] = "device.psu.serial"
-METRIC_LABEL_DEVICE_PSU_HW_REV: Final[str] = "device.psu.hw_rev"    # hardware revision
-METRIC_LABEL_DEVICE_QUEUE_ID: Final[str] = "device.queue.id"
-METRIC_LABEL_DEVICE_QUEUE_CAST: Final[str] = "device.queue.cast"    # unicast or multicast
-METRIC_LABEL_DEVICE_SENSOR_ID: Final[str] = "device.sensor.id"
-METRIC_LABEL_DEVICE_PG_ID: Final[str] = "device.pg.id"              # priority group
-METRIC_LABEL_DEVICE_BUFFER_POOL_ID: Final[str] = "device.buffer_pool.id"
+from typing import Dict, Union
 
 
 class PeriodicMetricsReporter:
@@ -31,10 +13,10 @@ class PeriodicMetricsReporter:
         self.common_labels = deepcopy(common_labels)
         self.metrics = []
 
-    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], name: str, value: Union[int, float]):
         # add a new periodic metric
         copied_labels = deepcopy(labels)
-        self.metrics.append({"labels": copied_labels, "value": value})
+        self.metrics.append({"labels": copied_labels, "name": name, "value": value})
 
     def report(self, timestamp=time.time_ns()):
         """
@@ -55,10 +37,10 @@ class FinalMetricsReporter:
         self.common_labels = deepcopy(common_labels)
         self.metrics = []
 
-    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], value: Union[int, float]):
+    def stash_record(self, new_metric: 'Metric', labels: Dict[str, str], name: str, value: Union[int, float]):
         # add a new final metric
         copied_labels = deepcopy(labels)
-        self.metrics.append({"labels": copied_labels, "value": value})
+        self.metrics.append({"labels": copied_labels, "name": name, "value": value})
 
     def report(self, timestamp=time.time_ns()):
         """
@@ -109,7 +91,7 @@ class GaugeMetric(Metric):
 
     def record(self, metric_labels: Dict[str, str], value: Union[int, float]):
         # Save the metric into the reporter
-        self.reporter.stash_record(self, metric_labels, value)
+        self.reporter.stash_record(self, metric_labels, self.name, value)
 
     def __repr__(self):
         return (f"GaugeMetric(name={self.name!r}, "
