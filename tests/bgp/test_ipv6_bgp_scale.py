@@ -184,7 +184,7 @@ def compare_routes(running_routes, expected_routes):
             diff_cnt += 1
             continue
         except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
-        running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops']]
+        running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
         if except_nhs != running_nhs:
             is_same = False
             diff_cnt += 1
