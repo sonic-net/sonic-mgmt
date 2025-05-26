@@ -308,12 +308,12 @@ def check_crm_stats(cmd, duthost, origin_crm_stats_used, origin_crm_stats_availa
         return False
 
 
-def generate_neighbors(amount, ip_ver):
+def generate_neighbors(amount, ip_ver, start_index=0):
     """ Generate list of IPv4 or IPv6 addresses """
     if ip_ver == "4":
-        ip_addr_list = list(ipaddress.IPv4Network("%s" % "2.0.0.0/8").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv4Network("%s" % "2.0.0.0/8").hosts())[start_index:(amount+start_index)]
     elif ip_ver == "6":
-        ip_addr_list = list(ipaddress.IPv6Network("%s" % "2001::/112").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv6Network("%s" % "2001::/112").hosts())[start_index:(amount+start_index)]
     else:
         pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
     return ip_addr_list
@@ -408,22 +408,39 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
     del_neighbors_template = Template(del_template)
     add_neighbors_template = Template(add_template)
 
-    ip_addr_list = generate_neighbors(amount, ip_ver)
-    ip_addr_list = " ".join([str(item) for item in ip_addr_list])
-
-    # Store CLI command to delete all created neighbors
-    RESTORE_CMDS[test_name].append(del_neighbors_template.render(
-                            neigh_ip_list=ip_addr_list,
-                            iface=interface,
-                            namespace=asichost.namespace))
-
     # Increase default Linux configuration for ARP cache
     increase_arp_cache(asichost, amount, ip_ver, test_name)
 
-    asichost.shell(add_neighbors_template.render(
-                        neigh_ip_list=ip_addr_list,
-                        iface=interface,
-                        namespace=asichost.namespace))
+    # https://github.com/sonic-net/sonic-mgmt/issues/18624
+    # May need to batch the commands to avoid hitting "Argument list too long" error
+    # IPv4 will consume at most 14 characters: " 2.XXX.XXX.XXX"
+    # IPv6 will consume at most 11 characters: " 2001::XXXX"
+    # Assuming our argument character limit is 128KB (1310072)
+    # Our Max number of neighbors would be: 1310072 / 14 = 9362 (Using 9000 to leave room for other characters)
+    cmdBatch = {}
+    MAX_NEIGHBOR_LIMIT_PER_BATCH = 9000
+    if amount > MAX_NEIGHBOR_LIMIT_PER_BATCH:
+        for batch in range(amount // MAX_NEIGHBOR_LIMIT_PER_BATCH):
+            cmdBatch[batch] = MAX_NEIGHBOR_LIMIT_PER_BATCH
+        if (amount % MAX_NEIGHBOR_LIMIT_PER_BATCH) != 0:
+            cmdBatch[len(cmdBatch)] = amount % MAX_NEIGHBOR_LIMIT_PER_BATCH
+    else:
+        cmdBatch[0] = amount
+
+    for batchNum, neighborCount in cmdBatch.items():
+        ip_addr_list = generate_neighbors(neighborCount, ip_ver, start_index=batchNum*MAX_NEIGHBOR_LIMIT_PER_BATCH)
+        ip_addr_list = " ".join([str(item) for item in ip_addr_list])
+
+        # Store CLI command to delete all created neighbors
+        RESTORE_CMDS[test_name].append(del_neighbors_template.render(
+                                neigh_ip_list=ip_addr_list,
+                                iface=interface,
+                                namespace=asichost.namespace))
+
+        asichost.shell(add_neighbors_template.render(
+                            neigh_ip_list=ip_addr_list,
+                            iface=interface,
+                            namespace=asichost.namespace))
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
