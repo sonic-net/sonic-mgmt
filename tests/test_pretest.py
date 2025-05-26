@@ -5,7 +5,7 @@ import pytest
 import random
 import time
 
-from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+# from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
@@ -51,9 +51,8 @@ def test_features_state(duthosts, localhost):
                                  verify_features_state, dut), "Not all service states are valid!")
         logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for duthost in duthosts:
-            executor.submit(check_feature_state, duthost)
+    for duthost in duthosts:
+        check_feature_state(duthost)
 
 
 def test_cleanup_cache():
@@ -81,9 +80,8 @@ def test_cleanup_testbed(duthosts, request, ptfhost):
             dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
                       module_ignore_errors=True, executable="/bin/bash")
 
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(deep_clean_dut, duthost)
+        for duthost in duthosts:
+            deep_clean_dut(duthost)
 
     # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
     if ptfhost:
@@ -92,9 +90,8 @@ def test_cleanup_testbed(duthosts, request, ptfhost):
 
 
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for duthost in duthosts:
-            executor.submit(disable_container_autorestart, duthost)
+    for duthost in duthosts:
+        disable_container_autorestart(duthost)
 
     # Wait sometime for snmp reloading
     snmp_reloading_time = 30
@@ -146,9 +143,8 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
 
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for duthost in duthosts:
-            executor.submit(collect_dut_info, duthost, metadata)
+    for duthost in duthosts:
+        collect_dut_info(duthost, metadata)
 
     info = {tbname: metadata}
     folder = 'metadata'
@@ -224,9 +220,9 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for dut in duthosts:
-            executor.submit(collect_dut_info, dut, metadata)
+
+    for dut in duthosts:
+        collect_dut_info(dut, metadata)
 
     for dut in duthosts:
         dutinfo = metadata[dut.hostname]
@@ -428,9 +424,8 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
             if len(selected_ports) > 0:
                 cadidate_test_ports[dut.hostname] = selected_ports
 
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(select_test_ports, duthost)
+        for duthost in duthosts:
+            select_test_ports(duthost)
 
         if len(cadidate_test_ports) > 0:
             with open(filepath, 'w') as yf:
@@ -466,9 +461,8 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(startup_tsa_tsb_file_path, dut.hostname))
 
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for duthost in duthosts.frontend_nodes:
-            executor.submit(disable_startup_tsa_tsb, duthost)
+    for duthost in duthosts.frontend_nodes:
+        disable_startup_tsa_tsb(duthost)
 
 
 """
@@ -508,6 +502,5 @@ def test_generate_running_golden_config(duthosts):
                 dut.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
                           format(asic_ns, asic_index))
 
-    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-        for duthost in duthosts:
-            executor.submit(generate_running_golden_config, duthost)
+    for duthost in duthosts:
+        generate_running_golden_config(duthost)
