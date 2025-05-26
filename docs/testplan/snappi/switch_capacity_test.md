@@ -9,9 +9,9 @@
 4. [4. Test Steps](#4-test-steps)
 5. [5. Metrics to collect](#5-metrics-to-collect)
    1. [5.1. Interface Metrics](#51-interface-metrics)
-   2. [5.1.1. Queue Metrics](#511-queue-metrics)
-   3. [5.1.2. PSU Metrics](#512-psu-metrics)
-   4. [5.1.3. Sensor Temperature Metrics](#513-sensor-temperature-metrics)
+   2. [5.2. Queue Metrics](#52-queue-metrics)
+   3. [5.3. PSU Metrics](#53-psu-metrics)
+   4. [5.4. Sensor Temperature Metrics](#54-sensor-temperature-metrics)
 
 ## 1. Test Objective
 
@@ -123,7 +123,7 @@ The `show interface counters` is used on the switch to retrieve interface metric
 | `METRIC_NAME_PORT_TX_DROP`    | port.tx.drop      | 10             |
 | `METRIC_NAME_PORT_TX_OVERRUN` | port.tx.overrun   | 0              |
 
-### 5.1.1. Queue Metrics
+### 5.2. Queue Metrics
 
 The `show queue watermark unicast` or  `show queue watermark multicast` is used on the switch to retrieve queue metrics. The following labels are expected to be provided:
 
@@ -138,7 +138,7 @@ The `show queue watermark unicast` or  `show queue watermark multicast` is used 
 |-------------------------------------|-----------------------|---------------|
 | `METRIC_NAME_QUEUE_WATERMARK_BYTES` | queue.watermark.bytes | 7620          |
 
-### 5.1.2. PSU Metrics
+### 5.3. PSU Metrics
 
 The `show platform psu` command is used on the switch to retrieve PSU metrics. The following labels are expected to be provided:
 
@@ -158,7 +158,7 @@ The `show platform psu` command is used on the switch to retrieve PSU metrics. T
 | `METRIC_NAME_PSU_STATUS`   | psu.status        | PSU_STATUS.OK   |
 | `METRIC_NAME_PSU_LED`      | psu.led           | LED_STATE.GREEN |
 
-### 5.1.3. Sensor Temperature Metrics
+### 5.4. Sensor Temperature Metrics
 
 The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
 
