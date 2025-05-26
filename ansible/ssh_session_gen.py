@@ -16,6 +16,7 @@ from devutil.ssh_session_repo import (
     SecureCRTSshSessionRepoGenerator,
     SshConfigSshSessionRepoGenerator,
     SshConfigTmuxinatorSessionRepoGenerator,
+    ZellijLayoutRepoGenerator,
     SshSessionRepoGenerator,
 )
 
@@ -302,6 +303,13 @@ def main(args):
         # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
         create_testbed_repo = True
         create_device_repo = False
+    elif args.format == "zellij":
+        repo_generator = ZellijLayoutRepoGenerator(
+            args.target, args.ssh_config_params, args.console_ssh_config_params
+        )
+        # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
+        create_testbed_repo = True
+        create_device_repo = False
     else:
         print("Unsupported output format: {}".format(args.format))
         return
@@ -442,7 +450,7 @@ the `secrets.json` file and use the alternative credentials.
         "--format",
         type=str,
         dest="format",
-        choices=["securecrt", "ssh", "tmuxinator"],
+        choices=["securecrt", "ssh", "tmuxinator", "zellij"],
         default="securecrt",
         help="Output target format, currently supports securecrt or ssh.",
     )
