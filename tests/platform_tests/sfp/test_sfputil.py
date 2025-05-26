@@ -382,12 +382,8 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
             assert parsed_presence[intf] == expected_state, (
                 "Interface '{}' error status check failed. "
                 "Expected error status: '{}', but got: '{}'. "
-                "- Expected State: {}\n"
-                "- Actual State: {}\n"
             ).format(
                 intf,
-                expected_state,
-                parsed_presence[intf],
                 expected_state,
                 parsed_presence[intf]
             )
@@ -418,11 +414,9 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected", (
                 "EEPROM status check failed for interface '{}'. "
                 "Expected: 'SFP EEPROM detected', but got: '{}'. "
-                "- Actual EEPROM Status: {}\n"
             ).format(
                 intf,
-                parsed_eeprom[intf],
-                parsed_eeprom[intf],
+                parsed_eeprom[intf]
             )
 
 
@@ -496,7 +490,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                 "- Parsed Presence Output: {}\n"
             ).format(
                     logical_intf,
-                    cmd_sfp_presence,
+                    cmd_sfp_presence_per_intf,
                     parsed_presence
                )
 

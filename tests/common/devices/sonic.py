@@ -2138,9 +2138,10 @@ Totals               6450                 6449
             "CRM resource data was not available within the allotted time. "
             "- Timeout value: {}\n"
             "- Polling interval: {}\n"
-            "- Last CRM facts: {}\n"
-        ).format(timeout, crm_facts.get('polling_interval', 'N/A'), crm_facts)
-        return crm_facts
+        ).format(
+            timeout,
+            crm_facts.get('polling_interval', 'N/A')
+        )
 
     def start_service(self, service_name, docker_name):
         logging.debug("Starting {}".format(service_name))

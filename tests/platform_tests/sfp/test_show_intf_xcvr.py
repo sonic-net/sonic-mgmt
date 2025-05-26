@@ -42,12 +42,10 @@ def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                "Interface '{}' is not in output of '{}'. "
                "This means the SFP presence information for the interface is missing. "
                "- Parsed Presence Output: {}\n"
-               "- Command Executed: '{}'"
             ).format(
                 intf,
                 cmd_sfp_presence,
-                parsed_presence,
-                cmd_sfp_presence
+                parsed_presence
             )
 
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
@@ -73,12 +71,10 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                 "EEPROM status check failed for interface '{}'. "
                 "Expected: 'SFP EEPROM detected', but got: '{}'. "
                 "This means the SFP EEPROM was not detected or reported incorrectly for this interface. "
-                "- Actual EEPROM Status: {}\n"
                 "- Parsed EEPROM Output: {}\n"
                 "- Command Executed: '{}'"
             ).format(
                 intf,
-                parsed_eeprom[intf],
                 parsed_eeprom[intf],
                 parsed_eeprom,
                 cmd_sfp_eeprom

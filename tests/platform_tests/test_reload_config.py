@@ -74,20 +74,19 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
         max_wait_time_for_transceivers = 900
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
                       duthost, interfaces, xcvr_skip_list), (
-        "Not all transceivers are detected in {} seconds. "
+        "Not all transceivers are detected in {timeout} seconds. "
         "This means some interfaces did not report transceiver presence or status as expected after config reload. "
-        "- Hostname: {}\n"
-        "- Platform: {}\n"
-        "- HWSKU: {}\n"
-        "- Interfaces checked: {}\n"
-        "- Max wait time (seconds): {}\n"
+        "- Hostname: {hostname}\n"
+        "- Platform: {platform}\n"
+        "- HWSKU: {hwsku}\n"
+        "- Interfaces checked: {interfaces}\n"
+        "- Max wait time (seconds): {timeout}\n"
     ).format(
-        max_wait_time_for_transceivers,
-        duthost.hostname,
-        duthost.facts.get('platform'),
-        duthost.facts.get('hwsku'),
-        list(interfaces.keys()),
-        max_wait_time_for_transceivers
+        timeout=max_wait_time_for_transceivers,
+        hostname=duthost.hostname,
+        platform=duthost.facts.get('platform'),
+        hwsku=duthost.facts.get('hwsku'),
+        interfaces=list(interfaces.keys())
     )
 
     logging.info("Check transceiver status")

@@ -161,32 +161,20 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 assert routes_json['totalPrefixCounter'] == original_ipv4_route_adv_count, (
                     "Mismatch in total advertised IPv4 route count after AZNG migration. "
                     "Expected: {}, Actual: {}. "
-                    "- original_ipv4_route_adv_count: {}\n"
-                    "- routes_json['totalPrefixCounter']: {}\n"
                     "- Command: {}\n"
-                    "- routes_json: {}"
                 ).format(
                   original_ipv4_route_adv_count,
                   routes_json['totalPrefixCounter'],
-                  original_ipv4_route_adv_count,
-                  routes_json['totalPrefixCounter'],
-                  bgp_nbr_adv_cmd,
-                  routes_json
+                  bgp_nbr_adv_cmd
                 )
                 assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count, (
                    "Mismatch in filtered advertised IPv4 route count after AZNG migration. "
-                   "Expected: {}, Actual: {}. "
-                   "- original_ipv4_route_adv_filter_count: {}\n"
-                   "- routes_json['filteredPrefixCounter']: {}\n"
-                   "- Command: {}\n"
-                   "- routes_json: {}"
+                   "Expected: {expected}, Actual: {actual}. "
+                   "- Command: {cmd}\n"
                 ).format(
-                  original_ipv4_route_adv_filter_count,
-                  routes_json['filteredPrefixCounter'],
-                  original_ipv4_route_adv_filter_count,
-                  routes_json['filteredPrefixCounter'],
-                  bgp_nbr_adv_cmd,
-                  routes_json
+                  expected=original_ipv4_route_adv_filter_count,
+                  actual=routes_json['filteredPrefixCounter'],
+                  cmd=bgp_nbr_adv_cmd
                 )
 
         rc = duthost.shell('sudo azng_migration -o')
