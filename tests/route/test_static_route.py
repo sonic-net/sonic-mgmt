@@ -161,7 +161,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
                 return False
         return True
 
-    assert (wait_until(60, 15, 0, _check_routes))
+    assert wait_until(60, 15, 0, _check_routes), (
+        "Failed to verify route redistribution: prefix '{}' not found in advertised routes of all BGP neighbors."
+    ).format(prefix)
 
 
 # output example of ip [-6] route show
