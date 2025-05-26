@@ -1487,8 +1487,8 @@
     },
     {
         "feature": "snmp",
-        "owner": "Suvarna Meenakshi",
-        "email": "sumeenak@microsoft.com",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1506,8 +1506,8 @@
                     "snmp.test_snmp_queue",
                     "snmp.test_snmp_v2mib"
                 ],
-                "owner": "Suvarna Meenakshi",
-                "email": "sumeenak@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             }
         ]
     },
