@@ -165,7 +165,7 @@ bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supperted on master."
     conditions:
-      - "release in ['master']"
+      - "release in ['master', '202505']"
 
 bgp/test_bgp_queue.py:
   skip:
