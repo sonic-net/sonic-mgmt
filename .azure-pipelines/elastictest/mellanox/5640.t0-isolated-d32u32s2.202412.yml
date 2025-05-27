@@ -65,12 +65,12 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py"
+    default: "qos/test_buffer.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py,qos/test_pfc_counters.py,qos/test_pfc_pause.py,qos/test_qos_masic.py,qos/test_qos_sai.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfcwd,dualtor,snappi_tests,ixia,wan,dualtor_io,bfd,configlet,dash,dhcp_relay,dhcp_server,dualtor_mgmt,http,macsec,mclag,mpls,mx,ospf,pfc_asym,read_mac,reset_factory,smartswitch,test_pktgen,test_vs_chassis_setup,upgrade_path,voq,wol,pc"
+    default: "pfcwd,dualtor,snappi_tests,ixia,wan,dualtor_io,bfd,configlet,dash,dhcp_relay,dhcp_server,dualtor_mgmt,http,macsec,mclag,mpls,mx,ospf,pfc_asym,read_mac,reset_factory,smartswitch,test_pktgen,test_vs_chassis_setup,upgrade_path,voq,wol"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
