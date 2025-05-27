@@ -1,0 +1,19 @@
+[Unit]
+Description=Cisco fanout special configuration
+After=swss.service
+After=syncd.service
+Requires=updategraph.service
+After=updategraph.service
+BindsTo=sonic.target
+After=sonic.target
+#StartLimitIntervalSec=1200
+#StartLimitBurst=3
+
+[Service]
+User=root
+ExecStartPre=/bin/sleep 120
+ExecStart=python /usr/bin/cisco_fanout.py
+TimeoutStartSec=900
+
+[Install]
+WantedBy=sonic.target
