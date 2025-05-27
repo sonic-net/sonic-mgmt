@@ -311,43 +311,51 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
 @pytest.fixture(scope="module", autouse=True)
 def crm_resources(duthosts, rand_one_dut_hostname):
     """
-    Parse the CRM resource table from the 'crm show resources all' command output
-    and return a dictionary of the form:
+    Parse the CRM resource table from the 'crm show resources all' command output,
+    retrying if CRM counters are not ready.
+    Returns a dictionary of the form:
     {
         "ipv4_route": {"used": 6475, "available": 140981},
-        "ipv6_route": {"used": 6460, "available": 9924},
-        ...
     }
     """
     duthost = duthosts[rand_one_dut_hostname]
+    resources = {}
 
-    cmd_output = duthost.shell("crm show resources all")["stdout"]
+    def get_crm_resources(resources_dict):
+        cmd_output = duthost.shell("crm show resources all")["stdout"]
+        if "CRM counters are not ready" in cmd_output:
+            return False
 
-    resources_dict = {}
-    lines = cmd_output.splitlines()
-    started = False
+        lines = cmd_output.splitlines()
+        started = False
 
-    for line in lines:
-        # Detect the start of the first resource table
-        if re.search(r"^Resource Name\s+Used Count\s+Available Count", line):
-            started = True
-            continue
-
-        if started:
-            # Once we hit an empty or non-data line, stop
-            if not line.strip() or re.search(r"^Stage\s+Bind Point", line):
-                break
-            if re.match(r"^-+\s+-+\s+-+$", line):
+        for line in lines:
+            # Detect the start of the first resource table
+            if re.search(r"^Resource Name\s+Used Count\s+Available Count", line):
+                started = True
                 continue
 
-            parts = line.split()
-            if len(parts) >= 3:
-                resource_name = parts[0].strip()
-                used_count = int(parts[1])
-                available_count = int(parts[2])
-                resources_dict[resource_name] = {
-                    "used": used_count,
-                    "available": available_count
-                }
+            if started:
+                # Once we hit an empty or non-data line, stop
+                if not line.strip() or re.search(r"^Stage\s+Bind Point", line):
+                    break
+                if re.match(r"^-+\s+-+\s+-+$", line):
+                    continue
 
-    return resources_dict
+                parts = line.split()
+                if len(parts) >= 3:
+                    resource_name = parts[0].strip()
+                    used_count = int(parts[1])
+                    available_count = int(parts[2])
+                    resources_dict[resource_name] = {
+                        "used": used_count,
+                        "available": available_count
+                    }
+        return True if resources_dict else False
+
+    # Wait up to 90 seconds, checking every 5 seconds
+    wait_until(90, 5, 0, get_crm_resources, resources)
+    if not resources:
+        pytest.fail("CRM counters are not ready after multiple retries.")
+
+    return resources

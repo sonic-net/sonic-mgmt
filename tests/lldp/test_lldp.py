@@ -180,3 +180,4 @@ def test_lldp_neighbor_post_orchagent_reboot(duthosts, enum_rand_one_per_hwsku_f
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
+    duthost.shell("sudo config feature autorestart swss enabled")

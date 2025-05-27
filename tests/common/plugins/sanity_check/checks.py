@@ -709,6 +709,17 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         reason = ''
 
         check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+
+        if not check_passed:
+            def _verify_mux_simulator_status_passed():
+                nonlocal check_passed, err_msg, duts_mux_status
+                check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+                return check_passed
+
+            logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
+            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
+
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
@@ -1195,17 +1206,15 @@ def check_bfd_up_count(duthosts):
                 logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
                 bfd_up_count = -1
 
+        is_expected = (bfd_up_count == expected_bfd_up_count)
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
-            if bfd_up_count != expected_bfd_up_count:
-                check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
-                    asic_id,
-                    dut.hostname,
-                    expected_bfd_up_count,
-                ))
+            if is_expected:
+                logger.info("BFD up count on {} of {} is as expected".format(asic_id, dut.hostname))
+            else:
+                logger.info("BFD up count on {} of {} is not as expected".format(asic_id, dut.hostname))
 
-        return not check_result["failed"]
+        return is_expected
 
     def _check_bfd_up_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
@@ -1219,6 +1228,16 @@ def check_bfd_up_count(duthosts):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for asic in dut.asics:
                 executor.submit(_check_bfd_up_count_on_asic, asic, dut, check_result)
+
+        for asic_id, count in check_result["bfd_up_count"].items():
+            if count != expected_bfd_up_count:
+                check_result["failed"] = True
+                logger.error("BFD up count on {} of {} is not as expected. Expected: {}, Actual: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                    count,
+                ))
 
         logger.info("Done checking BFD up count on {}".format(dut.hostname))
         results[dut.hostname] = check_result
