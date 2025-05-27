@@ -4,19 +4,47 @@ import random
 import json
 import time
 
+from tests.common import config_reload
 from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC, \
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
-    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
+    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_TYPE, \
     ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
-    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, OUTBOUND_ROUTING_GROUP
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
+from dash_pipeline_utils import P4UnderlayRoutingTable
 
 logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
+
+
+@pytest.fixture(scope="module", autouse=True)
+def enable_kvm_dpu(duthost):
+    if duthost.facts["asic_type"] != "vs":
+        return
+
+    duthost.shell("sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' switch_type dpu")
+    duthost.shell("config save -y")
+    eth1_ip = get_interface_ip(duthost, "Ethernet0").with_prefixlen
+    eth2_ip = get_interface_ip(duthost, "Ethernet4").with_prefixlen
+    duthost.shell(f"ifconfig eth1 {eth1_ip} && ifconfig eth2 {eth2_ip}")
+    duthost.shell("systemctl enable dash-engine && systemctl start dash-engine")
+
+    config_reload(duthost, wait=210)
+
+    yield
+
+    duthost.shell("systemctl stop dash-engine && systemctl disable dash-engine")
+    eth1_ip = "0.0.0.0"
+    eth2_ip = "0.0.0.0"
+    duthost.shell(f"ifconfig eth1 {eth1_ip} && ifconfig eth2 {eth2_ip}")
+    duthost.shell("sonic-db-cli CONFIG_DB hdel 'DEVICE_METADATA|localhost' switch_type")
+    duthost.shell("config save -y")
+
+    config_reload(duthost, wait=210)
 
 
 def get_dpu_dataplane_port(duthost, dpu_index):
@@ -77,7 +105,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--vxlan_udp_dport",
         action="store",
-        default="random",
+        default="default",
         help="The vxlan udp dst port used in the test"
     )
 
@@ -204,6 +232,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
+        OUTBOUND_ROUTING_GROUP: "orouting_group1",
         ACL_GROUP: "group1",
         ACL_STAGE: 5
     }
@@ -298,6 +327,25 @@ def dash_smartswitch_vnet_config(duthost, config_facts, minigraph_facts, tbinfo)
     return dash_info
 
 
+def apply_underlay_config(duthost, config_info, op):
+    if duthost.facts["asic_type"] != "vs":
+        return
+
+    local_ip = '::' + config_info[LOCAL_PA_IP]
+    if config_info[ROUTING_TYPE] == "direct":
+        remote_ip = '::' + config_info[REMOTE_CA_IP]
+    else:
+        remote_ip = '::' + config_info[REMOTE_PA_IP]
+
+    underlay_routing = P4UnderlayRoutingTable(duthost.mgmt_ip + ":9559")
+    if op == "SET":
+        underlay_routing.set(ip_prefix=local_ip,  ip_prefix_len=128, next_hop_id=0)
+        underlay_routing.set(ip_prefix=remote_ip, ip_prefix_len=128, next_hop_id=1)
+    else:
+        underlay_routing.unset(ip_prefix=local_ip,  ip_prefix_len=128)
+        underlay_routing.unset(ip_prefix=remote_ip, ip_prefix_len=128)
+
+
 @pytest.fixture(scope="function")
 def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
@@ -318,6 +366,8 @@ def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
         else:
             apply_swssconfig_file(duthost, dest_path)
 
+        apply_underlay_config(duthost, config_info, op)
+
     yield _apply_config
 
     op = "DEL"
@@ -329,7 +379,7 @@ def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
 @pytest.fixture(scope="function")
 def dash_inbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
     if use_underlay_route:
-        dash_config_info[LOCAL_PA_IP] = u"30.30.30.30"
+        dash_config_info[LOCAL_PA_IP] = u"30.30.30.20"
         dash_config_info[LOCAL_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
     else:
         dash_config_info[LOCAL_PTF_INTF] = [dash_config_info[LOCAL_PTF_INTF]]
@@ -340,7 +390,7 @@ def dash_inbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
 
 @pytest.fixture(scope="function")
 def apply_inbound_configs(dash_inbound_configs, apply_config):
-    dash_inbound_configs[ROUTING_ACTION] = "vnet"
+    dash_inbound_configs[ROUTING_TYPE] = "vnet"
     apply_config(dash_inbound_configs)
 
 
@@ -362,13 +412,14 @@ def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts,
 
 @pytest.fixture(scope="function")
 def apply_vnet_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "vnet"
+    dash_outbound_configs[ROUTING_TYPE] = "vnet"
+    dash_outbound_configs[ROUTING_ACTION_TYPE] = "maprouting"
     apply_config(dash_outbound_configs)
 
 
 @pytest.fixture(scope="function")
 def apply_vnet_direct_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "vnet_direct"
+    dash_outbound_configs[ROUTING_TYPE] = "vnet_direct"
     dash_outbound_configs[ROUTING_ACTION_TYPE] = "maprouting"
     dash_outbound_configs[LOOKUP_OVERLAY_IP] = "1.1.1.1"
 
@@ -377,7 +428,7 @@ def apply_vnet_direct_configs(dash_outbound_configs, apply_config):
 
 @pytest.fixture(scope="function")
 def apply_direct_configs(dash_outbound_configs, apply_config):
-    dash_outbound_configs[ROUTING_ACTION] = "direct"
+    dash_outbound_configs[ROUTING_TYPE] = "direct"
     del dash_outbound_configs[VNET2_NAME]
 
     apply_config(dash_outbound_configs)
@@ -449,8 +500,9 @@ def vxlan_udp_dport(request, duthost):
 
     yield vxlan_udp_dport
 
-    logger.info("Restore the VXLAN UDP dst port to 4789")
-    config_vxlan_udp_dport(duthost, 4789)
+    if vxlan_udp_dport != 4789:
+        logger.info("Restore the VXLAN UDP dst port to 4789")
+        config_vxlan_udp_dport(duthost, 4789)
 
 
 @pytest.fixture(scope="function")
