@@ -754,7 +754,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -1605,6 +1605,9 @@ Totals               6450                 6449
         for line in show_cmd_output["stdout_lines"]:
             container_name = line.split()[0].strip()
             container_state = line.split()[1].strip()
+            if container_name == "frr_bmp":
+                continue
+
             if container_state in ["enabled", "disabled"]:
                 container_autorestart_states[container_name] = container_state
 

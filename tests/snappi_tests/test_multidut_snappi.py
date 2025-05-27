@@ -153,9 +153,9 @@ def test_snappi(request,
     wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
 
     # """ Start traffic """
-    ts = snappi_api.transmit_state()
-    ts.state = ts.START
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    snappi_api.set_control_state(cs)
 
     # """ Wait for traffic to finish """
     time.sleep(duration_sec)
@@ -187,9 +187,9 @@ def test_snappi(request,
     request.flow.flow_names = all_flow_names
     rows = snappi_api.get_metrics(request).flow_metrics
 
-    ts = snappi_api.transmit_state()
-    ts.state = ts.STOP
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    snappi_api.set_control_state(cs)
 
     """ Analyze traffic results """
     for row in rows:
