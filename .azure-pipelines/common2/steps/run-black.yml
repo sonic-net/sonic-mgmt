@@ -1,0 +1,9 @@
+steps:
+  - script: |
+      pip install black
+      echo "Running Black formatter"
+      # NOTE the --check flag is used to check if the code is formatted correctly
+      # The tool uses configuration from pyproject.toml expected to be available in the
+      # root directory of the calling repository
+      black --check .
+    displayName: 'Run Black formatter'
