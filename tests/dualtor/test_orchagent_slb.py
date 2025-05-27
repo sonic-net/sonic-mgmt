@@ -1,4 +1,6 @@
 import ipaddress
+import logging
+import os.path
 import pytest
 import random
 import time
@@ -144,6 +146,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
             ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
         yield connections
     finally:
+        upper_tor_host.shell("show arp")
+        lower_tor_host.shell("show arp")
+        ptfhost.shell("ip route show")
         for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
@@ -165,9 +170,31 @@ def bgp_neighbors(ptfhost, setup_interfaces):
             conn["local_addr"].split("/")[0],
             conn["local_asn"],
             conn["exabgp_port"],
-            is_passive=True
+            is_passive=True,
+            debug=True
         )
     return neighbors
+
+
+@pytest.fixture(scope="module", autouse=True)
+def save_slb_exabgp_logfiles(ptfhost, pytestconfig, request):
+    """Save slb exabgp log files to the log directory."""
+    # remove log files before test
+    log_files_before = ptfhost.shell("ls /tmp/exabgp-slb_*.log")["stdout"].split()
+    for log_file in log_files_before:
+        ptfhost.file(path=log_file, state="absent")
+
+    yield
+
+    test_log_file = pytestconfig.getoption("log_file", None)
+    if test_log_file:
+        log_dir = os.path.dirname(os.path.abspath(test_log_file))
+        log_files = ptfhost.shell("ls /tmp/exabgp-slb_*.log")["stdout"].split()
+        for log_file in log_files:
+            logging.debug("Save slb exabgp log %s to %s", log_file, log_dir)
+            ptfhost.fetch(src=log_file, dest=log_dir + os.path.sep, fail_on_missing=False, flat=True)
+    else:
+        logging.info("Skip saving slb exabgp log files to log directory as log directory not set.")
 
 
 @pytest.fixture(params=['ipv4', 'ipv6'])
