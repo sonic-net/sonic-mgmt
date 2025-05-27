@@ -32,7 +32,7 @@ To configure packet trimming on the SONiC DUT, use the following command:
 
 In the above command, `s` is the size of packets after trimming (in bytes), `d` is the DSCP value assigned to trimmed packets, and `q` is the egress queue number used to send out trimmed packets.
 
-**Note:** In our tests, we set trimmed packet size to 128 for Mellanox ASICs and 254 for Broadcom ASICs.
+**Note:** In our tests, we set trimmed packet size to 256.
 
 You also need to enable packet trimming for the buffer profile associated with the egress queue:
 
@@ -87,7 +87,7 @@ The above command will limit the rate of packets allowed into `Ethernet100|6` to
 ### DUT Configuration
 •	Enable queue-level counters on the SONiC DUT.
 
-•	Enable packet trimming on the DUT and set the trimmed packet size to 128 for Mellanox or 254 for Broadcom ASICs.
+•	Enable packet trimming on the DUT and set the trimmed packet size to 256.
 
 ### Keysight Configuration
 •	All Keysight ports should have the same bandwidth capacity.
