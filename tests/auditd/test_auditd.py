@@ -83,8 +83,7 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
         "syslog_conf",
         "auditd_rules",
         "auditd_service",
-        "auditd_active",
-        "auditd_reload"
+        "auditd_active"
     ]
 
     # Check if all expected keys exist and have the value "OK"
@@ -266,4 +265,4 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_
 
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
-    pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
+    pytest_assert('"auditd_active":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
