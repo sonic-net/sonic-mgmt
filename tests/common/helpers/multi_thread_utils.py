@@ -1,4 +1,4 @@
-from concurrent.futures import Future, as_completed
+from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, List
 
