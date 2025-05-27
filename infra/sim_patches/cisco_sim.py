@@ -10,11 +10,15 @@ if len(cmds) == 0:
     cmds = [
         {
             "cmd": r'(?:sudo\s+)?\s*config\s+acl\s+remove\s+.*',
-            "delay": 5,
+            "delay": 10,
         },
         {
             "cmd": r'(?:sudo\s+)?\s*config\s+acl\s+add\s+.*',
-            "delay": 5,
+            "delay": 10,
+        },
+        {
+            "cmd": r'(?:sudo\s+)?\s*config\s+interface\s+\.*',
+            "delay": 20,
         },
         {
             "cmd": r'(?:sudo\s+)?\s*ip neigh (add|del)\.*',

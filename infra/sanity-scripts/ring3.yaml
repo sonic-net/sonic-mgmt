@@ -94,7 +94,7 @@ FWD:
       sim:
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop 
   t1:
-    lightning:
+    lightning,superbolt:
       sim:
         - drop_packets/test_drop_counters.py::test_absent_ip_header
         - drop_packets/test_drop_counters.py::test_acl_drop

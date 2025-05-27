@@ -1,0 +1,463 @@
+device_groups:
+  fanout:
+    host:
+    - nexus-5
+    - str-7260-11
+  lab:
+    children:
+    - sonic
+    - fanout
+    vars:
+      mgmt_subnet_mask_length: '24'
+  ptf:
+    host:
+    - docker-ptf
+  sonic:
+    children:
+    - sonic_cisco
+  sonic_cisco:
+    host:
+    - superbolt-01
+    vars:
+      hwsku: Cisco-8122-O128S2
+      iface_speed: '400000'
+devices:
+  docker-ptf:
+    ansible:
+      ansible_host: 192.168.122.162/24
+      ansible_hostv6: fc0b::1/64
+      ansible_ssh_pass: root
+      ansible_ssh_user: root
+    credentials:
+      password: root
+      username: root
+    device_type: blank
+    hwsku: null
+  nexus-5:
+    alias: null
+    ansible:
+      ansible_host: 10.251.0.13/23
+      ansible_ssh_pass: password
+      ansible_ssh_user: user
+      fanout_sonic_password: password
+      fanout_sonic_user: admin
+    credentials:
+      password: null
+      username: null
+    device_type: FanoutLeaf
+    hwsku: Arista-7260QX-64
+  str-acs-serv-01:
+    alias: null
+    ansible:
+      ansible_become_pass: cisco123
+      ansible_host: 172.17.0.1/23
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: vxr
+      sonicadmin_initial_password: cisco123
+      sonicadmin_password: cisco123
+      sonicadmin_user: cisco
+    credentials:
+      password: cisco123
+      username: vxr
+    device_type: server
+    hwsku: TestServ
+    mgmt_subnet_mask_length: '24'
+  superbolt-01:
+    alias: null
+    ansible:
+      ansible_host: 192.168.122.117
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: cisco
+    credentials:
+      enable_password: cisco123
+      password: cisco123
+      username: cisco
+    device_type: DevSonic
+    hwsku: Cisco-8122-O128S2
+    os: sonic
+docker_registry:
+  docker_registry_host: sonicdev-microsoft.azurecr.io:443
+  docker_registry_password: sonic
+  docker_registry_username: 1dafc8d7-d19c-4f58-8653-e8d904f30dab
+host_vars:
+  str-acs-serv-01:
+    external_port: eth0
+    mgmt_bridge: br1
+    mgmt_gw: 172.17.0.1
+    mgmt_prefixlen: 24
+testbed:
+  docker-ptf:
+    ansible:
+      ansible_host: 192.168.122.162/24
+      ansible_hostv6: fc0b::1/64
+      ansible_ssh_pass: root
+      ansible_ssh_user: root
+    comment: Test ptf superbolt
+    credentials:
+      password: root
+      username: root
+    dut: superbolt-01
+    group-name: sonic_cisco
+    ptf: docker-ptf
+    ptf_image_name: docker-ptf-superbolt
+    ptf_ip: 192.168.122.162/24
+    ptf_ipv6: fc0b::1/64
+    server: server_1
+    topo: t1
+    vm_base: VM0100
+testbed_config:
+  alias: superboltTestbed
+  name: testbed-superbolt-t1
+  type: Physical
+topology:
+  superbolt-01:
+    interfaces:
+      Ethernet0:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2000
+        VlanMode: Access
+      Ethernet100:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2025
+        VlanMode: Access
+      Ethernet104:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2026
+        VlanMode: Access
+      Ethernet108:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2027
+        VlanMode: Access
+      Ethernet112:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2028
+        VlanMode: Access
+      Ethernet116:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2029
+        VlanMode: Access
+      Ethernet12:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2003
+        VlanMode: Access
+      Ethernet120:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2030
+        VlanMode: Access
+      Ethernet124:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2031
+        VlanMode: Access
+      Ethernet16:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2004
+        VlanMode: Access
+      Ethernet20:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2005
+        VlanMode: Access
+      Ethernet24:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2006
+        VlanMode: Access
+      Ethernet28:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2007
+        VlanMode: Access
+      Ethernet32:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2008
+        VlanMode: Access
+      Ethernet36:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2009
+        VlanMode: Access
+      Ethernet4:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2001
+        VlanMode: Access
+      Ethernet40:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2010
+        VlanMode: Access
+      Ethernet44:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2011
+        VlanMode: Access
+      Ethernet48:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2012
+        VlanMode: Access
+      Ethernet52:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2013
+        VlanMode: Access
+      Ethernet56:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2014
+        VlanMode: Access
+      Ethernet60:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2015
+        VlanMode: Access
+      Ethernet64:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2016
+        VlanMode: Access
+      Ethernet68:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2017
+        VlanMode: Access
+      Ethernet72:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2018
+        VlanMode: Access
+      Ethernet76:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2019
+        VlanMode: Access
+      Ethernet8:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2002
+        VlanMode: Access
+      Ethernet80:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2020
+        VlanMode: Access
+      Ethernet84:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2021
+        VlanMode: Access
+      Ethernet88:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2022
+        VlanMode: Access
+      Ethernet92:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2023
+        VlanMode: Access
+      Ethernet96:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1
+        VlanID: 2024
+        VlanMode: Access
+veos:
+  cd_image_filename: Aboot-veos-serial-8.0.0.iso
+  credentials:
+    password: 123456
+    username: admin
+  eos_ansible:
+    ansible_password: 123456
+    ansible_user: admin
+  hdd_image_filename: vEOS-lab-4.20.15M.vmdk
+  max_fp_num: 4
+  memory: 2097152
+  proxy_env:
+    http_proxy: http://173.36.224.108:80
+    https_proxy: http://173.36.224.108:80
+  root_path: /home/azure/veos-vm
+  skip_image_downloading: false
+  vm_console_base: 7000
+  vm_host_1:
+    STR-ACS-SERV-01:
+      ansible_host: 10.89.172.173
+  vm_host_ansible:
+    ansible_password: cisco123
+    ansible_sudo_pass: cisco123
+    ansible_user: vxr
+  vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+  vms_1:
+    VM0100:
+      ansible_host: 192.168.122.3
+    VM0101:
+      ansible_host: 192.168.122.141
+    VM0102:
+      ansible_host: 192.168.122.52
+    VM0103:
+      ansible_host: 192.168.122.24
+    VM0104:
+      ansible_host: 192.168.122.244
+    VM0105:
+      ansible_host: 192.168.122.252
+    VM0106:
+      ansible_host: 192.168.122.189
+    VM0107:
+      ansible_host: 192.168.122.10
+    VM0108:
+      ansible_host: 192.168.122.77
+    VM0109:
+      ansible_host: 192.168.122.92
+    VM0110:
+      ansible_host: 192.168.122.228
+    VM0111:
+      ansible_host: 192.168.122.9
+    VM0112:
+      ansible_host: 192.168.122.11
+    VM0113:
+      ansible_host: 192.168.122.53
+    VM0114:
+      ansible_host: 192.168.122.65
+    VM0115:
+      ansible_host: 192.168.122.104
+    VM0116:
+      ansible_host: 192.168.122.232
+    VM0117:
+      ansible_host: 192.168.122.157
+    VM0118:
+      ansible_host: 192.168.122.95
+    VM0119:
+      ansible_host: 192.168.122.7
+    VM0120:
+      ansible_host: 192.168.122.212
+    VM0121:
+      ansible_host: 192.168.122.200
+    VM0122:
+      ansible_host: 192.168.122.44
+    VM0123:
+      ansible_host: 192.168.122.235
+    VM0124:
+      ansible_host: 192.168.122.94
+    VM0125:
+      ansible_host: 192.168.122.68
+    VM0126:
+      ansible_host: 192.168.122.173
+    VM0127:
+      ansible_host: 192.168.122.152
+    VM0128:
+      ansible_host: 192.168.122.49
+    VM0129:
+      ansible_host: 192.168.122.207
+    VM0130:
+      ansible_host: 192.168.122.38
+    VM0131:
+      ansible_host: 192.168.122.63
+veos_groups:
+  eos:
+    children:
+    - vms_1
+  server_1:
+    children:
+    - vm_host_1
+    - vms_1
+    vars:
+      host_var_file: host_vars/STR-ACS-SERV-01.yml
+  servers:
+    children:
+    - server_1
+    vars:
+      topologies:
+      - t1
+      - t1-lag
+      - t1-64-lag
+      - t1-64-lag-clet
+      - t0
+      - t0-56
+      - t0-52
+      - ptf32
+      - ptf64
+      - t0-64
+      - t0-64-32
+      - t0-116
+  vm_host:
+    children:
+    - vm_host_1
+  vm_host_1:
+    host:
+    - STR-ACS-SERV-01
+  vms_1:
+    host:
+    - VM0100
+    - VM0101
+    - VM0102
+    - VM0103
+    - VM0104
+    - VM0105
+    - VM0106
+    - VM0107
+    - VM0108
+    - VM0109
+    - VM0110
+    - VM0111
+    - VM0112
+    - VM0113
+    - VM0114
+    - VM0115
+    - VM0116
+    - VM0117
+    - VM0118
+    - VM0119
+    - VM0120
+    - VM0121
+    - VM0122
+    - VM0123
+    - VM0124
+    - VM0125
+    - VM0126
+    - VM0127
+    - VM0128
+    - VM0129
+    - VM0130
+    - VM0131

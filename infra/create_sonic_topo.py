@@ -34,6 +34,15 @@ import urllib.parse
 from jinja2 import Environment, FileSystemLoader
 from run_scripts_remote import run_scripts_remote, upload_log_files, SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 
+##DEBUG is falg to control traces are generated for untaring/listing files that fill out the logs and make the  debugging difficult
+## use this flag to enable it when it is needed
+DEBUG = False
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 
 # SFD T2 MIN MAX LC supported for SIM
@@ -134,7 +143,7 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightning', 'siren','sfd', 'churchill-mono', 'carib'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightning','superbolt', 'siren','sfd', 'churchill-mono', 'carib'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -185,7 +194,8 @@ def repo_update(data):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        if DEBUG:
+            print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     if 'golden-code' in buff:
@@ -242,7 +252,8 @@ def repo_update(data):
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        if DEBUG:
+            print(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("cd sonic-test/sonic-mgmt\n")
@@ -309,15 +320,18 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
         resp = chan.recv(9999)
         print(resp.decode("utf-8", errors="replace"))
 
+    logging.info("Processing Testbed")
     chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("utf-8", errors="replace"))
+    logging.info("Processing Testbed is finished")
 
     if topo_type in ['t2-min', 't2-vs']:
         overwrite_lab_file(data, lc_topo_code)
         print("Overwrote lab file for T2 specific oddities")
 
+    logging.info("Deploying MG")
     chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
     chan.settimeout(180)
     buff = ''
@@ -348,6 +362,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     finally:
         print(buff)
 
+    logging.info("Deploying MG is finished")
     ssh.close()
 
 def untar_cisco_dir(data):
@@ -378,7 +393,8 @@ def untar_cisco_dir(data):
     chan.send('tar -xvf cisco.tar\n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
+    if DEBUG:
+        print(resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -443,9 +459,9 @@ def change_dut_passwd(device):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
+        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
     except paramiko.ssh_exception.AuthenticationException:
-        ssh.connect(host, port, user, new_passwd, timeout=120, banner_timeout=120)
+        ssh.connect(host, port, user, new_passwd, timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
 
     chan = ssh.invoke_shell()
     buff = ''
@@ -489,6 +505,7 @@ def change_dut_passwd(device):
 
     time.sleep(3)
     chan.send('sudo config interface ip add eth0 {}/24 192.168.122.1\n'.format(mgmt_ip))
+    time.sleep(1)
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -497,6 +514,7 @@ def change_dut_passwd(device):
 
     time.sleep(3)
     chan.send('sudo config interface ip add eth0 FC00:2::32/64 fc00:2::1\n')
+    time.sleep(1)
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -505,6 +523,7 @@ def change_dut_passwd(device):
 
     time.sleep(3)
     chan.send('sudo config save -y\n')
+    time.sleep(1)
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -513,6 +532,7 @@ def change_dut_passwd(device):
 
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
+    time.sleep(1)
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -547,7 +567,7 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     out = ""
     for cmd in cmd_list:
-        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120)
+        ssh.connect(host, port, user, passwd, timeout=120, banner_timeout=120,look_for_keys=False, allow_agent=False)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdout.channel.recv_exit_status()
         out = stdout.read().decode("utf-8", errors="replace").strip()
@@ -647,6 +667,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('sonic_lab_links_lightning.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_lightning.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
+    elif device_type == 'superbolt':
+        ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'churchill-mono':
@@ -684,7 +706,7 @@ def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     for dut_name in get_dut_names(data):
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'],look_for_keys=False, allow_agent=False, imeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.get('/tmp/config_db.json','config_db_current.json')
         ftp_client.close()
@@ -707,7 +729,7 @@ def replace_dut_mgmt_address(data):
             json.dump(cfg_data, cfg_file, indent=4)
             cfg_file.close()
 
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'],look_for_keys=False, allow_agent=False, timeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.put('config_db.json','/tmp/config_db_new.json')
         ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
@@ -722,7 +744,6 @@ def reload_dut_with_newCFG(data):
         cmd_list.append('sudo reboot\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
 
-
 # apply sim patches to handle eth4 for route_check and fast and warm reboot.
 # note that eth4 is added as the simulation interface, however, in sonic only eth0 is used for mgmt and eth4 is considered as data port that lead to issues.
 # these are temporary patches to handle the issues. Evetually, the sonic coode should be updated to treat eth4 as managment interfce.
@@ -731,7 +752,7 @@ def add_sim_patches(data):
         print(f"****** Applying simulation patches for eth4 on {dut_name} ******")
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", timeout=120, banner_timeout=120)
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], 'cisco123', look_for_keys=False, allow_agent=False,  timeout=120, banner_timeout=120)
 
         ftp_client=ssh.open_sftp()
         ftp_client.get('/usr/local/bin/fast-reboot','fast-reboot')
@@ -781,7 +802,7 @@ def add_sim_patches(data):
         cmd_list.append('sudo cp /tmp/route_check.py /usr/local/bin/route_check.py\n')
         cmd_list.append('sudo cp /tmp/fast-reboot /usr/local/bin/fast-reboot\n')
         cmd_list.append('sudo cp /tmp/warm-reboot /usr/local/bin/warm-reboot\n')
-        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", cmd_list)
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], 'cisco123', cmd_list)
         print(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
 
 
@@ -790,7 +811,7 @@ def run_sim_workaround(data, filename):
     ssh = paramiko.SSHClient()
     for dut_name in get_dut_names(data):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120)
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'],look_for_keys=False, allow_agent=False, timeout=120, banner_timeout=120)
         ftp_client=ssh.open_sftp()
         ftp_client.put(filename, f'/tmp/{filename}')
         ftp_client.close()
@@ -979,6 +1000,8 @@ def get_dut_platform(device_type):
         return 'crocodile'
     elif device_type == 'lightning':
         return 'lightning'
+    elif device_type == 'superbolt':
+        return 'superbolt'
     elif device_type == 'siren':
         return 'siren'
     elif device_type == 'churchill-mono':
@@ -1007,8 +1030,12 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'lightning':
             base_topo_file = 'testbed-lightning-t0.yaml'
+        elif device_type == 'superbolt':
+            base_topo_file = 'testbed-superbolt-t0.yaml'
         elif device_type == 'siren':
             base_topo_file = 'testbed-siren-t0.yaml'
+        elif device_type == 'crocodile':
+            base_topo_file = 'testbed-crocodile-t0.yaml'
         elif device_type in ['churchill-mono','carib']:
             base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
@@ -1020,6 +1047,8 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-churchill-mono-t1.yaml'
         elif device_type == 'lightning':
             base_topo_file = 'testbed-lightning-t1.yaml'
+        elif device_type == 'superbolt':
+            base_topo_file = 'testbed-superbolt-t1.yaml'
         elif device_type == 'siren':
             base_topo_file = 'testbed-siren-t1.yaml'
         else:
@@ -1140,51 +1169,66 @@ def attach_vxr():
 
 def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False, add_sim_patch=False, bgp_hold_time_patch=False):
     # Create admin user in vEOS vm
-    print("****** Create admin user in vEOS vm *******")
+    logging.info("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
+    logging.info("****** Create admin user in vEOS vm is finished *******")
 
-    #print("********** Do a Git Update **********")
+    logging.info("****** Update repo for sonic-mgmt *******")
     repo_update(data)
+    logging.info("****** Update repo for sonic-mgmt is finished *******")
 
     # Create testbed file based on vxr_ports
-    print("****** Create testbed file based on vxr_ports *******")
+    logging.info("****** Create testbed file based on vxr_ports *******")
     create_testbed_file(data,base_topo_file,vEOS_count,dut_platform,device_type)
+    logging.info("****** Create testbed file based on vxr_ports is finished *******")
 
     # Upload t1 specific files to sonic mgmt container
-    print("********** Upload testbed specific files to sonic mgmt container ***********")
+    logging.info("********** Upload testbed specific files to sonic mgmt container ***********")
     upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code,add_sim_patches, bgp_hold_time_patch)
+    logging.info("********** Upload testbed specific files to sonic mgmt container is finished ***********")
 
     # Untar cisco directory
-    print("********** Untar the uploaded cisco directory **********")
+    logging.info("********** Untar the uploaded cisco directory **********")
     untar_cisco_dir(data)
+    logging.info("********** Untar the uploaded cisco directory is finished ********")
 
     # Change DUT password and set mgmt ip address
 
     for dut_name in get_dut_names(data):
-        print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+        logging.info("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
         change_dut_passwd(data[dut_name])
+        logging.info("********** Change DUT password for DUT #{} and set mgmt ip address is finished ***********".format(dut_name))
 
     if add_sim_patch:
+        logging.info("********** Add simulation patches to handle eth4 **********")
         add_sim_patches(data)
+        logging.info("********** Add simulation patches to handle eth4 is finished **********")
+
     # Start docker container, deploy DUT minigraph
-    print("********** Start docker container, deploy DUT minigraph ***********")
+    logging.info("********** Deploying DUT minigraph ***********")
     deploy_mg(data,topo_type,base_topo_file, lc_topo_code)
+    logging.info("********** Deploying DUT minigraph is finished ***********")
 
     if apply_wa and device_type in wa_file_map:
         #sleep sometime to let deploy-mg load_minigraph complete
-        time.sleep(300)
+        logging.info("********** run_sim_workaround ***********")
+        time.sleep(60)
         run_sim_workaround(data, wa_file_map[device_type])
         run_config_reload(data)
+        logging.info("********** run_sim_workaround is finished ***********")
 
     # Add vEOS config
-    print("********** Add vEOS config ***********")
+    logging.info("********** Add vEOS config ***********")
     add_vEOS_cfg(data)
+    logging.info("********** Add vEOS config is finished ***********")
 
-    print("********** Configure PTF backplane ip address **********")
+    logging.info("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
-
-    print("********** Install Allure package **********")
+    logging.info("********** Configure PTF backplane ip address is finished ********")
+                 
+    logging.info("********** Install Allure package **********")
     install_allure(data)
+    logging.info("********** Install Allure package is finished ********")
 
 
 def print_env_info(data, device_type, vEOS_count):
@@ -1212,6 +1256,9 @@ def print_env_info(data, device_type, vEOS_count):
     elif device_type == 'lightning':
         print("Device name is lightning. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d lightning-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'superbolt':
+        print("Device name is superbolt. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d superbolt-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'siren':
         print("Device name is siren. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d siren-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
@@ -1331,9 +1378,14 @@ def main():
     vxr_start_begin = datetime.datetime.now()
 
     if sim_attach:
+        logging.info("Attaching to existing sim")
         vxr_path, input_file = attach_vxr()
+        logging.info("Attaching to existing sim done")
+
     else:
+        logging.info("Starting new sim")
         vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
+        logging.info("Starting new sim done")
 
     vxr_start_end = datetime.datetime.now()
 
@@ -1353,9 +1405,9 @@ def main():
         lc_topo_code = get_lc_topo_type(topo_yaml)
     else:
         lc_topo_code = None
-
-
+    logging.info("Configuring sim for sonic-mgmt")
     configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa, add_sim_patches,bgp_hold_time_patch)
+    logging.info("Configuring sim for sonic-mgmt is done")
 
     print_env_info(data, device_type, vEOS_count)
 
@@ -1381,6 +1433,7 @@ def main():
             additional_tests=additional_tests,
             skip_sanity=skip_sanity,
             dut_data_file=input_file,
+            add_sim_patches=add_sim_patches,
             test_tag=test_tag
         )
 

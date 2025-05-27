@@ -87,6 +87,9 @@
         "lightning": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/lightning_sonic_t0_topo.yaml"
         },
+        "superbolt": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/superbolt_sonic_t0_topo.yaml"
+        },
         "siren": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t0_topo.yaml"
         }
@@ -105,6 +108,9 @@
         },
         "lightning": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/lightning_sonic_t1_topo.yaml"
+        },
+        "superbolt": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/superbolt_sonic_t1_topo.yaml"
         },
         "siren": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/siren_sonic_t1_topo.yaml"

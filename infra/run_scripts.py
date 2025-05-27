@@ -706,8 +706,12 @@ def main():
         dut_name = 'aaa14-t2'
     elif device_type == 'lightning':
         dut_name = 'lightning-01'
+    elif device_type == 'superbolt':
+        dut_name = 'superbolt-01'
     elif device_type == 'siren':
         dut_name = 'siren-01'
+    elif device_type == 'crocodile':
+        dut_name = 'crocodile-01'
     else:
         dut_name = 'mathilda-01'
 
