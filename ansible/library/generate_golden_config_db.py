@@ -161,18 +161,26 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def get_multiasic_feature_config(self):
-        rc, out, err = self.module.run_command("show runningconfiguration all")
+    def get_multiasic_config_from_minigraph(self):
+        mg_config = {}
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
-            self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        mg_config["localhost"] = json.loads(out)
 
-        return out
+        for asic_id in range(0, multi_asic.get_num_asics()):
+            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data -n asic{}".format(asic_id))
+            if rc != 0:
+                self.module.fail_json(msg="Failed to get config from minigraph for asic {}: {}".format(asic_id, err))
+            mg_config["asic{}".format(asic_id)] = json.loads(out)
+        return json.dumps(mg_config, indent=4)
 
+        
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
         full_config = json.loads(config)
         if config == "{}" or "FEATURE" not in config["localhost"]:
             # need dump running config FEATURE + selected feature
-            gold_config_db = json.loads(self.get_multiasic_feature_config())
+            gold_config_db = json.loads(self.get_multiasic_config_from_minigraph())
         else:
             # need existing config + selected feature
             gold_config_db = full_config
