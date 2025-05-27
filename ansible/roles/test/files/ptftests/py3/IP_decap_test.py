@@ -522,8 +522,11 @@ class DecapPacketTest(BaseTest):
 
             next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+            lt2_default_route = False
+            if self.topo == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
