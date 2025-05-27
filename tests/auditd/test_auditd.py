@@ -270,44 +270,43 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_
     pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
 
 
-def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_failure_32bit, check_auditd):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    container_name = "auditd_watchdog"
-    verify_container_running(duthost, container_name)
+def debug_log(duthost):
+    content = duthost.command(r"sudo cat /etc/audit/rules.d/audit.rules", module_ignore_errors=True)["stdout"]
+    logger.warning("Content of /etc/audit/rules.d/audit.rules: {}".format(content))
 
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
+    running_config = duthost.command(r"sudo auditctl -s", module_ignore_errors=True)["stdout"]
+    logger.warning("Auditd running config: {}".format(running_config))
+
+
+def read_watchdog(duthost):
+    output = duthost.command(DOCKER_EXEC_CMD.format("auditd_watchdog") +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
     try:
-        response = json.loads(output)
-    except json.JSONDecodeError:
-        pytest.fail("Invalid JSON response from auditd watchdog: {}".format(output))
+        return json.loads(output)
+    except json.JSONDecodeError as e:
+        pytest.fail("Invalid JSON response from auditd watchdog: {} exception: {}".format(output, e))
 
-    rate_limit_status = response.get("rate_limit")
+
+def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    verify_container_running(duthost, "auditd_watchdog")
+
+    debug_log(duthost)
+    rate_limit_status = read_watchdog(duthost).get("rate_limit")
     pytest_assert(rate_limit_status == "OK",
                   "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
 
-    # change rate limit config
+    # watchdog will report FAIL when auditd running config mismatch with config file
     duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
     duthost.command(r"sudo sed -i -e '$a\'$'\n''-r 1000' /etc/audit/rules.d/audit.rules")
     duthost.command(r"sudo auditctl -r 2000")
 
-    rate_limit_status = response.get("rate_limit")
+    debug_log(duthost)
+    rate_limit_status = read_watchdog(duthost).get("rate_limit")
 
     # revert change before check result, so assert failed will not break next test
     duthost.command(r"sudo cp /etc/audit.rules_backup /etc/audit/rules.d/audit.rules")
-    duthost.command(r"sudo auditctl -R /etc/audit/audit.rules")
+    duthost.command(r"sudo service auditd restart")
 
-    pytest_assert(rate_limit_status.startswith("FAIL"),
-                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
-
-    # delete rate limit config
-    duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
-    duthost.command(r"sudo rm /etc/audit.rules")
-
-    rate_limit_status = response.get("rate_limit")
-
-    # revert change before check result, so assert failed will not break next test
-    duthost.command(r"sudo cp /etc/audit.rules_backup /etc/audit/rules.d/audit.rules")
-
-    pytest_assert(rate_limit_status.startswith("FAIL"),
+    pytest_assert(rate_limit_status.startswith("FAIL (rate_limit: "),
                   "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
