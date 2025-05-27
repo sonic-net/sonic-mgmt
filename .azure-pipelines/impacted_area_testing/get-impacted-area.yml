@@ -35,7 +35,8 @@ steps:
       echo "$IMPACTED_TESTS"
 
       if [[ -n "$IMPACTED_TESTS" ]]; then
-        TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py --files "$IMPACTED_TESTS")
+        IMPACTED_TEST_SCRIPTS=$(echo "$IMPACTED_TESTS" | jq -r '(.tests // []) | join(" ")')
+        TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py --files "$IMPACTED_TEST_SCRIPTS")
         echo "Test scripts:"
         echo "$TEST_SCRIPTS"
         sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq

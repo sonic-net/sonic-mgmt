@@ -72,6 +72,35 @@ def get_changed_functions(file_path, target_branch, feature_branch):
     return list(changed_functions)
 
 
+def get_changed_non_function_parts(file_path, target_branch, feature_branch):
+    """
+    Detect changes to imports, global variables, or other non-function parts of a Python file.
+    """
+    try:
+        # Get the diff of the file between the two branches
+        diff_output = subprocess.check_output(
+            ["git", "diff", f"{target_branch}...{feature_branch}", "--", file_path],
+            universal_newlines=True
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running git diff for {file_path}: {e}")
+        return {"imports": [], "globals": []}
+
+    changed_imports = set()
+    changed_globals = set()
+
+    for line in diff_output.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):  # Added lines
+            stripped_line = line[1:].strip()
+            if stripped_line.startswith("import ") or stripped_line.startswith("from "):
+                changed_imports.add(stripped_line)
+            elif "=" in stripped_line and not stripped_line.startswith("def ") and not stripped_line.startswith("class "):  # noqa: E501
+                # Detect global variable assignments
+                changed_globals.add(stripped_line.split("=")[0].strip())
+
+    return {"imports": list(changed_imports), "globals": list(changed_globals)}
+
+
 def invoke_analyze_impact(function_name, directory, trace=False):
     """
     Invoke the analyze_impact.py script for a given function name.
@@ -110,6 +139,8 @@ if __name__ == "__main__":
     logger.info(f"Feature branch: {args.feature_branch}")
     logger.info(f"Target branch: {args.target_branch}")
 
+    consolidated_results = {"tests": [], "others": []}
+
     for file_path in args.modified_files:
         if not file_path.endswith(".py"):
             logger.debug(f"Skipping non-Python file: {file_path}")
@@ -120,11 +151,34 @@ if __name__ == "__main__":
 
         if not changed_functions:
             logger.info(f"No changed functions detected in {file_path}.")
-            continue
+        else:
+            for function_name in changed_functions:
+                logger.info(f"Invoking analyze_impact.py for function: {function_name}")
+                result = invoke_analyze_impact(function_name, args.directory, args.trace)
+                if result and result.get('tests'):
+                    for test in result['tests']:
+                        if test.startswith("tests"):
+                            consolidated_results["tests"].append(test)
+                        else:
+                            consolidated_results["others"].append(test)
 
-        for function_name in changed_functions:
-            logger.info(f"Invoking analyze_impact.py for function: {function_name}")
-            result = invoke_analyze_impact(function_name, args.directory, args.trace)
-            if result:
-                if result.get('tests'):
-                    print(' '.join(result['tests']))
+        # Detect changes to imports and global variables
+        changed_non_function_parts = get_changed_non_function_parts(file_path, args.target_branch, args.feature_branch)
+        if changed_non_function_parts["imports"] or changed_non_function_parts["globals"]:
+            logger.info(f"File {file_path} has changes in non-function parts.")
+            if file_path.startswith("tests"):
+                consolidated_results["tests"].append(file_path)
+            else:
+                consolidated_results["others"].append(file_path)
+
+            if changed_non_function_parts["imports"]:
+                logger.info(f"Changed imports in {file_path}: {changed_non_function_parts['imports']}")
+            if changed_non_function_parts["globals"]:
+                logger.info(f"Changed global variables in {file_path}: {changed_non_function_parts['globals']}")
+
+    # Remove duplicates from the consolidated results
+    consolidated_results["tests"] = list(set(consolidated_results["tests"]))
+    consolidated_results["others"] = list(set(consolidated_results["others"]))
+
+    # Print the consolidated results as a single JSON
+    print(json.dumps(consolidated_results, indent=4))
