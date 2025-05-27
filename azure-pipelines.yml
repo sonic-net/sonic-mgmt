@@ -24,7 +24,9 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
+- template: /.azure-pipelines/common2/stages/analyze-code.yml
 - stage: Pre_test
+  condition: succeededOrFailed()
   jobs:
   - job: static_analysis
     displayName: "Static Analysis"
