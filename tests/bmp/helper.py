@@ -105,6 +105,24 @@ def disable_bmp_rib_out_table(duthost):
     return ret
 
 
+def disable_bmp_feature(duthost):
+
+    cmd_disable_feature = 'sudo config feature state bmp disabled'
+    logging.debug("cmd_disable_feature command is: {}".format(cmd_disable_feature))
+    ret = duthost.command(cmd_disable_feature, module_ignore_errors=True)
+    logging.debug("cmd_disable_feature output is: {}".format(ret))
+    return ret
+
+
+def enable_bmp_feature(duthost):
+
+    cmd_enable_feature = 'sudo config feature state bmp enabled'
+    logging.debug("cmd_enable_feature command is: {}".format(cmd_enable_feature))
+    ret = duthost.command(cmd_enable_feature, module_ignore_errors=True)
+    logging.debug("cmd_enable_feature output is: {}".format(ret))
+    return ret
+
+
 """
     Usage: show bmp [OPTIONS] COMMAND [ARGS]...
 
