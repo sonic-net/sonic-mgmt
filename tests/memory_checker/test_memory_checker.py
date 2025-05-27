@@ -428,11 +428,11 @@ class MemoryCheckerContainer(object):
             if "SmartSwitch" in result['stdout']:
                 # For SmartSwitch, the memory limit is not 400 MiB
                 pytest_assert(memory_limit > self.GNMI_DEFAULT_MEMORY_LIMIT,
-                              "SmartSwitch: Memory limit for 'gnmi' container is {}" % memory_limit)
+                              "SmartSwitch: Memory limit for 'gnmi' container is {}".format(memory_limit))
             else:
                 # For other platforms, the memory limit should be 400 MiB
                 pytest_assert(memory_limit == self.GNMI_DEFAULT_MEMORY_LIMIT,
-                              "Memory limit for 'gnmi' container is {}" % memory_limit)
+                              "Memory limit for 'gnmi' container is {}".format(memory_limit))
         return memory_limit
 
     def current_memory_used(self):
