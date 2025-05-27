@@ -9,7 +9,7 @@ schedules:
     displayName: TestCases Collection
     branches:
       include:
-        - master
+        - internal
     always: true
 
 resources:
