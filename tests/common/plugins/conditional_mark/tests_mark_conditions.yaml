@@ -165,7 +165,7 @@ bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supperted on master."
     conditions:
-      - "release in ['master']"
+      - "release in ['master', '202505']"
 
 bgp/test_bgp_queue.py:
   skip:
@@ -676,40 +676,19 @@ dualtor_io/test_grpc_server_failure.py:
     conditions:
       - "'dualtor-aa' not in topo_name"
 
-dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
-  xfail:
-    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
-
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
@@ -901,7 +880,7 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-erspan:
   skip:
     reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
     conditions_logical_operator: or
@@ -931,7 +910,7 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan:
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
     conditions_logical_operator: or
@@ -1055,9 +1034,11 @@ generic_config_updater:
 
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
-    reason: "Cisco 8122 backend compute ai platform is not supported."
+    reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
+    conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -1190,11 +1171,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
 
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_restart:
-  skip:
-    reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
-
-gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
+gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
@@ -2822,9 +2799,9 @@ vxlan/test_vxlan_ecmp_switchover.py:
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
-    reason: "VxLAN route advertisement can only run on cisco and mnlx platforms."
+    reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
     conditions:
-      - "asic_type not in ['cisco-8000', 'mellanox', 'vs']"
+      - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs']"
 
 #######################################
 #####           wan_lacp          #####
