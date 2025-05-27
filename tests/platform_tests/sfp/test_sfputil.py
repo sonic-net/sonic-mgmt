@@ -378,7 +378,9 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                 logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status "
                                "not supported on this port)".format(intf))
                 continue
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_error_status)
+            assert intf in parsed_presence, (
+                "Interface '{}' is not in parsed_presence.".format(intf)
+            )
             assert parsed_presence[intf] == expected_state, (
                 "Interface '{}' error status check failed. "
                 "Expected error status: '{}', but got: '{}'. "
@@ -410,7 +412,10 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
+            assert intf in parsed_eeprom, (
+                "Interface '{}' is not present in the parsed EEPROM output.".format(intf)
+            )
+
             assert parsed_eeprom[intf] == "SFP EEPROM detected", (
                 "EEPROM status check failed for interface '{}'. "
                 "Expected: 'SFP EEPROM detected', but got: '{}'. "
