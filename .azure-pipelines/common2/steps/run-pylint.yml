@@ -1,0 +1,6 @@
+steps:
+  - script: |
+      pip install pylint
+      echo "Running pylint"
+      pylint --rcfile=pylintrc
+    displayName: 'Run pylint'
