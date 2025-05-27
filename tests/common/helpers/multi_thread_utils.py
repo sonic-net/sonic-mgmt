@@ -22,6 +22,10 @@ class SafeThreadPoolExecutor(ThreadPoolExecutor):
     def __exit__(self, exc_type, exc_val, exc_tb):
         for future in as_completed(self.features):
             # if exception caught in the sub-thread, .result() will raise it in the main thread
-            _ = future.result()
+            try:
+                _ = future.result()
+            except Exception as e:
+                print(f"[SafeThreadPoolExecutor] Caught exception: {e}")
+                raise
         self.shutdown(wait=True)
         return False
