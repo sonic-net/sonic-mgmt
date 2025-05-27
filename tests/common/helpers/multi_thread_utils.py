@@ -20,12 +20,30 @@ class SafeThreadPoolExecutor(ThreadPoolExecutor):
         return f
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for future in as_completed(self.features):
-            # if exception caught in the sub-thread, .result() will raise it in the main thread
+        # for future in as_completed(self.features):
+        #     # if exception caught in the sub-thread, .result() will raise it in the main thread
+        #     try:
+        #         _ = future.result()
+        #     except Exception as e:
+        #         print(f"[SafeThreadPoolExecutor] Caught exception: {e}")
+        #         raise
+        # self.shutdown(wait=True)
+        # return False
+        # First, prevent any new tasks and wait for running ones to finish
+        self.shutdown(wait=True)
+
+        # Collect exceptions from all futures
+        errors = []
+        for f in self.features:
             try:
-                _ = future.result()
+                f.result()
             except Exception as e:
                 print(f"[SafeThreadPoolExecutor] Caught exception: {e}")
-                raise
-        self.shutdown(wait=True)
+                errors.append(e)
+
+        # If any task failed, re-raise the first exception
+        if errors:
+            raise errors[0]
+
+        # Returning False will not suppress any exception from the with-block itself
         return False
