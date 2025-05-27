@@ -324,3 +324,11 @@ def extract_fw_data(fw_pkg_path):
             fw_data = json.load(fw)
 
     return fw_data
+
+
+@pytest.fixture(scope="module")
+def toggles_num(request):
+    """
+    Retrieve the value of the --toggles_num command line option for the test session.
+    """
+    return request.config.getoption("--toggles_num")

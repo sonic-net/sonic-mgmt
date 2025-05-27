@@ -1221,6 +1221,18 @@ platform_tests/test_intf_fec.py:
       - "asic_type in ['vs']"
 
 platform_tests/test_intf_fec.py::test_verify_fec_histogram:
+  skip:
+    reason: "Skip for test issue https://github.com/sonic-net/sonic-mgmt/issues/17951"
+    conditions:
+    - https://github.com/sonic-net/sonic-mgmt/issues/17951
+
+platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
+  xfail:
+    reason: "test is flaky when adding toggle ports in the test"
+    conditions:
+      -https://redmine.mellanox.com/issues/4494591
+
+platform_tests/test_intf_fec.py::test_verify_fec_histogram:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
