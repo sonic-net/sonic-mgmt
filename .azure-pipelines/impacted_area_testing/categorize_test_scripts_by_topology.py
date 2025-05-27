@@ -7,12 +7,12 @@
 
     It will get all test scripts in specific impacted area.
 """
-import os
 import re
 import logging
 import json
 import argparse
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
+from pathlib import Path
 
 
 def topo_name_to_topo_checker(topo_name):
@@ -71,8 +71,8 @@ def collect_scripts_by_topology_type_from_files(files: list) -> dict:
         test_scripts_per_topology_checker[topology_type] = []
 
     for file_path in files:
-        # Remove prefix from file name:
-        script_name = os.path.basename(file_path)
+        # Remove the top-level 'tests' directory from the file path
+        script_name = str(Path(file_path).relative_to("tests"))
         if script_name in EXCLUDE_TEST_SCRIPTS:
             continue
 
