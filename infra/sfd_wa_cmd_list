@@ -2,6 +2,28 @@ set -x
 
 CARD_TYPE=$(/opt/cisco/bin/xr_sysctl -n bootstrap.card_type)
 if [ $CARD_TYPE == "RP" ]; then
+    while true; do
+        # hostcfgd should mask all bgp services on T2 RP. Waiting while services are not masked
+        bgp_masked=true
+        for i in {0..15}; do
+            if ! systemctl is-enabled bgp@$i.service | grep -q "masked"; then
+                bgp_masked=false
+                break
+            fi
+        done
+
+        if [ "$bgp_masked" = true ]; then
+            echo "All bgp services are masked"
+            break
+        fi
+    
+        echo "Waiting for all bgp services to be masked..."
+        sleep 5
+    done
+
+    # Give time for any bgp docker to go down as part of masking
+    sleep 15
+
     output=$(container_checker)
     echo $output
     container_list=$(echo "$output" | awk '{for (i=4; i<=NF; i++) print $i}')
