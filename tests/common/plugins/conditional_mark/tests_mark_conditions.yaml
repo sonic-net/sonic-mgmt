@@ -142,6 +142,7 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "release in ['202412']"
 
 bgp/test_bgp_allow_list_m0_olt.py:
   skip:
@@ -1000,8 +1001,10 @@ generic_config_updater:
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported."
+    conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "release in ['202412']"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
