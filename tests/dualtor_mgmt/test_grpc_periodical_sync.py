@@ -83,6 +83,11 @@ def setup_test_ports(init_port_state, mux_status_from_nic_simulator,    # noqa F
     return test_mux_ports
 
 
+def get_mux_status(duthost, mux_ports):
+    all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]
+    return {port: status for port, status in list(all_mux_status.items()) if port in mux_ports}
+
+
 def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
                              toggle_active_active_simulator_ports):             # noqa F811
     """
@@ -97,10 +102,6 @@ def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
         3.2 verify SONiC does request extra toggles to recover via the last switchover time from show mux status
         3.3 verify the mux status from nic_simulator
     """
-
-    def get_mux_status(duthost, mux_ports):
-        all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]
-        return {port: status for port, status in list(all_mux_status.items()) if port in mux_ports}
 
     def check_mux_status_recovery(duthost, mux_ports, orig_mux_status):
         current_mux_status = get_mux_status(duthost, mux_ports)
@@ -129,3 +130,58 @@ def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
         wait_until(30, 5, 5, check_mux_status_recovery, duthost, mux_ports, orig_mux_status),
         "Failed to recover mux status from gRPC server failure"
     )
+
+
+@pytest.mark.skip_active_standby
+@pytest.mark.parametrize("mux_status", ["standby", "active"])
+def test_mux_forwarding_state_consistency(mux_status, test_mux_ports, test_duthost,
+                             toggle_active_active_simulator_ports):             # noqa F811
+    """
+    This testcase aims to verify that, if the nic_simulator forwarding state changes incorrectly,
+    SONiC could detect and recover the mux status.
+
+    Steps:
+    1. set the initial mux status to standby for the selected active-active mux ports
+    2. validate the mux status is set to standby
+    3. set the nic_simulator mux status to the active
+    4. verify that the mux status is back to standby
+    5. repeat the above steps with the state set to active
+    6. simulate the forwarding state change to standby
+    7. verify that the mux status is back to active
+    """
+
+    def set_mux_ports_status(duthost, mux_ports, state):
+        logging.debug("Set mux status to %s", state)
+        for port in mux_ports:
+            duthost.shell("sudo config mux mode %s %s" % (state, port))
+
+    def check_mux_status_recovery(duthost, mux_ports, expected_status):
+        current_mux_status = get_mux_status(duthost, mux_ports)
+        logging.debug("Current mux status:\n%s\n", json.dumps(current_mux_status))
+        for port in current_mux_status:
+            if current_mux_status[port]["STATUS"] != expected_status:
+                logging.debug("Mismatch on port %s, expected status=%s.", port, expected_status)
+                return False
+        return True
+
+    duthost, portid = test_duthost
+    mux_ports = test_mux_ports
+
+    set_mux_ports_status(duthost, mux_ports, mux_status)
+
+    pytest_assert(
+        wait_until(30, 5, 5, check_mux_status_recovery, duthost, mux_ports, mux_status),
+        "Failed to set mux status to %s" % mux_status
+    )
+
+    if mux_status == "standby":
+        toggle_active_active_simulator_ports(mux_ports, portid, ForwardingState.ACTIVE)
+    elif mux_status == "active":
+        toggle_active_active_simulator_ports(mux_ports, portid, ForwardingState.STANDBY)
+
+    pytest_assert(
+        wait_until(30, 5, 5, check_mux_status_recovery, duthost, mux_ports, mux_status),
+        "Failed to change mux status back to %s" % mux_status
+    )
+
+    duthost.shell("docker exec mux supervisorctl restart linkmgrd")
