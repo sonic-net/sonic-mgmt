@@ -7,12 +7,11 @@ import time
 import logging
 import pytest
 import json
-import ptf.testutils as testutils
 from ptf import mask
 from scapy.all import Ether
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from ptf import testutils
 
 logger = logging.getLogger(__name__)
 
@@ -295,9 +294,8 @@ def remove_acl_rules(self, duthost):
     (["192.168.0.1"], "192.168.0.1/32"),               # Single IP test
     (["192.168.0.{}".format(i) for i in range(1, 5)], "192.168.0.0/24")  # Range test
 ])
-
-
-def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, get_all_bindable_ports, inner_src_ips, inner_src_prefix):
+def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, get_all_bindable_ports,
+                                     inner_src_ips, inner_src_prefix):
     # Constants
     inner_dst_ip = "192.168.0.100"
     vni_id = 5000
@@ -345,8 +343,6 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_port_2, duthost,
                                  src_ip, dst_ip, orig_inner_mac, expected_inner_mac,
                                  vni_id, outer_src_mac, outer_dst_mac, outer_src_ip, outer_dst_ip,
                                  table_name, rule_name):
-    from ptf import testutils
-
     # Build expected packet
     expected_inner_pkt = testutils.simple_udp_packet(
         eth_dst=duthost.facts['router_mac'],
@@ -407,3 +403,73 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_port_2, duthost,
     logger.info("ACL counter for IP %s: before=%s, after=%s", src_ip, count_before, count_after)
     pytest_assert(count_after >= count_before + 1,
                   f"ACL counter did not increment for {src_ip}. before={count_before}, after={count_after}")
+
+
+def test_multiple_acl_rules_inner_src_mac_rewrite(duthost, ptfadapter, prepare_test_ports, get_all_bindable_ports):
+    """
+    Test multiple ACL rules with different inner_src_ip prefixes rewriting to different inner_src_mac values.
+    """
+    RULES = [
+        {
+            "inner_src_prefix": "192.168.10.0/24",
+            "match_ip": "192.168.10.1",
+            "modified_mac": "00:aa:bb:cc:dd:01"
+        },
+        {
+            "inner_src_prefix": "192.168.20.0/24",
+            "match_ip": "192.168.20.1",
+            "modified_mac": "00:aa:bb:cc:dd:02"
+        },
+        {
+            "inner_src_prefix": "192.168.30.0/24",
+            "match_ip": "192.168.30.1",
+            "modified_mac": "00:aa:bb:cc:dd:03"
+        }
+    ]
+
+    inner_dst_ip = "192.168.0.100"
+    original_inner_src_mac = "00:66:77:88:99:aa"
+    vni_id = 5000
+    outer_src_mac = "00:11:22:33:44:66"
+    outer_dst_mac = duthost.facts['router_mac']
+    outer_src_ip = "10.1.1.1"
+    outer_dst_ip = "20.1.1.1"
+    table_name = ACL_TABLE_NAME
+    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
+
+    # Setup ACL table
+    setup_acl_table(duthost, get_all_bindable_ports)
+
+    # Add multiple rules
+    for idx, rule in enumerate(RULES):
+        rule_name = f"rule_{idx+1}"
+        add_single_acl_rule(duthost, table_name, rule_name, rule["inner_src_prefix"], vni_id, rule["modified_mac"])
+
+    # Send and verify for each rule
+    for idx, rule in enumerate(RULES):
+        rule_name = f"rule_{idx+1}"
+        _send_and_verify_mac_rewrite(
+            ptfadapter, ptf_port_1, ptf_port_2, duthost,
+            rule["match_ip"], inner_dst_ip, original_inner_src_mac,
+            rule["modified_mac"], vni_id,
+            outer_src_mac, outer_dst_mac, outer_src_ip, outer_dst_ip,
+            table_name, rule_name
+        )
+
+    # Cleanup
+    remove_acl_rules(duthost)
+    remove_acl_table(duthost)
+
+
+def add_single_acl_rule(duthost, table_name, rule_name, inner_src_prefix, vni_id, modified_mac):
+    cmd = (
+        f"config acl add rule {table_name} {rule_name} "
+        f"--action set_mac "
+        f"--src_ip {inner_src_prefix} "
+        f"--vni {vni_id} "
+        f"--set_inner_src_mac {modified_mac} "
+        "--priority 1000"
+    )
+    logger.info(f"Adding ACL rule {rule_name} with IP {inner_src_prefix} to set inner MAC to {modified_mac}")
+    duthost.shell(cmd)
+
