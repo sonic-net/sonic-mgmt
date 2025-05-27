@@ -38,11 +38,11 @@ steps:
       echo "$IMPACTED_TESTS"
 
       if [[ -n "$IMPACTED_TESTS" ]]; then
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
         IMPACTED_TEST_SCRIPTS=$(echo "$IMPACTED_TESTS" | jq -r '(.tests // []) | join(" ")')
         TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py --files $IMPACTED_TEST_SCRIPTS)
         echo "Test scripts:"
         echo "$TEST_SCRIPTS"
-        sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
         PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
         rc=$?
         echo "PR checkers:"
