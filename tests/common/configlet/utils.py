@@ -134,7 +134,9 @@ scan_dbs = {
             "keys_to_skip_comp": {
                 "PORT_TABLE"
             },
-            "keys_skip_val_comp": set()
+            "keys_skip_val_comp": {
+                "last_update_time"
+            }
         }
     }
 
