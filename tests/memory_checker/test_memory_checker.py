@@ -427,7 +427,7 @@ class MemoryCheckerContainer(object):
             result = self.duthost.shell(command, module_ignore_errors=True)
             if "SmartSwitch" in result['stdout']:
                 # For SmartSwitch, the memory limit is not 400 MiB
-                pytest_assert(memory_limit >= self.GNMI_DEFAULT_MEMORY_LIMIT,
+                pytest_assert(memory_limit > self.GNMI_DEFAULT_MEMORY_LIMIT,
                               "SmartSwitch: Memory limit for 'gnmi' container is {}" % memory_limit)
             else:
                 # For other platforms, the memory limit should be 400 MiB
