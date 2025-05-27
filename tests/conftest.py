@@ -15,6 +15,8 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
+import importlib
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -56,7 +58,7 @@ from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -64,6 +66,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+
+import tests.common.gnmi_setup as gnmi_setup
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -75,6 +79,7 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -226,6 +231,16 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # gnmi connection options      #
+    ##############################
+    # The gNMI target port number to connect to the DUT gNMI server.
+    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
+                     help="gNMI target port number")
+    parser.addoption("--gnmi_insecure", action="store_true", default=True,
+                     help="Use insecure connection to gNMI target")
+    parser.addoption("--disable_sai_validation", action="store_true", default=False,
+                     help="Disable SAI validation")
     ############################
     #   Parallel run options   #
     ############################
@@ -447,6 +462,35 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            session.exitstatus = 1  # Fail the pytest session
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -1322,24 +1366,38 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request):
+def generate_params_frontend_hostname(request, macsec_only=False):
     frontend_duts = []
-    tbname, _ = get_tbinfo(request)
+    tbname, tbinfo = get_tbinfo(request)
     duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_frontend_node(inv_files, dut):
-            frontend_duts.append(dut)
+    host_type = "frontend"
+
+    if macsec_only:
+        host_type = "macsec"
+        if 't2' in tbinfo['topo']['name']:
+            # currently in the T2 topo only the uplink linecard will have
+            # macsec enabled
+            for dut in duts:
+                if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
+                    frontend_duts.append(dut)
+        else:
+            frontend_duts.append(duts[0])
+    else:
+        for dut in duts:
+            if is_frontend_node(inv_files, dut):
+                frontend_duts.append(dut)
+
     assert len(frontend_duts) > 0, \
-        "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
+        "Test selected require at-least one {} node, " \
+        "none of the DUTs '{}' in testbed '{}' are a {} node".format(host_type, duts, tbname, host_type)
     return frontend_duts
 
 
-def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
-        hosts = generate_params_frontend_hostname(request)
+        hosts = generate_params_frontend_hostname(request, macsec_only=macsec_only)
 
     hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
     return hosts_per_hwsku
@@ -1722,11 +1780,13 @@ _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
 _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
+_macsec_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):        # noqa: E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    global _macsec_frontend_hosts_per_hwsku_per_module
     global _rand_one_asic_per_module, _rand_one_frontend_asic_per_module
     # Enumerators for duts are mutually exclusive
     target_hostname = get_target_hostname(metafunc)
@@ -1748,6 +1808,10 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
 
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
     else:
         if "enum_dut_hostname" in metafunc.fixturenames:
             duts_selected = generate_params_dut_hostname(metafunc)
@@ -1770,6 +1834,14 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
             duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(
+                    metafunc, frontend_only=True, macsec_only=True
+                )
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+            duts_selected = _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module]
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
 
     asics_selected = None
     asic_fixture_name = None
@@ -1903,8 +1975,8 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_one_dut_lossy_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_one_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy',
-                                                                                one_dut_only=True))
+        metafunc.parametrize("enum_one_dut_lossy_prio",
+                             generate_priority_lists(metafunc, 'lossy', one_dut_only=True))
     if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
@@ -2110,6 +2182,11 @@ def enum_rand_one_per_hwsku_frontend_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_macsec_frontend_hostname(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
 def enum_asic_index(request):
     return request.param
 
@@ -2190,7 +2267,7 @@ def cleanup_cache_for_session(request):
         cache.cleanup(zone=a_dut)
     inv_data = get_host_visible_vars(inv_files, a_dut)
     if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
-        for asic_id in range(inv_data['num_asics']):
+        for asic_id in range(0, inv_data['num_asics']):
             cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
 
 
@@ -3196,3 +3273,70 @@ def setup_pfc_test(
 
     logger.info("setup_info : {}".format(setup_info))
     yield setup_info
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost):
+    """
+    SAI validation library uses gNMI to access sonic-db data
+    objects. This fixture is used by tests to set up gNMI server
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield duthost, None
+        return
+    gnmi_insecure = request.config.getoption("--gnmi_insecure")
+    if gnmi_insecure:
+        logger.info("gNMI insecure mode is enabled")
+        yield duthost, None
+        return
+    else:
+        checkpoint_name = "before-applying-gnmi-certs"
+        cert_path = pathlib.Path("/tmp/gnmi_certificates")
+        gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+        gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+        gnmi_setup.apply_certs(duthost, checkpoint_name)
+        yield duthost, cert_path
+        gnmi_setup.remove_certs(duthost, checkpoint_name)
+
+
+@pytest.fixture(scope="session")
+def setup_connection(request, setup_gnmi_server):
+    duthost, cert_path = setup_gnmi_server
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield None
+        return
+    else:
+        # Dynamically import create_gnmi_stub
+        gnmi_client_module = importlib.import_module("tests.common.sai_validation.gnmi_client")
+        create_gnmi_stub = getattr(gnmi_client_module, "create_gnmi_stub")
+
+        # if cert_path is None then it is insecure mode
+        gnmi_insecure = request.config.getoption("--gnmi_insecure")
+        gnmi_target_port = int(request.config.getoption("--gnmi_port"))
+        duthost_mgmt_ip = duthost.mgmt_ip
+        channel = None
+        gnmi_connection = None
+        if gnmi_insecure:
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=False)
+        else:
+            root_cert = str(cert_path / 'gnmiCA.pem')
+            client_cert = str(cert_path / 'gnmiclient.crt')
+            client_key = str(cert_path / 'gnmiclient.key')
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=True,
+                                                        root_cert_path=root_cert,
+                                                        client_cert_path=client_cert,
+                                                        client_key_path=client_key)
+        yield gnmi_connection
+        channel.close()
+
+
+@pytest.fixture(scope="session")
+def gnmi_connection(request, setup_connection):
+    connection = setup_connection
+    yield connection
