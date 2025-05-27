@@ -404,6 +404,7 @@ def mem_size_str_to_int(size_str):
 class MemoryCheckerContainer(object):
 
     EXTRA_MEMORY_TO_ALLOCATE = 20 * 1024 * 1024
+    GNMI_DEFAULT_MEMORY_LIMIT = 419430400  # 400 MiB
 
     def __init__(self, name, duthost):
         self.name = name
@@ -420,7 +421,19 @@ class MemoryCheckerContainer(object):
         match = re.search(pattern, result['stdout'])
         if not match:
             pytest.fail("Failed to get memory limit for '{}' container!".format(self.name))
-        return int(match.group(1))
+        memory_limit = int(match.group(1))
+        if self.name == "gnmi":
+            command = "sonic-cfggen -d -v DEVICE_METADATA.localhost.subtype"
+            result = self.duthost.shell(command, module_ignore_errors=True)
+            if "SmartSwitch" in result['stdout']:
+                # For SmartSwitch, the memory limit is not 400 MiB
+                pytest_assert(memory_limit >= self.GNMI_DEFAULT_MEMORY_LIMIT,
+                              "SmartSwitch: Memory limit for 'gnmi' container is {}" % memory_limit)
+            else:
+                # For other platforms, the memory limit should be 400 MiB
+                pytest_assert(memory_limit == self.GNMI_DEFAULT_MEMORY_LIMIT,
+                              "Memory limit for 'gnmi' container is {}" % memory_limit)
+        return memory_limit
 
     def current_memory_used(self):
         value = get_container_mem_usage(self.duthost, self.name)
