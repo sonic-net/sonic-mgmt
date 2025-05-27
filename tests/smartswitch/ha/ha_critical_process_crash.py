@@ -3,6 +3,9 @@ import logging
 
 from tests.smartswitch.common.device_utils_dpu import pre_test_check, post_test_dpus_check
 from tests.common.utilities import wait_until
+from tests.common.helpers.platform_api import module
+DPU_MAX_TIMEOUT = 300
+DPU_TIME_INT = 10
 
 
 def dpu_syncd_process_kill(
@@ -98,3 +101,45 @@ def restart_hamgrd(duthost):
     duthost.shell("pkill hamgrd")
     if not wait_until(1, 60, 0, check_hamgrd_service, duthost):
         pytest.fail('hamgrd service is not up after 60 seconds. Test failed')
+
+
+def dpu_reboot(
+    duthosts,
+    enum_rand_one_per_hwsku_hostname,
+    platform_api_conn,
+    num_dpu_modules
+):
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Only DPU0 is used
+    dpu_name = module.get_name(platform_api_conn, 0)
+
+    logging.info(f"Shutting DOWN DPU: {dpu_name}")
+    duthost.shell(f"sudo config chassis modules shutdown {dpu_name}")
+
+    # Wait until DPU is confirmed OFF
+    wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+               check_dpu_module_status, duthost, "off", dpu_name)
+
+    logging.info(f"Starting UP DPU: {dpu_name}")
+    duthost.shell(f"sudo config chassis modules startup {dpu_name}")
+
+    # Wait until DPU is confirmed ON
+    wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+               check_dpu_module_status, duthost, "on", dpu_name)
+
+    logging.info("Verify Reboot cause of DPU")
+    wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+               check_dpu_reboot_cause, duthost, dpu_name,
+               "Switch rebooted DPU")
+
+
+def check_dpu_module_status(duthost, expected_status, dpu_name):
+    result = duthost.shell(f"show chassis modules status | grep {dpu_name}")
+    return expected_status in result["stdout"]
+
+
+def check_dpu_reboot_cause(duthost, dpu_name, expected_cause):
+    result = duthost.shell(f"show chassis modules reboot-cause {dpu_name}")
+    return expected_cause in result["stdout"]
