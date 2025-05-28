@@ -21,6 +21,7 @@ import time
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+NAT_ENABLE_KEY = "nat_enabled_on_{}"
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
@@ -227,7 +228,8 @@ def get_disabled_container_list(duthost):
     for container_name, status in list(container_status.items()):
         if "disabled" in status:
             disabled_containers.append(container_name)
-
+        if "enabled" in status and container_name == "frr_bmp":
+            disabled_containers.append(container_name)
     return disabled_containers
 
 
@@ -327,11 +329,14 @@ def verify_orchagent_running_or_assert(duthost):
                 output = duthost.shell(cmd, module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Unable to check orchagent status output for asic_id {}"
                               .format(asic_index))
+                if 'RUNNING' not in output['stdout']:
+                    return False
+            return True
         else:
             cmds = 'docker exec swss supervisorctl status orchagent'
             output = duthost.shell(cmds, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to check orchagent status output")
-        return 'RUNNING' in output['stdout']
+            return 'RUNNING' in output['stdout']
 
     pytest_assert(
         wait_until(120, 10, 0, _orchagent_running),
@@ -370,7 +375,7 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
 
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd: {full_path_dump_file}  {full_path_dump_file}"
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
     duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
@@ -419,7 +424,7 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
-def create_duthost_console(duthost,localhost, conn_graph_facts, creds):  # noqa F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -610,3 +615,111 @@ def duthost_clear_console_port(
     duthost_config_menu.disconnect()
     logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
     time.sleep(5)
+
+
+def get_available_tech_support_files(duthost):
+    """
+    Get available techsupport files list
+    :param duthost: duthost object
+    :return: list of available techsupport files
+    """
+    try:
+        available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
+    except RunAnsibleModuleFail:
+        available_tech_support_files = []
+    return available_tech_support_files
+
+
+def get_new_techsupport_files_list(duthost, available_tech_support_files):
+    """
+    Get list of new created techsupport files
+    :param duthost: duthost object
+    :param available_tech_support_files: list of already available techsupport files
+    :return: list of new techsupport files
+    """
+    try:
+        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
+        new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
+    except RunAnsibleModuleFail:
+        new_available_tech_support_files = []
+    new_techsupport_files_list = list(set(new_available_tech_support_files) - set(available_tech_support_files))
+
+    return new_techsupport_files_list
+
+
+def extract_techsupport_tarball_file(duthost, tarball_name):
+    """
+    Extract techsupport tar file and return path to data extracted from archive
+    :param duthost: duthost object
+    :param tarball_name: path to tar file, example: /var/dump/sonic_dump_DUT_NAME_20210901_22140.tar.gz
+    :return: path to folder with techsupport data, example: /tmp/sonic_dump_DUT_NAME_20210901_22140
+    """
+    with allure.step('Extracting techsupport file: {}'.format(tarball_name)):
+        dst_folder = '/tmp/'
+        duthost.shell('tar -xf {} -C {}'.format(tarball_name, dst_folder))
+        techsupport_folder = tarball_name.split('.')[0].split('/var/dump/')[1]
+        techsupport_folder_full_path = '{}{}'.format(dst_folder, techsupport_folder)
+    return techsupport_folder_full_path
+
+
+def is_enabled_nat_for_dpu(duthost, request):
+    if request.config.cache.get(NAT_ENABLE_KEY.format(duthost.hostname), False):
+        logger.info("NAT is enabled")
+        return True
+    else:
+        logger.info('NAT is not enabled')
+        return False
+
+
+def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
+    dpuhost_ssh_port_dict = {}
+    for dpuhost_name in dpuhost_names:
+        host = ansible_adhoc(become=True, args=[], kwargs={})[dpuhost_name]
+        vm = host.options["inventory_manager"].get_host(dpuhost_name).vars
+        ansible_ssh_port = vm.get("ansible_ssh_port", None)
+        if ansible_ssh_port:
+            dpuhost_ssh_port_dict[dpuhost_name] = ansible_ssh_port
+
+    duthost_name = duthost.hostname
+    dpu_name_ssh_port_dict = {}
+    for dpuhost_name, dpu_host_ssh_port in dpuhost_ssh_port_dict.items():
+        if duthost_name in dpuhost_name:
+            res = re.match(fr"{duthost_name}.*dpu.*(\d+)", dpuhost_name)
+            if res:
+                dpuhost_index = res[1]
+            else:
+                assert f"Not find the dpu name index in the {dpuhost_name}, please correct the dpuhost_name. " \
+                       f"dpuhost name should include the dut host name and the dpu index. " \
+                       f"e.g smartswitch-01-dpu-1, smartswitch-01 is the duthost name, " \
+                       f"dpu-1 is the dpu name, and 1 is the dpu index"
+            dpu_name_ssh_port_dict[f"dpu{dpuhost_index}"] = str(dpu_host_ssh_port)
+    logger.info(f"dpu_name_ssh_port_dict:{dpu_name_ssh_port_dict}")
+
+    return dpu_name_ssh_port_dict
+
+
+def check_nat_is_enabled_and_set_cache(duthost, request):
+    get_nat_iptable_output = 'sudo iptables -t nat -L'
+    nat_iptable_output = duthost.shell(get_nat_iptable_output)['stdout']
+    pattern_nat_result = '.*DNAT.*tcp.*anywhere.*anywhere.*tcp dpt:.* to:169.254.200.*22.*'
+    if re.search(pattern_nat_result, nat_iptable_output):
+        logger.info('NAT is enabled successfully')
+        request.config.cache.set(NAT_ENABLE_KEY.format(duthost.hostname), True)
+        return True
+    else:
+        raise Exception('NAT is not enabled successfully')
+
+
+def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+    enable_nat_cmds = [
+        "sudo su",
+        "sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf",
+        "sudo echo net.ipv4.conf.eth0.forwarding=1 >> /etc/sysctl.conf",
+        "sudo sysctl -p",
+        f"sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus "
+        f"{','.join(dpu_name_ssh_port_dict.keys())} --ports {','.join(dpu_name_ssh_port_dict.values())}",
+        "sudo iptables-save > /etc/iptables/rules.v4",
+        "exit"
+    ]
+    duthost.shell_cmds(cmds=enable_nat_cmds)
+    check_nat_is_enabled_and_set_cache(duthost, request)

@@ -4,6 +4,7 @@ import pytest
 import json
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -66,9 +67,9 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
-                  module_ignore_errors=True)
+def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
@@ -107,14 +108,16 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
+    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
-    is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
-    assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if env.gnmi_process not in output['stdout']:
         # Dump tcp port status and gnmi log
         logger.info("TCP port status: " + output['stdout'])
@@ -132,16 +135,37 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    cmds = [
-        'systemctl reset-failed %s' % (env.gnmi_container),
-        'systemctl restart %s' % (env.gnmi_container)
-    ]
-    duthost.shell_cmds(cmds=cmds)
+    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
+    duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+
+
+def check_ntp_sync_status(duthost):
+    """
+    Checks if the DUT's time is synchronized with the NTP server.
+    """
+
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+
+    if ntp_daemon == NtpDaemon.CHRONY:
+        ntp_status_cmd = "chronyc -c tracking"
+    else:
+        ntp_status_cmd = "ntpstat"
+
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
+        logger.info("DUT %s is synchronized with NTP server.", duthost)
+        return True
+    else:
+        logger.info("DUT %s is NOT synchronized.", duthost)
+        return False
 
 
 def check_system_time_sync(duthost):
@@ -150,26 +174,27 @@ def check_system_time_sync(duthost):
     If not synchronized, it attempts to restart the NTP service.
     """
 
-    ntp_status_cmd = "ntpstat"
-    restart_ntp_cmd = "sudo systemctl restart ntp"
-
-    ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-    if "synchronised" in ntp_status["stdout"]:
-        logger.info("DUT %s is synchronized with NTP server.", duthost)
+    if check_ntp_sync_status(duthost) is True:
         return True
 
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+
+    if ntp_daemon == NtpDaemon.CHRONY:
+        restart_ntp_cmd = "sudo systemctl restart chrony"
     else:
-        logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
-        duthost.shell(restart_ntp_cmd)
-        time.sleep(5)
-        # Rechecking status after restarting NTP
-        ntp_status = duthost.shell(ntp_status_cmd, module_ignore_errors=True)
-        if "synchronised" in ntp_status["stdout"]:
-            logger.info("DUT %s is now synchronized with NTP server.", duthost)
-            return True
-        else:
-            logger.error("DUT %s: NTP synchronization failed. Please check manually.", duthost)
-            return False
+        restart_ntp_cmd = "sudo systemctl restart ntp"
+
+    logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
+    duthost.command(restart_ntp_cmd)
+    time.sleep(5)
+    # Rechecking status after restarting NTP
+    ntp_status = check_ntp_sync_status(duthost)
+    if ntp_status is True:
+        logger.info("DUT %s is now synchronized with NTP server.", duthost)
+        return True
+    else:
+        logger.error("DUT %s: NTP synchronization failed. Please check manually.", duthost)
+        return False
 
 
 def gnmi_capabilities(duthost, localhost):
@@ -219,7 +244,14 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     else:
         cmd += '-pkey /root/gnmiclient.key '
         cmd += '-cchain /root/gnmiclient.crt '
-    cmd += '-m set-update '
+    if len(replace_list) >= 1:
+        cmd += '-m set-replace '
+    elif len(update_list) >= 1:
+        cmd += '-m set-update '
+    elif len(delete_list) >= 1:
+        cmd += '-m set-delete '
+    else:
+        raise Exception("SET operation must have at least one entry to modify")
     xpath = ''
     xvalue = ''
     for path in delete_list:
