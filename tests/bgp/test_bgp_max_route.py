@@ -36,27 +36,77 @@ def configure_max_prefix(duthost, neighbor, max_prefix_limit, warning_only=False
     if use_frr is None:
         use_frr = duthost.get_frr_mgmt_framework_config()
 
+    logger.info(f"Configuring max-prefix {max_prefix_limit} for neighbor {neighbor} (use_frr={use_frr})")
+
     if use_frr:
         warning_flag = "true" if warning_only else "false"
-        json_patch = [
-            {
-                "op": "add",
-                "path": f"/BGP_NEIGHBOR/{neighbor}/maximum_prefix",
-                "value": str(max_prefix_limit)
-            },
-            {
-                "op": "add",
-                "path": f"/BGP_NEIGHBOR/{neighbor}/maximum_prefix_warning_only",
-                "value": warning_flag
-            }
-        ]
 
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
-        tmpfile = generate_tmpfile(duthost)
-        try:
-            return apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        finally:
-            delete_tmpfile(duthost, tmpfile)
+        # Check if the neighbor exists in BGP_NEIGHBOR table
+        cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR|default|{neighbor}\""
+        result = duthost.shell(cmd)
+        neighbor_exists = bool(result['stdout'].strip())
+        logger.info(f"Neighbor exists in CONFIG_DB: {neighbor_exists}")
+
+        if neighbor_exists:
+            # Determine address family from neighbor IP
+            af = "ipv4" if ipaddress.ip_address(neighbor).version == 4 else "ipv6"
+            af_suffix = f"{af}_unicast"
+
+            # Check if BGP_NEIGHBOR_AF table exists
+            cmd = "sonic-db-cli CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
+            result = duthost.shell(cmd)
+            has_bgp_neighbor_af = bool(result['stdout'].strip())
+            logger.info(f"BGP_NEIGHBOR_AF exists: {has_bgp_neighbor_af}")
+
+            if has_bgp_neighbor_af:
+                # Check if the specific AF entry exists
+                cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
+                result = duthost.shell(cmd)
+                af_entry_exists = bool(result['stdout'].strip())
+                logger.info(f"AF entry exists: {af_entry_exists}")
+
+                if af_entry_exists:
+                    # Update the existing AF entry with both settings in one patch
+                    json_patch = [
+                        {
+                            "op": "add",
+                            "path": f"/BGP_NEIGHBOR_AF/default|{neighbor}|{af_suffix}/max_prefix_limit",
+                            "value": str(max_prefix_limit)
+                        },
+                        {
+                            "op": "add",
+                            "path": f"/BGP_NEIGHBOR_AF/default|{neighbor}|{af_suffix}/max_prefix_warning_only",
+                            "value": warning_flag
+                        }
+                    ]
+                else:
+                    # Create the BGP_NEIGHBOR_AF entry with both settings in one patch
+                    json_patch = [
+                        {
+                            "op": "add",
+                            "path": f"/BGP_NEIGHBOR_AF/default|{neighbor}|{af_suffix}",
+                            "value": {
+                                "max_prefix_limit": str(max_prefix_limit),
+                                "max_prefix_warning_only": warning_flag
+                            }
+                        }
+                    ]
+
+            logger.info(f"Generated JSON patch: {json_patch}")
+
+            json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+            logger.info(f"Formatted JSON patch for multiasic: {json_patch}")
+
+            tmpfile = generate_tmpfile(duthost)
+            try:
+                result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+                logger.info(f"Patch application result: {result}")
+                return result['rc'] == 0 and "Patch applied successfully" in result['stdout']
+            finally:
+                delete_tmpfile(duthost, tmpfile)
+        else:
+            logger.error(f"Neighbor {neighbor} not found")
+            return False
     else:
         # Get local ASN from config facts
         config_facts = duthost.get_running_config_facts()
@@ -90,23 +140,57 @@ def remove_max_prefix_config(duthost, neighbor, use_frr=None):
     if use_frr is None:
         use_frr = duthost.get_frr_mgmt_framework_config()
 
+    logger.info(f"Removing max-prefix config for neighbor {neighbor} (use_frr={use_frr})")
+
     if use_frr:
-        json_patch = [
-            {
-                "op": "remove",
-                "path": f"/BGP_NEIGHBOR/{neighbor}/maximum_prefix"
-            },
-            {
-                "op": "remove",
-                "path": f"/BGP_NEIGHBOR/{neighbor}/maximum_prefix_warning_only"
-            }
-        ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
-        tmpfile = generate_tmpfile(duthost)
-        try:
-            apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        finally:
-            delete_tmpfile(duthost, tmpfile)
+        # Determine address family from neighbor IP
+        af = "ipv4" if ipaddress.ip_address(neighbor).version == 4 else "ipv6"
+        af_suffix = f"{af}_unicast"
+
+        # Check if BGP_NEIGHBOR_AF table exists
+        cmd = "sonic-db-cli CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
+        result = duthost.shell(cmd)
+        has_bgp_neighbor_af = bool(result['stdout'].strip())
+
+        if has_bgp_neighbor_af:
+            # Check if the specific AF entry exists
+            cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
+            result = duthost.shell(cmd)
+            af_entry_exists = bool(result['stdout'].strip())
+
+            if af_entry_exists:
+                # Always just remove the max-prefix settings, not the entire entry
+                json_patch = [
+                    {
+                        "op": "remove",
+                        "path": f"/BGP_NEIGHBOR_AF/default|{neighbor}|{af_suffix}/max_prefix_limit"
+                    },
+                    {
+                        "op": "remove",
+                        "path": f"/BGP_NEIGHBOR_AF/default|{neighbor}|{af_suffix}/max_prefix_warning_only"
+                    }
+                ]
+
+                logger.info(f"Generated JSON patch: {json_patch}")
+
+                json_patch = format_json_patch_for_multiasic(duthost=duthost,
+                                                             json_data=json_patch,
+                                                             is_asic_specific=True)
+                logger.info(f"Formatted JSON patch for multiasic: {json_patch}")
+
+                tmpfile = generate_tmpfile(duthost)
+                try:
+                    result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+                    logger.info(f"Patch application result: {result}")
+                    return result['rc'] == 0 and "Patch applied successfully" in result['stdout']
+                finally:
+                    delete_tmpfile(duthost, tmpfile)
+            else:
+                logger.info(f"No BGP_NEIGHBOR_AF entry found for {neighbor}, nothing to remove")
+                return True
+        else:
+            logger.info("BGP_NEIGHBOR_AF table doesn't exist, nothing to remove")
+            return True
     else:
         config_facts = duthost.get_running_config_facts()
         local_asn = config_facts['DEVICE_METADATA']['localhost']['bgp_asn']
@@ -120,7 +204,8 @@ def remove_max_prefix_config(duthost, neighbor, use_frr=None):
             f"no neighbor {neighbor} maximum-prefix",
             "end"
         ]
-        duthost.shell("vtysh -c '" + "' -c '".join(commands) + "'")
+        result = duthost.shell("vtysh -c '" + "' -c '".join(commands) + "'")
+        return result['rc'] == 0
 
 
 def check_bgp_session_state(duthost, neighbor, state="established"):
@@ -189,13 +274,6 @@ def test_bgp_max_prefix_behavior(duthosts, rand_one_dut_hostname, af):
 
         # Remove max-prefix config and restart BGP session
         remove_max_prefix_config(duthost, target_neighbor, use_frr=use_frr)
-        restart_bgp_session(duthost, neighbor=target_neighbor)
-
-        # Wait for session to come back up
-        pytest_assert(
-            wait_until(30, 1, 0, check_bgp_session_state, duthost, target_neighbor),
-            f"BGP session for {target_neighbor} failed to re-establish"
-        )
 
         # Test 2: Warning-only behavior
         max_prefix_limit = max(1, route_count - 1)
@@ -222,6 +300,14 @@ def test_bgp_max_prefix_behavior(duthosts, rand_one_dut_hostname, af):
             pytest_assert(
                 configure_max_prefix(duthost, target_neighbor, max_prefix_limit, warning_only=True, use_frr=use_frr),
                 f"Failed to configure warning-only max-prefix limit for {target_neighbor}"
+            )
+
+            restart_bgp_session(duthost, neighbor=target_neighbor)
+
+            # Wait for session to come back up
+            pytest_assert(
+                wait_until(30, 1, 0, check_bgp_session_state, duthost, target_neighbor),
+                f"BGP session for {target_neighbor} failed to re-establish"
             )
 
             def check_routes_exceed_limit():
