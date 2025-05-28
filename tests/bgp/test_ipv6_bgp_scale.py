@@ -106,17 +106,17 @@ def get_down_bgp_sessions_neighbors(duthost):
 
 
 @pytest.fixture(scope="function")
-def announce_bgp_routes_teardown(localhost, tbinfo):
+def announce_bgp_routes_teardown(localhost, tbinfo, ptfhosts):
     yield
-    announce_routes(localhost, tbinfo)
+    for ptfhost in ptfhosts:
+        announce_routes(localhost, tbinfo, ptfhost)
 
 
-def announce_routes(localhost, tbinfo):
+def announce_routes(localhost, tbinfo, ptfhost):
     topo_name = tbinfo['topo']['name']
-    ptf_ip = tbinfo['ptf_ip']
     localhost.announce_routes(
         topo_name=topo_name,
-        ptf_ip=ptf_ip,
+        ptf_ip=ptfhost.mgmt_ip,
         action=ACTION_ANNOUNCE,
         path="../ansible/",
         log_path="logs"
@@ -144,11 +144,11 @@ def generate_packets(routes, dut_mac, src_mac):
     return pkts
 
 
-def change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, action):
+def change_routes_on_peers(localhost, ptfhost, topo_name, peers_routes_to_change, action):
     localhost.announce_routes(
         topo_name=topo_name,
         adhoc=True,
-        ptf_ip=ptf_ip,
+        ptf_ip=ptfhost.mgmt_ip,
         action=action,
         peers_routes_to_change=peers_routes_to_change,
         path="../ansible/",
@@ -350,6 +350,7 @@ def test_sessions_flapping(
 def test_nexthop_group_member_scale(
     duthost,
     ptfadapter,
+    ptfhosts,
     localhost,
     tbinfo,
     bgp_peers_info,
@@ -374,7 +375,6 @@ def test_nexthop_group_member_scale(
     if 't1' in topo_name:
         pytest.skip("Skip test on T1 topology because every route only have one nexthop")
 
-    ptf_ip = tbinfo['ptf_ip']
     pdp = ptfadapter.dataplane
     exp_mask = setup_packet_mask_counters
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
@@ -413,7 +413,8 @@ def test_nexthop_group_member_scale(
         expected_routes.update(
             remove_nexthops_in_routes({p: a for p, a in ecmp_routes.items() if p in prefixes}, nexthop_to_remove)
         )
-    change_routes_on_peers(localhost, topo_name, ptf_ip, peers_routes_to_change, ACTION_WITHDRAW)
+    for ptfhost in ptfhosts:
+        change_routes_on_peers(localhost, ptfhost, topo_name, peers_routes_to_change, ACTION_WITHDRAW)
     withdraw_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
@@ -432,7 +433,8 @@ def test_nexthop_group_member_scale(
     flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
     traffic_thread.start()
-    announce_routes(localhost, tbinfo)
+    for ptfhost in ptfhosts:
+        announce_routes(localhost, tbinfo)
     announce_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
