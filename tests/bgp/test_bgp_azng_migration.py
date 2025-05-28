@@ -155,8 +155,24 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             assert routes_json['filteredPrefixCounter'] == 0
 
             if "ipv6" in bgp_nbr_adv_cmd:
-                assert routes_json['totalPrefixCounter'] == original_ipv6_route_adv_count
-                assert routes_json['filteredPrefixCounter'] == original_ipv6_route_adv_filter_count
+                assert routes_json['totalPrefixCounter'] == original_ipv6_route_adv_count, (
+                    "Mismatch in total advertised IPv6 route count after AZNG migration. "
+                    "Expected: {}, Actual: {}. "
+                    "- Command: {}\n"
+                ).format(
+                    original_ipv6_route_adv_count,
+                    routes_json['totalPrefixCounter'],
+                    bgp_nbr_adv_cmd
+                )
+                assert routes_json['filteredPrefixCounter'] == original_ipv6_route_adv_filter_count, (
+                    "Mismatch in filtered advertised IPv6 route count after AZNG migration. "
+                    "Expected: {}, Actual: {}. "
+                    "- Command: {}\n"
+                ).format(
+                    original_ipv6_route_adv_filter_count,
+                    routes_json['filteredPrefixCounter'],
+                    bgp_nbr_adv_cmd
+                )
             else:
                 assert routes_json['totalPrefixCounter'] == original_ipv4_route_adv_count, (
                     "Mismatch in total advertised IPv4 route count after AZNG migration. "
