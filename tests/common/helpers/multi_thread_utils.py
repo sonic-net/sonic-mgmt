@@ -30,7 +30,7 @@ class SafeThreadPoolExecutor(ThreadPoolExecutor):
         # self.shutdown(wait=True)
         # return False
         # First, prevent any new tasks and wait for running ones to finish
-        self.shutdown(wait=True)
+        self.shutdown(wait=True, cancel_futures=True)
 
         # Collect exceptions from all futures
         errors = []
