@@ -1,5 +1,5 @@
 # Helper functions to be used only for cisco platforms.
-from tests.qos.qos_sai_base import QosSaiBase
+from tests.common.cisco_data import copy_set_voq_watchdog_script_cisco_8000
 import pytest
 
 
@@ -20,14 +20,13 @@ def disable_voq_watchdog(duthosts):
 
 def modify_voq_watchdog_cisco_8000(duthost, enable):
     asics = duthost.get_asic_ids()
-    qsb_obj = QosSaiBase()
 
     '''
     # Enable when T0/T1 supports voq_watchdog
     #if not asics:
-    #    qsb_obj.copy_set_voq_watchdog_script_cisco_8000(duthost, "", enable=enable)
+    #    copy_set_voq_watchdog_script_cisco_8000(duthost, "", enable=enable)
     '''
 
     for asic in asics:
-        qsb_obj.copy_set_voq_watchdog_script_cisco_8000(duthost, asic, enable=enable)
+        copy_set_voq_watchdog_script_cisco_8000(duthost, asic, enable=enable)
         duthost.shell(f"sudo show platform npu script -n asic{asic} -s set_voq_watchdog.py")
