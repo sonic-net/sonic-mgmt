@@ -98,11 +98,11 @@ def main():
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
 
-    if scan_time is None:
-        scan_time = str(datetime.now())
-    else:
+    if scan_time:
         parsed_date = datetime.strptime(scan_time, "%Y-%m-%d")
         scan_time = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        scan_time = str(datetime.now())
 
     for test_case in collected_test_cases:
         script_name = test_case.split("::", 1)[0]  # Extract script file name

@@ -21,6 +21,7 @@ stages:
 - stage: TestCasesCollection
   jobs:
     - job: TestCasesCollection
+      timeoutInMinutes: 600
       variables:
         - group: KUSTO_SECRETS
         - name: DisableDockerDetector
@@ -63,6 +64,7 @@ stages:
 
         - task: AzureCLI@2
           displayName: Collect history data for sonic-mgmt-int
+          timeoutInMinutes: 300
           inputs:
             azureSubscription: "SONiC-Automation"
             scriptType: 'bash'
@@ -87,11 +89,12 @@ stages:
 
                 sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName) --scan_time $date
               done
-            env:
-              TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
 
         - task: AzureCLI@2
           displayName: Collect history data for sonic-mgmt-int for sonic-mgmt
+          timeoutInMinutes: 300
           inputs:
             azureSubscription: "SONiC-Automation"
             scriptType: 'bash'
@@ -116,5 +119,5 @@ stages:
 
                 sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master --scan_time $date
               done
-            env:
-              TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
