@@ -16,6 +16,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                      # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +379,7 @@ def __gen_data_flow(testbed_config,
                 eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
         ipv4.src.value = tx_port_config.ip
-        ipv4.dst.value = rx_port_config.ip
+        ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         if 'Background Flow 1 -> 0' in flow.name:
             ipv4.priority.dscp.phb.values = [

@@ -8,6 +8,8 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port       # 
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
+
 
 DATA_FLOW_NAME = "Data Flow"
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
@@ -176,7 +178,7 @@ def __gen_traffic(testbed_config,
             udp.src_port.increment.count = 1
 
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
             ipv4.priority.dscp.ecn.value = (
