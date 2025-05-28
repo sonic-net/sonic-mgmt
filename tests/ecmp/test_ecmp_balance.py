@@ -27,12 +27,6 @@ pytestmark = [
     pytest.mark.topology("t0", "t1"),
 ]
 
-MAX_WAIT_TIME_FOR_INTERFACES = 360
-
-BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
-FILES_DIR = os.path.join(BASE_DIR, "files")
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
 DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
 
@@ -116,12 +110,6 @@ def setup(duthosts, rand_selected_dut, tbinfo):
             pprint.pformat(setup_information)
         )
     )
-
-    logger.info(
-        'Creating temporary folder "{}" for hash tuples test'.format(DUT_TMP_DIR)
-    )
-    for duthost in duthosts:
-        duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
     yield setup_information
 
@@ -499,7 +487,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
     base_sport = 100
     base_dport = 80
     proto = 17
-    INCREMENT = 80
+    INCREMENT = 40
     # Dictionary to store test results for all patterns
     test_results = {
         "pattern_1": {},  # varying source ports
