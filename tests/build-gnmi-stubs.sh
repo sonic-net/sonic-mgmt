@@ -55,17 +55,20 @@ find "$GENERATED_DIR/github/" -type d -exec touch {}/__init__.py \;
 
 # Step 3: Move generated files to correct locations
 # This is due to a bug in the gRPC compiler: https://github.com/grpc/grpc/issues/39583
-echo "Moving generated files to correct locations..."
-mv "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi/gnmi_pb2_grpc.py" \
-   "$GENERATED_DIR/github/com/openconfig/gnmi/proto/gnmi/gnmi_pb2_grpc.py"
+# Fixed in https://github.com/grpc/grpc/pull/39586
+# For versions that still have this bug, we need to move the generated files manually.
+if [ -f "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi/gnmi_pb2_grpc.py" ]; then
+    echo "Moving generated files to correct locations..."
+    mv "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi/gnmi_pb2_grpc.py" \
+       "$GENERATED_DIR/github/com/openconfig/gnmi/proto/gnmi/gnmi_pb2_grpc.py"
+fi
 
-mv "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi_ext/gnmi_ext_pb2_grpc.py" \
-   "$GENERATED_DIR/github/com/openconfig/gnmi/proto/gnmi_ext/gnmi_ext_pb2_grpc.py"
-
-echo "Files moved successfully."
-
-# Step 4: Remove $GENERATED_DIR/github.com directory
-echo "Removing $GENERATED_DIR/github.com directory..."
-rm -rf "$GENERATED_DIR/github.com"
-
-echo "$GENERATED_DIR/github.com directory removed successfully."
+if [ -f "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi_ext/gnmi_ext_pb2_grpc.py" ]; then
+    mv "$GENERATED_DIR/github.com/openconfig/gnmi/proto/gnmi_ext/gnmi_ext_pb2_grpc.py" \
+       "$GENERATED_DIR/github/com/openconfig/gnmi/proto/gnmi_ext/gnmi_ext_pb2_grpc.py"
+    echo "Files moved successfully."
+    # Step 4: Remove $GENERATED_DIR/github.com directory
+    echo "Removing $GENERATED_DIR/github.com directory..."
+    rm -rf "$GENERATED_DIR/github.com"
+    echo "$GENERATED_DIR/github.com directory removed successfully."
+fi
