@@ -1888,6 +1888,12 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
 
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
+  skip:
+    reason: "For marvell-teralynx - Need to be skipped due to HW resource oversubscription detected during test setup."
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
+
 qos/test_qos_masic.py:
   skip:
     reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M* topo does not support qos. / KVM do not support swap syncd."
