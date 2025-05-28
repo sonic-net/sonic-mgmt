@@ -340,7 +340,7 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
                 "Interface '{}' is not in output of '{}'. "
                 "Parsed presence output: {}".format(intf, cmd_sfp_presence, parsed_presence)
             )
-            assert parsed_presence[intf].lower() == "present", "Interface '{}' presence is not 'Present'".format(intf)
+            assert parsed_presence[intf] == "Present", "Interface '{}' presence is not 'Present'".format(intf)
 
 
 @pytest.mark.device_type('physical')
