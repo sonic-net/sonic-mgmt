@@ -52,6 +52,7 @@ for i in range(8):
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
 offset_cmd_th5 = 'bcmcmd "bsh -c \'pt dump RTAG7_PORT_BASED_HASH 0 351 OFFSET_ECMP\'"'
 
+
 @pytest.fixture
 def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Enable autorestart for all features
