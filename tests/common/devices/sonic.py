@@ -2142,6 +2142,7 @@ Totals               6450                 6449
             timeout,
             crm_facts.get('polling_interval', 'N/A')
         )
+        return crm_facts
 
     def start_service(self, service_name, docker_name):
         logging.debug("Starting {}".format(service_name))

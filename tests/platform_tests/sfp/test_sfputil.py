@@ -491,13 +491,20 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
             assert logical_intf in parsed_presence, (
                 "Interface '{}' is not in output of '{}'. "
-                "This means the SFP presence information for the interface is missing. "
+                "This means the SFP presence information for the interface is missing after reset. "
                 "- Parsed Presence Output: {}\n"
             ).format(
-                    logical_intf,
-                    cmd_sfp_presence_per_intf,
-                    parsed_presence
-               )
+                logical_intf,
+                cmd_sfp_presence_per_intf,
+                parsed_presence
+            )
+            assert parsed_presence[logical_intf] == "Present", (
+                "Interface presence is not 'Present' for '{}'. Got: '{}'. "
+                "This means the SFP module is not detected as present after reset."
+            ).format(
+               logical_intf,
+               parsed_presence[logical_intf]
+            )
 
     # Check interface status for all interfaces in the end just in case
     assert check_interface_status(duthost,
@@ -620,10 +627,20 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_presence, (
-               "Interface '{}' is not in output of '{}'. "
-               "This means the SFP presence information for the interface is missing. "
-               "- Parsed Presence Output: {}\n"
-               .format(intf, cmd_sfp_presence, parsed_presence)
+                "Interface '{}' is not in output of '{}'. "
+                "This means the SFP presence information for the interface is missing. "
+                "- Parsed Presence Output: {}\n"
+            ).format(
+                intf,
+                cmd_sfp_presence,
+                parsed_presence
+            )
+            assert parsed_presence[intf] == "Present", (
+                "Interface presence is not 'Present' for '{}'. Got: '{}'. "
+                "This means the SFP module is not detected as present."
+            ).format(
+                intf,
+                parsed_presence[intf]
             )
     logging.info("Check interface status")
     cmd = "show interfaces transceiver eeprom {} | grep 400ZR".format(asichost.cli_ns_option)
