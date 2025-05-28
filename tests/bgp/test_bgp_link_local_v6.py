@@ -33,12 +33,13 @@ def configure_bgp_link_local(host, local_asn, peer_asn, interface, is_dut=False)
         json_patch = [
             {
                 "op": "add",
-                "path": f"/BGP_NEIGHBOR/{interface}",
+                "path": f"/BGP_NEIGHBOR/default|{interface}",
                 "value": {
                     "asn": str(peer_asn),
                     "local_addr": {interface},
                     "name": interface,
-                    "peer_type": "dynamic"
+                    "peer_type": "dynamic",
+                    "admin_status": "true"
                 }
             }
         ]
@@ -144,7 +145,7 @@ def cleanup_bgp_config(duthost, peer_host, peer_name):
         else:
             host = peer_host
 
-        config_reload(host, config_source='config_db', wait=60, is_dut=False)
+        config_reload(host, config_source='config_db', wait=60, is_dut=False, yang_validate=False)
         logger.info(f"Successfully reloaded peer {peer_name} configuration")
     except Exception as e:
         logger.error(f"Failed to reload peer {peer_name} configuration: {str(e)}")
@@ -161,8 +162,8 @@ def deactivate_global_bgp_neighbor(host, asn, neighbor_addr, is_dut=False):
         json_patch = [
             {
                 "op": "replace",
-                "path": f"/BGP_NEIGHBOR/{neighbor_addr}/admin_status",
-                "value": "down"
+                "path": f"/BGP_NEIGHBOR/default|{neighbor_addr}/admin_status",
+                "value": "false"
             }
         ]
         tmpfile = generate_tmpfile(host)
