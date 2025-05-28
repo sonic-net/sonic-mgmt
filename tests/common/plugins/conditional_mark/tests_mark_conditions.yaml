@@ -79,6 +79,7 @@ arp/test_wr_arp.py:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "release in ['202412']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####            bfd              #####
@@ -193,7 +194,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
-      - "hwsku in ['Arista-7050CX3-32S-C28S4']"
+      - "hwsku in ['Arista-7050CX3-32S-C28S4', 'Nokia-IXR7220-D4-36D']"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -1648,6 +1649,18 @@ mvrf/test_mgmtvrf.py:
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
+mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
+  skip:
+    reason: "Fastboot not supported in x86_64-nokia_ixr7220_d4-r0 platform"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
+  skip:
+    reason: "Warm reboot not supported in x86_64-nokia_ixr7220_d4-r0 platform"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 #######################################
 #####           nat               #####
 #######################################
@@ -1806,6 +1819,24 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
 #######################################
 #####     platform_tests          #####
 #######################################
+platform_tests/test_advanced_reboot.py:
+  skip:
+    reason: "x86_64-nokia_ixr7220_d4-r0 platform does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+platform_tests/test_cont_warm_reboot.py::test_continuous_reboot:
+  skip:
+    reason: "x86_64-nokia_ixr7220_d4-r0 platform does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "x86_64-nokia_ixr7220_d4-r0 platform does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
@@ -2654,17 +2685,44 @@ vrf/test_vrf.py::TestVrfAclRedirect:
       - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
+vrf/test_vrf.py::TestVrfWarmReboot:
+  skip:
+    reason: "Warm reboot not supported in x86_64-nokia_ixr7220_d4-r0 platform"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+#######################################
+#####           vrf_attr          #####
+#######################################
 vrf/test_vrf_attr.py:
   skip:
     reason: "Vrf tests are skipped in PR testing."
     conditions:
       - "asic_type in ['vs']"
 
+vrf/test_vrf_attr.py::TestVrfAttrIpAction:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrIpState:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
     reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing."
     conditions:
       - "asic_type in ['barefoot', 'vs']"
+
+vrf/test_vrf_attr.py::TestVrfAttrTTL:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####           vxlan            #####
@@ -2781,9 +2839,9 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms"
+    reason: "vxlan support not available for cisco-8122 platforms and nokia-ixr7220"
     conditions:
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-nokia_ixr7220_d4-r0']"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
