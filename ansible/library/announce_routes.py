@@ -501,7 +501,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
     vms = topo['topology']['VMs']
     for vm_name, vm in vms.items():
         router_type = "leaf"
-        if 'tor' in v['properties']:
+        if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
         vm_offset = vm['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
