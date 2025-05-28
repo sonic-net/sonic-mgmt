@@ -16,7 +16,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device
+from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
+        copy_dshell_script_cisco_8000
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
@@ -2774,7 +2775,7 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2832,7 +2833,7 @@ def set_port_cir(interface, rate):
 
         # Disable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=False)
@@ -2845,7 +2846,7 @@ def set_port_cir(interface, rate):
 
         # Enable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=True)
