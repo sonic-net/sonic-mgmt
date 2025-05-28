@@ -15,12 +15,12 @@ from tests.common.dualtor.dual_tor_utils import check_nexthops_single_downlink
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
 from tests.common.dualtor.dual_tor_mock import set_mux_state
 from tests.common.dualtor.dual_tor_mock import is_mocked_dualtor
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -67,7 +67,7 @@ def neighbor_reachable(duthost, neighbor_ip):
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost, testbed_setup,
     rand_selected_dut, tbinfo, set_crm_polling_interval,
-    tunnel_traffic_monitor, vmhost      # noqa F811
+    tunnel_traffic_monitor, vmhost      # noqa: F811
 ):
     """
     @Verify those two scenarios:
@@ -145,7 +145,7 @@ def test_active_tor_remove_neighbor_downstream_active(
 
 def test_downstream_ecmp_nexthops(
     ptfadapter, rand_selected_dut, tbinfo,
-    toggle_all_simulator_ports, tor_mux_intfs, ip_version   # noqa F811
+    toggle_all_simulator_ports, tor_mux_intfs, ip_version   # noqa: F811
 ):
     nexthops_count = 4
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)

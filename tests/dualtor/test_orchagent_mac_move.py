@@ -10,10 +10,10 @@ from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa: F401
 from tests.common.utilities import dump_scapy_packet_show_output
 
 
@@ -85,7 +85,7 @@ def test_mac_move(
     announce_new_neighbor, apply_active_state_to_orchagent,
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, set_crm_polling_interval,
-    tbinfo, tunnel_traffic_monitor, vmhost          # noqa F811
+    tbinfo, tunnel_traffic_monitor, vmhost          # noqa: F811
 ):
     tor = rand_selected_dut
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
