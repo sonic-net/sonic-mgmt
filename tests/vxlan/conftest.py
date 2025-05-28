@@ -20,6 +20,8 @@ from tests.vxlan.vnet_constants import (
     NUM_INTF_PER_VNET_KEY,
     TEMPLATE_DIR
 )
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts # noqa F401
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -347,3 +349,11 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
     return yaml.safe_load(
         safe_open_template(
             join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+
+    config_reload(duthost, safe_reload=True)
