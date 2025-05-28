@@ -92,7 +92,7 @@ def copy_set_voq_watchdog_script_cisco_8000(dut, asic="", enable=True):
     dshell_script = '''
 from common import d0
 def set_voq_watchdog(enable):
-d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
+    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
 set_voq_watchdog({})
 '''.format(enable)
 
