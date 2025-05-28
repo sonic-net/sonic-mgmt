@@ -86,7 +86,7 @@ def generate_vxlan_config_files(duthost, mg_facts):
     # Generate vxlan tunnel config json file on DUT
     vxlan_tunnel_cfg = {
         "VXLAN_TUNNEL": {
-            "tunnelVxlan": {
+            "tlVxlan": {
                 "src_ip": loopback_ip,
                 "dst_ip": VTEP2_IP
             }
@@ -100,7 +100,7 @@ def generate_vxlan_config_files(duthost, mg_facts):
         "VXLAN_TUNNEL_MAP": {}
     }
     for vlan in mg_facts["minigraph_vlans"]:
-        vxlan_maps_cfg["VXLAN_TUNNEL_MAP"]["tunnelVxlan|map%s" % vlan] = {
+        vxlan_maps_cfg["VXLAN_TUNNEL_MAP"]["tlVxlan|map%s" % vlan] = {
             "vni": int(vlan.replace("Vlan", "")) + VNI_BASE,
             "vlan": vlan
         }
@@ -158,9 +158,9 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         "Always try to remove any possible VxLAN tunnel and map configuration")
     for vlan in mg_facts["minigraph_vlans"]:
         duthost.shell(
-            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map%s"' % vlan)
+            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
     duthost.shell(
-        'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"')
+        'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
@@ -174,9 +174,9 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
     elif request.param == "Removed":
         for vlan in setup["mg_facts"]["minigraph_vlans"]:
             duthost.shell(
-                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tunnelVxlan|map%s"' % vlan)
+                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
         duthost.shell(
-            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"')
+            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
         return False, request.param
     else:
         # clear FDB and arp cache on DUT
