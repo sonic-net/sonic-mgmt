@@ -434,7 +434,7 @@ def test_nexthop_group_member_scale(
     start_time = datetime.datetime.now()
     traffic_thread.start()
     for ptfhost in ptfhosts:
-        announce_routes(localhost, tbinfo)
+        announce_routes(localhost, tbinfo, ptfhost)
     announce_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
