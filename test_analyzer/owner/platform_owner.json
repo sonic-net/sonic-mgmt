@@ -186,16 +186,16 @@
     {
         "hwsku": "Cisco-8101-O32",
         "topo": "t1",
-        "owner": "Yawen Ni",
-        "email": "yawenni@microsoft.com",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Cisco-8101-O8C48",
         "topo": "t1",
-        "owner": "Yawen Ni",
-        "email": "yawenni@microsoft.com",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
@@ -233,9 +233,17 @@
     },
     {
         "hwsku": "Cisco-8102-C64",
+        "topo": "t0",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "yes",
+        "tag": "yes"
+    },
+    {
+        "hwsku": "Cisco-8102-C64",
         "topo": "t1",
-        "owner": "Yawen Ni",
-        "email": "yawenni@microsoft.com",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -742,5 +750,13 @@
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Celestica-DX010-C32",
+        "topo": "t0",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
     }
 ]

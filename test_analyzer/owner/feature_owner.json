@@ -1799,6 +1799,11 @@
         "email": "xiwang5@microsoft.com"
     },
     {
+        "feature": "test_pktgen",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com"
+    },
+    {
         "feature": "upgrade_path",
         "owner": "Ryan Zhu",
         "email": "ryanzhu@microsoft.com",
