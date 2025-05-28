@@ -844,7 +844,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiHeadroomPoolSize(
-        self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
@@ -896,10 +896,16 @@ class TestQosSai(QosSaiBase):
             # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
             # present
             src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
-            if len(src_ports) < 5:
-                pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:5]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            if len(duthosts) == 1:
+                if len(src_ports) < 3:
+                    pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:3]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            else:
+                if len(src_ports) < 5:
+                    pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:5]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
 
             if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
                 # Src and dst are the same asics, leave one for dst port and the rest for src ports
