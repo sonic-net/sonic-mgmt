@@ -12,7 +12,8 @@ import time
 import six
 import itertools
 
-from collections import Iterable, defaultdict
+from collections.abc import Iterable
+from collections import defaultdict
 from ipaddress import ip_address, ip_network
 
 import ptf
