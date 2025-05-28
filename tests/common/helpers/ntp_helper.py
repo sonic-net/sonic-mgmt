@@ -17,17 +17,21 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
     ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
     ntp_conf_path = None
+    ntp_service_name = None
     if ntp_daemon_type == NtpDaemon.NTPSEC:
         ntp_conf_path = '/etc/ntpsec/ntp.conf'
+        ntp_service_name = 'ntpsec'
     elif ntp_daemon_type == NtpDaemon.CHRONY:
         ntp_conf_path = '/etc/chrony/chrony.conf'
+        ntp_service_name = 'chrony'
     elif ntp_daemon_type == NtpDaemon.NTP:
         ntp_conf_path = '/etc/ntp.conf'
+        ntp_service_name = 'ntp'
 
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+    ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
     pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
@@ -58,7 +62,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     yield
 
     # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
+    ptfhost.service(name=ntp_service_name, state="stopped")
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
