@@ -80,7 +80,7 @@ stages:
 # Below are Impacted Area Based PR checkers
   - job: get_impacted_area
     displayName: "Get impacted area"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -95,7 +95,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -120,7 +120,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -146,7 +146,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -173,7 +173,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -201,7 +201,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -227,7 +227,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -259,7 +259,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -288,7 +288,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
