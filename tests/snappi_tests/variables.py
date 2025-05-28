@@ -85,12 +85,11 @@ MIXED_SPEED_PORT_INFO = {'vms69-t2-8800-2-ixia': [{
     }]
 }
 
-if MULTIDUT_TESTBED not in MULTIDUT_PORT_INFO or MULTIDUT_TESTBED not in MIXED_SPEED_PORT_INFO:
-    common_keys = set(MULTIDUT_PORT_INFO.keys()).intersection(MIXED_SPEED_PORT_INFO.keys())
-    if common_keys:
-        MULTIDUT_TESTBED = list(common_keys)[0]
-    else:
-        raise ValueError("No available testbed found in both MULTIDUT_PORT_INFO and MIXED_SPEED_PORT_INFO.")
+if MULTIDUT_TESTBED not in MULTIDUT_PORT_INFO:
+    MULTIDUT_PORT_INFO[MULTIDUT_TESTBED] = {}
+
+if MULTIDUT_TESTBED not in MIXED_SPEED_PORT_INFO:
+    MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED] = {}
 
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname

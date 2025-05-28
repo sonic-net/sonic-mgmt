@@ -92,6 +92,10 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
+        if not ptf:
+            logger.info(f"Skip ping check since dut={dut.hostname} does not have ptf")
+            return
+
         # check PTF device reachability
         if ptf.mgmt_ip:
             cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
@@ -138,6 +142,9 @@ def filter_check_items(tbinfo, duthosts, check_items):
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:
             filtered_check_items.remove('check_mac_entry_count')
+
+    if 't2' in tbinfo['topo']['name'] and 'ixia' in tbinfo['topo']['name']:
+        filtered_check_items.remove('check_mac_entry_count')
 
     return filtered_check_items
 
