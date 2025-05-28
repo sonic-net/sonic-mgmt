@@ -153,6 +153,8 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
 
+TOPOLOGY_WITH_SERVICE_PORT = ["t0-d18u8s4", "t0-isolated-d16u16s1", "t0-isolated-d32u32s2"]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(duthosts):
@@ -429,10 +431,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
-    if len(port_channels) and (topo in ["t0", "m0_vlan", "m0_l3"]
-                               or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                             "t1-56-lag", "t1-28-lag", "t1-32-lag")
-                               or 't1-isolated' in tbinfo["topo"]["name"]):
+    if (
+        len(port_channels)
+        and (
+            topo in ["t0", "m0_vlan", "m0_l3"]
+            or tbinfo["topo"]["name"] in (
+                "t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+            )
+            or 't1-isolated' in tbinfo["topo"]["name"]
+        )
+        and tbinfo["topo"]["name"] not in TOPOLOGY_WITH_SERVICE_PORT
+    ):
 
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
