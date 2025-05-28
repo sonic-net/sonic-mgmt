@@ -2,7 +2,7 @@ import logging
 import pytest
 import ipaddress
 from functools import reduce
-
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
@@ -127,6 +127,14 @@ def fixture_setup_neighbors(setUp, encap_type, minigraph_facts):
         duthost.shell(
             "sudo config interface ip remove {} DDDD::200:0:0:1/64".format(
                 intf))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_config_by_config_reload(setUp):
+    yield
+    duthost = setUp['duthost']
+
+    config_reload(duthost, safe_reload=True)
 
 
 class Test_VxLAN_Crm(Test_VxLAN):
