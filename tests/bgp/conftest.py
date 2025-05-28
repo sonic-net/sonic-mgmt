@@ -24,7 +24,8 @@ from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TE
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
-
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -66,23 +67,53 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             return
 
         node_results = []
+        asn = node['conf']['bgp']['asn']
         logger.info('enable graceful restart on neighbor host {}'.format(node['host'].hostname))
-        logger.info('bgp asn {}'.format(node['conf']['bgp']['asn']))
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart restart-time 300'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
-                module_ignore_errors=True)
-            )
+        logger.info('bgp asn {}'.format(asn))
+        if isinstance(node['host'], EosHost):
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart restart-time 300'],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                    module_ignore_errors=True)
+                )
+        elif isinstance(node['host'], SonicHost):
+            node_results.append(node['host'].config(
+                lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
+                parents=['router bgp {}'.format(asn)],
+                module_ignore_errors=True))
+            # enable graceful-restart for peers connected to DUT
+            bgp_peers = node['conf']['bgp']['peers']
+            dut_asn = int(next(iter(bgp_peers.keys())))
+            peers = bgp_peers[dut_asn]
+            if not peers:
+                results[node['host'].hostname] = [{'failed': True, 'msg': "DUT ASN not found in BGP peers"}]
+                return
+
+            for neighbor_ip in peers:
+                node_results.append(node['host'].config(
+                    lines=['neighbor {} graceful-restart'.format(neighbor_ip)],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True))
+
+            node['host'].command("sudo vtysh -c 'clear bgp ipv4 *'", module_ignore_errors=True)
+            node['host'].command("sudo vtysh -c 'clear bgp ipv6 *'", module_ignore_errors=True)
+        else:
+            logger.error(f"Unsupported host type: {type(node['host'])}")
+            node_results.append({
+                'failed': True,
+                'msg': f"Unsupported host type: {type(node['host'])}"
+            })
+
         results[node['host'].hostname] = node_results
 
     @reset_ansible_local_tmp
@@ -102,18 +133,46 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         node_results = []
         node['host'].start_bgpd()
         logger.info('disable graceful restart on neighbor {}'.format(node))
-        node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
-                module_ignore_errors=True)
-            )
+        asn = (node['conf']['bgp']['asn'])
+        if isinstance(node['host'], EosHost):
+            node_results.append(node['host'].config(
+                    lines=['no graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['no graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                    module_ignore_errors=True)
+                )
+        elif isinstance(node['host'], SonicHost):
+            node_results.append(node['host'].config(
+                lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
+                parents=['router bgp {}'.format(asn)],
+                module_ignore_errors=True))
+            # restore graceful-restart for peers connected to DUT
+            bgp_peers = node['conf']['bgp']['peers']
+            dut_asn = int(next(iter(bgp_peers.keys())))
+            peers = bgp_peers[dut_asn]
+            if not peers:
+                results[node['host'].hostname] = [{'failed': True, 'msg': "DUT ASN not found in BGP peers"}]
+                return
+            for neighbor_ip in peers:
+                node_results.append(node['host'].config(
+                    lines=['no neighbor {} graceful-restart'.format(neighbor_ip)],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True))
+            node['host'].command("sudo vtysh -c 'clear bgp ipv4 *'", module_ignore_errors=True)
+            node['host'].command("sudo vtysh -c 'clear bgp ipv6 *'", module_ignore_errors=True)
+        else:
+            logger.error(f'Unsupported host type: {type(node["host"])}')
+            node_results.append({
+                'failed': True,
+                'msg': f'Unsupported host type: {type(node["host"])}'
+            })
         results[node['host'].hostname] = node_results
 
+    # enable graceful restart on neighbors
     results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)

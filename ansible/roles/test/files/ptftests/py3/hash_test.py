@@ -12,7 +12,8 @@ import time
 import six
 import itertools
 
-from collections import Iterable, defaultdict
+from collections.abc import Iterable
+from collections import defaultdict
 from ipaddress import ip_address, ip_network
 
 import ptf
@@ -32,6 +33,7 @@ from ptf.testutils import simple_nvgre_packet
 
 import fib
 import lpm
+import macsec  # noqa F401
 
 
 class HashTest(BaseTest):

@@ -12,6 +12,7 @@ import sys
 import texttable
 import math
 import os
+import macsec  # noqa F401
 import concurrent.futures
 from ptf.testutils import (ptf_ports,
                            dp_poll,
