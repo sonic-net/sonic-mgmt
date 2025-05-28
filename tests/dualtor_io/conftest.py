@@ -38,6 +38,8 @@ def setup_loganalyzer(loganalyzer):
     KERNEL_BOOTUP_SYSLOG = "kernel: [    0.000000] Linux version"
 
     def _setup_loganalyzer(duthost, collect_only=False, collect_from_bootup=False):
+        if not loganalyzer:
+            return
         if collect_only:
             loganalyzer[duthost.hostname].match_regex = []
             loganalyzer[duthost.hostname].expect_regex = []
