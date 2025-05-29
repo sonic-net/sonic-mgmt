@@ -107,10 +107,15 @@ hw_port_cfg = {
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c448o16-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
-                         'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
+                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
                          'peer_ports': [],
-                         'skip_ports': [13, 16, 17, 44, 45, 48, 49],
+                         'skip_ports': [16, 17, 44, 45, 48, 49],
                          "panel_port_step": 1},
+    'c448o16-lag-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                             'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
+                             'peer_ports': [],
+                             'skip_ports': [13, 16, 17, 44, 45, 48, 49],
+                             "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
                          'peer_ports': [],
@@ -362,10 +367,7 @@ def generate_topo(role: str,
             vm_list.append(vm)
 
             if link_type == 'up':
-                if role == 't1':
-                    uplinkif_list.extend(list(range(link_id_start, link_id_end+1, link_step)))
-                else:
-                    uplink_ports.append(link_id_start)
+                uplinkif_list.append(link_id_start)
             elif link_type == 'down':
                 tornum += 1
                 downlinkif_list.append(link_id_start)
@@ -381,13 +383,13 @@ def generate_topo(role: str,
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
+                per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     # Skip breakout if defined
                     if (panel_port_id, link_id - link_id_start) in skip_ports:
                         continue
 
-                    per_role_vm_count[vm_role_cfg["role"]] += 1
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,
@@ -444,12 +446,13 @@ def write_topo_file(role: str,
                     downlink_port_count: int,
                     uplink_port_count: int,
                     peer_port_count: int,
+                    suffix: str,
                     file_content: str):
     downlink_keyword = f"d{downlink_port_count}" if downlink_port_count > 0 else ""
     uplink_keyword = f"u{uplink_port_count}" if uplink_port_count > 0 else ""
     peer_keyword = f"s{peer_port_count}" if peer_port_count > 0 else ""
 
-    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}.yml"
+    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}{suffix}.yml"
 
     if role in overwrite_file_name and keyword in overwrite_file_name[role]:
         file_path = f"vars/topo_{overwrite_file_name[role][keyword]}.yml"
@@ -492,10 +495,12 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
 
@@ -516,7 +521,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
         role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
 
     write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
-                    len(peer_ports),
+                    len(peer_ports), '-lag' if 'lag' in link_cfg else '',
                     file_content)
 
 
