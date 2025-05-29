@@ -324,7 +324,7 @@ def test_watchdog_status_check(duthosts, dpuhosts,
                                enum_rand_one_per_hwsku_hostname,
                                platform_api_conn, num_dpu_modules):  # noqa: F811
     """
-    @summary: To Verify watchdog armed only on DPUs
+    @summary: Verifies that the switch's watchdog is unarmed and the active DPUs' watchdogs are armed.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
