@@ -3152,7 +3152,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 65101
       peers:
         65100:
           - 10.0.2.0
@@ -3171,7 +3171,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65100
+      asn: 65102
       peers:
         65100:
           - 10.0.2.2
