@@ -723,3 +723,12 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def check_config_table_presence(duthost, table_name: str):
+    """
+    Checks if table_name is present in the switch's running config.
+    Returns true if present, false otherwise.
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    return table_name in config_facts
