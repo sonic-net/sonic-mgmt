@@ -309,7 +309,7 @@ def vnet_test_params(duthost, request):
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
+def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo, backup_and_restore_config_db_on_duts):        # noqa F811
     """
     Fixture to get minigraph facts
     Args:
@@ -355,5 +355,5 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
 def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
     yield
     duthost = duthosts[rand_one_dut_hostname]
-
+    logger.info("Restore config after running tests")
     config_reload(duthost, safe_reload=True)
