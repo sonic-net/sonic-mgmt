@@ -10,6 +10,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 import queue
+import re
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -152,8 +153,6 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
-
-TOPOLOGY_WITH_SERVICE_PORT = ["t0-d18u8s4", "t0-isolated-d16u16s1", "t0-isolated-d32u32s2"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -441,7 +440,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
-        and tbinfo["topo"]["name"] not in TOPOLOGY_WITH_SERVICE_PORT
+        and not re.match(r"t0-.*-s\d+$", tbinfo["topo"]["name"])
     ):
 
         for k, v in list(port_channels.items()):
