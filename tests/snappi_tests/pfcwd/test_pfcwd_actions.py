@@ -2,10 +2,12 @@ import pytest
 import logging
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut     # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
+    fanout_graph_facts   # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters      # noqa: F401
+    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_single_dut      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
@@ -190,6 +192,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -358,6 +361,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -529,6 +533,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -701,6 +706,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -873,6 +879,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -1013,5 +1020,6 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

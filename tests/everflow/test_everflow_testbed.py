@@ -3,7 +3,6 @@ import logging
 import random
 import time
 import pytest
-import ipaddress
 import threading
 import ptf.testutils as testutils
 from ptf.mask import Mask
@@ -16,6 +15,7 @@ from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_ST
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
 from .everflow_test_utilities import setup_info, setup_arp_responder, erspan_ip_ver, EVERFLOW_DSCP_RULES  # noqa: F401
+from .everflow_test_utilities import skip_ipv6_everflow_tests                                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
@@ -695,9 +695,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         # Events to control the thread
         stop_thread = threading.Event()
-        neigh_ipv4 = {entry['name']: entry['addr'].lower() for entry in ptfadapter.mg_facts['minigraph_bgp'] if
-                      'ASIC' not in entry['name'] and isinstance(ipaddress.ip_address(entry['addr']),
-                                                                 ipaddress.IPv4Address)}
+        cmd = 'show ip bgp summary'
+        parse_result = everflow_dut.show_and_parse(cmd)
+        neigh_ipv4 = {entry['neighborname']: entry['neighbhor'] for entry in parse_result}
         if len(neigh_ipv4) < 2:
             pytest.skip("Skipping as Less than 2 Neigbhour")
 
@@ -713,7 +713,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                     ip_src=selected_addrs2[0],
                     eth_dst=router_mac,
                     ip_dst=selected_addrs2[1],
-                    eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                    eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
                     inner_frame=inner_pkt2[scapy.IP]
                 ),
                 self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip=selected_addrs3[0],
@@ -894,7 +894,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         flags=0x10
     ):
         pkt = testutils.simple_tcp_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=router_mac,
             ip_src=src_ip,
             ip_dst=dst_ip,

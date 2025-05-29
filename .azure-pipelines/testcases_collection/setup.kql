@@ -1,0 +1,16 @@
+###############################################################################
+# TestCasesCollection TABLE SETUP                                             #
+# 1. Create a TestCasesCollection table to record all test cases              #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestCasesCollection (TestCase: string, FilePath: string, Topology: string,
+                            ScanTime: datetime, UploadTime: datetime, TrackId: string, Repository: string, Branch: string)
+
+.create table TestCasesCollection ingestion json mapping 'TestCasesCollectionMapping' @'[{"column":"TestCase","Properties":{"path":"$.testcase"}},'
+                                                                                '{"column":"FilePath","Properties":{"path":"$.filepath"}},'
+                                                                                '{"column":"Topology","Properties":{"path":"$.topology"}},'
+                                                                                '{"column":"ScanTime","Properties":{"path":"$.scantime"}},'
+                                                                                '{"column":"UploadTime","Properties":{"path":"$.uploadtime"}},'
+                                                                                '{"column":"TrackId","Properties":{"path":"$.trackid"}},'
+                                                                                '{"column":"Repository","Properties":{"path":"$.repository"}},'
+                                                                                '{"column":"Branch","Properties":{"path":"$.branch"}}]'

@@ -1,12 +1,127 @@
 import logging
 import time
 import requests
+import random
 import ptf.packet as scapy
 import ptf.testutils as testutils
-
+from tests.common.reboot import reboot
+from tests.common.config_reload import config_reload
+from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
+    extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.srv6_helper import SRv6
 
 logger = logging.getLogger(__name__)
+
+
+class MyLocators():
+    my_locator_list = [
+        ['locator_1', '2001:1000:100::'],
+        ['locator_2', '2001:1001:200::'],
+        ['locator_3', '2001:2000:300::'],
+        ['locator_4', '2001:2001:400::'],
+        ['locator_5', '2001:3000:500::'],
+        ['locator_6', '2001:3001:600::'],
+        ['locator_7', '2001:4000:700::'],
+        ['locator_8', '2001:4001:800::'],
+        ['locator_9', '2001:5000:900::'],
+        ['locator_10', '2001:5001:a00::']
+    ]
+
+
+class MySIDs(MyLocators):
+    TUNNEL_MODE = [SRv6.pipe_mode]
+    MY_SID_LIST = [
+        [MyLocators.my_locator_list[0][0], MyLocators.my_locator_list[0][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[1][0], MyLocators.my_locator_list[1][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[2][0], MyLocators.my_locator_list[2][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[3][0], MyLocators.my_locator_list[3][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[4][0], MyLocators.my_locator_list[4][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[5][0], MyLocators.my_locator_list[5][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[6][0], MyLocators.my_locator_list[6][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[7][0], MyLocators.my_locator_list[7][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[8][0], MyLocators.my_locator_list[8][1], SRv6.uN, 'default'],
+        [MyLocators.my_locator_list[9][0], MyLocators.my_locator_list[9][1], SRv6.uN, 'default']
+    ]
+
+
+def validate_srv6_in_appl_db(duthost,
+                             block_len=32,
+                             node_len=16,
+                             func_len=0,
+                             arg_len=0):
+    for entry in MySIDs.MY_SID_LIST:
+        prefix = entry[1]
+        action = entry[2]
+        try:
+            appl_action = duthost.shell(f'sonic-db-cli APPL_DB HGET "SRV6_MY_SID_TABLE:'
+                                        f'{block_len}:{node_len}:{func_len}:{arg_len}:{prefix}" action')["stdout"]
+            if action.lower() != appl_action:
+                logger.error(f"Real action is {appl_action}, but expected action is {action}")
+                return False
+        except Exception as err:
+            logger.error(f"Failed to check SRV6_MY_SID_TABLE - prefix:{prefix} in Application DB")
+            raise err
+    return True
+
+
+def random_reboot(duthost, localhost):
+    """
+    Randomly choose one action from reload/cold reboot and do the action and wait system recovery
+    """
+    reboot_type_list = ["reload", "cold"]
+    reboot_type = random.choice(reboot_type_list)
+    logger.info(f'Randomly choose {reboot_type} from {reboot_type_list}')
+
+    if reboot_type == "reload":
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    else:
+        logger.info(f'Do {reboot_type}')
+        reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True, safe_reboot=True,
+               check_intf_up_ports=True, wait_for_bgp=True)
+
+
+def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
+    """
+    Validated that expected SAI dump file available inside in techsupport dump file
+    """
+    logger.info('Validate SAI dump file is included in the tech-support dump')
+    saidump_files_inside_techsupport = \
+        duthost.shell(f'ls {techsupport_folder}/sai_sdk_dump')['stdout_lines']
+    assert saidump_files_inside_techsupport, 'Expected SAI SDK dump file(folder) not available in techsupport dump'
+    for feature in feature_list:
+        for sai_sdk_dump in saidump_files_inside_techsupport:
+            res = duthost.shell(f'zgrep {feature} {techsupport_folder}/sai_sdk_dump/{sai_sdk_dump}',
+                                module_ignore_errors=True)['stdout_lines']
+            if res and feature in ''.join(res):
+                logger.info(f'Feature {feature} parameter exist in {techsupport_folder}/sai_sdk_dump/{sai_sdk_dump}'
+                            f'\n{res}')
+                break
+        else:
+            raise Exception(f'Feature "{feature}" parameter does not exist in sai sdk dump files')
+
+
+def validate_techsupport_generation(duthost, feature_list=[]):
+    """
+    Validate sai sdk dump file exist
+    """
+    available_tech_support_files = get_available_tech_support_files(duthost)
+    logger.info('Execute show techsupport command')
+    duthost.shell('show techsupport')
+    new_techsupport_files_list = get_new_techsupport_files_list(duthost, available_tech_support_files)
+    tech_support_file_path = new_techsupport_files_list[0]
+    logger.info(f'New tech support file: {new_techsupport_files_list}')
+    tech_support_name = tech_support_file_path.split('.')[0].lstrip('/var/dump/')
+
+    try:
+        logger.info(f'Doing validation for techsupport : {tech_support_name}')
+        techsupport_folder_path = extract_techsupport_tarball_file(duthost, tech_support_file_path)
+        logger.info('Checking that expected SAI SDK dump file available in techsupport file')
+        validate_sai_sdk_dump_files(duthost, techsupport_folder_path, feature_list)
+    finally:
+        logger.info(f'Delete {tech_support_file_path}')
+        duthost.shell(f'sudo rm -rf {tech_support_file_path}')
+
 
 #
 # log directory inside each vsonic. vsonic starts with admin as user.
@@ -295,3 +410,11 @@ def collect_frr_debugfile(duthosts, rand_one_dut_hostname, nbrhosts, filename, v
 def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
     appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_MY_SID_TABLE*")["stdout"]
     return key in appl_db_my_sids if exist else key not in appl_db_my_sids
+
+
+#
+# Get the mac address of a neighbor
+#
+def get_neighbor_mac(dut, neighbor_ip):
+    """Get the MAC address of the neighbor via the ip neighbor table"""
+    return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]

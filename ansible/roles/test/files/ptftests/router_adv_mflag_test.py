@@ -53,15 +53,15 @@ class DataplaneBaseTest(BaseTest):
 
     """
 
-    def create_icmpv6_router_advertisement_packet_send(self, dst_mac, dst_ip, src_mac, src_ip):
+    def create_icmpv6_router_advertisement_packet_send(self, dst_mac, dst_ip, src_mac, src_ip, adv_iface):
         ether = Ether(dst=dst_mac, src=src_mac)
         ip6 = IPv6(src=src_ip, dst=dst_ip, fl=0, tc=0, hlim=255)
         icmp6 = RA(code=0, M=1, O=0)
         # NOTE: Test expects RA packet to contain route prefix as the first option
         icmp6 /= PrefixInfo(type=3, len=4)
         rapkt = ether / ip6 / icmp6
-        scapy2.sendp(rapkt, iface="eth1")
-        logging.info(scapy2.sniff(iface='eth1', timeout=10))
+        scapy2.sendp(rapkt, iface="eth{}".format(adv_iface))
+        logging.info(scapy2.sniff(iface='eth{}'.format(adv_iface), timeout=10))
         return rapkt
 
     """
@@ -136,7 +136,8 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
             src_mac=self.downlink_vlan_mac,
             dst_mac=ALL_NODES_MULTICAST_MAC_ADDRESS,
             src_ip=self.downlink_vlan_ip6,
-            dst_ip=ALL_NODES_IPV6_MULTICAST_ADDRESS)
+            dst_ip=ALL_NODES_IPV6_MULTICAST_ADDRESS,
+            adv_iface=self.ptf_port_index)
         self.masked_rapkt = self.mask_off_dont_care_ra_packet_fields(rapkt)
 
     def tearDown(self):
@@ -188,7 +189,8 @@ class RadvSolicitedRATest(DataplaneBaseTest):
             src_mac=self.downlink_vlan_mac,
             dst_mac=self.ptf_port_mac,
             src_ip=self.downlink_vlan_ip6,
-            dst_ip=self.ptf_port_ip6)
+            dst_ip=self.ptf_port_ip6,
+            adv_iface=self.ptf_port_index)
 
         self.masked_rapkt = self.mask_off_dont_care_ra_packet_fields(rapkt)
         self.rs_packet = self.create_icmpv6_router_solicitation_packet()

@@ -1,0 +1,26 @@
+[
+        {
+                "DASH_VNET_MAPPING_TABLE:{{ vnet1_name }}:{{ lookup_overlay_ip if lookup_overlay_ip is defined else remote_ca_ip }}" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"{{ remote_pa_ip }}",
+                        "mac_address":"{{ remote_eni_mac }}",
+                        "use_dst_vni":"true"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_QOS_TABLE:qos100" : {
+                        "qos_id":"100",
+                        "bw":"4000000000",
+                        "cps":"10000000",
+                        "flows":"50000000"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_ROUTE_TABLE:{{ eni }}": {
+                    "group_id":"group_id_1"
+                },
+               "OP": "{{ op }}"
+        }
+]

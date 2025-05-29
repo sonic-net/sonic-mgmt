@@ -55,22 +55,23 @@ def test_red_accuracy(request,
     # if disable_test:
     #     pytest.skip("test_red_accuracy is disabled")
 
+    skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+                       format(MULTIDUT_TESTBED, testbed_subtype))
 
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
         if is_snappi_multidut(duthosts):
             snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
@@ -81,7 +82,6 @@ def test_red_accuracy(request,
                                                                                 snappi_ports,
                                                                                 snappi_api)
 
-    skip_ecn_tests(snappi_ports[0]['duthost']) or skip_ecn_tests(snappi_ports[1]['duthost'])
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
 

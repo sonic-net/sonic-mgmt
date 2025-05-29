@@ -21,6 +21,7 @@ from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,7 @@ class AdvancedReboot:
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
+        self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -205,9 +207,11 @@ class AdvancedReboot:
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
-        for vlan in self.mgFacts['minigraph_vlan_interfaces']:
-            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
-                vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        vlan_interfaces = get_vlan_interface_list(self.duthost)
+        for vlan_if_name in vlan_interfaces:
+            vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
+            vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
+        logger.info('Vlan IP range: {}'.format(vlan_ip_range))
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
@@ -218,7 +222,7 @@ class AdvancedReboot:
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
             (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
+            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa: F821
         )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
@@ -452,7 +456,7 @@ class AdvancedReboot:
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
             rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
-            capturePcap = '/tmp/capture.pcap'
+            capturePcap = '/tmp/capture.pcapng'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
@@ -909,6 +913,7 @@ class AdvancedReboot:
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
             "kvm_support": True,
+            "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
         }
 
         if self.dual_tor_mode:

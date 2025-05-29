@@ -15,6 +15,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
 
@@ -165,7 +166,7 @@ def generate_test_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
@@ -251,7 +252,7 @@ def generate_background_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (
@@ -418,10 +419,10 @@ def run_traffic(duthost,
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Starting packet capture ...")
-        cs = api.capture_state()
-        cs.port_names = snappi_extra_params.packet_capture_ports
-        cs.state = cs.START
-        api.set_capture_state(cs)
+        cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
+        cs.port.capture.state = cs.port.capture.START
+        api.set_control_state(cs)
 
     for host in set([*snappi_extra_params.multi_dut_params.ingress_duthosts,
                      *snappi_extra_params.multi_dut_params.egress_duthosts, duthost]):
@@ -430,9 +431,9 @@ def run_traffic(duthost,
         clear_dut_pfc_counters(host)
 
     logger.info("Starting transmit on all flows ...")
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
     if snappi_extra_params.reboot_type:
         logger.info(f"Issuing a {snappi_extra_params.reboot_type} reboot on the dut {duthost.hostname}")
         # The following reboot command waits until the DUT is accessible by SSH. It does not wait for
@@ -504,9 +505,9 @@ def run_traffic(duthost,
         logger.info("Stopping packet capture ...")
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
-        cs = api.capture_state()
-        cs.state = cs.STOP
-        api.set_capture_state(cs)
+        cs = api.control_state()
+        cs.port.capture.state = cs.port.capture.STOP
+        api.set_control_state(cs)
         logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
         pcap_bytes = api.get_capture(request)
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
@@ -516,9 +517,9 @@ def run_traffic(duthost,
     logger.info("Dumping per-flow statistics")
     flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     logger.info("Stopping transmit on all remaining flows")
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
@@ -723,7 +724,9 @@ def verify_pause_frame_count_dut(rx_dut,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
-                if len(prios) > 1 and is_cisco_device(tx_dut) and not test_traffic_pause:
+                if ((len(prios) > 1 and is_cisco_device(tx_dut) and not test_traffic_pause) or
+                    (len(prios) == 1 and is_cisco_device(tx_dut) and
+                     "x86_64-8122" in tx_dut.facts['platform'] and not test_traffic_pause)):
                     pytest_assert(pfc_pause_rx_frames == 0,
                                   "PFC pause frames should not be counted in RX PFC counters for priority {}"
                                   .format(prios))
@@ -731,7 +734,6 @@ def verify_pause_frame_count_dut(rx_dut,
                     pytest_assert(pfc_pause_rx_frames > 0,
                                   "PFC pause frames should be received and counted in RX PFC counters for priority {}"
                                   .format(prio))
-
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
             pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
@@ -999,10 +1001,10 @@ def run_traffic_and_collect_stats(rx_duthost,
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Starting packet capture ...")
-        cs = api.capture_state()
-        cs.port_names = snappi_extra_params.packet_capture_ports
-        cs.state = cs.START
-        api.set_capture_state(cs)
+        cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
+        cs.port.capture.state = cs.port.capture.START
+        api.set_control_state(cs)
 
     # Returns the rest API object for features not present in Snappi
     ixnet_rest_api = api._ixnetwork
@@ -1020,9 +1022,9 @@ def run_traffic_and_collect_stats(rx_duthost,
         ixnet_rest_api.Traffic.Apply()
 
     logger.info("Starting transmit on all flows ...")
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(5)
     iter_count = round((int(exp_dur_sec) - stats_interval)/stats_interval)
@@ -1094,9 +1096,9 @@ def run_traffic_and_collect_stats(rx_duthost,
         else:
             if (attempts == 4):
                 logger.info("Stopping transmit on all remaining flows")
-                ts = api.transmit_state()
-                ts.state = ts.STOP
-                api.set_transmit_state(ts)
+                cs = api.control_state()
+                cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+                api.set_control_state(cs)
             time.sleep(stats_interval/4)
             attempts += 1
 
@@ -1107,9 +1109,9 @@ def run_traffic_and_collect_stats(rx_duthost,
         logger.info("Stopping packet capture ...")
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
-        cs = api.capture_state()
-        cs.state = cs.STOP
-        api.set_capture_state(cs)
+        cs = api.control_state()
+        cs.port.capture.state = cs.port.capture.STOP
+        api.set_control_state(cs)
         logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
         pcap_bytes = api.get_capture(request)
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
