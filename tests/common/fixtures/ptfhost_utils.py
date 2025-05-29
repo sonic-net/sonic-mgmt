@@ -58,21 +58,21 @@ def copy_acstests_directory(ptfhost):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def copy_ptftests_directory(ptfhost):
+def copy_ptftests_directory(request, ptfhost):
     """
-        Copys PTF tests directory to PTF host.
-
-        Args:
-            ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
-        Returns:
-            None
+    Optionally copy PTF tests directory to PTF host if any test is marked with 'need_ptftests'.
     """
+    need_ptftests = any(
+        'need_ptftests' in getattr(item, 'keywords', {}) for item in getattr(request.session, 'items', [])
+    )
+    if not need_ptftests:
+        logger.info("Skipping copy of PTF test files to PTF host as 'need_ptftests' marker is not set.")
+        yield
+        return
+
     logger.info("Copy PTF test files to PTF host '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
-
     yield
-
     logger.info("Delete PTF test files from PTF host '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(ROOT_DIR, PTF_TESTS), state="absent")
 
