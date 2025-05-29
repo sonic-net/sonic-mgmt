@@ -328,7 +328,7 @@ def test_watchdog_status_check(duthosts, dpuhosts,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Collecting DPU informations")
+    logging.info("Collecting DPU information")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
                                                  duthost,
                                                  platform_api_conn,
