@@ -1,0 +1,131 @@
+"""SAI thrift-based tests for the QoS feature in SONiC.
+
+This set of test cases verifies QoS, buffer behavior, and buffer drop counter behavior. These are dataplane
+tests that depend on the SAI thrift library in order to pause ports/queues and read buffer drop counters as well
+as generic drop counters.
+
+Parameters:
+    --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
+        In case a filename is not provided, a file containing a port indices to aliases map will be generated.
+
+    --disable_test (bool): Disables experimental QoS SAI test cases. Default is True.
+
+    --qos_swap_syncd (bool): Used to install the RPC syncd image before running the tests. Default is True.
+
+    --qos_dst_ports (list) Indices of available DUT test ports to serve as destination ports. Note: This is not port
+        index on DUT, rather an index into filtered (excludes lag member ports) DUT ports. Plan is to randomize port
+        selection. Default is [0, 1, 3].
+
+    --qos_src_ports (list) Indices of available DUT test ports to serve as source port. Similar note as in
+        qos_dst_ports applies. Default is [2].
+"""
+
+import logging
+import pytest
+
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps, \
+    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa F401
+from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
+from .qos_sai_base import QosSaiBase
+from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
+    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
+
+logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+
+class TestVoqWatchdog(QosSaiBase):
+    """TestVoqWatchdog derives from QosSaiBase and contains collection of VOQ watchdog test cases.
+    """
+
+    @pytest.mark.disable_loganalyzer
+    def testQosSaiVoqWatchdog(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts
+    ):
+        """
+            Test VOQ watchdog
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
+            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
+            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": 8,
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "packet_size": 1350,
+            "pkts_num": 100,
+            "voq_watchdog_enabled": True,
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+            testParams=testParams)
+
+    def testQosSaiVoqWatchdogDisable(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, disable_voq_watchdog_function_scope
+    ):
+        """
+            Test VOQ watchdog
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
+            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
+            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": 8,
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "packet_size": 1350,
+            "pkts_num": 100,
+            "voq_watchdog_enabled": False,
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+            testParams=testParams)
