@@ -89,6 +89,8 @@ FWD:
         - hash/test_generic_hash.py::test_algorithm_config
         - hash/test_generic_hash.py::test_backend_error_messages
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+      hw:
+        - crm/test_crm.py::test_crm_neighbor
   t2-min:
     sfd:
       sim:
@@ -331,6 +333,10 @@ TUNNEL: #Thushar Gowda
       sim:
         - vxlan/test_vxlan_ecmp_switchover.py
         - vxlan/test_vxlan_route_advertisement.py  
+  t1:
+    mth64:
+      hw:
+        - vxlan/test_vxlan_ecmp_switchover.py
 
 PFC: #Alpesh Patel
   t0-64:
