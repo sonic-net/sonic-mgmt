@@ -10,6 +10,14 @@ REPORT_REPO ?= /auto/mb/sonic/workspace/sonic-cicd/sanity_logs/${PIPELINE_TYPE}
 DUT_USERNAME ?= "cisco"
 DUT_PASSWORD ?= "cisco123"
 
+DISABLE_ZTP ?= false
+
+ifeq ($(DISABLE_ZTP),true)
+  DISABLE_ZTP_COMMAND := --disable-ztp
+else
+  DISABLE_ZTP_COMMAND :=
+endif
+
 .PHONY: init t0_run t1_run collect
 
 init:
@@ -23,7 +31,7 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --dut-password=${DUT_PASSWORD}"
+	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \

@@ -24,11 +24,13 @@ parser.add_argument("--dut-password", help = "password for the dut ", nargs='?',
 parser.add_argument("--onie-install", help = "path to use for onie install image", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-path", help = "npl path", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-suite-ver", help = "npl suite version", nargs='?', const='', default = '', required=False)
+parser.add_argument('--disable-ztp', action='store_true', help='add command to disable ztp', default=False)
 args = parser.parse_args()
 
 topology_file = args.topo_yaml
 topology = args.topology
 platform = args.platform
+disable_ztp = args.disable_ztp
 
 #get topo_yaml from topo_type
 if not topology_file:
@@ -70,7 +72,12 @@ with open(topology_file, "r") as fd:
             print(f"setting ConfigS1NplPath to '{args.npl_path}'")
             topo["devices"][device]["vxr_sim_config"]["shelf"]["ConfigS1NpsuiteVer"] = args.npl_suite_ver
             topo["devices"][device]["vxr_sim_config"]["shelf"]["ConfigS1NplPath"] = args.npl_path
-        
+
+        #if disable_ztp:
+        if disable_ztp:
+            topo["devices"][device]["pre_cli"] = topo["devices"][device].get("pre_cli", '').rstrip('\n') + '\nsudo ztp disable -y\n'
+            print("ZTP disabled")
+
         #populate dut password, default cisco/cisco123
         print(f"set DUT username/pass to '{args.dut_username}/{args.dut_password}'")
         topo["devices"][device]["linux_username"] = args.dut_username
