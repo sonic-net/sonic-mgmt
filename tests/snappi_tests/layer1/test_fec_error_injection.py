@@ -1,18 +1,4 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import (
-    wait_for_arp,
-    fetch_snappi_flow_metrics,
-)  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import (
-    snappi_api_serv_ip,
-    snappi_api_serv_port,
-    snappi_api,
-    get_snappi_ports,
-    is_snappi_multidut,
-    get_snappi_ports_single_dut,
-    get_snappi_ports_multi_dut,
-    snappi_dut_base_config,
-)  # noqa: F401
 from snappi_tests.dataplane.files.helper import (
     setup_snappi_port_configs,
     get_ti_stats,
@@ -22,7 +8,7 @@ from snappi_tests.dataplane.files.helper import (
 )
 
 pytestmark = [pytest.mark.topology("tgen")]
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # noqa: F405
 
 """
     The following FEC ErrorTypes are the options available for AresOneM in 800G, 400G and 200G speed modes in IxNetwork
@@ -37,10 +23,9 @@ ErrorTypes = [
     "minConsecutiveUncorrectableWithLossOfLink",
     "maxConsecutiveUncorrectableWithoutLossOfLink",
 ]
-
 """
-    If the speed of the fanout port is 400G on a 800G front panel port then the fanout_per_port is 2 
-    (because 2 400G fanouts per 800G fron panel port), 
+    If the speed of the fanout port is 400G on a 800G front panel port then the fanout_per_port is 2
+    (because 2 400G fanouts per 800G fron panel port),
     if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
 """
 
@@ -48,10 +33,9 @@ ErrorTypes = [
 @pytest.mark.parametrize("fanout_per_port", [2])
 @pytest.mark.parametrize("error_type", ErrorTypes)
 def test_fec_error_injection(
-    duthost,
+    duthosts,
     snappi_api,
     get_snappi_ports,
-    setup_snappi_port_configs,
     fanout_graph_facts_multidut,
     fanout_per_port,
     error_type,
@@ -64,8 +48,8 @@ def test_fec_error_injection(
     Note: Not supported for speed mode 8x100G
     """
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_snappi_ports
-    snappi_ports = setup_snappi_port_configs
+    snappi_extra_params.interface_type = 'vlan'
+    snappi_ports = setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params)
     fanout_port_group_list = get_fanout_port_groups(snappi_ports, fanout_per_port)
     for iteration, fanout_port_group in enumerate(fanout_port_group_list):
         logger.info("|----------------------------------------|")
