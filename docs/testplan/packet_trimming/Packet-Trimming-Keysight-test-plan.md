@@ -114,7 +114,7 @@ Each test case has been created by selecting a value for each of the above param
 
 ### Test Assumptions
 These assumptions apply to all test cases:
-1. The size of each test packet is 1KB.
+1. The size of each test packet is 4KB.
 2. Each test packet has a correct DSCP value so that the DUT will send it to the selected egress queue $i$. The correct DSCP value can be obtained by looking at `DSCP_TO_TC_MAP` and `TC_TO_QUEUE_MAP` tables in `CONFIG DB`.
 
 ### Test Case #1
@@ -303,7 +303,7 @@ Each test case has been created by selecting a value for each of the above param
 
 ### Test Assumptions
 These assumptions apply to all test cases:
-1. The size of each test packet is 1KB.
+1. The size of each test packet is 4KB.
 2. Each test packet has a correct DSCP value so that the DUT will send it to the selected egress queue $i$. The correct DSCP value can be obtained by looking at `DSCP_TO_TC_MAP` and `TC_TO_QUEUE_MAP` tables in `CONFIG DB`.
 
 ### Test Case #9
