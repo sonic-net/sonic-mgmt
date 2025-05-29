@@ -124,18 +124,16 @@ To verify qos updates in multi-asic t2 platform.
 To verify updates in tables
 <pre>
 /BUFFER_PG
-/BUFFER_QUEUE
 /PORT_QOS_MAP
-/QUEUE
 </pre>
 
 #### Testing Steps
 
 - Select a random ASIC namespace and shut down the interfaces. (to be modified per interface)
-- Remove QoS config via apply-patch remove operation for tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
-- Verify that configuration is cleared in CONFIG_DB, APPL_DB and ASIC_DB.
-- Add back QoS config via apply-patch add operation in tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
-- Verify that configuration is populated to CONFIG_DB, APPL_DB and ASIC_DB.
+- Remove QoS config via apply-patch remove operation for tables "BUFFER_PG", "PORT_QOS_MAP".
+- Verify that configuration is cleared in CONFIG_DB, APPL_DB.
+- Add back QoS config via apply-patch add operation in tables "BUFFER_PG", "PORT_QOS_MAP".
+- Verify that configuration is populated to CONFIG_DB, APPL_DB.
 - Bring the interfaces back up via apply-patch.
 - Verify that the interfaces are up.
 
