@@ -67,6 +67,9 @@ def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
 
 
 def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
+    if 't1-isolated' in tbinfo['topo']['name']:
+        pytest.skip("Test skipped for t1-isolated topologies")
+
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Starting test_bgp_multipath_relax on topology {}".format(tbinfo['topo']['name']))
