@@ -20,7 +20,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py           
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "m1", "m2", "m3")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1", "m2", "m3")
 ]
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
             f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"",
             setup_info[request.param]["remote_namespace"]))
+        # For FT2, we only cover UP_STREAM direction as traffic is always coming from LT2
+        # and also going to LT2
+        if tbinfo['topo']['type'] == "ft2" and request.param == DOWN_STREAM:
+            pytest.skip("Skipping DOWN_STREAM test on FT2 topology.")
+
         yield request.param
 
         session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
