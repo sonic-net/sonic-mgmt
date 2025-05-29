@@ -177,6 +177,7 @@ class FibTest(BaseTest):
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
             'single_fib_for_duts', "multiple-fib")
+        self.topo_type = self.test_params.get('topo_type', None)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, dut_fib in enumerate(self.fibs):
@@ -211,8 +212,14 @@ class FibTest(BaseTest):
                          for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list()
                               for next_hop in next_hops]
+            # On FT2 topo, since all the ports are in the next hop list of default route,
+            # we need to skip check if the src_port is in exp_port_list. Otherwise, it will
+            # cause the function to stuck in infinite loop.
+            lt2_default_route = False
+            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
                 if self.switch_type == "chassis-packet":
