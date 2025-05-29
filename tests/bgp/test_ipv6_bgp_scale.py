@@ -314,15 +314,14 @@ def test_sessions_flapping(
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
-        pdp.get_mac(0, injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
 
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
     expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
     terminated = Event()
-    # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
+        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
     traffic_thread.start()
@@ -390,7 +389,7 @@ def test_nexthop_group_member_scale(
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
-        pdp.get_mac(0, injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     routes_in_tuple = [(r, nhipv6, None) for r in ecmp_routes.keys()]
@@ -399,9 +398,8 @@ def test_nexthop_group_member_scale(
 
     # ------------withdraw routes and test ------------ #
     terminated = Event()
-    # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
+        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
@@ -426,9 +424,8 @@ def test_nexthop_group_member_scale(
 
     # ------------announce routes and test ------------ #
     terminated = Event()
-    # TODO: update device number for multi-servers topo by method port_to_device
     traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
+        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
@@ -477,7 +474,7 @@ def test_device_unisolation(
     pkts = generate_packets(
         ecmp_routes,
         duthost.facts['router_mac'],
-        pdp.get_mac(0, injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
 
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
@@ -498,7 +495,7 @@ def test_device_unisolation(
 
     terminated = Event()
     traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, 0, injection_port, pkts)
+        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
     start_time = datetime.datetime.now()
