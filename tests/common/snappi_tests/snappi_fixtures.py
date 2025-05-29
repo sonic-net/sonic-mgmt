@@ -1377,7 +1377,7 @@ def config_uhd_connect(request, duthost, tbinfo):
     subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
 
     rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
-    result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+    subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
 
     return
 

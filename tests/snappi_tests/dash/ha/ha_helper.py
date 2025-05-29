@@ -12,11 +12,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_ixl):
+def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_l47):
 
-    test_type_dict = config_snappi_ixl['test_type_dict']
-    connection_dict = config_snappi_ixl['connection_dict']
-    ports_list = config_snappi_ixl['ports_list']
+    test_type_dict = config_snappi_l47['test_type_dict']
+    connection_dict = config_snappi_l47['connection_dict']
+    ports_list = config_snappi_l47['ports_list']
 
     nw_config = NetworkConfigSettings()
     nw_config.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
@@ -25,8 +25,8 @@ def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_ixl):
     duthost_ha_config(duthost, nw_config, ha_test_case)
 
     # Configure IxLoad traffic
-    api, config, initial_cps_value = main(ports_list, connection_dict, nw_config, test_type_dict['cps'],
-                                          test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
+    api, config, initial_cps_value = ha_main(ports_list, connection_dict, nw_config, test_type_dict['cps'],
+                                             test_type_dict['test_filename'], test_type_dict['initial_cps_obj'])
 
     # Traffic Starts
     if ha_test_case == 'cps':
@@ -538,7 +538,7 @@ def test_saveAs(api, test_filename):
 """
 
 
-def main(ports_list, connection_dict, nw_config, test_type, test_filename, initial_cps_value):
+def ha_main(ports_list, connection_dict, nw_config, test_type, test_filename, initial_cps_value):
 
     # Start Here ######
     main_start_time = time.time()

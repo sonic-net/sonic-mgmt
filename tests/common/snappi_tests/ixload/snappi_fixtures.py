@@ -31,9 +31,7 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
         snappi API server port.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    logger.info(100*'1')
     logger.info(duthost.host.options['variable_manager']._hostvars)
-    logger.info(100*'2')
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_ixl_server']['rest_port'])
 
@@ -56,7 +54,7 @@ def snappi_ixl_serv_start(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def config_snappi_ixl(request, duthosts, tbinfo):
+def config_snappi_l47(request, duthosts, tbinfo):
     """
     Fixture configures UHD connect
 
@@ -65,9 +63,9 @@ def config_snappi_ixl(request, duthosts, tbinfo):
 
     Yields:
     """
-    snappi_ixl_params = {}
+    snappi_l47_params = {}
 
-    ixl_version = tbinfo['ixl_version']
+    l47_version = tbinfo['l47_version']
 
     chassis_ip = tbinfo['chassis_ip']
     gw_ip = tbinfo['l47_gateway']
@@ -89,11 +87,11 @@ def config_snappi_ixl(request, duthosts, tbinfo):
         'chassis_ip': chassis_ip,
         'gw_ip': gw_ip,
         'port': '8080',
-        'version': ixl_version,
+        'version': l47_version,
     }
 
-    snappi_ixl_params['test_type_dict'] = test_type_dict
-    snappi_ixl_params['connection_dict'] = connection_dict
-    snappi_ixl_params['ports_list'] = ports_list
+    snappi_l47_params['test_type_dict'] = test_type_dict
+    snappi_l47_params['connection_dict'] = connection_dict
+    snappi_l47_params['ports_list'] = ports_list
 
-    return snappi_ixl_params
+    return snappi_l47_params
