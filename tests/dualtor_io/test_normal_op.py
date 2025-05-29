@@ -7,9 +7,11 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
                                                   send_server_to_server_with_action, select_test_mux_ports  # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
                                                 force_active_tor, force_standby_tor                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
 from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
@@ -22,6 +24,11 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.topology("dualtor")
 ]
+
+
+@pytest.fixture(autouse=True)
+def common_setup_teardown(validate_active_active_dualtor_setup):    # noqa F811
+    return
 
 
 @pytest.mark.enable_active_active
