@@ -194,6 +194,8 @@ def test_disable_rsyslog_rate_limit(duthosts):
             if (is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and
                     feature_name == "dhcp_relay"):
                 continue
+            if feature_name == "frr_bmp":
+                continue
             if feature_name == "telemetry":
                 # Skip telemetry if there's no docker image
                 output = dut.shell("docker images", module_ignore_errors=True)['stdout']
@@ -240,7 +242,7 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     info = {tbname: metadata}
     try:
         if not os.path.exists(folder):
-            os.mkdir(folder)
+            os.makedirs(folder)
         with open(filepath, 'w') as yf:
             json.dump(info, yf, indent=4)
     except IOError as e:

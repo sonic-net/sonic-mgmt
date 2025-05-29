@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +166,7 @@ def __gen_traffic(testbed_config,
 
         # Configure outer IPv4 header
         outer_ipv4.src.value = tx_port_config.ip
-        outer_ipv4.dst.value = rx_port_config.ip
+        outer_ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
         outer_ipv4.identification.choice = "increment"
         outer_ipv4.identification.increment.start = 1
         outer_ipv4.identification.increment.step = 1

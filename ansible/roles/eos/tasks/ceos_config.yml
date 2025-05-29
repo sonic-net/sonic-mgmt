@@ -20,9 +20,7 @@
 
 - name: cleanup previous ceos mount dir
   become: yes
-  file:
-    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
-    state: absent
+  command: rm -rf /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
   delegate_to: "{{ VM_host[0] }}"
 
 - name: create directory for ceos config

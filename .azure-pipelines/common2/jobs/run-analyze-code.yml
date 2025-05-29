@@ -1,0 +1,19 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+  - name: condition
+
+
+jobs:
+  - job: run_analyze_code
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    displayName: 'Run Code Analysis'
+    steps:
+    - checkout: self
+    - template: /.azure-pipelines/common2/steps/run-precommit.yml
+    - template: /.azure-pipelines/common2/steps/run-black.yml
+    - template: /.azure-pipelines/common2/steps/run-mypy.yml
+    - template: /.azure-pipelines/common2/steps/run-pylint.yml

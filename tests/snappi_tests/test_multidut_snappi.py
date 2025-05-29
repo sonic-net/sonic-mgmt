@@ -12,6 +12,7 @@ from tests.common.snappi_tests.port import select_ports
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 
@@ -74,7 +75,7 @@ def __gen_all_to_all_traffic(testbed_config,
             eth.pfc_queue.value = priority
 
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[priority]
             ipv4.priority.dscp.ecn.value = (
@@ -153,9 +154,9 @@ def test_snappi(request,
     wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
 
     # """ Start traffic """
-    ts = snappi_api.transmit_state()
-    ts.state = ts.START
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    snappi_api.set_control_state(cs)
 
     # """ Wait for traffic to finish """
     time.sleep(duration_sec)
@@ -187,9 +188,9 @@ def test_snappi(request,
     request.flow.flow_names = all_flow_names
     rows = snappi_api.get_metrics(request).flow_metrics
 
-    ts = snappi_api.transmit_state()
-    ts.state = ts.STOP
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    snappi_api.set_control_state(cs)
 
     """ Analyze traffic results """
     for row in rows:

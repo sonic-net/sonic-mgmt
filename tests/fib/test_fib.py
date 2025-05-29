@@ -233,7 +233,6 @@ def updated_tbinfo(tbinfo):
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
-                   setup_standby_ports_on_rand_unselected_tor,          # noqa F811
                    toggle_all_simulator_ports_to_random_side,           # noqa F811
                    updated_tbinfo, mux_server_url,                      # noqa F401
                    mux_status_from_nic_simulator,
@@ -282,7 +281,8 @@ def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
-            "asic_type": asic_type
+            "asic_type": asic_type,
+            "topo_type": updated_tbinfo['topo']['type']
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -472,7 +472,6 @@ def setup_active_active_ports(
 
 def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noqa F811
               hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
-              setup_standby_ports_on_rand_unselected_tor,                                       # noqa F811
               updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
               single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa F811
               setup_active_active_ports, active_active_ports, request):                         # noqa F811
@@ -514,7 +513,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "is_active_active_dualtor": is_active_active_dualtor,
-            "topo_name": updated_tbinfo['topo']['name']
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type']
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -524,19 +524,18 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
 
 # The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
 # used as hash keys
-
-
 def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
                      hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
                      duts_minigraph_facts, request):                                # noqa F811
-    # Skip test on none T1 testbed
-    pytest_require('t1' == tbinfo['topo']['type'],
-                   "The test case runs on T1 topology")
-
-    fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+    # Only run this test on T1 or T0 (including dualtor) topologies
+    pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
+    logging.info(f"Topology type: {tbinfo['topo']['type']}")
+    fib_files = fib_info_files_per_function(duthosts,
+                                            ptfhost,
+                                            duts_running_config_facts,
+                                            duts_minigraph_facts,
                                             tbinfo, request)
-
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
         ipver, timestamp)
@@ -606,7 +605,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                    "ignore_ttl": ignore_ttl,
                    "single_fib_for_duts": single_fib_for_duts,
                    "ipver": ipver,
-                   "topo_name": tbinfo['topo']['name']
+                   "topo_name": tbinfo['topo']['name'],
+                   "topo_type": tbinfo['topo']['type']
                },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -661,7 +661,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": vxlan_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "topo_type": tbinfo['topo']['type']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -714,7 +715,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": nvgre_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "topo_type": tbinfo['topo']['type']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
