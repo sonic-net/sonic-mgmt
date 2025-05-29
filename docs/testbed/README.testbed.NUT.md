@@ -87,6 +87,7 @@ The following example represent a 100G link from the traffic generator port 1 to
 ```csv
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
 switch-t0-1,Ethernet0,tg-1,Port1.1,100000,,Access,
+switch-t1-1,Ethernet0,switch-t0-1,Ethernet256,100000,,Access,
 ```
 
 ### 3.2. Testbed YAML definition
