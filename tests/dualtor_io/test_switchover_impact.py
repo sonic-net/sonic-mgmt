@@ -7,26 +7,26 @@ import random
 from datetime import datetime
 
 from tests.common.config_reload import config_reload
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, select_test_mux_ports      # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                              # noqa F401
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, select_test_mux_ports      # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                              # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses               # noqa F401
+                                                copy_ptftests_directory, change_mac_addresses               # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
 import logging
 
 
 @pytest.mark.parametrize("switchover", ["planned"])
-def test_tor_switchover_impact( upper_tor_host, lower_tor_host,                             # noqa F811
-                                send_t1_to_server_with_action,                              # noqa F811
-                                cable_type,                                                 # noqa F811
-                                select_test_mux_ports,                                      # noqa F811
-                                pytestconfig,                                               # noqa F811
-                                switchover,                                                 # noqa F811
-                                ipv4_neighbors=10, ipv6_neighbors=64,                       # noqa F811
-                                planned_threshold=0.1, unplanned_threshold=0.4,             # noqa F811
-                                iterations=100):                                            # noqa F811
+def test_tor_switchover_impact(upper_tor_host, lower_tor_host,                             # noqa: F811
+                               send_t1_to_server_with_action,                              # noqa: F811
+                               cable_type,                                                 # noqa: F811
+                               select_test_mux_ports,                                      # noqa: F811
+                               pytestconfig,                                               # noqa: F811
+                               switchover,                                                 # noqa: F811
+                               ipv4_neighbors=10, ipv6_neighbors=64,                       # noqa: F811
+                               planned_threshold=0.1, unplanned_threshold=0.4,             # noqa: F811
+                               iterations=100):                                            # noqa: F811
     """
     Measure impact when active-standby ToR is going through switchover.
 
