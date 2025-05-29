@@ -2688,6 +2688,7 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
       - "release in ['202411']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18594"
 
 vxlan/test_vnet_route_leak.py:
   skip:
