@@ -55,10 +55,10 @@ def check_idf_isolation_support(duthost):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
     sonic_db_cmd = "sonic-db-cli {}".format("-n " +
                                             namespace if namespace else "")
-    tsa_in_configdb = duthost.shell(
+    idf_isolation_state_in_db = duthost.shell(
         '{} CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "idf_isolation_state"'.format(sonic_db_cmd),
         module_ignore_errors=False)['stdout_lines']
-    if not tsa_in_configdb:
+    if not idf_isolation_state_in_db:
         return False
     return True
 
