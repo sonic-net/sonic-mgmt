@@ -16,7 +16,7 @@
 5. [5. Traffic generator setup](#5-traffic-generator-setup)
    1. [5.1. Port configuration](#51-port-configuration)
    2. [5.2. Routes advertisement](#52-routes-advertisement)
-6. [6. Verifying Route Advertisement](#6-verifying-route-advertisement)
+   3. [5.3. Verifying Route Advertisement](#53-verifying-route-advertisement)
 
 ## 1. Overview
 
@@ -347,6 +347,6 @@ During the pretest fixture, the test will read the configurations from the devic
 
 If more routes is required for testing, the test case will need to inject routes into the NUT. This is done by configuring the traffic generator to advertise specific routes via BGP sessions established in the pretext fixture.
 
-## 6. Verifying Route Advertisement
+### 5.3. Verifying Route Advertisement
 
 To verify that routes are being correctly advertised, we can run `show ip route bgp` or `show ipv6 route bgp` on the T0 switch and confirm all routes advertised by the traffic generator are visible in the routing table. This ensures that the routes injected by the traffic generator are propagated through the multi-tier network.
