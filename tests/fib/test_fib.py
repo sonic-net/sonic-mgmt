@@ -281,7 +281,8 @@ def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
-            "asic_type": asic_type
+            "asic_type": asic_type,
+            "topo_type": updated_tbinfo['topo']['type']
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -512,7 +513,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "is_active_active_dualtor": is_active_active_dualtor,
-            "topo_name": updated_tbinfo['topo']['name']
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type']
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -603,7 +605,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                    "ignore_ttl": ignore_ttl,
                    "single_fib_for_duts": single_fib_for_duts,
                    "ipver": ipver,
-                   "topo_name": tbinfo['topo']['name']
+                   "topo_name": tbinfo['topo']['name'],
+                   "topo_type": tbinfo['topo']['type']
                },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -658,7 +661,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": vxlan_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "topo_type": tbinfo['topo']['type']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -711,7 +715,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": nvgre_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "topo_type": tbinfo['topo']['type']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
