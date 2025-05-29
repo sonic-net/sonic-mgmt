@@ -106,6 +106,8 @@ The current testbed yaml definition is not designed to support NUT, so we will c
     - { name: ".*-t0-.*", config_template: "t0", loopback_v4: "100.1.0.0/24", loopback_v6: "2064:100:0:0::/64", start_asn: 64001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
     - { name: ".*-t1-.*", config_template: "t1", loopback_v4: "100.1.1.0/24", loopback_v6: "2064:100:0:1::/64", start_asn: 65001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
     - { name: ".*-t2-.*", config_template: "t2", loopback_v4: "100.1.2.0/24", loopback_v6: "2064:100:0:2::/64", start_asn: 63001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  tg:
+    - tg-1
   inv_name: lab
   auto_recover: 'True'
   comment: "Testbed for NUT with multi-tier topology"
@@ -207,7 +209,7 @@ dut_template:
 The detailed step follows the following algorithm:
 
 1. Read all IP pools defined in the testbed YAML file and unify the IP pools across all devices. (Different devices can share the same IP pool.)
-2. Set devices in the dut list in the testbed as the start devices.
+2. Set devices in the TG (Traffic generator) list in the testbed as the start devices.
 3. Walk through the links defined in the `sonic_*_links.csv` file in BFS order.
 4. For each link (port pair),
    1. Curve out a loopback v4 IP from the unified IP pool (1 IP).
