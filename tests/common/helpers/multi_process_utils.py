@@ -1,6 +1,5 @@
-from concurrent.futures import ProcessPoolExecutor, Future
+from concurrent.futures import ProcessPoolExecutor, Future, as_completed
 from typing import List, Optional, Type
-import traceback
 
 
 class SafeProcessPoolExecutor(ProcessPoolExecutor):
@@ -18,22 +17,8 @@ class SafeProcessPoolExecutor(ProcessPoolExecutor):
         return f
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb) -> bool:
-        # First, prevent new tasks and wait for running ones
+        for future in as_completed(self._futures):
+            # if exception caught in the sub-thread, .result() will raise it in the main thread
+            _ = future.result()
         self.shutdown(wait=True)
-
-        # Collect exceptions from all futures
-        errors: List[BaseException] = []
-        for f in self._futures:
-            try:
-                f.result()
-            except Exception as e:
-                # capture traceback for debugging if you like
-                traceback.print_exception(type(e), e, e.__traceback__)
-                errors.append(e)
-
-        # If any task failed, re-raise the first exception
-        if errors:
-            raise errors[0]
-
-        # Returning False lets any exception in the with-block propagate
         return False
