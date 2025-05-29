@@ -182,6 +182,15 @@ def check_bgp(duthosts, tbinfo):
                             module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
+        def _restart_bgp(dut):
+            # Restart BGP service
+            try:
+                dut.command("systemctl restart bgp.service")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart BGP service on %s: %s" % (dut.hostname, str(e)))
+                return False
+            return True
+
         def _check_bgp_status_helper():
             asic_check_results = []
             bgp_facts = dut.bgp_facts(asic_index='all')
@@ -272,16 +281,20 @@ def check_bgp(duthosts, tbinfo):
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
-            for a_result in list(check_result.keys()):
-                if a_result != 'failed':
-                    # Dealing with asic result
-                    if 'down_neighbors' in check_result[a_result]:
-                        logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
-                            check_result[a_result]['down_neighbors'], a_result, dut.hostname))
-                    if "no_v4_default_route" in check_result[a_result]:
-                        logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
-                    if "no_v6_default_route" in check_result[a_result]:
-                        logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
+            # try restart bgp and verify again
+            _restart_bgp(dut)
+            wait_until(60, interval, 0, _check_bgp_status_helper)
+            if (check_result['failed']):
+                for a_result in list(check_result.keys()):
+                    if a_result != 'failed':
+                        # Dealing with asic result
+                        if 'down_neighbors' in check_result[a_result]:
+                            logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
+                                check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+                        if "no_v4_default_route" in check_result[a_result]:
+                            logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
+                        if "no_v6_default_route" in check_result[a_result]:
+                            logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
         else:
             logger.info('No BGP neighbors are down or default route missing on %s' % dut.hostname)
 
@@ -1183,7 +1196,6 @@ def check_bfd_up_count(duthosts):
         return list(result.values())
 
     def _check_bfd_up_count(dut, asic_id, check_result):
-        check_result["failed"] = False
         res = dut.shell(
             "ip netns exec {} show bfd summary | grep -c 'Up'".format(asic_id),
             module_ignore_errors=True,
@@ -1207,17 +1219,15 @@ def check_bfd_up_count(duthosts):
                 logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
                 bfd_up_count = -1
 
+        is_expected = (bfd_up_count == expected_bfd_up_count)
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
-            if bfd_up_count != expected_bfd_up_count:
-                check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
-                    asic_id,
-                    dut.hostname,
-                    expected_bfd_up_count,
-                ))
+            if is_expected:
+                logger.info("BFD up count on {} of {} is as expected".format(asic_id, dut.hostname))
+            else:
+                logger.info("BFD up count on {} of {} is not as expected".format(asic_id, dut.hostname))
 
-        return not check_result["failed"]
+        return is_expected
 
     def _check_bfd_up_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
@@ -1231,6 +1241,16 @@ def check_bfd_up_count(duthosts):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for asic in dut.asics:
                 executor.submit(_check_bfd_up_count_on_asic, asic, dut, check_result)
+
+        for asic_id, count in check_result["bfd_up_count"].items():
+            if count != expected_bfd_up_count:
+                check_result["failed"] = True
+                logger.error("BFD up count on {} of {} is not as expected. Expected: {}, Actual: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                    count,
+                ))
 
         logger.info("Done checking BFD up count on {}".format(dut.hostname))
         results[dut.hostname] = check_result

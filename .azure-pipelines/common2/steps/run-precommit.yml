@@ -1,0 +1,15 @@
+steps:
+  - script: |
+      echo "Checking if pre-commit configuration .pre-commit-config.[yaml|yml] exists"
+      if [ -f .pre-commit-config.yaml ] || [ -f .pre-commit-config.yml ]; then
+        pip install pre-commit
+        # TODO have a way for the calling project to pass
+        # installation pre-requisites
+        pip install pylint  # required as pylint is run in local mode
+        echo "Running pre-commit"
+        # configuration is loaded from .pre-commit-config.yaml
+        pre-commit run --all-files --show-diff-on-failure --color=never | head -20
+      else
+        echo "Pre-commit configuration not found. Nothing to do"
+      fi
+    displayName: 'Run pre-commit hooks'
