@@ -6,13 +6,16 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni, State  # noqa F401
+from dash_api.eni_pb2 import Eni, State  # noqa: F401
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa F401
+from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
+from dash_api.meter_policy_pb2 import MeterPolicy
+from dash_api.meter_rule_pb2 import MeterRule
+
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
 
@@ -40,6 +43,8 @@ PB_CLASS_MAP = {
     "ROUTING_TYPE": RouteType,
     "ROUTE_GROUP": RouteGroup,
     "ENI_ROUTE": EniRoute,
+    "METER_POLICY": MeterPolicy,
+    "METER_RULE": MeterRule,
 }
 
 
@@ -149,15 +154,22 @@ def get_message_from_table_name(table_name):
 
 
 def prefix_to_ipv4(prefix_length):
+    if int(prefix_length) > 32:
+        return ""
     mask = 2**32 - 2**(32-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]
     hex_groups = [s[i:i+2] for i in range(0, len(s), 2)]
-    ipv4_address_str = '.'.join(hex_groups)
+    decimal_groups = []
+    for hex_string in hex_groups:
+        decimal_groups.append(str(int(hex_string, 16)))
+    ipv4_address_str = '.'.join(decimal_groups)
     return ipv4_address_str
 
 
 def prefix_to_ipv6(prefix_length):
+    if int(prefix_length) > 128:
+        return ""
     mask = 2**128 - 2**(128-int(prefix_length))
     s = str(hex(mask))
     s = s[2:]

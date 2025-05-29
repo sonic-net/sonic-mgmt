@@ -66,7 +66,7 @@ def test_active_tor_reboot_upstream(
     Send upstream traffic and reboot the active ToR. Confirm switchover
     occurred and disruption lasts < 1 second
     """
-    setup_loganalyzer(upper_tor_host, collect_only=True)
+    setup_loganalyzer(upper_tor_host, collect_only=True, collect_from_bootup=True)
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=toggle_upper_tor_pdu, stop_after=60
@@ -99,7 +99,7 @@ def test_active_tor_reboot_downstream_standby(
     Send downstream traffic to the standby ToR and reboot the active ToR.
     Confirm switchover occurred and disruption lasts < 1 second
     """
-    setup_loganalyzer(upper_tor_host, collect_only=True)
+    setup_loganalyzer(upper_tor_host, collect_only=True, collect_from_bootup=True)
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=toggle_upper_tor_pdu, stop_after=60
@@ -123,7 +123,7 @@ def test_standby_tor_reboot_upstream(
     Send upstream traffic and reboot the standby ToR. Confirm no switchover
     occurred and no disruption
     """
-    setup_loganalyzer(lower_tor_host, collect_only=True)
+    setup_loganalyzer(lower_tor_host, collect_only=True, collect_from_bootup=True)
     send_server_to_t1_with_action(
         upper_tor_host, verify=True,
         action=toggle_lower_tor_pdu, stop_after=60
@@ -147,7 +147,7 @@ def test_standby_tor_reboot_downstream_active(
     Send downstream traffic to the active ToR and reboot the standby ToR.
     Confirm no switchover occurred and no disruption
     """
-    setup_loganalyzer(lower_tor_host, collect_only=True)
+    setup_loganalyzer(lower_tor_host, collect_only=True, collect_from_bootup=True)
     send_t1_to_server_with_action(
         upper_tor_host, verify=True,
         action=toggle_lower_tor_pdu, stop_after=60

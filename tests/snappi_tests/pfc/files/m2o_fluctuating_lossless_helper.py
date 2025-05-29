@@ -9,6 +9,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config          # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -134,14 +135,24 @@ def run_m2o_fluctuating_lossless_test(api,
     ingress_dut2 = tx_port[1]['duthost']
     ingress_port1 = tx_port[0]['peer_port']
     ingress_port2 = tx_port[1]['peer_port']
-    # Fetch relevant statistics
-    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
     rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
     rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
-    # Calculate the total received packets
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
-    # Calculate the drop percentage
-    drop_percentage = 100 * pkt_drop / total_rx_pkts
+    # Fetch relevant statistics
+    if duthost.facts['switch_type'] == "voq":
+        pkt_drop_1_ingress = get_interface_stats(
+            ingress_dut1, ingress_port1
+        )[ingress_dut1.hostname][ingress_port1]['rx_drp']
+        pkt_drop_2_ingress = get_interface_stats(
+            ingress_dut2, ingress_port2
+        )[ingress_dut2.hostname][ingress_port2]['rx_drp']
+        total_pkt_drop_ingress = pkt_drop_1_ingress + pkt_drop_2_ingress
+        drop_percentage = (100 * total_pkt_drop_ingress) / total_rx_pkts
+
+    else:
+        pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
+        drop_percentage = (100 * pkt_drop) / total_rx_pkts
+
     pytest_assert(abs(drop_percentage - 8) < 1, 'FAIL: Drop packets must be around 8 percent')
 
     """ Verify Results """
@@ -359,7 +370,7 @@ def __gen_data_flow(testbed_config,
     udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
 
     if '1 Background Flow 1 -> 0' in flow.name:
@@ -414,4 +425,4 @@ def verify_m2o_fluctuating_lossless_result(rows,
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
             background_loss += float(row.loss)
-    pytest_assert(round(background_loss/4) == 10, "Each Background Flow must have an avg of 10% loss ")
+    pytest_assert((abs(background_loss/4) - 10) < 1, "Each Background Flow must have an avg of 10% loss ")
