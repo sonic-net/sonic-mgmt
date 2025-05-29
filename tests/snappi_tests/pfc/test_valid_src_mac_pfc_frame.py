@@ -13,6 +13,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.cisco_data import is_cisco_device
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
