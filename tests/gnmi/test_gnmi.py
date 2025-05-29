@@ -3,8 +3,10 @@ import logging
 
 from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name, dump_gnmi_log
 from tests.common.utilities import wait_until
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
+allure.logger = logger
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -21,6 +23,47 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     assert ret == 0, msg
     assert "sonic-db" in msg, msg
     assert "JSON_IETF" in msg, msg
+
+
+def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost):
+    '''
+    Verify GNMI capabilities with different roles
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    with allure.step("Verify GNMI capabilities with noaccess role"):
+        role = "gnmi_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        ret, msg = gnmi_capabilities(duthost, localhost)
+        assert ret != 0, msg
+        assert role in msg, msg
+
+    with allure.step("Verify GNMI capabilities with readonly role"):
+        role = "gnmi_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        ret, msg = gnmi_capabilities(duthost, localhost)
+        assert ret == 0, msg
+        assert "sonic-db" in msg, msg
+        assert "JSON_IETF" in msg, msg
+
+    with allure.step("Verify GNMI capabilities with readwrite role"):
+        role = "gnmi_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        ret, msg = gnmi_capabilities(duthost, localhost)
+        assert ret == 0, msg
+        assert "sonic-db" in msg, msg
+        assert "JSON_IETF" in msg, msg
+
+    with allure.step("Verify GNMI capabilities with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        ret, msg = gnmi_capabilities(duthost, localhost)
+        assert ret == 0, msg
+        assert "sonic-db" in msg, msg
+        assert "JSON_IETF" in msg, msg
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
 @pytest.fixture(scope="function")

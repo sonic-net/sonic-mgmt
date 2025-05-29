@@ -493,12 +493,13 @@ class VMTopology(object):
     def get_vm_bridges(self, vmname):
         brs = []
         vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
+        # Use ip link instead of ifconfig to speed up
         out = VMTopology.cmd(
-            'ifconfig -a', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
+            'ip link', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
         for row in out.split('\n'):
             fields = row.split(':')
-            if len(fields) > 0:
-                brs.append(fields[0])
+            if len(fields) >= 2:
+                brs.append(fields[1].strip())
 
         return brs
 
@@ -1201,6 +1202,8 @@ class VMTopology(object):
                            (br_name, dut_iface_id, vm_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,udp6,in_port=%s,udp_src=161,action=output:%s,%s" %
                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=6,udp6,in_port=%s,udp_dst=4784,action=output:%s" %
+                           (br_name, dut_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
                            (br_name, dut_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %

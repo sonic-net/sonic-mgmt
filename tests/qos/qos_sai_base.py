@@ -49,7 +49,8 @@ class QosBase:
         "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
     ]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag",
-                          "t1-isolated-d28u1"]
+                          "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
+                          "t1-isolated-d448u16", "t1-isolated-v6-d448u16"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2", "th5"]
@@ -237,6 +238,9 @@ class QosSaiBase(QosBase):
                 port_dynamic_th = dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
+                port_profile_reserved_size = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                )[0]
                 break
         if port_dynamic_th:
 
@@ -256,17 +260,24 @@ class QosSaiBase(QosBase):
                 )[0]
             )
 
-            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+            pg_q_reserved_size = int(port_profile_reserved_size) * pg_q_alpha / (1 + pg_q_alpha)
+            reserved_size = pg_q_reserved_size if pg_q_reserved_size > int(pg_q_buffer_profile["size"]) \
+                else int(pg_q_buffer_profile["size"])
+
+            if pg_q_buffer_profile['dynamic_th'] == "7" and port_dynamic_th != "7":
+                buffer_scale = port_alpha / (1 + port_alpha)
+            else:
+                buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
 
             pg_q_max_occupancy = int(buffer_size * buffer_scale)
 
             pg_q_buffer_profile.update(
-                {"static_th": int(
-                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+                {"static_th": int(pg_q_max_occupancy) + int(reserved_size)}
             )
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
+            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -2147,8 +2158,8 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['1-3', '4', '5']
-                queue_to_dscp_map = {'1-3': '1', '4': '11', '5': '31'}
+                queue_table_postfix_list = ['0-3', '4', '5']
+                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
                 queues = random.choice(queue_table_postfix_list)
             else:
                 queues = "0-2"
@@ -2164,7 +2175,7 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '1-3' else queues
+            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
         logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
@@ -2747,9 +2758,22 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
+    def copy_dshell_script_cisco_8000(self, dut, asic, dshell_script, script_name):
         if dut.facts['asic_type'] != "cisco-8000":
             raise RuntimeError("This function should have been called only for cisco-8000.")
+
+        script_path = "/tmp/{}".format(script_name)
+        dut.copy(content=dshell_script, dest=script_path)
+        if dut.sonichost.is_multi_asic:
+            dest = f"syncd{asic}"
+        else:
+            dest = "syncd"
+        dut.docker_copy_to_all_asics(
+            container_name=dest,
+            src=script_path,
+            dst="/")
+
+    def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
 from sai_utils import *
@@ -2765,16 +2789,7 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        script_path = "/tmp/set_scheduler.py"
-        dut.copy(content=dshell_script, dest=script_path)
-        if dut.sonichost.is_multi_asic:
-            dest = f"syncd{asic}"
-        else:
-            dest = "syncd"
-        dut.docker_copy_to_all_asics(
-            container_name=dest,
-            src=script_path,
-            dst="/")
+        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2788,15 +2803,15 @@ def set_port_cir(interface, rate):
             return
 
         interfaces = [dst_port]
-        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
-        if output != '':
-            output = output.replace('(S)', '')
-            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
-            import re
-            match = re.match(pattern, output)
-            if not match:
-                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
-            interfaces = match.group(1).split(' ')
+        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
+        mgfacts = dst_dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if dst_port in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
+                    dst_port, portchan, members))
+                interfaces = members
+                break
 
         # Set scheduler to 5 Gbps.
         self.copy_set_cir_script_cisco_8000(
@@ -2806,4 +2821,62 @@ def set_port_cir(interface, rate):
             speed=5 * 1000 * 1000 * 1000)
 
         yield
+        return
+
+    def copy_set_voq_watchdog_script_cisco_8000(self, dut, asic="", enable=True):
+        dshell_script = '''
+from common import d0
+def set_voq_watchdog(enable):
+    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
+set_voq_watchdog({})
+'''.format(enable)
+
+        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
+
+    @pytest.fixture(scope='class', autouse=True)
+    def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dut_list = [dst_dut]
+        asic_index_list = [dst_asic.asic_index]
+
+        if not get_src_dst_asic_and_duts["single_asic_test"]:
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = get_src_dst_asic_and_duts['src_asic']
+            dut_list.append(src_dut)
+            asic_index_list.append(src_asic.asic_index)
+            # fabric card asics
+            for rp_dut in duthosts.supervisor_nodes:
+                for asic in rp_dut.asics:
+                    dut_list.append(rp_dut)
+                    asic_index_list.append(asic.asic_index)
+
+        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+            yield
+            return
+
+        # Disable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=False)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+        yield
+
+        # Enable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            self.copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=True)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
         return

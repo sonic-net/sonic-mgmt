@@ -55,6 +55,7 @@ def test_red_accuracy(request,
     # if disable_test:
     #     pytest.skip("test_red_accuracy is disabled")
 
+    skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = 1
         rx_port_count = 1
@@ -81,7 +82,6 @@ def test_red_accuracy(request,
                                                                                 snappi_ports,
                                                                                 snappi_api)
 
-    skip_ecn_tests(snappi_ports[0]['duthost']) or skip_ecn_tests(snappi_ports[1]['duthost'])
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
 
