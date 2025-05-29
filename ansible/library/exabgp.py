@@ -171,6 +171,22 @@ startsecs=1
 numprocs=1
 '''
 
+exabgp_supervisord_conf_debug_tmpl = '''\
+[program:exabgp-{{ name }}]
+command=/usr/local/bin/exabgp --debug /etc/exabgp/{{ name }}.conf
+stdout_logfile=/tmp/exabgp-{{ name }}.out.log
+stderr_logfile=/tmp/exabgp-{{ name }}.err.log
+stdout_logfile_maxbytes=10000000
+stdout_logfile_backups=2
+stderr_logfile_maxbytes=10000000
+stderr_logfile_backups=2
+redirect_stderr=false
+autostart=true
+autorestart=true
+startsecs=1
+numprocs=1
+'''
+
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd)
@@ -266,8 +282,11 @@ def remove_exabgp_conf(name):
         pass
 
 
-def setup_exabgp_supervisord_conf(name):
-    t = jinja2.Template(exabgp_supervisord_conf_tmpl)
+def setup_exabgp_supervisord_conf(name, debug=False):
+    if debug:
+        t = jinja2.Template(exabgp_supervisord_conf_debug_tmpl)
+    else:
+        t = jinja2.Template(exabgp_supervisord_conf_tmpl)
     data = t.render(name=name)
     with open("/etc/supervisor/conf.d/exabgp-%s.conf" % name, 'w') as out_file:
         out_file.write(data)
@@ -302,7 +321,8 @@ def main():
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
             dump_script=dict(required=False, type='str', default=None),
-            passive=dict(required=False, type='bool', default=False)
+            passive=dict(required=False, type='bool', default=False),
+            debug=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=False)
 
@@ -316,6 +336,7 @@ def main():
     port = module.params['port']
     dump_script = module.params['dump_script']
     passive = module.params['passive']
+    debug = module.params['debug']
 
     setup_exabgp_processor()
 
@@ -324,24 +345,24 @@ def main():
         if state == 'started':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             start_exabgp(module, name)
         elif state == 'restarted':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             restart_exabgp(module, name)
         elif state == 'present':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
         elif state == 'configure':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
         elif state == 'stopped':
             stop_exabgp(module, name)
         elif state == 'absent':
