@@ -1,39 +1,13 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import (
-    wait_for_arp,
-    fetch_snappi_flow_metrics,
-)  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import (
-    snappi_api_serv_ip,
-    snappi_api_serv_port,
-    snappi_api,
-    get_snappi_ports,
-    is_snappi_multidut,
-    get_snappi_ports_single_dut,
-    get_snappi_ports_multi_dut,
-    snappi_dut_base_config,
-)  # noqa: F401
-from snappi_tests.dataplane.files.helper import (
-    setup_snappi_port_configs,
-    get_ti_stats,
-    get_fanout_port_groups,
-    create_snappi_config,
-    create_traffic_items,
-)
-from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
-from tests.common.snappi_tests.common_helpers import packet_capture, config_capture_pkt
-from tests.common.snappi_tests.read_pcap import is_ecn_marked
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
 
 
 def test_ecn_marking(
-    duthost,
+    duthosts,
     snappi_api,                   # noqa: F811
     get_snappi_ports,             # noqa: F811
-    setup_snappi_port_configs,    # noqa: F811
     fanout_graph_facts_multidut,
 ):
     """
@@ -43,10 +17,10 @@ def test_ecn_marking(
           fanout_per_port is 2
     """
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_snappi_ports
-    snappi_ports = setup_snappi_port_configs
-    tx_ports = setup_snappi_port_configs[:2]
-    rx_ports = [setup_snappi_port_configs[2]]
+    snappi_extra_params.interface_type = 'vlan'
+    snappi_ports = setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params)
+    tx_ports = snappi_ports[:2]
+    rx_ports = [snappi_ports[2]]
     config, tx_names, rx_names = create_snappi_config(
         snappi_api, tx_ports, rx_ports, is_rdma=True
     )
@@ -129,7 +103,7 @@ def test_ecn_marking(
     count = 0
     for pkt in ip_pkts:
         if is_ecn_marked(pkt):
-            count+=1
+            count += 1
     logger.info("Total packets Captured: {}".format(len(ip_pkts)))
     logger.info("Total packets marked: {}".format(count))
     logger.info("Percentage of packets marked: {}".format(count/len(ip_pkts)*100))
