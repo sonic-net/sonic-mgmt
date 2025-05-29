@@ -115,12 +115,30 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0
-            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter']
+            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
+                "Filtered prefix counter does not match total prefix counter after AZNG migration step. "
+                "Expected filteredPrefixCounter == totalPrefixCounter, but got filteredPrefixCounter: {}, "
+                "totalPrefixCounter: {}. "
+                "Command: {}\n"
+            ).format(
+                routes_json['filteredPrefixCounter'],
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_recv_cmd
+            )
 
         for bgp_nbr_adv_cmd in adv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
-            assert routes_json['totalPrefixCounter'] == len(duthosts)
+            assert routes_json['totalPrefixCounter'] == len(duthosts), (
+                "Mismatch in total advertised route count after AZNG migration rollback. "
+                "Expected totalPrefixCounter to equal the number of DUT hosts ({}), but got {}. "
+                "Command: {}\n"
+            ).format(
+                len(duthosts),
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_adv_cmd
+            )
+
             assert routes_json['filteredPrefixCounter'] == 0
 
         rc = duthost.shell('sudo azng_migration -d')
@@ -131,13 +149,31 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0
-            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter']
+            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
+                "Filtered prefix counter does not match total prefix counter after AZNG migration step. "
+                "Expected filteredPrefixCounter == totalPrefixCounter, but got filteredPrefixCounter: {}, "
+                "totalPrefixCounter: {}. "
+                "Command: {}\n"
+            ).format(
+                routes_json['filteredPrefixCounter'],
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_recv_cmd
+            )
 
         for bgp_nbr_adv_cmd in adv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] == 0
-            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter']
+            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
+                "Filtered prefix counter does not match total prefix counter after AZNG migration step. "
+                "Expected filteredPrefixCounter == totalPrefixCounter, but got filteredPrefixCounter: {}, "
+                "totalPrefixCounter: {}. "
+                "Command: {}\n"
+            ).format(
+                routes_json['filteredPrefixCounter'],
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_recv_cmd
+            )
 
         rc = duthost.shell('sudo azng_migration -i')
         pytest_assert(not rc['failed'], "AZNG Migration Outbound Route-map permit apply failed")
@@ -146,7 +182,16 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0
-            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter']
+            assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
+                "Filtered prefix counter does not match total prefix counter after AZNG migration step. "
+                "Expected filteredPrefixCounter == totalPrefixCounter, but got filteredPrefixCounter: {}, "
+                "totalPrefixCounter: {}. "
+                "Command: {}\n"
+            ).format(
+                routes_json['filteredPrefixCounter'],
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_recv_cmd
+            )
 
         for bgp_nbr_adv_cmd in adv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
