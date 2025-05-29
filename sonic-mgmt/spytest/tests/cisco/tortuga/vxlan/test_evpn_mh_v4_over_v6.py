@@ -822,12 +822,19 @@ def test_unknown_unicast():
             ndf_downlink_curr <= 0.1 * int(data.pkts_per_burst)):
         report_fail(ndf_node, "Unknown unicast traffic is not dropped in NDF")
     # Validate Unknown unicast traffic is ingress replicated towards df and ndf
-    elif not (leaf2_df_vxlan_rx_curr >= int(data.pkts_per_burst) and leaf2_ndf_vxlan_rx_curr >= int(data.pkts_per_burst) and leaf2_df_vxlan_tx_curr >= int(data.pkts_per_burst) and leaf2_ndf_vxlan_tx_curr >= int(data.pkts_per_burst)):
-        if vxlan_obj.tunnel_counters_supported(nodes['leaf2']):
-            report_fail(nodes['leaf2'], "Unknown unicast traffic is not ingress replicated towards df and ndf")
+    else:
+        if leaf2_df_vxlan_rx_curr < int(data.pkts_per_burst):
+            if vxlan_obj.tunnel_counters_supported(df_node):
+                report_fail(df_node, "Unknown unicast traffic is not ingress replicated towards df")
+        if leaf2_ndf_vxlan_rx_curr < int(data.pkts_per_burst):
+            if vxlan_obj.tunnel_counters_supported(ndf_node):
+                report_fail(ndf_node, "Unknown unicast traffic is not ingress replicated towards ndf")
+        if leaf2_df_vxlan_tx_curr < int(data.pkts_per_burst) or leaf2_ndf_vxlan_tx_curr < int(data.pkts_per_burst):
+            if vxlan_obj.tunnel_counters_supported(nodes['leaf2']):
+                report_fail(nodes['leaf2'], "Unknown unicast traffic is not ingress replicated towards df and ndf")
 
     st.report_pass('test_case_passed')
-        
+
 ######################################################################
 # Test BUM Local Bias
 ######################################################################
