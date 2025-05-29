@@ -1,25 +1,31 @@
-import pytest
-import ipaddress
-from ipaddress import ip_address, IPv4Address, IPv6Address
-from tests.snappi_tests.dataplane.imports import *
-from snappi_tests.reboot.files.reboot_helper import get_macs
-from tests.common.snappi_tests.snappi_fixtures import (
-    snappi_api_serv_ip,
-    snappi_api_serv_port,
-    snappi_api,
-    get_snappi_ports,
-    get_snappi_ports_single_dut,
-    get_snappi_ports_multi_dut,
-)  # noqa F401
-from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet
+
+from tests.snappi_tests.dataplane.imports import *          # noqa F401
+
+
+@dataclass
+class IxNetConfigParams:
+    traffic_name: str = "TestTraffic"
+    frame_size: int = 512
+    frame_rate: int = 100
+    frame_ordering_mode: str = "RFC2889"
+    traffic_type: str = "ipv4"
+    traffic_mesh: str = "fullMesh"          # manyToMany oneToOne
+    bidirectional: bool = True
+    duration: int = 20
+    latency_bins: Optional[Dict[str, List[Any]]] = None  # type: ignore
+    # latency_bin={"NumberOfBins": 5,"BinLimits": [0.5, 0.75, 1.0, 1.25, 2147483647.0]}
+    # Add more as needed
 
 
 @pytest.fixture(scope="module")
-def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):
-    primary_chassis = duthosts[0].host.options['variable_manager']._hostvars[duthosts[0].hostname].get('chassis_chain', None)
+def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    # noqa F811
+    primary_chassis = duthosts[0].host.options['variable_manager'] \
+        ._hostvars[duthosts[0].hostname].get('chassis_chain', None)
     if len(fanout_graph_facts_multidut) == 1 and primary_chassis:
-        slave_chassis = [fanout_graph_facts_multidut[fanout]['device_info']['mgmtip'] for fanout in fanout_graph_facts_multidut] 
+        slave_chassis = [
+            fanout_graph_facts_multidut[fanout]['device_info']['mgmtip']
+            for fanout in fanout_graph_facts_multidut
+        ]
     elif len(fanout_graph_facts_multidut) > 1:
         slave_chassis = []
         for fanout in fanout_graph_facts_multidut:
@@ -35,10 +41,16 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):
     chassis_chain1 = ixnconfig.chassis_chains.add()
     chassis_chain1.primary = primary_chassis
     chassis_chain1.topology = chassis_chain1.STAR
-    slaves = [chassis_chain1.secondary.add(location = slave, sequence_id = index, cable_length = '6') for index, slave in enumerate(slave_chassis, start=2)]
-    
+    slaves = [    # noqa F841
+        chassis_chain1.secondary.add(
+            location=slave,
+            sequence_id=index,
+            cable_length='6'
+        )
+        for index, slave in enumerate(slave_chassis, start=2)
+    ]
 
-def setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params=None):
+def setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params=None):   # noqa F811
     """
     Adding IP addresses and IP gateway addresses from the minigraph vlan interface details to snappi ports
 
@@ -69,7 +81,7 @@ def setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params=No
         port_list = get_duthost_vlan_details(duthosts, get_snappi_ports)
     return port_list
 
-def get_duthost_bgp_details(duthosts, get_snappi_ports):
+def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
     """
     Example:
     {
@@ -93,15 +105,18 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports):
     }
     """
     for duthost in duthosts:
-        config_facts = duthost.config_facts(host=duthost.hostname,source="running")['ansible_facts']
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         bgp_neighbors = config_facts['BGP_NEIGHBOR']
         interfaces = config_facts['INTERFACE']
         # Get the IP address of the peer port
         gateway_to_bgp = {
-        v['local_addr']: {'ipAddress': k, 'ipGateway': v['local_addr'], 'asn': int(v['asn'])}
-        for k, v in bgp_neighbors.items()
+            v['local_addr']: {
+                'ipAddress': k,
+                'ipGateway': v['local_addr'],
+                'asn': int(v['asn'])
+            }
+            for k, v in bgp_neighbors.items()
         }
-            
         peer_to_gateway = {
             port: (str(ipaddress.ip_interface(ip).ip), ipaddress.ip_interface(ip).network.prefixlen)
             for port, ip_info in interfaces.items()
@@ -114,14 +129,15 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports):
                 port['router_mac_address'] = port['duthost'].facts['router_mac']
                 port['src_mac_address'] = mac_address_generator[index]
                 port['ipGateway'] = peer_to_gateway.get(port['peer_port'])[0]
-                #port['bgp'] = gateway_to_bgp.get(peer_to_gateway.get(port['peer_port'])[0])
                 port['ipAddress'] = gateway_to_bgp.get(port['ipGateway'])['ipAddress']
                 port['asn'] = gateway_to_bgp.get(port['ipGateway'])['asn']
                 port['prefix'] = peer_to_gateway.get(port['peer_port'])[1]
-                port['subnet'] = str(peer_to_gateway.get(port['peer_port'])[0])+"/"+str(peer_to_gateway.get(port['peer_port'])[1])
+                port['subnet'] = str(peer_to_gateway.get(port['peer_port'])[0]) \
+                                    + "/"+str(peer_to_gateway.get(port['peer_port'])[1])  # noqa: E127
     return get_snappi_ports
 
-def get_duthost_vlan_details(duthosts, get_snappi_ports):
+
+def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
     """
     Loop through each duthosts to get its vlan details
 
@@ -130,7 +146,8 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):
 
     Return:
        - duthost_vlan_interface: A dict object containing individual duthost as keys with all the dut's vlan details
-       - subnet_tracker:         A list of subnets for calling ip_address_generator() to generate source ip addresses in the subnet
+       - subnet_tracker:         A list of subnets for calling ip_address_generator()
+                                 to generate source ip addresses in the subnet
        - all_vlan_gateway_ip:    A list of all the vlan IP addresses for ip_address_generator() to exclude
                                  when providing the ip addresses
 
@@ -152,7 +169,8 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):
 
     for dut in duthosts:
         # NOTE! This only gets the first vlan interface
-        duthost_configdb_vlan_interface = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']["VLAN_INTERFACE"]
+        facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+        duthost_configdb_vlan_interface = facts["VLAN_INTERFACE"]
         vlan_id = list(duthost_configdb_vlan_interface.keys())[0]
         vlan_ipprefix = list(duthost_configdb_vlan_interface[vlan_id].keys())[0]
         ipn = IPNetwork(vlan_ipprefix)
@@ -178,15 +196,15 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):
         exclude_ips=all_vlan_gateway_ip,
     )
     port_list = []
+    snappi_ports = natsorted(get_snappi_ports, key=lambda x: x['location'])
 
-    for index, port in enumerate(get_snappi_ports):
+    for index, port in enumerate(snappi_ports):
         speed = port["speed"]
         src_mac_address = mac_address_generator[index]
 
         # The src port's gateway mac is the router_mac for ALL VLANs
         router_mac_address = port["duthost"].facts["router_mac"]
 
-        port_name = port["location"]
         hostname = port["duthost"].hostname
         vlan_details = duthost_vlan_interface[hostname]
         port_list.append(
@@ -272,7 +290,7 @@ def create_traffic_items(
     return config
 
 
-def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):
+def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):   # noqa F811
     config = snappi_api.config()
     for index, tx_port in enumerate(tx_ports):
         config.ports.port(name="Tx_%d" % index, location=tx_port["location"])
@@ -311,10 +329,6 @@ def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):
         else:
             pytest_assert(False, "pfcQueueGroupSize value is not 4 or 8")
 
-    # Tx
-    macs_tx = get_macs("101700000011", len(tx_ports))
-    macs_rx = get_macs("001700000011", len(rx_ports))
-
     network = ipaddress.ip_network(tx_ports[0]["subnet"], strict=False)
     is_v4_subnet = isinstance(network, ipaddress.IPv4Network)
 
@@ -347,7 +361,7 @@ def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):
 
 
 
-def create_bgp_snappi_config(snappi_api, tx_ports, rx_ports):
+def create_bgp_snappi_config(snappi_api, tx_ports, rx_ports):    # noqa F811
     snappi_ports = tx_ports + rx_ports
     config = snappi_api.config()
     for index, snappi_port in enumerate(tx_ports):
