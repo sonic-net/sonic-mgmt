@@ -44,7 +44,8 @@ DOWNSTREAM_NEIGHBOR_MAP = {
     "mx": "server",
     "t2": "t1",
     "m0_vlan": "server",
-    "m0_l3": "mx"
+    "m0_l3": "mx",
+    "ft2": "lt2"
 }
 
 # Describe downstream neighbor of dut in different topos
