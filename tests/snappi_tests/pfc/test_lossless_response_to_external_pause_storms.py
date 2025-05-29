@@ -13,6 +13,7 @@ from tests.snappi_tests.pfc.files.lossless_response_to_external_pause_storms_hel
      run_lossless_response_to_external_pause_storms_test,
     )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
