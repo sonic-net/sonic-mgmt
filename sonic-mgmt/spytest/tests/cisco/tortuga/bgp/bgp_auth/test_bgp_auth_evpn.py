@@ -430,7 +430,7 @@ def test_bgp_auth_evpn_t7_wrong_mtu():
     #set mtu for leaf0 back to 9100
     # IPv6 global address gets removed upon MTU change; configure it agin
     cmds = [ 'sudo config interface mtu ' + vars.D3D1P1 + ' 9100',
-             'sudo config interface ip add ' + vars.D1D3P1 + ' 10:1:30:1::3/120']
+             'sudo config interface ip add ' + vars.D3D1P1 + ' 10:1:30:1::3/120']
     for cmd in cmds:
         st.config(nodes['leaf0'], cmd)
 

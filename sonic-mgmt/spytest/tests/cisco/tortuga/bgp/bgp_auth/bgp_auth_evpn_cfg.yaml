@@ -15,6 +15,10 @@ spine0:
 
   bgp:
     config: |
+      route-map PREFER_ROUTE permit 10
+      on-match next
+      set ipv6 next-hop prefer-global
+      exit
       router bgp 2363070545
       no bgp ebgp-requires-policy
       no bgp default ipv4-unicast
@@ -27,7 +31,9 @@ spine0:
       neighbor TRANSIT ebgp-multihop 255
       neighbor TRANSIT timers 3 10
       neighbor TRANSIT timers connect 10
+      neighbor TRANSIT capability extended-nexthop
       neighbor OVERLAY peer-group
+      neighbor OVERLAY password overlay
       neighbor OVERLAY timers 3 10
       neighbor OVERLAY timers connect 10
       neighbor 10.200.200.200 peer-group OVERLAY
@@ -37,6 +43,7 @@ spine0:
       address-family ipv4 unicast
       redistribute connected
       neighbor TRANSIT activate
+      neighbor TRANSIT route-map PREFER_ROUTE in
       exit-address-family
       address-family ipv6 unicast
       redistribute connected
@@ -44,6 +51,7 @@ spine0:
       exit-address-family
     deconfig: |
       no router bgp 2363070545
+      no route-map PREFER_ROUTE
       end
       exit
 
@@ -52,7 +60,7 @@ leaf0:
   sonic:
     config: |
       sudo config interface startup D3D1P1
-      sudo config interface ip add D1D3P1 10:1:30:1::3/120
+      sudo config interface ip add D3D1P1 10:1:30:1::3/120
       sudo config loopback add Loopback27
       sudo config interface ip add Loopback27 10.200.200.200/32
       sudo config vrf add Vrf01
@@ -77,7 +85,7 @@ leaf0:
       sudo config vxlan del VXLAN
       sudo config vrf del Vrf01
       sudo config interface ip rem Loopback27 10.200.200.200/32
-      sudo config interface ip rem D1D3P1 10:1:30:1::3/120
+      sudo config interface ip rem D3D1P1 10:1:30:1::3/120
     config_vrf: |
       sudo config interface startup D3D2P1
       sudo config interface vrf bind D3D2P1 Vrf01
@@ -89,6 +97,10 @@ leaf0:
 
   bgp:
     config: |
+      route-map PREFER_ROUTE permit 10
+      on-match next
+      set ipv6 next-hop prefer-global
+      exit
       router bgp 2363073663
       no bgp ebgp-requires-policy
       no bgp default ipv4-unicast
@@ -109,11 +121,13 @@ leaf0:
       neighbor TRANSIT ebgp-multihop 255
       neighbor TRANSIT timers 3 10
       neighbor TRANSIT timers connect 10
+      neighbor TRANSIT capability extended-nexthop
       neighbor 10.200.200.201 peer-group OVERLAY
       neighbor 10:1:30:1::1 peer-group TRANSIT
       address-family ipv4 unicast
       redistribute connected
       neighbor TRANSIT activate
+      neighbor TRANSIT route-map PREFER_ROUTE in
       exit-address-family
       address-family l2vpn evpn
       neighbor OVERLAY activate
@@ -138,6 +152,7 @@ leaf0:
       exit
       no router bgp 2363073663 vrf Vrf01
       no router bgp 2363073663
+      no route-map PREFER_ROUTE
       end
       exit
     config_vrf: |
@@ -194,6 +209,10 @@ leaf1:
 
   bgp:
     config: |
+      route-map PREFER_ROUTE permit 10
+      on-match next
+      set ipv6 next-hop prefer-global
+      exit
       router bgp 2363033449
       no bgp ebgp-requires-policy
       no bgp default ipv4-unicast
@@ -214,11 +233,13 @@ leaf1:
       neighbor TRANSIT ebgp-multihop 255
       neighbor TRANSIT timers 3 10
       neighbor TRANSIT timers connect 10
+      neighbor TRANSIT capability extended-nexthop
       neighbor 10.200.200.200 peer-group OVERLAY
       neighbor 10:5:40:1::1 peer-group TRANSIT
       address-family ipv4 unicast
       redistribute connected
       neighbor TRANSIT activate
+      neighbor TRANSIT route-map PREFER_ROUTE in
       exit-address-family
       address-family l2vpn evpn
       neighbor OVERLAY activate
@@ -244,6 +265,7 @@ leaf1:
       exit
       no router bgp 2363033449 vrf Vrf01
       no router bgp 2363033449
+      no route-map PREFER_ROUTE
       end
       exit
 
