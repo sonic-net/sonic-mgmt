@@ -118,7 +118,7 @@ class HashTest(BaseTest):
         self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
 
         self.topo_name = self.test_params.get('topo_name', '')
-
+        self.topo_type = self.test_params.get('topo_type', '')
         # set the base mac here to make it persistent across calls of check_ip_route
         self.base_mac = self.dataplane.get_mac(
             *random.choice(list(self.dataplane.ports.keys())))
@@ -139,8 +139,14 @@ class HashTest(BaseTest):
             next_hops = self._get_nexthops(src_port, dst_ip)
             exp_port_lists = [next_hop.get_next_hop_list()
                               for next_hop in next_hops]
+            # On FT2 topo, since all the ports are in the next hop list of default route,
+            # we need to skip check if the src_port is in exp_port_list. Otherwise, it will
+            # cause the function to stuck in infinite loop.
+            lt2_default_route = False
+            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
@@ -202,7 +208,13 @@ class HashTest(BaseTest):
             # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
             # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different
             # ingress ports and expect that they are forwarded from same egress port.
-            for ingress_port in self.get_ingress_ports(exp_port_lists, dst_ip):
+            if self.topo_type == 'ft2':
+                # For FT2 topo, all the ports are connected to LT2
+                # So we can use any port as ingress port
+                port_list = self.src_ports
+            else:
+                port_list = self.get_ingress_ports(exp_port_lists, dst_ip)
+            for ingress_port in port_list:
                 print(ingress_port)
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
                              .format(hash_key, ingress_port, exp_port_lists, dst_ip))
@@ -515,7 +527,7 @@ class HashTest(BaseTest):
         '''
         percentage = (actual - expected) / float(expected)
         balancing_range = self.balancing_range
-        if hash_key == 'ip-proto' and self.topo_name == 't2':
+        if hash_key == 'ip-proto' and 't2' in self.topo_name:
             # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
             # a large number of ecmp paths so relax the hashing requirements
             balancing_range = self.RELAXED_BALANCING_RANGE
