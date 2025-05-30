@@ -135,6 +135,7 @@ class GenerateGoldenConfigDBModule(object):
             if ("localhost" in golden_config_db["DEVICE_METADATA"] and
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
+                golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         return json.dumps(golden_config_db, indent=4)
 
@@ -167,9 +168,10 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, feature_data=None):
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, feature_data=None,
+                                                     auto_restart="enabled", state="enabled"):
         full_config = json.loads(config)
-        if config == "{}" or "FEATURE" not in full_config["localhost"]:
+        if config == "{}" or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
             gold_config_db = json.loads(self.get_multiasic_feature_config())
         else:
@@ -179,14 +181,14 @@ class GenerateGoldenConfigDBModule(object):
         if feature_data is None:
             feature_data = {
                 feature_key: {
-                    "auto_restart": "enabled",
+                    "auto_restart": auto_restart,
                     "check_up_status": "false",
                     "delayed": "False",
                     "has_global_scope": "False",
                     "has_per_asic_scope": "True",
                     "high_mem_alert": "disabled",
                     "set_owner": "local",
-                    "state": "enabled",
+                    "state": state,
                     "support_syslog_rate_limit": "false"
                 }
             }
@@ -201,7 +203,8 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(gold_config_db, indent=4)
 
-    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key):
+    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key,
+                                                      auto_restart="enabled", state="enabled"):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
@@ -215,14 +218,14 @@ class GenerateGoldenConfigDBModule(object):
 
         # Append the specified feature section to the original "FEATURE" section
         ori_config_db.setdefault("FEATURE", {}).setdefault(feature_key, {}).update({
-            "auto_restart": "enabled",
+            "auto_restart": auto_restart,
             "check_up_status": "false",
             "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "high_mem_alert": "disabled",
             "set_owner": "local",
-            "state": "enabled",
+            "state": state,
             "support_syslog_rate_limit": "false"
         })
 
@@ -428,8 +431,10 @@ class GenerateGoldenConfigDBModule(object):
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
             if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         # Disable dash-ha feature for all multi-asic platforms

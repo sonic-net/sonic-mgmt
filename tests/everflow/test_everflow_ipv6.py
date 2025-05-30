@@ -7,14 +7,14 @@ from ptf import packet
 from ptf.mask import Mask
 import ptf.packet as scapy
 from . import everflow_test_utilities as everflow_utils
-from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver      # noqa F401
+from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver              # noqa: F401
 import random
 # Module-level fixtures
-from .everflow_test_utilities import setup_info      # noqa: F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
+from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "m1", "m2", "m3")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1", "m2", "m3")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
