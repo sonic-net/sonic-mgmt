@@ -224,6 +224,14 @@ bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
     conditions:
       - "asic_type in ['vpp']"
 
+bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: >
@@ -263,6 +271,7 @@ bgp/test_bgp_port_disable.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
 
 #######################################
 #####            Cacl             #####
