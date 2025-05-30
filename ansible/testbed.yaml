@@ -2222,7 +2222,7 @@
   topo: t1-isolated-d56u2
   ptf_image_name: docker-ptf
   ptf: vms70-7
-  ptf_ip: 10.64.247.115/23
+  ptf_ip: 10.64.247.142/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78c/64
   server: server_70
   vm_base: VM70279
