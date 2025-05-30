@@ -21,6 +21,9 @@ all:
         vms92-1:
           ansible_host: 10.64.247.141
           ansible_hostv6: 2a01:111:e210:b000::a40:f77e
+        vms94-1:
+          ansible_host: 10.64.247.148
+          ansible_hostv6: 2a01:111:e210:b000::a40:f794
 
     pdu:
       hosts:
@@ -148,7 +151,11 @@ fanout:
       ansible_host: 10.64.247.136
       ansible_hostv6: 2a01:111:e210:b000::a40:f788
       os: sonic
-    str5-SN5640-fan-1:
+    str5-sn5640-1:
+      ansible_host: 10.64.247.137
+      ansible_hostv6: 2a01:111:e210:b000::a40:f789
+      os: sonic
+    str5-sn5640-fan-1:
       ansible_host: 10.64.247.138
       ansible_hostv6: 2a01:111:e210:b000::a40:f78a
       os: sonic
@@ -202,6 +209,26 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "HBG250905ME"
+    str5-sn5640-1:
+      ansible_host: 10.64.247.137
+      ansible_hostv6: 2a01:111:e210:b000::a40:f789
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT25116051TG
+      base_mac: 50:00:E6:01:D8:0C
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT25116051TG"
+        "0x24": "50:00:E6:01:D8:0C"
+        "0x25": "03/18/2025 17:10:24"
+        "0x26": "16"
+        "0x27": "02.00"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0x2F": "MT25116051TG"
 
 server:
   hosts:
