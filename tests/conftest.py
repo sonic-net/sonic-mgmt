@@ -57,6 +57,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.utilities import get_upstream_neigh_type
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
@@ -2218,15 +2219,8 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "m0":
-        upstream_nbr_type = "M1"
-    elif tbinfo["topo"]["type"] == "mx":
-        upstream_nbr_type = "M0"
-    elif tbinfo["topo"]["type"] == "t0":
-        upstream_nbr_type = "T1"
-    elif tbinfo["topo"]["type"] == "t1":
-        upstream_nbr_type = "T2"
-    else:
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo["topo"]["type"], is_upper=True)
+    if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
     for a_dut in duthosts.frontend_nodes:
