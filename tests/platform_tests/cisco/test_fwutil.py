@@ -2,7 +2,6 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.fwutil.fwutil_common import complete_install
-from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -13,6 +12,7 @@ The following test cases are added to test the following clis on cisco platforms
 fwutil show updates
 fwutil update chassis component eCPLD fw
 """
+
 
 def test_fwutil_show(duthost):
     """Checks current fw version is up-to-date with available fw version
@@ -53,7 +53,7 @@ def test_fwutil_update(request, duthost, localhost, pdu_controller):
 
     logging.info("Upgrading eCPLD fw")
     task, res = duthost.command("fwutil update chassis component eCPLD fw -y",
-                                 module_ignore_errors=True, module_async=True)
+                                module_ignore_errors=True, module_async=True)
 
     logging.info("Cold rebooting")
     current = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
