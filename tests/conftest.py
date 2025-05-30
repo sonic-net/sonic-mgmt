@@ -1376,8 +1376,9 @@ def generate_params_frontend_hostname(request, macsec_only=False):
     if macsec_only:
         host_type = "macsec"
         if 't2' in tbinfo['topo']['name']:
-            # currently in the T2 topo only the uplink linecard will have
-            # macsec enabled
+            # currently in the T2 topo only the uplink linecard will have macsec enabled
+            # Please add "macsec_card = True" param to inventory the inventory file
+            # under Line Card with macsec capability.
             for dut in duts:
                 if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
                     frontend_duts.append(dut)
