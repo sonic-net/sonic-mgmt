@@ -246,6 +246,12 @@ def test_evpn_mh_basic_config():
     nodes['leaf0'] = vars.D2
     nodes['leaf1'] = vars.D3
     nodes['leaf2'] = vars.D4
+
+    # Dump LLDP table output
+    for dut in st.get_dut_names():
+        output = st.show(dut, "show lldp table", skip_tmpl=True)
+        st.log(output)
+
     try:
         # Start Verification
         vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0', EXPECTED_L3VNI)
@@ -1160,7 +1166,7 @@ def test_mac_IP_move_SH():
     h5_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf0'], "ping and traffic from H5 to H1 failed with unicast traffic")
     #stop H1 for mac move
@@ -1173,7 +1179,7 @@ def test_mac_IP_move_SH():
     h5_moved_h1_handle = create_raw_traffic_stream(
             {"src_endpoint": {"port" : "T1D3P2","host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
              "dst_endpoint": {"port" : "T1D4P1","host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_moved_h1_handle)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_moved_h1_handle, timeout=10)
     if not result:
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H5 to H1 failed after mac move with unicast traffic")
@@ -1184,7 +1190,7 @@ def test_mac_IP_move_SH():
     st.log("ping and traffic from H5 to H1 passed after mac move with unicast traffic")
 
     #old traffic stream should fail now
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if result:
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H1 passed unexpectedly with unicast traffic")
@@ -1246,7 +1252,7 @@ def test_mac_IP_move_SH():
     h5_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H1 behind leaf0 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H1 behind leaf0 passed")
@@ -1312,7 +1318,7 @@ def test_mac_IP_move_SH_to_MH():
     h5_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf0'], "ping and traffic from H5 to H1 failed with unicast traffic")
 
@@ -1341,7 +1347,7 @@ def test_mac_IP_move_SH_to_MH():
     st.log("ping and traffic from H5 to H1 passed after mac move with unicast traffic")
 
     #old traffic stream should fail now
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if result:
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H1 passed unexpectedly with unicast traffic")
@@ -1411,7 +1417,7 @@ def test_mac_IP_move_SH_to_MH():
     h5_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H1 behind leaf0 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H1 behind leaf0 passed")
@@ -1461,7 +1467,7 @@ def test_mac_IP_move_remote_SH_to_MH():
     h5_h3_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf0'], "ping and traffic from H5 to H3 failed with unicast traffic")
 
@@ -1488,7 +1494,7 @@ def test_mac_IP_move_remote_SH_to_MH():
         report_fail(nodes['leaf0'], "Traffic from H5->H2 getting flooded on H1")
     st.log("ping and traffic from H5 to H3 passed after mac move with unicast traffic")
     #old traffic stream should fail now
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if result:
         reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved H3 passed unexpectedly with unicast traffic")
@@ -1548,7 +1554,7 @@ def test_mac_IP_move_remote_SH_to_MH():
     #move H3 back behind leaf2
     st.banner("Moving H3 back behind Leaf2")
     reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H5 to moved back H3 behind leaf2 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H3 behind leaf2 passed")
@@ -2084,7 +2090,7 @@ def test_SH_mac_IP_move_H1_H5():
     h3_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf0'], "ping and traffic from H3 to H1 failed with unicast traffic")
     #stop H1 for mac move
@@ -2097,7 +2103,7 @@ def test_SH_mac_IP_move_H1_H5():
     h3_moved_h1_handle = create_raw_traffic_stream(
             {"src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
              "dst_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr}})
-    result = vxlan_obj.traffic_test_burst("unicast", h3_moved_h1_handle)
+    result = vxlan_obj.traffic_test_burst("unicast", h3_moved_h1_handle, timeout=10)
     if not result:
         reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H3 to H1 failed after mac move with unicast traffic")
@@ -2109,7 +2115,7 @@ def test_SH_mac_IP_move_H1_H5():
     st.log("ping and traffic from H3 to H1 passed after mac move with unicast traffic")
 
     #old traffic stream should fail now
-    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl, timeout=10)
     if result:
         reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H3 to moved H1 passed unexpectedly with unicast traffic")
@@ -2156,7 +2162,7 @@ def test_SH_mac_IP_move_H1_H5():
     h3_h1_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
              "src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h3_h1_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf1'], "ping and traffic from H3 to moved back H1 behind leaf0 failed with unicast traffic")
     st.log("ping and traffic from H3 to moved back H1 behind leaf0 passed")
@@ -2327,7 +2333,7 @@ def test_SH_mac_IP_move_H3_H4():
     h5_h3_hdl = create_raw_traffic_stream(
             {"dst_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
              "src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf0'], "ping and traffic from H5 to H3 failed with unicast traffic")
     #stop H3 for mac move
@@ -2349,7 +2355,7 @@ def test_SH_mac_IP_move_H3_H4():
     h5_moved_h3_handle = create_raw_traffic_stream(
             {"src_endpoint": {"port" : "T1D3P2","host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr },
              "dst_endpoint": {"port" : "T1D4P2","host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr }})
-    result = vxlan_obj.traffic_test_burst("unicast", h5_moved_h3_handle)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_moved_h3_handle, timeout=10)
     if not result:
         reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
         move_back_H3_H4_intf_config()
@@ -2363,7 +2369,7 @@ def test_SH_mac_IP_move_H3_H4():
     st.log("ping and traffic from H5 to H3 passed after mac move with unicast traffic")
 
     #old traffic stream should fail now
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if result:
         reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
         move_back_H3_H4_intf_config()
@@ -2400,7 +2406,7 @@ def test_SH_mac_IP_move_H3_H4():
     #move H3 back to original interface of H3
     reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
     move_back_H3_H4_intf_config()
-    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl)
+    result = vxlan_obj.traffic_test_burst("unicast", h5_h3_hdl, timeout=10)
     if not result:
         report_fail(nodes['leaf2'], "ping and traffic from H5 to moved back H3 behind leaf2 failed with unicast traffic")
     st.log("ping and traffic from H5 to moved back H3 interface is working")

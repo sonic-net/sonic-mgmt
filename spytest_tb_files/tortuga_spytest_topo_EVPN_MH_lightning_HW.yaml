@@ -15,55 +15,54 @@ configs:
 devices:
     spine0:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.46, port: 22}
+        access: {protocol: ssh, ip: 10.29.158.246, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf0:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.103, port: 22}
+        access: {protocol: ssh, ip: 10.29.158.248, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.251, port: 22}
+        access: {protocol: ssh, ip: 10.29.158.249, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.223, port: 22}
+        access: {protocol: ssh, ip: 10.29.158.243, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
         device_type: TGEN
-        properties: {type: ixia, version: 9.20, ip: 192.168.122.248, ix_server: 192.168.122.168}
+        properties: {type: ixia, version: 9.20, ip: 10.29.158.250, ix_server: 10.29.158.65}
 
 topology:
     spine0:
         interfaces:
-            Ethernet1_29_1: {EndDevice: leaf0, EndPort: Ethernet1_29_1, params: def_link}
-            Ethernet1_29_2: {EndDevice: leaf0, EndPort: Ethernet1_29_2, params: def_link}
-            Ethernet1_30_1: {EndDevice: leaf1, EndPort: Ethernet1_29_1, params: def_link}
-            Ethernet1_30_2: {EndDevice: leaf1, EndPort: Ethernet1_29_2, params: def_link}
-            Ethernet1_31_1: {EndDevice: leaf2, EndPort: Ethernet1_31_1, params: def_link}
-            Ethernet1_31_2: {EndDevice: leaf2, EndPort: Ethernet1_31_2, params: def_link}
-
+            Ethernet1_29: {EndDevice: leaf0, EndPort: Ethernet32, params: def_link}
+            Ethernet1_31: {EndDevice: leaf0, EndPort: Ethernet36, params: def_link}
+            Ethernet1_25: {EndDevice: leaf1, EndPort: Ethernet32, params: def_link}
+            Ethernet1_27: {EndDevice: leaf1, EndPort: Ethernet36, params: def_link}
+            Ethernet1_11: {EndDevice: leaf2, EndPort: Ethernet1_11, params: def_link}
+            Ethernet1_12: {EndDevice: leaf2, EndPort: Ethernet1_12, params: def_link}
+            Ethernet1_13: {EndDevice: leaf2, EndPort: Ethernet1_13, params: def_link}
+            Ethernet1_14: {EndDevice: leaf2, EndPort: Ethernet1_14, params: def_link}
     leaf0:
         interfaces:
-            Ethernet1_31_1: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
-            Ethernet1_31_2: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
-            Ethernet1_32_1: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
-            Ethernet1_32_2: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
-  
+            Ethernet256: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
+            Ethernet260: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet288: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet292: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
     leaf1:
         interfaces:
-            Ethernet1_31_1: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
-            Ethernet1_31_2: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
-
+            Ethernet256: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet260: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
     leaf2:
         interfaces:
-            Ethernet1_32_1: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
-            Ethernet1_32_2: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+            Ethernet1_9: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
+            Ethernet1_10: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}

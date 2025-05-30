@@ -283,7 +283,7 @@ def get_counters(node,cmd = 'show vxlan counters', target_iface = 'VXLAN', r_t_k
     return r_t_counter
 
 
-def traffic_test_burst(_mode,handles):
+def traffic_test_burst(_mode,handles, timeout=30):
     '''  
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -308,8 +308,9 @@ def traffic_test_burst(_mode,handles):
             handles['tg_handle'].tg_traffic_config(port_handle=handles['port_handle1'], port_handle2=handles['port_handle2'], mode='modify', mac_dst=dst_mac, stream_id = handles['stream_id'])
             st.wait(5)
     handles['tg_handle'].tg_traffic_control(action='apply', stream_handle=handles['stream_id'])
+    clear_counters()
     handles['tg_handle'].tg_traffic_control(action='run', stream_handle=handles['stream_id'])
-    st.wait(30)
+    st.wait(timeout)
     handles['tg_handle'].tg_traffic_control(action='stop', stream_handle=handles['stream_id'])
     st.wait(5)
     flag = False
