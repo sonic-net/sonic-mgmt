@@ -46,7 +46,10 @@ def get_prefix_len_by_net_size(net_size):
 
 
 def get_route_prefix_len(tbinfo, common_config):
-    if tbinfo["topo"]["type"] in ["m0", "m1"]:
+    if tbinfo["topo"]["type"] == "m1":
+        # The only multipath route in m1 topo is the default route
+        subnet_size = 2 ** 32
+    elif tbinfo["topo"]["type"] == "m0":
         subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
     elif tbinfo["topo"]["type"] == "mx":
         subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
