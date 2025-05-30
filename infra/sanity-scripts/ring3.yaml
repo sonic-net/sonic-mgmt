@@ -89,6 +89,7 @@ FWD:
         - hash/test_generic_hash.py::test_algorithm_config
         - hash/test_generic_hash.py::test_backend_error_messages
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - acl/test_acl.py::TestBasicAcl
       hw:
         - crm/test_crm.py::test_crm_neighbor
   t2-min:
