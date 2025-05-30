@@ -500,6 +500,9 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
 
     vms = topo['topology']['VMs']
     for vm_name, vm in vms.items():
+        router_type = "leaf"
+        if 'tor' in topo['configuration'][vm_name]['properties']:
+            router_type = 'tor'
         vm_offset = vm['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
@@ -512,6 +515,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         spine_asn, leaf_asn_start, tor_asn_start,
                                         nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        router_type=router_type,
                                         no_default_route=no_default_route)
             if aggregate_routes_v4:
                 filterout_subnet_ipv4(aggregate_routes, routes_v4)
@@ -521,6 +525,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         spine_asn, leaf_asn_start, tor_asn_start,
                                         nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        router_type=router_type,
                                         no_default_route=no_default_route,
                                         ipv6_address_pattern=ipv6_address_pattern)
             if aggregate_routes_v6:
