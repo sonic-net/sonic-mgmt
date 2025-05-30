@@ -60,20 +60,21 @@ def copy_acstests_directory(ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def copy_ptftests_directory(request, ptfhost):
     """
-    Optionally copy PTF tests directory to PTF host if any test is marked with 'need_ptftests'.
+    Copy PTF tests directory to PTF host by default.
+    Skip only if any test is marked with 'need_ptftests' = False.
     """
-    need_ptftests = any(
-        'need_ptftests' in getattr(item, 'keywords', {}) for item in getattr(request.session, 'items', [])
+    skip_ptftests = any(
+        'no_ptftests' in getattr(item, 'keywords', {}) for item in getattr(request.session, 'items', [])
     )
-    if not need_ptftests:
-        logger.info("Skipping copy of PTF test files to PTF host as 'need_ptftests' marker is not set.")
+    if skip_ptftests:
+        logger.info("Skipping copy of PTF test files to PTF host due to 'no_ptftests' marker.")
         yield
         return
 
-    logger.info("Copy PTF test files to PTF host '{0}'".format(ptfhost.hostname))
+    logger.info("Copying PTF test files to PTF host '%s'", ptfhost.hostname)
     ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
     yield
-    logger.info("Delete PTF test files from PTF host '{0}'".format(ptfhost.hostname))
+    logger.info("Deleting PTF test files from PTF host '%s'", ptfhost.hostname)
     ptfhost.file(path=os.path.join(ROOT_DIR, PTF_TESTS), state="absent")
 
 
