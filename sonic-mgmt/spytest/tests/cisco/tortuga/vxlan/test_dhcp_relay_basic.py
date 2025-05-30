@@ -26,14 +26,14 @@ dhcpserverv4_mac_addr = "00:0a:01:00:12:01"
 dhcpclientv6_mac_addr = "00:0a:01:00:13:01"
 dhcpserverv6_mac_addr = "00:0a:01:00:14:01"
 
-dhcpserver_ipv4 = "192.168.20.100"
-dhcp_ipv4_assigned1 = "192.168.10.66"
-dhcp_ipv4_assigned2 = "192.168.10.67"
-dhcprelay_ipv4_prefix1 = "192.168.10.1/24"
-dhcprelay_ipv4_prefix2 = "192.168.20.1/24"
-dhcprelay_ipv4_prefix2_vrf = "192.168.20.0/24"
-dhcpclient_vlan_ipv4_addr = "192.168.10.1"
-dhcpserver_vlan_ipv4_addr = "192.168.20.1"
+dhcpserver_ipv4 = "192.160.20.100"
+dhcp_ipv4_assigned1 = "192.160.10.66"
+dhcp_ipv4_assigned2 = "192.160.10.67"
+dhcprelay_ipv4_prefix1 = "192.160.10.1/24"
+dhcprelay_ipv4_prefix2 = "192.160.20.1/24"
+dhcprelay_ipv4_prefix2_vrf = "192.160.20.0/24"
+dhcpclient_vlan_ipv4_addr = "192.160.10.1"
+dhcpserver_vlan_ipv4_addr = "192.160.20.1"
 
 dhcpserver_ipv6 = "2002::1"
 dhcp_ipv6_assigned_start = "2001::66"
@@ -241,11 +241,11 @@ def dhcp_setup_verify_ipv6():
 ######################################################################
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
-##                    VLAN10           VLAN20         192.168.20.100
-##                    192.168.10.1/24  192.168.20.1/24
+##                    VLAN10           VLAN20         192.160.20.100
+##                    192.160.10.1/24  192.160.20.1/24
 ##                    RELAY_AGENT
 ##
-##  config vlan dhcp_relay add 10 192.168.20.100
+##  config vlan dhcp_relay add 10 192.160.20.100
 ##
 ######################################################################
 
@@ -286,13 +286,13 @@ def test_dhcp_relay_ipv4_2vlans():
 ######################################################################
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
-##                    VLAN10           VLAN20         192.168.20.100
-##                    192.168.10.1/24  192.168.20.1/24
+##                    VLAN10           VLAN20         192.160.20.100
+##                    192.160.10.1/24  192.160.20.1/24
 ##                    RELAY_AGENT
 ##
 ##  config interface vrf bind Vlan10 Vrf01
 ##  config interface vrf bind Vlan20 Vrf01
-##  config vlan dhcp_relay add 10 192.168.20.100
+##  config vlan dhcp_relay add 10 192.160.20.100
 ##
 ######################################################################
 

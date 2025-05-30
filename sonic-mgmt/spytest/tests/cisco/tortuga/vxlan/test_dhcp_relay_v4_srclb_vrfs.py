@@ -38,35 +38,35 @@ dhcp_mac_addr3 = "00:0a:01:00:13:01"
 dhcp_mac_addr4 = "00:0a:01:00:14:01"
 dhcp_mac_addr5 = "00:0a:01:00:15:01"
 
-dhcp_vlan_ipv4_addr1 = "192.168.10.1"
-dhcp_vlan_ipv4_addr2 = "192.168.20.1"
-dhcp_vlan_ipv4_addr3 = "192.168.30.1"
-dhcp_vlan_ipv4_addr4 = "192.168.40.1"
-dhcp_vlan_ipv4_addr5 = "192.168.50.1"
+dhcp_vlan_ipv4_addr1 = "192.160.10.1"
+dhcp_vlan_ipv4_addr2 = "192.160.20.1"
+dhcp_vlan_ipv4_addr3 = "192.160.30.1"
+dhcp_vlan_ipv4_addr4 = "192.160.40.1"
+dhcp_vlan_ipv4_addr5 = "192.160.50.1"
 
-dhcpserver_ipv4_a = "192.168.20.100"
-dhcp_ipv4_assigned_st_a = "192.168.10.60"
-dhcp_ipv4_set_a =  {"192.168.10.60", "192.168.10.61","192.168.10.62","192.168.10.63","192.168.10.64", 
-                    "192.168.10.65", "192.168.10.66","192.168.10.67","192.168.10.68","192.168.10.69",
-                    "192.168.10.70", "192.168.10.71","192.168.10.72","192.168.10.73","192.168.10.74"}
+dhcpserver_ipv4_a = "192.160.20.100"
+dhcp_ipv4_assigned_st_a = "192.160.10.60"
+dhcp_ipv4_set_a =  {"192.160.10.60", "192.160.10.61","192.160.10.62","192.160.10.63","192.160.10.64", 
+                    "192.160.10.65", "192.160.10.66","192.160.10.67","192.160.10.68","192.160.10.69",
+                    "192.160.10.70", "192.160.10.71","192.160.10.72","192.160.10.73","192.160.10.74"}
 
-dhcp_ipv4_assigned_st_c = "192.168.50.60"
-dhcp_ipv4_set_c =  {"192.168.50.60", "192.168.50.61","192.168.50.62","192.168.50.63","192.168.50.64",
-                    "192.168.50.65", "192.168.50.66","192.168.50.67","192.168.50.68","192.168.50.69"}
+dhcp_ipv4_assigned_st_c = "192.160.50.60"
+dhcp_ipv4_set_c =  {"192.160.50.60", "192.160.50.61","192.160.50.62","192.160.50.63","192.160.50.64",
+                    "192.160.50.65", "192.160.50.66","192.160.50.67","192.160.50.68","192.160.50.69"}
 
-dhcpserver_ipv4_b = "192.168.40.100"
-dhcp_ipv4_assigned_st_b = "192.168.30.80"
-dhcp_ipv4_set_b =  {"192.168.30.80", "192.168.30.81","192.168.30.82","192.168.30.83","192.168.30.84",
-                    "192.168.30.85", "192.168.30.86","192.168.30.87","192.168.30.88","192.168.30.89",
-                    "192.168.30.90", "192.168.30.91","192.168.30.92","192.168.30.93","192.168.30.94"}
+dhcpserver_ipv4_b = "192.160.40.100"
+dhcp_ipv4_assigned_st_b = "192.160.30.80"
+dhcp_ipv4_set_b =  {"192.160.30.80", "192.160.30.81","192.160.30.82","192.160.30.83","192.160.30.84",
+                    "192.160.30.85", "192.160.30.86","192.160.30.87","192.160.30.88","192.160.30.89",
+                    "192.160.30.90", "192.160.30.91","192.160.30.92","192.160.30.93","192.160.30.94"}
 
 
-dhcp_ipv4_prefix0  = "192.168.10.254/24"
-dhcp_ipv4_prefix1  = "192.168.10.1/24"
-dhcp_ipv4_prefix2  = "192.168.20.1/24"
-dhcp_ipv4_prefix3  = "192.168.30.254/24"
-dhcp_ipv4_prefix4  = "192.168.40.1/24"
-dhcp_ipv4_prefix5  = "192.168.50.1/24"
+dhcp_ipv4_prefix0  = "192.160.10.254/24"
+dhcp_ipv4_prefix1  = "192.160.10.1/24"
+dhcp_ipv4_prefix2  = "192.160.20.1/24"
+dhcp_ipv4_prefix3  = "192.160.30.254/24"
+dhcp_ipv4_prefix4  = "192.160.40.1/24"
+dhcp_ipv4_prefix5  = "192.160.50.1/24"
 
 
 def config_loopback_vrf(node, loopback=None, prefix=None, vrf=None, add=True):
@@ -337,15 +337,15 @@ def dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2):
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##
 ##  <default Vrf>
-##                    VLAN10             VLAN20:ETH40   192.168.20.100
-##                    192.168.10.254/24  192.168.20.1/24
+##                    VLAN10             VLAN20:ETH40   192.160.20.100
+##                    192.160.10.254/24  192.160.20.1/24
 ##
 ##                    RELAY_AGENT as LOOPBACK: 11.11.11.11
-##                    LINKSELECT  as SAG IP:   192.168.10.254
+##                    LINKSELECT  as SAG IP:   192.160.10.254
 ##
 ##  config static-anycast-gateway mac_address add 00:11:22:33:44:55
 ##  config vlan static-anycast-gateway enable 10
-##  config vlan dhcp_relay add 10 192.168.20.100
+##  config vlan dhcp_relay add 10 192.160.20.100
 ##
 ######################################################################
 
@@ -391,16 +391,16 @@ def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1():
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##  <Vrf01>
-##                    VLAN10/SAG      VLAN20         192.168.20.100
-##                    192.168.10.254/24  192.168.20.1/24
+##                    VLAN10/SAG      VLAN20         192.160.20.100
+##                    192.160.10.254/24  192.160.20.1/24
 ##
 ##                    RELAY_AGENT as LOOPBACK: 11.11.11.11
-##                    LINKSELECT  as SAG IP:   192.168.10.254
+##                    LINKSELECT  as SAG IP:   192.160.10.254
 ##
 ##  config interface vrf bind Loopback0 Vrf01/Vlan10/Vlan20
 ##  config static-anycast-gateway mac_address add 00:11:22:33:44:55
 ##  config vlan static-anycast-gateway enable 10
-##  config vlan dhcp_relay add 10 192.168.20.100
+##  config vlan dhcp_relay add 10 192.160.20.100
 ##
 ######################################################################
 
@@ -450,15 +450,15 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2():
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##  <Vrf01>
-##                    VLAN10/SAG      VLAN20         192.168.20.100
-##                    192.168.10.254/24  192.168.20.1/24
+##                    VLAN10/SAG      VLAN20         192.160.20.100
+##                    192.160.10.254/24  192.160.20.1/24
 ##                    RELAY_AGENT as LOOPBACK: 11.11.11.11
-##                    LINKSELECT  as SAG IP:   192.168.10.254
+##                    LINKSELECT  as SAG IP:   192.160.10.254
 ##  <Vrf02>
-##                    VLAN30/SAG      VLAN40         192.168.40.100
-##                    192.168.30.254/24  192.168.40.1/24
+##                    VLAN30/SAG      VLAN40         192.160.40.100
+##                    192.160.30.254/24  192.160.40.1/24
 ##                    RELAY_AGENT as LOOPBACK: 22.22.22.22
-##                    LINKSELECT  as SAG IP:   192.168.30.254
+##                    LINKSELECT  as SAG IP:   192.160.30.254
 ##
 ##  config interface vrf bind Loopback0 Vrf01/Vlan10/Vlan20
 ##  config interface vrf bind Loopback0 Vrf02/Vlan30/Vlan40
@@ -467,8 +467,8 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2():
 ##  config vlan static-anycast-gateway enable 30
 ##  config vlan dhcp-relay-src add 10 Loopback11
 ##  config vlan dhcp-relay-src add 30 Loopback22
-##  config vlan dhcp_relay add 10 192.168.20.100
-##  config vlan dhcp_relay add 30 192.168.40.100
+##  config vlan dhcp_relay add 10 192.160.20.100
+##  config vlan dhcp_relay add 30 192.160.40.100
 ##
 ######################################################################
 
@@ -528,15 +528,15 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3():
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
 ##  <Vrf01>
-##                    VLAN10/SAG      VLAN20         192.168.20.100
-##                    192.168.10.254/24  192.168.20.1/24
+##                    VLAN10/SAG      VLAN20         192.160.20.100
+##                    192.160.10.254/24  192.160.20.1/24
 ##                    RELAY_AGENT as LOOPBACK: 11.11.11.11
-##                    LINKSELECT  as SAG IP:   192.168.10.254
+##                    LINKSELECT  as SAG IP:   192.160.10.254
 ##  <Vrf02>
-##                    VLAN30/SAG      VLAN40         192.168.40.100
-##                    192.168.30.254/24  192.168.40.1/24
+##                    VLAN30/SAG      VLAN40         192.160.40.100
+##                    192.160.30.254/24  192.160.40.1/24
 ##                    RELAY_AGENT as LOOPBACK: 22.22.22.22
-##                    LINKSELECT  as SAG IP:   192.168.30.254
+##                    LINKSELECT  as SAG IP:   192.160.30.254
 ##
 ##  config interface vrf bind Loopback0 Vrf01/Vlan10/Vlan20
 ##  config interface vrf bind Loopback0 Vrf02/Vlan30/Vlan40
@@ -545,8 +545,8 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3():
 ##  config vlan static-anycast-gateway enable 30
 ##  config vlan dhcp-relay-src add 10 Loopback11
 ##  config vlan dhcp-relay-src add 30 Loopback22
-##  config vlan dhcp_relay add 10 192.168.20.100
-##  config vlan dhcp_relay add 30 192.168.40.100
+##  config vlan dhcp_relay add 10 192.160.20.100
+##  config vlan dhcp_relay add 30 192.160.40.100
 ##
 ######################################################################
 

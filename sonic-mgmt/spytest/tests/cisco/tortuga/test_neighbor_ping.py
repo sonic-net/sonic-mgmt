@@ -72,11 +72,13 @@ def test_box_eth_setting():
     
     dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
     for dut in dut_list:
-        output=st.config(dut, "ifconfig eth0") 
-        output=output.encode('ascii','ignore') 
-        if "192" in str(output): 
-            st.log("ifconfig contain 192",dut)
-        else:
-            st.error("Failed ifconfig eth0",dut)
-            st.report_fail("test_case_failed",dut)
+        cmd = "ifconfig eth0"
+        cmd_output = st.config(dut, cmd)
+
+        parsed_output = st.parse_show(dut, cmd, cmd_output, 'linux/ifconfig_eth.tmpl')
+        for intf in parsed_output:
+            if not intf['inet'] or not intf['inet6']:
+                st.error("ifconfig eth0 does not contain inet or inet6", dut)
+                st.report_fail("test_case_failed", dut)
+            st.log("ifconfig eth0 contains inet {} and inet6 {}".format(intf['inet'], intf['inet6']), dut)
         st.report_pass("test_case_passed",dut)

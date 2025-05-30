@@ -15,13 +15,13 @@ leaf0:
     bgp:
       config: |
         vrf Vrf01
-        ip route 192.168.20.0/24 Vlan20 nexthop-vrf Vrf02
+        ip route 192.160.20.0/24 Vlan20 nexthop-vrf Vrf02
         end
         exit
 
       deconfig: |
         vrf Vrf01
-        no ip route 192.168.20.0/24 Vlan20 nexthop-vrf Vrf02
+        no ip route 192.160.20.0/24 Vlan20 nexthop-vrf Vrf02
         end
         exit
 
