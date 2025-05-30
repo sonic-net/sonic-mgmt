@@ -461,7 +461,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
                 dut.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
                 output = dut.shell("TSB", module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Failed TSB")
-                duthost.shell("sudo config save -y")
+                dut.shell("sudo config save -y")
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(startup_tsa_tsb_file_path, dut.hostname))
