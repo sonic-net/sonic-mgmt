@@ -63,10 +63,11 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, delay=0):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
+    @param delay: delay in seconds before checking the status of critical processes.
     """
     timeout = reset_timeout(dut)
     # No matter what we set in inventory file, we always set sup timeout to 900
@@ -75,5 +76,5 @@ def wait_critical_processes(dut):
         timeout = 900
     logging.info("Wait until all critical processes are healthy in {} sec"
                  .format(timeout))
-    pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
+    pytest_assert(wait_until(timeout, 20, delay, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")

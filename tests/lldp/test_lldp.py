@@ -60,8 +60,7 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
         # There was an image issue that orchagent exited after start 1~2 minutes.
         # Add critical process check here to make sure all critical processes are up
-        time.sleep(120)
-        wait_critical_processes(duthost)
+        wait_critical_processes(duthost, delay=120)
     yield
 
 
