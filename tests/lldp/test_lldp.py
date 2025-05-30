@@ -58,6 +58,8 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
         duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
     yield
+    if duthost.facts['switch_type'] != "voq":
+        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
 
 
 def get_num_lldpctl_facts(duthost, enum_frontend_asic_index):
