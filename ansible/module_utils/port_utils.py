@@ -558,7 +558,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
             for i in range(0, 8, 1):
                 port_alias_to_name_map["Ethernet-BP%d" % i] = "Ethernet-BP%d" % i
-
+        elif hwsku == "Nokia-IXR7220-D4-36D":
+            for i in range(1, 9):
+                port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % ((i - 1) * 2)
+            for i in range(9, 29):
+                port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % ((i * 4) - 20)
+            for i in range(29, 37):
+                port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % ((i * 8) - 136)
         elif hwsku == "NH-4010":
             logical_num = 1
             for i in range(0, 505, 8):
