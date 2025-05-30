@@ -247,7 +247,23 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
-      
+
+bgp/test_bgp_suppress_fib.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_port_disable.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####            Cacl             #####
 #######################################
@@ -259,6 +275,14 @@ cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
     conditions:
       - "asic_type in ['vpp']"
 
+cacl/test_cacl_application.py::test_caclmgrd_syslog:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+      
 #######################################
 #####           Configlet         #####
 #######################################
@@ -368,6 +392,14 @@ generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
       - "asic_type in ['vpp']"
 
 generic_config_updater/test_pfcwd_status.py::test_start_pfcwd:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -523,28 +555,23 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
       - "asic_type in ['vpp']"
 
 #######################################
+#####     Golden Config Infra     #####
+#######################################
+golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
 #####           Hash              #####
 #######################################
-hash/test_generic_hash.py::test_hash_capability:
+hash/test_generic_hash.py:
   skip:
     reason: >
-            Failed/Errored: To be included. XFAIL
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-hash/test_generic_hash.py::test_backend_error_messages:
-  skip:
-    reason: >
-            Failed/Errored: To be included. XFAIL
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-hash/test_generic_hash.py::test_algorithm_config:
-  skip:
-    reason: >
-            Failed/Errored: To be included. XFAIL
+            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -561,6 +588,22 @@ iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
       - "asic_type in ['vpp']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_unicast:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowVlan::test_show_vlan_brief:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -900,6 +943,14 @@ snmp/test_snmp_lldp.py::test_snmp_lldp:
     conditions:
       - "asic_type in ['vpp']"
 
+snmp/test_snmp_queue.py::test_snmp_queues:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####          Stress             #####
 #######################################
@@ -921,6 +972,7 @@ ssh/test_ssh_ciphers.py::test_ssh_enc_ciphers:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
 ssh/test_ssh_ciphers.py::test_ssh_kex:
   skip:
     reason: >
@@ -1198,7 +1250,7 @@ syslog/test_syslog.py:
     conditions:
       - "asic_type in ['vpp']"
 
-syslog/test_logrotate.py syslog/test_syslog_source_ip.py:
+syslog/test_logrotate.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1206,14 +1258,14 @@ syslog/test_logrotate.py syslog/test_syslog_source_ip.py:
     conditions:
       - "asic_type in ['vpp']"
 
-syslog/test_logrotate.py::test_orchagent_logrotate:
+syslog/test_syslog_source_ip.py:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
-      
+    
 #######################################
 #####       Platform Tests        #####
 #######################################
