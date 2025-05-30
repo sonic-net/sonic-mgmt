@@ -1,68 +1,94 @@
 import ipaddress
-
 import macaddress
+import logging
 
-ipp = ipaddress.ip_address
-maca = macaddress.MAC
-
-ENI_START = 1
-ENI_COUNT = 256  # 64
-ENI_MAC_STEP = '00:00:00:18:00:00'
-ENI_STEP = 1
-ENI_L2R_STEP = 1000
-
-PAL = ipp("221.1.0.1")
-PAR = ipp("221.2.0.1")
-
-ACL_TABLE_MAC_STEP = '00:00:00:02:00:00'
-ACL_POLICY_MAC_STEP = '00:00:00:00:00:32'
-
-ACL_RULES_NSG = 1000  # 1000
-ACL_TABLE_COUNT = 5
-
-IP_PER_ACL_RULE = 25  # 128
-IP_MAPPED_PER_ACL_RULE = IP_PER_ACL_RULE  # 40
-IP_ROUTE_DIVIDER_PER_ACL_RULE = 64  # 8, must be a power of 2 number
-
-IP_STEP1 = int(ipp('0.0.0.1'))
-# IP_STEP2 = int(ipp('0.0.1.0'))
-# IP_STEP3 = int(ipp('0.1.0.0'))
-# IP_STEP4 = int(ipp('1.0.0.0'))
-IP_STEP_ENI = int(ipp('0.64.0.0'))  # IP_STEP4
-IP_STEP_NSG = int(ipp('0.2.0.0'))  # IP_STEP3 * 4
-IP_STEP_ACL = int(ipp('0.0.0.50'))  # IP_STEP2 * 2
-IP_STEPE = int(ipp('0.0.0.2'))
+logger = logging.getLogger(__name__)
 
 
-IP_L_START = ipp('1.1.0.1')
-IP_R_START = ipp('1.4.0.1')
+class NetworkConfigSettings:
+    def __init__(self):
+        self.ipp = ipaddress.ip_address
+        self.maca = macaddress.MAC
 
-MAC_L_START = maca('00:1A:C5:00:00:01')
-MAC_R_START = maca('00:1B:6E:00:00:01')
-IPS_PER_RANGE = ACL_RULES_NSG * ACL_TABLE_COUNT * IP_PER_ACL_RULE * 2
+        self.subnet_mask = 10
+        self.ENI_START = 1
+        self.ENI_COUNT = 256
+        self.ENI_MAC_STEP = '00:00:00:18:00:00'
+        self.ENI_STEP = 1
+        self.ENI_L2R_STEP = 1000
+
+        self.PAL = self.ipp("221.1.0.1")
+        self.PAR = self.ipp("221.2.0.1")
+
+        self.ACL_TABLE_MAC_STEP = '00:00:00:02:00:00'
+        self.ACL_POLICY_MAC_STEP = '00:00:00:00:00:32'
+
+        self.ACL_RULES_NSG = 1000
+        self.ACL_TABLE_COUNT = 5
+
+        self.IP_PER_ACL_RULE = 25
+        self.IP_MAPPED_PER_ACL_RULE = self.IP_PER_ACL_RULE
+        self.IP_ROUTE_DIVIDER_PER_ACL_RULE = 64
+
+        self.IP_STEP1 = int(self.ipp('0.0.0.1'))
+        self.IP_STEP_ENI = int(self.ipp('0.64.0.0'))
+        self.IP_STEP_NSG = int(self.ipp('0.2.0.0'))
+        self.IP_STEP_ACL = int(self.ipp('0.0.0.50'))
+        self.IP_STEPE = int(self.ipp('0.0.0.2'))
+
+        self.IP_L_START = self.ipp('1.1.0.1')
+        self.IP_R_START = self.ipp('1.4.0.1')
+
+        self.MAC_L_START = self.maca('00:1A:C5:00:00:01')
+        self.MAC_R_START = self.maca('00:1B:6E:00:00:01')
+        self.IPS_PER_RANGE = self.ACL_RULES_NSG * self.ACL_TABLE_COUNT * self.IP_PER_ACL_RULE * 2
+
+        self.uhd_post_url = 'connect/api/v1/config'
+        self.uhd_num_channels = 2
+
+        self.speed_100_gbps = "speed_100_gbps"
+        self.speed_400_gbps = "speed_400_gbps"
+        self.layer1_profile_names = ['autoneg', 'manual_RS', 'manual_NONE', 'autoneg_400', 'manual_RS_400']
+        self.l47_tg_clientmac = ''
+        self.l47_tg_servermac = ''
+        self.first_staticArpMac = ''
+        self.dut_mac = ''
+
+    def set_mac_addresses(self, clientmac, servermac, dutmac):
+
+        self.l47_tg_clientmac = str(self.maca(clientmac)).replace('-', ':')
+        self.l47_tg_servermac = str(self.maca(servermac)).replace('-', ':')
+        self.dut_mac = str(self.maca(dutmac)).replace('-', ':')
+
+        ip_tmp = self.l47_tg_servermac
+        ip = ip_tmp.split(':')
+        ip[3] = '02'
+        self.first_staticArpMac = ":".join(ip)
+
+        return
 
 
-def build_node_ips(count, vpc, nodetype="client"):
+def build_node_ips(count, vpc, config, nodetype="client"):
     if nodetype in "client":
-        ip = ipp(int(IP_R_START) + (IP_STEP_NSG * count) + int(ipp('0.64.0.0')) * (vpc - 1))
+        ip = config.ipp(int(config.IP_R_START) + (config.IP_STEP_NSG * count) + int(config.IP_STEP_ENI) * (vpc - 1))
     if nodetype in "server":
-        ip = ipp(int(IP_L_START) + int(ipp('0.64.0.0')) * (vpc - 1))
+        ip = config.ipp(int(config.IP_L_START) + int(config.IP_STEP_ENI) * (vpc - 1))
 
     return str(ip)
 
 
-def build_node_vlan(index, nodetype="client"):
+def build_node_vlan(index, config, nodetype="client"):
 
     hero_b2b = False
 
     if nodetype == 'client':
-        vlan = ENI_L2R_STEP + index + 1
+        vlan = config.ENI_L2R_STEP + index + 1
     else:
-        ENI_STEP = 1
+        # config.ENI_STEP = 1
         if hero_b2b is True:
             vlan = 0
         else:
-            vlan = ENI_STEP + index
+            vlan = config.ENI_STEP + index
 
     return vlan
 
@@ -74,7 +100,7 @@ def cidr_calculator(ip, cidr):
     try:
         network = ipaddress.ip_network(f'{ip_address}/{cidr_mask}', strict=False)
     except ValueError:
-        print("Invalid ip address or CIDR mask")
+        logger.info("Invalid ip address or CIDR mask")
     return str(network.network_address)
 
 
@@ -116,32 +142,29 @@ def find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test
 def find_testrole(test_role, server_vlan):
     if test_role == 'tcpbg':
         if (server_vlan % 8) == 0:
-            print("BG test flipped")
             client_role = 's'
             server_role = 'c'
         else:
-            print("BG test role normal")
             client_role = 'c'
             server_role = 's'
     else:
-        print("Normal assignment")
         client_role = 'c'
         server_role = 's'
 
     return client_role, server_role
 
 
-def create_uhdIp_list(cidr):
+def create_uhdIp_list(cidr, config):
 
     ip_list = []
 
-    for eni in range(ENI_START, ENI_COUNT + 1):
+    for eni in range(config.ENI_START, config.ENI_COUNT + 1):
         ip_dict_temp = {}
-        ip_client = build_node_ips(0, eni, nodetype="client")
-        vlan_client = build_node_vlan(eni - 1, nodetype="client")
+        ip_client = build_node_ips(0, eni, config, nodetype="client")
+        vlan_client = build_node_vlan(eni - 1, config, nodetype="client")
         network_broadcast = cidr_calculator(ip_client, cidr)
-        ip_server = build_node_ips(0, eni, nodetype="server")
-        vlan_server = build_node_vlan(eni - 1, nodetype="server")
+        ip_server = build_node_ips(0, eni, config, nodetype="server")
+        vlan_server = build_node_vlan(eni - 1, config, nodetype="server")
 
         ip_dict_temp['eni'] = eni
         ip_dict_temp['ip_client'] = ip_client
@@ -155,39 +178,40 @@ def create_uhdIp_list(cidr):
     return ip_list
 
 
-def create_profiles():
+def create_profiles(config):
 
     return {
         "layer_1_profiles": [
-            {"name": "autoneg", "link_speed": "speed_100_gbps", "choice": "autonegotiation"},
-            {"name": "manual_RS", "link_speed": "speed_100_gbps", "choice": "manual",
+            {"name": "{}".format(config.layer1_profile_names[0]), "link_speed": config.speed_100_gbps,
+             "choice": "autonegotiation"},
+            {"name": "{}".format(config.layer1_profile_names[1]), "link_speed": config.speed_100_gbps,
+             "choice": "manual",
              "manual": {"fec_mode": "reed_solomon"}},
-            {"name": "autoneg_400", "link_speed": "speed_400_gbps", "choice": "autonegotiation"},
-            {"name": "manual_RS_400", "link_speed": "speed_400_gbps", "choice": "manual",
-             "manual": {"fec_mode": "reed_solomon"}},
-            {"name": "manual_NONE", "link_speed": "speed_100_gbps", "choice": "manual", "manual": {"fec_mode": "none"}}
+            {"name": "{}".format(config.layer1_profile_names[3]), "link_speed": config.speed_400_gbps,
+             "choice": "autonegotiation"},
         ]
     }
 
 
-def create_front_panel_ports(count, cards_dict):
+def create_front_panel_ports(count, config, cards_dict):
 
-    # IxL Front Panel
+    # l47 Front Panel
     fp_list = []
     front_panel_port = 9
     channel = 1
+    num_channels = config.uhd_num_channels
 
     # TODO num_channels will need an update
     for i in range(1, count // 2 + 1):
         for nodetype in ['s', 'c']:
             new_dict = {
-                "name": f"Ixload_port_{i}{nodetype}",
+                "name": f"l47_port_{i}{nodetype}",
                 "choice": "front_panel_port",
                 "front_panel_port": {
                     "front_panel_port": front_panel_port,
                     "channel": channel,
-                    "num_channels": 2,
-                    "layer_1_profile_name": "manual_RS"
+                    "num_channels": num_channels,
+                    "layer_1_profile_name": "{}".format(config.layer1_profile_names[1])
                 }
             }
             fp_list.append(new_dict)
@@ -196,59 +220,17 @@ def create_front_panel_ports(count, cards_dict):
                 channel = 1
                 front_panel_port += 1
 
-    # IxN Front Panel
-    ixn_dict = {
-            "name": "ixnetwork_port_group_1A", "choice": "port_group",
-            "port_group": {
-                "ports": [
-                    {"front_panel_port": 31, "channel": 1, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
-                    {"front_panel_port": 31, "channel": 3, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
-                ]
-            }
-    }
-    fp_list.append(ixn_dict)
-    ixn_dict = {
-            "name": "ixnetwork_port_group_1B", "choice": "port_group",
-            "port_group": {
-                "ports": [
-                    {"front_panel_port": 31, "channel": 5, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
-                    {"front_panel_port": 31, "channel": 7, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
-
-                ]
-            }
-    }
-    fp_list.append(ixn_dict)
-    ixn_dict = {
-            "name": "ixnetwork_port_group_2A", "choice": "port_group",
-            "port_group": {
-                "ports": [
-                    {"front_panel_port": 32, "channel": 1, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
-                    {"front_panel_port": 32, "channel": 3, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
-                ]
-            }
-    }
-    fp_list.append(ixn_dict)
-    ixn_dict = {
-            "name": "ixnetwork_port_group_2B", "choice": "port_group",
-            "port_group": {
-                "ports": [
-                    {"front_panel_port": 32, "channel": 5, "num_channels": 2, "layer_1_profile_name": "manual_RS"},
-                    {"front_panel_port": 32, "channel": 7, "num_channels": 2, "layer_1_profile_name": "manual_RS"}
-                ]
-            }
-    }
-    fp_list.append(ixn_dict)
-
-    # IxL Front Panel DPU
+    # l47 Front Panel DPU
     # TODO add num_dpuPorts then build this part
-    dpu_port_1 = {"name": "dpu_port_ixl_1", "choice": "port_group",
+    dpu_port_1 = {"name": "l47_port_1", "choice": "port_group",
         "port_group":  # noqa: E128
         {  # noqa: E128
             "ports": [
             {  # noqa: E122
-            "front_panel_port": cards_dict['dpu_ports_list'][0], "layer_1_profile_name": "autoneg_400",  # noqa: E122
+            "front_panel_port": cards_dict['dpu_ports_list'][0], "layer_1_profile_name": "{}".format(  # noqa: E122
+                config.layer1_profile_names[3]),  # noqa: E122
             "switchover_port": {"front_panel_port": cards_dict['dpu_ports_list'][1],  # noqa: E122
-                                "layer_1_profile_name": "autoneg_400"}  # noqa: E122
+                                "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])}  # noqa: E122
             }
             ]
         }
@@ -256,30 +238,10 @@ def create_front_panel_ports(count, cards_dict):
 
     fp_list.append(dpu_port_1)
 
-    # IxN Front Panel DPU
-    ixn_dpu_dict = {
-            "name": "dpu_port_group", "choice": "port_group",
-            "port_group": {
-                "ingress_distribution": "copy",
-                "ports": [
-                    {"front_panel_port": 2, "layer_1_profile_name": "autoneg"},
-                    {"front_panel_port": 1, "layer_1_profile_name": "autoneg"}
-                ]
-            }
-    }
-    fp_list.append(ixn_dpu_dict)
-    ixn_dpu_dict = {"name": "dpu_port_1", "choice": "front_panel_port",
-         "front_panel_port": {"front_panel_port": 22, "layer_1_profile_name": "autoneg"}}  # noqa: E128
-    fp_list.append(ixn_dpu_dict)
-    ixn_dpu_dict = {"name": "dpu_port_2", "choice": "front_panel_port",
-         "front_panel_port": {"front_panel_port": 21, "layer_1_profile_name": "autoneg"}  # noqa: E128
-    }  # noqa: E124
-    fp_list.append(ixn_dpu_dict)
-
     return fp_list
 
 
-def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
+def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
 
     connections_list = []
     num_cps_cards = cards_dict['num_cps_cards']
@@ -302,8 +264,8 @@ def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
             'endpoints': []
         }
 
-        client_vlan = build_node_vlan(eni, nodetype="client")
-        server_vlan = build_node_vlan(eni, nodetype="server")
+        client_vlan = build_node_vlan(eni, config, nodetype="client")
+        server_vlan = build_node_vlan(eni, config, nodetype="server")
 
         client_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
         client_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)  # noqa: F841
@@ -316,46 +278,20 @@ def create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask):
             server_role = 's'
 
         arp_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'Ixload_port_{}{}'.format(client_card,
+            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(client_card,
                                         server_role), 'vlan': {'choice': 'vlan', 'vlan': server_vlan}}}  # noqa: E128
         )
         arp_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'Ixload_port_{}{}'.format(client_card,
+            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(client_card,
                                         client_role), 'vlan': {'choice': 'vlan', 'vlan': client_vlan}}}  # noqa: E128
         )
 
         connections_list.append(arp_bypass_dict)
 
-    # IxN
-    arp_bypass_dict = {
-            "name": "ARP Bypass 2A", "functions": [{"choice": "connect_arp", "connect_arp": {}}],
-            "endpoints": [
-                {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1A",
-                "vlan": {"choice": "vlan_range", "vlan_range":   {"start":    1, "count": 16}}}},  # noqa: E128
-                {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2A",
-                "vlan": {"choice": "vlan_range", "vlan_range":   {"start": 1001, "count": 16}}}}  # noqa: E128
-            ]
-    }
-    connections_list.append(arp_bypass_dict)
-
-    arp_bypass_dict = {
-        "name": "ARP Bypass 2B", "functions": [{"choice": "connect_arp", "connect_arp": {}}],
-        "endpoints": [
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1B",
-                                                      "vlan": {"choice": "vlan_range",
-                                                               "vlan_range": {"start": 17, "count": 16}}}},
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2B",
-                                                      "vlan": {"choice": "vlan_range",
-                                                               "vlan_range": {"start": 1017, "count": 16}}}}
-        ]
-
-    }
-    connections_list.append(arp_bypass_dict)
-
     return connections_list
 
 
-def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypass_list):
+def create_connections(fp_ports_list, ip_list, subnet_mask, config, cards_dict, arp_bypass_list):
 
     connections_list = arp_bypass_list
 
@@ -370,19 +306,19 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
     for eni, ip in enumerate(ip_list):
 
         server_dict_temp = {
-            'name': 'Ixload Server {}'.format(eni+1),
+            'name': 'l47 Server {}'.format(eni+1),
             'functions': [],
             'endpoints': []
         }
 
         client_dict_temp = {
-            'name': 'Ixload Client {}'.format(eni+1),
+            'name': 'l47 Client {}'.format(eni+1),
             'functions': [],
             'endpoints': []
         }
 
-        client_vlan = build_node_vlan(eni, nodetype="client")
-        server_vlan = build_node_vlan(eni, nodetype="server")
+        client_vlan = build_node_vlan(eni, config, nodetype="client")
+        server_vlan = build_node_vlan(eni, config, nodetype="server")
 
         client_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
         # client_cps_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
@@ -418,8 +354,8 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
         server_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
             "vlan_endpoint_settings": {
                 "outgoing_vxlan_header": {
-                    "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:01"},
-                    "dst_mac": {"choice": "mac", "mac": "24:d5:e4:32:4e:10"},
+                    "src_mac": {"choice": "mac", "mac": "{}".format(config.l47_tg_servermac)},
+                    "dst_mac": {"choice": "mac", "mac": "{}".format(config.dut_mac)},
                     "src_ip": {"choice": "ipv4", "ipv4": "221.1.0.{}".format(overlay_ip_addr)},
                     "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.{}".format(lb_ip)},
                 }
@@ -432,11 +368,11 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
         server_dict_temp['functions'].append(server_conn_tmp)
         server_dict_temp['endpoints'].append(
             {"choice": "front_panel", "front_panel": {
-            "port_name": "Ixload_port_{}{}".format(server_card, server_role),  # noqa: E122
+            "port_name": "l47_port_{}{}".format(server_card, server_role),  # noqa: E122
             "vlan": {"choice": "vlan", "vlan": server_vlan}}, "tags": ["vlan"]},  # noqa: E122
         )
         server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_ixl_{}".format(dpu_port)},
+            {"choice": "front_panel", "front_panel": {"port_name": "l47_port_{}".format(dpu_port)},
              "tags": ["vxlan"]}
         )
 
@@ -445,8 +381,8 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
         client_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
             "vlan_endpoint_settings": {
                 "outgoing_vxlan_header": {
-                    "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:02"},
-                    "dst_mac": {"choice": "mac", "mac": "24:d5:e4:32:4e:10"},
+                    "src_mac": {"choice": "mac", "mac": "{}".format(config.l47_tg_clientmac)},
+                    "dst_mac": {"choice": "mac", "mac": "{}".format(config.dut_mac)},
                     "src_ip": {"choice": "ipv4", "ipv4": "221.2.0.{}".format(overlay_ip_addr)},
                     "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.{}".format(lb_ip)},
                 }
@@ -463,153 +399,18 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict, arp_bypa
         client_dict_temp['functions'].append(client_conn_tmp)
         client_dict_temp['endpoints'].append(
             {"choice": "front_panel", "front_panel": {
-                "port_name": "Ixload_port_{}{}".format(client_card, client_role),
+                "port_name": "l47_port_{}{}".format(client_card, client_role),
                 "vlan": {"choice": "vlan", "vlan": client_vlan}}, "tags": ["vlan"]},
         )
 
         client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_ixl_{}".format(dpu_port)},
+            {"choice": "front_panel", "front_panel": {"port_name": "l47_port_{}".format(dpu_port)},
              "tags": ["vxlan"]}
         )
 
         # Add server and client settings to connections_list
         connections_list.append(server_dict_temp)
         connections_list.append(client_dict_temp)
-
-    # IxN
-    ixn_dict = {
-        "name": "IxNetwork VLAN to DUT VXLAN 1A",
-        "functions": [
-            {
-                "choice": "connect_vlan_vxlan",
-                "connect_vlan_vxlan": {
-                    "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": 1}, "protocols": {"accept": ["udp"]},
-                                                "routing_method": "ip_routing",
-                                                "ip_routing": {"destination_ips": {"choice": "ipv4_range",
-                                                                                   "ipv4_range": {"start": "1.1.0.1",
-                                                                                                  "step": "0.64.0.0",
-                                                                                                  "count": 16}}}},
-                    "vlan_endpoint_settings": {
-                        "outgoing_vxlan_header": {
-                            "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:01"},
-                            "dst_mac": {"choice": "mac", "mac": "00:0b:00:01:03:20"},
-                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.1.0.0"}},
-                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
-                        }
-                    }
-                }
-            }
-        ],
-        "endpoints": [
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1A",
-                                                      "vlan": {"choice": "vlan_range",
-                                                               "vlan_range": {"start": 1, "count": 16}}},
-             "tags": ["vlan"]},
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_1"}, "tags": ["vxlan"]}
-        ]
-
-    }
-    connections_list.append(ixn_dict)
-
-    ixn_dict = {
-        "name": "IxNetwork VLAN to DUT VXLAN 1B",
-        "functions": [
-            {
-                "choice": "connect_vlan_vxlan",
-                "connect_vlan_vxlan": {
-                    "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni":  1},
-                                                "protocols": {"accept": ["udp"]}, "routing_method": "ip_routing",
-                                                "ip_routing": {"destination_ips": {"choice": "ipv4_range",
-                                                "ipv4_range": {"start": "5.1.0.1",  # noqa: E128
-                                                               "step": "0.64.0.0", "count": 16}}}},  # noqa: E128
-                    "vlan_endpoint_settings": {
-                        "outgoing_vxlan_header": {
-                            "src_mac": {"choice": "mac", "mac": "80:09:02:01:00:01"},
-                            "dst_mac": {"choice": "mac", "mac": "00:0b:00:01:03:20"},
-                            "src_ip": {"choice": "ipv4_range", "ipv4_range":  {"start": "221.1.0.16"}},
-                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
-                        }
-                    }
-                }
-            }
-        ],
-        "endpoints": [
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_1B", "vlan": {
-                "choice": "vlan_range", "vlan_range":   {"start": 17, "count": 16}}}, "tags": ["vlan"]},
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_2"}, "tags": ["vxlan"]}
-        ]
-    }
-    connections_list.append(ixn_dict)
-
-    ixn_dict = {
-        "name": "IxNetwork VLAN to DUT VXLAN 2A",
-        "functions": [
-            {
-                "choice": "connect_vlan_vxlan",
-                "connect_vlan_vxlan": {
-                    "vxlan_endpoint_settings": {
-                        "vni": {"choice": "vni_range", "vni_range": {"start": 1001, "count": 16}},
-                        "protocols": {"accept": ["udp"], "routing_method": "ip_routing",
-                                      "ip_routing": {"destination_ips": {"choice": "ipv4_range",
-                                                                         "ipv4_range": {"start": "1.0.0.0",
-                                                                                        "step": "0.64.0.0", "count": 16,
-                                                                                        "subnet_bits": 10}}}}},
-                    "vlan_endpoint_settings": {
-                        "outgoing_vxlan_header": {
-                            "src_mac": {"choice": "mac", "mac": "80:09:02:02:00:01"},
-                            "dst_mac": {"choice": "mac", "mac": "00:0c:00:02:03:20"},
-                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.2.0.0"}},
-                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
-                        }
-                    }
-                }
-            }
-        ],
-        "endpoints": [
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2A",
-                                                      "vlan": {"choice": "vlan_range",
-                                                               "vlan_range": {"start": 1001, "count": 16}}},
-             "tags": ["vlan"]},
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_1"}, "tags": ["vxlan"]}
-        ]
-
-    }
-    connections_list.append(ixn_dict)
-
-    ixn_dict = {
-        "name": "IxNetwork VLAN to DUT VXLAN 2B",
-        "functions": [
-            {
-                "choice": "connect_vlan_vxlan",
-                "connect_vlan_vxlan": {
-                    "vxlan_endpoint_settings": {
-                        "vni": {"choice": "vni_range", "vni_range": {"start": 1017, "count": 16}},
-                        "protocols": {"accept": ["udp"], "routing_method": "ip_routing",
-                                      "ip_routing": {"destination_ips": {"choice": "ipv4_range",
-                                                                         "ipv4_range": {"start": "5.0.0.0",
-                                                                                        "step": "0.64.0.0", "count": 16,
-                                                                                        "subnet_bits": 10}}}}},
-                    "vlan_endpoint_settings": {
-                        "outgoing_vxlan_header": {
-                            "src_mac": {"choice": "mac", "mac": "80:09:02:02:00:01"},
-                            "dst_mac": {"choice": "mac", "mac": "00:0c:00:02:03:20"},
-                            "src_ip": {"choice": "ipv4_range", "ipv4_range": {"start": "221.2.0.16"}},
-                            "dst_ip": {"choice": "ipv4", "ipv4": "221.0.0.1"}
-                        }
-                    }
-                }
-            }
-        ],
-        "endpoints": [
-            {"choice": "front_panel", "front_panel": {"port_name": "ixnetwork_port_group_2B",
-                                                      "vlan": {"choice": "vlan_range",
-                                                               "vlan_range": {"start": 1017, "count": 16}}},
-             "tags": ["vlan"]},
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_2"}, "tags": ["vxlan"]}
-        ]
-
-    }
-    connections_list.append(ixn_dict)
 
     return connections_list
 

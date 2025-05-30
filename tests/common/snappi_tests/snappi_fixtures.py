@@ -9,13 +9,14 @@ import sys
 import random
 import subprocess
 import json
-import snappi_convergence
+import os
+from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet
+    get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -115,7 +116,7 @@ def __valid_ipv4_addr(ip):
         return False
 
 
-def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
+def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True):
     """
     Generate Snappi configuration of layer 3 interfaces
     Args:
@@ -123,6 +124,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
         snappi_ports (list): list of Snappi port information
+        setup (bool): Setting up or teardown? True or False
     Returns:
         True if we successfully generate configuration or False
     """
@@ -151,7 +153,9 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
-            return False
+            continue
+
+        static_routes_cisco_8000(ip, duthost, intf, setup=setup)
 
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
@@ -161,7 +165,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
 
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
 
         ip_stack = ethernet.ipv4_addresses.add()
@@ -180,6 +184,9 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
                                        peer_port=intf)
 
         port_config_list.append(port_config)
+
+    if len(port_config_list) != len(snappi_ports):
+        return False
 
     return True
 
@@ -232,7 +239,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
-                return False
+                continue
 
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
@@ -241,7 +248,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -260,6 +267,9 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            peer_port=phy_intf)
 
             port_config_list.append(port_config)
+
+        if len(port_config_list) != len(snappi_ports):
+            return False
 
     return True
 
@@ -341,7 +351,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         device = config.devices.device(name='Device {}'.format(pc))[-1]
 
         ethernet = device.ethernets.add()
-        ethernet.port_name = lag.name
+        ethernet.connection.port_name = lag.name
         ethernet.name = 'Ethernet {}'.format(pc)
         ethernet.mac = __gen_pc_mac(pc_id)
 
@@ -545,15 +555,6 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
     return snappi_ports
 
 
-@pytest.fixture(scope='module')
-def cvg_api(snappi_api_serv_ip,
-            snappi_api_serv_port):
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
-    yield api
-    if getattr(api, 'assistant', None) is not None:
-        api.assistant.Session.remove()
-
-
 def snappi_multi_base_config(duthost_list,
                              snappi_ports,
                              snappi_api,
@@ -739,7 +740,8 @@ def setup_dut_ports(
             config_result = __l3_intf_config(config=config,
                                              port_config_list=port_config_list,
                                              duthost=duthost,
-                                             snappi_ports=snappi_ports)
+                                             snappi_ports=snappi_ports,
+                                             setup=setup)
             pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list, snappi_ports
@@ -807,7 +809,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -884,7 +886,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
         device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
         ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
@@ -934,6 +936,19 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
+            duthost_list[0].get_facts().get("modular_chassis", None)):
+        global DEST_TO_GATEWAY_MAP
+        copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
+        for addr in copy_DEST_TO_GATEWAY_MAP:
+            static_routes_cisco_8000(
+                addr,
+                dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
+                intf=None,
+                namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
+                setup=False)
+
+        time.sleep(4)
     for index, duthost in enumerate(duthost_list):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
@@ -1313,14 +1328,13 @@ def config_uhd_connect(request, duthost, tbinfo):
     Yields:
     """
     logger.info("Configuring UHD connect")
-    import pdb; pdb.set_trace()
     uhdConnect_ip = tbinfo['uhd_ip']
 
-    num_cps_cards = 8
-    num_tcpbg_cards = 4
-    num_udpbg_cards = 0
-    num_dpus = 1
-    dpu_ports_list = [5, 6]
+    num_cps_cards = tbinfo['num_cps_cards']
+    num_tcpbg_cards = tbinfo['num_tcpbg_cards']
+    num_udpbg_cards = tbinfo['num_udpbg_cards']
+    num_dpus = tbinfo['num_dpus']
+    dpu_ports_list = tbinfo['dpu_ports_list']
 
     cards_dict = {
         'num_cps_cards': num_cps_cards,
@@ -1332,18 +1346,18 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
 
-    subnet_mask = 10
-    ip_list = create_uhdIp_list(subnet_mask)  # noqa: F405
+    uhdSettings = NetworkConfigSettings()  # noqa: F405
+    uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+    subnet_mask = uhdSettings.subnet_mask
 
-    fp_ports_list = create_front_panel_ports(int(total_cards*2), cards_dict)  # noqa: F405
-
-    connections_list = []
-    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, cards_dict, subnet_mask)  # noqa: F405
-    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, cards_dict,  # noqa: F405
+    ip_list = create_uhdIp_list(subnet_mask, uhdSettings)  # noqa: F405
+    fp_ports_list = create_front_panel_ports(int(total_cards*2), uhdSettings, cards_dict)  # noqa: F405
+    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
+    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,  # noqa: F405
                                           arp_bypass_list)  # noqa: F405
 
     config = {
-        "profiles": create_profiles(),  # noqa: F405
+        "profiles": create_profiles(uhdSettings),  # noqa: F405
         "front_panel_ports": fp_ports_list,
         "connections": connections_list
     }
@@ -1351,17 +1365,19 @@ def config_uhd_connect(request, duthost, tbinfo):
     headers = {  # noqa: F841
         'Content-Type': 'application/json'
     }
-    file_name = "smartswitch.json"
-    file_location = "/var/src/sonic-mgmt/tests/snappi_tests/dash"
-    url = "https://{}/connect/api/v1/config".format(uhdConnect_ip)  # noqa: F841
+
+    file_name = "tempUhdConfig.json"
+    file_location = os.getcwd()
+    uhd_post_url = uhdSettings.uhd_post_url
+    url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
     json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
     uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
-                   'https://{}/connect/api/v1/config').format(file_location, file_name, uhdConnect_ip)
-    result = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+                   '{}').format(file_location, file_name, url)
+    subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
 
     rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
-    result = subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+    subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
 
     return
 
@@ -1375,15 +1391,12 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         Return a static route-d IP address for the given IP gateway(Ixia port address).
         Also configure the same in the DUT.
     '''
-    global DEST_TO_GATEWAY_MAP
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
-            logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
             return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
-    if (dut.facts['asic_type'] != "cisco-8000" or
-            not dut.get_facts().get("modular_chassis", None)):
+    if dut.facts['asic_type'] != "cisco-8000":
         DEST_TO_GATEWAY_MAP[addr] = {}
         DEST_TO_GATEWAY_MAP[addr]['dest'] = addr
         return addr
@@ -1401,6 +1414,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
     DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    DEST_TO_GATEWAY_MAP[addr]['dut'] = dut
+    DEST_TO_GATEWAY_MAP[addr]['asic'] = namespace
     cmd = "del"
     if setup:
         cmd = "add"
@@ -1408,6 +1423,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
     try:
+        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
+            asic_arg, intf, addr))
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
@@ -1441,7 +1458,8 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
         Example: {'100':{'single-linecard-single-asic':{ports}, 'single-linecard-multiple-asic':{ports}}}
 
     '''
-    tx_port_count, rx_port_count = number_of_tx_rx_ports
+    # Reverse this here since this is more like on the DUT perspective
+    rx_port_count, tx_port_count = number_of_tx_rx_ports
     tmp_snappi_port_list = get_snappi_ports
 
     if (not mixed_speed):
@@ -1608,18 +1626,59 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 
 
 @pytest.fixture(scope="function")
-def tgen_port_info(request, snappi_port_selection):
+def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
+                   number_of_tx_rx_ports, duthosts, snappi_api):
+    testbed = request.config.getoption("--testbed")
+
+    is_override, _ = parse_override(
+        testbed,
+        'multidut_port_info'
+    )
+
+    if is_override:
+        testbed_subtype, rdma_ports = next(iter(request.param.items()))
+        tx_port_count, rx_port_count = number_of_tx_rx_ports
+
+        if len(get_snappi_ports) < tx_port_count + rx_port_count:
+            pytest.skip(
+                "Need Minimum of 2 ports defined in ansible/files/*links.csv"
+                " file, got:{}".format(len(get_snappi_ports)))
+
+        if len(rdma_ports['tx_ports']) < tx_port_count:
+            pytest.skip(
+                "Doesn't have the required Tx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        if len(rdma_ports['rx_ports']) < rx_port_count:
+            pytest.skip(
+                "Doesn't have the required Rx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        snappi_ports = get_snappi_ports
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(
+                get_snappi_ports,
+                rdma_ports,
+                tx_port_count,
+                rx_port_count,
+                testbed
+            )
+        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+
     flatten_skeleton_parameter = request.param
     speed, category = flatten_skeleton_parameter.split("-")
+
     if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
         pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    result = snappi_port_selection[float(speed)][category]
+    snappi_ports = snappi_port_selection[float(speed)][category]
 
-    if not result:
+    if not snappi_ports:
         pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    return result
+    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
 
 
 def flatten_list(lst):

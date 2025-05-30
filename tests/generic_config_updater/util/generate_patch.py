@@ -27,7 +27,7 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
 
     # Add Cluster supported Tables
     filtered_tables = [
-        "BGP_NEIGHBOR", "BUFFER_PG", "CABLE_LENGTH", "DEVICE_NEIGHBOR",
+        "ACL_TABLE", "BGP_NEIGHBOR", "BUFFER_PG", "CABLE_LENGTH", "DEVICE_NEIGHBOR",
         "DEVICE_NEIGHBOR_METADATA", "PFC_WD", "PORT", "PORTCHANNEL",
         "PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER", "PORT_QOS_MAP"
     ]

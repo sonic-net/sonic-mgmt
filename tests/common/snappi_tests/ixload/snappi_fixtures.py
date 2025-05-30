@@ -1,7 +1,7 @@
 """
 This module contains the snappi fixture in the snappi_tests directory.
 """
-from tests.common.snappi_tests.ixload.snappi_helper import main
+from tests.common.snappi_tests.ixload.snappi_helper import main  # noqa F401
 import pytest
 import logging
 
@@ -32,10 +32,7 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
         snappi API server port.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    print(100*'1')
-    import pprint
-    pprint.pprint(duthost.host.options['variable_manager']._hostvars)
-    print(100*'2')
+    logger.info(duthost.host.options['variable_manager']._hostvars)
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_ixl_server']['rest_port'])
 
@@ -50,16 +47,15 @@ def snappi_ixl_serv_start(duthosts, rand_one_dut_hostname):
         snappi API server port.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    print(100*'1')
-    import pprint
-    pprint.pprint(duthost.host.options['variable_manager']._hostvars)
-    print(100*'2')
+    logger.info(100*'1')
+    logger.info(duthost.host.options['variable_manager']._hostvars)
+    logger.info(100*'2')
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_ixl_server']['rest_port'])
 
 
 @pytest.fixture(autouse=True, scope="module")
-def config_snappi_ixl(request, duthosts, tbinfo):
+def config_snappi_l47(request, duthosts, tbinfo):
     """
     Fixture configures UHD connect
 
@@ -68,11 +64,12 @@ def config_snappi_ixl(request, duthosts, tbinfo):
 
     Yields:
     """
-    import pdb; pdb.set_trace()
-    snappi_ixl_params = {}
+    snappi_l47_params = {}
+
+    l47_version = tbinfo['l47_version']
 
     chassis_ip = tbinfo['chassis_ip']
-    gw_ip = tbinfo['ixl_gateway']
+    gw_ip = tbinfo['l47_gateway']
 
     test_filename = "dash_cps"
     initial_cps_obj = 1000000
@@ -82,15 +79,23 @@ def config_snappi_ixl(request, duthosts, tbinfo):
         'test_filename': test_filename, 'initial_cps_obj': initial_cps_obj
     }
 
+    ports_list = {
+        'Traffic1@Network1': [(1, 1, 1)],
+        'Traffic2@Network2': [(1, 1, 2)]
+    }
+
     connection_dict = {
         'chassis_ip': chassis_ip,
         'gw_ip': gw_ip,
         'port': '8080',
+        'version': l47_version,
     }
 
-    snappi_ixl_params['test_type_dict'] = test_type_dict
-    snappi_ixl_params['connection_dict'] = connection_dict
+    snappi_l47_params['test_type_dict'] = test_type_dict
+    snappi_l47_params['connection_dict'] = connection_dict
+    snappi_l47_params['ports_list'] = ports_list
 
+    """
     api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'],
                                           test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
 
@@ -103,3 +108,6 @@ def config_snappi_ixl(request, duthosts, tbinfo):
     ixl_cfg['initial_cps_value'] = initial_cps_value
 
     return ixl_cfg
+    """
+
+    return snappi_l47_params
