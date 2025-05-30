@@ -16591,6 +16591,10 @@ vms_94:
       ansible_host: 172.16.188.29
     VM94510:
       ansible_host: 172.16.188.30
+    VM94511:
+      ansible_host: 172.16.188.31
+    VM94512:
+      ansible_host: 172.16.188.32
     # Server-94 is reserved for vms94-t0-sn5640-1 (t0-isolated-d2u510s2) multi-server mode.
     # Please don't deploy other testbed on this server.
 
