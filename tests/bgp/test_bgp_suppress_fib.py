@@ -557,10 +557,36 @@ def validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list):
     logger.info("Middle time usage of withdraw {} route : {} s".format(route_num, withdraw_middle_time))
     logger.info("Average time usage of withdraw {} route : {} s".format(route_num, withdraw_average_time))
     logger.info("------------------------------------------------------------------------------------\n")
-    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD
+    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement middle time exceeded threshold. "
+        "Expected announce_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_middle_time
+    )
+    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement average time exceeded threshold. "
+        "Expected announce_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_average_time
+    )
+
+    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw middle time exceeded threshold. "
+       "Expected withdraw_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_middle_time
+    )
+
+    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw average time exceeded threshold: "
+       "Expected withdraw_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_average_time
+    )
 
 
 def prepare_traffic(traffic_data, router_mac, ptf_interfaces, recv_port):
