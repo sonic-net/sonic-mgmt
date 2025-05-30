@@ -199,14 +199,14 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
