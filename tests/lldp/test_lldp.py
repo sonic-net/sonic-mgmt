@@ -58,8 +58,8 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         is_running = is_container_running(duthost, container_name)
         pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
         duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
-        # There was a issue that orchagent exited after start 1~2 minutes.
-        # Add critical service check here to make sure all critical services are up
+        # There was an image issue that orchagent exited after start 1~2 minutes.
+        # Add critical process check here to make sure all critical processes are up
         time.sleep(120)
         wait_critical_processes(duthost)
     yield
