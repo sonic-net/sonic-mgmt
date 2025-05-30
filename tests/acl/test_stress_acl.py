@@ -186,6 +186,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
     topo = tbinfo["topo"]["type"]
+    topo_name = tbinfo["topo"]["name"]
     # Get the list of upstream ports
     upstream_ports = defaultdict(list)
     upstream_port_ids = []
@@ -193,7 +194,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
+                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]) or \
+                (topo_name in ("t1-isolated-d32", "t1-isolated-d128") and "T0" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             ipv4_addr = [bgp_neighbor['addr'] for bgp_neighbor in mg_facts['minigraph_bgp']
