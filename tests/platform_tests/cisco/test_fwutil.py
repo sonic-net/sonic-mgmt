@@ -63,4 +63,3 @@ def test_fwutil_update(request, duthost, localhost, pdu_controller):
     output_fwutil_status = duthost.shell('fwutil show updates | grep eCPLD')
     pytest_assert("up-to-date" in output_fwutil_status['stdout'],
                   "fwutil update has been failed for eCPLD")
-
