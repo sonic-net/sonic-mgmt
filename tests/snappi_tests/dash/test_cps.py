@@ -17,7 +17,7 @@ ipp = ipaddress.ip_address
 maca = macaddress.MAC
 
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.disable_loganalyzer
@@ -26,7 +26,7 @@ def test_cps_baby_hero(
                        duthost,
                        tbinfo,
                        ha_test_case,
-                       config_snappi_ixl,  # noqa F811
+                       config_snappi_l47,  # noqa F811
                        config_uhd_connect,  # noqa F811
 ): # noqa F811
 
@@ -34,6 +34,6 @@ def test_cps_baby_hero(
                 duthost,
                 tbinfo,
                 ha_test_case,
-                config_snappi_ixl)
+                config_snappi_l47)
 
     return
