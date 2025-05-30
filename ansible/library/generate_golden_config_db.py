@@ -168,10 +168,10 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, feature_data=None,
-                                                     auto_restart="enabled", state="enabled"):
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
+                                                     state="enabled", feature_data=None):
         full_config = json.loads(config)
-        if config == "{}" or "FEATURE" not in full_config.get("localhost", {}):
+        if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
             gold_config_db = json.loads(self.get_multiasic_feature_config())
         else:
