@@ -19,6 +19,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx', 't0-2vlans'),
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 def wait_all_bgp_up(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
     if not wait_until(180, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after config change")
 

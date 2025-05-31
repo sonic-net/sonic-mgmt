@@ -13,7 +13,7 @@ from tests.common.reboot import wait_for_startup,\
                                 sync_reboot_history_queue_with_dut,\
                                 REBOOT_TYPE_HISTOYR_QUEUE
 from tests.platform_tests.test_reboot import check_interfaces_and_services
-
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -107,7 +107,7 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
 
         # 2. Verify sessions are established
         config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        bgp_neighbors = get_bgp_neighbors_from_config_facts(dut, config_facts)
         pytest_assert(wait_until(30, 5, 0, dut.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
 

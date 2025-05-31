@@ -21,6 +21,9 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -104,8 +107,15 @@ def get_no_export_output(vm_host):
     Args:
         vm_host: VM host object
     """
-    out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-    return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    if isinstance(vm_host, EosHost):
+        out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    elif isinstance(vm_host, SonicHost):
+        out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
+        # For SonicHost, output is already a string, no need to index
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out)
+    else:
+        raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
@@ -346,7 +356,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     for peer_ips in list(downstream_peers.values()):
         for peer_ip in peer_ips:
             cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].eos_config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -364,7 +374,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
     # Restore EOS config
     no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].eos_config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
@@ -387,11 +397,13 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
     Verify if there are routes on neighbor who announce them.
     """
     downstream = setup_info['downstream']
+    host = nbrhosts[downstream]['host']
     for prefixes in list(PREFIX_LISTS.values()):
         for prefix in prefixes:
-            downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
-            route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
-            pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
+            downstream_route = host.get_route(prefix)
+            logging.info('downstream_route: {}'.format(downstream_route))
+            pytest_assert(check_route_exists(host, downstream_route, prefix),
+                          'Announced route {} not found on {}'.format(prefix, downstream))
 
 
 def check_results(results):
@@ -401,7 +413,80 @@ def check_results(results):
         failed_results[node] = [r for r in node_prefix_results if r['failed']]
 
     pytest_assert(all([len(r) == 0 for r in list(failed_results.values())]),
-                  'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
+                  'Unexpected routes on neighbors, failed_results={}'
+                  .format(json.dumps(failed_results, indent=2)))
+
+
+def get_route_communities(host, route_data, prefix):
+    if isinstance(host, EosHost):
+        # Check if route_data is the raw output from the EOS command
+        if 'stdout' in route_data:
+            route_data = route_data['stdout'][0]
+
+        # Check if the route data structure exists and contains the prefix
+        if (not route_data or
+                'vrfs' not in route_data or
+                'default' not in route_data['vrfs'] or
+                'bgpRouteEntries' not in route_data['vrfs']['default'] or
+                prefix not in route_data['vrfs']['default']['bgpRouteEntries']):
+            return []
+
+        # Access the route data with the expected structure
+        route_entry = route_data['vrfs']['default']['bgpRouteEntries'][prefix]
+        if ('bgpRoutePaths' not in route_entry or
+                not route_entry['bgpRoutePaths'] or
+                'routeDetail' not in route_entry['bgpRoutePaths'][0] or
+                'communityList' not in route_entry['bgpRoutePaths'][0]['routeDetail']):
+            return []
+
+        return route_entry['bgpRoutePaths'][0]['routeDetail']['communityList']
+    elif isinstance(host, SonicHost):
+        # Extract communities from SonicHost route data
+        communities = []
+        if 'paths' in route_data:
+            for path in route_data['paths']:
+                if 'community' in path:
+                    if isinstance(path['community'], dict):
+                        if 'string' in path['community']:
+                            communities.append(path['community']['string'])
+                        if 'list' in path['community']:
+                            communities.extend(path['community']['list'])
+                    elif isinstance(path['community'], list):
+                        communities.extend(path['community'])
+
+                # Check for large communities if present
+                if 'largeCommunity' in path:
+                    if isinstance(path['largeCommunity'], dict):
+                        if 'string' in path['largeCommunity']:
+                            communities.append(path['largeCommunity']['string'])
+                        if 'list' in path['largeCommunity']:
+                            communities.extend(path['largeCommunity']['list'])
+                    elif isinstance(path['largeCommunity'], list):
+                        communities.extend(path['largeCommunity'])
+
+        # Convert all communities to strings for consistent comparison
+        return [str(c) for c in communities]
+    else:
+        pytest.fail('Unsupported host type: {}'.format(type(host)))
+
+
+def check_route_exists(host, route_data, prefix):
+    if isinstance(host, EosHost):
+        # Check if route_data is the raw output from the EOS command
+        if 'stdout' in route_data:
+            route_data = route_data['stdout'][0]
+        # Check if the route data structure exists and contains the prefix
+        if (not route_data or
+                'vrfs' not in route_data or
+                'default' not in route_data['vrfs'] or
+                'bgpRouteEntries' not in route_data['vrfs']['default']):
+            return False
+
+        return prefix in route_data['vrfs']['default']['bgpRouteEntries']
+    elif isinstance(host, SonicHost):
+        return bool(route_data) and 'paths' in route_data and len(route_data['paths']) > 0
+    else:
+        pytest.fail('Unsupported host type: {}'.format(type(host)))
 
 
 def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
@@ -413,20 +498,21 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
     @reset_ansible_local_tmp
     def check_other_neigh(nbrhosts, permit, node=None, results=None):
         logging.info('Checking routes on {}'.format(node))
+        nbr_host = nbrhosts[node]['host']
 
         prefix_results = []
         for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+                route_data = nbr_host.get_route(prefix)
 
                 if permit:
                     # All routes should be forwarded
-                    if prefix not in neigh_route:
+                    if not check_route_exists(nbr_host, route_data, prefix):
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
                     else:
-                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
+                        communityList = get_route_communities(nbr_host, route_data, prefix)
 
                         # Should add drop_community to all routes
                         if DROP_COMMUNITY not in communityList:
@@ -446,7 +532,7 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
 
                 else:
                     # All routes should be dropped
-                    if prefix in neigh_route:
+                    if check_route_exists(nbr_host, route_data, prefix):
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('When default_action="deny" and allow list is empty, all routes'
                                                         ' should be dropped. route={}, node={}'.format(prefix, node))
@@ -466,21 +552,23 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
     @reset_ansible_local_tmp
     def check_other_neigh(nbrhosts, permit, node=None, results=None):
         logging.info('Checking routes on {}'.format(node))
+        nbr_host = nbrhosts[node]['host']
 
         prefix_results = []
         for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+                route_data = nbr_host.get_route(prefix)
+                logging.info('{} route_data: {}'.format(nbr_host.hostname, route_data))
 
                 if permit:
                     # All routes should be forwarded
-                    if prefix not in neigh_route:
+                    if not check_route_exists(nbr_host, route_data, prefix):
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
                     else:
-                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
-
+                        communityList = get_route_communities(nbr_host, route_data, prefix)
+                        logging.info('{} communityList: {}'.format(nbr_host.hostname, communityList))
                         if 'DISALLOWED' in list_name:
                             # Should add drop_community to routes not on allow list
                             if DROP_COMMUNITY not in communityList:
@@ -508,18 +596,19 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
                 else:
                     if 'DISALLOWED' in list_name:
                         # Routes not on allow list should not be forwarded
-                        if prefix in neigh_route:
+                        if check_route_exists(nbr_host, route_data, prefix):
                             prefix_result['failed'] = True
                             prefix_result['reasons'].append('When default_action="deny", route NOT on allow list should'
                                                             ' not be forwarded. route={}, node={}'.format(prefix, node))
                     else:
                         # Routes on allow list should be forwarded
-                        if prefix not in neigh_route:
+                        if not check_route_exists(nbr_host, route_data, prefix):
                             prefix_result['failed'] = True
                             prefix_result['reasons'].append('When default_action="deny", route on allow list should be '
                                                             'forwarded. route={}, node={}'.format(prefix, node))
                         else:
-                            communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
+                            communityList = get_route_communities(nbr_host, route_data, prefix)
+                            logging.info('{} communityList: {}'.format(nbr_host.hostname, communityList))
                             # Forwarded route should not have DROP_COMMUNITY
                             if DROP_COMMUNITY in communityList:
                                 prefix_result['failed'] = True
@@ -554,12 +643,21 @@ def get_default_action():
     return DEFAULT_ACTION
 
 
-def restart_bgp_session(duthost):
+def restart_bgp_session(duthost, neighbor=None):
     """
-    Restart bgp session
+    Restart bgp session. If neighbor is specified, only restart that specific neighbor's session.
+    Otherwise restart all BGP sessions.
+
+    Args:
+        duthost: DUT host object
+        neighbor (str, optional): BGP neighbor IP address. If None, restarts all sessions.
     """
-    logging.info("Restart all BGP sessions")
-    duthost.shell('vtysh -c "clear bgp *"')
+    if neighbor:
+        logging.info(f"Restart BGP session with neighbor {neighbor}")
+        duthost.shell(f'vtysh -c "clear bgp {neighbor}"')
+    else:
+        logging.info("Restart all BGP sessions")
+        duthost.shell('vtysh -c "clear bgp *"')
 
 
 def get_ptf_recv_port(duthost, vm_name, tbinfo):
@@ -801,7 +899,7 @@ def check_bgp_neighbor(duthost):
     Validate all the bgp neighbors are established
     """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
     pytest_assert(
         wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)
@@ -926,3 +1024,63 @@ def initial_tsa_check_before_and_after_test(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for linecard in duthosts.frontend_nodes:
             executor.submit(run_tsb_on_linecard_and_verify, linecard)
+
+
+def configure_bgp_peer(
+    duthost,
+    neighbor_ip,
+    local_asn,
+    remote_asn,
+    afi="ipv4",
+    safi="unicast",
+    update_source_intf=None,
+    max_hop_count=10,
+):
+    """Configure a BGP peer with proper timers.
+
+    Args:
+        duthost: DUT host object
+        neighbor_ip: IP address of the BGP neighbor
+        local_asn: Local AS number
+        remote_asn: Remote AS number
+        afi: Address Family Identifier ("ipv4", "ipv6", or "l2vpn")
+        safi: Subsequent Address Family Identifier ("unicast", "multicast", "vpn", "evpn",
+              "flowspec", "labeled-unicast")
+        update_source_intf: (Optional) Interface name to use as update-source (e.g. 'Loopback0')
+        max_hop_count: (Optional) Maximum number of hops allowed for BGP peers (default: 10)
+    """
+    try:
+        # Validate AFI-SAFI combination
+        valid_combinations = {
+            "ipv4": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+            "ipv6": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+            "l2vpn": ["evpn"]
+        }
+
+        if afi not in valid_combinations or safi not in valid_combinations[afi]:
+            logging.error(f"Invalid AFI-SAFI combination: {afi}-{safi}")
+            return False
+
+        command = "vtysh -c 'configure terminal' " \
+                  f"-c 'router bgp {local_asn}' " \
+                  f"-c 'neighbor {neighbor_ip} remote-as {remote_asn}' " \
+                  f"-c 'neighbor {neighbor_ip} ebgp-multihop {max_hop_count}' " \
+                  f"-c 'neighbor {neighbor_ip} timers 3 10' " \
+                  f"-c 'neighbor {neighbor_ip} timers connect 10' "
+
+        if update_source_intf:
+            command += f"-c 'neighbor {neighbor_ip} update-source {update_source_intf}' "
+
+        command += f"-c 'address-family {afi} {safi}' " \
+                   f"-c 'neighbor {neighbor_ip} activate' " \
+                   "-c 'exit-address-family'"
+
+        result = duthost.shell(command)
+        if result['rc'] != 0:
+            logging.error("Failed to configure BGP peer. Error: %s", result['stderr'])
+            return False
+        return True
+
+    except Exception as e:
+        logging.error("Failed to configure BGP peer: %s", str(e))
+        return False

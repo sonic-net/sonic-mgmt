@@ -4,7 +4,6 @@ import requests
 
 from tests.common.utilities import wait_tcp_connection
 
-
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
 BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
 
@@ -32,14 +31,19 @@ def run_bgp_facts(duthost, enum_asic_index):
         assert v['state'] == 'established'
         # Verify local ASNs in bgp sessions
         assert v['local AS'] == int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].encode().decode("utf-8"))
-        # Check bgpmon functionality by validate STATE DB contains this neighbor as well
-        state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
-                                   .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']
-        peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
-                                  .format(sonic_db_cmd, k),
-                                  module_ignore_errors=False)['stdout_lines']
-        assert state_fact[0] == "Established"
-        assert peer_type[0] == "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"
+        if duthost.get_frr_mgmt_framework_config():
+            # bgpmon is part of bgpcfgd and not applicable for frr mgmt
+            # hence, validate using direct (vtysh) statistics
+            nbinfo = duthost.get_bgp_neighbor_info(k)
+            assert nbinfo['bgpState'] == "Established"
+        else:
+            # Check bgpmon functionality by validate STATE DB contains this neighbor as well
+            state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'.format(sonic_db_cmd, k),
+                                       module_ignore_errors=False)['stdout_lines']
+            peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'.format(sonic_db_cmd, k),
+                                      module_ignore_errors=False)['stdout_lines']
+            assert state_fact[0] == "Established"
+            assert peer_type[0] == "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
@@ -47,11 +51,26 @@ def run_bgp_facts(duthost, enum_asic_index):
     nbrs_in_cfg_facts.update(config_facts.get('BGP_INTERNAL_NEIGHBOR', {}))
     # In VoQ Chassis, we would have BGP_VOQ_CHASSIS_NEIGHBOR as well.
     nbrs_in_cfg_facts.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR', {}))
-    for k, v in list(nbrs_in_cfg_facts.items()):
+    neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
+
+    for k, v in list(neighbors.items()):
         # Compare the bgp neighbors name with config db bgp neighbors name
         assert v['name'] == bgp_facts['bgp_neighbors'][k]['description']
         # Compare the bgp neighbors ASN with config db
         assert int(v['asn'].encode().decode("utf-8")) == bgp_facts['bgp_neighbors'][k]['remote AS']
+
+
+def get_bgp_neighbors_from_config_facts(duthost, config_facts, vrf_name="default"):
+    nbrs_in_cfg_facts = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = {}
+    # When FRR management framework is enabled,
+    # there's an additional level of nesting with vrf name as the key
+    if duthost.get_frr_mgmt_framework_config() and vrf_name in nbrs_in_cfg_facts:
+        bgp_neighbors = nbrs_in_cfg_facts[vrf_name]
+    else:
+        bgp_neighbors = nbrs_in_cfg_facts
+
+    return bgp_neighbors
 
 
 class BGPNeighbor(object):
@@ -90,18 +109,43 @@ class BGPNeighbor(object):
                 neighbor_hwsku=None,
                 neighbor_type=self.type
             )
+            if not self.duthost.get_frr_mgmt_framework_config():
+                _write_variable_from_j2_to_configdb(
+                    self.duthost,
+                    "bgp/templates/bgp_template.j2",
+                    namespace=self.namespace,
+                    save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
+                    db_table_name="BGP_NEIGHBOR",
+                    peer_addr=self.ip,
+                    asn=self.asn,
+                    local_addr=self.peer_ip,
+                    peer_name=self.name
+                )
+            else:
+                _write_variable_from_j2_to_configdb(
+                    self.duthost,
+                    "bgp/templates/bgp_umf_template.j2",
+                    namespace=self.namespace,
+                    save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
+                    db_table_name="BGP_NEIGHBOR",
+                    vrf_name="default",
+                    peer_addr=self.ip,
+                    asn=self.asn,
+                    local_addr=self.peer_ip,
+                    peer_name=self.name,
+                    peer_group_name="PEER_V4"
+                )
 
-            _write_variable_from_j2_to_configdb(
-                self.duthost,
-                "bgp/templates/bgp_template.j2",
-                namespace=self.namespace,
-                save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
-                db_table_name="BGP_NEIGHBOR",
-                peer_addr=self.ip,
-                asn=self.asn,
-                local_addr=self.peer_ip,
-                peer_name=self.name
-            )
+                _write_variable_from_j2_to_configdb(
+                    self.duthost,
+                    "bgp/templates/neighbor_af_umf_template.j2",
+                    namespace=self.namespace,
+                    save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
+                    db_table_name="BGP_NEIGHBOR_AF",
+                    vrf_name="default",
+                    peer_addr=self.ip,
+                    afi_safi="ipv4_unicast",
+                )
 
         self.ptfhost.exabgp(
             name=self.name,
@@ -131,7 +175,13 @@ class BGPNeighbor(object):
         logging.debug("stop bgp session %s", self.name)
         if not self.is_passive:
             for asichost in self.duthost.asics:
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+                if self.duthost.get_frr_mgmt_framework_config():
+                    asichost.run_sonic_db_cli_cmd(
+                        "CONFIG_DB del 'BGP_NEIGHBOR|default|{}'".format(self.ip))
+                    asichost.run_sonic_db_cli_cmd(
+                        "CONFIG_DB del 'BGP_NEIGHBOR_AF|default|{}|ipv4_unicast'".format(self.ip))
+                else:
+                    asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
         self.ptfhost.exabgp(name=self.name, state="absent")
 
@@ -150,7 +200,12 @@ class BGPNeighbor(object):
             for asichost in self.duthost.asics:
                 if asichost.namespace == self.namespace:
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
-                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
+                    if self.duthost.get_frr_mgmt_framework_config():
+                        asichost.run_sonic_db_cli_cmd(
+                            "CONFIG_DB hset 'BGP_NEIGHBOR|default|{}' admin_status down".format(self.ip))
+                    else:
+                        asichost.run_sonic_db_cli_cmd(
+                            "CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
 
     def announce_route(self, route):
         if "aspath" in route:

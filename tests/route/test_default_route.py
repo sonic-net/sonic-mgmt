@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
-
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -243,7 +243,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
 
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
 
     uplink_ns = None
     # Get uplink namespaces/asics for multi-asic

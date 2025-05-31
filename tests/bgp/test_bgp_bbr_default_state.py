@@ -133,7 +133,10 @@ def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, set
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.sonichost.facts['platform_asic'] == 'broadcom':
         ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
-            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
+            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*|" \
+            r".*ERR bgp#mgmtd.*BE-adapter: mgmt_msg_read: got EOF/disconnect.*|" \
+            r".*ERR syncd#syncd.*SAI_API_SWITCH:_brcm_sai_get_max_ecmp_members.*" \
+            r"ecmp members max get failed with error Invalid parameter.*"
         loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
 
     duthost.shell("sudo config save -y")

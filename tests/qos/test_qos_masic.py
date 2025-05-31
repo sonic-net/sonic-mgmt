@@ -5,6 +5,7 @@ import pytest
 import time
 
 from tests.common.utilities import wait_until
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 logger = logging.getLogger(__name__)
 
@@ -351,7 +352,8 @@ class TestQosSaiMasic(QosSaiBaseMasic):
         config_facts = duthost.config_facts(
             host=duthost.hostname, source="running"
         )['ansible_facts']
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
+        bgp_neighbors.update(config_facts.get('BGP_INTERNAL_NEIGHBOR', {}))
         bgp_neighbors.update(duthost.get_internal_bgp_peers())
 
         if not wait_until(
