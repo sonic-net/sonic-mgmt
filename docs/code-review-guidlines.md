@@ -9,6 +9,9 @@
 - Add logs to indicate the state transitions, exceptions, errors, assertions, meaningful points, and so on.
 - Logs to be contained and rotated, to avoid the exhaustion of the host memory.
 
+## Performance optimized code guide                                                       
+- Use python decorator caching for repetitive, expensive or high duration functions. Verif
+- For long operations that can be aggregated (such as query access to switch or db) – use 
 
 ## Checklist for the PR author
 - The code shall be fully tested before the developer asks for an internal review.
