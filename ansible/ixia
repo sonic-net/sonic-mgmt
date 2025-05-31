@@ -16,6 +16,12 @@ all:
           ansible_host: 10.64.246.150
         ixia-apiserver3:
           ansible_host: 10.64.246.190
+        str-aresone-api-serv-01:
+          ansible_host: 10.64.246.191
+        str-aresone-api-serv-02:
+          ansible_host: 10.64.246.192
+        str-aresone-api-serv-03:
+          ansible_host: 10.64.246.193
       vars:
         ansible_ssh_user: admin
         ansible_ssh_pass: admin
