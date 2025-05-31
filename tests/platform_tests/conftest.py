@@ -215,6 +215,8 @@ def port_list_with_flat_memory(duthosts):
 def passive_cable_ports(duthosts):
     passive_cable_ports = {}
     for dut in duthosts:
+        if dut.is_supervisor_node():
+            continue
         passive_cable_ports.update({dut.hostname: get_passive_cable_port_list(dut)})
     logging.info(f"passive_cable_ports: {passive_cable_ports}")
     return passive_cable_ports
@@ -224,6 +226,8 @@ def passive_cable_ports(duthosts):
 def cmis_cable_ports_and_ver(duthosts):
     cmis_cable_ports_and_ver = {}
     for dut in duthosts:
+        if dut.is_supervisor_node():
+            continue
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
