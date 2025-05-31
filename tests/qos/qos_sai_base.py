@@ -11,6 +11,7 @@ import six
 import copy
 import time
 import collections
+from contextlib import contextmanager
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -2833,6 +2834,7 @@ set_voq_watchdog({})
 
         self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
 
+    @contextmanager
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -2878,12 +2880,12 @@ set_voq_watchdog({})
                 cmd_opt = ""
             dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
-        return
-
     @pytest.fixture(scope='function')
     def disable_voq_watchdog_function_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
-        return self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig)
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result
 
     @pytest.fixture(scope='class')
     def disable_voq_watchdog_class_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
-        return self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig)
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result

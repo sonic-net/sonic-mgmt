@@ -1,14 +1,12 @@
-"""SAI thrift-based tests for the QoS feature in SONiC.
+"""SAI thrift-based tests for the VOQ watchdog feature in SONiC.
 
-This set of test cases verifies QoS, buffer behavior, and buffer drop counter behavior. These are dataplane
-tests that depend on the SAI thrift library in order to pause ports/queues and read buffer drop counters as well
-as generic drop counters.
+This set of test cases verifies VOQ watchdog behavior. These are dataplane
+tests that depend on the SAI thrift library in order to pause ports and read
+drop counters.
 
 Parameters:
     --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
         In case a filename is not provided, a file containing a port indices to aliases map will be generated.
-
-    --disable_test (bool): Disables experimental QoS SAI test cases. Default is True.
 
     --qos_swap_syncd (bool): Used to install the RPC syncd image before running the tests. Default is True.
 
@@ -23,18 +21,12 @@ Parameters:
 import logging
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
+    separated_dscp_to_tc_map_on_uplink                                                      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
-from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa F401
-from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from .qos_sai_base import QosSaiBase
-from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
-    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
 
 logger = logging.getLogger(__name__)
 

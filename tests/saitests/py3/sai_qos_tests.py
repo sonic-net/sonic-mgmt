@@ -6728,7 +6728,7 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
 
             # allow enough time to trigger voq watchdog
-            time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS + 10)
+            time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS * 1.3)
 
             # verify voq watchdog is triggered
             self.verify_log(pre_offsets, voq_watchdog_enabled)
