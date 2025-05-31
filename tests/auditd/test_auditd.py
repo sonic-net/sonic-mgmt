@@ -34,7 +34,7 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
         rule_checksum = "bd574779fb4e1116838d18346187bb7f7bd089c9"
     else:
-        rule_checksum = "c3441d4f777257d8d2c6ac90fd50d49b9a1d616b"
+        rule_checksum = "7b6e73f1bc5c058a1afd5d85eac48347b3fb9459"
 
     cmd = """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" \
               ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD)
