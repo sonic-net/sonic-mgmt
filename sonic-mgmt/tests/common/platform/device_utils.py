@@ -82,6 +82,8 @@ def get_dut_psu_line_pattern(dut):
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
     elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0":
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(N/A)")
+    elif dut.facts["asic_type"] in ["mellanox"]:
+        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     else:
         """
         Changed the pattern to match space (s+) and non-space (S+) only.

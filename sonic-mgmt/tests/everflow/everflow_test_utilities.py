@@ -99,6 +99,10 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 downstream_ports_namespace.add(neigh['namespace'])
                 downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
+    # For FT2, we just copy the upstream ports to downstream ports
+    if "ft2" in topo:
+        downstream_ports_namespace = upstream_ports_namespace.copy()
+        downstream_ports_namespace_map = upstream_ports_namespace_map.copy()
 
     for ns, neigh_set in list(upstream_neigh_namespace_map.items()):
         if len(neigh_set) < 2:
@@ -355,8 +359,11 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     duthost = None
     topo = tbinfo['topo']['name']
     if 't2' in topo:
-        pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
-        downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+        if len(duthosts) == 1:
+            downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
+        else:
+            pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
+            downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
     else:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
@@ -365,7 +372,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
 
-    if 't2' in topo:
+    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -378,7 +385,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     yield setup_information
 
     # Enable BGP again
-    if 't2' in topo:
+    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp startup all")
             dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
@@ -386,6 +393,15 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
     time.sleep(60)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
+    """
+    Skip IPv6 Everflow tests if the DUT is a virtual switch.
+    """
+    if erspan_ip_ver == 6 and setup_info[UP_STREAM]["everflow_dut"].facts["asic_type"] == "vs":
+        pytest.skip("Skipping IPv6 Everflow tests to speed up PR test execution.")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -784,7 +800,7 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if 't2' in setup['topo']:
+        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)

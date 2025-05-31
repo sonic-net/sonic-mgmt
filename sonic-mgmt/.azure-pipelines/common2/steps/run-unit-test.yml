@@ -1,0 +1,5 @@
+steps:
+  - script: |
+      pip install pytest pytest-cov
+      pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
+    displayName: 'Run Unit Tests with Coverage Check'

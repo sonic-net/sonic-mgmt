@@ -53,9 +53,10 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter":
+        neigh_type = "SpineRouter"
     else:
         neigh_type = "ToRRouter"
-
     logging.info(
         "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
             conn0["neighbor_addr"].split("/")[0],

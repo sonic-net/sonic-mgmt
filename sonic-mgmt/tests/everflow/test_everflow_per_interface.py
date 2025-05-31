@@ -10,7 +10,7 @@ from scapy.layers.l2 import Dot1Q
 from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver  # noqa: F401
+from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver, skip_ipv6_everflow_tests  # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require

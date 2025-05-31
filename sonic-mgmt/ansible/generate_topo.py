@@ -51,7 +51,8 @@ roles_cfg = {
         "asn_v6": 4200100000,
         "downlink": {"role": "t1", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 0, "num_lags": 1},
         "uplink": {"role": "ut2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
-        "peer": None,
+        "fabric": {"role": "ft2", "asn": 4200300000, "asn_v6": 4200300000, "asn_increment": 0},
+        "peer": None
     },
 }
 
@@ -110,11 +111,32 @@ hw_port_cfg = {
                          'peer_ports': [],
                          'skip_ports': [16, 17, 44, 45, 48, 49],
                          "panel_port_step": 1},
-    'o128lt2':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                          'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
-                          'peer_ports': [],
-                          'skip_ports': PortList(63),
-                          "panel_port_step": 1},
+    'c448o16-lag-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                             'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
+                             'peer_ports': [],
+                             'skip_ports': [13, 16, 17, 44, 45, 48, 49],
+                             "panel_port_step": 1},
+    'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
+                         'peer_ports': [],
+                         'skip_ports': PortList(63),
+                         "panel_port_step": 1},
+    'p32o64lt2':        {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(45, 49, 46, 50),
+                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30),
+                         "fabric_breakout": 1,
+                         'fabric_ports': PortList(
+                                 *[p for p in range(0, 32)]
+                                 ),
+                         'peer_ports': [],
+                         "panel_port_step": 1},
+}
+
+overwrite_file_name = {
+    'lt2': {
+        'p32o64': "lt2-p32o64",
+        'o128': "lt2-o128",
+    }
 }
 
 vlan_group_cfgs = [
@@ -312,6 +334,12 @@ def generate_topo(role: str,
             link_id_end = link_id_start + 1
             link_step = 1
             link_type = 'peer'
+        elif panel_port_id in port_cfg.get("fabric_ports", []):
+            vm_role_cfg = dut_role_cfg["fabric"]
+
+            link_id_end = link_id_start + port_cfg.get("fabric_breakout", 1)
+            link_step = 1
+            link_type = 'fabric'
         else:
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
@@ -418,12 +446,16 @@ def write_topo_file(role: str,
                     downlink_port_count: int,
                     uplink_port_count: int,
                     peer_port_count: int,
+                    suffix: str,
                     file_content: str):
     downlink_keyword = f"d{downlink_port_count}" if downlink_port_count > 0 else ""
     uplink_keyword = f"u{uplink_port_count}" if uplink_port_count > 0 else ""
     peer_keyword = f"s{peer_port_count}" if peer_port_count > 0 else ""
 
-    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}.yml"
+    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}{suffix}.yml"
+
+    if role in overwrite_file_name and keyword in overwrite_file_name[role]:
+        file_path = f"vars/topo_{overwrite_file_name[role][keyword]}.yml"
 
     with open(file_path, "w") as f:
         f.write(file_content)
@@ -463,11 +495,14 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
+    - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
 
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
@@ -484,8 +519,10 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
         vlan_group_list = generate_vlan_groups(downlinkif_list)
     file_content = generate_topo_file(
         role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
+
     write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
-                    len(peer_ports), file_content)
+                    len(peer_ports), '-lag' if 'lag' in link_cfg else '',
+                    file_content)
 
 
 if __name__ == "__main__":
