@@ -485,7 +485,7 @@ sonic_nvidia_sn5600:
       ansible_hostv6: 2a01:111:e210:b000::a40:f62e
       mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN5600-C256S1
-      model: 920-9N42F-00RI-7C0
+      model: SN5600
       serial: MT2412XZ03UF
       base_mac: 9C:05:91:A2:66:00
       syseeprom_info:
@@ -548,7 +548,7 @@ sonic_nvidia_sn5600:
       ansible_hostv6: 2a01:111:e210:b000::a40:f631
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5600-C224O8
-      model: 920-9N42F-00RI-7C0
+      model: SN5600
       serial: MT2438XZ0HP9
       base_mac: B0:CF:0E:B0:DE:00
       syseeprom_info:
@@ -590,7 +590,7 @@ sonic_nvidia_sn5600:
       ansible_hostv6: 2a01:111:e210:b000::a40:f641
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5600-C224O8
-      model: 920-9N42F-00RI-7C0
+      model: SN5600
       serial: MT2452XZ085Z
       base_mac: B0:CF:0E:BA:92:00
       syseeprom_info:
@@ -611,7 +611,7 @@ sonic_nvidia_sn5600:
       ansible_hostv6: 2a01:111:e210:b000::a40:f643
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5600-C256S1
-      model: 920-9N42F-00RI-7C0
+      model: SN5600
       serial: MT2452XZ084D
       base_mac: B0:CF:0E:BA:2A:00
       syseeprom_info:
