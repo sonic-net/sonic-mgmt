@@ -13,13 +13,14 @@ from tests.snappi_tests.pfc.files.lossless_response_to_external_pause_storms_hel
      run_lossless_response_to_external_pause_storms_test,
     )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
-    yield (1, 2)
+    yield (2, 1)
 
 
 def test_lossless_response_to_external_pause_storms_test(snappi_api,                     # noqa: F811
@@ -61,11 +62,7 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list

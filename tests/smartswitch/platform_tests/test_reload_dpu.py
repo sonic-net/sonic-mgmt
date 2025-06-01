@@ -76,6 +76,7 @@ def test_dpu_status_post_switch_config_reload(duthosts,
                               dpu_off_list, ip_address_list)
 
 
+@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                                                enum_rand_one_per_hwsku_hostname,  # noqa: E501
                                                localhost,
@@ -105,6 +106,7 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                            ip_address_list)
 
 
+@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_kernel_panic(duthosts,
                                              enum_rand_one_per_hwsku_hostname,
                                              localhost,
@@ -133,6 +135,7 @@ def test_dpu_status_post_switch_kernel_panic(duthosts,
                            ip_address_list)
 
 
+@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                                           enum_rand_one_per_hwsku_hostname,
                                           platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -158,6 +161,7 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
+@pytest.mark.disable_loganalyzer
 def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                                            enum_rand_one_per_hwsku_hostname,
                                            platform_api_conn, num_dpu_modules):  # noqa: F811, E501

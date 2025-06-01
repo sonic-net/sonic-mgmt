@@ -21,6 +21,7 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
     # Enable autorestart for all features
     duthost = duthosts[rand_one_dut_hostname]
     feature_list, _ = duthost.get_feature_status()
+    feature_list.pop('frr_bmp', None)
     container_autorestart_states = duthost.get_container_autorestart_states()
     for feature, status in list(feature_list.items()):
         # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
@@ -37,7 +38,6 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     duthost = duthosts[rand_one_dut_hostname]
-
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts, vrf_name=vrfname)
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
@@ -133,6 +133,20 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
         pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
+
+
+def check_frr_mgmt_framework_config(duthost):
+    """
+    Check if frr_mgmt_framework_config is set to "true" in DEVICE_METADATA
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if frr_mgmt_framework_config is "true", False otherwise
+    """
+    frr_config = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
+    return frr_config == "true"
 
 
 def verify_bgp_session_down(duthost, bgp_neighbor):

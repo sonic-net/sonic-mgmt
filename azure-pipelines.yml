@@ -11,6 +11,7 @@ pr:
    branches:
      include:
        - master
+       - 202???
    paths:
      exclude:
        - .github
@@ -18,12 +19,15 @@ pr:
        - LICENSE
        - README.md
        - SECURITY.md
+       - sdn_tests/**
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
+- template: /.azure-pipelines/common2/stages/analyze-code.yml
 - stage: Pre_test
+  condition: succeededOrFailed()
   jobs:
   - job: static_analysis
     displayName: "Static Analysis"
@@ -82,6 +86,8 @@ stages:
     pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+        parameters:
+          BUILD_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"

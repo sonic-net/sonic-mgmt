@@ -13,8 +13,8 @@ pytestmark = [
 
 
 def test_restart_macsec_docker(duthosts, ctrl_links, policy, cipher_suite, send_sci,
-                               enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+                               enum_rand_one_per_hwsku_macsec_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_macsec_frontend_hostname]
 
     logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
     duthost.restart_service("macsec")
