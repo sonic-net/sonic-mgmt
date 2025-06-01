@@ -78,7 +78,7 @@ class BGPNeighbor(object):
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, neigh_type=None,
-                 namespace=None, is_multihop=False, is_passive=False):
+                 namespace=None, is_multihop=False, is_passive=False, debug=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -92,6 +92,7 @@ class BGPNeighbor(object):
         self.namespace = namespace
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
+        self.debug = debug
 
     def start_session(self):
         """Start the BGP session."""
@@ -155,7 +156,8 @@ class BGPNeighbor(object):
             peer_ip=self.peer_ip,
             local_asn=self.asn,
             peer_asn=self.peer_asn,
-            port=self.port
+            port=self.port,
+            debug=self.debug
         )
         if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
             raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
