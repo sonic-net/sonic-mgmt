@@ -1,4 +1,3 @@
-
 import re
 import json
 import logging
@@ -186,7 +185,7 @@ def check_bgp(duthosts, tbinfo):
         def _restart_bgp(dut):
             # Restart BGP service
             try:
-                dut.command("supervisorctl restart bgp.service")
+                dut.command("systemctl restart bgp.service")
             except RunAnsibleModuleFail as e:
                 logger.error("Failed to restart BGP service on %s: %s" % (dut.hostname, str(e)))
                 return False
