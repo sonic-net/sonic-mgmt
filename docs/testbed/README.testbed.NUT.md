@@ -6,14 +6,14 @@
    1. [3.1. Device and link definition](#31-device-and-link-definition)
    2. [3.2. Testbed YAML definition](#32-testbed-yaml-definition)
 4. [4. NUT config deployment: `deploy-cfg`](#4-nut-config-deployment-deploy-cfg)
-   1. [Initial config generation](#initial-config-generation)
-   2. [4.1. Generate device metadata](#41-generate-device-metadata)
-   3. [4.2. Generate port config](#42-generate-port-config)
-   4. [4.3. Establish BGP Sessions](#43-establish-bgp-sessions)
-      1. [4.3.1. Enable BGP Feature](#431-enable-bgp-feature)
-      2. [4.3.2. Interface IP assignment](#432-interface-ip-assignment)
-      3. [4.3.3. Generate BGP Neighbor configuration](#433-generate-bgp-neighbor-configuration)
-   5. [4.4. Verifying BGP Establishment](#44-verifying-bgp-establishment)
+   1. [4.1. Initial config generation](#41-initial-config-generation)
+   2. [4.2. Generate device metadata](#42-generate-device-metadata)
+   3. [4.3. Generate port config](#43-generate-port-config)
+   4. [4.4. Establish BGP Sessions](#44-establish-bgp-sessions)
+      1. [4.4.1. Enable BGP Feature](#441-enable-bgp-feature)
+      2. [4.4.2. Interface IP assignment](#442-interface-ip-assignment)
+      3. [4.4.3. Generate BGP Neighbor configuration](#443-generate-bgp-neighbor-configuration)
+   5. [4.5. Verifying BGP Establishment](#45-verifying-bgp-establishment)
 5. [5. Traffic generator setup](#5-traffic-generator-setup)
    1. [5.1. Port configuration](#51-port-configuration)
    2. [5.2. Routes advertisement](#52-routes-advertisement)
@@ -117,7 +117,7 @@ The current testbed yaml definition is not designed to support NUT, so we will c
 
 ## 4. NUT config deployment: `deploy-cfg`
 
-### Initial config generation
+### 4.1. Initial config generation
 
 First, the device basic config must be generated using the device information defined in the `sonic_*_devices.csv` file. The `deploy-cfg` command will first read the device definitions from `sonic_*_devices.csv` file, then use `sonic-cfggen` to generate the basic configuration based on the HWSKU and save it to disk, as below:
 
@@ -128,7 +128,7 @@ config save -y
 
 After this, all other changes will be made to the config DB via standard GCU (Generic Config Update) commands.
 
-### 4.1. Generate device metadata
+### 4.2. Generate device metadata
 
 There are a few things that needs to be updated in the device metadata, such as BGP ASN, router ID, and other device-specific information. The `deploy-cfg` command will generate the patch for each device.
 
@@ -177,7 +177,7 @@ The detailed step follows the following algorithm:
    3. If loopback V4 IP pool is not assigned, curve out a router ID v4 IP from the unified IP pool (1 IP), based on the device index.
    4. Curve out BGP ASN from the testbed-wide defined ASN range, based on the device index.
 
-### 4.2. Generate port config
+### 4.3. Generate port config
 
 With the link definition, the port configuration will be update on the T0 switch during `deploy-cfg`, which setup port speed, FEC, auto negotiation, and other port attributes.
 
@@ -212,11 +212,11 @@ An example of the port configuration generated for the T0 switch is as follows:
 
 Each interface will also have IP address assigned, which will be explained as part of the BGP session establishment in the next section.
 
-### 4.3. Establish BGP Sessions
+### 4.4. Establish BGP Sessions
 
 To establish BGP sessions between the switches and the traffic generators, the following steps are required:
 
-#### 4.3.1. Enable BGP Feature
+#### 4.4.1. Enable BGP Feature
 
 First, BGP must be enabled to allow them to participate in BGP-based route exchange.
 
@@ -245,7 +245,7 @@ This will enable the BGP feature on the device. In the end, the configuration wi
 }
 ```
 
-#### 4.3.2. Interface IP assignment
+#### 4.4.2. Interface IP assignment
 
 `deploy-cfg` will automatically assign IP addresses to the interfaces based on the testbed-wide defined IP pools:
 
@@ -295,7 +295,7 @@ graph LR
     T0P1 <--> T1P1
 ```
 
-#### 4.3.3. Generate BGP Neighbor configuration
+#### 4.4.3. Generate BGP Neighbor configuration
 
 To enable BGP sessions, the BGP neighbor configuration must be generated for each switch. This configuration includes the ASN, hold time, keepalive time, local address, and other necessary parameters.
 
@@ -395,7 +395,7 @@ To enable BGP sessions, the BGP neighbor configuration must be generated for eac
 </tr>
 </table>
 
-### 4.4. Verifying BGP Establishment
+### 4.5. Verifying BGP Establishment
 
 Once the configurations are applied, the BGP session will be established, and the switches will begin exchanging routing information. Proper verification using `show bgp summary` and `show bgp neighbors` commands can be conducted to confirm session establishment and route propagation.
 
