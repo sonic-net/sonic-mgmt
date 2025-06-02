@@ -30,23 +30,19 @@ DUAL_TOR_SNIFFER_CONF = "ha_tor_sniffer.conf"
 logger = logging.getLogger(__name__)
 
 
-class HaDualTorIO:
+class SmartSwitchHaTrafficTest:
     """Class to conduct IO over ports in `active-standby` mode."""
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, vmhost, tbinfo,
                  io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby,
                  random_dst=None, namespace="ns1"):
-        self.tor_pc_intf = None
-        self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
         self.ptfadapter = ptfadapter
         self.ptfhost = ptfhost
-        self.vmhost = vmhost
         self.tbinfo = tbinfo
         self.io_ready_event = io_ready
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
-        #self.standby_mac = standbyhost.facts["router_mac"]
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -327,7 +323,7 @@ class HaDualTorIO:
             result = self.examine_each_packet(server_ip, server_to_packet_map[server_ip])
             logger.info("Server {} results:\n{}"
                         .format(server_ip, json.dumps(result, indent=4)))
-            self.test_results[server_ip] = result
+            self.test_results[dst_ip] = result
 
     def examine_each_packet(self, server_ip, packets):
         num_sent_packets = 0

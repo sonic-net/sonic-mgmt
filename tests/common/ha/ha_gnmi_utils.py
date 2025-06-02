@@ -332,6 +332,8 @@ def apply_messages(
     messages,
     dpu_index,
     setup_ha_config,
+    gnmi_key,
+    filename,
     set_db=True,
     wait_after_apply=5,
     max_updates_in_single_cmd=1024,
@@ -339,8 +341,6 @@ def apply_messages(
     env = GNMIEnvironment(duthost)
     update_list = []
     delete_list = []
-    gnmi_key = "DASH_HA_SET_CONFIG_TABLE[key=HaSet1]"
-    filename = 'haset_update_enum.json'
     ptfhost.copy(src=filename, dest='/root')
 
     if set_db:
