@@ -3,6 +3,8 @@ import yaml
 import argparse
 import json
 import sys
+import os
+import time
 
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 DEFAULT_SONIC_IMAGE_PATH = '../../sonic-cisco-8000.bin'
@@ -46,8 +48,30 @@ if not topology_file:
 if not topology_file:
     sys.exit(1)
 
+print(f"using topology file: '{topology_file}'")
+
 with open(topology_file, "r") as fd:
     topo = yaml.safe_load(fd)
+    build_id = os.getenv('BUILD_ID') or f"non_cicd_sanity_{str(time.time())}"
+    job_base_name = os.getenv('JOB_BASE_NAME') or ""
+    sonic_cicd_id = f"{job_base_name}_{build_id}"
+    goldencode = os.getenv('GOLDENCODE') or ""
+    image_url = os.getenv('IMAGE_NAME') or ""
+    if goldencode:
+        sonic_test_branch = goldencode.split('golden_code_')[1].split('.tar')[0]
+    else:
+        sonic_test_branch = "unknown"
+
+    topo["simulation"]["telemetry"] = {
+        "sonic_cicd_id": sonic_cicd_id,
+        "test_branch": sonic_test_branch,
+        "goldencode": goldencode,
+        "image_name": image_url,
+        "testsuite_id": f"{topology}_{platform}_sim"
+    }
+
+    print(f"added telemetry info in simulation.telemetry: \n{json.dumps(topo['simulation']['telemetry'], indent=2)}")
+
 
     for device in topo["devices"]:
         if "onie-install" not in topo["devices"][device]:
