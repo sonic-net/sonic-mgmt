@@ -591,31 +591,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
     conditions:
       - "asic_type in ['vpp']"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
     reason: >
             Failed/Errored: To be included
