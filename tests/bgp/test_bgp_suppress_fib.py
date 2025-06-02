@@ -343,6 +343,10 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_channel_list = mg_facts['minigraph_portchannels'].keys()
+    if len(port_channel_list) == 0:
+        upstream_port_list = get_port_connected_with_vm(duthost, nbrhosts, vm_type="T2")
+        port_list.extend(upstream_port_list)
+
     extra_vars = {'cfg_t1': cfg_t1, 'port_list': port_list, 'vm_list': vm_list, 'pc_list': port_channel_list}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
