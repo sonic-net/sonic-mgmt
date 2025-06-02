@@ -1584,6 +1584,12 @@ lldp/test_lldp.py::test_lldp_neighbor:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: 'Skip macsec test for T2, if macsec is not enabled'
+    conditions:
+      - "macsec_en==False and 't2' in topo_type"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
