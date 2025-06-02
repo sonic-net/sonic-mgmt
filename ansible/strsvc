@@ -36,6 +36,9 @@ all:
         svc1-6:
           ansible_host: 10.206.144.34
           ansible_hostv6: 2a01:111:e205:100::ace:908b
+        svc1-7:
+          ansible_host: 10.206.144.35
+          ansible_hostv6: 2a01:111:e205:100::ace:908d
     pdu:
       hosts:
         pdu-124:
