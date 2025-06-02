@@ -28,7 +28,7 @@
 import logging
 import threading
 from multiprocessing.pool import ThreadPool
-from typing import Optional, List, Any
+from typing import List, Any
 
 
 def _thread_debug_init():
