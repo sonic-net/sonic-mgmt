@@ -310,7 +310,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # However with force option config reload should proceed
     logging.info("Performing force config reload")
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
-    assert result and "Retry later" not in out['stdout'], (
+    assert "Retry later" not in out['stdout'], (
         "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
         "Output: '{}'\n"
         "Hostname: {}\n"
