@@ -73,6 +73,8 @@ wa_file_map = { "sfd": "sfd_wa_cmd_list",
 VXR_OUT_TAR_GZ = "vxr.out.tar.gz"
 VXR_OUT = "vxr.out"
 
+DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME = "docker-sonic-mgmt"
+
 def connect_with_retries(
     client: paramiko.SSHClient,
     hostname: str,
@@ -111,12 +113,12 @@ def connect_with_retries(
             return  # success!
         except Exception as e:
             last_exc = e
-            print(f"[Attempt {attempt}/{retries}] Connection failed: {e}")
+            logging.info(f"[Attempt {attempt}/{retries}] Connection failed: {e}")
             if attempt < retries:
-                print(f"Retrying in {delay} seconds…")
+                logging.info(f"Retrying in {delay} seconds…")
                 time.sleep(delay)
     # if we reach here, all attempts failed
-    print("All connection attempts failed; raising exception.")
+    logging.info("All connection attempts failed; raising exception.")
     raise last_exc
 
 def _run_cmd_in_ssh(ssh, cmd, timeout=180):
@@ -124,8 +126,15 @@ def _run_cmd_in_ssh(ssh, cmd, timeout=180):
     Run a command in remote host
     """
 
+    if isinstance(cmd, str):
+        cmd_str = cmd
+    elif isinstance(cmd, list):
+        cmd_str = ';'.join(cmd)
+    else:
+        raise ValueError(f"command passed is neither list or str, cannot create command string. cmd: {cmd}, type: {type(cmd)}")
+
     # run command inside the container
-    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
+    stdin, stdout, stderr = ssh.exec_command(cmd_str, timeout=timeout)
 
     # to prevent buffer blockage
     cmd_output = stdout.read().decode()
@@ -134,7 +143,7 @@ def _run_cmd_in_ssh(ssh, cmd, timeout=180):
     # get the exit status
     exit_status = stdout.channel.recv_exit_status()
 
-    print(f"Output for command '{cmd}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
+    logging.info(f"Output for command '{cmd_str}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
     return cmd_output, cmd_error, exit_status
 
 def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
@@ -142,8 +151,15 @@ def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
     Run a command in container
     """
 
+    if isinstance(cmd, str):
+        cmd_str = cmd
+    elif isinstance(cmd, list):
+        cmd_str = ';'.join(cmd)
+    else:
+        raise ValueError(f"command passed is neither list or str, cannot create command string. cmd: {cmd}, type: {type(cmd)}")
+
     # run command inside the container
-    docker_exec_cmd = f'docker exec {container_name} sh -c "{cmd}"'
+    docker_exec_cmd = f'docker exec {container_name} sh -c "{cmd_str}"'
     return _run_cmd_in_ssh(ssh, docker_exec_cmd, timeout)
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
@@ -232,7 +248,7 @@ def repo_update(data):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("ls \n")
@@ -241,7 +257,7 @@ def repo_update(data):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
         if DEBUG:
-            print(resp.decode("utf-8", errors="replace"))
+            logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     if 'golden-code' in buff:
@@ -250,7 +266,7 @@ def repo_update(data):
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
             buff += resp.decode("utf-8", errors="replace")
-            print(resp.decode("utf-8", errors="replace"))
+            logging.info(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
         chan.send("docker container stop docker-sonic-mgmt\n")
@@ -258,7 +274,7 @@ def repo_update(data):
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
             buff += resp.decode("utf-8", errors="replace")
-            print(resp.decode("utf-8", errors="replace"))
+            logging.info(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
         chan.send("docker container rm docker-sonic-mgmt\n")
@@ -266,7 +282,7 @@ def repo_update(data):
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
             buff += resp.decode("utf-8", errors="replace")
-            print(resp.decode("utf-8", errors="replace"))
+            logging.info(resp.decode("utf-8", errors="replace"))
         time.sleep(3)
 
     chan.send("mkdir golden-code\n")
@@ -274,7 +290,7 @@ def repo_update(data):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("cd golden-code\n")
@@ -282,7 +298,7 @@ def repo_update(data):
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("wget {}\n".format(data['tar_ball']))
@@ -299,7 +315,7 @@ def repo_update(data):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
         if DEBUG:
-            print(resp.decode("utf-8", errors="replace"))
+            logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("cd sonic-test/sonic-mgmt\n")
@@ -307,7 +323,7 @@ def repo_update(data):
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("mkdir ansible/vars/docker-ptf\n")
@@ -315,7 +331,7 @@ def repo_update(data):
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send("docker run -v $PWD:/data --privileged --network host --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
@@ -323,7 +339,7 @@ def repo_update(data):
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
 
@@ -333,81 +349,33 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     connect_with_retries(ssh, data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
-
-    chan.send('cd /data/ansible \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
+    pre_processing_cmds = []
 
     if topo_type in ['dualtor-56', 'dualtor-56-4']:
-        chan.send('echo "    docker-ptf: 8080">>/data/ansible/group_vars/all/mux_simulator_http_port_map.yml \n')
-        time.sleep(3)
-        resp = chan.recv(9999)
-        print(resp.decode("utf-8", errors="replace"))
+        pre_processing_cmds.append("echo '    docker-ptf: 8080'>>/data/ansible/group_vars/all/mux_simulator_http_port_map.yml")
 
     if topo_type == 'dualtor-56-4':
-        chan.send('cp /data/ansible/vars/topo_dualtor-56-4.yml /data/ansible/vars/topo_dualtor-56.yml \n')
-        time.sleep(3)
-        resp = chan.recv(9999)
-        print(resp.decode("utf-8", errors="replace"))
+        pre_processing_cmds.append('cp /data/ansible/vars/topo_dualtor-56-4.yml /data/ansible/vars/topo_dualtor-56.yml')
+    
+
+    if len(pre_processing_cmds) != 0:
+        logging.info("Pre-precseeing Testbed")
+        _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, pre_processing_cmds)
+        logging.info("Pre-processing done")
 
     logging.info("Processing Testbed")
-    chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
+    testbed_processing_cmd = f"cd /data/ansible; python TestbedProcessing.py -i {base_topo_file}"
+    _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, testbed_processing_cmd)
     logging.info("Processing Testbed is finished")
 
     if topo_type in ['t2-min', 't2-vs']:
         overwrite_lab_file(data, lc_topo_code)
-        print("Overwrote lab file for T2 specific oddities")
+        logging.info("Overwrote lab file for T2 specific oddities")
 
     logging.info("Deploying MG")
-    chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
-    chan.settimeout(180)
-    buff = ''
-    err_buff = ''
-    rcv_timeout = 60
-    interval_length = 5
-
-    try:
-        while not chan.exit_status_ready():
-            if chan.recv_ready():
-                resp = chan.recv(9999)
-                buff += resp.decode("utf-8", errors="replace")
-            else:
-                rcv_timeout -= interval_length
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
-
-            if chan.recv_stderr_ready():
-                error_buff = chan.recv_stderr(9999)
-                while error_buff:
-                    err_buff += error_buff.decode("utf-8", errors="replace")
-                    error_buff = chan.recv_stderr(9999)
-                print(err_buff)
-    except Exception as e:
-        raise Exception("exception occurred while running deploy_mg: {}".format(e))
-    finally:
-        print(buff)
-
+    deploy_mg_cmd = "cd /data/ansible; ./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml"
+    _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, deploy_mg_cmd)
     logging.info("Deploying MG is finished")
     ssh.close()
 
@@ -420,7 +388,7 @@ def untar_cisco_dir(data):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
@@ -428,19 +396,19 @@ def untar_cisco_dir(data):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
     chan.send('cd /data/tests \n')
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
+    logging.info(resp.decode("utf-8", errors="replace"))
 
     chan.send('tar -xf cisco.tar\n')
     time.sleep(3)
     resp = chan.recv(9999)
     if DEBUG:
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -456,7 +424,7 @@ def vEOS_inital_cfg(data,vEOS_count):
         veos1_host = data['veos'+ str(i)]['HostAgent']
         veos1_port = data['veos'+str(i)]['serial0']
 
-        print('Adding admin password for VM0{}:'.format(str(base)))
+        logging.info('Adding admin password for VM0{}:'.format(str(base)))
         base += 1
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
@@ -514,7 +482,7 @@ def change_dut_passwd(device):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp)
+        logging.info(resp)
 
     # Ssh and wait for the password prompt.
     chan.send('sudo passwd {}\n'.format(user))
@@ -522,7 +490,7 @@ def change_dut_passwd(device):
     while not buff.endswith('password: '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     # Send the password and wait for a prompt.
     time.sleep(3)
@@ -532,7 +500,7 @@ def change_dut_passwd(device):
     while not buff.endswith('password: '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     # Send the password and wait for a prompt.
     time.sleep(3)
@@ -542,12 +510,12 @@ def change_dut_passwd(device):
     while buff.find(' successfully') < 0 :
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     if (' successfully') in buff:
-        print("Password change successful")
+        logging.info("Password change successful")
     else:
-        print("Password change failed")
+        logging.info("Password change failed")
 
     time.sleep(3)
     chan.send('sudo config interface ip add eth0 {}/24 192.168.122.1\n'.format(mgmt_ip))
@@ -556,7 +524,7 @@ def change_dut_passwd(device):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo config interface ip add eth0 FC00:2::32/64 fc00:2::1\n')
@@ -565,7 +533,7 @@ def change_dut_passwd(device):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo config save -y\n')
@@ -574,7 +542,7 @@ def change_dut_passwd(device):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
@@ -583,11 +551,11 @@ def change_dut_passwd(device):
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
+        logging.info(resp.decode("utf-8", errors="replace"))
 
     if user != 'cisco':
         time.sleep(3)
-        print("Cisco user not found, adding cisco user")
+        logging.info("Cisco user not found, adding cisco user")
         stdout, stderr, status_code = _run_cmd_in_ssh(ssh, "sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
         if status_code != 0:
             raise Exception(f"Failed to add cisco user: stdout: {stdout}, stderr: {stderr}")
@@ -604,7 +572,7 @@ def run_python_script(host,port,user,passwd,cmd_list):
         chan.send(cmd)
         time.sleep(3)
         resp = chan.recv(9999)
-        print("Response : %s" % resp.decode("utf-8", errors="replace"))
+        logging.info("Response : %s" % resp.decode("utf-8", errors="replace"))
 
     ssh.close()
 
@@ -618,9 +586,9 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         stdout.channel.recv_exit_status()
         out = stdout.read().decode("utf-8", errors="replace").strip()
         error = stderr.read().decode("utf-8", errors="replace")
-        print(out)
+        logging.info(out)
         if error:
-            print('There was an error pulling the runtime: {}'.format(error))
+            logging.info('There was an error pulling the runtime: {}'.format(error))
         ssh.close()
     return out
 
@@ -762,7 +730,7 @@ def replace_dut_mgmt_address(data):
             cfg_data = json.load(cfg_file)
             current_mgm_intf = cfg_data["MGMT_INTERFACE"]
             current_mac = cfg_data["DEVICE_METADATA"]["localhost"]["mac"]
-            print(cfg_data["MGMT_INTERFACE"])
+            logging.info(cfg_data["MGMT_INTERFACE"])
             cfg_file.close()
 
         with open('config_db.json') as cfg_file:
@@ -795,7 +763,7 @@ def reload_dut_with_newCFG(data):
 # these are temporary patches to handle the issues. Evetually, the sonic coode should be updated to treat eth4 as managment interfce.
 def add_sim_patches(data):
     for dut_name in get_dut_names(data):
-        print(f"****** Applying simulation patches for eth4 on {dut_name} ******")
+        logging.info(f"****** Applying simulation patches for eth4 on {dut_name} ******")
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         connect_with_retries(ssh, data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
@@ -849,7 +817,7 @@ def add_sim_patches(data):
         cmd_list.append('sudo cp /tmp/fast-reboot /usr/local/bin/fast-reboot\n')
         cmd_list.append('sudo cp /tmp/warm-reboot /usr/local/bin/warm-reboot\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], 'cisco123', cmd_list)
-        print(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
+        logging.info(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
 
 
 
@@ -866,7 +834,7 @@ def run_sim_workaround(data, filename):
         cmd_list = list()
         cmd_list.append(f'sudo bash /tmp/{filename} > /tmp/wa.log 2>&1\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
-        print(f"***** copied {filename} to {dut_name} ******")
+        logging.info(f"***** copied {filename} to {dut_name} ******")
 
 def run_config_reload(data):
     ssh = paramiko.SSHClient()
@@ -874,7 +842,7 @@ def run_config_reload(data):
         cmd_list = list()
         cmd_list.append(f'sudo config reload -fy\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
-        print(f"******  Executed config reload on {dut_name} ******")
+        logging.info(f"******  Executed config reload on {dut_name} ******")
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
@@ -887,96 +855,15 @@ def add_vEOS_cfg(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     connect_with_retries(ssh, data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        print(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
-
-    chan.send('cd /data/ansible \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
-
-    chan.send('env \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
-
-    chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("utf-8", errors="replace"))
-
-    chan.send('./testbed-cli.sh -t testbed.csv -k veos -m veos add-topo docker-ptf password.txt\n')
-    chan.settimeout(180)
-    buff = ''
-    err_buff = ''
-    rcv_timeout = 60
-    interval_length = 5
-
-    try:
-        while not chan.exit_status_ready():
-            if chan.recv_ready():
-                resp = chan.recv(9999)
-                print(resp.decode("utf-8", errors="replace"))
-                buff += resp.decode("utf-8", errors="replace")
-            else:
-                rcv_timeout -= interval_length
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
-
-            if chan.recv_stderr_ready():
-                error_buff = chan.recv_stderr(9999)
-                while error_buff:
-                    err_buff += error_buff.decode("utf-8", errors="replace")
-                    error_buff = chan.recv_stderr(9999)
-                print(err_buff)
-    except Exception as e:
-        raise Exception("exception while running add-topo: {}".format(e))
-    #finally:
-    #    print(buff)
-
-    chan.send('./testbed-cli.sh -t testbed.csv -k veos -m veos announce-routes docker-ptf password.txt\n')
-    chan.settimeout(180)
-    buff = ''
-    err_buff = ''
-    rcv_timeout = 60
-    interval_length = 5
-
-    try:
-        while not chan.exit_status_ready():
-            if chan.recv_ready():
-                resp = chan.recv(9999)
-                print(resp.decode("utf-8", errors="replace"))
-                buff += resp.decode("utf-8", errors="replace")
-            else:
-                rcv_timeout -= interval_length
-            if rcv_timeout < 0:
-                break
-            else:
-                time.sleep(interval_length)
-
-            if chan.recv_stderr_ready():
-                error_buff = chan.recv_stderr(9999)
-                while error_buff:
-                    err_buff += error_buff.decode("utf-8", errors="replace")
-                    error_buff = chan.recv_stderr(9999)
-                print(err_buff)
-    except Exception as e:
-        raise Exception("exception while running announce-routes: {}".format(e))
+    add_veos_cmd = [
+        'cd /data/ansible',
+        'env',
+        'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy',
+        './testbed-cli.sh -t testbed.csv -k veos -m veos add-topo docker-ptf password.txt',
+        './testbed-cli.sh -t testbed.csv -k veos -m veos announce-routes docker-ptf password.txt'
+    ]
+    _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, add_veos_cmd)
 
     ssh.close()
 
@@ -1021,7 +908,7 @@ def install_allure(data):
     ssh.close()
 
     end_time = time.time()
-    print(f'Allure installation took {end_time - start_time} seconds')
+    logging.info(f'Allure installation took {end_time - start_time} seconds')
 
     return 0
 
@@ -1177,7 +1064,7 @@ def generate_results_json(run_result, failure_reason):
 
     sum["log_tarball_link"] = log_url
 
-    print(f"Result summary: {sum}")
+    logging.info(f"Result summary: {sum}")
 
     json.dump(sum, sum_f)
     sum_f.close()
@@ -1258,7 +1145,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     if apply_wa and device_type in wa_file_map:
         #sleep sometime to let deploy-mg load_minigraph complete
         logging.info("********** run_sim_workaround ***********")
-        time.sleep(60)
+        time.sleep(180)
         run_sim_workaround(data, wa_file_map[device_type])
         run_config_reload(data)
         logging.info("********** run_sim_workaround is finished ***********")
@@ -1280,44 +1167,44 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 def print_env_info(data, device_type, vEOS_count):
     for dut_name in get_dut_names(data):
         device = data[dut_name]
-        print("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
+        logging.info("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
-    print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+    logging.info("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
+    logging.info("PTF (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
     if 'dualtor' in device_type:
-        print("MUX SIM (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+        logging.info("MUX SIM (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
-    print("VEOS (admin/123456): ")
+    logging.info("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
-        print("VEOS{}:  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
+        logging.info("VEOS{}:  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 
-    print("******************************************************************************************************************************************************************************\n")
+    logging.info("******************************************************************************************************************************************************************************\n")
     if device_type == 'sherman':
-        print("Device name is sherman. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+        logging.info("Device name is sherman. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     elif device_type == 'crocodile':
-        print("Device name is crocodile. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is crocodile. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'lightning':
-        print("Device name is lightning. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d lightning-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is lightning. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d lightning-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'superbolt':
-        print("Device name is superbolt. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d superbolt-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is superbolt. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d superbolt-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'siren':
-        print("Device name is siren. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d siren-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is siren. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d siren-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type in ['churchill-mono','carib']:
-        print("Device name is churchill-mono. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is churchill-mono. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'sfd':
-        print("Device name is sfd. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -O -u -l debug -e -s -e --skip_sanity -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("Device name is sfd. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -O -u -l debug -e -s -e --skip_sanity -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
-        print("Device name is mth32 or m64. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
-    print("******************************************************************************************************************************************************************************\n")
+        logging.info("Device name is mth32 or m64. To execute a pytest script:\n")
+        logging.info("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+    logging.info("******************************************************************************************************************************************************************************\n")
 
 def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     sim_cfg_filename = "sim_env.sh"
@@ -1349,14 +1236,14 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     file_contents +=  f"export DEVICE_TYPE={device_type}\n"
     file_contents +=  f"export DOCKER_MGMT_CONTAINER={docker_mgmt_container}\n"
 
-    print("Exporting sim credentials to file: {}".format(sim_cfg_filename))
-    print("Contents: \n{}".format(sim_cfg))
+    logging.info("Exporting sim credentials to file: {}".format(sim_cfg_filename))
+    logging.info("Contents: \n{}".format(sim_cfg))
 
     with open(sim_cfg_filename,'w') as cfg_file:
             cfg_file.write(file_contents)
 
 def check_dut_reachable(dut_name, data):
-    print(f"Checking ssh connectivity for DUT '{dut_name}'")
+    logging.info(f"Checking ssh connectivity for DUT '{dut_name}'")
     sonic_mgmt_ip = data['sonic_mgmt']['HostAgent']
     sonic_mgmt_username = 'vxr'
     sonic_mgmt_password = 'cisco123'
@@ -1379,7 +1266,7 @@ def check_dut_reachable(dut_name, data):
             timeout=30
         )
     except Exception as e:
-        print(f"Connetion to sonic-mgmt VM failed! e:{e}")
+        logging.info(f"Connetion to sonic-mgmt VM failed! e:{e}")
         sonic_mgmt_client.close()
         return -1
 
@@ -1389,14 +1276,14 @@ def check_dut_reachable(dut_name, data):
     for attempt in range(1, max_num_attempts+1):
         _, _, exit_status = _run_cmd_in_ssh(sonic_mgmt_client, dut_ping_cmd)
         if exit_status == 0:
-            print("DUT reachable via ssh")
+            logging.info("DUT reachable via ssh")
             sonic_mgmt_client.close()
             return 0
         else:
-            print(f"DUT ping failed for attempt {attempt}/{max_num_attempts}")
+            logging.info(f"DUT ping failed for attempt {attempt}/{max_num_attempts}")
             time.sleep(wait_time_seconds)
 
-    print(f"All {max_num_attempts} attempts failed; host is unreachable via SSH.")
+    logging.info(f"All {max_num_attempts} attempts failed; host is unreachable via SSH.")
     sonic_mgmt_client.close()
     return -1
 
@@ -1415,7 +1302,7 @@ def get_lc_topo_type(topo_yaml):
         lc_topo_code = ''
         for lc in lc_list:
             lc_topo_code = lc_topo_code + SFD_LC_TOPO_CODE[lc]
-        print(f'LC topo code: {lc_topo_code}')
+        logging.info(f'LC topo code: {lc_topo_code}')
         return lc_topo_code
 
 def main():
@@ -1443,11 +1330,11 @@ def main():
     add_sim_patches = args['add_sim_patches']
     bgp_hold_time_patch = args['bgp_hold_time_patch']
     test_tag = args['test_tag']
-    print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
+    logging.info("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
         TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
 
-    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT))
+    logging.info("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT))
 
     #get topo_yaml from topo_type
     if not topo_yaml and topo_type in TOPO_PLATFORM_FILE_DICT:
@@ -1464,7 +1351,7 @@ def main():
 
     base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type)
 
-    print("USING BASE TOPO {}".format(base_topo_file))
+    logging.info("USING BASE TOPO {}".format(base_topo_file))
 
     vxr_start_begin = datetime.datetime.now()
 
@@ -1500,7 +1387,7 @@ def main():
     for dut_name in get_dut_names(data):
         ret = check_dut_reachable(dut_name, data)
         if ret != 0:
-            print(f"ERROR: DUT {dut_name} cannot be reached! Exit.")
+            logging.info(f"ERROR: DUT {dut_name} cannot be reached! Exit.")
             return -1
 
     logging.info("Configuring sim for sonic-mgmt")
@@ -1538,15 +1425,15 @@ def main():
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
     profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
 
-    print("******************************************************************************************************************************************************************************\n")
-    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
-    print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
-    print("******************************************************************************************************************************************************************************\n")
+    logging.info("******************************************************************************************************************************************************************************\n")
+    logging.info("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+    logging.info("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
+    logging.info("******************************************************************************************************************************************************************************\n")
 
     print_env_info(data, device_type, vEOS_count)
 
     if cicd_clean:
-        print("****** Clearing SIM at the end of CICD run ******** ")
+        logging.info("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
 
     return ret
