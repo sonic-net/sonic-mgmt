@@ -71,7 +71,16 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
+            assert intf in parsed_eeprom, (
+                "Interface '{}' is not in output of 'sfputil show eeprom'. "
+                "Verify that the SFP module is properly seated. "
+                "Run 'sfputil show eeprom' on the DUT and check if interface '{}' appears. "
+                "Inspect DUT logs for related errors and confirm the interface '{}' is included "
+                "in the testbed configuration."
+            ).format(
+                intf, intf, intf
+            )
+
             assert parsed_eeprom[intf] == "SFP EEPROM detected", (
                 "EEPROM status check failed for interface '{}'. "
                 "Expected: 'SFP EEPROM detected', but got: '{}'. "
@@ -106,7 +115,10 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and sfp_lpmode['rc'] == 2:
         return
-    assert sfp_lpmode['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+    assert sfp_lpmode['rc'] == 0, (
+        "Run command '{}' failed with return code {}. "
+        "Check if the command is supported, platform drivers are functioning, and required services are running."
+    ).format(cmd_sfp_lpmode, sfp_lpmode['rc'])
 
     sfp_lpmode_data = sfp_lpmode["stdout_lines"]
 
@@ -123,4 +135,13 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert validate_transceiver_lpmode(
-                sfp_lpmode_info, intf), "Interface mode incorrect in 'show interface transceiver lpmode'"
+                sfp_lpmode_info, intf
+            ), (
+                "Interface mode incorrect in 'show interface transceiver lpmode' for '{}'. "
+                "The reported low-power mode does not match the expected value. "
+                "Verify the SFP module's capabilities, the command output, and DUT logs.\n"
+                "- Parsed lpmode info: {}\n"
+            ).format(
+                intf,
+                sfp_lpmode_info
+            )

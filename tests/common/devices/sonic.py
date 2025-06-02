@@ -2487,7 +2487,11 @@ Totals               6450                 6449
         Return:
             packets_count (int): count of packets hit the specific ACL rule.
         """
-        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        assert timeout >= 0 and interval > 0, (
+            "Invalid arguments for ACL counter polling: timeout={}, interval={}. "
+            "Timeout must be non-negative and interval must be positive."
+        ).format(timeout, interval)
+        # Validate arguments to avoid infinite loop
         while timeout >= 0:
             time.sleep(interval)  # Wait for orchagent to update the ACL counters
             timeout -= interval

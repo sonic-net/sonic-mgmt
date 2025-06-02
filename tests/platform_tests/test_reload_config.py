@@ -234,8 +234,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
             duthost.facts.get("hwsku")
         )
 
-    # To ensure the system is stable enough, wait for another 30s
-    time.sleep(30)
+        # To ensure the system is stable enough, wait for another 30s
+        time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
