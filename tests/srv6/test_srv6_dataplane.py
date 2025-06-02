@@ -51,7 +51,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptfhost.mgmt_ipv6,
+                ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
                 srh_nh=41,
@@ -59,8 +59,8 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
-                / IPv6() / UDP(dport=4791) / Raw(load=payload)
+                           / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:1:2::") \
+                           / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
         expected_pkt = injected_pkt.copy()
         expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
@@ -345,16 +345,18 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         injected_pkt = simple_ipv6_sr_packet(
             eth_dst=dut_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-            ipv6_src=ptfhost.mgmt_ipv6,
+            ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
             ipv6_dst="fcbb:bbbb:3:2::",
             srh_seg_left=1,
             srh_nh=41,
-            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") / UDP(
+                dport=4791) / Raw(load=payload)
         )
     else:
         injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-            / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:3:2::") \
-            / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6) / UDP(dport=4791) / Raw(load=payload)
+                       / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
+                       / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
+                       / UDP(dport=4791) / Raw(load=payload)
 
     expected_pkt = injected_pkt.copy()
     expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
