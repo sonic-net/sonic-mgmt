@@ -1588,7 +1588,7 @@ macsec:
   skip:
     reason: 'Skip macsec test for T2, if macsec is not enabled'
     conditions:
-      - "macsec_en==False and 't2' in topo_type"
+      - "macsec_en==False"
 
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
