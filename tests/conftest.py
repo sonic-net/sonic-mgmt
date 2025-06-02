@@ -1375,17 +1375,15 @@ def generate_params_frontend_hostname(request, macsec_only=False):
 
     if macsec_only:
         host_type = "macsec"
-        if 't2' in tbinfo['topo']['name']:
-            if request.config.getoption("--enable_macsec", default=False) is False:
-                # return empty hostname, as it should get skipped
-                logging.info("MACSec not enabled, return empty hostname to skip test")
-                return frontend_duts
+        if 't2' in tbinfo['topo']['name'] and request.config.getoption("--enable_macsec", default=False):
             # currently in the T2 topo only the uplink linecard will have macsec enabled
             # Please add "macsec_card = True" param to inventory the inventory file
             # under Line Card with macsec capability.
             for dut in duts:
                 if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
                     frontend_duts.append(dut)
+            if not frontend_duts:
+                logging.info("no macsec card found")
         else:
             frontend_duts.append(duts[0])
     else:
