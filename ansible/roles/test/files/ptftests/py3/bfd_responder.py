@@ -171,5 +171,4 @@ class BFD_Responder(BaseTest):
         ethpart.dst = mac_src
         ethpart.payload.src = ip_dst
         ethpart.payload.dst = ip_src
-
         return ethpart
