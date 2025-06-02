@@ -161,6 +161,57 @@ def get_all_bindable_ports(rand_selected_dut, tbinfo):
     return bind_ports
 
 
+def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
+    """
+    Add a custom ACL table type definition to CONFIG_DB.
+    """
+    acl_table_type_data = {
+        "ACL_TABLE_TYPE": {
+            acl_type_name: {
+                "BIND_POINTS": [
+                    "PORT",
+                    "PORTCHANNEL"
+                ],
+                "MATCHES": [
+                    "INNER_SRC_IP",
+                    "TUNNEL_VNI"
+                ],
+                "ACTIONS": [
+                    "COUNTER",
+                    "INNER_SRC_MAC_REWRITE_ACTION"
+                ]
+            }
+        }
+    }
+
+    acl_type_json = json.dumps(acl_table_type_data, indent=4)
+    acl_type_file = os.path.join(TMP_DIR, f"{acl_type_name.lower()}_acl_type.json")
+
+    logger.info("Writing ACL table type definition to %s:\n%s", acl_type_file, acl_type_json)
+    duthost.copy(content=acl_type_json, dest=acl_type_file)
+
+    logger.info("Loading ACL table type definition using config load")
+    duthost.shell(f"config load -y {acl_type_file}")
+
+    logger.info("Waiting for ACL table type to apply...")
+    time.sleep(3)
+
+    logger.info("Verifying ACL table type presence with 'show acl table-type'")
+    output = duthost.shell("show acl table-type")["stdout"]
+    logger.info("ACL table-type output:\n%s", output)
+
+    pytest_assert(acl_type_name in output, f"ACL table type {acl_type_name} not found in output")
+
+    logger.info("Verifying ACL table type in CONFIG_DB")
+    config_db_key = f"ACL_TABLE_TYPE|{acl_type_name}"
+    db_cmd = f"redis-cli -n 4 HGETALL \"{config_db_key}\""
+    config_db_output = duthost.shell(db_cmd)["stdout"]
+    logger.info("CONFIG_DB entry:\n%s", config_db_output)
+
+    for field in ["BIND_POINTS", "MATCHES", "ACTIONS"]:
+        pytest_assert(field in config_db_output, f"{field} missing in CONFIG_DB for ACL type {acl_type_name}")
+
+
 def setup_acl_table(duthost, ports):
     """
     Create an ACL table with the given ports and validate its creation
@@ -311,6 +362,7 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
     ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     # Setup table and initial rule
+    setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
     setup_acl_table(duthost, get_all_bindable_ports)
     setup_acl_rules(duthost, inner_src_prefix, vni_id, first_modified_mac)
 
@@ -438,6 +490,7 @@ def test_multiple_acl_rules_inner_src_mac_rewrite(duthost, ptfadapter, prepare_t
     ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     # Setup ACL table
+    setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
     setup_acl_table(duthost, get_all_bindable_ports)
 
     # Add multiple rules
