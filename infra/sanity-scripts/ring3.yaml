@@ -271,17 +271,23 @@ L2:
         - fdb/test_fdb.py
         - fdb/test_fdb_flush.py
         #- fdb/test_fdb_mac_expire.py
-        #- fdb/test_fdb_mac_move.py
         #- snmp/test_snmp_fdb.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
         - vlan/test_autostate_disabled.py
         - vlan/test_host_vlan.py
         #- vlan/test_vlan_ping.py
-        - vlan/test_vlan.py
         - generic_config_updater/test_portchannel_interface.py
         - generic_config_updater/test_vlan_interface.py
         - dhcp_relay/test_dhcp_relay.py
+      hw:
+        - fdb/test_fdb_mac_move.py
+        - vlan/test_vlan.py
+  t1:
+    mth64:
+      hw:
+        - lldp/test_lldp.py
+        - arp/test_arpall.py
   t2-min:
     sfd:
       sim:
