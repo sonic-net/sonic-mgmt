@@ -93,6 +93,20 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
 
+@pytest.fixture
+def fanouthostigmp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, conn_graph_facts, localhost):
+    """
+    Fixture for configuring Fanout for IGMP-related test cases specifically for Marvell Teralynx ASICs.
+
+    if fanout is marvell-teralynx, IGMP related packets can be forwarded to DUT without drop.
+    """
+    duthostigmp = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    fanoutigmp = None
+
+    if duthostigmp.facts["asic_type"] == "marvell-teralynx":
+        fanoutigmp = get_fanout_obj(conn_graph_facts, duthostigmp, fanouthosts)
+
+    yield fanoutigmp
 
 @pytest.fixture
 def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname, loganalyzer):
@@ -989,7 +1003,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports,
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"),
                                                    ("v1", "membership_report"), ("v2", "membership_report"),
                                                    ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_ports,
+def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, fanouthostigmp, tx_dut_ports,
                                 pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
@@ -1022,12 +1036,14 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
 
     # FIXME: Need some sort of configuration for EOS and SONiC fanout hosts to
     # not drop IGMP packets before they reach the DUT
-    if not fanouthost:
+    if not fanouthostigmp and not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
     from scapy.contrib.igmp import IGMP
     Ether = packet.Ether
     IP = packet.IP
+    if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower() and fanouthostigmp:
+        pytest.skip("Test case for vlan interface is not supported in marvell-teralynx")
 
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower() and msg_type == "membership_report":
         pytest.skip("Test case is not supported on VLAN interface")
