@@ -19,7 +19,7 @@ from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
+from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 
 
@@ -97,8 +97,12 @@ class LogicalInterfaceDisabler:
             logging.info("Disable DOM polling to avoid race condition during sfp reset"
                          " for {}".format(self.logical_intf))
             disable_dom_result = self.duthost.command(self.cmd_disable_dom)
-            assert disable_dom_result["rc"] == 0, \
-                "Disable DOM polling failed for {}".format(self.logical_intf)
+            assert disable_dom_result["rc"] == 0, (
+                "Disable DOM polling failed for {}. "
+                "This means the command to disable DOM polling did not execute successfully on the DUT. "
+                "Please check the command output, DUT logs, and platform status for troubleshooting."
+            ).format(self.logical_intf)
+
             time.sleep(self.wait_after_dom_config)
 
         if not self.is_admin_up:
@@ -109,8 +113,19 @@ class LogicalInterfaceDisabler:
         # restored.
         logging.info("Shutdown {} before sfp reset".format(self.logical_intf))
         shutdown_result = self.duthost.command(self.cmd_down)
-        assert shutdown_result["rc"] == 0, "Shutdown {} failed".format(self.logical_intf)
-        assert check_interface_status(self.duthost, [self.logical_intf], expect_up=False)
+        assert shutdown_result["rc"] == 0, (
+            "Shutdown {} failed. "
+            "- Command return code: {}\n"
+            "- Command output: {}\n"
+        ).format(
+            self.logical_intf,
+            shutdown_result.get("rc", "N/A"),
+            shutdown_result.get("stdout", "N/A")
+        )
+
+        assert check_interface_status(self.duthost, [self.logical_intf], expect_up=False), (
+            "Interface '{}' did not transition to the 'down' state after shutdown."
+        ).format(self.logical_intf)
 
     def restore(self):
         """
@@ -121,8 +136,14 @@ class LogicalInterfaceDisabler:
         if self.is_admin_up:
             logging.info("Startup {} after sfp reset to restore module".format(self.logical_intf))
             startup_result = self.duthost.command(self.cmd_up)
-            assert startup_result["rc"] == 0, "Startup {} failed".format(self.logical_intf)
-            assert check_interface_status(self.duthost, [self.logical_intf], expect_up=True)
+            assert startup_result["rc"] == 0, (
+                "Startup {} failed."
+            ).format(self.logical_intf)
+
+            assert check_interface_status(self.duthost, [self.logical_intf], expect_up=True), (
+                "Interface '{}' did not transition to the 'up' state after startup."
+            ).format(self.logical_intf)
+
         else:
             logging.info("Skip startup {} after sfp reset as it's admin down pre-test".format(self.logical_intf))
 
@@ -136,7 +157,9 @@ class LogicalInterfaceDisabler:
                                                                                     "HSET",
                                                                                     self.logical_intf,
                                                                                     self.orig_dom_polling_value))
-            assert restore_dom_result["rc"] == 0, "Restore DOM polling failed for {}".format(self.logical_intf)
+            assert restore_dom_result["rc"] == 0, (
+                "Restore DOM polling failed for {}."
+            ).format(self.logical_intf)
 
 
 class DisablePhysicalInterface:
@@ -207,7 +230,11 @@ def set_lpmode(duthost, logical_intf, lpmode):
     """
     cmd = "{} {} {}".format(cmd_sfp_set_lpmode, lpmode, logical_intf)
     lpmode_set_result = duthost.command(cmd)
-    assert lpmode_set_result["rc"] == 0, "'{}' failed".format(cmd)
+    assert lpmode_set_result["rc"] == 0, (
+        "'{}' failed. "
+        "This means the command to set SFP low power mode did not execute successfully on the DUT. "
+        "Please check the command output, DUT logs, and platform status for troubleshooting."
+    ).format(cmd)
     time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
 
 
@@ -331,13 +358,25 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
         return
-    assert sfp_presence['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+    assert sfp_presence['rc'] == 0, (
+        "Run command '{}' failed with return code {}. "
+        "This means the 'sfputil show presence' command did not execute successfully on the DUT. "
+        "Please check the command output, DUT logs, and platform status for troubleshooting."
+    ).format(cmd_sfp_presence, sfp_presence.get('rc', 'N/A'))
 
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+        if intf not in xcvr_skip_list.get(duthost.hostname, []):
+            assert intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "Parsed presence output: {}".format(intf, cmd_sfp_presence, parsed_presence)
+            )
+            assert parsed_presence[intf] == "Present", (
+                "Interface '{}' presence is not 'Present'. "
+                "This means the SFP module is not detected as present on this interface. "
+                "Please verify the SFP module is properly inserted and operational, check compatibility, "
+                "run 'sfputil show presence' manually, and review DUT logs for related errors."
+            ).format(intf)
 
 
 @pytest.mark.device_type('physical')
@@ -375,9 +414,17 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                 logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status "
                                "not supported on this port)".format(intf))
                 continue
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_error_status)
-            assert parsed_presence[intf] == expected_state, \
-                f"Interface {intf}'s error status is not {expected_state}, actual state is:{parsed_presence[intf]}."
+            assert intf in parsed_presence, (
+                "Interface '{}' is not in parsed_presence.".format(intf)
+            )
+            assert parsed_presence[intf] == expected_state, (
+                "Interface '{}' error status check failed. "
+                "Expected error status: '{}', but got: '{}'. "
+            ).format(
+                intf,
+                expected_state,
+                parsed_presence[intf]
+            )
 
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -396,13 +443,26 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and sfp_eeprom['rc'] == 2:
         return
-    assert sfp_eeprom['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+    assert sfp_eeprom['rc'] == 0, (
+        "Run command '{}' failed with return code {}. "
+        "This means the 'sfputil show eeprom' command did not execute successfully on the DUT. "
+        "Please check the command output, DUT logs, and platform status for troubleshooting."
+    ).format(cmd_sfp_presence, sfp_eeprom.get('rc', 'N/A'))
 
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
-            assert parsed_eeprom[intf] == "SFP EEPROM detected"
+            assert intf in parsed_eeprom, (
+                "Interface '{}' is not present in the parsed EEPROM output.".format(intf)
+            )
+
+            assert parsed_eeprom[intf] == "SFP EEPROM detected", (
+                "EEPROM status check failed for interface '{}'. "
+                "Expected: 'SFP EEPROM detected', but got: '{}'. "
+            ).format(
+                intf,
+                parsed_eeprom[intf]
+            )
 
 
 @pytest.mark.device_type('physical')
@@ -419,8 +479,23 @@ def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend
     parsed_eeprom_hexdump = parse_eeprom_hexdump(sfp_eeprom_hexdump["stdout"])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_eeprom_hexdump, f"Interface{intf} is not in output of 'sfputil show eeprom-hexdump'"
-            assert len(parsed_eeprom_hexdump[intf]) > 0, f"EEPROM hexdump not detected for {intf}"
+            assert intf in parsed_eeprom_hexdump, (
+                "Interface '{}' is not in output of 'sfputil show eeprom-hexdump'. "
+                "This means the EEPROM hexdump information for the interface is missing. "
+                (
+                    "Please verify the SFP module is properly inserted and operational, "
+                    "run 'sfputil show eeprom-hexdump' manually, "
+                    "and review DUT logs for related errors."
+                )
+            ).format(intf)
+
+            assert len(parsed_eeprom_hexdump[intf]) > 0, (
+               "EEPROM hexdump not detected for {}. "
+               "This means the EEPROM hexdump data for the interface is missing or empty. "
+               "Please verify the SFP module is properly inserted and operational, "
+               "run 'sfputil show eeprom-hexdump' manually, "
+               "and review DUT logs for related errors."
+            ).format(intf)
 
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -445,7 +520,12 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
             logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
             reset_result = duthost.command(cmd_sfp_reset_intf)
-            assert reset_result["rc"] == 0, "'{}' failed".format(cmd_sfp_reset_intf)
+            assert reset_result["rc"] == 0, (
+                "'{}' failed. "
+                "This means the command to reset the SFP module did not execute successfully on the DUT. "
+                "Please check the command output, DUT logs, and platform status for troubleshooting."
+            ).format(cmd_sfp_reset_intf)
+
             time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
 
             if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
@@ -465,21 +545,49 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
                 pass
             else:
-                assert sfp_presence['rc'] == 0, \
-                    "Run command '{}' failed".format(cmd_sfp_presence_per_intf)
+                assert sfp_presence['rc'] == 0, (
+                    "Run command '{}' failed with return code {}. "
+                    "This means the 'sfputil show presence' command did not execute successfully "
+                    "on the DUT for the specified interface. "
+                    "Please check the command output, DUT logs, and platform status for troubleshooting."
+                ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
 
             parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-            assert logical_intf in parsed_presence, \
-                "Interface is not in output of '{}'".format(cmd_sfp_presence_per_intf)
-            assert parsed_presence[logical_intf] == "Present", \
-                "Interface presence is not 'Present' for {}".format(logical_intf)
+            assert logical_intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "This means the SFP presence information for the interface is missing after reset. "
+                "- Parsed Presence Output: {}\n"
+            ).format(
+                logical_intf,
+                cmd_sfp_presence_per_intf,
+                parsed_presence
+            )
+            assert parsed_presence[logical_intf] == "Present", (
+                "Interface presence is not 'Present' for '{}'. Got: '{}'. "
+                "This means the SFP module is not detected as present after reset."
+            ).format(
+               logical_intf,
+               parsed_presence[logical_intf]
+            )
 
     # Check interface status for all interfaces in the end just in case
-    assert check_interface_status(duthost,
-                                  [logical_intf
-                                   for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
-                                   for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up],
-                                  expect_up=True)
+    assert check_interface_status(
+        duthost,
+        [logical_intf
+         for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
+         for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up],
+        expect_up=True
+    ), (
+        "Not all interfaces that are admin up transitioned to the 'up' state after SFP reset. "
+        "This means one or more interfaces expected to be operationally up are still down. "
+        "Please check the interface status using 'show interface status', review DUT logs, "
+        "and verify the startup operation for all affected interfaces.\n"
+        "Checked interfaces: {}"
+    ).format(
+        [logical_intf
+         for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
+         for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up]
+    )
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -507,14 +615,29 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     if duthost.facts["asic_type"] == "vs" and lpmode_show['rc'] == 2:
         pass
     else:
-        assert lpmode_show['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+        assert lpmode_show['rc'] == 0, (
+            "Run command '{}' failed with return code {}. "
+            "Please check the command output, DUT logs, and platform status for troubleshooting."
+        ).format(cmd_sfp_show_lpmode, lpmode_show.get('rc', 'N/A'))
 
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     original_lpmode = copy.deepcopy(parsed_lpmode)
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
+            assert intf in parsed_lpmode, (
+                "Interface '{}' is not in output of '{}'. "
+                (
+                    "Please verify the SFP module is properly inserted and operational, "
+                    "run 'sfputil show lpmode' manually, "
+                    "and review DUT logs for related errors."
+                )
+            ).format(intf, cmd_sfp_show_lpmode)
+
+            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", (
+                "Unexpected SFP lpmode for interface '{}'. "
+                "Got: '{}'. "
+                "Please verify the SFP module's capabilities, the command output, and DUT logs for more details."
+            ).format(intf, parsed_lpmode[intf])
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
@@ -576,7 +699,11 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             logging.info("restoring {} physical interface {}".format(intf, phy_intf))
             new_lpmode = original_lpmode[intf].lower()
             lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, new_lpmode, intf))
-            assert lpmode_set_result["rc"] == 0, "'{} {} {}' failed".format(cmd_sfp_set_lpmode, new_lpmode, intf)
+            assert lpmode_set_result["rc"] == 0, (
+                "'{} {} {}' failed. "
+                "Please check the command output, DUT logs, and platform status for troubleshooting."
+            ).format(cmd_sfp_set_lpmode, new_lpmode, intf)
+
     time.sleep(10)
 
     logging.info("Check SFP lower power mode again after changing SFP lpmode")
@@ -584,19 +711,44 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == original_lpmode[intf].lower(), \
-                "Unexpected SFP lpmode. actual:{}, expected:{}".format(
-                    parsed_lpmode[intf].lower(), original_lpmode[intf].lower())
+            assert intf in parsed_lpmode, (
+                "Interface '{}' is not in output of '{}'. "
+                "Please verify the SFP module is properly inserted and operational, "
+                "run 'sfputil show lpmode' manually, "
+                "and review DUT logs for related errors."
+            ).format(intf, cmd_sfp_show_lpmode)
+
+            assert parsed_lpmode[intf].lower() == original_lpmode[intf].lower(), (
+                "Unexpected SFP lpmode for interface '{}'. "
+                "Actual: '{}', Expected: '{}'. "
+                "Please verify the SFP module's capabilities, the command output, and DUT logs for more details."
+            ).format(
+                intf,
+                parsed_lpmode[intf].lower(),
+                original_lpmode[intf].lower()
+            )
 
     logging.info("Check sfp presence again after setting lpmode")
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
-
+            assert intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "This means the SFP presence information for the interface is missing. "
+                "- Parsed Presence Output: {}\n"
+            ).format(
+                intf,
+                cmd_sfp_presence,
+                parsed_presence
+            )
+            assert parsed_presence[intf] == "Present", (
+                "Interface presence is not 'Present' for '{}'. Got: '{}'. "
+                "This means the SFP module is not detected as present."
+            ).format(
+                intf,
+                parsed_presence[intf]
+            )
     logging.info("Check interface status")
     cmd = "show interfaces transceiver eeprom {} | grep 400ZR".format(asichost.cli_ns_option)
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
@@ -613,4 +765,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     all_intf_up = wait_until(100, 10, 0, check_interfaces_up, duthost, namespace, up_ports)
     if not all_intf_up:
         intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
-        assert all_intf_up, "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
+        assert all_intf_up, (
+            "Some interfaces are down: {}. "
+            "Please check the interface status using 'show interface status', review DUT logs, "
+            "verify SFP module health, and ensure all connections are correct."
+        ).format(intf_facts["ansible_interface_link_down_ports"])

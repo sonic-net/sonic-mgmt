@@ -378,7 +378,19 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
     r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+    assert r.status_code == 200, (
+        "HTTP request to ExaBGP API failed. "
+        "Expected status code 200, but got {}. "
+        "Check the ExaBGP logs, network connectivity, and the request details.\n"
+        "- URL: {}\n"
+        "- Data: {}\n"
+        "- Response: {}\n"
+    ).format(
+        r.status_code,
+        url,
+        data,
+        r.text
+    )
 
 
 def announce_route(ptfip, route_list, port, action=ANNOUNCE):
@@ -475,9 +487,14 @@ def check_pkt_forward_state(captured_packets, ip_ver_list, send_packet_list, exp
         else:
             logger.info("Packet is not captured:\n{}".format(str(send_packet_list[i].summary)))
 
-    assert act_forward_count == exp_forward_count, \
-        "Captured forward traffic number: {}, expect forward traffic number: {}".format(act_forward_count,
-                                                                                        exp_forward_count)
+    assert act_forward_count == exp_forward_count, (
+        "Mismatch in captured forward traffic packets. "
+        "Captured forward traffic number: {}, expected forward traffic number: {}. "
+        "Check route programming, traffic generator configuration, and packet capture logs.\n"
+    ).format(
+        act_forward_count,
+        exp_forward_count
+    )
 
 
 def update_time_stamp(time_stamp_dict, prefix, timestamp):
@@ -557,10 +574,36 @@ def validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list):
     logger.info("Middle time usage of withdraw {} route : {} s".format(route_num, withdraw_middle_time))
     logger.info("Average time usage of withdraw {} route : {} s".format(route_num, withdraw_average_time))
     logger.info("------------------------------------------------------------------------------------\n")
-    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD
+    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement middle time exceeded threshold. "
+        "Expected announce_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_middle_time
+    )
+    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement average time exceeded threshold. "
+        "Expected announce_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_average_time
+    )
+
+    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw middle time exceeded threshold. "
+       "Expected withdraw_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_middle_time
+    )
+
+    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw average time exceeded threshold: "
+       "Expected withdraw_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_average_time
+    )
 
 
 def prepare_traffic(traffic_data, router_mac, ptf_interfaces, recv_port):
@@ -631,7 +674,14 @@ def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
     duthost.shell(cmd)
     if validate_result:
         res = duthost.shell('show suppress-fib-pending')
-        assert enable is (res['stdout'] == 'Enabled')
+        assert enable is (res['stdout'] == 'Enabled'), (
+            "BGP suppress-fib-pending configuration state mismatch. "
+            "Expected suppress-fib-pending to be '{}' but got '{}'. "
+            "Check the command output, device logs, and configuration status.\n"
+        ).format(
+            "Enabled" if enable else "Disabled",
+            res['stdout']
+        )
 
 
 def do_and_wait_reboot(duthost, localhost, reboot_type):
@@ -641,10 +691,37 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
     with allure.step("Do {}".format(reboot_type)):
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True,
                wait_for_bgp=True, wait_warmboot_finalizer=True)
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!")
-        pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
-                      "Not all ports that are admin up on are operationally up")
+        pytest_assert(
+            wait_until(300, 20, 0, duthost.critical_services_fully_started),
+            (
+                "Not all critical services started within the allotted time after reboot or config reload. "
+                "Check service status using 'systemctl', review DUT logs for errors, and ensure platform "
+                "components are initialized.\n"
+                "Hostname: {}\n"
+                "Platform: {}\n"
+                "HWSKU: {}\n"
+            ).format(
+                duthost.hostname,
+                duthost.facts.get("platform"),
+                duthost.facts.get("hwsku")
+            )
+        )
+
+        pytest_assert(
+            wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            (
+                "Not all ports that are admin up are operationally up after reboot or config reload. "
+                "Check 'show interface status' and 'show interface description', review DUT logs, "
+                "verify physical connections and transceiver health.\n"
+                "Hostname: {}\n"
+                "Platform: {}\n"
+                "HWSKU: {}\n"
+            ).format(
+                duthost.hostname,
+                duthost.facts.get("platform"),
+                duthost.facts.get("hwsku")
+            )
+        )
 
 
 def param_reboot(request, duthost, localhost):
@@ -1007,7 +1084,12 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
                 config_bgp_suppress_fib(duthost, validate_result=True)
 
             with allure.step("Restore orchagent process"):
-                assert is_orchagent_stopped(duthost), "orchagent shall in stop state"
+                assert is_orchagent_stopped(duthost), (
+                    "Orchagent process is not in the expected 'stop' state on DUT '{}'. "
+                    "Check the process status with 'ps -ef | grep orchagent', review DUT logs, "
+                    "and ensure no supervisor is restarting the process."
+                ).format(duthost.hostname)
+
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(OFFLOADED)):
@@ -1067,7 +1149,12 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
                 config_bgp_suppress_fib(duthost, validate_result=True)
 
             with allure.step("Restore orchagent process"):
-                assert is_orchagent_stopped(duthost), "orchagent shall in stop state"
+                assert is_orchagent_stopped(duthost), (
+                    "Orchagent process is not in the expected 'stop' state on DUT '{}'. "
+                    "Check the process status with 'ps -ef | grep orchagent', review DUT logs, "
+                    "and ensure no supervisor is restarting the process."
+                ).format(duthost.hostname)
+
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are installed into fib"):
