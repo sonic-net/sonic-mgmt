@@ -36,8 +36,8 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     else:
         rule_checksum = "7b6e73f1bc5c058a1afd5d85eac48347b3fb9459"
 
-    cmd = f"{NSENTER_CMD} sh -c 'cat /etc/audit/rules.d/*.rules 2>/dev/null | sha1sum'"
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + cmd)["stdout"]
+    cmd = "sudo sh -c 'cat /etc/audit/rules.d/*.rules 2>/dev/null | sha1sum'"
+    output = duthost.command(cmd)["stdout"]
     pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
 
     cmd = "cat /etc/audit/auditd.conf | sha1sum"
