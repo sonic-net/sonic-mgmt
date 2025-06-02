@@ -16,6 +16,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
      run_traffic                                               # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -367,7 +368,7 @@ def __gen_data_flow(testbed_config,
     udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     flow.duration.fixed_seconds.delay.nanoseconds = 0
     if 'Background Flow 1 -> 0' in flow.name:
