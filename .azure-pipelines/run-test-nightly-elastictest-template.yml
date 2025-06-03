@@ -118,6 +118,16 @@ parameters:
 
 
 steps:
+  # Step to set a variable for PTF_IMAGE_TAG
+  - script: |
+      if [ -n "${{ parameters.PTF_IMAGE_TAG }}" ]; then
+        echo "##vso[task.setvariable variable=resolvedPTFImageTag]${{ parameters.PTF_IMAGE_TAG }}"
+      else
+        echo "##vso[task.setvariable variable=resolvedPTFImageTag]${{ parameters.MGMT_BRANCH }}"
+      fi
+    displayName: "Set PTF_IMAGE_TAG based on input or MGMT_BRANCH"
+
+  # Step to use the resolved PTF_IMAGE_TAG
   - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -127,7 +137,7 @@ steps:
       FEATURES_EXCLUDE: "${{ parameters.FEATURES_EXCLUDE }}, ptftests, acstests, saitests, scripts, k8s, sai_qualify"
       COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG != '' && parameters.PTF_IMAGE_TAG || parameters.MGMT_BRANCH }}
+      PTF_IMAGE_TAG: $(resolvedPTFImageTag)
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
       RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
