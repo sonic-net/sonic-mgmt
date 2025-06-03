@@ -8,8 +8,8 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
-                                                copy_arp_responder_py   # noqa F401
-from tests.common.dualtor.dual_tor_mock import *                        # noqa F401
+                                                copy_arp_responder_py   # noqa: F401
+from tests.common.dualtor.dual_tor_mock import *                        # noqa: F401, F403
 from tests.common.utilities import get_host_visible_vars
 
 

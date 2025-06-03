@@ -2,15 +2,15 @@ import pytest
 import logging
 import json
 import time
-from tests.common.dualtor.dual_tor_mock import *        # noqa F403
+from tests.common.dualtor.dual_tor_mock import *        # noqa: F403
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface, verify_upstream_traffic, \
-                                                get_crm_nexthop_counter             # noqa F401
+                                                get_crm_nexthop_counter             # noqa: F401
 from tests.common.utilities import compare_crm_facts
 from tests.common.config_reload import config_reload
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
-                                                run_icmp_responder                  # noqa F401
+                                                run_icmp_responder                  # noqa: F401
 
 logger = logging.getLogger(__file__)
 
@@ -33,14 +33,14 @@ def test_cleanup(rand_selected_dut):
 
 
 def test_standby_tor_upstream_mux_toggle(
-    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa F811
-    toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa F811
+        rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa: F811
+        toggle_all_simulator_ports, set_crm_polling_interval):                              # noqa: F811
     itfs, ip = rand_selected_interface
 
     asic_type = rand_selected_dut.facts['asic_type']
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
-    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa: F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     crm_facts0 = rand_selected_dut.get_crm_facts()
@@ -56,7 +56,7 @@ def test_standby_tor_upstream_mux_toggle(
     time.sleep(5)
     # Step 2. Toggle mux state to active, and verify traffic is not dropped by ACL and fwd-ed to uplinks;
     # verify CRM show and no nexthop objects are stale
-    set_mux_state(rand_selected_dut, tbinfo, 'active', [itfs], toggle_all_simulator_ports)      # noqa F405
+    set_mux_state(rand_selected_dut, tbinfo, 'active', [itfs], toggle_all_simulator_ports)      # noqa: F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up
@@ -70,7 +70,7 @@ def test_standby_tor_upstream_mux_toggle(
 
     # Step 3. Toggle mux state to standby, and verify traffic is dropped by ACL;
     # verify CRM show and no nexthop objects are stale
-    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa: F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up again
