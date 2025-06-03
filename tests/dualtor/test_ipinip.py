@@ -16,22 +16,21 @@ import six
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
-from tests.common.dualtor.dual_tor_mock import *        # noqa F403
+from tests.common.dualtor.dual_tor_mock import *        # noqa: F403
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa: F401
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import is_ipv4_address, wait_until
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -51,8 +50,9 @@ def mock_common_setup_teardown(
 
 
 @pytest.fixture(scope="function")
-def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # noqa F401
-                              rand_selected_dut, tunnel_traffic_monitor):   # noqa F811
+def build_encapsulated_packet(rand_selected_interface,   # noqa: F811
+                              ptfadapter,          # noqa: F401
+                              rand_selected_dut, tunnel_traffic_monitor):   # noqa: F811
     """Build the encapsulated packet sent from T1 to ToR."""
     tor = rand_selected_dut
     _, server_ips = rand_selected_interface
@@ -77,7 +77,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
     )[IP]
     packet = testutils.simple_ipv4ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
         ip_dscp=inner_dscp,
@@ -103,9 +103,10 @@ def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
 
 
 def test_decap_active_tor(
-    build_encapsulated_packet, request, ptfhost,
-    rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor, skip_traffic_test):  # noqa F811
+        build_encapsulated_packet, request, ptfhost,
+        rand_selected_interface,  # noqa: F811
+        ptfadapter,                    # noqa: F401
+        tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa: F811
 
     @contextlib.contextmanager
     def stop_garp(ptfhost):
@@ -114,7 +115,7 @@ def test_decap_active_tor(
         yield
         ptfhost.shell("supervisorctl start garp_service")
 
-    if is_t0_mocked_dualtor(tbinfo):        # noqa F405
+    if is_t0_mocked_dualtor(tbinfo):        # noqa: F405
         request.getfixturevalue('apply_active_state_to_orchagent')
         time.sleep(30)
     else:
@@ -129,9 +130,6 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    if skip_traffic_test is True:
-        logging.info("Skip following traffic test")
-        return
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -140,8 +138,8 @@ def test_decap_active_tor(
 
 def test_decap_standby_tor(
     build_encapsulated_packet, request,
-    rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor, skip_traffic_test       # noqa F401
+    rand_selected_interface, ptfadapter,                    # noqa: F401, F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa: F401, F811
 ):
 
     def verify_downstream_packet_to_server(ptfadapter, port, exp_pkt):
@@ -156,7 +154,7 @@ def test_decap_standby_tor(
                     return True
         return False
 
-    if is_t0_mocked_dualtor(tbinfo):        # noqa F405
+    if is_t0_mocked_dualtor(tbinfo):        # noqa: F405
         request.getfixturevalue('apply_standby_state_to_orchagent')
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_unselected_tor')
@@ -170,9 +168,6 @@ def test_decap_standby_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    if skip_traffic_test is True:
-        logging.info("Skip following traffic test")
-        return
     with tunnel_traffic_monitor(tor, existing=False):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
         time.sleep(2)
@@ -286,8 +281,8 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
 
 @pytest.fixture
 def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,
-                            config_active_active_dualtor_active_standby, tbinfo,              # noqa F811
-                            validate_active_active_dualtor_setup):                         # noqa F811
+                              config_active_active_dualtor_active_standby, tbinfo,              # noqa: F811
+                              validate_active_active_dualtor_setup):                         # noqa: F811
     # As the test case test_encap_with_mirror_session is to verify the bounced back traffic, we need
     # to make dualtor active-active work in active-standby mode.
     if active_active_ports:
@@ -299,11 +294,11 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 
 
 @pytest.mark.disable_loganalyzer
-def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
+def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa: F811
                                    ptfadapter, tbinfo, setup_mirror_session,
-                                   toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   tunnel_traffic_monitor, skip_traffic_test,               # noqa F811
-                                   setup_standby_ports_on_rand_selected_tor):               # noqa F811
+                                   toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa: F811
+                                   tunnel_traffic_monitor,                                  # noqa: F811
+                                   setup_standby_ports_on_rand_selected_tor):               # noqa: F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session
@@ -321,8 +316,5 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,  
     logging.info("Sending packet from ptf t1 interface {}".format(src_port_id))
     inner_packet = pkt_to_server[scapy.all.IP].copy()
     inner_packet[IP].ttl -= 1
-    if skip_traffic_test is True:
-        logging.info("Skip following traffic test")
-        return
     with tunnel_traffic_monitor(rand_selected_dut, inner_packet=inner_packet, check_items=()):
         testutils.send(ptfadapter, src_port_id, pkt_to_server)

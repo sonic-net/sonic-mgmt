@@ -217,7 +217,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
         for key, value in list(minigraph_neighbors.items()):
-            if 'T1' in value['name']:
+            if 'T1' in value['name'] or 'LT2' in value['name']:
                 dutA = a_dut
                 break
         if dutA:
@@ -576,12 +576,16 @@ class TestTableValidation(object):
                         if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
 
         # get attached neighbors
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = dict(cfg_facts['BGP_NEIGHBOR'])
 
         # Remove the neighbor if BGP neighbor is of type RegionalHub
+        keys_to_remove = []
         for k, v in neighs.items():
             if v['name'] in dev_rh_neigh:
-                neighs.pop(k)
+                keys_to_remove.append(k)
+
+        for k in keys_to_remove:
+            neighs.pop(k)
 
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']

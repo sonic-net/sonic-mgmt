@@ -3,10 +3,13 @@ import logging
 import pytest
 import re
 import time
+import random
 from enum import Enum, unique
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
 from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
 
 pytestmark = [
@@ -42,6 +45,7 @@ MODULE_INDEX_MULTIPLE = 1000000
 MODULE_TYPE_MGMT = 2 * MODULE_TYPE_MULTIPLE
 MODULE_TYPE_FAN_DRAWER = 5 * MODULE_TYPE_MULTIPLE
 MODULE_TYPE_PSU = 6 * MODULE_TYPE_MULTIPLE
+MODULE_TYPE_FABRIC_CARD = 7 * MODULE_TYPE_MULTIPLE
 MODULE_TYPE_PORT = 1000000000
 
 # Device Type Definition
@@ -209,7 +213,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
@@ -222,6 +226,50 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     mib_info["sensor_mib"] = sensor_mib
 
     return mib_info
+
+
+def test_fabric_card_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
+    """
+    Verify fabric module information in physical entity mib with redis database
+    :param duthost: DUT host object
+    :param snmp_physical_entity_info: Physical entity information from snmp fact
+    :return:
+    """
+    snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not duthost.is_supervisor_node():
+        pytest.skip("Not supported on non supervisor node")
+    keys = redis_get_keys(
+        duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format('FABRIC-CARD*'))
+    # Ignore the test if the platform does not support fan drawer
+    if not keys:
+        pytest.skip(
+            'Fabric Card information does not exist in DB, skipping this test')
+    for key in keys:
+        fc_info = redis_hgetall(duthost, STATE_DB, key)
+        name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
+        entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
+        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        position = int(entity_info['position_in_parent'])
+        expect_oid = MODULE_TYPE_FABRIC_CARD + position * MODULE_INDEX_MULTIPLE
+        assert expect_oid in snmp_physical_entity_info, 'Cannot find fan drawer {} in physical entity mib'.format(
+            name)
+
+        fc_snmp_fact = snmp_physical_entity_info[expect_oid]
+        assert fc_snmp_fact['entPhysDescr'] == name
+        assert fc_snmp_fact['entPhysContainedIn'] == CHASSIS_SUB_ID
+        assert fc_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_MODULE
+        assert fc_snmp_fact['entPhyParentRelPos'] == position
+        assert fc_snmp_fact['entPhysName'] == name
+        assert fc_snmp_fact['entPhysHwVer'] == ''
+        assert fc_snmp_fact['entPhysFwVer'] == ''
+        assert fc_snmp_fact['entPhysSwVer'] == ''
+        assert fc_snmp_fact['entPhysSerialNum'] == '' if is_null_str(fc_info['serial']) else fc_info['serial']
+        assert fc_snmp_fact['entPhysMfgName'] == ''
+        assert fc_snmp_fact['entPhysModelName'] == '' if is_null_str(
+            fc_info['model']) else fc_info['model']
+        assert fc_snmp_fact['entPhysIsFRU'] == REPLACEABLE if fc_info[
+            'is_replaceable'] == 'True' else NOT_REPLACEABLE
 
 
 def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
@@ -296,7 +344,10 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             parent_entity_info = redis_hgetall(
                 duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
-            parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
+            if 'FABRIC-CARD' in parent_name:
+                parent_oid = MODULE_TYPE_FABRIC_CARD + parent_position * MODULE_INDEX_MULTIPLE
+            else:
+                parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
         expect_oid = parent_oid + DEVICE_TYPE_FAN + position * DEVICE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, 'Cannot find fan {} in physical entity mib'.format(
             name)
@@ -634,31 +685,36 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
     pdu_controller = get_pdu_controller(duthost)
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
+
     outlet_status = pdu_controller.get_outlet_status()
     if len(outlet_status) < 2:
         pytest.skip(
             'At least 2 PSUs required for rest of the testing in this case')
 
-    # turn on all PSU
-    for outlet in outlet_status:
-        if not outlet['outlet_on']:
-            pdu_controller.turn_on_outlet(outlet)
-    time.sleep(5)
+    # Turn on all PDUs
+    logging.info("Turning all outlets on before test")
+    turn_on_all_outlets(pdu_controller)
 
-    outlet_status = pdu_controller.get_outlet_status()
-    for outlet in outlet_status:
-        if not outlet['outlet_on']:
-            pytest.skip(
-                'Not all outlet are powered on, skip rest of the testing in this case')
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_controller)
+    try:
+        logging.info("Turning off PDUs connected to a random PSU")
+        # Get a random PSU's related PDUs to turn off
+        off_psu = random.choice(list(psu_to_pdus.keys()))
+        outlets = psu_to_pdus[off_psu]
+        logging.info("Toggling {} PDUs connected to {}".format(len(outlets), off_psu))
+        for outlet in outlets:
+            pdu_controller.turn_off_outlet(outlet)
+            pytest_assert(wait_until(30, 5, 0, check_outlet_status,
+                          pdu_controller, outlet, False),
+                          "Outlet {} did not turn off".format(outlet['pdu_name']))
 
-    # turn off the first PSU
-    first_outlet = outlet_status[0]
-    pdu_controller.turn_off_outlet(first_outlet)
-    assert wait_until(30, 5, 0, check_outlet_status,
-                      pdu_controller, first_outlet, False)
-    # wait for psud update the database
-    assert wait_until(180, 20, 5, _check_psu_status_after_power_off,
-                      duthost, localhost, creds_all_duts)
+        logging.info("Checking that turning off these outlets affects PSUs")
+        # wait for psud update the database
+        pytest_assert(wait_until(900, 20, 5, _check_psu_status_after_power_off,
+                      duthost, localhost, creds_all_duts),
+                      "No PSUs turned off")
+    finally:
+        turn_on_all_outlets(pdu_controller)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
@@ -819,7 +875,7 @@ def redis_hgetall(duthost, db_id, key):
         if not output:
             return {}
         # fix to make literal_eval() work with nested dictionaries
-        content = output.replace("'{", '"{').replace("}'", '}"')
+        content = output.replace('\x00', '').replace("'{", '"{').replace("}'", '}"')
         return ast.literal_eval(content)
 
     if duthost.is_multi_asic:
@@ -844,15 +900,3 @@ def is_null_str(value):
     :return: True if a string is None or 'None' or 'N/A'
     """
     return not value or value == str(None) or value == 'N/A'
-
-
-def check_outlet_status(pdu_controller, outlet, expect_status):
-    """
-    Check if a given PSU is at expect status
-    :param pdu_controller: PDU controller
-    :param outlet: PDU outlet
-    :param expect_status: Expect bool status, True means on, False means off
-    :return: True if a given PSU is at expect status
-    """
-    status = pdu_controller.get_outlet_status(outlet)
-    return 'outlet_on' in status[0] and status[0]['outlet_on'] == expect_status

@@ -20,10 +20,8 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
         duthost.file(path=save_dest_path, state="absent")
 
 
-def run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def run_bgp_facts(duthost, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
-
-    duthost = duthosts[enum_frontend_dut_hostname]
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
@@ -61,7 +59,7 @@ class BGPNeighbor(object):
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, neigh_type=None,
-                 namespace=None, is_multihop=False, is_passive=False):
+                 namespace=None, is_multihop=False, is_passive=False, debug=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -75,6 +73,7 @@ class BGPNeighbor(object):
         self.namespace = namespace
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
+        self.debug = debug
 
     def start_session(self):
         """Start the BGP session."""
@@ -113,7 +112,8 @@ class BGPNeighbor(object):
             peer_ip=self.peer_ip,
             local_asn=self.asn,
             peer_asn=self.peer_asn,
-            port=self.port
+            port=self.port,
+            debug=self.debug
         )
         if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
             raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
@@ -143,7 +143,7 @@ class BGPNeighbor(object):
         msg = msg.format(self.peer_ip)
         logging.debug("teardown session: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("teardown session return: %s" % resp)
         assert resp.status_code == 200
 
@@ -162,7 +162,7 @@ class BGPNeighbor(object):
         msg = msg.format(**route)
         logging.debug("announce route: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200
 
@@ -174,6 +174,50 @@ class BGPNeighbor(object):
         msg = msg.format(**route)
         logging.debug("withdraw route: %s", msg)
         url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
+        resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("withdraw return: %s", resp)
+        assert resp.status_code == 200
+
+    def announce_routes_batch(self, routes):
+        commands = []
+        for route in routes:
+            cmd = "announce route {prefix} next-hop {nexthop}".format(
+                prefix=route["prefix"],
+                nexthop=route["nexthop"]
+            )
+            if "aspath" in route:
+                cmd += " as-path [ {aspath} ]".format(
+                    aspath=route["aspath"]
+                )
+
+            logging.debug(f"Queueing cmd '{cmd}' for batch announcement")
+            commands.append(cmd)
+
+        full_cmd = ";".join(commands)
+
+        url = "http://%s:%d" % (self.ptfip, self.port)
+        resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
+        logging.debug("announce return: %s", resp)
+        assert resp.status_code == 200
+
+    def withdraw_routes_batch(self, routes):
+        commands = []
+        for route in routes:
+            cmd = "withdraw route {prefix} next-hop {nexthop}".format(
+                prefix=route["prefix"],
+                nexthop=route["nexthop"]
+            )
+            if "aspath" in route:
+                cmd += " as-path [ {aspath} ]".format(
+                    aspath=route["aspath"]
+                )
+
+            logging.debug(f"Queueing cmd '{cmd}' for batch withdraw")
+            commands.append(cmd)
+
+        full_cmd = ";".join(commands)
+
+        url = "http://%s:%d" % (self.ptfip, self.port)
+        resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
+        logging.debug("announce return: %s", resp)
         assert resp.status_code == 200

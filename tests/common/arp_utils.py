@@ -179,7 +179,7 @@ def tear_down(duthost, route, ptfIp, gwIp):
     teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
 
 
-def testWrArp(request, duthost, ptfhost, creds, skip_traffic_test):
+def testWrArp(request, duthost, ptfhost, creds):
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -187,8 +187,7 @@ def testWrArp(request, duthost, ptfhost, creds, skip_traffic_test):
     logger.info('Warm-Reboot Control-Plane assist feature')
     sonicadmin_alt_password = duthost.host.options['variable_manager']. \
         _hostvars[duthost.hostname]['sonic_default_passwords']
-    if skip_traffic_test is True:
-        return
+
     ptf_runner(
         ptfhost,
         'ptftests',

@@ -6,8 +6,8 @@ from jinja2 import Template
 import ptf.packet as scapy
 from ptf.mask import Mask
 import json
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa:F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa:F401
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -107,6 +107,17 @@ def build_syn_pkt(local_addr, peer_addr):
 
     exp_packet.set_ignore_extra_bytes()
     return exp_packet
+
+
+def test_resolve_via_default_exist(duthost):
+    """
+    Test to verify if 'ip nht resolve-via-default' and 'ipv6 nht resolve-via-default' are present in global FRR config.
+    """
+    frr_global_config = duthost.shell("vtysh -c 'show running-config'")['stdout']
+    pytest_assert("ip nht resolve-via-default" in frr_global_config,
+                  "ip nht resolve-via-default not present in global FRR config")
+    pytest_assert("ipv6 nht resolve-via-default" in frr_global_config,
+                  "ipv6 nht resolve-via-default not present in global FRR config")
 
 
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,

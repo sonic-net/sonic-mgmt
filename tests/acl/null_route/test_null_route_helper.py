@@ -9,15 +9,18 @@ import json
 from ptf.mask import Mask
 import ptf.packet as scapy
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, skip_traffic_test  # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F401
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.utilities import get_neighbor_port_list
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx"),
+    pytest.mark.topology("t0", "m0", "mx", "m1", "m2", "m3"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
@@ -113,22 +116,16 @@ def remove_acl_table(duthost):
     duthost.shell_cmds(cmds=cmds)
 
 
-def get_neighbor_ports(mg_facts, neighbor_name):
-    neighbor_ports = []
-    for key, value in list(mg_facts["minigraph_neighbors"].items()):
-        if neighbor_name in value["name"]:
-            neighbor_ports.append(key)
-    return neighbor_ports
-
-
 @pytest.fixture(scope="module")
 def create_acl_table(rand_selected_dut, tbinfo):
     """
     Create two ACL tables on DUT for testing.
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    if tbinfo["topo"]["type"] == "mx":
-        neighbor_ports = get_neighbor_ports(mg_facts, "M0")
+    topo = tbinfo["topo"]["type"]
+    if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        neighbor_ports = get_neighbor_port_list(rand_selected_dut, upstream_neigh_type)
         ports = ",".join(neighbor_ports)
     else:
         # Get the list of LAGs
@@ -182,17 +179,25 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     vlan_name = ""
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlans = {}
-    for vlan_info in mg_facts["minigraph_vlan_interfaces"]:
-        ip_ver = ipaddress.ip_network(vlan_info['addr'], False).version
-        if vlan_info["attachto"] not in vlans:
-            vlans[vlan_info["attachto"]] = {}
-        vlans[vlan_info["attachto"]][ip_ver] = vlan_info
-
+    config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+    for vlan_name, vlan_info in config_facts['VLAN_INTERFACE'].items():
+        for vlan_ip_address in vlan_info.keys():
+            try:
+                if vlan_info[vlan_ip_address].get("secondary"):
+                    continue
+                ip_address = vlan_ip_address.split("/")[0]
+                ip_ver = ipaddress.ip_network(ip_address, False).version
+                if vlan_name not in vlans:
+                    vlans[vlan_name] = {}
+                ip_with_prefix = str(ipaddress.ip_address(ip_address) + 1) + '/' + vlan_ip_address.split("/")[1]
+                vlans[vlan_name][ip_ver] = ip_with_prefix
+            except Exception:
+                continue
     for key, value in vlans.items():
         if len(value.keys()) == 2:
             vlan_name = key
             for ip_ver, value in value.items():
-                dst_ports[ip_ver] = str(ipaddress.ip_address(value['addr']) + 1) + '/' + str(value['prefixlen'])
+                dst_ports[ip_ver] = value
             break
 
     pytest_require(vlan_name != "", "Cannot get correct vlan")
@@ -229,12 +234,10 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     return pkt, exp_pkt
 
 
-def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action, skip_traffic_test):     # noqa F811
+def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):     # noqa: F811
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
-    if skip_traffic_test:
-        return
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
@@ -244,7 +247,7 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
-                           apply_pre_defined_rules, setup_ptf, skip_traffic_test):  # noqa F811
+                           apply_pre_defined_rules, setup_ptf):  # noqa: F811
     """
     Test case to verify script null_route_helper.
     Some packets are generated as defined in TEST_DATA and sent to DUT,
@@ -254,9 +257,10 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
     rx_port = ptf_port_info['port']
     router_mac = rand_selected_dut.facts["router_mac"]
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    if tbinfo["topo"]["type"] == "mx":
-        neighbor_ports = get_neighbor_ports(mg_facts, "M0")
-        ptf_interfaces = [mg_facts['minigraph_ptf_indices'][port] for port in neighbor_ports]
+    topo = tbinfo["topo"]["type"]
+    if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        ptf_interfaces = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
     else:
         portchannel_members = []
         for _, v in list(mg_facts["minigraph_portchannels"].items()):
@@ -280,4 +284,4 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
             time.sleep(1)
 
         send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces),
-                               rx_port, expected_result, skip_traffic_test)
+                               rx_port, expected_result)

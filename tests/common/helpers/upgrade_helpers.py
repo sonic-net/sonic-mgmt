@@ -1,6 +1,5 @@
 import pytest
 import logging
-import time
 import ipaddress
 import json
 import re
@@ -99,18 +98,17 @@ def install_sonic(duthost, image_url, tbinfo):
     return res['ansible_facts']['downloaded_image_version']
 
 
-def check_services(duthost):
+def check_services(duthost, tbinfo):
     """
     Perform a health check of services
     """
-    logging.info("Wait until DUT uptime reaches {}s".format(300))
-    while duthost.get_uptime().total_seconds() < 300:
-        time.sleep(1)
+    dut_min_uptime = 900 if 't2' in tbinfo['topo']['name'] else 300
     logging.info("Wait until all critical services are fully started")
-    logging.info("Check critical service status")
-    pytest_assert(duthost.critical_services_fully_started(), "dut.critical_services_fully_started is False")
+    pytest_assert(wait_until(dut_min_uptime, 30, 30, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
 
-    for service in duthost.critical_services:
+    critical_services = [re.sub(r'(\d+)$', r'@\1', service) for service in duthost.critical_services]
+    for service in critical_services:
         status = duthost.get_service_props(service)
         pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active"
                       .format(service, status["ActiveState"]))
@@ -126,14 +124,21 @@ def check_reboot_cause(duthost, expected_cause):
 
 def check_copp_config(duthost):
     logging.info("Comparing CoPP configuration from copp_cfg.json to COPP_TABLE")
-    copp_tables = json.loads(duthost.shell("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
-    copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
-    feature_status = duthost.shell("show feature status")["stdout"]
-    copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
-    copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
-    pytest_assert(copp_tables_formatted == copp_cfg_formatted,
-                  "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables:"
-                  " {}".format(copp_tables_formatted, copp_cfg_formatted))
+
+    if duthost.is_supervisor_node() and duthost.facts['switch_type'] == "fabric":
+        logging.info("Skipping CoPP config check for fabric (VoQ) supervisor card as it "
+                     "doesn't program CoPP tables into APPL_DB")
+        return
+
+    for asichost in duthost.asics:
+        copp_tables = json.loads(asichost.command("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
+        copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
+        feature_status = duthost.shell("show feature status")["stdout"]
+        copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
+        copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
+        pytest_assert(copp_tables_formatted == copp_cfg_formatted,
+                      "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables: {}"
+                      .format(copp_tables_formatted, copp_cfg_formatted))
 
 
 def get_copp_table_formatted_dict(copp_tables):
@@ -176,7 +181,8 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                         tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
                         sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
-                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None,
+                        consistency_checker_provider=None):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -194,11 +200,12 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
     else:
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,
                                              advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             consistency_checker_provider=consistency_checker_provider,
                                              allow_fail=allow_fail)
 
     for i in range(reboot_count):
         if upgrade_type == REBOOT_TYPE_COLD:
-            reboot(duthost, localhost)
+            reboot(duthost, localhost, safe_reboot=True)
             if postboot_setup:
                 postboot_setup()
         else:
@@ -213,7 +220,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
             pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                           "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                                   upgrade_type))
-            check_services(duthost)
+            check_services(duthost, tbinfo)
             check_neighbors(duthost, tbinfo)
             check_copp_config(duthost)
 
@@ -221,46 +228,26 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
         ptfhost.shell('supervisorctl stop ferret')
 
 
-def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_provider):
-    if not pytest_config.getoption("enable_consistency_checker"):
-        logger.info("Consistency checker is not enabled. Skipping check.")
-        return
+def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_advanced_reboot, upgrade_type,
+                                       upgrade_path_urls, base_image_setup=None, pre_hop_setup=None,
+                                       post_hop_teardown=None, consistency_checker_provider=None,
+                                       multihop_advanceboot_loganalyzer_factory=None, sad_preboot_list=None,
+                                       sad_inboot_list=None, enable_cpa=False):
 
-    os_version = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
-    if not consistency_checker_provider.is_consistency_check_supported(duthost):
-        logger.info((f"Consistency check is not supported on this platform ({duthost.facts['platform']}) and "
-                     f"version ({os_version})"))
-        return
+    reboot_type = get_reboot_command(duthost, upgrade_type)
+    if enable_cpa and "warm-reboot" in reboot_type:
+        # always do warm-reboot with CPA enabled
+        setup_ferret(duthost, ptfhost, tbinfo)
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        reboot_type = reboot_type + " -c {}".format(ptf_ip)
 
-    consistency_checker_libsairedis_url_template = pytest_config.getoption(
-        "consistency_checker_libsairedis_url_template")
-    consistency_checker_python3_pysairedis_url_template = pytest_config.getoption(
-        "consistency_checker_python3_pysairedis_url_template")
+    advancedReboot = get_advanced_reboot(rebootType=reboot_type,
+                                         consistency_checker_provider=consistency_checker_provider)
+    advancedReboot.runMultiHopRebootTestcase(
+        upgrade_path_urls, base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
+        post_hop_teardown=post_hop_teardown,
+        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory,
+        prebootList=sad_preboot_list, inbootList=sad_inboot_list)
 
-    if consistency_checker_libsairedis_url_template or consistency_checker_python3_pysairedis_url_template:
-        if "202305" in os_version:
-            sonic_version_template_param = "202305"
-        elif "202311" in os_version:
-            sonic_version_template_param = "202311"
-        else:
-            raise Exception(f"Unsupported OS version: {os_version}")
-
-    libsairedis_download_url = consistency_checker_libsairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_libsairedis_url_template else None
-
-    python3_pysairedis_download_url = consistency_checker_python3_pysairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_python3_pysairedis_url_template else None
-
-    with consistency_checker_provider.get_consistency_checker(duthost, libsairedis_download_url,
-                                                              python3_pysairedis_download_url) as consistency_checker:
-        keys = [
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_PORT:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_WRED:*",
-        ]
-        inconsistencies = consistency_checker.check_consistency(keys)
-        logger.warning(f"Found ASIC_DB and ASIC inconsistencies: {inconsistencies}")
+    if enable_cpa and "warm-reboot" in reboot_type:
+        ptfhost.shell('supervisorctl stop ferret')

@@ -1,7 +1,7 @@
 from functools import wraps
 
 
-def ignore_loganalyzer(func):
+def support_ignore_loganalyzer(func):
     @wraps(func)
     def decorated(*args, **kwargs):
         """
@@ -12,10 +12,10 @@ def ignore_loganalyzer(func):
             and set ignore_loganalyzer markers before and after the decorated function on all log analyzer instances.
         """
 
-        loganalyzer = None
-        if 'ignore_loganalyzer' in kwargs and kwargs['ignore_loganalyzer'] is not None:
-            loganalyzer = kwargs['ignore_loganalyzer']
-            kwargs.pop('ignore_loganalyzer')
+        # Need to remove parameter 'ignore_loganalyzer' from kwargs
+        # Otherwise it breaks the decorated func
+        # Since the parameter 'ignore_loganalyzer' is not defined in the signature
+        loganalyzer = kwargs.pop('ignore_loganalyzer', {})
 
         if loganalyzer:
             for _, dut_loganalyzer in list(loganalyzer.items()):

@@ -95,7 +95,7 @@ def main():
                       help="Total amount of time to send pkts. -n option is ignored if this is set",
                       metavar="sendtime", default=0)
     parser.add_option("-n", "--num", type="int", dest="num",
-                      help="Number of packets to be sent", metavar="number", default=1)
+                      help="Number of packets to be sent", metavar="number", default=0)
     parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server",
                       default="127.0.0.1", help="Rsyslog server IPv4 address", metavar="IPAddress")
     parser.add_option('-g', "--global", action="store_true", dest="global_pf",
@@ -219,9 +219,8 @@ def main():
                 packet = packet + b"\x00\x00"
 
     # construct mmsg header to send in bulk for minimal latency
-
-    total_packets = max(1000, options.num)
-    m_msghdr = (struct_mmsghdr * total_packets)()
+    # Prepare 1000 buffers in advance.
+    m_msghdr = (struct_mmsghdr * 1000)()
 
     iov = struct_iovec(cast(packet, c_void_p), len(packet))
 
@@ -256,18 +255,23 @@ def main():
             num_to_send = 1000
         print("Generating Packet(s) over period of %f seconds" % options.sendtime)
         my_logger.debug(pre_str + '_STORM_START')
+        unable_to_send = 0
         while True:
             for s in sockets:
                 num_sent = _sendmmsg(s.fileno(), m_msghdr[0], num_to_send, 0)   # direct to c library api
                 if num_sent < 0:
                     errno = get_errno()
-                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + s.getsockname())
-                    break
+                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' +
+                                    str(s.getsockname()))
+                    unable_to_send += 1
+                    if unable_to_send > 30:
+                        break
                 else:
+                    unable_to_send = 0
                     if num_sent != num_to_send:
                         fo_logger.debug(fo_str + ' sendmmsg iteration ' + str(iters) + ' only sent ' +
                                         str(num_sent) + ' out of requested ' + str(num_to_send) +
-                                        ' for socket ' + s.getsockname())
+                                        ' for socket ' + str(s.getsockname()))
                 # Count across all sockets
                 total_num_sent += num_sent
             iters += 1
@@ -280,7 +284,7 @@ def main():
         fo_logger.debug(fo_str + '_STORM_END_AFTER_RSYSLOG_CALL : sent ' + str(total_num_sent) + ' pkts in ' + str(
             iters) + ' iterations and elapsed time of ' + str(elapsed_time) + ' secs')
     # send according to requested number of pkts
-    else:
+    elif options.num:
         if length_of_list > 1:
             num_to_send_max = 1
         else:
@@ -290,9 +294,8 @@ def main():
         num_sockets = len(sockets)
         total_pkts_sent = [0] * num_sockets
         total_pkts_remaining = [total_num_remaining] * num_sockets
-        done = [False] * num_sockets
         keep_sending = True
-        test_failed = False
+        unable_to_send = 0
         while keep_sending is True:
             for s in sockets:
                 index = sockets.index(s)
@@ -302,20 +305,22 @@ def main():
                 num_sent = _sendmmsg(s.fileno(), m_msghdr[0], num_to_send, 0)
                 if num_sent < 0:
                     errno = get_errno()
-                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + s.getsockname())
-                    test_failed = True
-                    break
+                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' +
+                                    str(s.getsockname()))
+                    unable_to_send += 1
+                    if unable_to_send > 30:
+                        break
+
                 else:
+                    unable_to_send = 0
                     if num_sent != num_to_send:
                         fo_logger.debug(fo_str + ' sendmmsg iteration ' + str(iters) +
                                         ' only sent ' + str(num_sent) +
-                                        ' out of requested ' + str(num_to_send) + ' for socket ' + s.getsockname())
+                                        ' out of requested ' + str(num_to_send) + ' for socket ' +
+                                        str(s.getsockname()))
+            if num_sent > 0:
                 total_pkts_remaining[index] -= num_sent
                 total_pkts_sent[index] += num_sent
-                if total_pkts_remaining[index] <= 0:
-                    done[index] = True
-            if test_failed is True:
-                break
             iters += 1
             keep_sending = False
             for i in range(0, num_sockets):
@@ -330,6 +335,8 @@ def main():
             fo_logger.debug(fo_str + '_STORM_END : socket ' + str(i) + ' sent ' + str(total_pkts_sent[i]) + ' pkts')
         fo_logger.debug(fo_str + '_STORM_END_AFTER_RSYSLOG_CALL : ' + str(iters) +
                         ' iterations and elapsed time of ' + str(elapsed_time) + ' secs')
+    else:
+        print("Pls provide atleast one -s or -n option.", file=sys.stderr)
 
     for s in sockets:
         s.close()

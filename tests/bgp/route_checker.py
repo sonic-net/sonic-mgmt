@@ -2,10 +2,11 @@ import logging
 import ipaddr as ipaddress
 import re
 import json
-from bgp_helpers import parse_rib
+from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +45,14 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
                 nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
             nbr_prefix_community_set.add(received_community)
         if nbr_prefix_set != device_lo_addr_prefix_set:
-            logger.warn("missing loopback address or some other routes present on neighbor")
+            logger.warning("missing loopback address or some other routes present on neighbor")
             return False
         if 6 == ip_ver and device_ipv6_lo_addr_subnet_len_set != nbr_prefix_ipv6_subnet_len_set:
-            logger.warn("ipv6 subnet is not /64 for loopback")
+            logger.warning("ipv6 subnet is not /64 for loopback")
             return False
         if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
             if nbr_prefix_community_set != device_traffic_shift_community_set:
-                logger.warn("traffic shift away community not present on neighbor")
+                logger.warning("traffic shift away community not present on neighbor")
                 return False
     return True
 
@@ -92,7 +93,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
         # So we have to parse the raw output instead json.
         if 4 == ip_ver:
             cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
-                  .format(peer_ip_v4, BGP_ENTRY_HEADING,  BGP_COMMUNITY_HEADING)
+                  .format(peer_ip_v4, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             cmd_backup = ""
         else:
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\""\
@@ -128,11 +129,13 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
                     entry = None
                     community = ""
         if entry:
-            routes[entry] = community
-            if my_community:
-                for comm in my_community:
-                    if comm in community:
-                        routes_with_community[entry] = comm
+            routes[entry] = ""
+            if community:
+                routes[entry] = community[0]
+                if my_community:
+                    for comm in my_community:
+                        if comm in community[0]:
+                            routes_with_community[entry] = comm
         if my_community:
             results[hostname] = routes_with_community
         else:
@@ -204,6 +207,18 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neig
             dut_hosts, duthost, neigh_hosts, 6, community)
 
 
+def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
+                                                    error_msg=""):
+    if not error_msg:
+        error_msg = "Failed to verify only loopback routes are announced to neighbours"
+
+    pytest_assert(
+        wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
+                   dut_hosts, duthost, neigh_hosts, community),
+        error_msg
+    )
+
+
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
         routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community)
@@ -232,7 +247,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
     cur_nbrs = set(cur_routes_on_all_nbrs.keys())
     orig_nbrs = set(orig_routes_on_all_nbrs.keys())
     if cur_nbrs != orig_nbrs:
-        logger.warn("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
+        logger.warning("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
         return False
 
     routes_dut = parse_rib(duthost, ip_ver)
@@ -244,7 +259,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
             for route in routes_diff:
                 if route not in list(routes_dut.keys()):
                     all_diffs_in_host_aspath = False
-                    logger.warn(
+                    logger.warning(
                         "Missing route on host {}: {}".format(hostname, route))
                     continue
                 aspaths = routes_dut[route]
@@ -260,10 +275,10 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
                     if not skip:
                         all_diffs_in_host_aspath = False
                         if route in orig_routes_on_all_nbrs[hostname]:
-                            logger.warn(
+                            logger.warning(
                                 "Missing route on host {}: {}".format(hostname, route))
                         else:
-                            logger.warn(
+                            logger.warning(
                                 "Additional route on host {}: {}".format(hostname, route))
 
     return all_diffs_in_host_aspath

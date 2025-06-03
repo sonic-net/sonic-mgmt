@@ -26,7 +26,6 @@ pytestmark = [
 MAX_TIME_TO_REBOOT = 120
 
 
-@pytest.fixture(scope='function')
 def set_max_to_reboot(duthost):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
@@ -148,12 +147,13 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
 
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                                 conn_graph_facts, set_max_to_reboot,
+                                 conn_graph_facts,
                                  fanouthosts, xcvr_skip_list):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
 
     duthost = duthosts[enum_supervisor_dut_hostname]
+    set_max_to_reboot(duthost)
 
     # There are some errors due to reboot happened before this test file for some reason,
     # and SUP may not have enough time to recover all dockers and the wait for process wait for 300 secs in
@@ -203,9 +203,10 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                    conn_graph_facts, set_max_to_reboot,
+                                    conn_graph_facts,
                                     fanouthosts, xcvr_skip_list):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    set_max_to_reboot(duthost)
     hostname = duthost.hostname
 
     # Before test, check all interfaces and services are up

@@ -15,8 +15,6 @@ from .vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
 from tests.common.arp_utils import set_up, tear_down, testWrArp
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test
-
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -159,7 +157,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     elif request.param == "WR_ARP":
         route, ptfIp, gwIp = set_up(duthost, ptfhost, tbinfo)
         try:
-            testWrArp(request, duthost, ptfhost, creds, skip_traffic_test)
+            testWrArp(request, duthost, ptfhost, creds)
         finally:
             tear_down(duthost, route, ptfIp, gwIp)
 
@@ -190,7 +188,7 @@ def is_neigh_reachable(duthost, vnet_config):
 
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost,
-                    vnet_test_params, creds, is_route_flow_counter_supported, skip_traffic_test):  # noqa F811
+                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa F811
     """
     Test case for VNET VxLAN
 
@@ -229,9 +227,6 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         logger.info("Skipping cleanup")
         pytest.skip("Skip cleanup specified")
 
-    if skip_traffic_test is True:
-        logger.info("Skipping traffic test")
-        return
     logger.debug("Starting PTF runner")
     if scenario == 'Enabled' and vxlan_enabled:
         route_pattern = 'Vnet1|100.1.1.1/32'

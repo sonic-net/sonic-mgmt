@@ -98,7 +98,7 @@ topology:
       vm_offset: 22
     ARISTA20T0:
       vlans:
-        - 29
+        - 30
       vm_offset: 23
 
 configuration_properties:

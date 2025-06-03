@@ -222,7 +222,8 @@ class TestFdbMacExpire:
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
             "refresh_type":  refresh_type,
-            "aging_time": fdbAgingTime
+            "aging_time": fdbAgingTime,
+            "kvm_support": True
         }
         self.__runPtfTest(ptfhost, "fdb_mac_expire_test.FdbMacExpireTest", testParams)
 

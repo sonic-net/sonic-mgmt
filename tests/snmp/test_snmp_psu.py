@@ -2,6 +2,7 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from natsort import natsorted
 
 PSU_STATUS_OK = 2
 PSU_STATUS_FUNCTIONING_FAIL = 7
@@ -20,7 +21,7 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
         duthost.hostname).vars['ansible_host']
 
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     res = duthost.shell("psuutil numpsus", module_ignore_errors=True)
 
@@ -31,8 +32,14 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
 
     assert int(res['rc']) == 0, "Failed to get number of PSUs"
 
-    numpsus = int(res['stdout'])
-    assert numpsus == len(snmp_facts['snmp_psu'])
+    output = res["stdout_lines"]
+    numpsus = None
+    if len(output):
+        try:
+            numpsus = int(output[-1])
+        except (IndexError, ValueError):
+            pass
+    assert numpsus == len(snmp_facts['snmp_psu']), "PSUs count doesn't match"
 
 
 @pytest.mark.bsl
@@ -41,7 +48,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     psus_on = 0
@@ -52,11 +59,12 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
         logging.info("No snmp psu info on kvm testbed.")
         return
 
-    for psu_indx, operstatus in list(snmp_facts['snmp_psu'].items()):
+    psu_keys = natsorted(redis_get_keys(duthost, 'STATE_DB', 'PSU_INFO|*'))
+    for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
-            "redis-cli -n 6 hget 'PSU_INFO|PSU {}' presence".format(psu_indx))
+            "redis-cli -n 6 hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
         get_status = duthost.shell(
-            "redis-cli -n 6 hget 'PSU_INFO|PSU {}' status".format(psu_indx))
+            "redis-cli -n 6 hget '{}' status".format(psu_keys[int(psu_indx)-1]))
         status = get_status['stdout'] == 'true'
         presence = get_presence['stdout'] == 'true'
 
@@ -73,3 +81,18 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
 
     pytest_assert(
         psus_on >= 1, "At least one PSU should be with operstatus OK")
+
+
+def redis_get_keys(duthost, db_id, pattern):
+    """
+    Get all keys for a given pattern in given redis database
+    :param duthost: DUT host object
+    :param db_id: ID of redis database
+    :param pattern: Redis key pattern
+    :return: A list of key name in string
+    """
+    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    logging.debug('Getting keys from redis by command: {}'.format(cmd))
+    output = duthost.shell(cmd)
+    content = output['stdout'].strip()
+    return content.split('\n') if content else None

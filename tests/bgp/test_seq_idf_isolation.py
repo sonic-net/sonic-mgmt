@@ -5,7 +5,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
-from route_checker import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors
+from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 
 pytestmark = [
@@ -73,12 +73,9 @@ def dut_nbrs(duthost, nbrhosts):
     return nbrs_to_dut
 
 
-# Get one random downlink linecard in a T2 chassis
+# Check if DUT has downlink T1 connections. Return one random downlink linecard in a T2 chassis
 @pytest.fixture(scope="module")
 def rand_one_downlink_duthost(duthosts, tbinfo):
-    if tbinfo['topo']['type'] != 't2':
-        return []
-
     dl_duthosts = []
     for dut in duthosts.frontend_nodes:
         minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
@@ -87,10 +84,11 @@ def rand_one_downlink_duthost(duthosts, tbinfo):
             if 'T1' in value['name']:
                 dl_duthosts.append(dut)
                 break
+    if len(dl_duthosts) == 0:
+        pytest.skip("No downlink T1 connections found")
     dut = random.sample(dl_duthosts, 1)
     if dut:
         return dut[0]
-    pytest.skip("Skipping test - No downlink linecards found")
 
 
 def test_idf_isolated_no_export(rand_one_downlink_duthost,
@@ -167,9 +165,9 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not in isolated_withdraw_all state")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
-                                                                          traffic_shift_community),
-                      "Failed to verify only loopback route in isolated_withdraw_all state")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
+                                                        "Failed to verify only loopback route \
+                                                            in isolated_withdraw_all state")
     finally:
         # Recover to unisolated state
         duthost.shell("sudo idf_isolation unisolated")
@@ -210,7 +208,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_no_export")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-no-export state.
         pytest_assert(IDF_ISOLATED_NO_EXPORT == get_idf_isolation_state(duthost),
@@ -235,7 +233,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         """
         duthost.shell("sudo idf_isolation unisolated")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
@@ -276,14 +274,14 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Issue command to isolate with no export community on DUT
         duthost.shell("sudo idf_isolation isolated_withdraw_all")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrs,
-                                                                          traffic_shift_community),
-                      "Failed to verify only loopback route in isolated_withdraw_all state")
+        assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
+                                                        "Failed to verify only loopback route in \
+                                                            isolated_withdraw_all state")
     finally:
         """
         Recover to unisolated state
