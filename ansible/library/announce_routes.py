@@ -501,7 +501,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", skip_peer_sw
 
     vms = topo['topology']['VMs']
     for vm_name, vm in vms.items():
-        if 'P' in vm_name and skip_peer_switches:
+        if 'PT' in vm_name and skip_peer_switches:
             continue
         router_type = "leaf"
         if 'tor' in topo['configuration'][vm_name]['properties']:
@@ -1489,7 +1489,7 @@ def main():
 
     is_storage_backend = "backend" in topo_name
     tor_default_route = "t1-isolated-d128" in topo_name
-    skip_peer_switches = topo_name in ['t0-isolated-d16u16s2', 't0-isolated-d96u32s2', 't0-isolated-d128u128s2']
+    skip_peer_switches = "t0-isolated" in topo_name
 
     topo_type = get_topo_type(topo_name)
 
