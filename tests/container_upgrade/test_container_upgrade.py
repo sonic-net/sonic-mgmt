@@ -65,9 +65,9 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
 
             output = localhost.shell(command, module_ignore_errors=True)
             if output['failed']:
-                logger.warning(f"Testing {testcase} output start =====================")
+                logger.warning(f"Test {testcase} output start =====================")
                 logger.warning(f"{output}")
-                logger.warning(f"Testing {testcase} output end   =====================")
+                logger.warning(f"Test {testcase} output end   =====================")
 
             test_results.setdefault(expected_os_version, {})[testcase] = (not output['failed'])
         env.version_pointer += 1
