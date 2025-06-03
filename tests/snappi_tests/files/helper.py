@@ -18,7 +18,7 @@ from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma,
 from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
-
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 logger = logging.getLogger(__name__)
 
@@ -423,6 +423,8 @@ def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
         stop_pfcwd(duthost)
         disable_packet_aging(duthost)
+        if duthost.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(duthost, False)
 
     yield
 
