@@ -21,8 +21,7 @@ pytestmark = [
 
 def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
     logger.info("announce ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/",
-                              log_path="logs")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
 
@@ -31,8 +30,7 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
 
     logger.info("withdraw ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/",
-                              log_path="logs")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)

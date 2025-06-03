@@ -6,6 +6,7 @@ from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
+from tests.common.nokia_data import is_nokia_device
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
@@ -17,7 +18,7 @@ from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma,
 from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
-
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,8 @@ def skip_warm_reboot(duthost, reboot_type):
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
     if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
         reboot_case_supported = False
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
         reboot_case_supported = False
@@ -420,6 +423,8 @@ def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
         stop_pfcwd(duthost)
         disable_packet_aging(duthost)
+        if duthost.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(duthost, False)
 
     yield
 
@@ -434,3 +439,25 @@ def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
     # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
     for duthost in args:
         revert_config_and_reload(node=duthost)
+
+
+def adjust_test_flow_rate(dut, test_def):
+    '''
+    Set the test flow rate for Cisco 8000 series switches.
+    Args:
+        dut (object): Device under test.
+        test_def (dict): Test definition containing the flow rate and background traffic.
+    Returns:
+        None: The function modifies the `test_def` dictionary in place.
+    '''
+    # Cisco devices send continuous XOFF packets this can reduce the effective bandwidth
+    # available for test traffic. To accommodate this limitation and avoid oversubscription, we define
+    # a SAFETY_MARGIN to ensure the aggregated traffic rate remains below 100% line rate.
+    SAFETY_MARGIN = 0.5
+    if dut.facts["platform_asic"] != 'cisco-8000':
+        return
+    test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = 100 - SAFETY_MARGIN
+    if test_def.get('background_traffic'):
+        test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = (
+            test_def['TEST_FLOW_AGGR_RATE_PERCENT'] - test_def.get('BG_FLOW_AGGR_RATE_PERCENT', 0)
+            )
