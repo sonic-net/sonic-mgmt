@@ -4,12 +4,12 @@ import pytest
 import ptf.packet as scapy
 import json
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_lower_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_lower_tor  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import \
-    upper_tor_host, lower_tor_host, dualtor_info, check_muxcable_status  # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_icmp_responder, run_garp_service  # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
+    upper_tor_host, lower_tor_host, dualtor_info, check_muxcable_status  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_icmp_responder, run_garp_service  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from ptf.mask import Mask
 from ptf import testutils
 from tests.common.utilities import wait_until
@@ -31,9 +31,10 @@ COUNTER_ZERO = [0, PKT_NUM * PKT_COUNTER_MARGIN_PERCENT]
 # These two test cases are to cover the test gap introduced by the egress drop.
 
 
-def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lower_tor_host, # noqa F811
-                                 toggle_all_simulator_ports_to_upper_tor, # noqa F811
-                                 toggle_simulator_port_to_lower_tor, tbinfo, ptfadapter): # noqa F811
+def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lower_tor_host,  # noqa: F811
+                                                     toggle_all_simulator_ports_to_upper_tor,  # noqa: F811
+                                                     toggle_simulator_port_to_lower_tor,  # noqa: F811
+                                                     tbinfo, ptfadapter):  # noqa: F811
     """
     This test case covers the validation of egress drop rule in active-standby dualtor scenario when server A is active
     on the upper tor and standby on the lower tor, server B is standby on the upper tor and active on the lower tor, and
@@ -131,8 +132,11 @@ def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lo
                     and COUNTER_RANGE[0] <= lower_tor_active_port_tx_counter < COUNTER_RANGE[1])
         pytest_assert(wait_until(15, 5, 0, _check_counters), "The port counters are not as expected.")
 
-def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, lower_tor_host, # noqa F811
-                                 toggle_all_simulator_ports_to_upper_tor, tbinfo, ptfadapter): # noqa F811
+
+def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host,  # noqa: F811
+                                                      lower_tor_host,  # noqa: F811
+                                                      toggle_all_simulator_ports_to_upper_tor,  # noqa: F811
+                                                      tbinfo, ptfadapter):
     """
     This test case covers the validation of egress drop rule in active-standby dualtor scenario when server A and
     server B are active on the upper tor, and standby on the lower tor, and the upstream traffic is sent from
@@ -192,7 +196,7 @@ def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, l
             eth_src=lower_tor_host.facts['router_mac'],
             ip_src=lower_tor_loopback0_ip,
             ip_dst=upper_tor_loopback0_ip,
-            inner_frame=pkt[IP])  # noqa F821
+            inner_frame=pkt[IP])  # noqa: F821
         not_expected_tunnel_pkt = get_masked_packet(tunnel_pkt, is_tunnel_packet=True)
         # Send packets again
         ptfadapter.dataplane.flush()
