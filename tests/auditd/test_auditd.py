@@ -1,6 +1,7 @@
 import json
 import pytest
 import logging
+import uuid
 from tests.common.fixtures.tacacs import tacacs_creds   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
@@ -95,19 +96,30 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                               tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
-    duthost.command("rm -f /tmp/test_file_deletion")
-    ssh_remote_run(localhost,
-                   dutip,
-                   tacacs_creds['tacacs_rw_user'],
-                   tacacs_creds['tacacs_rw_user_passwd'],
-                   "sudo touch /tmp/test_file_deletion && sudo rm -f /tmp/test_file_deletion")
-    cmd = """show logging | grep 'audisp-syslog' | grep 'file_deletion' | grep 'AUID="test_rwuser"' """
+    random_uuid = str(uuid.uuid4())
+    random_file = f"/tmp/test_file_deletion_{random_uuid}"
+    duthost.command(f"touch {random_file}")
+    duthost.command(f"rm -f  {random_file}")
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
     result = duthost.shell(cmd)["stdout_lines"]
-    assert len(result) > 0, "Auditd file_deletion rule does not contain the expected logs"
+    print(result)
+    logger.info(result)
+    assert any(random_uuid in line for line in result if line.strip()), \
+        "Auditd file_deletion rule does not contain the expected logs"
+
+    random_uuid = str(uuid.uuid4())
+    random_file = f"/tmp/test_file_deletion_{random_uuid}"
+    duthost.command(f"touch {random_file}")
+    duthost.command(f"sudo rm -f {random_file}")
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
+    result = duthost.shell(cmd)["stdout_lines"]
+    print(result)
+    logger.info(result)
+    assert any(random_uuid in line for line in result if line.strip()), \
+        "Auditd file_deletion rule does not contain the expected logs"
 
 
 def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname,

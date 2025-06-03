@@ -10,9 +10,10 @@ from grpc_tools import protoc
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
-from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
+from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.ntp_helper import setup_ntp_context
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,25 @@ def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
         gnmi_bin = ret.get("dest", None)
         shutil.copyfile(gnmi_bin, "gnmi/%s" % file)
         localhost.shell("sudo chmod +x gnmi/%s" % file)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
+    """Auto-setup NTP for all gNMI tests using existing helper."""
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        logger.info("check_system_time_sync is skipped for this platform, so skip ntp setup")
+        yield
+        return
+
+    if check_ntp_sync_status(duthost) is True:
+        logger.info("DUT is already in sycn with NTP server, so skip ntp setup")
+        yield
+        return
+
+    with setup_ntp_context(ptfhost, duthost, False):
+        yield
 
 
 def create_revoked_cert_and_crl(localhost, ptfhost):

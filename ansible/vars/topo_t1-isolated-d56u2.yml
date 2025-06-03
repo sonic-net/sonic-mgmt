@@ -269,7 +269,7 @@ configuration:
         ipv4: 10.0.0.1/31
         ipv6: fc00::2/126
     bp_interface:
-      ipv4: 10.10.246.2/24
+      ipv4: 10.10.246.2/22
       ipv6: fc0a::2/64
   ARISTA09T0:
     properties:
@@ -290,7 +290,7 @@ configuration:
         ipv4: 10.0.0.17/31
         ipv6: fc00::22/126
     bp_interface:
-      ipv4: 10.10.246.10/24
+      ipv4: 10.10.246.10/22
       ipv6: fc0a::a/64
   ARISTA17T0:
     properties:
@@ -311,7 +311,7 @@ configuration:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
     bp_interface:
-      ipv4: 10.10.246.18/24
+      ipv4: 10.10.246.18/22
       ipv6: fc0a::12/64
   ARISTA25T0:
     properties:
@@ -332,7 +332,7 @@ configuration:
         ipv4: 10.0.0.49/31
         ipv6: fc00::62/126
     bp_interface:
-      ipv4: 10.10.246.26/24
+      ipv4: 10.10.246.26/22
       ipv6: fc0a::1a/64
   ARISTA33T0:
     properties:
@@ -353,7 +353,7 @@ configuration:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
     bp_interface:
-      ipv4: 10.10.246.34/24
+      ipv4: 10.10.246.34/22
       ipv6: fc0a::22/64
   ARISTA41T0:
     properties:
@@ -374,7 +374,7 @@ configuration:
         ipv4: 10.0.0.81/31
         ipv6: fc00::a2/126
     bp_interface:
-      ipv4: 10.10.246.42/24
+      ipv4: 10.10.246.42/22
       ipv6: fc0a::2a/64
   ARISTA49T0:
     properties:
@@ -395,7 +395,7 @@ configuration:
         ipv4: 10.0.0.97/31
         ipv6: fc00::c2/126
     bp_interface:
-      ipv4: 10.10.246.50/24
+      ipv4: 10.10.246.50/22
       ipv6: fc0a::32/64
   ARISTA57T0:
     properties:
@@ -416,7 +416,7 @@ configuration:
         ipv4: 10.0.0.113/31
         ipv6: fc00::e2/126
     bp_interface:
-      ipv4: 10.10.246.58/24
+      ipv4: 10.10.246.58/22
       ipv6: fc0a::3a/64
   ARISTA65T0:
     properties:
@@ -437,7 +437,7 @@ configuration:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
     bp_interface:
-      ipv4: 10.10.246.66/24
+      ipv4: 10.10.246.66/22
       ipv6: fc0a::42/64
   ARISTA73T0:
     properties:
@@ -458,7 +458,7 @@ configuration:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
     bp_interface:
-      ipv4: 10.10.246.74/24
+      ipv4: 10.10.246.74/22
       ipv6: fc0a::4a/64
   ARISTA81T0:
     properties:
@@ -479,7 +479,7 @@ configuration:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
     bp_interface:
-      ipv4: 10.10.246.82/24
+      ipv4: 10.10.246.82/22
       ipv6: fc0a::52/64
   ARISTA89T0:
     properties:
@@ -500,7 +500,7 @@ configuration:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
     bp_interface:
-      ipv4: 10.10.246.90/24
+      ipv4: 10.10.246.90/22
       ipv6: fc0a::5a/64
   ARISTA01T2:
     properties:
@@ -520,7 +520,7 @@ configuration:
         ipv4: 10.0.0.193/31
         ipv6: fc00::182/126
     bp_interface:
-      ipv4: 10.10.246.98/24
+      ipv4: 10.10.246.98/22
       ipv6: fc0a::62/64
   ARISTA03T2:
     properties:
@@ -540,7 +540,7 @@ configuration:
         ipv4: 10.0.0.197/31
         ipv6: fc00::18a/126
     bp_interface:
-      ipv4: 10.10.246.100/24
+      ipv4: 10.10.246.100/22
       ipv6: fc0a::64/64
   ARISTA97T0:
     properties:
@@ -561,7 +561,7 @@ configuration:
         ipv4: 10.0.0.201/31
         ipv6: fc00::192/126
     bp_interface:
-      ipv4: 10.10.246.102/24
+      ipv4: 10.10.246.102/22
       ipv6: fc0a::66/64
   ARISTA105T0:
     properties:
@@ -582,7 +582,7 @@ configuration:
         ipv4: 10.0.0.217/31
         ipv6: fc00::1b2/126
     bp_interface:
-      ipv4: 10.10.246.110/24
+      ipv4: 10.10.246.110/22
       ipv6: fc0a::6e/64
   ARISTA113T0:
     properties:
@@ -603,7 +603,7 @@ configuration:
         ipv4: 10.0.0.241/31
         ipv6: fc00::1e2/126
     bp_interface:
-      ipv4: 10.10.246.122/24
+      ipv4: 10.10.246.122/22
       ipv6: fc0a::7a/64
   ARISTA121T0:
     properties:
@@ -624,7 +624,7 @@ configuration:
         ipv4: 10.0.1.1/31
         ipv6: fc00::202/126
     bp_interface:
-      ipv4: 10.10.246.130/24
+      ipv4: 10.10.246.130/22
       ipv6: fc0a::82/64
   ARISTA129T0:
     properties:
@@ -645,7 +645,7 @@ configuration:
         ipv4: 10.0.1.17/31
         ipv6: fc00::222/126
     bp_interface:
-      ipv4: 10.10.246.138/24
+      ipv4: 10.10.246.138/22
       ipv6: fc0a::8a/64
   ARISTA137T0:
     properties:
@@ -666,7 +666,7 @@ configuration:
         ipv4: 10.0.1.33/31
         ipv6: fc00::242/126
     bp_interface:
-      ipv4: 10.10.246.146/24
+      ipv4: 10.10.246.146/22
       ipv6: fc0a::92/64
   ARISTA145T0:
     properties:
@@ -687,7 +687,7 @@ configuration:
         ipv4: 10.0.1.49/31
         ipv6: fc00::262/126
     bp_interface:
-      ipv4: 10.10.246.154/24
+      ipv4: 10.10.246.154/22
       ipv6: fc0a::9a/64
   ARISTA153T0:
     properties:
@@ -708,7 +708,7 @@ configuration:
         ipv4: 10.0.1.65/31
         ipv6: fc00::282/126
     bp_interface:
-      ipv4: 10.10.246.162/24
+      ipv4: 10.10.246.162/22
       ipv6: fc0a::a2/64
   ARISTA161T0:
     properties:
@@ -729,7 +729,7 @@ configuration:
         ipv4: 10.0.1.81/31
         ipv6: fc00::2a2/126
     bp_interface:
-      ipv4: 10.10.246.170/24
+      ipv4: 10.10.246.170/22
       ipv6: fc0a::aa/64
   ARISTA169T0:
     properties:
@@ -750,7 +750,7 @@ configuration:
         ipv4: 10.0.1.97/31
         ipv6: fc00::2c2/126
     bp_interface:
-      ipv4: 10.10.246.178/24
+      ipv4: 10.10.246.178/22
       ipv6: fc0a::b2/64
   ARISTA177T0:
     properties:
@@ -771,7 +771,7 @@ configuration:
         ipv4: 10.0.1.113/31
         ipv6: fc00::2e2/126
     bp_interface:
-      ipv4: 10.10.246.186/24
+      ipv4: 10.10.246.186/22
       ipv6: fc0a::ba/64
   ARISTA185T0:
     properties:
@@ -792,7 +792,7 @@ configuration:
         ipv4: 10.0.1.129/31
         ipv6: fc00::302/126
     bp_interface:
-      ipv4: 10.10.246.194/24
+      ipv4: 10.10.246.194/22
       ipv6: fc0a::c2/64
   ARISTA193T0:
     properties:
@@ -813,7 +813,7 @@ configuration:
         ipv4: 10.0.1.145/31
         ipv6: fc00::322/126
     bp_interface:
-      ipv4: 10.10.246.202/24
+      ipv4: 10.10.246.202/22
       ipv6: fc0a::ca/64
   ARISTA201T0:
     properties:
@@ -834,7 +834,7 @@ configuration:
         ipv4: 10.0.1.161/31
         ipv6: fc00::342/126
     bp_interface:
-      ipv4: 10.10.246.210/24
+      ipv4: 10.10.246.210/22
       ipv6: fc0a::d2/64
   ARISTA209T0:
     properties:
@@ -855,7 +855,7 @@ configuration:
         ipv4: 10.0.1.177/31
         ipv6: fc00::362/126
     bp_interface:
-      ipv4: 10.10.246.218/24
+      ipv4: 10.10.246.218/22
       ipv6: fc0a::da/64
   ARISTA217T0:
     properties:
@@ -876,7 +876,7 @@ configuration:
         ipv4: 10.0.1.193/31
         ipv6: fc00::382/126
     bp_interface:
-      ipv4: 10.10.246.226/24
+      ipv4: 10.10.246.226/22
       ipv6: fc0a::e2/64
   ARISTA225T0:
     properties:
@@ -897,7 +897,7 @@ configuration:
         ipv4: 10.0.1.209/31
         ipv6: fc00::3a2/126
     bp_interface:
-      ipv4: 10.10.246.234/24
+      ipv4: 10.10.246.234/22
       ipv6: fc0a::ea/64
   ARISTA233T0:
     properties:
@@ -918,7 +918,7 @@ configuration:
         ipv4: 10.0.1.225/31
         ipv6: fc00::3c2/126
     bp_interface:
-      ipv4: 10.10.246.242/24
+      ipv4: 10.10.246.242/22
       ipv6: fc0a::f2/64
   ARISTA241T0:
     properties:
@@ -939,7 +939,7 @@ configuration:
         ipv4: 10.0.1.241/31
         ipv6: fc00::3e2/126
     bp_interface:
-      ipv4: 10.10.246.250/24
+      ipv4: 10.10.246.250/22
       ipv6: fc0a::fa/64
   ARISTA249T0:
     properties:
@@ -960,7 +960,7 @@ configuration:
         ipv4: 10.0.2.1/31
         ipv6: fc00::402/126
     bp_interface:
-      ipv4: 10.10.247.2/24
+      ipv4: 10.10.247.2/22
       ipv6: fc0a::102/64
   ARISTA257T0:
     properties:
@@ -981,7 +981,7 @@ configuration:
         ipv4: 10.0.2.17/31
         ipv6: fc00::422/126
     bp_interface:
-      ipv4: 10.10.247.10/24
+      ipv4: 10.10.247.10/22
       ipv6: fc0a::10a/64
   ARISTA265T0:
     properties:
@@ -1002,7 +1002,7 @@ configuration:
         ipv4: 10.0.2.33/31
         ipv6: fc00::442/126
     bp_interface:
-      ipv4: 10.10.247.18/24
+      ipv4: 10.10.247.18/22
       ipv6: fc0a::112/64
   ARISTA273T0:
     properties:
@@ -1023,7 +1023,7 @@ configuration:
         ipv4: 10.0.2.49/31
         ipv6: fc00::462/126
     bp_interface:
-      ipv4: 10.10.247.26/24
+      ipv4: 10.10.247.26/22
       ipv6: fc0a::11a/64
   ARISTA281T0:
     properties:
@@ -1044,7 +1044,7 @@ configuration:
         ipv4: 10.0.2.65/31
         ipv6: fc00::482/126
     bp_interface:
-      ipv4: 10.10.247.34/24
+      ipv4: 10.10.247.34/22
       ipv6: fc0a::122/64
   ARISTA289T0:
     properties:
@@ -1065,7 +1065,7 @@ configuration:
         ipv4: 10.0.2.81/31
         ipv6: fc00::4a2/126
     bp_interface:
-      ipv4: 10.10.247.42/24
+      ipv4: 10.10.247.42/22
       ipv6: fc0a::12a/64
   ARISTA297T0:
     properties:
@@ -1086,7 +1086,7 @@ configuration:
         ipv4: 10.0.2.97/31
         ipv6: fc00::4c2/126
     bp_interface:
-      ipv4: 10.10.247.50/24
+      ipv4: 10.10.247.50/22
       ipv6: fc0a::132/64
   ARISTA305T0:
     properties:
@@ -1107,7 +1107,7 @@ configuration:
         ipv4: 10.0.2.113/31
         ipv6: fc00::4e2/126
     bp_interface:
-      ipv4: 10.10.247.58/24
+      ipv4: 10.10.247.58/22
       ipv6: fc0a::13a/64
   ARISTA313T0:
     properties:
@@ -1128,7 +1128,7 @@ configuration:
         ipv4: 10.0.2.129/31
         ipv6: fc00::502/126
     bp_interface:
-      ipv4: 10.10.247.66/24
+      ipv4: 10.10.247.66/22
       ipv6: fc0a::142/64
   ARISTA321T0:
     properties:
@@ -1149,7 +1149,7 @@ configuration:
         ipv4: 10.0.2.153/31
         ipv6: fc00::532/126
     bp_interface:
-      ipv4: 10.10.247.78/24
+      ipv4: 10.10.247.78/22
       ipv6: fc0a::14e/64
   ARISTA329T0:
     properties:
@@ -1170,7 +1170,7 @@ configuration:
         ipv4: 10.0.2.169/31
         ipv6: fc00::552/126
     bp_interface:
-      ipv4: 10.10.247.86/24
+      ipv4: 10.10.247.86/22
       ipv6: fc0a::156/64
   ARISTA337T0:
     properties:
@@ -1191,7 +1191,7 @@ configuration:
         ipv4: 10.0.2.193/31
         ipv6: fc00::582/126
     bp_interface:
-      ipv4: 10.10.247.98/24
+      ipv4: 10.10.247.98/22
       ipv6: fc0a::162/64
   ARISTA345T0:
     properties:
@@ -1212,7 +1212,7 @@ configuration:
         ipv4: 10.0.2.209/31
         ipv6: fc00::5a2/126
     bp_interface:
-      ipv4: 10.10.247.106/24
+      ipv4: 10.10.247.106/22
       ipv6: fc0a::16a/64
   ARISTA353T0:
     properties:
@@ -1233,7 +1233,7 @@ configuration:
         ipv4: 10.0.2.225/31
         ipv6: fc00::5c2/126
     bp_interface:
-      ipv4: 10.10.247.114/24
+      ipv4: 10.10.247.114/22
       ipv6: fc0a::172/64
   ARISTA361T0:
     properties:
@@ -1254,7 +1254,7 @@ configuration:
         ipv4: 10.0.2.241/31
         ipv6: fc00::5e2/126
     bp_interface:
-      ipv4: 10.10.247.122/24
+      ipv4: 10.10.247.122/22
       ipv6: fc0a::17a/64
   ARISTA369T0:
     properties:
@@ -1275,7 +1275,7 @@ configuration:
         ipv4: 10.0.3.1/31
         ipv6: fc00::602/126
     bp_interface:
-      ipv4: 10.10.247.130/24
+      ipv4: 10.10.247.130/22
       ipv6: fc0a::182/64
   ARISTA377T0:
     properties:
@@ -1296,7 +1296,7 @@ configuration:
         ipv4: 10.0.3.17/31
         ipv6: fc00::622/126
     bp_interface:
-      ipv4: 10.10.247.138/24
+      ipv4: 10.10.247.138/22
       ipv6: fc0a::18a/64
   ARISTA385T0:
     properties:
@@ -1317,7 +1317,7 @@ configuration:
         ipv4: 10.0.3.33/31
         ipv6: fc00::642/126
     bp_interface:
-      ipv4: 10.10.247.146/24
+      ipv4: 10.10.247.146/22
       ipv6: fc0a::192/64
   ARISTA393T0:
     properties:
@@ -1338,7 +1338,7 @@ configuration:
         ipv4: 10.0.3.49/31
         ipv6: fc00::662/126
     bp_interface:
-      ipv4: 10.10.247.154/24
+      ipv4: 10.10.247.154/22
       ipv6: fc0a::19a/64
   ARISTA401T0:
     properties:
@@ -1359,7 +1359,7 @@ configuration:
         ipv4: 10.0.3.65/31
         ipv6: fc00::682/126
     bp_interface:
-      ipv4: 10.10.247.162/24
+      ipv4: 10.10.247.162/22
       ipv6: fc0a::1a2/64
   ARISTA409T0:
     properties:
@@ -1380,7 +1380,7 @@ configuration:
         ipv4: 10.0.3.81/31
         ipv6: fc00::6a2/126
     bp_interface:
-      ipv4: 10.10.247.170/24
+      ipv4: 10.10.247.170/22
       ipv6: fc0a::1aa/64
   ARISTA417T0:
     properties:
@@ -1401,7 +1401,7 @@ configuration:
         ipv4: 10.0.3.97/31
         ipv6: fc00::6c2/126
     bp_interface:
-      ipv4: 10.10.247.178/24
+      ipv4: 10.10.247.178/22
       ipv6: fc0a::1b2/64
   ARISTA425T0:
     properties:
@@ -1422,7 +1422,7 @@ configuration:
         ipv4: 10.0.3.113/31
         ipv6: fc00::6e2/126
     bp_interface:
-      ipv4: 10.10.247.186/24
+      ipv4: 10.10.247.186/22
       ipv6: fc0a::1ba/64
   ARISTA433T0:
     properties:
@@ -1443,7 +1443,7 @@ configuration:
         ipv4: 10.0.3.129/31
         ipv6: fc00::702/126
     bp_interface:
-      ipv4: 10.10.247.194/24
+      ipv4: 10.10.247.194/22
       ipv6: fc0a::1c2/64
   ARISTA441T0:
     properties:
@@ -1464,5 +1464,5 @@ configuration:
         ipv4: 10.0.3.145/31
         ipv6: fc00::722/126
     bp_interface:
-      ipv4: 10.10.247.202/24
+      ipv4: 10.10.247.202/22
       ipv6: fc0a::1ca/64
