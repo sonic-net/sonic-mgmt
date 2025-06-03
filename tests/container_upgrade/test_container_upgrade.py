@@ -53,7 +53,6 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
         pull_run_dockers(duthost, creds, env)
 
         for testcase in env.testcases:
-            testcase_success = True
             logger.info(f"Testing {testcase} for {expected_os_version}")
             log_file = f"logs/container_upgrade/{testcase}.{expected_os_version}.log"
             log_xml = f"logs/container_upgrade/{testcase}.{expected_os_version}.xml"
@@ -63,12 +62,14 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --assert=plain --show-capture=no -rav --allow_recover \
                       --skip_sanity --disable_loganalyzer \
                       --log-file={log_file} --junit-xml={log_xml}"
-            try:
-                localhost.shell(command)
-            except Exception:
-                testcase_success = False
 
-            test_results.setdefault(expected_os_version, {})[testcase] = testcase_success
+            output = localhost.shell(command, module_ignore_errors=True)
+            if output['failed']:
+                logger.warning(f"Test {testcase} output start =====================")
+                logger.warning(f"{output}")
+                logger.warning(f"Test {testcase} output end   =====================")
+
+            test_results.setdefault(expected_os_version, {})[testcase] = (not output['failed'])
         env.version_pointer += 1
 
     store_results(request, test_results, env)
