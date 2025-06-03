@@ -20,7 +20,7 @@ class IxNetConfigParams:
 @pytest.fixture(scope="module")
 def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    # noqa F811
     primary_chassis = duthosts[0].host.options['variable_manager'] \
-        ._hostvars[duthosts[0].hostname].get('chassis_chain', None)
+        ._hostvars[duthosts[0].hostname].get('chassis_chain_primary', None)
     if len(fanout_graph_facts_multidut) == 1 and primary_chassis:
         slave_chassis = [
             fanout_graph_facts_multidut[fanout]['device_info']['mgmtip']
@@ -50,36 +50,6 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    #
         for index, slave in enumerate(slave_chassis, start=2)
     ]
 
-def setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params=None):   # noqa F811
-    """
-    Adding IP addresses and IP gateway addresses from the minigraph vlan interface details to snappi ports
-
-    Example:
-        {
-            'ipAddress': '192.168.1.9',
-            'ipGateway': '192.168.1.2',
-            'prefix': 24,
-            'subnet': '192.168.1.0/24',
-            'src_mac_address': 'aa:00:00:00:00:05',
-            'router_mac_address': '9c:69:ed:6f:9f:a0',
-            'speed': '800000',
-            'snappi_speed_type': 'speed_800_gbps',
-            'peer_port': 'Ethernet16',
-            'location': '10.36.84.31/2',
-            'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
-            'api_server_ip': '10.36.84.33',
-            'asic_type': 'broadcom',
-            'asic_value': None
-        }
-    """
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()
-
-    if snappi_extra_params.interface_type == "bgp" or snappi_extra_params.interface_type == "ip":
-        port_list = get_duthost_bgp_details(duthosts, get_snappi_ports)
-    elif snappi_extra_params.interface_type == "vlan":
-        port_list = get_duthost_vlan_details(duthosts, get_snappi_ports)
-    return port_list
 
 def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
     """
@@ -99,7 +69,9 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
     'asic_value': None,
     'router_mac_address': '9c:69:ed:6f:92:51',
     'src_mac_address': '10:17:00:00:00:11',
-    'bgp': {'ipAddress': '204::2', 'ipGateway': '204::1', 'asn': 65200},
+    'ipAddress': '204::2',
+    'ipGateway': '204::1',
+    'asn': 65200},
     'prefix': 126,
     'subnet': '204::1/126'
     }
@@ -261,175 +233,82 @@ def get_fanout_port_groups(snappi_ports, fanout_per_port):
     return group_list
 
 
-def create_traffic_items(
-    config, tx_flow_name, rx_flow_name, line_rate=10, frame_size=1024, is_rdma=False, flow_name=None
-):
-    if flow_name is None:
-        test_flow = config.flows.flow(name="{} - {}".format(tx_flow_name, rx_flow_name))[-1]
-    else:
-        test_flow = config.flows.flow(name="{}".format(flow_name))[-1]
-    if isinstance(tx_flow_name, list):
-        test_flow.tx_rx.device.tx_names = tx_flow_name
-    else:
-        test_flow.tx_rx.device.tx_names = [tx_flow_name]
-    if isinstance(rx_flow_name, list):
-        test_flow.tx_rx.device.rx_names = rx_flow_name
-    else:
-        test_flow.tx_rx.device.rx_names = [rx_flow_name]
-    test_flow.metrics.enable = True
-    test_flow.metrics.loss = True
-    test_flow.size.fixed = frame_size
-    test_flow.rate.percentage = line_rate
-    if is_rdma:
-        _, ipv4 = test_flow.packet.ethernet().ipv4()
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.DEFAULT,
-        ]
-        ipv4.priority.dscp.phb.value = 4
-        ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+def create_traffic_items(config, snappi_extra_params):
+    tconfigs = snappi_extra_params.traffic_flow_config
+    for traffic in tconfigs:
+        test_flow = config.flows.flow(name="{}".format(traffic["flow_name"]))[-1]
+        test_flow.tx_rx.device.tx_names = traffic["tx_names"]
+        test_flow.tx_rx.device.rx_names = traffic["rx_names"]
+        test_flow.metrics.enable = True
+        test_flow.metrics.loss = True
+        test_flow.size.fixed = traffic["frame_size"]
+        test_flow.rate.percentage = traffic["line_rate"]
+        if traffic["is_rdma"]:
+            _, ipv4 = test_flow.packet.ethernet().ipv4()
+            ipv4.priority.dscp.phb.values = [
+                ipv4.priority.dscp.phb.DEFAULT,
+            ]
+            ipv4.priority.dscp.phb.value = 4
+            ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     return config
 
 
-def create_snappi_config(snappi_api, tx_ports, rx_ports, is_rdma=False):   # noqa F811
+@pytest.fixture(scope="function")
+def create_snappi_l1config(snappi_api, get_snappi_ports):
+    snappi_ports = get_snappi_ports
     config = snappi_api.config()
-    for index, tx_port in enumerate(tx_ports):
-        config.ports.port(name="Tx_%d" % index, location=tx_port["location"])
-    for index, rx_port in enumerate(rx_ports):
-        config.ports.port(name="Rx_%d" % index, location=rx_port["location"])
+    _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = "port settings"
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
-    layer1.auto_negotiation.link_training = False
-    layer1.speed = "speed_" + str(int(int(tx_ports[0]["speed"]) / 1000)) + "_gbps"
-    layer1.auto_negotiate = False
-    if is_rdma:
-        pfc = layer1.flow_control.ieee_802_1qbb
-        pfc.pfc_delay = 0
-        if pfcQueueGroupSize == 8:
-            pfc.pfc_class_0 = 0
-            pfc.pfc_class_1 = 1
-            pfc.pfc_class_2 = 2
-            pfc.pfc_class_3 = 3
-            pfc.pfc_class_4 = 4
-            pfc.pfc_class_5 = 5
-            pfc.pfc_class_6 = 6
-            pfc.pfc_class_7 = 7
-        elif pfcQueueGroupSize == 4:
-            pfc.pfc_class_0 = pfcQueueValueDict[0]
-            pfc.pfc_class_1 = pfcQueueValueDict[1]
-            pfc.pfc_class_2 = pfcQueueValueDict[2]
-            pfc.pfc_class_3 = pfcQueueValueDict[3]
-            pfc.pfc_class_4 = pfcQueueValueDict[4]
-            pfc.pfc_class_5 = pfcQueueValueDict[5]
-            pfc.pfc_class_6 = pfcQueueValueDict[6]
-            pfc.pfc_class_7 = pfcQueueValueDict[7]
-        else:
-            pytest_assert(False, "pfcQueueGroupSize value is not 4 or 8")
-
-    network = ipaddress.ip_network(tx_ports[0]["subnet"], strict=False)
-    is_v4_subnet = isinstance(network, ipaddress.IPv4Network)
-
-    def configure_devices(config, ports, is_ipv4=True, role="Tx"):
-        device_names = []
-        for index, port_data in enumerate(ports):
-            device = config.devices.device(name=f"{role} Topology {index}")[-1]
-            eth = device.ethernets.add()
-            eth.connection.port_name = f"{role}_{index}"
-            eth.name = f"{role}_Ethernet_{index}"
-            eth.mac = port_data["src_mac_address"]
-
-            if is_ipv4:
-                ip_layer = eth.ipv4_addresses.add()
-                ip_layer.name = f"{role}_IPv4_{index}"
-            else:
-                ip_layer = eth.ipv6_addresses.add()
-                ip_layer.name = f"{role}_IPv6_{index}"
-
-            ip_layer.address = port_data["ipAddress"]
-            ip_layer.gateway = port_data["ipGateway"]
-            ip_layer.prefix = int(port_data["prefix"])
-            device_names.append(device.name)
-        return device_names
-
-    tx_flow_name = configure_devices(config, tx_ports, is_v4_subnet, "Tx")
-    rx_flow_name = configure_devices(config, rx_ports, is_v4_subnet, "Rx")
-
-    return config, tx_flow_name, rx_flow_name
-
-
-
-def create_bgp_snappi_config(snappi_api, tx_ports, rx_ports):    # noqa F811
-    snappi_ports = tx_ports + rx_ports
-    config = snappi_api.config()
-    for index, snappi_port in enumerate(tx_ports):
-        config.ports.port(name="Tx_Port_%d" % index, location=snappi_port["location"])
-    for index, snappi_port in enumerate(rx_ports):
-        config.ports.port(name="Rx_Port_%d" % index, location=snappi_port["location"])
-    config.options.port_options.location_preemption = True
-    layer1 = config.layer1.layer1()[-1]
-    layer1.name = "port settings"
-    layer1.port_names = [port.name for port in config.ports]
-    layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
+    layer1.auto_negotiation.rs_fec = True
     layer1.auto_negotiation.link_training = False
     layer1.speed = "speed_" + str(int(int(snappi_ports[0]["speed"]) / 1000)) + "_gbps"
     layer1.auto_negotiate = False
+    return config
 
-    network = ipaddress.ip_network(snappi_ports[0]["subnet"], strict=False)
-    is_v4_subnet = isinstance(network, ipaddress.IPv4Network)
 
-    def configure_devices(config, ports, is_ipv4, role):
-        device_names = []
-        for index, port_data in enumerate(ports):
+def create_snappi_config(config, snappi_extra_params):
+    pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
+    snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+    for role, pconfig in snappi_extra_params.protocol_config.items():
+        is_ipv4 = True if pconfig['subnet_type'] == 'ipv4' else False
+        for index, port_data in enumerate(pconfig['ports']):
             device = config.devices.device(name=f"{role} Topology {index}")[-1]
-            eth = device.ethernets.add()
-            eth.connection.port_name = f"{role}_Port_{index}"
-            eth.name = f"{role} Ethernet_{index}"
-            eth.mac = port_data["src_mac_address"]
+            eth = device.ethernets.add(name=f"{role} Ethernet_{index}", mac=port_data["src_mac_address"])
+            eth.connection.port_name = f"Port_{port_data['port_id']}"
+            ip_name = f"{role} {'IPv4' if is_ipv4 else 'IPv6'}_{index}"
+            ip_layer = getattr(eth, 'ipv4_addresses' if is_ipv4 else 'ipv6_addresses').add(
+                name=ip_name,
+                address=port_data["ipAddress"],
+                gateway=port_data["ipGateway"],
+                prefix=int(port_data["prefix"])
+            )
+            snappi_obj_handles[role]["ip"].append(ip_layer.name)
 
-            if is_ipv4:
-                ip_layer = eth.ipv4_addresses.add()
-                ip_layer.name = f"{role} IPv4_{index}"
-            else:
-                ip_layer = eth.ipv6_addresses.add()
-                ip_layer.name = f"{role} IPv6_{index}"
-
-            ip_layer.address = port_data["ipAddress"]
-            ip_layer.gateway = port_data["ipGateway"]
-            ip_layer.prefix = int(port_data["prefix"])
-            if role == "Rx":
-                if is_ipv4:
-                    bgpv4_stack = device.bgp
-                    bgpv4_stack.router_id = port_data["ipGateway"]
-                    bgpv4_int = bgpv4_stack.ipv4_interfaces.add()
-                    bgpv4_int.ipv4_name = ip_layer.name
-                    bgpv4_peer = bgpv4_int.peers.add()
-                    bgpv4_peer.name = f"{role} BGP_{index}"
-                    bgpv4_peer.as_type = 'ebgp'
-                    bgpv4_peer.peer_address = port_data["ipGateway"]
-                    bgpv4_peer.as_number = port_data["asn"]
-                    route_range1 = bgpv4_peer.v4_routes.add(name=f"{role} Network Group_{index}")
-                    route_range1.addresses.add(address='200.1.0.1', prefix=32, count=1000)
-                    device_names.append(route_range1.name)
-                elif not is_ipv4:
-                    bgpv6_stack = device.bgp
-                    bgpv6_stack.router_id = '1.1.1.1'
-                    bgpv6_int = bgpv6_stack.ipv6_interfaces.add()
-                    bgpv6_int.ipv6_name = ip_layer.name
-                    bgpv6_peer = bgpv6_int.peers.add()
-                    bgpv6_peer.name = f"{role} BGP+_{index}"
-                    bgpv6_peer.as_type = 'ebgp'
-                    bgpv6_peer.peer_address = port_data["ipGateway"]
-                    bgpv6_peer.as_number = port_data["asn"]
-                    route_range2 = bgpv6_peer.v6_routes.add(name=f"{role} Network Group_{index}")
-                    route_range2.addresses.add(address='3000::1', prefix=128, count=1000)
-                    device_names.append(route_range2.name)
-            else:
-                device_names.append(ip_layer.name)
-        return device_names
-    tx_flow_name = configure_devices(config, tx_ports, is_v4_subnet, "Tx")
-    rx_flow_name = configure_devices(config, rx_ports, is_v4_subnet, "Rx")
-    return config, tx_flow_name, rx_flow_name
+            if pconfig['protocol_type'] == "bgp":
+                bgp = device.bgp
+                bgp.router_id = port_data["ipGateway"] if is_ipv4 else '1.1.1.1'
+                iface = bgp.ipv4_interfaces.add() if is_ipv4 else bgp.ipv6_interfaces.add()
+                setattr(iface, 'ipv4_name' if is_ipv4 else 'ipv6_name', ip_layer.name)
+                peer = iface.peers.add(
+                    name=f"{role} BGP{'' if is_ipv4 else '+'}_{index}",
+                    as_type='ebgp',
+                    peer_address=port_data["ipGateway"],
+                    as_number=port_data["asn"]
+                )
+                if pconfig['network_group']:
+                    routes = (
+                                peer.v4_routes.add(name=f"{role} Network Group_{index}")
+                                if is_ipv4 else
+                                peer.v6_routes.add(name=f"{role} Network Group_{index}")
+                            )
+                    routes.addresses.add(
+                                address='200.1.0.1' if is_ipv4 else '3000::1',
+                                prefix=32 if is_ipv4 else 128,
+                                count=1000
+                            )
+                    snappi_obj_handles[role]["network_group"].append(routes.name)
+    return config, snappi_obj_handles
