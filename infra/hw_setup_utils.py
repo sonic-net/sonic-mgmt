@@ -1039,7 +1039,7 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
         return None
     else:
         folder = f'{image_id}_jenkins_nightly_logs_{build_id}_{test_suites}'  
-        
+        dut_flag = "" if "skip_dut_flag" in testbed_info_dict else f" -d {t2} "
         if test_suites == "All":
             extra_params = testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else ""
             run_cmd = f"./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p /run_logs/{folder} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" &"
@@ -1056,7 +1056,7 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
             formatted_time = now.strftime("%Y%m%d%H%M%S")
             test_name_output = test_name.replace("/","_").replace(".py","")
             folder = folder.replace("/","_").replace(".py","")
-            run_cmd = f"./run_tests.sh -n {t1} -d {t2} -e -rapP -e --alluredir={allure_directory} -e --skip_sanity -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p /run_logs/{folder} |& tee run_test_{test_name_output}_{formatted_time}.log"
+            run_cmd = f"./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p /run_logs/{folder} |& tee run_test_{test_name_output}_{formatted_time}.log"
     
     log.debug(f'To check logs of the tests, go to ucs:/run_logs/{folder}')
     thread.sendline(run_cmd)
