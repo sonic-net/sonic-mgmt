@@ -15,6 +15,9 @@ SKU_NEXTHOP_THRESHOLDS = {
     'nokia-m0-7215': 126,
     'nokia-7215-a1': 126,
     'nokia-7215': 126,
+    'arista-7050cx3-32s-c28s4': 255,
+    'Arista-7050CX3-32S-C32': 255,
+    'arista-7050cx3-32s-s128': 255,
 }
 
 DEFAULT_NEXTHOP_THRESHOLD = 256
@@ -29,8 +32,8 @@ def test_crm_next_hop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     hwsku = duthost.facts["hwsku"].lower()
-
-    nexthop_group_threshold = SKU_NEXTHOP_THRESHOLDS.get(hwsku, DEFAULT_NEXTHOP_THRESHOLD)
+    lower_sku_nexthop_thresholds = {k.lower(): v for k, v in SKU_NEXTHOP_THRESHOLDS.items()}
+    nexthop_group_threshold = lower_sku_nexthop_thresholds.get(hwsku, DEFAULT_NEXTHOP_THRESHOLD)
 
     resource_name = "nexthop_group"
     if resource_name in crm_resources:
