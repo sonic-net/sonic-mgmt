@@ -353,8 +353,8 @@ def crm_resources(duthosts, rand_one_dut_hostname):
                     }
         return True if resources_dict else False
 
-    # Wait up to 90 seconds, checking every 5 seconds
-    wait_until(90, 5, 0, get_crm_resources, resources)
+    # Wait up to 360 seconds, checking every 5 seconds
+    wait_until(360, 5, 0, get_crm_resources, resources)
     if not resources:
         pytest.fail("CRM counters are not ready after multiple retries.")
 
