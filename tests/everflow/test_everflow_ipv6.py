@@ -9,6 +9,7 @@ from ptf.mask import Mask
 import ptf.packet as scapy
 from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
+from .everflow_test_utilities import CONFIG_MODE_CLI, CONFIG_MODE_GCU
 import random
 # Module-level fixtures
 from .everflow_test_utilities import setup_info      # noqa: F401
@@ -153,6 +154,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             background_thread.join()
             background_traffic(run_count=1)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
                                 everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
@@ -173,6 +175,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_dst_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
                                 everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
@@ -193,6 +196,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_next_header_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
                                    everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
@@ -208,6 +212,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_l4_src_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
                                    everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
@@ -223,6 +228,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_l4_dst_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
                                    everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
@@ -238,6 +244,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_l4_src_port_range_mirroring(self, setup_info, setup_mirror_session,                # noqa F811
                                          ptfadapter, everflow_dut, everflow_direction,
                                          setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
@@ -254,6 +261,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_l4_dst_port_range_mirroring(self, setup_info, setup_mirror_session,                # noqa F811
                                          ptfadapter, everflow_dut, everflow_direction,
                                          setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
@@ -270,6 +278,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_tcp_flags_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
                                  setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa F811
                                  everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa F811
@@ -285,6 +294,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_dscp_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,               # noqa F811
                             setup_standby_ports_on_rand_unselected_tor_unconditionally,                     # noqa F811
                             everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,            # noqa F811
@@ -300,6 +310,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_l4_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,           # noqa F811
                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa F811
                                 everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
@@ -341,6 +352,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_tcp_response_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                     setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
                                     everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
@@ -380,6 +392,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_tcp_application_mirroring(self, setup_info, setup_mirror_session,              # noqa F811
                                        ptfadapter, everflow_dut, everflow_direction,
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa F811
@@ -424,6 +437,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_udp_application_mirroring(self, setup_info, setup_mirror_session,              # noqa F811
                                        ptfadapter, everflow_dut, everflow_direction,
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa F811
@@ -467,6 +481,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
                           setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
@@ -521,6 +536,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_any_transport_protocol(self, setup_info, setup_mirror_session,                 # noqa F811
                                     ptfadapter, everflow_dut, everflow_direction,
                                     setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa F811
@@ -563,6 +579,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
                               setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
                               everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
@@ -575,6 +592,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         # will not crash if such a rule is installed. If this does happen, we expect the whole test
         # suite + loganaylzer + the sanity check to fail.
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,            # noqa F811
                            setup_standby_ports_on_rand_unselected_tor_unconditionally,                  # noqa F811
                            everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,         # noqa F811
@@ -598,6 +616,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_dest_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
                          setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa F811
                          everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa F811
@@ -621,6 +640,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_both_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
                           setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
@@ -644,6 +664,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            skip_traffic_test=skip_traffic_test)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_fuzzy_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
                            setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
                            everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
