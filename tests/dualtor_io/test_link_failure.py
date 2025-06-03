@@ -2,19 +2,19 @@ import pytest
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action, \
-                                                  send_soc_to_t1_with_action, send_t1_to_soc_with_action    # noqa F401
+                                                  send_soc_to_t1_with_action, send_t1_to_soc_with_action    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, shutdown_fanout_upper_tor_intfs, \
                                                 shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, \
                                                 lower_tor_fanouthosts, shutdown_upper_tor_downlink_intfs, \
-                                                shutdown_lower_tor_downlink_intfs                   # noqa F401
-from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+                                                shutdown_lower_tor_downlink_intfs                   # noqa: F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses       # noqa F401
+                                                copy_ptftests_directory, change_mac_addresses       # noqa: F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
-from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.config_reload import config_reload
 
@@ -25,7 +25,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def link_down_downstream_active_duplication_setting(duthost, mux_config):   # noqa F811
+def link_down_downstream_active_duplication_setting(duthost, mux_config):   # noqa: F811
     """Setup duplication setting based on the platform."""
     hwsku = duthost.facts['hwsku'].lower()
     allowed_duplication = None
@@ -38,9 +38,9 @@ def link_down_downstream_active_duplication_setting(duthost, mux_config):   # no
 
 @pytest.mark.enable_active_active
 def test_active_link_down_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa: F811
 ):
     """
     Send traffic from server to T1 and shutdown the active ToR link.
@@ -75,10 +75,10 @@ def test_active_link_down_upstream(
 
 @pytest.mark.enable_active_active
 def test_active_link_down_downstream_active(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa F811
-    link_down_downstream_active_duplication_setting                     # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa: F811
+    link_down_downstream_active_duplication_setting                     # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
@@ -113,9 +113,9 @@ def test_active_link_down_downstream_active(
 
 
 def test_active_link_down_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_upper_tor_intfs                                     # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_upper_tor_intfs                                     # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdown the active ToR link.
@@ -133,9 +133,9 @@ def test_active_link_down_downstream_standby(
 
 
 def test_standby_link_down_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_lower_tor_intfs                                     # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_lower_tor_intfs                                     # noqa: F811
 ):
     """
     Send traffic from server to T1 and shutdown the standby ToR link.
@@ -153,9 +153,9 @@ def test_standby_link_down_upstream(
 
 
 def test_standby_link_down_downstream_active(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_lower_tor_intfs                                     # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_lower_tor_intfs                                     # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the standby ToR link.
@@ -173,9 +173,9 @@ def test_standby_link_down_downstream_active(
 
 
 def test_standby_link_down_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_fanout_lower_tor_intfs                                     # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_fanout_lower_tor_intfs                                     # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdwon the standby ToR link.
@@ -193,9 +193,9 @@ def test_standby_link_down_downstream_standby(
 
 
 def test_active_tor_downlink_down_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_upper_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_upper_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from server to T1 and shutdown the active ToR downlink on DUT.
@@ -213,9 +213,9 @@ def test_active_tor_downlink_down_upstream(
 
 
 def test_active_tor_downlink_down_downstream_active(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_upper_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_upper_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR downlink on DUT.
@@ -233,9 +233,9 @@ def test_active_tor_downlink_down_downstream_active(
 
 
 def test_active_tor_downlink_down_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_upper_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_upper_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdown the active ToR downlink on DUT.
@@ -253,9 +253,9 @@ def test_active_tor_downlink_down_downstream_standby(
 
 
 def test_standby_tor_downlink_down_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_lower_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_lower_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from server to T1 and shutdown the standby ToR downlink on DUT.
@@ -273,9 +273,9 @@ def test_standby_tor_downlink_down_upstream(
 
 
 def test_standby_tor_downlink_down_downstream_active(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_lower_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_lower_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the standby ToR downlink on DUT.
@@ -293,9 +293,9 @@ def test_standby_tor_downlink_down_downstream_active(
 
 
 def test_standby_tor_downlink_down_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_lower_tor_downlink_intfs                                   # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
+    shutdown_lower_tor_downlink_intfs                                   # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdwon the standby ToR downlink on DUT.
@@ -315,8 +315,8 @@ def test_standby_tor_downlink_down_downstream_standby(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_down_upstream_soc(
-    upper_tor_host, lower_tor_host, send_soc_to_t1_with_action,         # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa F811
+    upper_tor_host, lower_tor_host, send_soc_to_t1_with_action,         # noqa: F811
+    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa: F811
 ):
     """
     Send traffic from soc to T1 and shutdown the active ToR link.
@@ -339,9 +339,9 @@ def test_active_link_down_upstream_soc(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_down_downstream_active_soc(
-    upper_tor_host, lower_tor_host, send_t1_to_soc_with_action,         # noqa F811
-    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa F811
-    link_down_downstream_active_duplication_setting                     # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_soc_with_action,         # noqa: F811
+    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa: F811
+    link_down_downstream_active_duplication_setting                     # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
@@ -382,8 +382,8 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa F811
-    cable_type, active_active_ports                                      # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa: F811
+    cable_type, active_active_ports                                      # noqa: F811
 ):
     if cable_type == CableType.active_active:
         try:
@@ -413,8 +413,8 @@ def test_active_link_admin_down_config_reload_upstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_downstream(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa F811
-    cable_type, active_active_ports                                      # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa: F811
+    cable_type, active_active_ports                                      # noqa: F811
 ):
     if cable_type == CableType.active_active:
         try:
@@ -446,8 +446,8 @@ def test_active_link_admin_down_config_reload_downstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    cable_type, active_active_ports, setup_loganalyzer                  # noqa F811
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
+    cable_type, active_active_ports, setup_loganalyzer                  # noqa: F811
 ):
     """
     Send traffic from server to T1 and unshut the active-active mux ports.
@@ -499,8 +499,8 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    cable_type, active_active_ports, setup_loganalyzer                  # noqa F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
+    cable_type, active_active_ports, setup_loganalyzer                  # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and unshut the active-active mux ports.
