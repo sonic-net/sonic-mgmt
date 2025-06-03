@@ -228,7 +228,8 @@ def get_disabled_container_list(duthost):
     for container_name, status in list(container_status.items()):
         if "disabled" in status:
             disabled_containers.append(container_name)
-
+        if "enabled" in status and container_name == "frr_bmp":
+            disabled_containers.append(container_name)
     return disabled_containers
 
 
