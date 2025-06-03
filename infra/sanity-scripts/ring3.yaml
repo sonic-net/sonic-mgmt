@@ -95,7 +95,17 @@ FWD:
   t2-min:
     sfd:
       sim:
-        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop 
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+  t2:
+    sfd:
+      hw:
+        - acl/test_acl.py
+        - crm/test_crm.py
+        - fib/test_fib.py
+        - ipfwd/test_dip_sip.py
+        - ipfwd/test_mtu.py
+        - ipfwd/test_nhop_group.py
+
   t1:
     lightning,superbolt:
       sim:
@@ -107,7 +117,7 @@ FWD:
         - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
         - everflow/test_everflow_ipv6.py::test_src_ipv6_mirroring
         - everflow/test_everflow_ipv6.py::test_invalid_tcp_rule
-  
+
 PLT:
   t0-64:
     mth64:
@@ -183,6 +193,13 @@ PLT:
         - platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
         - platform_tests/daemon/test_pcied.py::test_pmon_pcied_kill_and_start_status
         - platform_tests/daemon/test_syseepromd.py
+  t2:
+    sfd:
+      hw:
+        - platform_tests/test_reboot.py
+        - platform_tests//link_flap/test_link_flap.py
+        - platform_tests/test_kdump.py
+        - platform_tests/test_reload_config.py
 
 
 INFRA:
@@ -207,6 +224,17 @@ INFRA:
   t2-min:
     sfd:
       sim:
+        - iface_namingmode/test_iface_namingmode.py
+        - monit/test_monit_status.py
+        - system_health/test_system_health.py
+        - database/test_db_scripts.py
+        - syslog/test_syslog_rate_limit.py
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+        - portstat/test_portstat.py
+  t2:
+    sfd:
+      hw:
         - iface_namingmode/test_iface_namingmode.py
         - monit/test_monit_status.py
         - system_health/test_system_health.py
@@ -256,10 +284,18 @@ MGMT:
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
-        - http/test_http_copy.py 
+        - http/test_http_copy.py
         - mvrf/test_mgmtvrf.py
         - ssh/test_ssh_default_password.py
-
+  t2:
+    sfd:
+      hw:
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_loopback.py
+        - snmp/test_snmp_lldp.py
+        - telemetry/test_telemetry.py
+        - memory_checker/test_memory_checker.py
+        - snmp/test_snmp_queue.py
 L2:
   t0-64:
     all_pids:
@@ -283,6 +319,14 @@ L2:
       hw:
         - fdb/test_fdb_mac_move.py
         - vlan/test_vlan.py
+  t2:
+    sfd:
+      hw:
+        - arp/test_arpall.py
+        - pc/test_lag_2.py
+        - pc/test_po_update.py
+        - pc/test_po_cleanup.py
+
   t1:
     mth64:
       hw:
@@ -294,7 +338,7 @@ L2:
         - lldp/test_lldp.py
         - arp/test_neighbor_mac_noptf.py
         - pc/test_po_cleanup.py::test_po_cleanup
-        - pc/test_po_update.py::test_po_update      
+        - pc/test_po_update.py::test_po_update
 
 ROUTING: #Sridhar Santhanam
   t0-64:
@@ -328,6 +372,14 @@ ROUTING: #Sridhar Santhanam
         - bgp/test_bgp_fact.py
         - bgp/test_bgp_session_flap.py
 
+  t2:
+    sfd:
+      hw:
+        - arp/test_arpall.py
+        - pc/test_lag_2.py
+        - pc/test_po_update.py
+        - pc/test_po_cleanup.py
+
 TUNNEL: #Thushar Gowda
   # t0-64:
   #   mth64:
@@ -339,11 +391,15 @@ TUNNEL: #Thushar Gowda
     mth64:
       sim:
         - vxlan/test_vxlan_ecmp_switchover.py
-        - vxlan/test_vxlan_route_advertisement.py  
+        - vxlan/test_vxlan_route_advertisement.py
   t1:
     mth64:
       hw:
         - vxlan/test_vxlan_ecmp_switchover.py
+  t2:
+    sfd:
+      hw:
+        - decap/test_decap.py
 
 PFC: #Alpesh Patel
   t0-64:
@@ -351,3 +407,10 @@ PFC: #Alpesh Patel
       sim:
         - generic_config_updater/test_incremental_qos.py
         - generic_config_updater/test_pfcwd_interval.py
+  t2:
+    sfd:
+      hw:
+        - pfcwd/test_pfc_config.py
+        - pfcwd/test_pfcwd_all_port_storm.py
+        - pfcwd/test_pfcwd_cli.py
+        - pfcwd/test_pfcwd_function.py
