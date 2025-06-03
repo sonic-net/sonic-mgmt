@@ -274,7 +274,7 @@ def create_snappi_config(config, snappi_extra_params):
     pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
     snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
     for role, pconfig in snappi_extra_params.protocol_config.items():
-        is_ipv4 = True if pconfig['subnet_type'] == 'ipv4' else False
+        is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
         for index, port_data in enumerate(pconfig['ports']):
             device = config.devices.device(name=f"{role} Topology {index}")[-1]
             eth = device.ethernets.add(name=f"{role} Ethernet_{index}", mac=port_data["src_mac_address"])
@@ -289,6 +289,7 @@ def create_snappi_config(config, snappi_extra_params):
             snappi_obj_handles[role]["ip"].append(ip_layer.name)
 
             if pconfig['protocol_type'] == "bgp":
+                route_range = snappi_extra_params.ROUTE_RANGES[pconfig['subnet_type']]
                 bgp = device.bgp
                 bgp.router_id = port_data["ipGateway"] if is_ipv4 else '1.1.1.1'
                 iface = bgp.ipv4_interfaces.add() if is_ipv4 else bgp.ipv6_interfaces.add()
@@ -305,10 +306,11 @@ def create_snappi_config(config, snappi_extra_params):
                                 if is_ipv4 else
                                 peer.v6_routes.add(name=f"{role} Network Group_{index}")
                             )
-                    routes.addresses.add(
-                                address='200.1.0.1' if is_ipv4 else '3000::1',
-                                prefix=32 if is_ipv4 else 128,
-                                count=1000
-                            )
+                    for rr in route_range:
+                        routes.addresses.add(
+                                    address=rr[0],
+                                    prefix=rr[1],
+                                    count=rr[2],
+                                )
                     snappi_obj_handles[role]["network_group"].append(routes.name)
     return config, snappi_obj_handles
