@@ -440,7 +440,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
-        and not re.match(r"t0-.*-s\d+$", tbinfo["topo"]["name"])
+        and not re.match(r"t0-.*s\d+", tbinfo["topo"]["name"])
     ):
 
         for k, v in list(port_channels.items()):
