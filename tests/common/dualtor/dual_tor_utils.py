@@ -1687,14 +1687,17 @@ def validate_active_active_dualtor_setup(
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
-    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
-        restart_nic_simulator()
-        ptfhost.shell("supervisorctl restart icmp_responder")
+    if all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        return
+
+    restart_nic_simulator()
+    ptfhost.shell("supervisorctl restart icmp_responder")
 
     # verify icmp_responder is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
 
+    duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
         pt_assert(

@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1", "m2", "m3"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -386,6 +386,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
                     downstream_ports[neighbor['namespace']].append(interface)
                     downstream_port_ids.append(port_id)
+                    # Duplicate all ports to upstream port list for FT2
+                    if topo == "ft2":
+                        upstream_port_ids.append(port_id)
                     downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
                 for neigh_type in upstream_neigh_types:
                     if neigh_type in neighbor["name"].upper():
@@ -418,7 +421,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if (topo in ["t0", "mx", "m0_vlan", "m0_l3", "m1"]
+    if (topo in ["t0", "mx", "m0_vlan", "m0_l3", "m1", "ft2"]
             or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag")
             or 't1-isolated' in tbinfo["topo"]["name"]):
         for namespace, port in list(downstream_ports.items()):
@@ -886,8 +889,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
-    def direction(self, request):
+    def direction(self, request, tbinfo):
         """Parametrize test based on direction of traffic."""
+        # Skip uplink->downlink test on FT2 as it's the same as downlink->uplink
+        if tbinfo["topo"]["type"] == "ft2" and request.param == "uplink->downlink":
+            pytest.skip("Skip uplink->downlink test on FT2")
         return request.param
 
     def check_rule_counters(self, duthost):
