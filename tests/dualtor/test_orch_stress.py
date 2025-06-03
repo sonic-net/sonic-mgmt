@@ -8,13 +8,13 @@ Test summary:
 
     Continuous mux state change based on configurable parameter 'N':
 
-    | Step                                                         | Goal | Expected results                                                  |     # noqa F501
-    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |     # noqa F501
-    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |     # noqa F501
-    |                                                              |      |                                                                   |     # noqa F501
-    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
-    |                                                              |      |                                                                   |     # noqa F501
-    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
+    | Step                                                         | Goal | Expected results                                                  |     # noqa: E501
+    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |     # noqa: E501
+    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |     # noqa: E501
+    |                                                              |      |                                                                   |     # noqa: E501
+    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa: E501
+    |                                                              |      |                                                                   |     # noqa: E501
+    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa: E501
 """
 import json
 import logging
@@ -25,8 +25,8 @@ import pytest
 from tests.common.utilities import wait
 from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
-from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
+from tests.common.dualtor.dual_tor_mock import *                    # noqa: F401, F403
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -110,7 +110,7 @@ def _swss_path(filename):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa F811
+def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa: F811
     """This fixture is to generate/cleanup the swss config files in the swss docker.
 
     Args:
