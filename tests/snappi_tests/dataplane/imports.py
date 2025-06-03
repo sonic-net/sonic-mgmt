@@ -50,7 +50,7 @@ from ixnetwork_restpy.assistants.statistics.statviewassistant import (
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, wait
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 # ==============================
@@ -153,7 +153,6 @@ from tests.common.snappi_tests.common_helpers import (
 # ==============================
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.snappi_tests.files.helper import skip_warm_reboot, skip_ecn_tests
-from tests.snappi_tests.dataplane.files.helper import setup_snappi_port_configs
 
 # ==============================
 #  Packet Analysis (PCAP, PFC, ECN)
@@ -167,7 +166,7 @@ from tests.common.snappi_tests.read_pcap import (
 # ==============================
 #  Test Variables (IP Ranges, QoS Groups)
 # ==============================
-from tests.snappi_tests.variables import (
+from tests.common.snappi_tests.variables import (
     dut_ip_start,
     snappi_ip_start,
     prefix_length,
