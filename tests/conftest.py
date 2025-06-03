@@ -1375,7 +1375,7 @@ def generate_params_frontend_hostname(request, macsec_only=False):
 
     if macsec_only:
         host_type = "macsec"
-        if 't2' in tbinfo['topo']['name'] and request.config.getoption("--enable_macsec", default=False):
+        if 't2' in tbinfo['topo']['name'] and request.config.option.enable_macsec:
             # currently in the T2 topo only the uplink linecard will have macsec enabled
             # Please add "macsec_card = True" param to inventory the inventory file
             # under Line Card with macsec capability.
