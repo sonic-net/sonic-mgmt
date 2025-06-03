@@ -759,6 +759,10 @@ def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port
 def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
                                  request):
+    asic_name = duthost.get_asic_name()
+    if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
+        pytest.xfail("vrf testing not supported on TH5")
+
     try:
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Configure user defined vrf"):
