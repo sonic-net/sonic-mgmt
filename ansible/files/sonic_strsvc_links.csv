@@ -415,7 +415,7 @@ svcstr-7250x3b-1,Ethernet48,svcstr-z9332f-01,Ethernet0,400000,593,Access
 svcstr-7250x3b-1,Ethernet56,svcstr-7260cx3-acs-3,Ethernet15/1,100000,752,Access
 svcstr-7250x3b-1,Ethernet64,svcstr-z9332f-01,Ethernet80,400000,733,Access
 svcstr-7250x3b-1,Ethernet72,svcstr-z9332f-01,Ethernet88,400000,734,Access
-svcstr-7250x3b-1,Ethernet80,svcstr-z9332f-01,Ethernet96,400000,735,Access
+svcstr-7250x3b-1,Ethernet80,svcstr-z9332f-01,Ethernet176,400000,735,Access
 svcstr-7250x3b-1,Ethernet88,svcstr-z9332f-01,Ethernet104,400000,736,Access
 svcstr-7250x3b-1,Ethernet96,svcstr-z9332f-01,Ethernet8,400000,594,Access
 svcstr-7250x3b-1,Ethernet104,svcstr-z9332f-01,Ethernet16,400000,595,Access
