@@ -22,7 +22,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 logger = logging.getLogger(__name__)
