@@ -163,7 +163,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
 
     target_drop_percentage = 10
-    if duthost.facts['asic_type'] == "broadcom":
+    if duthost.facts.get("platform_asic") == "broadcom-dnx":
         target_drop_percentage = 9
     pytest_assert(abs(drop_percentage - target_drop_percentage) < 1, 'FAIL: Drop packets must be around 10 percent')
 
