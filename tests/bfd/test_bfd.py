@@ -388,6 +388,10 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
+
+        # Delay to allow for IPv6 addresses to be fully programmed so IPv6
+        # neighborship can be resolved on PTF side.
+        time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
 
         time.sleep(1)
@@ -401,7 +405,9 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
-                check_dut_bfd_status(duthost, neighbor_addr, "Admin_Down")
+                # RFC 5880, section 6.2: Remote system (dut) to enter "Down"
+                # state when local system (ptf) is set to "AdminDown" state.
+                check_dut_bfd_status(duthost, neighbor_addr, "Down")
                 check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "AdminDown")
             else:
                 check_dut_bfd_status(duthost, neighbor_addr, "Up")

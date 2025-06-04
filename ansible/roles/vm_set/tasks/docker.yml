@@ -106,6 +106,12 @@
 
 - name: Update python3 packages
   block:
+  - name: Ensure python3-venv is installed
+    apt:
+      name: python3-venv
+      state: present
+      update_cache: yes
+    become: yes
   - name: Install python packages
     pip: name=docker version=7.1.0 state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="python3 -m venv"
     become: yes

@@ -158,15 +158,12 @@ def verify_snmp_speed(facts, snmp_facts, results):
 
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
+def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
@@ -175,13 +172,17 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
-    # Verify all physical ports in snmp interface list
-    for _, alias in list(config_facts['port_name_to_alias_map'].items()):
-        assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    # Verify all port channels in snmp interface list
-    for po_name in config_facts.get('PORTCHANNEL', {}):
-        assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
+        # Verify all physical ports of current ASIC are in snmp interface list
+        for _, alias in list(config_facts['port_name_to_alias_map'].items()):
+            assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+
+        # Verify all port channels of current ASIC are in snmp interface list
+        for po_name in config_facts.get('PORTCHANNEL', {}):
+            assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
 
 @pytest.mark.bsl
@@ -219,26 +220,27 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
             not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
 
-    ports_list = []
-    for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
-        ports_list.extend(list(config_facts.get(i, {}).keys()))
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    dut_facts = collect_all_facts(duthost, ports_list, namespace)
-    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-    result = verify_port_ifindex(snmp_facts, speed_snmp)
-    pytest_assert(
-        not result, "Unexpected comparsion of SNMP: {}".format(result))
+        ports_list = []
+        for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
+            ports_list.extend(list(config_facts.get(i, {}).keys()))
+
+        dut_facts = collect_all_facts(duthost, ports_list, asic.namespace)
+        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+        result = verify_port_ifindex(snmp_facts, speed_snmp)
+        pytest_assert(
+            not result, "Unexpected comparsion of SNMP: {}".format(result))

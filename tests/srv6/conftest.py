@@ -2,8 +2,9 @@ import pytest
 from tests.common.helpers.ptf_tests_helper import get_stream_ptf_ports
 from tests.common.helpers.ptf_tests_helper import select_random_link
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links  # noqa F401
-from tests.srv6.srv6_utils import SRv6Packets, create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid, \
-    MyLocators, MySIDs
+from tests.common.helpers.srv6_helper import (create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid,
+                                              SRv6Packets)
+from tests.srv6.srv6_utils import MyLocators, MySIDs
 
 
 @pytest.fixture(scope='class')

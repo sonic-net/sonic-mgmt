@@ -78,7 +78,7 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                       "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-        check_services(duthost)
+        check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
@@ -137,7 +137,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                       "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-        check_services(duthost)
+        check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
