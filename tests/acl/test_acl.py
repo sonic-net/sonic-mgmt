@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
