@@ -307,11 +307,9 @@ stages:
     displayName: "impacted-area-kvmtest-t2 by Elastictest - optional"
     dependsOn:
     - get_impacted_area
-    - choose_between_mixed_and_py3_ptf_image
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-      set_ptf_image_tag: $[ dependencies.choose_between_mixed_and_py3_ptf_image.outputs['ptf_image_tag.tag_value'] ]
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
@@ -321,7 +319,7 @@ stages:
         parameters:
           TOPOLOGY: t2
           PTF_IMAGE_TAG: $(set_ptf_image_tag)
-          SCRIPTS: $(TEST_SCRIPTS)
+          SCRIPTS: $(SCRIPTS)
           MIN_WORKER: 20
           MAX_WORKER: 20
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
