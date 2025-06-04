@@ -354,6 +354,14 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     @param: cmd_sfp_error_status: fixture representing the command used to test
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # cleanup TRANSCEIVER_STATUS Table for backplane ports
+    state_db_ports = duthost.shell('sonic-db-cli STATE_DB KEYS "TRANSCEIVER_STATUS|*"')
+    state_db_ports_list = state_db_ports.get('stdout', None).splitlines()
+    for port in state_db_ports_list:
+        _, backplane_port = port.split('TRANSCEIVER_STATUS|', 1)
+        role = duthost.shell('sonic-db-cli CONFIG_DB HGET "PORT|{}" "role"'.format(backplane_port))
+        if role["stdout"] == "Dpc":
+            duthost.shell('sonic-db-cli STATE_DB DEL "{}"'.format(port))
     skip_release(duthost, ["201811", "201911", "202012"])
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
