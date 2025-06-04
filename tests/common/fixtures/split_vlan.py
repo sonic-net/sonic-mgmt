@@ -4,8 +4,9 @@ import ipaddress
 import json
 import re
 from math import log, ceil
+
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 
 
 @pytest.fixture(scope="class")
@@ -47,23 +48,17 @@ def setup_multiple_vlans_and_teardown(request, rand_selected_dut, rand_unselecte
         vlan_count
     )
     try:
-        checkpoint_name = 'mutiple_vlans_test'
-        create_checkpoint(duthost, checkpoint_name)
-
         logging.info("The patch for setup is %s" % config_patch)
         apply_config_patch(duthost, config_patch)
         logging.info("The sub_vlans_info after setup is %s" % sub_vlans_info)
         if is_dualtor:
-            create_checkpoint(rand_unselected_dut, checkpoint_name)
             apply_config_patch(rand_unselected_dut, config_patch)
 
         yield sub_vlans_info
     finally:
-        rollback_or_reload(duthost, checkpoint_name)
-        delete_checkpoint(duthost, checkpoint_name)
+        config_reload(duthost)
         if is_dualtor:
-            rollback_or_reload(rand_unselected_dut, checkpoint_name)
-            delete_checkpoint(rand_unselected_dut, checkpoint_name)
+            config_reload(rand_unselected_dut)
 
 
 def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx, count):

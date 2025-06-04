@@ -12,6 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
@@ -208,7 +209,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports
@@ -341,7 +342,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED].items():
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = port_map[0]
         rx_port_count = port_map[2]
         snappi_port_list = get_snappi_ports

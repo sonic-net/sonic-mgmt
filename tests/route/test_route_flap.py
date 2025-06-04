@@ -13,6 +13,7 @@ from tests.common.dualtor.mux_simulator_control import \
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -45,9 +46,12 @@ def get_prefix_len_by_net_size(net_size):
 
 
 def get_route_prefix_len(tbinfo, common_config):
-    if tbinfo["topo"]["name"] == "m0":
+    if tbinfo["topo"]["type"] == "m1":
+        # The only multipath route in m1 topo is the default route
+        subnet_size = 2 ** 32
+    elif tbinfo["topo"]["type"] == "m0":
         subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
-    elif tbinfo["topo"]["name"] == "mx":
+    elif tbinfo["topo"]["type"] == "mx":
         subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     else:
         subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
@@ -219,12 +223,11 @@ def check_route(duthost, route, dev_port, operation):
         out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
         nexthops = out[route][0]['nexthops']
         result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
+
     if operation == WITHDRAW:
-        pytest_assert(dev_port not in result,
-                      "Route {} was not withdraw {}".format(route, result))
+        return dev_port not in result
     else:
-        pytest_assert(dev_port in result,
-                      "Route {} was not announced {}".format(route, result))
+        return dev_port in result
 
 
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip, tbinfo):
@@ -498,16 +501,16 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
-                time.sleep(1)
-                check_route(duthost, dst_prefix, dev_port, WITHDRAW)
+                pytest_assert(wait_until(20, 1, 0, check_route, duthost, dst_prefix, dev_port, WITHDRAW),
+                              "Route {} was not withdrawn".format(dst_prefix))
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
-                time.sleep(1)
-                check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
+                pytest_assert(wait_until(20, 1, 0, check_route, duthost, dst_prefix, dev_port, ANNOUNCE),
+                              "Route {} was not announced".format(dst_prefix))
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 

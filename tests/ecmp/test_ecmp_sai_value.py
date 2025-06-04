@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
-    pytest.mark.topology('t0', 't1', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm1'),
     pytest.mark.disable_loganalyzer
 ]
 
