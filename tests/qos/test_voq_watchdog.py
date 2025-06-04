@@ -34,15 +34,26 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+@pytest.fixture(scope="function")
+def ignore_log_voq_watchdog(duthosts, loganalyzer):
+    if not loganalyzer:
+        yield
+        return
+    ignore_list = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*VOQ Appears to be stuck*"]
+    for dut in duthosts:
+        for line in ignore_list:
+            loganalyzer[dut.hostname].ignore_regex.append(line)
+    yield
+    return
+
 
 class TestVoqWatchdog(QosSaiBase):
     """TestVoqWatchdog derives from QosSaiBase and contains collection of VOQ watchdog test cases.
     """
 
-    @pytest.mark.disable_loganalyzer
     def testQosSaiVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts
+            get_src_dst_asic_and_duts, ignore_log_voq_watchdog
     ):
         """
             Test VOQ watchdog
