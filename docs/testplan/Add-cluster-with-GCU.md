@@ -2,6 +2,31 @@
 
 ## Overview
 
+This test plan covers the dynamic addition of new T1 devices to a running T2 cluster. The feature allows updating the configuration at runtime using generic config update mechanisms, enabling the integration of new neighbors into the system without service disruption.
+
+###Objective
+Verify that:
+- New T1 devices can be added to a live T2 cluster via runtime configuration updates.
+- The devices are correctly registered in the system database.
+- Neighbor connections are established successfully.
+- The newly added devices are operational and can forward data traffic.
+
+###Affected Configuration Tables
+The following configuration/state tables are updated dynamically as part of this test:
+<pre>
+/BGP_NEIGHBOR
+/BUFFER_PG
+/CABLE_LENGTH
+/DEVICE_NEIGHBOR
+/DEVICE_NEIGHBOR_METADATA
+/INTERFACE
+/PORT
+/PORTCHANNEL_MEMBER
+/PORTCHANNEL_INTERFACE
+/PORT_QOS_MAP
+</pre>
+
+
 ##  Generic Config Updater (GCU) Test Coverage for Multi-ASIC Support
 The existing community test coverage for the Generic Config Updater (GCU) has been enhanced to support running in multi-ASIC platforms and t2 topology.
 
