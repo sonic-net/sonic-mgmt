@@ -217,13 +217,11 @@ INFRA:
         - portstat/test_portstat.py
 
 MGMT:
-  t0-64:
+  all_topo:
     mth64:
       sim:
         - snmp/test_snmp_interfaces.py
-        #- snmp/test_snmp_loopback.py
         - snmp/test_snmp_lldp.py
-        #- telemetry/test_telemetry.py
         - dns/static_dns/test_static_dns.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_dhcp_relay.py
@@ -233,7 +231,6 @@ MGMT:
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - snmp/test_snmp_cpu.py
-        #- snmp/test_snmp_default_route.py
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
         - snmp/test_snmp_v2mib.py
@@ -245,7 +242,43 @@ MGMT:
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        #- gnmi/test_gnmi_configdb.py
+        - snmp/test_snmp_link_local.py
+        - tacacs/test_authorization.py
+        - tacacs/test_ro_disk.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
+        - http/test_http_copy.py 
+        - mvrf/test_mgmtvrf.py
+        - ssh/test_ssh_default_password.py
+
+      hw:
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
+        - memory_checker/test_memory_checker.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_countersdb.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnoi_os.py
+        - gnmi/test_gnoi_system_grpc.py
+        - gnmi/test_gnoi_system.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
         - snmp/test_snmp_link_local.py
         - tacacs/test_authorization.py
         - tacacs/test_ro_disk.py
