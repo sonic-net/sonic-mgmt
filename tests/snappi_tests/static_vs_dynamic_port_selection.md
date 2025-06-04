@@ -51,6 +51,12 @@ tests/metadata/snappi_tests/<testbed>.json
 
 This file includes information about available ports, their speeds, and associated ASICs. During test execution, `test_pretest.py` generates subtypes dynamically based on interface speeds and assigns appropriate ports.
 
+Example:
+```
+./run_tests.sh -n vms-snappi-sonic-multidut -c snappi_tests/pfcwd/test_pfcwd_a2a_with_snappi.py -i ../ansible/veos -e "--topology multidut-tgen,any --enable-snappi-dynamic-ports"
+
+```
+
 **Dictionary format:**
 
 ```
