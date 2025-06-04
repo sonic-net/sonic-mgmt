@@ -173,8 +173,16 @@
             "ucs_password": "roZes@123",    
             "mth_tb": "aaa14-t2", 
             "ucs_tb": "aaa14-t2",
+            "docker_prompt": "@sonic-ucs-m5-10",
+            "topology":"t2",
+            "skip_tests":"",
+            "skip_folder" : "",
+            "skip_dut_flag": true,
+            "run_type_check": "run_tests",
             "sonic_mgmt_container_202205": "st_202205",
             "sonic_mgmt_container_202305": "st_202305",
+            "sonic_mgmt_container_202405": "msft-021925-202405",
+            "sonic_mgmt_container_master": "wb_master",
             "testbed-setup": {
                 "cmd": [
                     "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
@@ -1347,11 +1355,13 @@
         "t1-m5-16-lightning": "None",
         "t1-m6-23-superbolt": "None",
         "b2b-m5-14-superbolt": "None",
-        "t0-m6-1-m64": "None"
+        "t0-m6-1-m64": "None",
+        "aaa14-t2": "None"
     },
     "testbeds": {
         "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64"],
-        "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning"]
+        "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning"],
+        "t2" : ["aaa14-t2"]
     },
     "testbed_image_ucs_map" : {
         "t1-m6-22-m64":"ucs_m3_2",
@@ -1382,7 +1392,8 @@
         "t0-m6-20-lightning": "ucs_m5_16",
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
-        "t0-m6-1-m64": "ucs_m4_2"
+        "t0-m6-1-m64": "ucs_m4_2",
+        "aaa14-t2": "ucs_m5_10"
     },
     "file_server_dict" : {
         "ucs_m3_1" : {
@@ -1517,6 +1528,15 @@
             "password" : "roZes@123",
             "ip" : "1.3.103.20",
             "scp_prompt" : "sonic@1.3.103.20:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m5_10": {
+            "host": "sonic-ucs-m5-10",
+            "ip": "172.27.145.101",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.27.145.101:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }

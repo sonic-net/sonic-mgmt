@@ -438,7 +438,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(1)
+    time.sleep(10)
 
     cmd = 'show ip route vrf Vrf01 192.168.1.1'
     cmd_output = st.config(nodes['leaf0'], cmd)
@@ -450,7 +450,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
 
     #check both nexthop are present in route table
     if ('* 10.1.1.1, via {}'.format(vars.D3D1P1) not in str(cmd_output.encode('ascii','ignore')) or
-        "via eth4" not in str(cmd_output.encode('ascii','ignore'))):
+        'via {}'.format(vars.D3D1P2) not in str(cmd_output.encode('ascii','ignore'))):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     # configure ECMP to select one path
@@ -460,7 +460,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(1)
+    time.sleep(10)
 
     cmd = 'show ip route vrf Vrf01 192.168.1.1'
     cmd_output = st.config(nodes['leaf0'], cmd)

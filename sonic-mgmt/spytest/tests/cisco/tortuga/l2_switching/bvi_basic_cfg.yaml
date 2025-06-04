@@ -112,8 +112,8 @@ leaf0:
         sudo config interface startup D3T1P1
         sudo config interface ipv6 disable use-link-local-only D3T1P1
         sudo config vlan member add -u 10 D3T1P1
-        sudo config interface ip add Vlan10 10.0.1.10/24
-        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface ip add Vlan10 100.0.1.10/24
+        sudo config interface ip add Vlan10 100:0:1::10/64
         sudo config interface startup D3D1P2
         sudo config interface ip add D3D1P2 12.1.1.2/24
         sudo config interface ip add D3D1P2 12:1:1::2/120
@@ -121,8 +121,8 @@ leaf0:
         sudo config interface ip add D3T1P2 10.1.1.1/24
         sudo config interface ip add D3T1P2 10:1:1::1/120
       deconfig: |
-        sudo config interface ip rem Vlan10 10.0.1.10/24
-        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem Vlan10 100.0.1.10/24
+        sudo config interface ip rem Vlan10 100:0:1::10/64
         sudo config interface ip rem D3T1P2 10.1.1.1/24
         sudo config interface ip rem D3T1P2 10:1:1::1/120
         sudo config interface ip rem D3D1P2 12.1.1.2/24
@@ -153,15 +153,15 @@ leaf0:
         sudo config interface startup D3T1P2
         sudo config interface ipv6 disable use-link-local-only D3T1P2
         sudo config vlan member add 20 -u D3T1P2
-        sudo config interface ip add Vlan10 10.0.1.10/24
-        sudo config interface ip add Vlan20 10.0.2.20/24
-        sudo config interface ip add Vlan10 10:0:1::10/64
-        sudo config interface ip add Vlan20 10:0:2::20/64
+        sudo config interface ip add Vlan10 100.0.1.10/24
+        sudo config interface ip add Vlan20 100.0.2.20/24
+        sudo config interface ip add Vlan10 100:0:1::10/64
+        sudo config interface ip add Vlan20 100:0:2::20/64
       deconfig: |
-        sudo config interface ip rem Vlan10 10:0:1::10/64
-        sudo config interface ip rem Vlan20 10:0:2::20/64
-        sudo config interface ip rem Vlan10 10.0.1.10/24
-        sudo config interface ip rem Vlan20 10.0.2.20/24
+        sudo config interface ip rem Vlan10 100:0:1::10/64
+        sudo config interface ip rem Vlan20 100:0:2::20/64
+        sudo config interface ip rem Vlan10 100.0.1.10/24
+        sudo config interface ip rem Vlan20 100.0.2.20/24
         sudo config vlan member del 10 PortChannel01
         sudo config vlan member del 10 D3T1P1
         sudo config vlan member del 20 PortChannel01

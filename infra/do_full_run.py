@@ -223,7 +223,7 @@ def collect_results(args):
     testbed = args.testbed
     [image, image_id, stream] = extractFromImageName(full_link)
     testbed_info_dict = getTestbedInfoDict(testbed)
-
+    rc = 0
     #default results json
     result = {
         "total" : 0,
@@ -306,10 +306,12 @@ def collect_results(args):
         else:
             result["status"] = FAILURE_STATUS
             result["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
+            rc = -1
         
     with open(results_path, "w") as results_file:
         json.dump(result, results_file, indent=2)
     log.info(f"Saved results.json at: {results_path}")
+    return rc
 
 def kill_run(args, test_string="run_tests"):
     testbed = args.testbed

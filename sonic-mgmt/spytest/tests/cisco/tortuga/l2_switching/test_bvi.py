@@ -14,8 +14,8 @@ data_glob = SpyTestDict()
 data_glob.portchannel_name = "PortChannel01"
 data_glob.vlan = ['10','20']
 data_glob.vlan_intf = ['Vlan10','Vlan20']
-data_glob.vlan_ip = ['10.0.1.10/24','10.0.2.20/24']
-data_glob.vlan_ipv6 = ['10:0:1::10/64', '10:0:2::20/64']
+data_glob.vlan_ip = ['100.0.1.10/24','100.0.2.20/24']
+data_glob.vlan_ipv6 = ['100:0:1::10/64', '100:0:2::20/64']
 data_glob.mac_aging_time_orig = 600
 data_glob.mac_aging_time_new = 120
 data_glob.pre_config = False   #This var allows yaml pre configs
@@ -72,18 +72,18 @@ data_l3.traffic_run_time = 5
 data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
 data_vid_10.vlan = "10"
-data_vid_10.t1d3_ip_gateway = "10.0.1.10"
-data_vid_10.t1d3_ipv6_gateway = "10:0:1::10"
-data_vid_10.t1d4_ip_gateway = "10.0.1.10"
-data_vid_10.t1d4_ipv6_gateway = "10:0:1::10"
+data_vid_10.t1d3_ip_gateway = "100.0.1.10"
+data_vid_10.t1d3_ipv6_gateway = "100:0:1::10"
+data_vid_10.t1d4_ip_gateway = "100.0.1.10"
+data_vid_10.t1d4_ipv6_gateway = "100:0:1::10"
 
-data_vid_10.t1d3_ip_addr = "10.0.1.1"
-data_vid_10.t1d3_ipv6_addr = "10:0:1::1"
+data_vid_10.t1d3_ip_addr = "100.0.1.1"
+data_vid_10.t1d3_ipv6_addr = "100:0:1::1"
 data_vid_10.t1d3_mac_addr = "00:0A:03:00:11:01"
 data_vid_10.t1d3_mac_addr_mac_move = "00:0A:03:11:11:11"
 
-data_vid_10.t1d4_ip_addr = "10.0.1.2"
-data_vid_10.t1d4_ipv6_addr = "10:0:1::2"
+data_vid_10.t1d4_ip_addr = "100.0.1.2"
+data_vid_10.t1d4_ipv6_addr = "100:0:1::2"
 data_vid_10.t1d4_mac_addr = "00:0A:04:00:12:01"
 
 data_vid_10.transmit_mode = 'single_burst'
@@ -98,18 +98,18 @@ data_vid_10.traffic_run_time = 5
 data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
 data_vid_20.vlan = "20"
-data_vid_20.t1d3_ip_gateway = "10.0.2.20"
-data_vid_20.t1d3_ipv6_gateway = "10:0:2::20"
-data_vid_20.t1d4_ip_gateway = "10.0.2.20"
-data_vid_20.t1d4_ipv6_gateway = "10:0:2::20"
+data_vid_20.t1d3_ip_gateway = "100.0.2.20"
+data_vid_20.t1d3_ipv6_gateway = "100:0:2::20"
+data_vid_20.t1d4_ip_gateway = "100.0.2.20"
+data_vid_20.t1d4_ipv6_gateway = "100:0:2::20"
 
-data_vid_20.t1d3_ip_addr = "10.0.2.1"
-data_vid_20.t1d3_ipv6_addr = "10:0:2::1"
+data_vid_20.t1d3_ip_addr = "100.0.2.1"
+data_vid_20.t1d3_ipv6_addr = "100:0:2::1"
 data_vid_20.t1d3_mac_addr = "00:0A:05:00:11:01"
 data_vid_20.t1d3_mac_addr_mac_move = "00:0A:05:11:11:11"
 
-data_vid_20.t1d4_ip_addr = "10.0.2.2"
-data_vid_20.t1d4_ipv6_addr = "10:0:2::2"
+data_vid_20.t1d4_ip_addr = "100.0.2.2"
+data_vid_20.t1d4_ipv6_addr = "100:0:2::2"
 data_vid_20.t1d4_mac_addr = "00:0A:06:00:12:01"
 
 data_vid_20.transmit_mode = 'single_burst'
@@ -158,21 +158,21 @@ def setup_teardown_basic():
 # Multiple Vlans
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1-----Vlan10--|-P1-|--|-P1-|----------|   |
+# |      (100.0.1.1) P1-|--|-P1-----Vlan10--|-P1-|--|-P1-|----------|   |
 # |                    |  |        (BVI)   |    |  |    |          |   |
 # |                    |  |          D3    | PC |--| PC |          |   |
 # |                    |  |        (BVI)   |    |  |    |          |   |
-# |      (10.0.2.1) P2-|--|-P2-----Vlan20--|-P2-|--|-P2-|          |   |
+# |      (100.0.2.1) P2-|--|-P2-----Vlan20--|-P2-|--|-P2-|          |   |
 # |                    |  |---------------------|  |    |          |   |
 # |                    |                           |    |          |   |
 # |         T1         |                           |    |   D1     |   |
 # |                    |                           |    |          |   |
 # |                    |  |---------------------|  |  Vlan20       |   |
-# |      (10.0.2.2) P2-|--|-P2-----Vlan20--|    |  |    |       Vlan10 |
+# |      (100.0.2.2) P2-|--|-P2-----Vlan20--|    |  |    |       Vlan10 |
 # |                    |  |                |    |  |    |          |   |
 # |                    |  |          D4    |-P1-|--|-P1-|          |   |
 # |                    |  |                |    |  |    |          |   |
-# |      (10.0.1.2) P1-|--|-P1-----Vlan10--|    |  |    |----------|   |
+# |      (100.0.1.2) P1-|--|-P1-----Vlan10--|    |  |    |----------|   |
 # |--------------------|  |---------------------|  |-------------------|
 #
 @pytest.fixture()
@@ -202,7 +202,7 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
 # Single Vlan, L2 + L3
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
+# |      (100.0.1.1) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
 # |                    |  |        (BVI)        |  |               |   |
 # |                    |  |          D3         |  |               |   |
 # |                    |  |       (12.1.1.2)-P2-|--|-P2 (12.1.1.1) |   |
@@ -216,7 +216,7 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
 # |                    |  |       (13.1.1.2) P2-|--|-P2 (13.1.1.1) |   |
 # |                    |  |          D4         |  |               |   |
 # |                    |  |                     |  |               |   |
-# |      (10.0.1.2) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
+# |      (100.0.1.2) P1-|--|-P1-----Vlan10----P1-|--|-P1------------|   |
 # |--------------------|  |---------------------|  |-------------------|
 #
 @pytest.fixture()
@@ -251,7 +251,7 @@ def setup_teardown_bvi_bd(setup_teardown_basic):
 # Unconfig/Config the Vlan interface and verify intra vlan traffic again
 # Check old mac was advertised, advertise the new mac,
 # Verify Mac ageing and new mac learning via traffic
-# Tgen Stream : 10.0.1.1 (T1D3P1) <---(Vlan10)---> 10.0.1.2 (T1D4P1)
+# Tgen Stream : 100.0.1.1 (T1D3P1) <---(Vlan10)---> 100.0.1.2 (T1D4P1)
 def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_teardown_bvi_bd):
     
     #Update mac aging time to 2 mins
@@ -259,7 +259,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
     for dut in dut_list:
         common_obj.update_mac_aging(dut, data_glob.mac_aging_time_new, verify=True)
     
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -281,7 +281,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
     if not ip_obj.config_unconfig_interface_ip_addresses(data_glob.leaf0, [if_data] , config='add'):
         st.report_fail('config_cmd_error', "{} ipv4 address add".format(data_glob.vlan_intf[0])) 
         
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
@@ -300,7 +300,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
         st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
     common_obj.traffic_cleanup(handles)
         
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     temp_mac = data_vid_10.t1d3_mac_addr
     data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
     data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
@@ -348,10 +348,10 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
 # TC Description:
 # Verify v4 L2<--->L3 traffic
 # Unconfig/Config the Vlan interface and verify L2<--->L3 traffic again
-# Tgen Stream : 10.0.1.1 (T1D3P1) <------> 11.1.1.2 (T1D4P2)
+# Tgen Stream : 100.0.1.1 (T1D3P1) <------> 11.1.1.2 (T1D4P2)
 def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     
-    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(11.1.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
     common_obj.traffic_start(handles, data_vid_10, data_l3)
@@ -381,7 +381,7 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     if not ip_obj.config_unconfig_interface_ip_addresses(data_glob.leaf0, [if_data] , config='add'):
         st.report_fail('config_cmd_error', "{} ipv4 address add".format(data_glob.vlan_intf[0]))
         
-    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(11.1.1.2)
     #traffic check
     common_obj.traffic_start(handles, data_vid_10, data_l3)
     common_obj.traffic_stop(handles, mode="burst")
@@ -396,11 +396,11 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     
 # TC Description:
 # Verify v6 intra vlan and L2<--->L3 traffic
-# Tgen Stream 1: 10:0:1::1 (T1D3P1) <------> 10:0:1::2 (T1D4P1)
-# Tgen Stream 2: 10:0:1::1 (T1D3P1) <------> 11:1:1::2 (T1D4P2)
+# Tgen Stream 1: 100.0:1::1 (T1D3P1) <------> 100:0:1::2 (T1D4P1)
+# Tgen Stream 2: 100.0:1::1 (T1D3P1) <------> 11:1:1::2 (T1D4P2)
 def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
     
-    #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
+    #leaf0 (100.0:1::1) -----> leaf1(100:0:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -411,7 +411,7 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification',"for L2 traffic")
       
-    #leaf0 (10:0:1::1) -----> leaf1(11:1:1::2)
+    #leaf0 (100.0:1::1) -----> leaf1(11:1:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',False)
     common_obj.traffic_start(handles, data_vid_10, data_l3)
@@ -435,10 +435,10 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
 
 # TC Description:
 # Verify v4 intra vlan multicast traffic
-# Tgen Stream : 10.0.1.1 (T1D3P1) <---(multicast)---> 10.0.1.2 (T1D4P1)
+# Tgen Stream : 100.0.1.1 (T1D3P1) <---(multicast)---> 100.0.1.2 (T1D4P1)
 def test_bvi_multicast(setup_teardown_bvi_bd):
     
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast',True, verify_ping=False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -464,7 +464,7 @@ def test_bvi_multicast(setup_teardown_bvi_bd):
 # Verify Mac ageing and new mac learning via traffic over PortChannel
 # Delete/Add link to the bundle and remove the original link
 # Verify the v4 intra vlan traffic again
-# Tgen Stream : 10.0.1.1 (T1D3P1) <---(Vlan10)---> 10.0.1.2 (T1D4P1)
+# Tgen Stream : 100.0.1.1 (T1D3P1) <---(Vlan10)---> 100.0.1.2 (T1D4P1)
 def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_bvi_pc):
     
     #Update mac aging time to 2 mins 
@@ -472,7 +472,7 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
     for dut in dut_list:
         common_obj.update_mac_aging(dut, data_glob.mac_aging_time_new, verify=True)
     
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -492,7 +492,7 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
         st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
     common_obj.traffic_cleanup(handles) 
         
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     temp_mac = data_vid_10.t1d3_mac_addr
     data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
     data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
@@ -547,7 +547,7 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
     
     #Check intra vlan traffic
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
@@ -568,11 +568,11 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
 # Verify v6 intra vlan traffic with portchannel
 # Add a couple of links to the bundle and remove the original link
 # Verify the v6 intra vlan traffic again
-# Tgen Stream 1: 10:0:1::1 (T1D3P1) <------> 10:0:1::2 (T1D4P1)
+# Tgen Stream 1: 100.0:1::1 (T1D3P1) <------> 100:0:1::2 (T1D4P1)
 def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_pc):
     
     #Check intra vlan traffic
-    #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
+    #leaf0 (100.0:1::1) -----> leaf1(100:0:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -596,7 +596,7 @@ def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_pc):
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
     
     #Check intra vlan traffic
-    #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
+    #leaf0 (100.0:1::1) -----> leaf1(100:0:1::2)
     #traffic check
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
@@ -615,14 +615,14 @@ def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_pc):
 
 # TC Description:
 # Verify v4 inter vlan traffic going over PortChannel also
-# Traffic Stream :  (T1D3P2) 10.0.2.1 (Vlan20)<--(PC)-> (Vlan10) 10.0.1.2 (T1D4P1)
+# Traffic Stream :  (T1D3P2) 100.0.2.1 (Vlan20)<--(PC)-> (Vlan10) 100.0.1.2 (T1D4P1)
 def test_bvi_inter_vlan_pc_ipv4(setup_teardown_bvi_pc):
     
     #Set mac address for inter vlan traffic
     data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
     data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
     
-    #leaf0 (10.0.2.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.2.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)
@@ -638,13 +638,13 @@ def test_bvi_inter_vlan_pc_ipv4(setup_teardown_bvi_pc):
 
 # TC Description:
 # Verify v6 inter vlan traffic going over PortChannel also
-# Traffic Stream :  (T1D3P2) 10:0:2::1 (Vlan20)<--(PC)-> (Vlan10) 10:0:1::2 (T1D4P1)
+# Traffic Stream :  (T1D3P2) 100.0:2::1 (Vlan20)<--(PC)-> (Vlan10) 100:0:1::2 (T1D4P1)
 def test_bvi_inter_vlan_pc_ipv6(setup_teardown_bvi_pc):
     
     #Set mac address for inter vlan traffic
     data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
     data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
-    #leaf0 (10:0:2::1) -----> leaf1(10:0:1::2)
+    #leaf0 (100.0:2::1) -----> leaf1(100:0:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)

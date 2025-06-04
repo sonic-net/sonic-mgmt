@@ -39,13 +39,13 @@ def function_unconfig():
 ##Vlan id 10 stream config
 data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
-data_vid_10.t1d3_ip_gateway = "10.0.1.2"
-data_vid_10.t1d4_ip_gateway = "10.0.1.1"
+data_vid_10.t1d3_ip_gateway = "100.0.1.2"
+data_vid_10.t1d4_ip_gateway = "100.0.1.1"
 
-data_vid_10.t1d3_ip_addr = "10.0.1.1"
+data_vid_10.t1d3_ip_addr = "100.0.1.1"
 data_vid_10.t1d3_mac_addr = "00:0a:01:00:11:01"
 
-data_vid_10.t1d4_ip_addr = "10.0.1.2"
+data_vid_10.t1d4_ip_addr = "100.0.1.2"
 data_vid_10.t1d4_mac_addr = "00:0a:01:00:12:01"
 
 data_vid_10.pkts_per_burst = '500'
@@ -59,13 +59,13 @@ data_vid_10.traffic_run_time = 5
 ##Vlan id 20 stream config
 data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
-data_vid_20.t1d3_ip_gateway = "10.0.2.2"
-data_vid_20.t1d4_ip_gateway = "10.0.2.1"
+data_vid_20.t1d3_ip_gateway = "100.0.2.2"
+data_vid_20.t1d4_ip_gateway = "100.0.2.1"
 
-data_vid_20.t1d3_ip_addr = "10.0.2.1"
+data_vid_20.t1d3_ip_addr = "100.0.2.1"
 data_vid_20.t1d3_mac_addr = "00:0a:01:00:13:01"
 
-data_vid_20.t1d4_ip_addr = "10.0.2.2"
+data_vid_20.t1d4_ip_addr = "100.0.2.2"
 data_vid_20.t1d4_mac_addr = "00:0a:01:00:14:01"
 
 data_vid_20.pkts_per_burst = '500'
@@ -114,21 +114,21 @@ def setup_teardown_basic():
 #Topology
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1--Vlan10--|       |  |                   |
+# |      (100.0.1.1) P1-|--|-P1--Vlan10--|       |  |                   |
 # |                    |  |             |  |-P1-|  |-P1-|              |
 # |                    |  |          D3 |--| PC |--| PC |-|  Vlan10    |
 # |                    |  |             |  |-P2-|  |-P2-| |    +       |
-# |      (10.0.2.1) P2-|--|-P2--Vlan20--|       |  |      |  Vlan20    |
+# |      (100.0.2.1) P2-|--|-P2--Vlan20--|       |  |      |  Vlan20    |
 # |                    |  |---------------------|  |      |            |
 # |                    |                           |      |            |
 # |         T1         |                           |      |   D1       |
 # |                    |                           |      |            |
 # |                    |  |---------------------|  |      |            |
-# |      (10.0.2.2) P2-|--|-P2-----Vlan20--|    |  |      |            |
+# |      (100.0.2.2) P2-|--|-P2-----Vlan20--|    |  |      |            |
 # |                    |  |                |    |  |      |            |
 # |                    |  |          D4    |-P1-|--|-P1---|            |
 # |                    |  |                |    |  |                   |
-# |      (10.0.1.2) P1-|--|-P1-----Vlan10--|    |  |                   |
+# |      (100.0.1.2) P1-|--|-P1-----Vlan10--|    |  |                   |
 # |--------------------|  |---------------------|  |-------------------|
 #
 @pytest.fixture()
@@ -154,21 +154,21 @@ def setup_teardown_portchannel_l2(setup_teardown_basic):
 #Topology
 #
 # |--------------------|  |---------------------|  |-------------------|
-# |      (10.0.1.1) P1-|--|-P1--Vlan10          |  |                   |
+# |      (100.0.1.1) P1-|--|-P1--Vlan10          |  |                   |
 # |                    |  |                     |  |                   |
 # |                    |  |          D3         |  |                   |
 # |                    |  |                     |  |                   |
-# |      (10.0.2.1) P2-|--|-P2--Vlan20          |  |                   |
+# |      (100.0.2.1) P2-|--|-P2--Vlan20          |  |                   |
 # |                    |  |---------------------|  |                   |
 # |                    |                           |                   |
 # |         T1         |                           |          D1       |
 # |                    |                           |                   |
 # |                    |  |---------------------|  |                   |
-# |      (10.0.2.2) P2-|--|-P2-----Vlan20--|    |  |                   |
+# |      (100.0.2.2) P2-|--|-P2-----Vlan20--|    |  |                   |
 # |                    |  |                |    |  |                   |
 # |                    |  |          D4    |-P1-|--|-P1--Vlan 10,20    |
 # |                    |  |                |    |  |                   |
-# |      (10.0.1.2) P1-|--|-P1-----Vlan10--|    |  |                   |
+# |      (100.0.1.2) P1-|--|-P1-----Vlan10--|    |  |                   |
 # |--------------------|  |---------------------|  |-------------------|
 @pytest.fixture()
 def setup_teardown_portchannel_l2_without_pc(setup_teardown_basic):
