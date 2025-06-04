@@ -17,20 +17,20 @@ class SafeThreadPoolExecutor:
       1. On instantiation, starts `max_workers` threads via ThreadPool.
       2. Each thread runs the submitted function (e.g., `example_func(arg1, arg2)`) in parallel.
       3. When the `with` block scope ends, execution moves to `__exit__`, where it blocks on each `AsyncResult.get()`
-         in turn - waiting for all tasks to finish.
-      4. If any thread raises an exception, `.get()` re-raises that exception in the main thread.
-      5. If all threads succeed without raising, the pool is shut down cleanly.
+         in turn to wait for all tasks to finish.
+      4. If all threads succeed without raising, the pool is shut down cleanly.
+      5. If any thread raises an exception, `.get()` re-raises that exception in the main thread.
     """
 
     def __init__(self, max_workers, *args, **kwargs):
         """
+        Create a ThreadPool with `max_workers` threads and initialize an empty list to collect results.
+
         Args:
-            max_workers: number of worker threads (maps to ThreadPool's 'processes' parameter).
+            max_workers: number of worker threads (maps to ThreadPool's `processes` parameter).
             *args, **kwargs: ignored (only here to match ThreadPoolExecutor signature).
         """
-        # Create a ThreadPool with `max_workers` threads
         self._pool = ThreadPool(processes=max_workers)
-        # Keep a list of ApplyResult objects returned by apply_async()
         self._results: List["multiprocessing.pool.ApplyResult"] = []
 
     def submit(self, fn, *args, **kwargs):
@@ -74,7 +74,7 @@ class SafeThreadPoolExecutor:
             # .get() will block until the task finishes, and re-raise any exception to the main thread.
             async_res.get()
 
-        # Shut down the pool by close + join
+        # Shut down the pool by close + join.
         self.shutdown(wait=True)
-        # Returning False ensures that any exception in the with-block is not suppressed.
+        # Returning False to ensure that any exception in the "with" statement is not suppressed.
         return False
