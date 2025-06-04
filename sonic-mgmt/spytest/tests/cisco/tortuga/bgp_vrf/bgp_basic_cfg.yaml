@@ -28,6 +28,7 @@ spine0:
         neighbor 10::2 remote-as 1002
         neighbor 10::2 update-source 10::1
         neighbor 10::2 timers 3 10
+        neighbor 10::2 capability extended-nexthop
         address-family ipv4 unicast
         redistribute connected
         neighbor 10.1.1.2 activate
@@ -89,6 +90,7 @@ leaf0:
         neighbor 10::1 remote-as 1001
         neighbor 10::1 update-source 10::2
         neighbor 10::1 timers 3 10
+        neighbor 10::1 capability extended-nexthop
         address-family ipv4 unicast
         redistribute connected
         neighbor 10.1.1.1 activate
