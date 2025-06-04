@@ -57,10 +57,11 @@ class SafeThreadPoolExecutor:
         # Prevent new tasks
         self._pool.close()
         if wait:
+            # Wait for all tasks to finish
             self._pool.join()
 
     def __enter__(self):
-        # Support the 'with' statement
+        # Support the "with" statement
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
