@@ -9,6 +9,8 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa F401
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 SNAPPI_POLL_DELAY_SEC = 2
 
@@ -60,10 +62,10 @@ def __gen_all_to_all_traffic(testbed_config,
             eth, ipv4 = flow.packet.ethernet().ipv4()
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            eth.pfc_queue.value = priority
+            eth.pfc_queue.value = pfcQueueValueDict[priority]
 
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[priority]
             ipv4.priority.dscp.ecn.value = (
