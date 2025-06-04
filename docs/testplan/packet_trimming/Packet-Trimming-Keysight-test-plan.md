@@ -8,7 +8,7 @@ Packet Trimming is an enhancement mechanism designed to optimize network perform
 
 The test cases included in this document aim to verify the following:
 1. Packet trimming counters for lossy egress queues on SONiC switches are accurate. This will be verified by comparing the counter values with the number of trimmed packets received on the Keysight RX port.
-2. Rate of trimmed packets received on the Keysight RX port is as expected. This expected rate depends on the rate of packets received per second from Keysight TX ports, rate-limit imposed on the SONiC TX port (or the line rate of the SONiC TX port if there is no imposed rate-limit), and DWRR weights for different queues.
+2. Rate of trimmed packets received on the Keysight RX port is as expected. This expected rate depends on the rate of packets received per second from the Keysight TX port(s), rate-limit imposed on the SONiC TX port (or the line rate of the SONiC TX port if there is no imposed rate-limit), and DWRR weights for different queues.
 
 ### Testbed
 
@@ -103,7 +103,7 @@ These tests aim to verify that the DUT’s packet trimming counters for egress q
 ### Test Parameters
 Here are the parameters used to generate different test cases:
 
-1. The number of SONiC RX ports: Can be 1 (unicast), 2, or 4 (incast).
+1. The number of SONiC RX ports: Can be 1 (unicast), 2, 4, 10, or 20 (incast).
 2. All SONiC test ports belong to the same memory module or they belong to different memory modules.
 3. Randomly-picked lossy egress queue $i$. All ingress test traffic to the DUT will be mapped to this queue. The index of this queue must be different from the queue index that trimmed packets will be sent to (configured using the `config switch-trimming global` command).
 4. Using IPv4 or IPv6 packets in tests.
@@ -158,11 +158,11 @@ These assumptions apply to all test cases:
 
 #### Test Configuration
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 #### Test Steps
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 ### Test Case #3
 
@@ -180,11 +180,11 @@ Same as Test Case #1.
   1. Rate-limit egress flow for queue $i$ to 10 million PPS in order to create congestion.
 
 - Configure following traffic items on the Keysight device(s):
-  1. Test data traffic: A traffic item from the Keysight TX port to the Keysight RX port.
+  1. Test data traffic: A traffic item from the Keysight TX ports to the Keysight RX port.
 
 #### Test Steps
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 ### Test Case #4
 
@@ -198,11 +198,11 @@ Same as Test Case #1.
 
 #### Test Configuration
 
-Same as Test Case #3.
+Same as [Test Case #3](#test-case-3).
 
 #### Test Steps
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 ### Test Case #5
 
@@ -216,11 +216,11 @@ Same as Test Case #1.
 
 #### Test Configuration
 
-Same as Test Case #3.
+Same as [Test Case #3](#test-case-3).
 
 #### Test Steps
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 ### Test Case #6
 
@@ -234,16 +234,16 @@ Same as Test Case #1.
 
 #### Test Configuration
 
-Same as Test Case #3.
+Same as [Test Case #3](#test-case-3).
 
 #### Test Steps
 
-Same as Test Case #1.
+Same as [Test Case #1](#test-case-1).
 
 ### Test Case #7
 
 #### Parameters Used
-1. Incast traffic (4-to-1)
+1. Incast traffic (10-to-1)
 2. All test ports in the same memory module.
 3. Randomly-selected lossy queue $i$.
 4. Using IPv4 packets for test.
@@ -253,7 +253,7 @@ Same as Test Case #1.
 #### Test Configuration
 
 - Configure following traffic items on the Keysight device(s):
-  1. Test data traffic: A traffic item from the Keysight TX port to the Keysight RX port.
+  1. Test data traffic: A traffic item from the Keysight TX ports to the Keysight RX port.
 
 #### Test Steps
 
@@ -269,7 +269,7 @@ Same as Test Case #1.
 ### Test Case #8
 
 #### Parameters Used
-1. Incast traffic (4-to-1)
+1. Incast traffic (20-to-1)
 2. Test ports in different memory modules.
 3. Randomly-selected lossy queue $i$.
 4. Using IPv6 packets for test.
@@ -278,11 +278,11 @@ Same as Test Case #1.
 
 #### Test Configuration
 
-Same as Test Case #7.
+Same as [Test Case #7](#test-case-7).
 
 #### Test Steps
 
-Same as Test Case #7.
+Same as [Test Case #7](#test-case-7).
 
 ## Test Cases (Verifying the Rate of Trimmed Packets Received)
 
@@ -318,7 +318,7 @@ These assumptions apply to all test cases:
 #### Test Configuration
 
 - Configure following traffic items on the Keysight device(s):
-  1. Test data traffic: A traffic item from the Keysight TX port to the Keysight RX port.
+  1. Test data traffic: A traffic item from the Keysight TX ports to the Keysight RX port.
 
 #### Test Steps
 
@@ -341,11 +341,11 @@ These assumptions apply to all test cases:
 
 #### Test Configuration
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
 
 #### Test Steps
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
 
 ### Test Case #11
 
@@ -358,11 +358,11 @@ Same as Test Case #9.
 
 #### Test Configuration
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
 
 #### Test Steps
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
 
 ### Test Case #12
 
@@ -375,8 +375,8 @@ Same as Test Case #9.
 
 #### Test Configuration
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
 
 #### Test Steps
 
-Same as Test Case #9.
+Same as [Test Case #9](#test-case-9).
