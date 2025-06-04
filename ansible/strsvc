@@ -343,6 +343,7 @@ sonic_nokia_7250x3b_400G:
     num_asics: 2
     frontend_asics: [0,1]
     console_baudrate: 115200
+    macsec_card: True
   hosts:
     svcstr-7250x3b-1:
       hwsku:  Nokia-IXR7250-X3B
