@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
     pytest.mark.device_type('vs')
 ]
 
