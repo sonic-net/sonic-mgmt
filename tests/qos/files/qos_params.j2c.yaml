@@ -399,7 +399,7 @@ qos_params:
                     src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 700525
+                    pkts_num_trig_pfc: 700628
                     pkts_num_hdrm_full: 713397
                     pkts_num_hdrm_partial: 713300
                     margin: 100
