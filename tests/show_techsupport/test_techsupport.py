@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -154,6 +154,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
         with loganalyzer:
             setup_acl_rules(duthost, acl_setup)
+            wait_until(300, 20, 0, check_msg_in_syslog, duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
     except LogAnalyzerError as err:
         # cleanup config DB in case of log analysis error
         teardown_acl(duthost, acl_setup)
