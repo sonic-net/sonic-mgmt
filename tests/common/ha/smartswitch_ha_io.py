@@ -24,7 +24,7 @@ SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
 PTFRUNNER_QLEN = 1000
 TEMPLATES_DIR = "templates/"
 SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
-DUAL_TOR_SNIFFER_CONF_TEMPL = "ha_tor_sniffer.conf.j2"
+DUAL_TOR_SNIFFER_CONF_TEMPL = "smartswitch_ha_sniffer.conf.j2"
 DUAL_TOR_SNIFFER_CONF = "ha_tor_sniffer.conf"
 
 logger = logging.getLogger(__name__)
