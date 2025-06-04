@@ -16,7 +16,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device
+from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
+        copy_dshell_script_cisco_8000
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
@@ -2158,9 +2159,12 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['0-3', '4', '5']
-                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
-                queues = random.choice(queue_table_postfix_list)
+                queue_table_postfix_list = ['0', '1', '2', '3', '4', '5']
+                queue_to_dscp_map = {'0': '0', '1': '1', '2': '3', '3': '5', '4': '11', '5': '31'}
+                # for queue 0-3, the weight is 1, for queue 4 and 5, the weight is 4,
+                # because the queue 0~3 have the same dynamic threshold config
+                # so for the different dynamic threshold config, we have the same possibility to test it
+                queues = random.choices(queue_table_postfix_list, weights=(1, 1, 1, 1, 4, 4), k=1)[0]
             else:
                 queues = "0-2"
 
@@ -2175,7 +2179,7 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
+            egress_lossy_profile['lossy_queue'] = queues
         logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
@@ -2758,21 +2762,6 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_dshell_script_cisco_8000(self, dut, asic, dshell_script, script_name):
-        if dut.facts['asic_type'] != "cisco-8000":
-            raise RuntimeError("This function should have been called only for cisco-8000.")
-
-        script_path = "/tmp/{}".format(script_name)
-        dut.copy(content=dshell_script, dest=script_path)
-        if dut.sonichost.is_multi_asic:
-            dest = f"syncd{asic}"
-        else:
-            dest = "syncd"
-        dut.docker_copy_to_all_asics(
-            container_name=dest,
-            src=script_path,
-            dst="/")
-
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
@@ -2789,7 +2778,7 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2823,16 +2812,6 @@ def set_port_cir(interface, rate):
         yield
         return
 
-    def copy_set_voq_watchdog_script_cisco_8000(self, dut, asic="", enable=True):
-        dshell_script = '''
-from common import d0
-def set_voq_watchdog(enable):
-    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
-set_voq_watchdog({})
-'''.format(enable)
-
-        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
-
     @pytest.fixture(scope='class', autouse=True)
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
@@ -2857,7 +2836,7 @@ set_voq_watchdog({})
 
         # Disable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=False)
@@ -2870,7 +2849,7 @@ set_voq_watchdog({})
 
         # Enable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=True)

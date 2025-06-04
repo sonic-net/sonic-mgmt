@@ -13,6 +13,7 @@ from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.files.helper import adjust_test_flow_rate
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
