@@ -11,6 +11,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.skip(reason="Simulation of Packet integrity (CRC, RQP errors) is not possible due to issue #16140")
 def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
                           nbrhosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
     """
@@ -22,9 +23,10 @@ def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
 
 
 def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
-            are working as expected by disabling the fabric ports
-        """
+    """
+    This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
+    are working as expected by disabling the fabric ports
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
     # Ensure the device is a Broadcom device
@@ -49,7 +51,7 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             return any(num > 0 for num in integers)
 
         pytest_assert(wait_until(300, 0, 0, queue_counter_assertion),
-                      "Credit-WD-Del/pkts is not incresing "
+                      "Credit-WD-Del/pkts is not increasing "
                       "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098")
     finally:
         if bcm_changes:
