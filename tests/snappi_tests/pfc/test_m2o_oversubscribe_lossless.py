@@ -59,11 +59,7 @@ def test_m2o_oversubscribe_lossless(snappi_api,                              # n
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
