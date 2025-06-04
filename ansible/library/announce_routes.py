@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import itertools
 import math
 import os
 import yaml
@@ -1329,6 +1330,14 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
     group_nums = len(t1_vms) // T1_GROUP_SIZE
     t1_route_per_group = math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums)
 
+    # 32 route each x 4 to match 110 T1
+    extra_ipv4_t1 = itertools.chain(
+        ipaddress.ip_network("192.168.0.0/27"),
+        ipaddress.ip_network("192.169.0.0/27"),
+        ipaddress.ip_network("192.170.0.0/27"),
+        ipaddress.ip_network("192.171.0.0/27"),
+    )
+
     for group in range(group_nums):
         selected_v4_subnets = all_subnetv4[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
         selected_v6_subnets = all_subnetv6[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
@@ -1345,6 +1354,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
             for subnetv4, subnetv6 in zip(selected_v4_subnets, selected_v6_subnets):
                 ipv4_routes.append((str(subnetv4), nhipv4, as_path))
                 ipv6_routes.append((str(subnetv6), nhipv6, as_path))
+
+            ipv4_routes.append((str(next(extra_ipv4_t1)), nhipv4, as_path))
 
             change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
             change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
