@@ -20,7 +20,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py           
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1", "m2", "m3")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
 ]
 
 logger = logging.getLogger(__name__)

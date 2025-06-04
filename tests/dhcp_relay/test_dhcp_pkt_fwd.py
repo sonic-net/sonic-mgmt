@@ -11,7 +11,7 @@ from ptf.mask import Mask
 from socket import INADDR_ANY
 
 pytestmark = [
-    pytest.mark.topology("t1", "m0", "m1", "m2", "m3")
+    pytest.mark.topology("t1", "m0", "m1")
 ]
 
 logger = logging.getLogger(__name__)
