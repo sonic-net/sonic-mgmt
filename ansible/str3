@@ -2121,7 +2121,7 @@ sonic_dell64_40:
 
 sonic_mlnx_4280_smartswitch:
   vars:
-    hwsku: Mellanox-SN4280-O28
+    hwsku: Mellanox-SN4280-O8C40
     iface_speed: 400000
   hosts:
     str3-msn4280-02:

@@ -3755,7 +3755,7 @@
 
 - conf-name: vms12-t1-smartswitch-4280-01
   group-name: vms12-4
-  topo: t1-28-lag
+  topo: t1-48-lag
   ptf_image_name: docker-ptf
   ptf: vms12-4
   ptf_ip: 10.64.247.130/23
