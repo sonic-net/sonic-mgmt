@@ -20,7 +20,7 @@ from tests.common.utilities import get_neighbor_port_list
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "m0", "mx", "m1"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 

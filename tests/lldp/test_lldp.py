@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1'),
     pytest.mark.device_type('vs')
 ]
 

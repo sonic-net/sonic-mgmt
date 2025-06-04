@@ -12,7 +12,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
 ]
 
 
