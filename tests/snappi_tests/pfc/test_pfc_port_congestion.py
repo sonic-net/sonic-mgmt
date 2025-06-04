@@ -1,15 +1,18 @@
 import pytest
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut     # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
+    fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters       # noqa: F401
+    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_single_dut       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)

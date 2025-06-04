@@ -31,12 +31,19 @@
           <a:DeviceProperty>
             <a:Name>MacSecEnabled</a:Name>
             <a:Reference i:nil="true"/>
-{% if dut_index|int == 0 %}
+{% if dut_index|int == 0 and 'lt2' not in topo %}
             <a:Value>True</a:Value>
 {% else %}
            <a:Value>False</a:Value>
 {% endif %}
         </a:DeviceProperty>
+{% endif %}
+{% if 'lt2' in topo %}
+          <a:DeviceProperty>
+            <a:Name>SubRole</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>LowerSpineRouter</a:Value>
+          </a:DeviceProperty>
 {% endif %}
 {% endif %}
 {% if 'dualtor' in topo %}

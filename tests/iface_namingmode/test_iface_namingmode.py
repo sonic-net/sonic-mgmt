@@ -4,6 +4,8 @@ import re
 import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.config_reload import config_reload
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
@@ -921,6 +923,72 @@ class TestConfigInterface():
         logger.info('speed: {}'.format(speed))
 
         assert speed == native_speed
+
+    def test_config_interface_speed_40G_100G(self, setup_config_mode, sample_intf, duthosts, fanouthosts,
+                                             enum_rand_one_per_hwsku_frontend_hostname):
+        dutHostGuest, mode, ifmode = setup_config_mode
+        test_intf = sample_intf[mode]
+        interface = sample_intf['default']
+        native_speed = sample_intf['native_speed']
+        cli_ns_option = sample_intf['cli_ns_option']
+        asic_index = sample_intf['asic_index']
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, interface)
+        speeds_to_test = ['100000', '40000']
+
+        if 'arista' in duthost.facts.get('platform', '').lower():
+            pytest.skip("Skip Arista platform for now.")
+
+        if native_speed not in speeds_to_test:
+            pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
+
+        target_speed = speeds_to_test[0] if native_speed == speeds_to_test[1] else speeds_to_test[1]
+        # Get supported speeds for interface
+        supported_speeds_dut = duthost.get_supported_speeds(interface)
+        if not supported_speeds_dut:
+            pytest.skip(f"Supported speeds for {interface} are None on DUT")
+        if (native_speed not in supported_speeds_dut or target_speed not in supported_speeds_dut):
+            pytest.skip(f"Native speed {native_speed} or target speed {target_speed} is not supported on DUT")
+
+        supported_speeds_fanout = fanout.get_supported_speeds(fanout_port)
+        if not supported_speeds_fanout:
+            pytest.skip(f"Supported speeds for {interface} are None on fanout")
+        if (native_speed not in supported_speeds_fanout or target_speed not in supported_speeds_fanout):
+            pytest.skip(f"Native speed {native_speed} or target speed {target_speed} is not supported on fanout")
+
+        def _set_speed(speed):
+            # Configure speed on the DUT and Fanout
+            dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
+                               .format(ifmode, cli_ns_option, test_intf, speed))
+            fanout.set_speed(fanout_port, speed)
+
+        def _verify_speed(speed):
+            # Verify the speed on DUT and Fanout
+            db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+                .format(duthost.asic_instance(asic_index).sonic_db_cli, interface)
+            dut_speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
+            pytest_assert(dut_speed == speed, 'DUT expected speed: {}, but got {}'.format(target_speed, dut_speed))
+            # verify the speed on fanout
+            fanout_speed = fanout.get_speed(fanout_port)
+            pytest_assert(fanout_speed == speed, 'Fanout expected speed: {}, but got {}'
+                          .format(target_speed, fanout_speed))
+
+        # Change the speed
+        _set_speed(target_speed)
+
+        try:
+            # Verify speed and link status
+            _verify_speed(target_speed)
+            assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        finally:
+            # Restore to native speed after test
+            _set_speed(native_speed)
+
+        # After restoration, verify again
+        _verify_speed(native_speed)
+        assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        # Revert inconsistent config changes
+        config_reload(duthost)
 
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):

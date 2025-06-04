@@ -12,6 +12,7 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -443,7 +444,7 @@ def __gen_data_flow(testbed_config,
         eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio]
     ipv4.priority.dscp.ecn.value = (
@@ -549,9 +550,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(exp_dur_sec)
 
@@ -582,9 +583,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 
