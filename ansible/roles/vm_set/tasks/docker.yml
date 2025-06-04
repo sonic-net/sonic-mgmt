@@ -55,6 +55,13 @@
   become: yes
   when: host_distribution_version.stdout == "22.04" and docker_repo.matched == 0
 
+- name: Add docker repository for 24.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "24.04" and docker_repo.matched == 0
+
 # In ansible 2.8, there isn't update_cache_retries option in apt module, we can manually run update as a seperate and retryable step
 - name: Run the "apt-get update" as a separate and retryable step
   apt:
@@ -95,4 +102,23 @@
     pip: name=docker version=7.1.0 state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip3"
+  when: pip_executable=="pip3" and host_distribution_version.stdout < "24.04"
+
+- name: Update python3 packages
+  block:
+  - name: Ensure python3-venv is installed
+    apt:
+      name: python3-venv
+      state: present
+      update_cache: yes
+    become: yes
+  - name: Install python packages
+    pip: name=docker version=7.1.0 state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="python3 -m venv"
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+  when: host_distribution_version.stdout >= "24.04"
+
+- name: Use virtualenv for all Python scripts on Ubuntu 24.04 and newer
+  set_fact:
+    ansible_python_interpreter: "/tmp/sonic-mgmt-virtualenv/bin/python"
+  when: host_distribution_version.stdout >= "24.04"

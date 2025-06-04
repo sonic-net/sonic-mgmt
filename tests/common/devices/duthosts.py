@@ -174,7 +174,7 @@ class DutHosts(object):
         unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa: F821
         if type(index) == int:
             return self.nodes[index]
-        elif type(index) in [str, unicode_type]:
+        elif type(index) in [str, unicode_type] or isinstance(index, str):
             for node in self.nodes:
                 if node.hostname == index:
                     return node

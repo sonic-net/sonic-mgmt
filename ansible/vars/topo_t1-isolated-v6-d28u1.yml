@@ -127,7 +127,7 @@ configuration_properties:
     max_tor_subnet_number: 16
     tor_subnet_size: 128
     nhipv6: FC0A::FF
-    ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
+    ipv6_address_pattern: 2064:100:0::%02X%02X:%02X%02X:0/120
     enable_ipv4_routes_generation: false
     enable_ipv6_routes_generation: true
   spine:

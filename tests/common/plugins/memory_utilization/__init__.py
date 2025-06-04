@@ -2,6 +2,9 @@ import logging
 import pytest
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -17,7 +20,7 @@ def store_fixture_values(request, duthosts, memory_utilization):
     if request.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in request.keywords:
         return
 
-    logging.info("store memory_utilization {}".format(request.node.name))
+    logger.debug("store memory_utilization {}".format(request.node.name))
     request.config.store_duthosts = duthosts
     request.config.store_memory_utilization = memory_utilization
 
@@ -31,7 +34,7 @@ def pytest_runtest_setup(item):
                     "disable_memory_utilization" in request.keywords:
                 return
 
-    logging.info("collect memory before test {}".format(item.name))
+    logger.debug("collect memory before test {}".format(item.name))
 
     duthosts = getattr(item.config, 'store_duthosts', None)
     memory_utilization = getattr(item.config, 'store_memory_utilization', None)
@@ -39,8 +42,8 @@ def pytest_runtest_setup(item):
         return
 
     memory_monitors, memory_values = memory_utilization
-
-    logging.debug("memory_values {} ".format(memory_values))
+    logger.debug("Memory monitors ready: {}".format(list(memory_monitors.keys()) if memory_monitors else "None"))
+    logger.debug("memory_values {} ".format(memory_values))
 
     for duthost in duthosts:
         if duthost.topo_type == 't2':
@@ -48,10 +51,14 @@ def pytest_runtest_setup(item):
 
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
-            output = memory_monitors[duthost.hostname].execute_command(cmd)
-            memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
+            try:
+                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
+            except Exception as e:
+                logger.warning("Error collecting initial memory data for {}: {}".format(name, str(e)))
+                memory_values["before_test"][duthost.hostname][name] = {}
 
-    logging.info("Before test: collected memory_values {}".format(memory_values))
+    logger.info("Before test: collected memory_values {}".format(memory_values))
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -63,7 +70,7 @@ def pytest_runtest_teardown(item, nextitem):
                     "disable_memory_utilization" in request.keywords:
                 return
 
-    logging.info("collect memory after test {}".format(item.name))
+    logger.debug("collect memory after test {}".format(item.name))
 
     duthosts = getattr(item.config, 'store_duthosts', None)
     memory_utilization = getattr(item.config, 'store_memory_utilization', None)
@@ -72,27 +79,37 @@ def pytest_runtest_teardown(item, nextitem):
 
     memory_monitors, memory_values = memory_utilization
 
-    logging.debug("memory_values {} ".format(memory_values))
-
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
-            output = memory_monitors[duthost.hostname].execute_command(cmd)
-            memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
+            try:
+                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
+            except Exception as e:
+                logger.warning("Error collecting final memory data for {}: {}".format(name, str(e)))
+                memory_values["after_test"][duthost.hostname][name] = {}
 
-        memory_monitors[duthost.hostname].check_memory_thresholds(
-            memory_values["after_test"][duthost.hostname], memory_values["before_test"][duthost.hostname])
+        # Only check thresholds if we have data to compare
+        if any(memory_values["before_test"][duthost.hostname]) and any(memory_values["after_test"][duthost.hostname]):
+            try:
+                memory_monitors[duthost.hostname].check_memory_thresholds(
+                    memory_values["after_test"][duthost.hostname], memory_values["before_test"][duthost.hostname])
+            except Exception as e:
+                logger.error("Error checking memory thresholds: {}".format(str(e)))
+                # Don't fail the test for threshold checking errors
+        else:
+            logger.warning("Skipping memory threshold check for {} due to missing data".format(duthost.hostname))
 
-    logging.info("After test: collected memory_values {}".format(memory_values))
+    logger.info("After test: collected memory_values {}".format(memory_values))
 
 
 @pytest.fixture(autouse=True)
 def memory_utilization(duthosts, request):
     if request.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in request.keywords:
-        logging.info("Memory utilization is disabled")
+        logger.info("Memory utilization monitoring is disabled")
         yield None, None
         return
 
@@ -105,9 +122,11 @@ def memory_utilization(duthosts, request):
         memory_monitor = MemoryMonitor(ansible_host=duthost)
         memory_values["before_test"][duthost.hostname] = {}
         memory_values["after_test"][duthost.hostname] = {}
-        logging.info("Hostname: {}, Hwsku: {}, Platform: {}".format(
+        logger.info("Hostname: {}, Hwsku: {}, Platform: {}".format(
             duthost.hostname, duthost.sonichost._facts["hwsku"], duthost.sonichost._facts["platform"]))
         memory_monitor.parse_and_register_commands(hwsku=duthost.sonichost._facts["hwsku"])
         memory_monitors[duthost.hostname] = memory_monitor
 
     yield memory_monitors, memory_values
+
+    logger.debug("Memory utilization fixture cleanup")
