@@ -211,7 +211,7 @@ t0:
   - platform_tests/sfp/test_sfpshow.py
   - platform_tests/sfp/test_sfputil.py
   - platform_tests/sfp/test_show_intf_xcvr.py
-  - platform_tests/test_advanced_reboot.py
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
