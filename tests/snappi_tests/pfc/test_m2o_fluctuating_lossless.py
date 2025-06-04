@@ -11,6 +11,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut   # noqa: F401
 from tests.snappi_tests.pfc.files.m2o_fluctuating_lossless_helper import run_m2o_fluctuating_lossless_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 

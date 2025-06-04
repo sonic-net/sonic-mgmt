@@ -1,5 +1,6 @@
 from dash_api.eni_pb2 import State, EniMode
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
+from dash_api.types_pb2 import IpVersion
 
 VNET = "vnet"
 VNET_ENCAP = "vnet_encap"
@@ -31,10 +32,13 @@ VNET1_VNI = "2001"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
 ENI_MAC = "F4:93:9F:EF:C4:7E"
 ENI_MAC_STRING = ENI_MAC.replace(":", "")
-VM_MAC = "43:BE:65:25:FA:67"
+VM_MAC = "44:E3:9F:EF:C4:6E"
 VM_MAC_STRING = VM_MAC.replace(":", "")
 PE_MAC = "24:AC:22:65:47:81"
 PE_MAC_STRING = PE_MAC.replace(":", "")
+# REMOTE MAC is corresponding to PE MAC
+REMOTE_MAC = "43:BE:65:25:FA:67"
+REMOTE_MAC_STRING = REMOTE_MAC.replace(":", "")
 ENI_ID = "497f23d7-f0ac-4c99-a98f-59b470e8c7bd"
 ROUTE_GROUP1 = "RouteGroup1"
 ROUTE_GROUP2 = "RouteGroup2"
@@ -217,7 +221,7 @@ ROUTE_RULE1_CONFIG = {
 
 METER_POLICY_V4_CONFIG = {
     f"DASH_METER_POLICY_TABLE:{METER_POLICY_V4}": {
-        "ip_version": "ipv4"
+        "ip_version": IpVersion.IP_VERSION_IPV4
     }
 }
 

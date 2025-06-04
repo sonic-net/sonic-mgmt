@@ -265,6 +265,15 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     return [reboot_res, dut_datetime]
 
 
+def check_dshell_ready(duthost):
+    show_command = "sudo show platform npu rx cgm_global"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        return False
+    return True
+
+
 @support_ignore_loganalyzer
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
@@ -319,7 +328,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
     # Get reboot-cause history before reboot
-    prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
+    logger.info('DUT OS Version: {}'.format(duthost.os_version))
+    prev_reboot_cause_history = None
+    # prev_reboot_cause_history is only used for T2 device.
+    if duthost.get_facts().get("modular_chassis") and reboot_type == REBOOT_TYPE_POWEROFF:
+        logger.info('Fetching reboot cause history before rebooting')
+        prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
     wait_conlsole_connection = 5
     console_thread_res = pool.apply_async(
@@ -356,6 +370,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
+
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        duthost.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
                       "{}: All critical services should be fully started!".format(hostname))
         wait_critical_processes(duthost)
@@ -363,6 +382,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "{}: Not all ports that are admin up on are operationally up".format(hostname))
+
+        if duthost.facts['asic_type'] == "cisco-8000":
+            # Wait dshell initialization finish
+            pytest_assert(wait_until(wait + 300, 20, 0, check_dshell_ready, duthost),
+                          "dshell not ready")
     else:
         time.sleep(wait)
 

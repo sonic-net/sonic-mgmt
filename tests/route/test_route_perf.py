@@ -58,6 +58,40 @@ def get_route_scale_per_role(tbinfo, ip_version):
     return set_num_routes
 
 
+def get_l3_alpm_template_from_config_bcm(duthost):
+    """
+    Get l3_alpm_template from config.bcm file
+    :param duthost: DUT host object
+    :return: l3_alpm_template value
+    """
+    ls_command = "docker exec syncd cat /etc/sai.d/sai.profile | grep SAI_INIT_CONFIG_FILE"
+    ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
+    # Check if the file exists
+    if ls_output:
+        file_name = ls_output.split("=")[-1].strip()
+        logging.info("Config bcm file found:{}".format(file_name))
+        # Read the config.bcm file and find the l3_alpm_template variable
+        cat_command = "docker exec syncd cat {} | grep l3_alpm_template".format(file_name)
+        cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
+        if cat_output:
+            # Extract the value of l3_alpm_template
+            l3_alpm_template = cat_output.split(":")[-1].strip()
+            logging.info("l3_alpm_template found:{}".format(l3_alpm_template))
+            return int(l3_alpm_template)
+        else:
+            logging.info("Unable to find l3_alpm_template in config.bcm file")
+            raise RuntimeError(
+                "Unable to find l3_alpm_template in config.bcm file"
+            )
+    # If the file does not exist, raise an error
+    else:
+        logging.info("Unable to find config.bcm file in /etc/sai.d/sai.profile")
+        raise RuntimeError(
+            "Unable to find config.bcm file in /etc/sai.d/sai.profile"
+        )
+    return None
+
+
 @pytest.fixture
 def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
@@ -69,14 +103,24 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     asic = duthost.facts["asic_type"]
+    platform = duthost.facts["platform"]
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
-        alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
-        alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
-        logger.info("Checking config: {}".format(alpm_enable))
-        pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
+        if "7060x6_64pe" in platform:
+            # For all TH5 family devices, l3_alpm_template is set in config.bcm
+            # * 1 - Combined (By default)
+            # * 2 - Parallel
+            pytest_assert(
+                get_l3_alpm_template_from_config_bcm(duthost) == 1,
+                "l3_alpm_template is not set for route scaling"
+            )
+        else:
+            broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+            alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
+            alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
+            logger.info("Checking config: {}".format(alpm_enable))
+            pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
 
 @pytest.fixture(autouse=True)

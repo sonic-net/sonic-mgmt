@@ -604,10 +604,14 @@ def check_bgp_router_id(duthost, mgFacts):
     """
     Check bgp router ID is same as Loopback0
     """
-    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    check_bgp_router_id_cmd = r'vtysh -c "show bgp summary json"'
     bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
     try:
         bgp_summary_json = json.loads(bgp_summary['stdout'])
+        if 'ipv4Unicast' not in bgp_summary_json:
+            logger.info("No ipv4Unicast in BGP summary")
+            # for Ipv6 only device, just check if routerId exists or not.
+            return 'routerId' in bgp_summary_json['ipv6Unicast']
         router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
         loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
         if router_id == loopback0:
