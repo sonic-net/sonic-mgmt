@@ -3,7 +3,7 @@ import pytest
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Add this to store memory errors per test
 _memory_errors_by_test = {}
