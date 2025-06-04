@@ -5,7 +5,7 @@ from typing import List
 
 class SafeThreadPoolExecutor:
     """
-    A thread pool executor that collects all AsyncResult objects and waits for their completion
+    A thread pool executor that collects all AsyncResult objects and waits for their completion.
 
     Example Usage:
 
@@ -38,8 +38,8 @@ class SafeThreadPoolExecutor:
         Schedule fn(*args, **kwargs) to run in a worker thread.
         Returns an ApplyResult object whose .get() will return the result or re-raise any exception from the worker.
         """
-        # Wrap the user‐provided fn in a wrapper to catch any BaseException, and then convert that BaseException into
-        # a regular Exception so ThreadPool's "except Exception" block will catch and enqueue it
+        # Wrap the user‐provided fn in a wrapper to catch any BaseException, and convert that BaseException into
+        # a regular RuntimeError so ThreadPool's "except Exception" block will catch and enqueue it.
         def _wrapper(*fn_args, **fn_kwargs):
             try:
                 return fn(*fn_args, **fn_kwargs)
@@ -61,11 +61,15 @@ class SafeThreadPoolExecutor:
             self._pool.join()
 
     def __enter__(self):
-        # Support the "with" statement
+        """
+        Support the "with" statement.
+        """
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Wait for each submitted task to complete and surface exceptions.
+        """
+        Wait for each submitted task to complete and surface exceptions.
+        """
         for async_res in self._results:
             # .get() will block until the task finishes, and re-raise any exception to the main thread.
             async_res.get()
