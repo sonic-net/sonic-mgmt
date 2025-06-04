@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health                                         # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, check_asic_and_db_consistency
+     check_services, install_sonic, multi_hop_warm_upgrade_test_helper, check_asic_and_db_consistency, restore_image # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
                                 get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa F811
-                                verify_dut_health, consistency_checker_provider):  # noqa F811
+                                verify_dut_health, consistency_checker_provider, restore_image):  # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
     upgrade_type = request.config.getoption('upgrade_type')
