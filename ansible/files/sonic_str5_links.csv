@@ -3,7 +3,7 @@ str5-7260cx3-acs-root,Ethernet1/1,str5-7060x6-512-fan-3,Ethernet496,100000,"100-
 str5-7260cx3-acs-root,Ethernet2/1,str5-7060x6-512-fan-4,Ethernet496,100000,614-1103,Trunk,off
 str5-7260cx3-acs-root,Ethernet3/1,str5-7060x6-512-fan-5,Ethernet496,100000,,Trunk,off
 str5-7260cx3-acs-root,Ethernet4/1,str5-sn5640-fan-1,Ethernet504,100000,"1208-1711,1720-1721",Trunk,off
-str5-7260cx3-acs-root,Ethernet6/1,str5-7060x6-512-fan-6,Ethernet496,100000,1080-1209,Trunk,off
+str5-7260cx3-acs-root,Ethernet6/1,str5-7060x6-512-fan-6,Ethernet496,100000,1080-1207,Trunk,off
 str5-7260cx3-acs-root,Ethernet10/1,str5-7060x6-64pe-shared-fan-1,Ethernet496,100000,"596-603,1062-1069,1712-1719",Trunk,off
 str5-7260cx3-acs-root,Ethernet56/1,str5-acs-serv-91,ens4f1,100000,"100-613",Trunk,off
 str5-7260cx3-acs-root,Ethernet57/1,str5-acs-serv-92,ens4f0,100000,"614-1103",Trunk,off
