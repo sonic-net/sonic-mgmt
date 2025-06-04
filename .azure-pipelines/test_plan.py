@@ -326,6 +326,7 @@ class TestPlanManager(object):
                 "min": min_worker,
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
+                "asic_type": kwargs["asic_type"],
                 "asic_num": kwargs["num_asic"],
                 "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
             },
@@ -656,6 +657,16 @@ if __name__ == "__main__":
         default="ceos",
         required=False,
         help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--asic-type",
+        type=str,
+        dest="asic_type",
+        nargs='?',
+        const="",
+        default="",
+        required=False,
+        help="ASIC type"
     )
     parser_create.add_argument(
         "--specified-params",
@@ -1066,6 +1077,7 @@ if __name__ == "__main__":
                     source_repo=repo_name,
                     mgmt_branch=args.mgmt_branch,
                     common_extra_params=args.common_extra_params,
+                    asic_type=args.asic_type,
                     num_asic=args.num_asic,
                     specified_params=args.specified_params,
                     specific_param=specific_param,
