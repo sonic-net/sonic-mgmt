@@ -335,7 +335,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t2
-          SCRIPTS: $(TEST_SCRIPTS)
+          SCRIPTS: $(SCRIPTS)
           MIN_WORKER: 20
           MAX_WORKER: 20
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
