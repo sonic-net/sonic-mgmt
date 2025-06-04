@@ -29,17 +29,17 @@ def function_unconfig():
 data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
 data_vid_10.vlan = "10"
-data_vid_10.t1d3_ip_gateway = "10.0.1.10"
-data_vid_10.t1d3_ipv6_gateway = "10:0:1::10"
-data_vid_10.t1d4_ip_gateway = "10.0.1.10"
-data_vid_10.t1d4_ipv6_gateway = "10:0:1::10"
+data_vid_10.t1d3_ip_gateway = "100.0.1.10"
+data_vid_10.t1d3_ipv6_gateway = "100.0:1::10"
+data_vid_10.t1d4_ip_gateway = "100.0.1.10"
+data_vid_10.t1d4_ipv6_gateway = "100.0:1::10"
 
-data_vid_10.t1d3_ip_addr = "10.0.1.1"
-data_vid_10.t1d3_ipv6_addr = "10:0:1::1"
+data_vid_10.t1d3_ip_addr = "100.0.1.1"
+data_vid_10.t1d3_ipv6_addr = "100.0:1::1"
 data_vid_10.t1d3_mac_addr = "00:0A:03:00:11:01"
 
-data_vid_10.t1d4_ip_addr = "10.0.1.2"
-data_vid_10.t1d4_ipv6_addr = "10:0:1::2"
+data_vid_10.t1d4_ip_addr = "100.0.1.2"
+data_vid_10.t1d4_ipv6_addr = "100.0:1::2"
 data_vid_10.t1d4_mac_addr = "00:0A:04:00:12:01"
 
 data_vid_10.transmit_mode = 'single_burst'
@@ -54,17 +54,17 @@ data_vid_10.traffic_run_time = 20
 data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
 data_vid_20.vlan = "20"
-data_vid_20.t1d3_ip_gateway = "10.0.2.20"
-data_vid_20.t1d3_ipv6_gateway = "10:0:2::20"
-data_vid_20.t1d4_ip_gateway = "10.0.2.20"
-data_vid_20.t1d4_ipv6_gateway = "10:0:2::20"
+data_vid_20.t1d3_ip_gateway = "100.0.2.20"
+data_vid_20.t1d3_ipv6_gateway = "100.0:2::20"
+data_vid_20.t1d4_ip_gateway = "100.0.2.20"
+data_vid_20.t1d4_ipv6_gateway = "100.0:2::20"
 
-data_vid_20.t1d3_ip_addr = "10.0.2.1"
-data_vid_20.t1d3_ipv6_addr = "10:0:2::1"
+data_vid_20.t1d3_ip_addr = "100.0.2.1"
+data_vid_20.t1d3_ipv6_addr = "100.0:2::1"
 data_vid_20.t1d3_mac_addr = "00:0A:05:00:11:01"
 
-data_vid_20.t1d4_ip_addr = "10.0.2.2"
-data_vid_20.t1d4_ipv6_addr = "10:0:2::2"
+data_vid_20.t1d4_ip_addr = "100.0.2.2"
+data_vid_20.t1d4_ipv6_addr = "100.0:2::2"
 data_vid_20.t1d4_mac_addr = "00:0A:06:00:12:01"
 
 data_vid_20.transmit_mode = 'single_burst'
@@ -166,7 +166,7 @@ def test_static_mac(setup_teardown_bvi):
     #Configure the static mac
     common_obj.config_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], data_glob.members_dut2[1], verify=True)
 
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
@@ -186,7 +186,7 @@ def test_static_mac(setup_teardown_bvi):
     #Delete the static mac
     common_obj.delete_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], verify=True)
 
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
@@ -213,7 +213,7 @@ def test_bd_shut_unshut(setup_teardown_bvi):
     data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
     data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
 
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -235,7 +235,7 @@ def test_bd_shut_unshut(setup_teardown_bvi):
     if not intf_obj.poll_for_interface_status(data_glob.spine0, data_glob.members_dut1[0], 'oper', 'up'):
         st.report_fail('interface_state_fail', data_glob.members_dut1[0], data_glob.spine0, 'up')
 
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)

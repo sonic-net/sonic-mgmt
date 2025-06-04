@@ -4,6 +4,7 @@ import yaml
 import pytest
 import re
 from spytest import st, tgapi, SpyTestDict
+import pdb
 
 import apis.switching.vlan as vapi
 import apis.switching.mac as mac_obj
@@ -19,10 +20,10 @@ data.hosts = ["T1D3P1", "T1D4P1", "T1D3P2", "T1D4P2"]
 
 # hosts data
 data.hosts_data = {
-    "T1D3P1": {"ip_addr": "10.0.1.1", "mac_addr": "00:00:00:00:10:11"},
-    "T1D4P1": {"ip_addr": "10.0.1.2", "mac_addr": "00:00:00:00:10:12"},
-    "T1D3P2": {"ip_addr": "10.0.2.1", "mac_addr": "00:00:00:00:10:21"},
-    "T1D4P2": {"ip_addr": "10.0.2.2", "mac_addr": "00:00:00:00:10:22"}
+    "T1D3P1": {"ip_addr": "100.0.1.1", "mac_addr": "00:00:00:00:10:11"},
+    "T1D4P1": {"ip_addr": "100.0.1.2", "mac_addr": "00:00:00:00:10:12"},
+    "T1D3P2": {"ip_addr": "100.0.2.1", "mac_addr": "00:00:00:00:10:21"},
+    "T1D4P2": {"ip_addr": "100.0.2.2", "mac_addr": "00:00:00:00:10:22"}
 }
 data.vlan_list = ["10","20","30","40","50"]
 
@@ -30,13 +31,13 @@ data.vlan_list = ["10","20","30","40","50"]
 data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
 data_vid_10.vlan = "10"
-data_vid_10.t1d3_ip_gateway = "10.0.1.10"
-data_vid_10.t1d4_ip_gateway = "10.0.1.10"
+data_vid_10.t1d3_ip_gateway = "100.0.1.10"
+data_vid_10.t1d4_ip_gateway = "100.0.1.10"
 
-data_vid_10.t1d3_ip_addr = "10.0.1.1"
+data_vid_10.t1d3_ip_addr = "100.0.1.1"
 data_vid_10.t1d3_mac_addr = "00:0A:03:00:11:01"
 
-data_vid_10.t1d4_ip_addr = "10.0.1.2"
+data_vid_10.t1d4_ip_addr = "100.0.1.2"
 data_vid_10.t1d4_mac_addr = "00:0A:04:00:12:01"
 
 data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
@@ -54,15 +55,15 @@ data_vid_10.traffic_run_time = 5
 data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
 data_vid_20.vlan = "20"
-data_vid_20.t1d3_ip_gateway = "10.0.2.20"
-data_vid_20.t1d4_ip_gateway = "10.0.2.20"
+data_vid_20.t1d3_ip_gateway = "100.0.2.20"
+data_vid_20.t1d4_ip_gateway = "100.0.2.20"
 
-data_vid_20.t1d3_ip_addr = "10.0.2.1"
-data_vid_20.t1d3_ipv6_addr = "10:0:2::1"
+data_vid_20.t1d3_ip_addr = "100.0.2.1"
+data_vid_20.t1d3_ipv6_addr = "100.0:2::1"
 data_vid_20.t1d3_mac_addr = "00:0A:05:00:11:01"
 
-data_vid_20.t1d4_ip_addr = "10.0.2.2"
-data_vid_20.t1d4_ipv6_addr = "10:0:2::2"
+data_vid_20.t1d4_ip_addr = "100.0.2.2"
+data_vid_20.t1d4_ipv6_addr = "100.0:2::2"
 data_vid_20.t1d4_mac_addr = "00:0A:06:00:12:01"
 
 data_vid_20.t1d3_dest_mac_addr = data_vid_20.t1d4_mac_addr
@@ -119,7 +120,7 @@ def setup_teardown_l2_vlan_test():
             common_obj.config_static(node, 'sonic', True, updated_path)
 
     count = 5    
-    st.show(nodes['spine0'], 'sudo ping -c {} {} -q'.format(count, '10.0.1.2'), skip_tmpl=True, skip_error_check=True)
+    st.show(nodes['spine0'], 'sudo ping -c {} {} -q'.format(count, '100.0.1.2'), skip_tmpl=True, skip_error_check=True)
 
     yield 'setup_teardown_l2_vlan_test'
 
