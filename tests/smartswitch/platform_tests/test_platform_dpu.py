@@ -379,3 +379,4 @@ def test_watchdog_status_check(duthosts, dpuhosts,
         pytest_assert("armed" in dpu_watchdog_status['stdout'].lower(),
                       "{} watchdog status is unarmed"
                       .format(dpu_name))
+
