@@ -15,6 +15,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                 # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
@@ -101,9 +102,7 @@ def run_lossless_response_to_external_pause_storms_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    no_of_bg_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_bg_streams = 10
+    no_of_bg_streams = get_number_of_streams(duthost, tx_port, rx_port)
     port_id = 0
 
     # Generate base traffic config

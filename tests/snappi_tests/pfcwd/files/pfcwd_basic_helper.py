@@ -12,6 +12,7 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port         
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ def run_pfcwd_basic_test(api,
 
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
     cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+    number_of_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -145,7 +147,7 @@ def run_pfcwd_basic_test(api,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
                   traffic_rate=49.99 if cisco_platform else 100.0,
-                  number_of_streams=1)
+                  number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
 
