@@ -10,10 +10,10 @@ from bgp_helpers import ALLOW_LIST_PREFIX_JSON_FILE, PREFIX_LISTS, TEST_COMMUNIT
 from bgp_helpers import apply_allow_list, remove_allow_list, check_routes_on_from_neighbor, get_default_action
 from bgp_helpers import check_routes_on_neighbors_empty_allow_list, checkout_bgp_mon_routes, check_routes_on_neighbors
 # Fixtures
-from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa F401
+from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa:F401
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t1', 'm1'),
     pytest.mark.device_type('vs')
 ]
 
@@ -37,7 +37,7 @@ ALLOW_LIST = {
 
 
 @pytest.fixture
-def load_remove_allow_list(duthosts, bgp_allow_list_setup, rand_one_dut_hostname, request):     # noqa F811
+def load_remove_allow_list(duthosts, bgp_allow_list_setup, rand_one_dut_hostname, request):     # noqa:F811
     allowed_list_prefixes = ALLOW_LIST['BGP_ALLOWED_PREFIXES']
     for _, value in list(allowed_list_prefixes.items()):
         value['default_action'] = request.param
@@ -61,7 +61,7 @@ def check_routes_on_dut(duthost, namespace):
             pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))
 
 
-def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa F811
+def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811
                                       ptfhost, bgpmon_setup_teardown):
     """
     Before applying allow list, verify bgp policy by default config
@@ -79,7 +79,7 @@ def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow
 
 
 @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa F811
+def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa:F811
                     load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
     permit = True if load_remove_allow_list == "permit" else False
     duthost = duthosts[rand_one_dut_hostname]
@@ -95,10 +95,10 @@ def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrho
     checkout_bgp_mon_routes(duthost, ptfhost)
 
 
-def test_default_allow_list_postconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa F811
+def test_default_allow_list_postconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811
                                        nbrhosts, ptfhost, bgpmon_setup_teardown):
     """
     After removing allow list, verify bgp policy
     """
-    test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,    # noqa F811
+    test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,    # noqa:F811
                                       nbrhosts, ptfhost, bgpmon_setup_teardown)

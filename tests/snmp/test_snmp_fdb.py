@@ -21,7 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -92,6 +92,43 @@ def is_port_channel_up(duthost, config_portchannels):
     return True
 
 
+def check_snmp_facts(duthost, localhost, hostip, creds_all_duts, config_portchannels, send_cnt, send_portchannels_cnt):
+    dummy_mac_cnt = 0
+    recv_portchannels_cnt = 0
+    snmp_facts = get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    if 'snmp_fdb' not in snmp_facts:
+        logger.info("'snmp_fdb' not in snmp_facts")
+        return False
+    if 'snmp_interfaces' not in snmp_facts:
+        logger.info("'snmp_interfaces' not in snmp_facts")
+        return False
+    for key in snmp_facts['snmp_fdb']:
+        # key is string: vlan.mac
+        items = key.split('.')
+        if len(items) != 2:
+            continue
+        if DUMMY_MAC_PREFIX in items[1]:
+            dummy_mac_cnt += 1
+            idx = str(snmp_facts['snmp_fdb'][key])
+            if idx not in snmp_facts['snmp_interfaces']:
+                logger.info(f"{idx} not in snmp_facts['snmp_interfaces']")
+                return False
+            if 'name' not in snmp_facts['snmp_interfaces'][idx]:
+                logger.info(f"'name' not in snmp_facts['snmp_interfaces'][{idx}]")
+                return False
+            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
+                recv_portchannels_cnt += 1
+    if send_cnt != dummy_mac_cnt:
+        logger.info("Dummy MAC count does not match")
+        return False
+    if send_portchannels_cnt != recv_portchannels_cnt:
+        logger.info("Portchannels count does not match")
+        return False
+    return True
+
+
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
@@ -138,25 +175,6 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
 
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    assert 'snmp_fdb' in snmp_facts
-    assert 'snmp_interfaces' in snmp_facts
-    dummy_mac_cnt = 0
-    recv_portchannels_cnt = 0
-    for key in snmp_facts['snmp_fdb']:
-        # key is string: vlan.mac
-        items = key.split('.')
-        if len(items) != 2:
-            continue
-        logger.info("FDB entry: {}".format(items))
-        if DUMMY_MAC_PREFIX in items[1]:
-            dummy_mac_cnt += 1
-            idx = str(snmp_facts['snmp_fdb'][key])
-            assert idx in snmp_facts['snmp_interfaces']
-            assert 'name' in snmp_facts['snmp_interfaces'][idx]
-            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
-                recv_portchannels_cnt += 1
-    assert send_cnt == dummy_mac_cnt, "Dummy MAC count does not match"
-    assert send_portchannels_cnt == recv_portchannels_cnt, "Portchannels count does not match"
+
+    assert wait_until(60, 5, 0, check_snmp_facts, duthost, localhost, hostip, creds_all_duts,
+                      config_portchannels, send_cnt, send_portchannels_cnt), "SNMP facts validation failure"

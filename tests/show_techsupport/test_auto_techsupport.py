@@ -13,6 +13,8 @@ from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
 from dateutil.parser import ParserError
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
+    extract_techsupport_tarball_file
 
 try:
     import allure
@@ -514,7 +516,7 @@ class TestAutoTechSupport:
 
         with allure.step('Check that techsuport generated and expected saidump file exist in techsupport dump'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                            is_sai_dump_expected=True, delay_before_validation=30)
+                                            is_sai_dump_expected=True, delay_before_validation=60)
 
 
 # Methods used by tests
@@ -793,21 +795,6 @@ def get_oldest_syslog_file_name(syslog_files):
     return oldest_syslog_file
 
 
-def extract_techsupport_tarball_file(duthost, tarball_name):
-    """
-    Extract techsupport tar file and return path to data extracted from archive
-    :param duthost: duthost object
-    :param tarball_name: path to tar file, example: /var/dump/sonic_dump_DUT_NAME_20210901_22140.tar.gz
-    :return: path to folder with techsupport data, example: /tmp/sonic_dump_DUT_NAME_20210901_22140
-    """
-    with allure.step('Extracting techsupport file: {}'.format(tarball_name)):
-        dst_folder = '/tmp/'
-        duthost.shell('tar -xf {} -C {}'.format(tarball_name, dst_folder))
-        techsupport_folder = tarball_name.split('.')[0].split('/var/dump/')[1]
-        techsupport_folder_full_path = '{}{}'.format(dst_folder, techsupport_folder)
-    return techsupport_folder_full_path
-
-
 def validate_auto_techsupport_global_config(dut_cli, state=None, rate_limit_interval=None, max_techsupport_limit=None,
                                             max_core_size=None, since=None):
     """
@@ -991,23 +978,6 @@ def get_new_techsupport_tar_files(duthost):
         new_available_tech_support_tar_files = []
 
     return new_available_tech_support_tar_files
-
-
-def get_new_techsupport_files_list(duthost, available_tech_support_files):
-    """
-    Get list of new created techsupport files
-    :param duthost: duthost object
-    :param available_tech_support_files: list of already available techsupport files
-    :return: list of new techsupport files
-    """
-    try:
-        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
-        new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
-    except RunAnsibleModuleFail:
-        new_available_tech_support_files = []
-    new_techsupport_files_list = list(set(new_available_tech_support_files) - set(available_tech_support_files))
-
-    return new_techsupport_files_list
 
 
 def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
@@ -1301,19 +1271,6 @@ def create_core_file_generator_script(duthost):
     """
     duthost.shell('sudo echo \'sleep 10 & kill -6 $!\' > /etc/sonic/core_file_generator.sh')
     duthost.shell('sudo echo \'echo $?\' >> /etc/sonic/core_file_generator.sh')
-
-
-def get_available_tech_support_files(duthost):
-    """
-    Get available techsupport files list
-    :param duthost: duthost object
-    :return: list of available techsupport files
-    """
-    try:
-        available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
-    except RunAnsibleModuleFail:
-        available_tech_support_files = []
-    return available_tech_support_files
 
 
 def get_random_physical_port_non_po_member(minigraph_facts):

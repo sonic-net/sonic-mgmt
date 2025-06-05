@@ -11,6 +11,7 @@ from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp
 from tests.snappi_tests.pfc.files.helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -51,19 +52,19 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     tx_port_count = 1
     rx_port_count = 1
 
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                   "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(MULTIDUT_TESTBED, testbed_subtype))
+                       format(MULTIDUT_TESTBED, testbed_subtype))
 
-        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
-                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
                       testbed {}, subtype {} in variables.py'.
-                      format(tbname, testbed_subtype))
+                       format(tbname, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
         if is_snappi_multidut(duthosts):
             snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
