@@ -1,6 +1,6 @@
 StartDevice,StartPort,EndDevice,EndPort
 pdu-83,2,str5-7060x6-pe64-root,PSU1
-pdu-85,2,str5-7060x6-pe64-root,PSU1
+pdu-85,2,str5-7060x6-pe64-root,PSU2
 pdu-85,3,str5-7060x6-512-3,PSU1
 pdu-86,3,str5-7060x6-512-fan-3,PSU1
 pdu-85,7,str5-7060x6-512-4,PSU1
@@ -9,3 +9,7 @@ pdu-96,21,str5-7060x6-64pe-shared-fan-1,PSU1
 pdu-97,21,str5-7060x6-64pe-shared-fan-1,PSU2
 pdu-115,30,str5-7260cx3-acs-root,PSU1
 pdu-116,30,str5-7260cx3-acs-root,PSU2
+pdu-83,4,str5-7060x6-512-5,PSU1
+pdu-85,4,str5-7060x6-512-5,PSU2
+pdu-83,5,str5-7060x6-512-fan-5,PSU1
+pdu-85,5,str5-7060x6-512-fan-5,PSU2
