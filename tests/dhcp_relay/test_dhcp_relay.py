@@ -3,6 +3,7 @@ import random
 import time
 import logging
 import re
+import json
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
@@ -53,6 +54,71 @@ def check_interface_status(duthost):
         return True
 
     return False
+
+
+def query_counter_result(duthost, query_key):
+    counters_query_string = 'sonic-db-cli COUNTERS_DB hgetall "DHCPV4_COUNTER_TABLE:{key}"'
+    result = json.loads(
+        duthost.shell(counters_query_string.format(key=query_key))['stdout'].replace("\"", "").replace("'", "\"")
+    )
+    return {k: {ik: int(iv) for ik, iv in v.items()} for k, v in result.items()}
+
+
+def query_vlan_interface_counters(duthost, vlan_name, interface_name_list):
+    """Format the counters output for the given VLAN and interface names."""
+    if interface_name_list is None or len(interface_name_list) == 0:
+        return query_counter_result(duthost, vlan_name)
+    total_counters = {}
+    for interface_name in interface_name_list:
+        internal_result = query_counter_result(duthost, vlan_name + ":" + interface_name)
+        for key, value in internal_result.items():
+            total_value = total_counters.setdefault(key, {})
+            for sub_key, sub_value in value.items():
+                total_value[sub_key] = total_value.get(sub_key, 0) + sub_value
+    return total_counters
+
+
+def validate_dhcpcom_counters(dhcp_relay, duthost):
+    """Validate the dhcpcom counters"""
+    downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
+    uplink_portchannels_interfaces = dhcp_relay['uplink_interfaces']
+    client_iface = dhcp_relay['client_iface']['name']
+    dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+    portchannels = dhcp_relay['portchannels']
+    uplink_interfaces = []
+    for portchannel_name in uplink_portchannels_interfaces:
+        if portchannel_name in portchannels.keys():
+            uplink_interfaces.extend(portchannels[portchannel_name]['members'])
+        else:
+            uplink_interfaces.append(portchannel_name)
+
+    vlan_interface_counter = query_vlan_interface_counters(duthost, downlink_vlan_iface, [])
+    client_interface_counter = query_vlan_interface_counters(duthost, downlink_vlan_iface, [client_iface])
+    uplink_portchannels_interfaces_counter = query_vlan_interface_counters(
+        duthost, downlink_vlan_iface, uplink_portchannels_interfaces
+    )
+    uplink_interface_counter = query_vlan_interface_counters(duthost, downlink_vlan_iface, uplink_interfaces)
+
+    assert vlan_interface_counter == client_interface_counter
+    assert uplink_interface_counter == uplink_portchannels_interfaces_counter
+    assert json.dumps(vlan_interface_counter) == (
+        '{"TX": {"Unknown": 0, "Discover": 0, "Offer": 1, "Request": 0, "Decline": 0, "Ack": 1, '
+        '"Nak": 0, "Release": 0, "Inform": 0, "Bootp": 0}, '
+        '"RX": {"Unknown": 0, "Discover": 1, "Offer": 0, "Request": 2, "Decline": 0, "Ack": 0, '
+        '"Nak": 0, "Release": 0, "Inform": 0, "Bootp": 1}}'
+    )
+    assert json.dumps(uplink_interface_counter) == (
+        '{"TX": {"Unknown": 0, "Discover": %d, "Offer": 0, "Request": %d, '
+        '"Decline": 0, "Ack": 0, "Nak": 0, "Release": 0, "Inform": 0, "Bootp": %d}, '
+        '"RX": {"Unknown": 0, "Discover": 0, "Offer": 1, "Request": 0, "Decline": 0, '
+        '"Ack": 1, "Nak": 0, "Release": 0, "Inform": 0, "Bootp": 0}}'
+    ) % (dhcp_server_sum, dhcp_server_sum * 2, dhcp_server_sum)
+
+
+def init_and_verify_dhcp_relay_counters(duthost):
+    command_output = duthost.shell("sudo sonic-clear dhcp_relay ipv4 counters")
+    assert command_output["failed"] is False
+    assert "Clear DHCPv4 relay counter done" == command_output["stdout"]
 
 
 @pytest.fixture(scope="function")
@@ -232,6 +298,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
+                init_and_verify_dhcp_relay_counters(duthost)
 
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
@@ -264,6 +331,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 loganalyzer.analyze(marker)
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
+                validate_dhcpcom_counters(dhcp_relay, duthost)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
