@@ -2268,10 +2268,9 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
 #######################################
 test_pktgen.py:
   skip:
-    reason: "Have known issue, only running for 'cisco-8000', skipping for all other ASIC types"
+    reason: "No need in M0/Mx/M1"
     conditions:
-      - "asic_type not in ['cisco-8000']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+      - "topo_type in ['m0', 'mx', 'm1']"
 
 #######################################
 #####         vs_chassis          #####
