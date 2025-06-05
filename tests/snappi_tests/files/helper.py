@@ -34,10 +34,12 @@ def skip_warm_reboot(duthost, reboot_type):
     Returns:
         None
     """
-    SKIP_LIST = ["td2"]
+    SKIP_LIST = ["td2", "jr2", "j2c+"]
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
-    if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+    if (reboot_type == "fast") and asic_type in ["jr2", "j2c+"]:
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
         reboot_case_supported = False
     elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
         reboot_case_supported = False
