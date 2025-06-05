@@ -274,6 +274,10 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for smartswitch"
         elif self.topo_name in ["ft2-64"]:
             config = self.generate_ft2_golden_config_db()
+        elif "t2" in self.topo_name and self.macsec_profile:
+            config = self.generate_t2_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
+            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
         elif self.hwsku and is_full_lossy_hwsku(self.hwsku):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
