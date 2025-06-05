@@ -193,7 +193,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     upstream_port_neighbor_ips = {}
     for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
+        if (topo == "t1" and "T2" in neighbor["name"]) or \
+                (topo == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"])) or \
                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]) or \
                 (topo_name in ("t1-isolated-d32", "t1-isolated-d128") and "T0" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
