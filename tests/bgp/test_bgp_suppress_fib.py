@@ -388,12 +388,10 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
         "Check the ExaBGP logs, network connectivity, and the request details.\n"
         "- URL: {}\n"
         "- Data: {}\n"
-        "- Response: {}\n"
     ).format(
         r.status_code,
         url,
-        data,
-        r.text
+        data
     )
 
 
