@@ -1,6 +1,6 @@
 import pytest
 
-from tests.common.dualtor.data_plane_utils import save_pcap                 # noqa F401
+from tests.common.dualtor.data_plane_utils import save_pcap                 # noqa: F401
 
 
 def pytest_configure(config):
@@ -35,10 +35,19 @@ def pytest_generate_tests(metafunc):
 def setup_loganalyzer(loganalyzer):
     """Fixture to allow customize loganalyzer behaviors."""
 
-    def _setup_loganalyzer(duthost, collect_only):
+    KERNEL_BOOTUP_SYSLOG = "kernel: [    0.000000] Linux version"
+
+    def _setup_loganalyzer(duthost, collect_only=False, collect_from_bootup=False):
+        if not loganalyzer:
+            return
         if collect_only:
             loganalyzer[duthost.hostname].match_regex = []
             loganalyzer[duthost.hostname].expect_regex = []
             loganalyzer[duthost.hostname].ignore_regex = []
+
+        if collect_from_bootup:
+            loganalyzer[duthost.hostname].start_marker = KERNEL_BOOTUP_SYSLOG
+            loganalyzer[duthost.hostname].ansible_loganalyzer.start_marker = \
+                KERNEL_BOOTUP_SYSLOG
 
     return _setup_loganalyzer

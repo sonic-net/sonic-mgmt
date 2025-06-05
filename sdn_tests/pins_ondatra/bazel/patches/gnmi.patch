@@ -68,34 +68,6 @@ index 2f385f7..0000000
 -load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 -
 -grpc_extra_deps()
-diff --git a/proto/gnmi/BUILD.bazel b/proto/gnmi/BUILD.bazel
-index f471488..f6bd3bd 100644
---- a/proto/gnmi/BUILD.bazel
-+++ b/proto/gnmi/BUILD.bazel
-@@ -16,6 +16,9 @@
- #
- 
- load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
-+load("@io_bazel_rules_go//go:def.bzl", "go_library")
-+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-+load("@rules_proto//proto:defs.bzl", "proto_library")
- 
- package(
-     default_visibility = ["//visibility:public"],
-@@ -45,3 +48,13 @@ cc_grpc_library(
-     grpc_only = True,
-     deps = [":gnmi_cc_proto"],
- )
-+
-+go_proto_library(
-+    name = "gnmi_go_proto",
-+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-+    importpath = "github.com/openconfig/gnmi/proto/gnmi",
-+    proto = ":gnmi_proto",
-+    deps = [
-+        "//proto/gnmi_ext:gnmi_ext_go_proto",
-+    ],
-+)
 diff --git a/proto/gnmi_ext/BUILD.bazel b/proto/gnmi_ext/BUILD.bazel
 index 2e0e9b4..5dcf6fb 100644
 --- a/proto/gnmi_ext/BUILD.bazel
@@ -389,4 +361,62 @@ index 0000000..b09b9f3
 +    name = "go_default_library",
 +    actual = ":match",
 +    visibility = ["//visibility:public"],
++)
+
+diff --git a/proto/gnmi/BUILD.bazel b/proto/gnmi/BUILD.bazel
+index f471488..8be3fdf 100644
+--- a/proto/gnmi/BUILD.bazel
++++ b/proto/gnmi/BUILD.bazel
+@@ -16,12 +16,26 @@
+ #
+ 
+ load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
++load("@rules_proto//proto:defs.bzl", "proto_library")
+ 
+ package(
+     default_visibility = ["//visibility:public"],
+     licenses = ["notice"],
+ )
+ 
++proto_library(
++    name = "gnmi_internal_proto",
++    srcs = ["gnmi.proto"],
++    deps = [
++        "//proto/gnmi_ext:gnmi_ext_proto",
++        "@com_google_protobuf//:any_proto",
++        "@com_google_protobuf//:descriptor_proto",
++    ],
++    visibility = ["//visibility:private"],
++)
++
+ proto_library(
+     name = "gnmi_proto",
+     srcs = ["gnmi.proto"],
+@@ -35,13 +49,23 @@ proto_library(
+ 
+ cc_proto_library(
+     name = "gnmi_cc_proto",
+-    deps = [":gnmi_proto"],
++    deps = [":gnmi_internal_proto"],
+ )
+ 
+ cc_grpc_library(
+     name = "gnmi_cc_grpc_proto",
+-    srcs = [":gnmi_proto"],
++    srcs = [":gnmi_internal_proto"],
+     generate_mocks = True,
+     grpc_only = True,
+     deps = [":gnmi_cc_proto"],
+ )
++
++go_proto_library(
++    name = "gnmi_go_proto",
++    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
++    importpath = "github.com/openconfig/gnmi/proto/gnmi",
++    proto = ":gnmi_proto",
++    deps = [
++        "//proto/gnmi_ext:gnmi_ext_go_proto",
++    ],
 +)

@@ -16,7 +16,8 @@ SUPPORTED_PLATFORMS = [
     "8101_32fh",
     "8111_32eh",
     "arista",
-    "x86_64-88_lc0_36fh_m-r0"
+    "x86_64-88_lc0_36fh_m-r0",
+    "x86_64-nexthop_4010-r0"
 ]
 
 SUPPORTED_SPEEDS = [
@@ -39,6 +40,13 @@ def get_fec_oper_mode(duthost, interface):
     logging.info("Get output of '{} {}'".format("show interfaces fec status", interface))
     fec_status = duthost.show_and_parse("show interfaces fec status {}".format(interface))
     return fec_status[0].get('fec oper', '').lower()
+
+
+def check_intf_fec_mode(duthost, intf, exp_fec_mode):
+    post_fec = get_fec_oper_mode(duthost, intf)
+    if post_fec == exp_fec_mode:
+        return True
+    return False
 
 
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -87,9 +95,8 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf),
                           "Interface {} did not come up after configuring FEC mode".format(intf))
             # Verify the FEC operational mode is restored
-            post_fec = get_fec_oper_mode(duthost, intf)
-            if not (post_fec == fec_mode):
-                pytest.fail("FEC status is not restored for interface {}".format(intf))
+            pytest_assert(wait_until(30, 2, 0, check_intf_fec_mode, duthost, intf, fec_mode),
+                          f"FEC status of Interface {intf} is not restored to {fec_mode}")
 
 
 def get_interface_speed(duthost, interface_name):
