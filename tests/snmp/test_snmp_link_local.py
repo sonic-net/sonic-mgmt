@@ -10,11 +10,25 @@ pytestmark = [
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_test(duthosts,
+def config_reload_after_test(duthosts, localhost, creds_all_duts,
                              enum_rand_one_per_hwsku_frontend_hostname):
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+
+    # SNMP LLDP takes longer to be ready after config_reload
+    def check_snmp_lldp_ready():
+        snmp_facts = get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+            wait=True)['ansible_facts']
+        return "No Such Instance currently exists" not in str(snmp_facts['snmp_lldp'])
+
+    if not wait_until(60, 5, 0, check_snmp_lldp_ready):
+        pytest.fail("SNMP LLDP not ready for next test")
 
 
 def is_snmpagent_listen_on_ip(duthost, ipaddr):
