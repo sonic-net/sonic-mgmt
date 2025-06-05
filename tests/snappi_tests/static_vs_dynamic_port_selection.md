@@ -7,9 +7,9 @@ Snappi tests support two modes of port selection:
 
 These tests are typically executed across three test subtypes:
 
-- Single line card, single ASIC  
-- Single line card, multiple ASICs  
-- Multiple line cards  
+- Single line card, single ASIC.
+- Single line card, multiple ASICs.
+- Multiple line cards.
 
 ---
 
