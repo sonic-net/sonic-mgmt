@@ -1,4 +1,5 @@
 # Static and Dynamic Port Selection for Snappi
+-----------------------------------------------
 
 Snappi tests support two modes of port selection:
 
@@ -7,9 +8,9 @@ Snappi tests support two modes of port selection:
 
 These tests are typically executed across three test subtypes:
 
-- Single line card, single ASIC.
-- Single line card, multiple ASICs.
-- Multiple line cards.
+- **Single line card, single ASIC.**
+- **Single line card, multiple ASICs.**
+- **Multiple line cards.**
 
 ---
 
@@ -43,13 +44,13 @@ Users can customize or extend subtypes as needed by modifying the `variables.py`
 
 ## Dynamic Port Selection
 
-Dynamic port selection is a newer feature that automatically determines available ports based on the testbed configuration. It uses metadata stored in:
+Dynamic port selection is new feature that automatically determines available ports based on the testbed configuration. It uses metadata stored in:
 
 ```
 tests/metadata/snappi_tests/<testbed>.json
 ```
 
-This file includes information about available ports, their speeds, and associated ASICs. During test execution, `test_pretest.py` generates subtypes dynamically based on interface speeds and assigns appropriate ports.
+This file includes information about available ports, their speeds, and associated ASICs. During test execution, `test_pretest.py` generates subtypes dynamically based on interface speeds and three subtypes defined above. For each combination, it assigns appropriate ports.
 
 Example:
 ```
@@ -81,8 +82,7 @@ Example:
 
 The test framework chooses between static and dynamic port selection based on the following logic:
 
-1. **Static Selection** is used if the testbed name, subtype, and ports are defined in `tests/snappi_tests/variables.override.yml`.
-2. **Dynamic Selection** is used if the above file does not contain the required configuration.
-3. Users can **force dynamic selection** by passing the `--enable-snappi-dynamic-ports` flag to `pytest`, even if static configuration is present.
-
+1. *Static Selection* is used if the testbed name, subtype, and ports are defined in `tests/snappi_tests/variables.override.yml`.
+2. *Dynamic Selection* is used if the above file does not contain the required configuration.
+3. Users can *force dynamic selection* by passing the `--enable-snappi-dynamic-ports` flag to `pytest`, even if static configuration is present.
 ---
