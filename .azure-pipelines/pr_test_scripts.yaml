@@ -642,6 +642,64 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
 
+t2:
+  - arp/test_neighbor_mac_noptf.py
+  - bgp/test_4-byte_asn_community.py
+  - bgp/test_bgp_authentication.py
+  - bgp/test_bgp_queue.py
+  - bgp/test_bgp_session_flap.py
+  - bgp/test_ping_bgp_neighbor.py
+  - bmp/test_bmp_redis_instance.py
+  - bmp/test_bmp_statedb.py
+  - bmp/test_frr_bmp_sanity.py
+  - cacl/test_cacl_function.py
+  - copp/test_copp.py
+  - database/test_db_config.py
+  - dns/static_dns/test_static_dns.py
+  - fib/test_fib.py
+  - fips/test_fips.py
+  - generic_config_updater/test_aaa.py
+  - generic_config_updater/test_mgmt_interface.py
+  - generic_config_updater/test_multiasic_linkcrc.py
+  - generic_config_updater/test_ntp.py
+  - generic_config_updater/test_syslog.py
+  - gnmi/test_gnmi.py
+  - gnmi/test_gnoi_os.py
+  - gnmi/test_gnoi_system_reboot.py
+  - gnmi/test_mimic_hwproxy_cert_rotation.py
+  - http/test_http_copy.py
+  - ip/test_ip_packet.py
+  - ipfwd/test_mtu.py
+  - log_fidelity/test_bgp_shutdown.py
+  - pc/test_lag_member_forwarding.py
+  - pc/test_po_cleanup.py
+  - platform_tests/test_memory_exhaustion.py
+  - platform_tests/test_port_toggle.py
+  - platform_tests/test_sequential_restart.py
+  - platform_tests/test_thermal_state_db.py
+  - portstat/test_portstat.py
+  - route/test_default_route.py
+  - route/test_duplicate_route.py
+  - scp/test_scp_copy.py
+  - show_techsupport/test_techsupport.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_memory.py
+  - ssh/test_ssh_ciphers.py
+  - ssh/test_ssh_limit.py
+  - stress/test_stress_routes.py
+  - syslog/test_logrotate.py
+  - syslog/test_syslog.py
+  - system_health/test_system_status.py
+  - system_health/test_watchdog.py
+  - tacacs/test_jit_user.py
+  - tacacs/test_ro_user.py
+  - telemetry/test_telemetry.py
+  - test_interfaces.py
+  - test_procdockerstatsd.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
