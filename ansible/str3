@@ -244,7 +244,7 @@ fanout:
   hosts:
     str3-7260cx3-acs-root03:
       ansible_host: 10.3.146.152
-      ansible_hostv6: 
+      ansible_hostv6:
     str3-7260cx3-acs-fan-01:
       ansible_host: 10.3.146.33
       ansible_hostv6: 2a01:111:e210:3000::a03:9221
@@ -276,15 +276,6 @@ fanout:
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.146.197
       ansible_hostv6: 2a01:111:e210:3000::a03:92c5
-    str3-7260cx3-acs-fan-11:
-      ansible_host: 10.3.146.203
-      ansible_hostv6: 2a01:111:e210:3000::a03:92cb
-    str3-7260qx-acs-fan-01:
-      ansible_host: 10.3.146.24
-      ansible_hostv6: 2a01:111:e210:3000::a03:9218
-    str3-7260qx-acs-fan-02:
-      ansible_host: 10.3.146.49
-      ansible_hostv6: 2a01:111:e210:3000::a03:9231
     str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
       ansible_hostv6: 2a01:111:e210:3000::a03:9272
@@ -436,13 +427,11 @@ sonic:
   children:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
-    sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8101_O8V48:
     sonic_cisco_8101_tornado:
     sonic_cisco_8111:
     sonic_cisco_8122_O64:
-    sonic_cisco_8122_O128:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
     sonic_arista_7800_sup:
@@ -452,7 +441,6 @@ sonic:
     sonic_arista64_100:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
-    sonic_dell64_40:
     sonic_arista_400:
     sonic_arista_7060x6:
     sonic_mlnx_4280_smartswitch:
@@ -2041,83 +2029,6 @@ sonic_arista_7060x6:
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
         "0x2F": "HBG2426004Z"
-
-sonic_dell64_40:
-  hosts:
-    str3-s6100-acs-6:
-      ansible_host: 10.3.146.155
-      ansible_hostv6: 2a01:111:e210:3000::a03:929b
-      mgmt_subnet_mask_length: 24
-      model: 06N1J1
-      serial: D14RG02
-      base_mac: d8:9e:f3:bb:c0:20
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES008270065"
-        "0x24": "D8:9E:F3:BB:C0:20"
-        "0x25": "02/25/2018 14:13:47"
-        "0x26": "1"
-        "0x27": "A04"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "D14RG02"
-        "0xFE": "0xD3ED328F"
-    str3-s6100-acs-7:
-      ansible_host: 10.3.146.52
-      ansible_hostv6: 2a01:111:e210:3000::a03:9234
-      mgmt_subnet_mask_length: 24
-      model: 06N1J1
-      serial: DVWQG02
-      base_mac: d8:9e:f3:d8:50:60
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES0083I0007"
-        "0x24": "D8:9E:F3:D8:50:60"
-        "0x25": "03/19/2018 10:12:12"
-        "0x26": "1"
-        "0x27": "A04"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "DVWQG02"
-        "0xFE": "0xA30214AA"
-    str3-s6100-acs-8:
-      ansible_host: 10.64.247.77
-      ansible_hostv6: 2a01:111:e210:b000::a40:f74d
-      model: 0F6N2R
-      serial: 82XB9Z2
-      base_mac: 0C:29:EF:9D:5B:20
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "0F6N2R"
-        "0x23": "TH0F6N2RCET0002R000Z"
-        "0x24": "0C:29:EF:9D:5B:20"
-        "0x25": "02/28/2020 13:36:59"
-        "0x26": "1"
-        "0x27": "A07"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "82XB9Z2"
-        "0xFE": "0x3B938EB1"
-  vars:
-    hwsku: Force10-S6100
-    iface_speed: 40000
 
 sonic_mlnx_4280_smartswitch:
   vars:

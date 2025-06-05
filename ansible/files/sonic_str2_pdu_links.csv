@@ -23,12 +23,8 @@ pdu-117,24,str2-7050cx3-acs-13,PSU1
 pdu-118,24,str2-7050cx3-acs-13,PSU2
 pdu-117,33,str2-7050cx3-acs-14,PSU1
 pdu-118,33,str2-7050cx3-acs-14,PSU2
-pdu-117,26,str2-7050qx-32s-acs-01,PSU1
-pdu-118,26,str2-7050qx-32s-acs-01,PSU2
 pdu-122,46,str2-7050qx-32s-acs-02,PSU1
 pdu-121,46,str2-7050qx-32s-acs-02,PSU2
-pdu-122,39,str2-7050qx-32s-acs-03,PSU1
-pdu-121,39,str2-7050qx-32s-acs-03,PSU2
 pdu-110,25,str2-z9332f-02,PSU1
 pdu-109,31,str2-z9332f-02,PSU2
 pdu-111,44,str2-z9332f-03,PSU1
@@ -59,10 +55,6 @@ pdu-114,44,str2-msn4600c-acs-03,PSU1
 pdu-114,45,str2-msn4600c-acs-03,PSU2
 pdu-114,38,str2-msn4600c-acs-04,PSU1
 pdu-114,41,str2-msn4600c-acs-04,PSU2
-pdu-120,30,str2-sn3800-02,PSU1
-pdu-119,30,str2-sn3800-02,PSU2
-pdu-120,24,str2-sn3800-azd,PSU1
-pdu-119,44,str2-sn3800-azd,PSU2
 pdu-117,39,str2-7215-acs-2,PSU1
 pdu-118,39,str2-7215-acs-2,PSU2
 pdu-114,35,str2-7215-acs-3,PSU1
@@ -73,8 +65,6 @@ pdu-117,36,str2-7260cx3-02,PSU1
 pdu-118,36,str2-7260cx3-02,PSU2
 pdu-116,18,str2-7260cx3-64-19,PSU1
 pdu-115,18,str2-7260cx3-64-19,PSU2
-pdu-120,28,str2-7260cx3-acs-8,PSU1
-pdu-119,28,str2-7260cx3-acs-8,PSU2
 pdu-120,26,str2-7260cx3-acs-fan-06,PSU1
 pdu-119,26,str2-7260cx3-acs-fan-06,PSU2
 pdu-117,30,str2-7260cx3-acs-fan-07,PSU1
@@ -99,8 +89,6 @@ pdu-114,18,str2-7260cx3-acs-fan-18,PSU1
 pdu-113,18,str2-7260cx3-acs-fan-18,PSU2
 pdu-114,16,str2-7260cx3-acs-fan-19,PSU1
 pdu-113,16,str2-7260cx3-acs-fan-19,PSU2
-pdu-122,17,str2-7260cx3-acs-fan-20,PSU1
-pdu-121,17,str2-7260cx3-acs-fan-20,PSU2
 pdu-122,16,str2-7260cx3-acs-fan-21,PSU1
 pdu-121,16,str2-7260cx3-acs-fan-21,PSU2
 pdu-122,15,str2-7260cx3-acs-fan-22,PSU1

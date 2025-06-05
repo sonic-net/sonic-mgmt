@@ -294,74 +294,14 @@ sonic:
     mgmt_subnet_mask_length: 23
     mgmt_subnet_v6_mask_length: 64
   children:
-    sonic_stable:
-    sonic_latest:
-    sonic_dell32_40:
-    sonic_dell64_40:
-    sonic_nexus_3132GX_40:
-    sonic_nexus_3132GE_40:
     sonic_arista_40:
     sonic_mlnx_40:
     sonic_mlnx_100:
-    sonic_mlnx_3800:
     sonic_arista64_100:
     sonic_arista32_100:
-    sonic_dx010_100:
     sonic_agc7648:
-    sonic_nexus_3164:
-    sonic_mlnx_4600C:
     sonic_mlnx_4700:
     sonic_arista_7060c6:
-
-sonic_dell32_40:
-  hosts:
-    str-s6000-acs-10:
-      ansible_host: 10.3.146.255
-      ansible_hostv6: 2a01:111:e210:3000::a03:ffff
-      mgmt_subnet_mask_length: 24
-      model: 00NX1V
-      serial: DQBRX42
-      base_mac: EC:F4:BB:FE:80:A5
-    str-s6000-acs-11:
-      ansible_host: 10.3.146.234
-      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
-      mgmt_subnet_mask_length: 24
-      model: 00NX1V
-      serial: BQBRX42
-      base_mac: EC:F4:BB:FE:80:9F
-  vars:
-    hwsku: Force10-S6000
-    iface_speed: 40000
-
-sonic_dell64_40:
-  hosts:
-    str-s6100-acs-1:
-      ansible_host: 10.3.146.16
-      ansible_hostv6: 2a01:111:e210:3000::a03:9210
-      mgmt_subnet_mask_length: 24
-      model: 06N1J1
-      serial: BXG6SR3
-      base_mac: D8:9E:F3:D1:CB:E0
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "TH06N1J1CET0041T1DYZ"
-        "0x24": "20:88:10:16:7E:80"
-        "0x25": "01/31/2024 13:35:14"
-        "0x26": "1"
-        "0x27": "A11"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "BXG6SR3"
-        "0xFE": "0x7EB2122A"
-  vars:
-    hwsku: Force10-S6100
-    iface_speed: 40000
 
 sonic_arista_40:
   hosts:
@@ -379,30 +319,6 @@ sonic_arista_40:
       model: DCS-7050QX-32S
       serial: SSJ17212198
       base_mac: 28:99:3a:b6:f5:7c
-    str-7050qx-32s-acs-04:
-      ansible_host: 10.3.146.113
-      ansible_hostv6: 2a01:111:e210:3000::a03:9271
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050QX32S-Q32
-      model: DCS-7050QX-32S
-      serial: JPE19292298
-      base_mac: fc:bd:67:68:e9:66
-      syseeprom_info:
-        "0x21": "DCS-7050QX-32S"
-        "0x22": "ASY0105910E0"
-        "0x23": "JPE19292298"
-        "0x24": "fc:bd:67:68:e9:66"
-        "0x25": "2019/07/26 06:06:37"
-        "0x26": "01"
-        "0x27": "02.00"
-        "0x28": "x86_64-arista_7050_qx32s"
-        "0x2A": "0xffff"
-        "0x2B": "Arista Networks"
-        "0x2C": "US"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.1.0-3037060"
-        "0x2F": "JPE19292298"
-        "0xFE": "0xdeadbeef"
   vars:
     iface_speed: 40000
 
@@ -583,35 +499,6 @@ sonic_arista32_100:
   vars:
     iface_speed: 100000
 
-sonic_dx010_100:
-  hosts:
-    str-dx010-acs-1:
-      ansible_host: 10.64.246.33
-      ansible_hostv6: 2a01:111:e210:b000::a40:f621
-      model: R0872-F0019-01
-      serial: DX010F2B018B03BY100009
-      base_mac: 00:e0:ec:c3:01:73
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0019-01"
-        "0x23": "DX010F2B018B03BY100009"
-        "0x24": "00:E0:EC:C3:01:73"
-        "0x25": "11/08/2018 09:41:14"
-        "0x26": "1"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "CHN"
-        "0x2D": "Celestica"
-        "0x2E": "1.1.1"
-        "0x2F": "LB"
-        "0xFE": "0x41512DDB"
-  vars:
-    hwsku: Celestica-DX010-C32
-    iface_speed: 100000
-
 sonic_agc7648:
   hosts:
     str-agc7648-acs-1:
@@ -697,21 +584,9 @@ fanout:
     str-7260-08:
       ansible_host: 10.3.146.91
       ansible_hostv6: 2a01:111:e210:3000::a03:925b
-    str-7260-16:
-      ansible_host: 10.3.146.231
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e7
-    str-7260-17:
-      ansible_host: 10.3.146.250
-      ansible_hostv6: 2a01:111:e210:3000::a03:92fa
-    str-7260-18:
-      ansible_host: 10.3.146.251
-      ansible_hostv6: 2a01:111:e210:3000::a03:92fb
     str-7260-24:
       ansible_host: 10.64.247.254
       ansible_hostv6: 2a01:111:e210:b000::a40:f7fe
-    str-7260-02:
-      ansible_host: 10.3.146.168
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a8
     str-7060cx-32s-02:
       ansible_host: 10.64.247.229
       ansible_hostv6: 2a01:111:e210:b000::a40:f7e5
@@ -740,12 +615,6 @@ fanout:
     str-7060cx-32s-18:
       ansible_host: 10.64.247.22
       ansible_hostv6: 2a01:111:e210:b000::a40:f716
-    str-7060cx-32s-21:
-      ansible_host: 10.64.246.32
-      ansible_hostv6: 2a01:111:e210:b000::a40:f620
-    str-7060cx-32s-22:
-      ansible_host: 10.64.246.34
-      ansible_hostv6: 2a01:111:e210:b000::a40:f622
     str-7260cx3-fan-06:
       ansible_host: 10.3.146.25
       ansible_hostv6: 2a01:111:e210:3000::a03:9219
