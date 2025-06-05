@@ -101,18 +101,25 @@ def validate_dhcpcom_counters(dhcp_relay, duthost):
 
     assert vlan_interface_counter == client_interface_counter
     assert uplink_interface_counter == uplink_portchannels_interfaces_counter
-    assert json.dumps(vlan_interface_counter) == (
-        '{"TX": {"Unknown": 0, "Discover": 0, "Offer": 1, "Request": 0, "Decline": 0, "Ack": 1, '
-        '"Nak": 0, "Release": 0, "Inform": 0, "Bootp": 0}, '
-        '"RX": {"Unknown": 0, "Discover": 1, "Offer": 0, "Request": 2, "Decline": 0, "Ack": 0, '
-        '"Nak": 0, "Release": 0, "Inform": 0, "Bootp": 1}}'
+    vlan_interface_counter_expected_value = (
+        '{"RX": {"Ack": 0, "Bootp": 1, "Decline": 0, "Discover": 1, "Inform": 0, "Nak": 0, "Offer": 0, '
+        '"Release": 0, "Request": 2, "Unknown": 0}, "TX": {"Ack": 1, "Bootp": 0, "Decline": 0, '
+        '"Discover": 0, "Inform": 0, "Nak": 0, "Offer": 1, "Release": 0, "Request": 0, "Unknown": 0}}'
     )
-    assert json.dumps(uplink_interface_counter) == (
-        '{"TX": {"Unknown": 0, "Discover": %d, "Offer": 0, "Request": %d, '
-        '"Decline": 0, "Ack": 0, "Nak": 0, "Release": 0, "Inform": 0, "Bootp": %d}, '
-        '"RX": {"Unknown": 0, "Discover": 0, "Offer": 1, "Request": 0, "Decline": 0, '
-        '"Ack": 1, "Nak": 0, "Release": 0, "Inform": 0, "Bootp": 0}}'
-    ) % (dhcp_server_sum, dhcp_server_sum * 2, dhcp_server_sum)
+    uplink_interface_counter_expected_value = (
+        '{"RX": {"Ack": 1, "Bootp": 0, "Decline": 0, "Discover": 0, "Inform": 0, "Nak": 0, "Offer": 1, '
+        '"Release": 0, "Request": 0, "Unknown": 0}, "TX": {"Ack": 0, "Bootp": %d, "Decline": 0, "Discover": %d, '
+        '"Inform": 0, "Nak": 0, "Offer": 0, "Release": 0, "Request": %d, "Unknown": 0}}'
+    ) % (dhcp_server_sum, dhcp_server_sum, dhcp_server_sum * 2)
+
+    assert json.dumps(vlan_interface_counter, sort_keys=True) == vlan_interface_counter_expected_value, \
+        "VLAN interface counters do not match expected value. Expected: {}, Actual: {}".format(
+            json.dumps(vlan_interface_counter, sort_keys=True), vlan_interface_counter_expected_value
+        )
+    assert json.dumps(uplink_interface_counter, sort_keys=True) == uplink_interface_counter_expected_value, \
+        "Uplink interface counters do not match expected value. Expected: {}, Actual: {}".format(
+            json.dumps(uplink_interface_counter, sort_keys=True), uplink_interface_counter_expected_value
+        )
 
 
 def init_and_verify_dhcp_relay_counters(duthost):
