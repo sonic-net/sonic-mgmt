@@ -1681,6 +1681,16 @@ override_config_table/test_override_config_table.py:
       - "is_multi_asic==True"
 
 #######################################
+#####      passw_hardening        #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  xfail:
+    reason: "Skip the script due to Issue #13582. Command currently not supported multi-asic platforms"
+    conditions:
+      - "is_multi_asic==True"
+      - https://github.com/sonic-net/sonic-buildimage/issues/13582
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
