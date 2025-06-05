@@ -239,7 +239,6 @@ t0:
   - qos/test_ecn_config.py
   - qos/test_pfc_counters.py
   - qos/test_pfc_pause.py
-  - qos/test_qos_dscp_mapping.py
   - qos/test_qos_sai.py
   - radv/test_radv_ipv6_ra.py
   - radv/test_radv_restart.py
@@ -568,7 +567,6 @@ t1-lag:
   - qos/test_buffer_traditional.py
   - qos/test_ecn_config.py
   - qos/test_pfc_counters.py
-  - qos/test_qos_dscp_mapping.py
   - qos/test_qos_masic.py
   - qos/test_qos_sai.py
   - radv/test_radv_restart.py
