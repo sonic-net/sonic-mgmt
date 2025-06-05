@@ -106,6 +106,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 original_ipv4_route_recv_filter_count = routes_json['filteredPrefixCounter']
 
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
@@ -113,6 +114,15 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
             )
 
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+            )
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             assert routes_json['filteredPrefixCounter'] < routes_json['totalPrefixCounter'], (
                 "Filtered prefix counter is not less than total prefix counter after AZNG migration step. "
                 "Expected filteredPrefixCounter < totalPrefixCounter, but got filteredPrefixCounter: {}, "
@@ -135,6 +145,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 original_ipv4_route_adv_filter_count = routes_json['filteredPrefixCounter']
 
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
@@ -142,6 +153,15 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
             )
 
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+            )
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             assert routes_json['filteredPrefixCounter'] == 0, (
                 "Filtered prefix counter is not zero after AZNG migration rollback. "
                 "Expected filteredPrefixCounter == 0, but got {}. "
@@ -175,11 +195,20 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
 
             assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
@@ -240,11 +269,22 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "Expected totalPrefixCounter > 0, but got {}. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                routes_json['totalPrefixCounter'],
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
 
             assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
@@ -305,11 +345,20 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
 
             assert routes_json['filteredPrefixCounter'] == routes_json['totalPrefixCounter'], (
@@ -327,11 +376,21 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "Check BGP session status, route advertisement policies, and the output of the command.\n"
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
 
             assert routes_json['filteredPrefixCounter'] == 0, (
@@ -373,6 +432,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                   bgp_nbr_adv_cmd
                 )
                 assert routes_json['filteredPrefixCounter'] == original_ipv4_route_adv_filter_count, (
+<<<<<<< HEAD
                     "Mismatch in filtered advertised IPv4 route count after AZNG migration. "
                     "Expected: {}, Actual: {}. "
                     "- Command: {}\n"
@@ -380,6 +440,15 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                     original_ipv4_route_adv_filter_count,
                     routes_json['filteredPrefixCounter'],
                     bgp_nbr_adv_cmd
+=======
+                   "Mismatch in filtered advertised IPv4 route count after AZNG migration. "
+                   "Expected: {expected}, Actual: {actual}. "
+                   "- Command: {cmd}\n"
+                ).format(
+                  expected=original_ipv4_route_adv_filter_count,
+                  actual=routes_json['filteredPrefixCounter'],
+                  cmd=bgp_nbr_adv_cmd
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
                 )
 
         rc = duthost.shell('sudo azng_migration -o')
@@ -406,11 +475,20 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
             assert routes_json['filteredPrefixCounter'] < routes_json['totalPrefixCounter'], (
                 "Filtered prefix counter is not less than total prefix counter after AZNG migration step. "
@@ -464,11 +542,20 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
             assert routes_json['totalPrefixCounter'] > 0, (
+<<<<<<< HEAD
                 "No BGP routes were found. totalPrefixCounter = {} (expected > 0).\n"
                 "- Command: {}\n"
             ).format(
                 routes_json['totalPrefixCounter'],
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
+=======
+                "No BGP routes were found (totalPrefixCounter <= 0) in the command output. "
+                "- Command: {}\n"
+                "- Output: {}\n"
+            ).format(
+                bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A',
+                routes_json
+>>>>>>> d00a0761adbfe84fad9a43a6e8df33bd54a7382f
             )
             assert routes_json['filteredPrefixCounter'] == 0, (
                 "Filtered prefix counter is not zero after AZNG migration rollback. "
