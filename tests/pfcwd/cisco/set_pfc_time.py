@@ -1,4 +1,7 @@
 import math
+from common import is_graphene2, tree, is_gr, port_to_sai_lane_map, \
+    sai_lane_to_slice_ifg_pif, dd0, is_pac, is_gb, sdk, d0
+
 
 # Replace INTERFACE with appropriate port when used
 arg_interface = "INTERFACE"

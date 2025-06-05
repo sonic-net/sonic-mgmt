@@ -7,14 +7,14 @@ from ptf import packet
 from ptf.mask import Mask
 import ptf.packet as scapy
 from . import everflow_test_utilities as everflow_utils
-from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver      # noqa F401
+from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver              # noqa: F401
 import random
 # Module-level fixtures
-from .everflow_test_utilities import setup_info      # noqa: F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
+from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "m1", "m2", "m3")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -92,7 +92,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
         yield direction
 
     @pytest.fixture(scope='function', autouse=True)
-    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut):  # noqa F811
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally):     # noqa F811
         stop_thread = threading.Event()
         src_port = EverflowIPv6Tests.rx_port_ptf_id
 
@@ -116,7 +117,9 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
                 packets = [
                     testutils.simple_ipv6ip_packet(ipv6_src=selected_addrs2[0],
-                                                   eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                                                   eth_src=ptfadapter.dataplane.get_mac(
+                                                       *list(ptfadapter.dataplane.ports.keys())[0]
+                                                    ),
                                                    eth_dst=setup_info[everflow_direction]["ingress_router_mac"],
                                                    ipv6_dst=selected_addrs2[1],
                                                    inner_frame=inner_pkt2),
@@ -141,7 +144,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
                             exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
-                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set)
+                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set,
+                                                             timeout=5)
                     count += 1
 
             background_traffic(run_count=1)
@@ -680,7 +684,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            dport=8080,
                            flags=0x10):
         pkt = testutils.simple_tcpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
@@ -707,7 +711,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            sport=2020,
                            dport=8080):
         pkt = testutils.simple_udpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,

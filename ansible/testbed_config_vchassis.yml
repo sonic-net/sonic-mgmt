@@ -10,12 +10,6 @@
     meta: end_play
     when: is_vs_chassis is not defined or is_vs_chassis == false
 
-  - name: Check that variable testbed_name is defined
-    fail: msg="Define testbed_name variable with -e testbed_name=something"
-    when: testbed_name is not defined
-
-  - debug: msg="testbed_name = {{ testbed_name }}"
-
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
@@ -63,6 +57,13 @@
           src: setup_vs_chassis.sh
           dest: /usr/bin/setup_vs_chassis.sh
         become: true
+
+      - name: Set routeCheck timeout to 600 seconds in monit
+        become: true
+        lineinfile:
+          path: /etc/monit/conf.d/sonic-host
+          regexp: '^check program routeCheck with path "/usr/local/bin/route_check.py"'
+          line: "check program routeCheck with path \"/usr/local/bin/route_check.py\" timeout 600 seconds"
 
       - name: Execute setup_vs_chassis.sh to configure the DUT as a chassis device
         shell: bash /usr/bin/setup_vs_chassis.sh
