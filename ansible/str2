@@ -288,16 +288,13 @@ fanout:
   hosts:
     str2-7260cx3-acs-root02:
       ansible_host: 10.3.146.104
-      ansible_hostv6: 
+      ansible_hostv6:
     str2-7260cx3-acs-fan-06:
       ansible_host: 10.3.146.176
       ansible_hostv6: 2a01:111:e210:3000::a03:92b0
     str2-7260cx3-acs-fan-07:
       ansible_host: 10.3.146.54
       ansible_hostv6: 2a01:111:e210:3000::a03:9236
-    str2-7260cx3-acs-8:
-      ansible_host: 10.3.146.255
-      ansible_hostv6: 2a01:111:e210:3000::a03:ffff
     str2-7260cx3-acs-fan-15:
       ansible_host: 10.3.146.213
       ansible_hostv6: 2a01:111:e210:3000::a03:92d5
@@ -360,9 +357,6 @@ fanout:
     str2-7260cx3-acs-fan-19:
       ansible_host: 10.3.146.156
       ansible_hostv6: 2a01:111:e210:3000::a03:929c
-    str2-7260cx3-acs-fan-20:
-      ansible_host: 10.3.146.165
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a5
     str2-7260cx3-acs-fan-21:
       ansible_host: 10.3.146.217
       ansible_hostv6: 2a01:111:e210:3000::a03:92d9
@@ -465,14 +459,10 @@ sonic:
     mgmt_subnet_mask_length: 23
     mgmt_subnet_v6_mask_length: 64
   children:
-    sonic_stable:
-    sonic_latest:
     sonic_mlnx:
     sonic_arista:
     sonic_arista_Q32:
     sonic_arista_QX:
-    sonic_mlnx_3800:
-    sonic_mlnx_3800_50:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
     sonic_mlnx_4280_smartswitch:
@@ -537,31 +527,6 @@ sonic_mlnx:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x846D53BD"
-
-sonic_mlnx_3800:
-  vars:
-    hwsku: ACS-MSN3800
-    iface_speed: 100000
-  hosts:
-    str2-sn3800-azd:
-      ansible_host: 10.3.146.183
-      ansible_hostv6: 2a01:111:e210:3000::a03:92b7
-      mgmt_subnet_mask_length: 24
-      model: MSN3800-CS2FO
-      serial: MT2002X14802
-      base_mac: 1C:34:DA:17:9D:00
-      syseeprom_info:
-        "0x21": "MSN3800"
-        "0x22": "MSN3800-CS2FO"
-        "0x23": "MT2002X14802"
-        "0x24": "1C:34:DA:17:9D:00"
-        "0x25": "01/14/2020 00:45:32"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn3800-r0"
-        "0x29": "2019.08-5.2.0016-115200"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0x9AC3A8CC"
 
 sonic_mlnx_4600C:
   vars:
@@ -788,31 +753,6 @@ sonic_mlnx_4280_smartswitch:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-
-sonic_mlnx_3800_50:
-  vars:
-    hwsku: Mellanox-SN3800-D112C8
-    iface_speed: 50000
-  hosts:
-    str2-sn3800-02:
-      ansible_host: 10.3.146.255
-      ansible_hostv6: 2a01:111:e210:3000::a03:ffff
-      mgmt_subnet_mask_length: 24
-      model: MSN3800-CS2ROS
-      serial: MT2029X06423
-      base_mac: 1C:34:DA:1F:8D:00
-      syseeprom_info:
-        "0x21": "MSN3800"
-        "0x22": "MSN3800-CS2ROS"
-        "0x23": "MT2029X06423"
-        "0x24": "1C:34:DA:1F:8D:00"
-        "0x25": "07/19/2020 15:31:36"
-        "0x26": "2"
-        "0x28": "x86_64-mlnx_msn3800-r0"
-        "0x29": "2019.11-5.2.0020-9600"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0x0166B894"
 
 sonic_arista:
   vars:
@@ -1125,34 +1065,11 @@ sonic_arista_Q32:
       ansible_hostv6: 2a01:111:e210:3000::a03:9239
 
       mgmt_subnet_mask_length: 24
+
 sonic_arista_QX:
   vars:
     iface_speed: 40000
   hosts:
-    str2-7050qx-32s-acs-01:
-      ansible_host: 10.3.146.158
-      ansible_hostv6: 2a01:111:e210:3000::a03:929e
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050QX32S-Q32
-      model: DCS-7050QX-32S
-      serial: JPE15072340
-      base_mac: 00:1c:73:ce:6b:18
-      syseeprom_info:
-        "0x21": "DCS-7050QX-32S"
-        "0x22": "ASY0105904C0"
-        "0x23": "JPE15072340"
-        "0x24": "00:1c:73:ce:6b:18"
-        "0x25": "2015/02/18 08:48:03"
-        "0x26": "01"
-        "0x27": "02.00"
-        "0x28": "x86_64-arista_7050_qx32s"
-        "0x2A": "0xffff"
-        "0x2B": "Arista Networks"
-        "0x2C": "US"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.0.7-13599834"
-        "0x2F": "JPE15072340"
-        "0xFE": "0xdeadbeef"
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       ansible_hostv6: 2a01:111:e210:b000::a40:f71c
@@ -1175,30 +1092,6 @@ sonic_arista_QX:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal4-4.1.1-13522936"
         "0x2F": "JPE20255843"
-        "0xFE": "0xdeadbeef"
-    str2-7050qx-32s-acs-03:
-      ansible_host: 10.3.146.167
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a7
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050-QX-32S
-      model: DCS-7050QX-32S
-      serial: JPE20224213
-      base_mac: c0:d6:82:ef:0f:0f
-      syseeprom_info:
-        "0x21": "DCS-7050QX-32S"
-        "0x22": "ASY0105910E0"
-        "0x23": "JPE20224213"
-        "0x24": "c0:d6:82:ef:0f:0f"
-        "0x25": "2020/08/06 00:31:28"
-        "0x26": "01"
-        "0x27": "02.00"
-        "0x28": "x86_64-arista_7050_qx32s"
-        "0x2A": "0xffff"
-        "0x2B": "Arista Networks"
-        "0x2C": "US"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.1.1-13522936"
-        "0x2F": "JPE20224213"
         "0xFE": "0xdeadbeef"
 
 sonic_arista64_100:
