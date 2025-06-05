@@ -335,6 +335,7 @@ stages:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t2
+          STOP_ON_FAILURE: "False"
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: 20
           MAX_WORKER: 20
