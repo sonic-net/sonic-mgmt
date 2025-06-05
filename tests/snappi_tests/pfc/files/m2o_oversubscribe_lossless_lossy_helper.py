@@ -16,6 +16,7 @@ from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config                      # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.portstat_utilities import parse_portstat                              # noqa: F401
+from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
@@ -101,9 +102,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
         stop_pfcwd(duthost, asic)
         disable_packet_aging(duthost)
 
-    no_of_lossy_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_lossy_streams = 10
+    no_of_lossy_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
