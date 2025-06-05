@@ -1515,6 +1515,12 @@ ipfwd/test_dir_bcast.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name or 't0-backend' in topo_name"
+  xfail:
+    reason: "Xfail due to known issue with the secondary subnet."
+    conditions:
+      - "topo_type in ['t0']"
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18786
 
 ipfwd/test_mtu.py:
   skip:
