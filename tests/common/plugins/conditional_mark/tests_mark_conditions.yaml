@@ -2556,6 +2556,15 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+  skip:
+    reason: "No need in M0/Mx/M1"
+    conditions:
+      - "topo_type in ['m0', 'mx', 'm1']"
+
+#######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
