@@ -10,6 +10,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 import queue
+import re
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -429,10 +430,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
-    if len(port_channels) and (topo in ["t0", "m0_vlan", "m0_l3"]
-                               or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                             "t1-56-lag", "t1-28-lag", "t1-32-lag")
-                               or 't1-isolated' in tbinfo["topo"]["name"]):
+    if (
+        len(port_channels)
+        and (
+            topo in ["t0", "m0_vlan", "m0_l3"]
+            or tbinfo["topo"]["name"] in (
+                "t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+            )
+            or 't1-isolated' in tbinfo["topo"]["name"]
+        )
+        and not re.match(r"t0-.*s\d+", tbinfo["topo"]["name"])
+    ):
 
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
