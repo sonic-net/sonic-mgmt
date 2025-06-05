@@ -133,6 +133,7 @@ class AdvancedReboot:
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
+        self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -912,6 +913,7 @@ class AdvancedReboot:
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
             "kvm_support": True,
+            "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
         }
 
         if self.dual_tor_mode:
