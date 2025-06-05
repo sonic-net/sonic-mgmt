@@ -83,6 +83,42 @@ def skip_pfcwd_test(duthost, trigger_pfcwd):
                    'Skip trigger_pfcwd=False test cases for Broadcom devices')
 
 
+def get_number_of_streams(duthost, tx_ports, rx_ports):
+    """
+    Determines the number of test streams to use based on DUT type and port configurations.
+
+    Args:
+        duthost (obj): Device under test.
+        tx_ports (list|dict): Snappi TX ports list or single port dict.
+        rx_ports (list|dict): Snappi RX ports list or single port dict.
+
+    Returns:
+        int: Number of test streams to use.
+    """
+    def extract_unique_values(ports, key):
+        if isinstance(ports, list):
+            return list({port[key] for port in ports})
+        return [ports[key]]
+
+    no_of_test_streams = 1
+
+    if duthost.facts["platform_asic"] != 'cisco-8000':
+        return no_of_test_streams
+
+    if duthost.get_facts().get("modular_chassis"):
+        tx_duthosts = extract_unique_values(tx_ports, 'duthost')
+        rx_duthosts = extract_unique_values(rx_ports, 'duthost')
+
+        if tx_duthosts != rx_duthosts or (
+            extract_unique_values(tx_ports, 'asic_value') != extract_unique_values(rx_ports, 'asic_value')
+        ):
+            tx_ports = tx_ports if isinstance(tx_ports, list) else [tx_ports]
+            if any(int(port['speed']) >= 200000 for port in tx_ports):
+                no_of_test_streams = 10
+
+    return no_of_test_streams
+
+
 @pytest.fixture(autouse=True, params=MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def multidut_port_info(request):
     yield request.param
