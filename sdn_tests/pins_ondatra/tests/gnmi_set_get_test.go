@@ -553,7 +553,7 @@ func TestGNMISetReplaceInvalidLeaf(t *testing.T) {
         }
 
         // Verify that other leaf nodes are not changed.
-        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+	if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
                 t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
         }
 
@@ -933,7 +933,7 @@ func TestGNMISetDeleteInvalidLeaf(t *testing.T) {
         t.Logf("SetResponse:\n%v", delResp)
 
         // Verify that other leaf nodes are not changed.
-        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+	if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
                 t.Fatalf("MTU matched failed! got:%v, want:%v", got, mtu)
         }
 }
