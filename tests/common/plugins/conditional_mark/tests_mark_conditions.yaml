@@ -2184,10 +2184,12 @@ restapi/test_restapi_vxlan_ecmp.py:
 #####           route             #####
 #######################################
 route/test_default_route.py:
-  skip:
-    reason: "Does not apply to standalone topos."
+  xfail:
+    reason: "Does not apply to standalone topos, Skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18061"
     conditions:
       - "'standalone' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18061 and 't0-isolated-d16u16s2' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18061 and 't0-isolated-d32u32s2' in topo_name"
 
 route/test_route_flap.py:
   skip:
