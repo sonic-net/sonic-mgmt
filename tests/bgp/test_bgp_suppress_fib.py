@@ -383,11 +383,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     logger.info("command: {}".format(data))
     r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
     assert r.status_code == 200, (
-        "HTTP request to ExaBGP API failed. "
-        "Expected status code 200, but got {}. "
-        "Check the ExaBGP logs, network connectivity, and the request details.\n"
-        "- URL: {}\n"
-        "- Data: {}\n"
+        "HTTP request to ExaBGP API failed with status code {}. URL: {}. Data: {}"
     ).format(
         r.status_code,
         url,
@@ -490,9 +486,7 @@ def check_pkt_forward_state(captured_packets, ip_ver_list, send_packet_list, exp
             logger.info("Packet is not captured:\n{}".format(str(send_packet_list[i].summary)))
 
     assert act_forward_count == exp_forward_count, (
-        "Mismatch in captured forward traffic packets. "
-        "Captured forward traffic number: {}, expected forward traffic number: {}. "
-        "Check route programming, traffic generator configuration, and packet capture logs.\n"
+        "Mismatch in captured forward traffic packets. Captured: {}, expected: {}."
     ).format(
         act_forward_count,
         exp_forward_count
@@ -678,8 +672,7 @@ def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
         res = duthost.shell('show suppress-fib-pending')
         assert enable is (res['stdout'] == 'Enabled'), (
             "BGP suppress-fib-pending configuration state mismatch. "
-            "Expected suppress-fib-pending to be '{}' but got '{}'. "
-            "Check the command output, device logs, and configuration status.\n"
+            "Expected suppress-fib-pending to be '{}' but got '{}'."
         ).format(
             "Enabled" if enable else "Disabled",
             res['stdout']
@@ -697,8 +690,6 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
             wait_until(300, 20, 0, duthost.critical_services_fully_started),
             (
                 "Not all critical services started within the allotted time after reboot or config reload. "
-                "Check service status using 'systemctl', review DUT logs for errors, and ensure platform "
-                "components are initialized.\n"
                 "Hostname: {}\n"
                 "Platform: {}\n"
                 "HWSKU: {}\n"
@@ -712,12 +703,10 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
         pytest_assert(
             wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
             (
-                "Not all ports that are admin up are operationally up after reboot or config reload. "
-                "Check 'show interface status' and 'show interface description', review DUT logs, "
-                "verify physical connections and transceiver health.\n"
+                "Not all admin-up ports are operationally up after reboot or config reload.\n"
                 "Hostname: {}\n"
                 "Platform: {}\n"
-                "HWSKU: {}\n"
+                "HWSKU: {}"
             ).format(
                 duthost.hostname,
                 duthost.facts.get("platform"),
@@ -1091,9 +1080,7 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'. "
-                    "Check the process status with 'ps -ef | grep orchagent', review DUT logs, "
-                    "and ensure no supervisor is restarting the process."
+                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
                 ).format(duthost.hostname)
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
@@ -1156,9 +1143,7 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'. "
-                    "Check the process status with 'ps -ef | grep orchagent', review DUT logs, "
-                    "and ensure no supervisor is restarting the process."
+                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
                 ).format(duthost.hostname)
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)

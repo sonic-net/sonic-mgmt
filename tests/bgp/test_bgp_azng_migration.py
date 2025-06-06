@@ -35,8 +35,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
     assert len(peer_device_ip_set) == 2, (
         "The number of AZNGHub peer device IPs found is not equal to 2. "
-        "Expected 2 AZNGHub neighbors, but found {}: {}. "
-        "Verify the testbed topology, DEVICE_NEIGHBOR_METADATA, and BGP_NEIGHBOR configuration."
+        "Expected 2 AZNGHub neighbors, but found {}: {}."
     ).format(
         len(peer_device_ip_set),
         list(peer_device_ip_set)
@@ -52,9 +51,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
     for ip in peer_device_ip_set:
         assert bgp_fact_info['ansible_facts']['bgp_neighbors'][ip]['state'] == 'established', (
-            "BGP session state is not 'established' for neighbor '{}'. "
-            "Expected: 'established', but got: '{}'. "
-            "Check BGP configuration, neighbor reachability, and DUT logs."
+            "BGP session state mismatch for neighbor '{}'. Expected: 'established', got: '{}'."
         ).format(
             ip,
             bgp_fact_info['ansible_facts']['bgp_neighbors'][ip]['state']
@@ -114,10 +111,8 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             )
 
             assert routes_json['filteredPrefixCounter'] < routes_json['totalPrefixCounter'], (
-                "Filtered prefix counter is not less than total prefix counter after AZNG migration step. "
-                "Expected filteredPrefixCounter < totalPrefixCounter, but got filteredPrefixCounter: {}, "
-                "totalPrefixCounter: {}. "
-                "Check the BGP configuration, route-map/filter status, and logs."
+                "Filtered prefix counter is not less than total prefix counter. "
+                "Got filteredPrefixCounter: {}, totalPrefixCounter: {}."
             ).format(
                 routes_json['filteredPrefixCounter'],
                 routes_json['totalPrefixCounter']
@@ -156,12 +151,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Rollback failed. "
-                "Check the command output, DUT logs, and azng_migration script logs.\n"
-                "- Command return code: {}\n"
-                "- Command output: {}\n"
-                "- Hostname: {}\n"
-                "- Platform: {}\n"
-                "- HWSKU: {}\n"
+                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
             ).format(
                 rc.get('rc', 'N/A'),
                 rc.get('stdout', 'N/A'),
@@ -221,12 +211,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Deny Route-map apply failed. "
-                "Check the command output, DUT logs, and azng_migration script logs.\n"
-                "- Command return code: {}\n"
-                "- Command output: {}\n"
-                "- Hostname: {}\n"
-                "- Platform: {}\n"
-                "- HWSKU: {}\n"
+                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
             ).format(
                 rc.get('rc', 'N/A'),
                 rc.get('stdout', 'N/A'),
@@ -286,12 +271,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Outbound Route-map permit apply failed. "
-                "Check the command output, DUT logs, and azng_migration script logs.\n"
-                "- Command return code: {}\n"
-                "- Command output: {}\n"
-                "- Hostname: {}\n"
-                "- Platform: {}\n"
-                "- HWSKU: {}\n"
+                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
             ).format(
                 rc.get('rc', 'N/A'),
                 rc.get('stdout', 'N/A'),
@@ -387,12 +367,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Inbound Route-map permit apply failed. "
-                "Check the command output, DUT logs, and azng_migration script logs.\n"
-                "- Command return code: {}\n"
-                "- Command output: {}\n"
-                "- Hostname: {}\n"
-                "- Platform: {}\n"
-                "- HWSKU: {}\n"
+                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
             ).format(
                 rc.get('rc', 'N/A'),
                 rc.get('stdout', 'N/A'),
@@ -413,10 +388,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 bgp_nbr_recv_cmd if 'bgp_nbr_recv_cmd' in locals() else 'N/A'
             )
             assert routes_json['filteredPrefixCounter'] < routes_json['totalPrefixCounter'], (
-                "Filtered prefix counter is not less than total prefix counter after AZNG migration step. "
-                "Expected filteredPrefixCounter < totalPrefixCounter, but got filteredPrefixCounter: {}, "
-                "totalPrefixCounter: {}. "
-                "Check BGP configuration, route-map/filter status, and logs for details."
+                "AZNG migration validation failed: filteredPrefixCounter ({}) is not less than totalPrefixCounter ({})."
             ).format(
                 routes_json['filteredPrefixCounter'],
                 routes_json['totalPrefixCounter']
@@ -424,18 +396,16 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
             if "ipv6" in bgp_nbr_recv_cmd:
                 assert routes_json['totalPrefixCounter'] == original_ipv6_route_recv_count, (
-                    "Mismatch in total received IPv6 route count after AZNG migration. "
-                    "Expected: {}, Actual: {}. "
-                    "Check BGP session status, route-map/filter configuration, and command output for troubleshooting."
+                    "Total received IPv6 route count mismatch after AZNG migration. "
+                    "Expected: {}, Got: {}."
                 ).format(
                     original_ipv6_route_recv_count,
                     routes_json['totalPrefixCounter']
                 )
 
                 assert routes_json['filteredPrefixCounter'] == original_ipv6_route_recv_filter_count, (
-                    "Mismatch in filtered received IPv6 route count after AZNG migration. "
-                    "Expected: {}, Actual: {}. "
-                    "Check BGP session status, route-map/filter configuration, and command output for troubleshooting."
+                    "Filtered received IPv6 route count mismatch after AZNG migration. "
+                    "Expected: {}, Got: {}."
                 ).format(
                     original_ipv6_route_recv_filter_count,
                     routes_json['filteredPrefixCounter']
@@ -443,18 +413,16 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
             else:
                 assert routes_json['totalPrefixCounter'] == original_ipv4_route_recv_count, (
-                    "Mismatch in total received IPv4 route count after AZNG migration. "
-                    "Expected: {}, Actual: {}. "
-                    "Check BGP session status, route-map/filter configuration, and command output for troubleshooting."
+                    "Total received IPv4 route count mismatch after AZNG migration. "
+                    "Expected: {}, Got: {}."
                 ).format(
                     original_ipv4_route_recv_count,
                     routes_json['totalPrefixCounter']
                 )
 
                 assert routes_json['filteredPrefixCounter'] == original_ipv4_route_recv_filter_count, (
-                    "Mismatch in filtered received IPv4 route count after AZNG migration. "
-                    "Expected: {}, Actual: {}. "
-                    "Check BGP session status, route-map/filter configuration, and command output for troubleshooting."
+                    "Filtered received IPv4 route count mismatch after AZNG migration. "
+                    "Expected: {}, Got: {}."
                 ).format(
                     original_ipv4_route_recv_filter_count,
                     routes_json['filteredPrefixCounter']
@@ -486,11 +454,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
         pytest_assert(
             not recover_via_minigraph,
             (
-                "AZNG Migration Production set failed. "
-                "Check the command output, DUT logs, and azng_migration script logs for more details.\n"
-                "- Hostname: {}\n"
-                "- Platform: {}\n"
-                "- HWSKU: {}\n"
+                "AZNG Migration Production set failed. Hostname: {}, Platform: {}, HWSKU: {}"
             ).format(
                 duthost.hostname,
                 duthost.facts.get("platform"),
