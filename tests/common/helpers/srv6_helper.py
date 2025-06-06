@@ -20,174 +20,215 @@ class SRv6Packets():
     Define the ipv6 packets used in srv6 test
     Each item was defined with actions and packet type as well as segment left and segment list, destination ip
     '''
-    srv6_packets = [
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1000:0100:0200::',
-            'exp_dst_ipv6': '2001:1000:0200::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward',
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1001:0200:0300::',
-            'exp_dst_ipv6': '2001:1001:0300::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2000:0300:0400:0500:0600::'],
-            'dst_ipv6': '2001:2000:0300::',
-            'exp_dst_ipv6': '2001:2000:0300:0400:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2001:0400:0500:0600::'],
-            'dst_ipv6': '2001:2001:0400:0500::',
-            'exp_dst_ipv6': '2001:2001:0500::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3000:0500:0600::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3000:0500::',
-            'exp_dst_ipv6': '2001:3000:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 2,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3001:0600::',
-            'exp_dst_ipv6': '2001:3000:0600:0700:0800:0900:0a00::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 20,
-            'outer_dscp': 40,
-            'dst_ipv6': '2001:4000:0700::',
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'exp_inner_dscp_pipe': 20,
-            'exp_outer_dscp_uniform': 40,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 32,
-            'outer_dscp': 31,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:4001:0800::',
-            'exp_inner_dscp_pipe': 32,
-            'exp_outer_dscp_uniform': 31,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 2,
-            'outer_dscp': 62,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:5000:0900::',
-            'exp_inner_dscp_pipe': 2,
-            'exp_outer_dscp_uniform': 62,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 63,
-            'outer_dscp': 1,
-            'dst_ipv6': '2001:5001:0a00::',
-            'exp_inner_dscp_pipe': 63,
-            'exp_outer_dscp_uniform': 1,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        }
-    ]
     srv6_next_header = {
         scapy.IP: 4,
         scapy.IPv6: 41
     }
+
+    @classmethod
+    def generate_srv6_packets(cls, my_locator_list, srv6_packet_type):
+        """
+        Generate SRv6 test packets based on the provided locator list.
+        Each packet will have different configurations for comprehensive testing.
+
+        Args:
+            my_locator_list (list): List of locator entries
+            srv6_packet_type (str): Type of SRv6 packet to generate
+
+        Returns:
+            list: List of SRv6 packet configurations
+        """
+        srv6_packets = []
+
+        # Define base packet types with different configurations
+        base_packets = [
+            {  # 1
+                'action': 'uN',
+                'srv6_packet_type': 'no_srh',
+                'validate_dip_shift': True,
+                'validate_usd_flavor': False,
+                'srh_seg_list': None,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 0,
+                'inner_dscp': 0,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 0,
+                'exp_outer_dscp_uniform': 0,
+                'exp_process_result': 'forward'
+            },
+            {  # 2
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': True,
+                'validate_usd_flavor': False,
+                'srh_seg_list': 1,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 0,
+                'inner_dscp': 0,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 0,
+                'exp_outer_dscp_uniform': 0,
+                'exp_process_result': 'forward'
+            },
+            {  # 3
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': True,
+                'validate_usd_flavor': False,
+                'srh_seg_list': 2,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 0,
+                'inner_dscp': 0,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 0,
+                'exp_outer_dscp_uniform': 0,
+                'exp_process_result': 'forward'
+            },
+            {  # 4
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': False,
+                'validate_usd_flavor': False,
+                'srh_seg_list': 1,
+                'srh_seg_left': 1,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 32,
+                'inner_dscp': 48,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 48,
+                'exp_outer_dscp_uniform': 32,
+                'exp_process_result': 'forward'
+            },
+            {  # 5
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': False,
+                'validate_usd_flavor': False,
+                'srh_seg_list': 2,
+                'srh_seg_left': 2,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 16,
+                'inner_dscp': 24,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 1,
+                'exp_inner_dscp_pipe': 24,
+                'exp_outer_dscp_uniform': 16,
+                'exp_process_result': 'forward'
+            },
+            {  # 6
+                'action': 'uN',
+                'srv6_packet_type': 'no_srh',
+                'validate_dip_shift': False,
+                'validate_usd_flavor': True,
+                'srh_seg_list': None,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 48,
+                'inner_dscp': 56,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 56,
+                'exp_outer_dscp_uniform': 48,
+                'exp_process_result': 'forward'
+            },
+            {  # 7
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': False,
+                'validate_usd_flavor': True,
+                'srh_seg_list': 1,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 48,
+                'inner_dscp': 56,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 56,
+                'exp_outer_dscp_uniform': 48,
+                'exp_process_result': 'forward'
+            },
+            {  # 8
+                'action': 'uN',
+                'srv6_packet_type': 'srh',
+                'validate_dip_shift': False,
+                'validate_usd_flavor': True,
+                'srh_seg_list': 2,
+                'srh_seg_left': 0,
+                'inner_pkt_ver': '6',
+                'outer_dscp': 48,
+                'inner_dscp': 56,
+                'exp_dst_ipv6': None,
+                'exp_srh_seg_left': 0,
+                'exp_inner_dscp_pipe': 56,
+                'exp_outer_dscp_uniform': 48,
+                'exp_process_result': 'forward'
+            }
+        ]
+
+        # Use dictionary mapping for packet type filtering
+        packet_type_map = {
+            'srh': 'srh',
+            'no_srh': 'no_srh'
+        }
+        filtered_base_packets = [
+            packet for packet in base_packets
+            if packet['srv6_packet_type'] == packet_type_map.get(srv6_packet_type, 'no_srh')
+        ]
+        # Generate packets for each SID
+        for i, sid_entry in enumerate(my_locator_list):
+            # Select base packet type based on index
+            base_type = filtered_base_packets[i % len(filtered_base_packets)]
+            current_sid_container = sid_entry[1]
+            usid = sid_entry[2]
+
+            # Create packet configuration
+            packet = base_type.copy()
+            packet['inner_src_ip'] = '1.1.1.1'
+            packet['inner_dst_ip'] = '2.2.2.2'
+            packet['inner_src_ipv6'] = '2000::1'
+            packet['inner_dst_ipv6'] = '3000::2'
+            packet['outer_src_ipv6'] = '1000:1000::1'
+            packet['dst_ipv6'] = current_sid_container
+            next_sid_index = (i + 1) % len(my_locator_list)
+            next_usid = 1000 + int(my_locator_list[next_sid_index][2])
+
+            if base_type['validate_dip_shift']:
+                # Prepare the expected destination IPv6 address for DIP shift validation
+                packet['dst_ipv6'] = current_sid_container.replace(f'{usid}::', f'{usid}:{next_usid}::')
+                packet['exp_dst_ipv6'] = current_sid_container.replace(f'{usid}::', f'{next_usid}::')
+
+            temp_sid_container = current_sid_container.replace(f'{usid}::', f'{next_usid}::')
+            # Set segment list based on base type
+            if base_type['srh_seg_list'] == 1:
+                packet['srh_seg_list'] = [temp_sid_container]
+            elif base_type['srh_seg_list'] == 2:
+                packet['srh_seg_list'] = [current_sid_container, temp_sid_container]
+
+            # Set expected destination IPv6 if not validating USD flavor
+            if not base_type['validate_usd_flavor']:
+                packet['exp_dst_ipv6'] = temp_sid_container
+
+            packet['exp_inner_dscp_pipe'] = packet['inner_dscp'] = packet['exp_outer_dscp_uniform'] = \
+                packet['outer_dscp'] = i % 64
+
+            if packet['validate_usd_flavor']:
+                packet['exp_outer_dscp_uniform'] = packet['outer_dscp'] = i % 64
+                packet['exp_inner_dscp_pipe'] = packet['inner_dscp'] = (packet['outer_dscp'] + 8) % 64
+
+            # Alternate between IPv4 and IPv6 for inner packet
+            if i % 2 == 1:
+                packet['inner_pkt_ver'] = '4'
+
+            srv6_packets.append(packet)
+
+        return srv6_packets
 
 
 def dump_packet_detail(pkt):
@@ -399,6 +440,7 @@ def send_verify_srv6_packet(
         packet_num (int): Number of packets to send (default: 10)
     """
     ptfadapter.dataplane.flush()
+    ptfadapter.dataplane.set_qlen(1000000)
     logger.info(f'Send SRv6 packet(s) from PTF port {ptf_src_port_id} to upstream')
     testutils.send(ptfadapter, ptf_src_port_id, pkt, count=packet_num)
     logger.info('SRv6 packet format:\n ---------------------------')
@@ -408,7 +450,8 @@ def send_verify_srv6_packet(
 
     try:
         if exp_pro == 'forward':
-            port_index, _ = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
+            # set timeout to 60 to override the affection of huge BGP update exchange after config reload or bgp restart
+            port_index, _ = testutils.verify_packet_any_port(ptfadapter, exp_pkt, timeout=60, ports=ptf_dst_port_ids)
             logger.info(f'Received packet(s) on port {ptf_dst_port_ids[port_index]}\n')
         elif exp_pro == 'drop':
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
