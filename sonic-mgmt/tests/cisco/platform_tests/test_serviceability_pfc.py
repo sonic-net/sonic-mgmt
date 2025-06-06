@@ -10,6 +10,7 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 import random
+import re
 
 random.seed(10)
 
@@ -264,20 +265,23 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
         assert not traceback_found, "Traceback found in show platform npu global"
         assert result["stdout"], "No output for this CLI"
 
-@pytest.mark.topology("t2")
 def test_config_platform_cisco_voq_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, request):
     """
     @summary: Verify output of `config platform cisco voq-watchdog`
     """
     global chosen_duthost
     duthost = chosen_duthost
-    if not ('modular_chassis' in duthost.facts and duthost.facts["modular_chassis"]):
-        pytest.skip("This test is skipped since voq watchdog cmd is supported on cisco-8000 "
-                    "T2 only.")
+    namespace_option = "-n asic0" if duthost.facts.get("modular_chassis") else ""
+    show_command = "show platform npu global {}".format(namespace_option)
+    result = duthost.command(show_command)
+    pattern = r"voq_watchdog_enabled +: +True"
+    match = re.search(pattern, result["stdout"])
+    if not match:
+        pytest.skip("This test is skipped since voq watchdog is not enabled.")
     options = ["disable", "enable"]
     for option in options:
-        config_command = "config platform cisco voq-watchdog {}"
-        result = duthost.command(config_command.format(option))
+        config_command = "config platform cisco voq-watchdog {}".format(option)
+        result = duthost.command(config_command)
         traceback_found = "Traceback" in result["stdout"]
         assert not traceback_found, "Traceback found in config platform cisco voq-watchdog"
         assert "Successfully" in result["stdout"], "Failed at config platform cisco voq-watchdog"

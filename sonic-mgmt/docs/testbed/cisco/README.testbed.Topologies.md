@@ -320,3 +320,10 @@ Below are the reference topologies for various Tortuga Test activities
 ![](./img/topo-tortuga-pns.png)
 
 
+&nbsp;
+&nbsp;
+&nbsp;
+
+### Ostara: Solution Test Topology
+
+![](./img/topo-ostara-sol.png)
