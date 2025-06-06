@@ -259,4 +259,4 @@ def recover_chassis(duthosts):
         for duthost in duthosts:
             executor.submit(config_reload, duthost, config_source='minigraph',
                             safe_reload=True, override_config=True,
-                            check_intf_up_ports=True, wait_for_bgp=True)
+                            check_intf_up_ports=True, wait_for_bgp=True, yang_validate=False)
