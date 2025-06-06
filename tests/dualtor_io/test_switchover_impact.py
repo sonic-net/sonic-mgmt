@@ -29,7 +29,8 @@ def test_tor_switchover_impact(request,                                         
                                planned_threshold=0.1, unplanned_threshold=0.4,             # noqa: F811
                                iterations=100):                                            # noqa: F811
     """
-    Measure impact when active-standby ToR is going through switchover. must run with --enable_switchover_impact_test to enable.
+    Measure impact when active-standby ToR is going through switchover.
+    must run with --enable_switchover_impact_test to enable.
 
     Steps:
         1. sets upper tor to active on all ports.
@@ -194,7 +195,8 @@ def test_tor_switchover_impact(request,                                         
     ## Test Start ##
 
     if not request.config.getoption('--enable_switchover_impact_test'):
-        logging.info("Switchover impact test disabled. To enable the test, run with '--enable_switchover_impact_test'")
+        logging.info("Switchover impact test disabled. \
+                     To enable the test, run with '--enable_switchover_impact_test'")
         return
 
     logs = {}
