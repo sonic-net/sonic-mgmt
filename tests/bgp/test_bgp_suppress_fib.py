@@ -343,6 +343,10 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_channel_list = mg_facts['minigraph_portchannels'].keys()
+    if len(port_channel_list) == 0:
+        upstream_port_list = get_port_connected_with_vm(duthost, nbrhosts, vm_type="T2")
+        port_list.extend(upstream_port_list)
+
     extra_vars = {'cfg_t1': cfg_t1, 'port_list': port_list, 'vm_list': vm_list, 'pc_list': port_channel_list}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -755,6 +759,10 @@ def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port
 def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
                                  request):
+    asic_name = duthost.get_asic_name()
+    if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
+        pytest.xfail("vrf testing not supported on TH5")
+
     try:
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Configure user defined vrf"):
