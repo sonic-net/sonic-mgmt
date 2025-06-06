@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 MAX_TIME_DIFF = 300
 
+
 @pytest.fixture(scope="function", autouse=True)
 def skip_non_x86_platform(duthosts, rand_one_dut_hostname):
     """
