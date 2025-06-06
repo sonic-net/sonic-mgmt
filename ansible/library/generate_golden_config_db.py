@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This ansible module is for generate golden_config_db.json
 # Currently, only enable dhcp_server feature and generated related configuration in MX device
