@@ -76,8 +76,6 @@ FWD:
   t0-64:
     mth64:
       sim:
-        - crm/test_crm.py::test_crm_neighbor
-        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
         - ipfwd/test_dip_sip.py
         - drop_packets/test_drop_counters.py::test_acl_drop
         - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
@@ -92,6 +90,14 @@ FWD:
         - acl/test_acl.py::TestBasicAcl
       hw:
         - crm/test_crm.py::test_crm_neighbor
+        - bfd/test_bfd_traffic.py
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+        - everflow/test_everflow_per_interface.py
+        - generic_config_updater/test_dynamic_acl.py
+        - generic_config_updater/test_ipv6.py
+        - ip/test_ip_packet.py
+        - ipfwd/test_nhop_group.py
+        - ipfwd/test_dir_bcast.py
   t2-min:
     sfd:
       sim:
