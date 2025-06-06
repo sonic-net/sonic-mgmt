@@ -50,7 +50,7 @@ arp/test_arpall.py::test_arp_unicast_reply:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
+arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -58,7 +58,7 @@ arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]:
+arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
   skip:
     reason: >
             Failed/Errored: To be included
