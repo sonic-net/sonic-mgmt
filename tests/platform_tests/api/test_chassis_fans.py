@@ -207,6 +207,7 @@ class TestChassisFans(PlatformApiTestBase):
                 speed_target_val = random.randint(speed_minimum, speed_maximum)
 
             speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)       # noqa F841
+            time.sleep(3)
             target_speed = fan.get_target_speed(platform_api_conn, i)
             if self.expect(target_speed is not None, "Unable to retrieve Fan {} target speed".format(i)):
                 if self.expect(isinstance(target_speed, int), "Fan {} target speed appears incorrect".format(i)):
