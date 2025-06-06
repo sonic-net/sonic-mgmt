@@ -6777,7 +6777,8 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             # queue counters increased by pkts_num
             qos_test_assert(
                 self, queue_counters[0] == queue_counters_base[0] + pkts_num,
-                'unexpectedly TX drop counter increase')
+                'queue counter not matched, expected {}, got {}'.format(
+                    queue_counters_base[0] + pkts_num, queue_counters[0]))
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])

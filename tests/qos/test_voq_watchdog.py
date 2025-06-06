@@ -34,6 +34,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 @pytest.fixture(scope="function")
 def ignore_log_voq_watchdog(duthosts, loganalyzer):
     if not loganalyzer:
@@ -50,6 +51,10 @@ def ignore_log_voq_watchdog(duthosts, loganalyzer):
 class TestVoqWatchdog(QosSaiBase):
     """TestVoqWatchdog derives from QosSaiBase and contains collection of VOQ watchdog test cases.
     """
+    @pytest.fixture(scope="class", autouse=True)
+    def check_skip_voq_watchdog_test(self, get_src_dst_asic_and_duts):
+        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
+            pytest.skip("Voq watchdog test is skipped since voq watchdog is not enabled.")
 
     def testQosSaiVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -68,11 +73,6 @@ class TestVoqWatchdog(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
-            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
-            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -109,11 +109,6 @@ class TestVoqWatchdog(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000" or\
-            not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                 get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
-            pytest.skip("VOQ watchdog test is supported on cisco-8000 T2 only")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])

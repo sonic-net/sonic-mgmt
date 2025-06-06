@@ -2810,6 +2810,17 @@ def set_port_cir(interface, rate):
         yield
         return
 
+    def voq_watchdog_enabled(self, get_src_dst_asic_and_duts):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            return False
+        namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
+        show_command = "show platform npu global {}".format(namespace_option)
+        result = dst_dut.command(show_command)
+        pattern = r"voq_watchdog_enabled +: +True"
+        match = re.search(pattern, result["stdout"])
+        return match
+
     @contextmanager
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
@@ -2828,7 +2839,9 @@ def set_port_cir(interface, rate):
                     dut_list.append(rp_dut)
                     asic_index_list.append(asic.asic_index)
 
-        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+        # Skip if voq watchdog is not enabled.
+        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
+            logger.info("voq_watchdog is not enabled, skipping disable voq watchdog")
             yield
             return
 
