@@ -57,8 +57,10 @@ def upstream_links(rand_selected_dut, tbinfo, nbrhosts):
     duthost = rand_selected_dut
 
     def filter(interface, neighbor, mg_facts, tbinfo):
-        if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
+        if ((tbinfo["topo"]["type"] == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"]))
                 or (tbinfo["topo"]["type"] == "t1" and "T2" in neighbor["name"])):
+            local_ipv4_addr = None
+            peer_ipv4_addr = None
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ip_address(item["addr"]), IPv4Address):

@@ -143,33 +143,40 @@ def test_addcluster_workflow(duthost):
         'CABLE_LENGTH': set(),
         'BUFFER_PG': set(),
         'PORT_QOS_MAP': set(),
-        'PFC_WD': set()
+        'PFC_WD': set(),
+        'PORTCHANNEL_MEMBER': set(),
+        'DEVICE_NEIGHBOR': set()
     }
     for patch_entry in json_patch:
         path = patch_entry.get('path', '')
-        if path.startswith('/{ASICID}/PORT/'):
+        if path.startswith(f'/{ASICID}/PORT/'):
             port = path.split('/')[-1]
             ports_to_check.add(port)
-        elif path.startswith('/{ASICID}/PORTCHANNEL/'):
+        elif path.startswith(f'/{ASICID}/PORTCHANNEL/'):
             portchannel = path.split('/')[-1]
             portchannels_to_check.add(portchannel)
-        elif path.startswith('/{ASICID}/BGP_NEIGHBOR/'):
+        elif path.startswith(f'/{ASICID}/PORTCHANNEL_MEMBER/'):
+            entry = path.split('/')[-1]
+            config_entries_to_check['PORTCHANNEL_MEMBER'].add(f"PORTCHANNEL_MEMBER|{entry}")
+        elif path.startswith(f'/{ASICID}/BGP_NEIGHBOR/'):
             neighbor = path.split('/')[-1]
             bgp_neighbors_to_check.add(neighbor)
-        # Extract other configuration entries
-        elif path.startswith('/{ASICID}/DEVICE_NEIGHBOR_METADATA/'):
+        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR_METADATA/'):
             entry = path.split('/')[-1]
             config_entries_to_check['DEVICE_NEIGHBOR_METADATA'].add(f"DEVICE_NEIGHBOR_METADATA|{entry}")
-        elif path.startswith('/{ASICID}/CABLE_LENGTH/AZURE/'):
+        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR/'):
             entry = path.split('/')[-1]
-            config_entries_to_check['CABLE_LENGTH'].add(f"CABLE_LENGTH|AZURE|{entry}")
-        elif path.startswith('/{ASICID}/BUFFER_PG/'):
+            config_entries_to_check['DEVICE_NEIGHBOR'].add(f"DEVICE_NEIGHBOR|{entry}")
+        elif path.startswith(f'/{ASICID}/CABLE_LENGTH/AZURE/'):
+            entry = path.split('/')[-1]
+            config_entries_to_check['CABLE_LENGTH'].add(f"{entry}")
+        elif path.startswith(f'/{ASICID}/BUFFER_PG/'):
             entry = '|'.join(path.split('/')[-2:])
-            config_entries_to_check['BUFFER_PG'].add(f"BUFFER_PG|{entry}")
-        elif path.startswith('/{ASICID}/PORT_QOS_MAP/'):
+            config_entries_to_check['BUFFER_PG'].add(f"{entry}")
+        elif path.startswith(f'/{ASICID}/PORT_QOS_MAP/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PORT_QOS_MAP'].add(f"PORT_QOS_MAP|{entry}")
-        elif path.startswith('/{ASICID}/PFC_WD/'):
+        elif path.startswith(f'/{ASICID}/PFC_WD/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PFC_WD'].add(f"PFC_WD|{entry}")
 
@@ -188,6 +195,55 @@ def test_addcluster_workflow(duthost):
         logger.info(f"Checking status for port {port}")
         result = duthost.shell(f"show interface status {port}", module_ignore_errors=False)["stdout"]
         pytest_assert("up" in result, f"{port} is not up")
+
+    # Step 9.1: Check ports are bound to MIRROR ACL tables
+    logger.info("Checking ports binding in MIRROR ACL tables")
+    result = duthost.shell("show acl table", module_ignore_errors=False)["stdout"]
+
+    # Parse ACL table output to get MIRROR type tables and their bindings
+    current_table = None
+    mirror_bindings = set()
+    """ Example output:
+    admin@bjw-can-7250-lc2-1:~$ show acl table
+    Name        Type       Binding         Description    Stage    Status
+    ----------  ---------  --------------  -------------  -------  --------------------------------------
+    NTP_ACL     CTRLPLANE  NTP             NTP_ACL        ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    SNMP_ACL    CTRLPLANE  SNMP            SNMP_ACL       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    SSH_ONLY    CTRLPLANE  SSH             SSH_ONLY       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+    DATAACL     L3         Ethernet48      DATAACL        ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    EVERFLOW    MIRROR     Ethernet48      EVERFLOW       ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    EVERFLOWV6  MIRRORV6   Ethernet48      EVERFLOWV6     ingress  {'asic0': 'Active', 'asic1': 'Active'}
+                        Ethernet208
+                        PortChannel101
+                        PortChannel105
+    """
+    for line in result.splitlines():
+        if not line.strip() or '----' in line:
+            continue
+
+        # If line starts with name, it's a new table entry
+        if not line.startswith(' '):
+            fields = [f for f in line.split() if f]
+            if len(fields) >= 2 and fields[1] in ('MIRROR', 'MIRRORV6'):
+                current_table = fields[0]
+        # If line starts with space and we're in a MIRROR table, it's a binding
+        elif current_table:
+            port = line.strip()
+            if port:
+                mirror_bindings.add(port)
+
+        # Check if all ports_to_check are in mirror_bindings
+        for port in ports_to_check:
+            pytest_assert(port in mirror_bindings,
+                          f"Port {port} is not bound to any MIRROR ACL table. "
+                          f"Current bindings: {sorted(mirror_bindings)}")
+            logger.info(f"Verified port {port} is bound to MIRROR ACL table")
 
     # Step 10: Check PortChannel exists
     if portchannels_to_check:
@@ -260,8 +316,62 @@ def test_addcluster_workflow(duthost):
     # Step 12: Verify all addcluster.json changes are reflected in CONFIG_DB
     for table, entries in config_entries_to_check.items():
         for entry in entries:
-            redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
-            redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
-            pytest_assert(redis_value == entry,
-                          f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
-            logger.info(f"Verified {entry} exists in CONFIG_DB")
+            if table == 'CABLE_LENGTH':
+                redis_cmd = f'sonic-db-cli -n {ASICID} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
+                redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
+                cable_lengths = json.loads(redis_output.replace("'", '"'))
+
+                if entry not in cable_lengths:
+                    pytest.fail(f"Key {entry} missing in CONFIG_DB. Got: {cable_lengths}")
+            else:
+                redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
+                redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
+                pytest_assert(redis_value == entry,
+                              f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
+                logger.info(f"Verified {entry} exists in CONFIG_DB")
+
+    # Step 13: capture full running configuration after applying addcluster.json
+    logger.info("Capturing applied full running configuration")
+    dut_config_path = "/tmp/applied.json"
+    applied_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-applied.json")
+    os.makedirs(os.path.dirname(applied_config_path), exist_ok=True)
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+
+    duthost.fetch(src=dut_config_path, dest=applied_config_path, flat=True)
+    logger.info(f"Saved applied full configuration backup to {applied_config_path}")
+    duthost.shell(f"rm -f {dut_config_path}")
+
+    # Step 14: Compare full configuration before and after applying addcluster.json
+    logger.info("Comparing specific tables before and after applying addcluster.json")
+
+    def get_table_data(config, table):
+        """Extract table data from config."""
+        return config.get(ASICID, {}).get(table, {})
+
+    # Get list of tables to compare from the patch
+    tables_to_compare = set()
+    for patch_entry in json_patch:
+        path = patch_entry.get('path', '')
+        parts = path.split('/')
+        if len(parts) > 2:
+            tables_to_compare.add(parts[2])
+
+    # Load configurations
+    with open(full_config_path, 'r') as file:
+        full_config = json.load(file)
+    with open(applied_config_path, 'r') as file:
+        applied_config = json.load(file)
+
+    # Compare only modified tables
+    for table in tables_to_compare:
+        logger.info(f"Comparing table: {table}")
+        original_table = get_table_data(full_config, table)
+        applied_table = get_table_data(applied_config, table)
+
+        if original_table != applied_table:
+            logger.error(f"Table {table} mismatch:")
+            logger.error(f"Original: {original_table}")
+            logger.error(f"Applied:  {applied_table}")
+            pytest.fail(f"Configuration mismatch in table {table}")
+        else:
+            logger.info(f"Table {table} matches between configurations")

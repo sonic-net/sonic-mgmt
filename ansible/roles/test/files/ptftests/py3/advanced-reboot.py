@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
@@ -1147,7 +1148,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
             time.sleep(1)
 
         self.log("IO sender and sniffer threads have started, wait until completion")
@@ -1405,6 +1406,10 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
+        # Set LACP timer multiplier for cEOS peers when it is not default (3)
+        if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
+            self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
+
         self.pre_reboot_test_setup()
         try:
             self.log("Check that device is alive and pinging")
@@ -1458,7 +1463,28 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
+            # Restore cEOS LACP timer multiplier to default (3)
+            if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
+                self.ceos_set_lacp_all_neighs(3)
+
             self.handle_post_reboot_test_reports()
+
+    def ceos_set_lacp_all_neighs(self, multiplier):
+        for neigh in self.ssh_targets:
+            self.neigh_handle = HostDevice.getHostDeviceInstance(
+                                    self.test_params['neighbor_type'], neigh, None, self.test_params)
+            self.neigh_handle.connect()
+
+            raw_json = self.neigh_handle.do_cmd("show lacp interface | json")
+            neigh_int_json = json.loads(raw_json[raw_json.find("{"):raw_json.rfind("}")+1])
+
+            self.neigh_handle.do_cmd("config")
+            for lag in neigh_int_json["portChannels"]:
+                for neigh_int in neigh_int_json["portChannels"][lag]['interfaces']:
+                    self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                    self.neigh_handle.do_cmd(f"lacp timer multiplier {multiplier}")
+
+            self.neigh_handle.disconnect()
 
     def neigh_lag_status_check(self):
         """
@@ -1725,9 +1751,7 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 90
-        if self.test_params['neighbor_type'] == "sonic":
-            max_allowed_lacp_session_wait = 150
+        max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0

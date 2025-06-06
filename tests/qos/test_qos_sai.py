@@ -197,6 +197,7 @@ class TestQosSai(QosSaiBase):
         'Force10-S6100',
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-C28S4',
         'Arista-7050CX3-32S-D48C8'
     ]
 
@@ -2025,7 +2026,7 @@ class TestQosSai(QosSaiBase):
         skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
-                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox"]):
+                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox", "marvell-teralynx"]):
             disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
