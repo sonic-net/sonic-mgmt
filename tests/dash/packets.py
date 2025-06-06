@@ -184,10 +184,10 @@ def generate_plnsg_packets(config, inner_encap, outer_encap, inner_packet_type='
             config, vxlan_udp_dport=sport
         )
         plnsg_pkts.append((
-            inbound_pkt,
-            inbound_exp_pkt,
             outbound_pkt,
-            outbound_exp_pkt
+            outbound_exp_pkt,
+            inbound_pkt,
+            inbound_exp_pkt
         ))
 
     return plnsg_pkts
