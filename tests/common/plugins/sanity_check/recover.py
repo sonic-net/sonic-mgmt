@@ -257,6 +257,6 @@ def recover_chassis(duthosts):
     logger.warning(f"Try to recover chassis {[dut.hostname for dut in duthosts]} using config reload")
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source='running_golden_config',
-                            safe_reload=True,
+            executor.submit(config_reload, duthost, config_source='minigraph',
+                            safe_reload=True, override_config=True,
                             check_intf_up_ports=True, wait_for_bgp=True)
