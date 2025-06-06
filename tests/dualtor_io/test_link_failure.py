@@ -499,8 +499,9 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
-    cable_type, active_active_ports, setup_loganalyzer                  # noqa: F811
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    cable_type, active_active_ports, setup_loganalyzer,                 # noqa F811
+    link_down_downstream_active_duplication_setting                     # noqa F811
 ):
     """
     Send traffic from T1 to standby ToR and unshut the active-active mux ports.
@@ -533,12 +534,17 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
 
             # after config reload, it takes time to setup the zero-mac tunnel routes for
             # the mux server ips, so there will be disruption before traffic.
+            allowed_duplication, merge_duplications = \
+                link_down_downstream_active_duplication_setting
             send_t1_to_server_with_action(
                 upper_tor_host,
                 verify=True,
                 allowed_disruption=0,
                 action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up"),
-                allow_disruption_before_traffic=True
+                allow_disruption_before_traffic=True,
+                allowed_duplication=allowed_duplication,
+                merge_duplications_into_disruptions=merge_duplications,
+                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC
             )
 
             verify_tor_states(
