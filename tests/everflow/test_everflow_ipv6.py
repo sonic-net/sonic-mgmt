@@ -37,7 +37,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
     tx_port_ids = []
 
     @pytest.fixture(scope='class',  autouse=True)
-    def setup_mirror_session_dest_ip_route(self, tbinfo, setup_info, setup_mirror_session, erspan_ip_ver):     # noqa F811
+    def setup_mirror_session_dest_ip_route(self, tbinfo, setup_info, setup_mirror_session, erspan_ip_ver):  # noqa: F811
         """
         Setup the route for mirror session destination ip and update monitor port list.
         Remove the route as part of cleanup.
@@ -74,7 +74,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             namespace))
 
     @pytest.fixture(scope='class')
-    def everflow_dut(self, setup_info):             # noqa F811
+    def everflow_dut(self, setup_info):             # noqa: F811
         if setup_info['topo'] in ['t0', 'm0_vlan']:
             dut = setup_info[UP_STREAM]['everflow_dut']
         else:
@@ -83,7 +83,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         yield dut
 
     @pytest.fixture(scope='class')
-    def everflow_direction(self, setup_info):       # noqa F811
+    def everflow_direction(self, setup_info):       # noqa: F811
         if setup_info['topo'] in ['t0', 'm0_vlan']:
             direction = UP_STREAM
         else:
@@ -92,8 +92,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
         yield direction
 
     @pytest.fixture(scope='function', autouse=True)
-    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa F811
-                           setup_standby_ports_on_rand_unselected_tor_unconditionally):     # noqa F811
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa: F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally):     # noqa: F811
         stop_thread = threading.Event()
         src_port = EverflowIPv6Tests.rx_port_ptf_id
 
@@ -159,10 +159,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
             background_thread.join()
             background_traffic(run_count=1)
 
-    def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
-                                setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
-                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                erspan_ip_ver):                                                         # noqa F811
+    def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa: F811
+                                setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa: F811
+                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa: F811
+                                erspan_ip_ver):                                                         # noqa: F811
         """Verify that we can match on Source IPv6 addresses."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -179,10 +179,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_dst_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
-                                setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
-                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                erspan_ip_ver):                                                         # noqa F811
+    def test_dst_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa: F811
+                                setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa: F811
+                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa: F811
+                                erspan_ip_ver):                                                         # noqa: F811
         """Verify that we can match on Destination IPv6 addresses."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -199,10 +199,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_next_header_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
-                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
-                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                   erspan_ip_ver):                                                          # noqa F811
+    def test_next_header_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa: F811
+                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa: F811
+                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa: F811
+                                   erspan_ip_ver):                                                          # noqa: F811
         """Verify that we can match on the Next Header field."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, next_header=0x7E)
 
@@ -214,10 +214,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_src_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
-                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
-                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                   erspan_ip_ver):                                                          # noqa F811
+    def test_l4_src_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa: F811
+                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa: F811
+                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa: F811
+                                   erspan_ip_ver):                                                          # noqa: F811
         """Verify that we can match on the L4 Source Port."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, sport=9000)
 
@@ -229,10 +229,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_dst_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
-                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
-                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                   erspan_ip_ver):                                                          # noqa F811
+    def test_l4_dst_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa: F811
+                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa: F811
+                                   everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa: F811
+                                   erspan_ip_ver):                                                          # noqa: F811
         """Verify that we can match on the L4 Destination Port."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dport=9001)
 
@@ -244,11 +244,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_src_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+    def test_l4_src_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa: F811
                                          ptfadapter, everflow_dut, everflow_direction,
-                                         setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                         toggle_all_simulator_ports_to_rand_selected_tor,             # noqa F811
-                                         erspan_ip_ver):                                              # noqa F811
+                                         setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa: F811
+                                         toggle_all_simulator_ports_to_rand_selected_tor,             # noqa: F811
+                                         erspan_ip_ver):                                              # noqa: F811
         """Verify that we can match on a range of L4 Source Ports."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, sport=10200)
 
@@ -260,11 +260,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_dst_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+    def test_l4_dst_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa: F811
                                          ptfadapter, everflow_dut, everflow_direction,
-                                         setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                         toggle_all_simulator_ports_to_rand_selected_tor,             # noqa F811
-                                         erspan_ip_ver):                                              # noqa F811
+                                         setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa: F811
+                                         toggle_all_simulator_ports_to_rand_selected_tor,             # noqa: F811
+                                         erspan_ip_ver):                                              # noqa: F811
         """Verify that we can match on a range of L4 Destination Ports."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dport=10700)
 
@@ -276,10 +276,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_flags_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
-                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa F811
-                                 everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa F811
-                                 erspan_ip_ver):                                                            # noqa F811
+    def test_tcp_flags_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa: F811
+                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa: F811
+                                 everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa: F811
+                                 erspan_ip_ver):                                                            # noqa: F811
         """Verify that we can match on TCP Flags."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, flags=0x1B)
 
@@ -291,10 +291,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_dscp_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,               # noqa F811
-                            setup_standby_ports_on_rand_unselected_tor_unconditionally,                     # noqa F811
-                            everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,            # noqa F811
-                            erspan_ip_ver):                                                                 # noqa F811
+    def test_dscp_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,               # noqa: F811
+                            setup_standby_ports_on_rand_unselected_tor_unconditionally,                     # noqa: F811
+                            everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,            # noqa: F811
+                            erspan_ip_ver):                                                                 # noqa: F811
         """Verify that we can match on DSCP."""
         test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dscp=37)
 
@@ -306,10 +306,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,           # noqa F811
-                                setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa F811
-                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
-                                erspan_ip_ver):                                                             # noqa F811
+    def test_l4_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,           # noqa: F811
+                                setup_standby_ports_on_rand_unselected_tor_unconditionally,                 # noqa: F811
+                                everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,        # noqa: F811
+                                erspan_ip_ver):                                                             # noqa: F811
         """Verify that we can match from a source port to a range of destination ports and vice-versa."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -347,10 +347,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_response_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
-                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
-                                    everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                    erspan_ip_ver):                                                         # noqa F811
+    def test_tcp_response_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa: F811
+                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa: F811
+                                    everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa: F811
+                                    erspan_ip_ver):                                                         # noqa: F811
         """Verify that we can match a SYN -> SYN-ACK pattern."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -386,11 +386,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+    def test_tcp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa: F811
                                        ptfadapter, everflow_dut, everflow_direction,
-                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                       toggle_all_simulator_ports_to_rand_selected_tor,             # noqa F811
-                                       erspan_ip_ver):                                              # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa: F811
+                                       toggle_all_simulator_ports_to_rand_selected_tor,             # noqa: F811
+                                       erspan_ip_ver):                                              # noqa: F811
         """Verify that we can match a TCP handshake between a client and server."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -430,11 +430,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_udp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+    def test_udp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa: F811
                                        ptfadapter, everflow_dut, everflow_direction,
-                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                       toggle_all_simulator_ports_to_rand_selected_tor,             # noqa F811
-                                       erspan_ip_ver):                                              # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa: F811
+                                       toggle_all_simulator_ports_to_rand_selected_tor,             # noqa: F811
+                                       erspan_ip_ver):                                              # noqa: F811
         """Verify that we can match UDP traffic between a client and server application."""
         test_packet = self._base_udpv6_packet(
             everflow_direction,
@@ -473,10 +473,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
-                          setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
-                          everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
-                          erspan_ip_ver):                                                           # noqa F811
+    def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa: F811
+                          setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa: F811
+                          everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa: F811
+                          erspan_ip_ver):                                                           # noqa: F811
         """Verify that the protocol number is ignored if it is not specified in the ACL rule."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -527,11 +527,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_any_transport_protocol(self, setup_info, setup_mirror_session,                      # noqa F811
+    def test_any_transport_protocol(self, setup_info, setup_mirror_session,                      # noqa: F811
                                     ptfadapter, everflow_dut, everflow_direction,
-                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                    toggle_all_simulator_ports_to_rand_selected_tor,             # noqa F811
-                                    erspan_ip_ver):                                              # noqa F811
+                                    setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa: F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor,             # noqa: F811
+                                    erspan_ip_ver):                                              # noqa: F811
         """Verify that src port and dst port rules match regardless of whether TCP or UDP traffic is sent."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -569,9 +569,9 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
-                              setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
-                              everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor):     # noqa F811
+    def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa: F811
+                              setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa: F811
+                              everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor):     # noqa: F811
         """Verify that the ASIC does not reject rules with TCP flags if the protocol is not TCP."""
         pass
 
@@ -580,10 +580,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
         # will not crash if such a rule is installed. If this does happen, we expect the whole test
         # suite + loganaylzer + the sanity check to fail.
 
-    def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,            # noqa F811
-                           setup_standby_ports_on_rand_unselected_tor_unconditionally,                  # noqa F811
-                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,         # noqa F811
-                           erspan_ip_ver):                                                              # noqa F811
+    def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,            # noqa: F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally,                  # noqa: F811
+                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,         # noqa: F811
+                           erspan_ip_ver):                                                              # noqa: F811
         """Verify that we can match packets with a Source IPv6 Subnet."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -603,10 +603,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_dest_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
-                         setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa F811
-                         everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa F811
-                         erspan_ip_ver):                                                            # noqa F811
+    def test_dest_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa: F811
+                         setup_standby_ports_on_rand_unselected_tor_unconditionally,                # noqa: F811
+                         everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,       # noqa: F811
+                         erspan_ip_ver):                                                            # noqa: F811
         """Verify that we can match packets with a Destination IPv6 Subnet."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -626,10 +626,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_both_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
-                          setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa F811
-                          everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
-                          erspan_ip_ver):                                                           # noqa F811
+    def test_both_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa: F811
+                          setup_standby_ports_on_rand_unselected_tor_unconditionally,               # noqa: F811
+                          everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,      # noqa: F811
+                          erspan_ip_ver):                                                           # noqa: F811
         """Verify that we can match packets with both source and destination subnets."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -649,10 +649,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
                                            erspan_ip_ver=erspan_ip_ver)
 
-    def test_fuzzy_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
-                           setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
-                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                           erspan_ip_ver):                                                          # noqa F811
+    def test_fuzzy_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa: F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa: F811
+                           everflow_direction, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa: F811
+                           erspan_ip_ver):                                                          # noqa: F811
         """Verify that we can match packets with non-standard subnet sizes."""
         test_packet = self._base_tcpv6_packet(
             everflow_direction,
@@ -736,7 +736,7 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
         return "ingress"
 
     @pytest.fixture(scope='class',  autouse=True)
-    def setup_acl_table(self, setup_info, setup_mirror_session, config_method):         # noqa F811
+    def setup_acl_table(self, setup_info, setup_mirror_session, config_method):         # noqa: F811
 
         if setup_info['topo'] in ['t0', 'm0_vlan']:
             everflow_dut = setup_info[UP_STREAM]['everflow_dut']
