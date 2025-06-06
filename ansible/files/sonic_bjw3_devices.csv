@@ -1,0 +1,11 @@
+Hostname,ManagementIp,HwSku,Type,Protocol,Os
+bjw3-can-7260-root-1,10.150.238.8/23,Arista-7260CX3-64,FanoutRoot,,
+bjw3-can-7260-leaf-25,10.150.238.15/23,Arista-7260CX3,FanoutLeaf,,
+bjw3-can-serv-1,10.150.238.16/23,TestServ,Server,,
+bjw3-can-serv-2,10.150.238.17/23,TestServ,Server,,
+bjw3-can-serv-3,10.150.238.18/23,TestServ,Server,,
+bjw3-can-serv-4,10.150.238.19/23,TestServ,Server,,
+bjw3-can-serv-5,10.150.238.20/23,TestServ,Server,,
+bjw3-can-720dt-mc0-3,10.150.238.10/23,Arista-720DT-G48S4,MgmtTsToRRouter,ssh,sonic
+bjw3-can-720dt-mc0-4,10.150.238.11/23,Arista-720DT-G48S4,MgmtTsToRRouter,ssh,sonic
+bjw3-can-720dt-mc0-5,10.150.238.12/23,Arista-720DT-G48S4,MgmtTsToRRouter,ssh,sonic

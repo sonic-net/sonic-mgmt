@@ -76,6 +76,11 @@ all:
         vm_tk5_host_8:
         vm_tk5_host_9:
         vm_tk5_host_10:
+        vm_bjw3_host_1:
+        vm_bjw3_host_2:
+        vm_bjw3_host_3:
+        vm_bjw3_host_4:
+        vm_bjw3_host_5:
     eos:
       children:
         vms_1:
@@ -149,6 +154,11 @@ all:
         vms_tk5_8:
         vms_tk5_9:
         vms_tk5_10:
+        vms_bjw3_1:
+        vms_bjw3_2:
+        vms_bjw3_3:
+        vms_bjw3_4:
+        vms_bjw3_5:
     servers:
       children:
         server_1:
@@ -616,6 +626,26 @@ vm_tk5_host_10:
   hosts:
     STRTK5-SERV-10:
       ansible_host: 10.212.65.11
+vm_bjw3_host_1:
+  hosts:
+    BJW3-CAN-SERV-1:
+      ansible_host: 10.150.238.16
+vm_bjw3_host_2:
+  hosts:
+    BJW3-CAN-SERV-2:
+      ansible_host: 10.150.238.17
+vm_bjw3_host_3:
+  hosts:
+    BJW3-CAN-SERV-3:
+      ansible_host: 10.150.238.18
+vm_bjw3_host_4:
+  hosts:
+    BJW3-CAN-SERV-4:
+      ansible_host: 10.150.238.19
+vm_bjw3_host_5:
+  hosts:
+    BJW3-CAN-SERV-5:
+      ansible_host: 10.150.238.20
 
 vms_1:
   hosts:
@@ -14241,6 +14271,7 @@ vms_tk5_5:
       ansible_host: 172.16.132.126
     VM55095:
       ansible_host: 172.16.132.127
+
 vms_tk5_6:
   hosts:
     VM52000:
@@ -17959,6 +17990,31 @@ vms_96:
     VM96000:
       ansible_host: 172.16.186.10
 
+vms_bjw3_1:
+  hosts:
+    VM19011:
+      ansible_host: 172.16.213.11
+
+vms_bjw3_2:
+  hosts:
+    VM22011:
+      ansible_host: 172.16.214.11
+
+vms_bjw3_3:
+  hosts:
+    VM23011:
+      ansible_host: 172.16.215.11
+
+vms_bjw3_4:
+  hosts:
+    VM31011:
+      ansible_host: 172.16.216.11
+
+vms_bjw3_5:
+  hosts:
+    VM32011:
+      ansible_host: 172.16.217.11
+
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
   vars:
@@ -18391,3 +18447,33 @@ server_tk5_10:
   children:
     vm_tk5_host_10:
     vms_tk5_10:
+server_bjw3_1:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-1.yml
+  children:
+    vm_bjw3_host_1:
+    vms_bjw3_1:
+server_bjw3_2:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-2.yml
+  children:
+    vm_bjw3_host_2:
+    vms_bjw3_2:
+server_bjw3_3:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-3.yml
+  children:
+    vm_bjw3_host_3:
+    vms_bjw3_3:
+server_bjw3_4:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-4.yml
+  children:
+    vm_bjw3_host_4:
+    vms_bjw3_4:
+server_bjw3_5:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-5.yml
+  children:
+    vm_bjw3_host_5:
+    vms_bjw3_5:

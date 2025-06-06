@@ -38,6 +38,8 @@ parameters:
         pool: nightly-bjw
       bjw2:
         pool: nightly-bjw
+      bjw3:
+        pool: nightly-bjw
 
 variables:
   # disable the auto-injection by setting build variable skipComponentGovernanceDetection: true

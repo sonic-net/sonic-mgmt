@@ -96,7 +96,7 @@ class Nightly_hawk_branch_verify(object):
 
 
     def _parse_dut_inventory(self, dut_to_tb):
-        for inv_filename in ('str', 'str2', 'str3', 'strsvc', 'strsvc2', 'bjw', 'bjw2'):
+        for inv_filename in ('str', 'str2', 'str3', 'strsvc', 'strsvc2', 'bjw', 'bjw2', 'bjw3'):
             with open(os.path.join(SONIC_MGMT_DIR, 'ansible/{}'.format(inv_filename)), "r") as inv:
                 yml = yaml.load(inv, Loader=SafeLoader)
                 for section in yml.values():
@@ -155,7 +155,7 @@ class Nightly_hawk_branch_verify(object):
                         if data_list[i]["state"] != "completed":
                             logger.info("testbed {} is not availabe due to pipeline id {} ".format(testbed, value['pipeline_id']))
                             return False
-                        
+
         logger.info("testbed {} is available".format(testbed))
         return True
 
@@ -180,7 +180,7 @@ class Nightly_hawk_branch_verify(object):
                     if self.check_testbed_is_available(self.pipeline_parser_analyzer_dict[testbed]):
                         logger.info("pipeline_dict {}".format(self.pipeline_parser_analyzer_dict[testbed]))
                         self.testbeds[testbed] = {}
-                        break            
+                        break
 
         logger.info("testbeds {}".format(self.testbeds))
 
@@ -198,14 +198,14 @@ class Nightly_hawk_branch_verify(object):
             for _, pipeline in pipeline_info.items():
                 self.testbeds[testbed]['pipeline_id'] = pipeline['pipeline_id']
                 self.testbeds[testbed]['image_url'] = pipeline['image_url']
-                self.testbeds[testbed]['yml'] = os.path.basename(pipeline['path']) 
+                self.testbeds[testbed]['yml'] = os.path.basename(pipeline['path'])
 
                 yml = os.path.join(SONIC_MGMT_DIR, pipeline['path'])
                 yml_dict = self.nightly_pipeline_check.parser_nightly_pipeline_yml_File(yml)
                 testbed_specific = yml_dict.get('TESTBED_SPECIFIC', None)
                 nightly_test_timeout = yml_dict.get('NIGHTLY_TEST_TIMEOUT', None)
                 skip_test_results_uploading = yml_dict.get('SKIP_TEST_RESULTS_UPLOADING', None)
-   
+
                 if testbed_specific == None and 'TESTBED_SPECIFIC' in self.testbeds[testbed]:
                     logger.info("pipeline has no TESTBED_SPECIFIC item, remove {}".format(self.testbeds[testbed]['TESTBED_SPECIFIC']))
                     del self.testbeds[testbed]['TESTBED_SPECIFIC']
@@ -232,13 +232,13 @@ class Nightly_hawk_branch_verify(object):
         logger.debug("update_test_image input {} default image {}".format(self.image, self.testbeds[testbed]['image_url']))
 
         if 'BJW' in self.testbeds[testbed]['image_url']:
-            IP_Address = '10.150.22.222'    
+            IP_Address = '10.150.22.222'
         else:
             IP_Address = '10.201.148.43'
 
         vendor = curr_convert_to_trusty_images_dict[self.testbeds[testbed]['image_url']]['vendor']
         image_name = curr_convert_to_trusty_images_dict[self.testbeds[testbed]['image_url']]['image']
-   
+
         name, ext = image_name.rsplit('.', 1)
         new_name = '{}-{}'.format(name, self.image)
         new_image_name = '{}.{}'.format(new_name, ext)
@@ -283,11 +283,11 @@ class Nightly_hawk_branch_verify(object):
         return payload
 
     def trigger_testbeds_pipeline_build(self):
-        logger.debug("trigger_testbeds_pipeline_build")    
+        logger.debug("trigger_testbeds_pipeline_build")
 
         self.curr_building_testbed_list = list(self.testbeds.keys())
         if (len(self.curr_building_testbed_list) == 0) :
-            logger.info("curr_building_testbed_list is empty ") 
+            logger.info("curr_building_testbed_list is empty ")
             return
 
         logger.debug("curr_building_testbed_list {}".format(self.curr_building_testbed_list))
@@ -307,24 +307,24 @@ class Nightly_hawk_branch_verify(object):
 
 
     def wait_testbeds_pipeline_build_done(self, sleep_time, build_timeout):
-        logger.debug("wait_testbeds_pipeline_build_done")    
+        logger.debug("wait_testbeds_pipeline_build_done")
 
         if (len(self.curr_building_testbed_list) == 0) :
-            logger.info("curr_building_testbed_list is empty, no need to waiting ") 
+            logger.info("curr_building_testbed_list is empty, no need to waiting ")
             return
 
         start_time = time.time()
 
         while True:
             time_check = time.time()
-            logger.debug("start_time {} time_check {} ".format(start_time, time_check)) 
+            logger.debug("start_time {} time_check {} ".format(start_time, time_check))
 
             if (time_check - start_time) > build_timeout :
                 logger.info("build timeout: start time {} current time {} remain testbeds {} ".format(start_time, time_check, self.curr_building_testbed_list))
                 break
 
             if (len(self.curr_building_testbed_list) == 0) :
-                logger.info("current build_testbeds_list is empty, break waiting pipeline ") 
+                logger.info("current build_testbeds_list is empty, break waiting pipeline ")
                 break
 
             for testbed in self.curr_building_testbed_list[:]:
@@ -336,7 +336,7 @@ class Nightly_hawk_branch_verify(object):
 
             if len(self.curr_building_testbed_list) > 0:
                 time.sleep(sleep_time)
-                    
+
         if len(self.curr_building_testbed_list) != 0:
             logger.error("!!!! ERROR !!!!! curr_building_testbed_list should be emply; {} ".format(self.curr_building_testbed_list))
 
@@ -344,7 +344,7 @@ class Nightly_hawk_branch_verify(object):
 
 
     def parser_input_testbed_name(self, testbedNames):
-        logger.debug("parser_input_testbed_name")    
+        logger.debug("parser_input_testbed_name")
 
         if testbedNames and (testbedNames.isspace() == False):
             testbedName_list = testbedNames.split(",")
@@ -524,7 +524,7 @@ class Nightly_hawk_branch_verify(object):
         base_url = ['http:/']
         base_url.append('10.150.22.222') if require_bjw_lab else base_url.append('10.201.148.43')
         if require_public_image:
-            base_url.append('mssonic-public-pipelines/Azure.sonic-buildimage.official.{}'.format(package_pattern['image_vendor'])) 
+            base_url.append('mssonic-public-pipelines/Azure.sonic-buildimage.official.{}'.format(package_pattern['image_vendor']))
         else:
             base_url.append('pipelines/Networking-acs-buildimage-Official/{}'.format(package_pattern['image_vendor']))
         base_url.append(image_base_branch) if require_formal_image else base_url.append(private_image_folder)
@@ -597,11 +597,11 @@ class Nightly_hawk_branch_verify(object):
         return payload
 
     def trigger_case_verify_pipeline_build(self):
-        logger.debug("trigger_case_verify_pipeline_build")    
+        logger.debug("trigger_case_verify_pipeline_build")
 
         self.curr_building_testbed_list = list(self.testbeds.keys())
         if (len(self.curr_building_testbed_list) == 0) :
-            logger.info("curr_building_testbed_list is empty ") 
+            logger.info("curr_building_testbed_list is empty ")
             return
 
         logger.debug("curr_building_testbed_list {}".format(self.curr_building_testbed_list))
@@ -722,7 +722,7 @@ if __name__ == '__main__':
     if args.pipelinetimeout and (args.pipelinetimeout.isspace() == False):
         pipelinetimeout = args.pipelinetimeout
     else:
-        pipelinetimeout = 1800        
+        pipelinetimeout = 1800
 
     testbrief = args.testbrief if args.testbrief else 'Test-Brief'
 
@@ -730,7 +730,7 @@ if __name__ == '__main__':
 
     if args.verifytype == 'branch_verify':
         logger.error(" !!! ERROR: branch_verify not support anymore after pipeline migrated to Elastic! ")
-        
+
         '''
         branch_verify.pipeline_parser_analyzer_dict = branch_verify.nightly_pipeline_check.collect_nightly_build_pipelines('nightly')
 
@@ -767,7 +767,7 @@ if __name__ == '__main__':
 
 
         logger.info("Collected testbeds {}".format(branch_verify.testbeds))
-        
+
         # collect testbeds pipeline information
         branch_verify.collect_testbeds_information()
 
