@@ -769,7 +769,7 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
 
 
 @pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
-def cacl_protocol(request):       # noqa F811
+def cacl_protocol(request):       # noqa: F811
     """
     Return the protocol to be tested
     """
