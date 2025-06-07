@@ -476,6 +476,8 @@ l1_switch:
       ansible_host: 10.64.247.250
     STR-W2W-SONIC-03-B:
       ansible_host: 10.64.247.251
+    str-ocs-dlx64-acs-01:
+      ansible_host: 10.64.246.178
     str-ocs-dlx64-acs-10:
       ansible_host: 10.64.246.185
     str-ocs-dlx64-acs-11:
