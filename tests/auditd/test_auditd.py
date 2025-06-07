@@ -33,9 +33,9 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     verify_container_running(duthost, container_name)
     hwsku = duthost.facts["hwsku"]
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "962d3c0fbe9bb48883bac2acb909916acec75cd4"
+        rule_checksum = "fffb00199104c493d04a621b257c579c48d77225"
     else:
-        rule_checksum = "865f73660f30d1d600bf6767fc8337df05af0b2c"
+        rule_checksum = "3042c67383dccff079755c5f3daa2820e2ca392a"
 
     cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
     output = duthost.command(cmd)["stdout"]
