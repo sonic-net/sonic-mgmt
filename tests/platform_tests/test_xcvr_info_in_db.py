@@ -7,7 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import pytest
 from tests.common.platform.transceiver_utils import check_transceiver_status
-from tests.common.platform.interface_utils import get_port_map
+from tests.common.platform.interface_utils import get_port_map, get_first_port_in_split
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 
 pytestmark = [
@@ -33,6 +33,13 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                           if k in conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})}
         logging.info("ASIC {} interface_list {}".format(
             enum_frontend_asic_index, all_interfaces))
-
+    first_port_in_split = get_first_port_in_split(duthost)
+    first_port_in_split = [port for port in first_port_in_split if port in all_interfaces.keys()]
     check_transceiver_status(
-        duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list, port_list_with_flat_memory)
+        duthost,
+        enum_frontend_asic_index,
+        all_interfaces,
+        first_port_in_split,
+        xcvr_skip_list,
+        port_list_with_flat_memory
+        )
