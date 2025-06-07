@@ -283,11 +283,14 @@ def collect_results(args):
         log.debug(f"allure_link: {allure_link}")
         
         stats = report_data["statistic"]
-        if stats["passed"] == 0 or (stats["total"] - stats["skipped"]) == 0:
+        if stats["total"] == 0:
             result["report_link"] = None
             result["status"] = FAILURE_STATUS
         else:
-            percent = 100 * (stats["passed"] / float(stats["total"]-stats["skipped"]))
+            if (stats["total"] - stats["skipped"]) == 0:
+                percent = 0
+            else:
+                percent = 100 * (stats["passed"] / float(stats["total"]-stats["skipped"]))
             result = {
                 "passx" : 0,
                 "total" : stats["total"],

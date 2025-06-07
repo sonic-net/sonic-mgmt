@@ -1385,7 +1385,11 @@
         "t1-m6-23-superbolt": "None",
         "b2b-m5-14-superbolt": "None",
         "t0-m6-1-m64": "None",
-        "t0-m6-33-laguna": "None",
+        "t0-m6-33-laguna": [
+            "cisco.202405c.2.tortuga.laguna.no-agents",
+            "cisco.202405c.2.tortuga.laguna",
+            "cisco.202405c.2.tortuga.laguna.hwqual"
+        ],
         "aaa14-t2": "None"
     },
     "testbeds": {
@@ -1423,7 +1427,7 @@
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
         "t0-m6-33-laguna": "ucs_m6_33",
-        "t0-m6-1-m64": "ucs_m4_2",
+        "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10"
     },
     "file_server_dict" : {
