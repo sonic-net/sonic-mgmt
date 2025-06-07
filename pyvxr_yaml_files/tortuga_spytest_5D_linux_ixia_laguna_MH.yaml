@@ -1,0 +1,89 @@
+simulation:
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+
+devices:
+  SD1: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
+    linecard_types: ['HF6100-64ED']
+    port_breakout:
+       lc0:
+          0..63: 1x800
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /auto/vxr1/sonic-images/jayakj/202405/nightly/25943/sonic-cisco-8000.bin
+    vxr_sim_config:
+      shelf:
+        # the below config prevet packet reaching nsim before the full initialization. We observer dsim crash when the packets are sent before the full initialization.
+        # the below config can be removed when dsim issue is fixed
+        ConfigS1EgressSeen: 'true'
+        ConfigS1DelayAfterEgressSeen: '60'
+    os_type: sonic
+    memory: 20GB
+    vcpu: 10
+    platform: spitfire_f
+    data_ports:
+      - Ethernet1_[1..64]
+    xr_port_redir:
+    - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD4:
+      <<: *sonic_router
+
+  SD5:
+      <<: *sonic_router
+
+  ixia:
+     platform: ixia-web
+     ixia_images:
+       windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_9.20.2206.28.qcow2
+       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
+       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
+     data_ports:
+       - data[0..7]
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 2
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0_0:
+      - SD1.Ethernet1_[1..2]
+      - SD2.Ethernet1_[1..2]
+    hub1_0:
+      - SD1.Ethernet1_[3..4]
+      - SD3.Ethernet1_[3..4]
+    hub2_0:
+      - SD1.Ethernet1_[5..6]
+      - SD4.Ethernet1_[5..6]
+    hub3_0:
+      - SD2.Ethernet1_[7..10]
+      - ixia.data[0..3]
+    hub4_0:
+      - SD3.Ethernet1_[7..8]
+      - ixia.data[4..5]
+    hub5_0:
+      - SD4.Ethernet1_[7..8]
+      - ixia.data[6..7]
