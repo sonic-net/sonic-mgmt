@@ -107,3 +107,4 @@ def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=-1, dela
     def _wrapped_f():
         return f(*(fargs or []), **(fkwargs or {}))
     return __retry_internal(_wrapped_f, exceptions, tries, delay, logger)
+    
