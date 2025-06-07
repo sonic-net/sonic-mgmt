@@ -7,6 +7,7 @@ import apis.switching.portchannel as portchannel_obj
 import apis.switching.vlan as vlan_obj
 import apis.system.interface as intf_obj
 import tortuga_common_utils as common_obj
+from spytest.utils import poll_wait
 
 #SIM File : tortuga_spytest_5D_linux_stc.yaml
 
@@ -15,6 +16,26 @@ data_glob = SpyTestDict()
 data_glob.portchannel_name = "PortChannel01"
 data_glob.vlan = ['10','20']
 data_glob.pre_config = False   #This var allows yaml pre configs
+
+data_vid_10 = SpyTestDict()
+data_vid_20 = SpyTestDict()
+
+@pytest.fixture(scope="module", autouse=True)
+def initial_setup():
+    vars = st.get_testbed_vars()
+    ### Check dut is HW or SIM ###
+    dut_type = common_obj.check_hw_or_sim(st.get_dut_names()[0])
+
+    if  dut_type == "sim":
+        data_vid_10.pkts_per_burst = '100'
+        data_vid_10.tgen_rate_pps = '50'
+        data_vid_20.pkts_per_burst = '100'
+        data_vid_20.tgen_rate_pps = '50'
+    else:
+        data_vid_10.pkts_per_burst = '500'
+        data_vid_10.tgen_rate_pps = '500'
+        data_vid_20.pkts_per_burst = '500'
+        data_vid_20.tgen_rate_pps = '500'
 
 @pytest.fixture(scope='function', autouse=True)
 def bvi_func_hooks(request):
@@ -37,7 +58,6 @@ def function_unconfig():
                 portchannel_obj.delete_portchannel(dut, data_glob.portchannel_name)
 
 ##Vlan id 10 stream config
-data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
 data_vid_10.t1d3_ip_gateway = "100.0.1.2"
 data_vid_10.t1d4_ip_gateway = "100.0.1.1"
@@ -48,16 +68,13 @@ data_vid_10.t1d3_mac_addr = "00:0a:01:00:11:01"
 data_vid_10.t1d4_ip_addr = "100.0.1.2"
 data_vid_10.t1d4_mac_addr = "00:0a:01:00:12:01"
 
-data_vid_10.pkts_per_burst = '500'
 data_vid_10.transmit_mode = 'continuous'
 data_vid_10.tgen_stats_threshold = 50
-data_vid_10.tgen_rate_pps = '500'
 data_vid_10.tgen_l3_len = '500'
 data_vid_10.traffic_run_time = 5
 ##L2 stream config
 
 ##Vlan id 20 stream config
-data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
 data_vid_20.t1d3_ip_gateway = "100.0.2.2"
 data_vid_20.t1d4_ip_gateway = "100.0.2.1"
@@ -68,10 +85,8 @@ data_vid_20.t1d3_mac_addr = "00:0a:01:00:13:01"
 data_vid_20.t1d4_ip_addr = "100.0.2.2"
 data_vid_20.t1d4_mac_addr = "00:0a:01:00:14:01"
 
-data_vid_20.pkts_per_burst = '500'
 data_vid_20.transmit_mode = 'continuous'
 data_vid_20.tgen_stats_threshold = 50
-data_vid_20.tgen_rate_pps = '500'
 data_vid_20.tgen_l3_len = '500'
 data_vid_20.traffic_run_time = 5
 ##L2 stream config
@@ -324,6 +339,10 @@ def test_min_link_portchannel(setup_teardown_portchannel_l2_without_pc):
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, '', '', [data_glob.members_dut1[0], data_glob.members_dut1[1]], min_link = '2', add=True)
     common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, '', '', [data_glob.members_dut2[0], data_glob.members_dut2[1]], min_link = '2', add=True)
 
+    #Port channel status check
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="up"):
+        st.report_fail("PortChannel in Down state")
+
     #Add PortChannel to Vlan 10 and 20 on both Spine0 and Leaf0
     for vlan in data_glob.vlan:
         vlan_obj.add_vlan_member(data_glob.spine0, vlan, [data_glob.portchannel_name], tagging_mode=True)
@@ -344,7 +363,7 @@ def test_min_link_portchannel(setup_teardown_portchannel_l2_without_pc):
     intf_obj.interface_shutdown(data_glob.leaf0, [data_glob.members_dut2[0]])
     
     #Port channel status check
-    if not portchannel_obj.verify_portchannel_state(data_glob.spine0, data_glob.portchannel_name, state="down"):
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="down"):
         st.report_fail('msg', "PortChannel in Up state after member shutdown")
 
     #Verify traffic
@@ -361,7 +380,7 @@ def test_min_link_portchannel(setup_teardown_portchannel_l2_without_pc):
     st.wait(5)
     
     #Port channel status check
-    if not portchannel_obj.verify_portchannel_state(data_glob.spine0, data_glob.portchannel_name, state="up"):
+    if not poll_wait(portchannel_obj.verify_portchannel_state, 30, data_glob.spine0, data_glob.portchannel_name, state="up"):
         st.report_fail('msg', "PortChannel in Down state after member unshut")
 
     #Verify traffic
