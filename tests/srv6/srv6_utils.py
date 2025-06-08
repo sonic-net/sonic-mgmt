@@ -418,3 +418,17 @@ def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
 def get_neighbor_mac(dut, neighbor_ip):
     """Get the MAC address of the neighbor via the ip neighbor table"""
     return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
+
+
+def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
+    """
+    Verify that ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries exist in the ASIC DB.
+    Args:
+        duthost: The DUT host object
+        sonic_db_cli: The sonic-db-cli command with namespace options
+    Returns:
+        bool: True if entries exist, False otherwise
+    """
+    asic_db_my_sids = duthost.command(sonic_db_cli +
+                                      " ASIC_DB keys *ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
+    return len(asic_db_my_sids.strip()) > 0
