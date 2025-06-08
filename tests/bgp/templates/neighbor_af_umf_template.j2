@@ -1,0 +1,16 @@
+{
+    "{{ db_table_name }}": {
+        "{{ vrf_name }}|{{ peer_addr }}|{{ afi_safi }}": {
+            "admin_status": "up",
+            "afi_safi": "{{ afi_safi }}",
+            "neighbor": "{{ peer_addr }}",
+            {% if route_map_in is defined and route_map_in %}
+            "route_map_in": {{ route_map_in|tojson }},
+            {% endif %}
+            {% if route_map_out is defined and route_map_out %}
+            "route_map_out": {{ route_map_out|tojson }},
+            {% endif %}
+            "vrf_name": "{{ vrf_name }}"
+        }
+    }
+}
