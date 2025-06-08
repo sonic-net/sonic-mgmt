@@ -829,8 +829,9 @@ class TestConfigInterface():
             line = show_intf_status['stdout'].strip()
             if regex_int.match(line) and interface == regex_int.match(line).group(1):
                 admin_state = regex_int.match(line).group(7)
+                oper_state = regex_int.match(line).group(6)
 
-            return admin_state == expected_state
+            return admin_state == expected_state and oper_state == expected_state
 
         def _lldp_exists(expected=True):
             show_lldp_neighbor = dutHostGuest.shell(
@@ -853,7 +854,7 @@ class TestConfigInterface():
         if out['rc'] != 0:
             pytest.fail()
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
-                      "Interface {} should be admin up".format(test_intf))
+                      "Interface {} should be admin and oper up".format(test_intf))
 
         # Make sure LLDP neighbor is repopulated
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
