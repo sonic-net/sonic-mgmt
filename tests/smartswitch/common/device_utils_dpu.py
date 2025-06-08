@@ -138,6 +138,33 @@ def check_dpu_ping_status(duthost, ip_address_list):
     return ping_count == len(ip_address_list)
 
 
+def check_dpus_are_not_pingable(duthost, ip_address_list):
+    """
+    Executes ping to all DPUs
+    Args:
+        duthost : Host handle
+        ip_address_list (list): List of all DPU ip addresses
+    Returns:
+        Raise an error if any DPU ping is still working
+    """
+    def _check_dpus_are_not_pingable(duthost, ip_address_list):
+        ping_count = 0
+        for ip_address in ip_address_list:
+            output_ping = duthost.command("ping -c 3 %s" % (ip_address), module_ignore_errors=True)
+            logging.info("Ping output: '{}'".format(output_ping))
+            if "100% packet loss" in output_ping["stdout"]:
+                logging.info("Ping is not working for '{}'".format(ip_address))
+                ping_count += 1
+            else:
+                logging.error("Ping still work for '{}'".format(ip_address))
+        logging.info("Ping count: '{}'".format(ping_count))
+        return ping_count == len(ip_address_list)
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, 0, 0,
+                  _check_dpus_are_not_pingable,
+                  duthost, ip_address_list),
+                  "Not all DPUs are not pingable")
+
+
 def check_dpu_module_status(duthost, power_status, dpu_name):
     """
     Check status of given DPU module against given option ON/OFF
@@ -427,8 +454,10 @@ def post_test_switch_check(duthost, localhost,
     wait_critical_processes(duthost)
 
     logging.info("Checking DPU link status and connectivity")
-    check_dpu_link_and_status(duthost, dpu_on_list,
-                              dpu_off_list, ip_address_list)
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
+                  check_dpu_ping_status,
+                  duthost, ip_address_list),
+                  "Not all DPUs are pingable")
 
     return
 
