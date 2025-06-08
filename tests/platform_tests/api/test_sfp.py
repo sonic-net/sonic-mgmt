@@ -14,7 +14,7 @@ from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESE
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device

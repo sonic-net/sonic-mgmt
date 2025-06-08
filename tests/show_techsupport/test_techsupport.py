@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -75,6 +75,7 @@ def setup_acl_rules(duthost, acl_setup):
     }
     logger.info('Extra variables for ACL table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
 
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE), dest=dut_conf_file_path)
 
@@ -153,6 +154,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
         with loganalyzer:
             setup_acl_rules(duthost, acl_setup)
+            wait_until(300, 20, 0, check_msg_in_syslog, duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
     except LogAnalyzerError as err:
         # cleanup config DB in case of log analysis error
         teardown_acl(duthost, acl_setup)
@@ -212,7 +214,7 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
-    elif asic_type in ["cisco-8000"]:
+    elif asic_type in ["cisco-8000", "marvell-teralynx"]:
         SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
@@ -410,6 +412,7 @@ def validate_dump_file_content(duthost, dump_folder_path):
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
                                      "Test expects not less than 50 files. Available files: {}".format(etc)
     assert len(log), "Folder 'log' in dump archive is empty. Expected not empty folder"
+    assert "interface.xcvrs.eeprom.raw" in dump, "EEPROM hexdump no exist in the dump"
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):

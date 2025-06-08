@@ -2,7 +2,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
 
 import logging
 
@@ -72,7 +72,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
-def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
@@ -81,7 +81,8 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'test', 'remote_user')
 
 
-def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds,
+                                 check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -160,7 +161,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
 
 
 def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           tacacs_creds, check_tacacs):
+                                           tacacs_creds, check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -184,7 +185,8 @@ def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_pe
             logger.info('"{}" not found on DUT, skipping...'.format(command))
 
 
-def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds,
+                                check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 

@@ -224,10 +224,7 @@ class TestContLinkFlap(object):
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-        pytest_assert(wait_until(120, 5, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(900, 20, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
-
-        # Add a 60s sleep to make sure it can pass the route check in temporarily_disable_route_check fixture
-        time.sleep(60)

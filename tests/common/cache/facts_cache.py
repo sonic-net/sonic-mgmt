@@ -4,11 +4,13 @@ import inspect
 import logging
 import os
 import pickle
+import random
 import shutil
 import sys
 import time
 
 from collections import defaultdict
+from pickle import UnpicklingError
 from threading import Lock
 from six import with_metaclass
 
@@ -94,26 +96,32 @@ class FactsCache(with_metaclass(Singleton, object)):
             try:
                 return self._read_facts_file(facts_file, zone, key)
             except (IOError, ValueError) as e:
-                logger.info('[Cache] Load cache file "{}" failed with exception: {}'
+                logger.info('[Cache] Load cache file "{}" failed with IOError or ValueError: {}'
                             .format(os.path.abspath(facts_file), repr(e)))
                 return self.NOTEXIST
-            except EOFError as eof_err:
+            except (EOFError, UnpicklingError) as e:
                 # When parallel run is enabled, multiple processes may try to read/write the same cache file,
-                # so there will be a chance that the file is being written by process 1 while process 2 is reading
-                # it, which will cause EOFError in process 2. In this case, we will retry reading the file in
-                # process 2. If we still get EOFError after retrying, we will return NOTEXIST to overwrite the file.
+                # so there will be a chance that
+                #   - a file is being written by process1 while process2 is reading it, causing EOFError in process2
+                #   - a file is being read by multiple processes at the same time, causing UnpicklingError in some of
+                #     the processes
+                # In these cases, we will retry to read the file after a short random sleep. If we still get the same
+                # error after retrying, we will return NOTEXIST to overwrite the file.
                 retry_attempts = 3
-                retry_interval = 5
                 for attempt in range(retry_attempts):
-                    time.sleep(retry_interval)
+                    time.sleep(random.randint(3, 6))
                     try:
                         return self._read_facts_file(facts_file, zone, key)
-                    except EOFError:
+                    except (EOFError, UnpicklingError):
                         logger.warning('[Cache] Retry {}/{} failed for file "{}"'
                                        .format(attempt + 1, retry_attempts, facts_file))
 
-                logger.error('[Cache] Load cache file "{}" failed with exception: {}'
-                             .format(facts_file, repr(eof_err)))
+                logger.error('[Cache] Load cache file "{}" failed with EOFError or UnpicklingError: {}'
+                             .format(facts_file, repr(e)))
+                return self.NOTEXIST
+            except Exception as e:
+                logger.info('[Cache] Load cache file "{}" failed with unknown exception: {}'
+                            .format(os.path.abspath(facts_file), repr(e)))
                 return self.NOTEXIST
 
     def write(self, zone, key, value):
@@ -194,17 +202,15 @@ def _get_default_zone(function, func_args, func_kargs):
         Add the namespace to the default zone.
     """
     hostname = None
-    unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
+    unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa: F821
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
     if not hostname or type(hostname) not in [str, unicode_type]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
     zone = hostname
-    if sys.version_info.major > 2:
-        arg_names = inspect.getfullargspec(function)[0]
-    else:
-        arg_names = inspect.getargspec(function)[0]
+    signature = inspect.signature(function)
+    arg_names = list(signature.parameters.keys())
     if 'namespace' in arg_names:
         try:
             index = arg_names.index('namespace')
