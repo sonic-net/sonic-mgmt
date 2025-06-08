@@ -11,11 +11,12 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
-    traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio
+    traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
+    get_pfcwd_stats
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
-from tests.common.snappi_tests.snappi_fixtures import static_routes_cisco_8000
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
 
@@ -166,7 +167,7 @@ def generate_test_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = static_routes_cisco_8000(base_flow_config["rx_port_config"].ip)
+        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
@@ -252,7 +253,7 @@ def generate_background_flows(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = static_routes_cisco_8000(base_flow_config["rx_port_config"].ip)
+        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         ipv4.priority.dscp.ecn.value = (
@@ -379,6 +380,28 @@ def clear_dut_pfc_counters(duthost):
         duthost (obj): DUT host object
     """
     duthost.command("sonic-clear pfccounters \n")
+    duthost.command("sudo sonic-clear pfccounters \n")
+
+
+def clear_pfc_counter_after_storm(dut, port, pri):
+    """
+    Clear PFC counter after PFC storm
+    Args:
+        dut (obj): DUT host object
+        port (str): Port to check PFC storm
+        pri (int): Priority to check PFC storm
+    Returns:
+        bool: True if PFC storm is detected, False otherwise
+    """
+    stats = get_pfcwd_stats(dut, port, pri)
+    if stats['STATUS'] == 'stormed':
+        logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
+        # Adding sleep() for the pfc counter to refresh
+        time.sleep(1)
+        logger.info("Clearing PFC counter after PFC storm")
+        clear_dut_pfc_counters(dut)
+        return True
+    return False
 
 
 def run_traffic(duthost,
@@ -950,7 +973,8 @@ def run_traffic_and_collect_stats(rx_duthost,
                                   fname,
                                   stats_interval,
                                   imix,
-                                  snappi_extra_params):
+                                  snappi_extra_params,
+                                  enable_pfcwd_drop=None):
 
     """
     Run traffic and return per-flow statistics, and capture packets if needed.
@@ -1025,6 +1049,22 @@ def run_traffic_and_collect_stats(rx_duthost,
     cs = api.control_state()
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
     api.set_control_state(cs)
+
+    stormed = False
+    if tx_duthost.facts["platform_asic"] == 'cisco-8000' and enable_pfcwd_drop:
+        retry = 3
+        while retry > 0 and not stormed:
+            for dut, port in dutport_list:
+                for pri in switch_tx_lossless_prios:
+                    if dut == tx_duthost:
+                        stormed = clear_pfc_counter_after_storm(dut, port, pri)
+                        if stormed:
+                            logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
+                            break
+            retry = retry - 1
+            if retry and not stormed:
+                time.sleep(2)
+        pytest_assert(stormed, "PFC storm not detected")
 
     time.sleep(5)
     iter_count = round((int(exp_dur_sec) - stats_interval)/stats_interval)
