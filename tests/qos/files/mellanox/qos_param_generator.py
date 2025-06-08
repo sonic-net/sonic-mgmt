@@ -29,6 +29,11 @@ class QosParamMellanox(object):
                 'cell_size': 192,
                 'headroom_overhead': 47,
                 'private_headroom': 30
+            },
+            'spc5': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
+                'private_headroom': 30
             }
         }
         self.asic_type = asic_type
@@ -86,7 +91,7 @@ class QosParamMellanox(object):
             headroom = xon + xoff
             ingress_lossless_size = int(
                 math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 pg_q_alpha = self.ingressLosslessProfile['pg_q_alpha']
                 port_alpha = self.ingressLosslessProfile['port_alpha']
                 pool_size = int(math.ceil(float(self.ingressLosslessProfile['pool_size']) / self.cell_size))
@@ -122,7 +127,7 @@ class QosParamMellanox(object):
             self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
             occupied_buffer = 0
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 for i in range(1, ingress_ports_num_shp):
                     for j in range(pgs_per_port):
                         pg_occupancy = int(math.ceil(
