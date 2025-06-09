@@ -208,13 +208,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def compare_strings_ignore_whitespace(s1, s2):
-    # Remove all whitespace characters using regex
-    s1_clean = re.sub(r'\s+', '', s1)
-    s2_clean = re.sub(r'\s+', '', s2)
-    return s1_clean == s2_clean
-
-
 def get_k8s_runningconfig(duthost):
     """ Get k8s config from running config
     Sample output: K8SEMPTYCONFIG, K8SHALFCONFIG, K8SFULLCONFIG
@@ -284,11 +277,8 @@ def k8s_config_update(duthost, test_data):
                 expect_op_failure(output)
 
             k8s_config = get_k8s_runningconfig(duthost)
-            consistent = True
-            for i in range(len(k8s_config)):
-                consistent = consistent and compare_strings_ignore_whitespace(k8s_config[i], target_config[i])
             pytest_assert(
-                consistent,
+                k8s_config == target_config,
                 f"Failed to run num.{num+1} test case to update k8s config."
             )
 
