@@ -4,7 +4,6 @@ import os
 import os.path
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401

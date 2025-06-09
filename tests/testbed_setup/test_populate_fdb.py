@@ -1,6 +1,5 @@
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')

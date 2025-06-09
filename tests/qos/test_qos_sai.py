@@ -30,7 +30,6 @@ from tabulate import tabulate
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps, \
     separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401

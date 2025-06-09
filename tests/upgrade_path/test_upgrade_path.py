@@ -9,7 +9,6 @@ from tests.common.fixtures.consistency_checker.consistency_checker import consis
 from tests.common.platform.device_utils import verify_dut_health, verify_testbed_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401

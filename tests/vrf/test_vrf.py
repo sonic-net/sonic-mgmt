@@ -1551,14 +1551,14 @@ class TestVrfUnbindIntf():
             "ip addr show {}".format(PORTCHANNEL_TEMP_1))['stdout']
         for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].items()):
             for ip in ips:
-                assert str(ip) not in ip_addr_show,\
+                assert str(ip) not in ip_addr_show, \
                     "The ip addresses on {} should be flushed after unbind from vrf.".format(PORTCHANNEL_TEMP_1)
 
     def test_pc1_neigh_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         # verify ipv4
         show_arp = duthost.shell("show arp")['stdout']
-        assert PORTCHANNEL_TEMP_1 not in show_arp,\
+        assert PORTCHANNEL_TEMP_1 not in show_arp, \
             "The arps on {} should be flushed after unbind from vrf.".format(PORTCHANNEL_TEMP_1)
 
         # FIXME
@@ -1702,13 +1702,13 @@ class TestVrfDeletion():
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
-        assert PORTCHANNEL_TEMP_1 not in show_interfaces,\
+        assert PORTCHANNEL_TEMP_1 not in show_interfaces, \
             "The ip addr of {} should be flushed after Vrf1 is deleted.".format(PORTCHANNEL_TEMP_1)
 
     def test_pc2_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
-        assert PORTCHANNEL_TEMP_2 not in show_interfaces,\
+        assert PORTCHANNEL_TEMP_2 not in show_interfaces, \
             "The ip addr of {} should be flushed after Vrf1 is deleted.".format(PORTCHANNEL_TEMP_2)
 
     def test_vlan1000_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):

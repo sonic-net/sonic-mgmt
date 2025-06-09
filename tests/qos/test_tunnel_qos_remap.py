@@ -3,7 +3,6 @@ import pytest
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # noqa F401

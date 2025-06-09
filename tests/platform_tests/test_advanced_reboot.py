@@ -2,7 +2,6 @@ import pytest
 import logging
 import random
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa F401

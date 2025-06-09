@@ -12,7 +12,6 @@ from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, chec
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper, restore_image                    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),

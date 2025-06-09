@@ -5,7 +5,6 @@ from functools import reduce
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.vxlan.test_vxlan_ecmp import (   # noqa: F401
     Test_VxLAN,
