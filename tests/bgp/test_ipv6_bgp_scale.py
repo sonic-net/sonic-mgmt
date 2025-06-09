@@ -110,7 +110,8 @@ def announce_bgp_routes_teardown(localhost, tbinfo, ptfhosts):
     servers_dut_interfaces = {}
     # If servers in tbinfo, means tb was deployed with multi servers
     if 'servers' in tbinfo:
-        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces'] for value in tbinfo['servers'].values()}
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
     yield servers_dut_interfaces
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
