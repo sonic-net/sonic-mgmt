@@ -9,7 +9,7 @@ from scapy.layers.l2 import Ether
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
 from srv6_utils import runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
-    validate_srv6_in_appl_db, validate_techsupport_generation, get_neighbor_mac
+    validate_srv6_in_appl_db, validate_techsupport_generation, get_neighbor_mac, verify_asic_db_sid_entry_exist
 from tests.common.reboot import reboot
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import wait_until
@@ -128,7 +128,9 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
                         .format(neighbor_ip, dut_port))
     duthost.command("config save -y")
-    time.sleep(5)
+    # Verify that the ASIC DB has the SRv6 SID entries
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
 
     setup_info = {
         "asic_index": asic_index,
@@ -269,6 +271,9 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
     # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+    # Verify that the ASIC DB has the SRv6 SID entries
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
 
     # verify the forwarding works after config reload
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
@@ -295,6 +300,9 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
     # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+    # Verify that the ASIC DB has the SRv6 SID entries
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after BGP restart"
 
     # verify the forwarding works after BGP restart
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
@@ -317,6 +325,9 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+    # Verify that the ASIC DB has the SRv6 SID entries
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after reboot"
 
     # verify the forwarding works after reboot
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
@@ -330,6 +341,10 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
+    # Verify that the ASIC DB has the SRv6 SID entries
+    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB before blackhole test"
 
     # get the drop counter before traffic test
     if duthost.facts["asic_type"] == "broadcom":
