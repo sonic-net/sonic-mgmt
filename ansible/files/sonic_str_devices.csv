@@ -13,7 +13,6 @@ str-msn4700-fanout-01,10.3.146.204/24,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str-msn4700-02,10.64.247.80/23,Mellanox-SN4700-O32,DevSonic,,sonic
 str-msn4700-fanout-02,10.64.247.79/23,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str-7060-cx32-1,10.3.146.165/23,Arista-7060CX-32S-D48C8,DevSonic,,sonic
-str-7260-06,10.3.146.106/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-08,10.3.146.91/24,Arista-7260CX3,FanoutLeaf,,
 str-7260cx3-11,10.3.146.223/24,Arista-7260CX3-64,FanoutRoot,,
 str-7260-24,10.64.247.254/23,Arista-7260CX3,FanoutLeaf,,
