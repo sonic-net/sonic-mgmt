@@ -26,6 +26,12 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+SUPPORTED_DHCPV4_TYPE = [
+    "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
+]
+SUPPORTED_DIR = ["TX", "RX"]
+
+
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 SINGLE_TOR_MODE = 'single'
@@ -77,7 +83,7 @@ def query_dhcpcom_relay_counter_result(duthost, query_key):
 
 
 def query_and_sum_dhcpcom_relay_counters(duthost, vlan_name, interface_name_list):
-    """Format the counters output for the given VLAN and interface names."""
+    '''Query the DHCPv4 counters from the COUNTERS_DB and sum the counters for the given interface names.'''
     if interface_name_list is None or len(interface_name_list) == 0:
         # If no interface names are provided, return the counters for the VLAN interface only.
         return query_dhcpcom_relay_counter_result(duthost, vlan_name)
@@ -92,142 +98,24 @@ def query_and_sum_dhcpcom_relay_counters(duthost, vlan_name, interface_name_list
     return total_counters
 
 
-def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, send_ack=0, send_bootp=0, send_decline=0,
-                                         send_discover=0, send_inform=0, send_nak=0, send_offer=0,
-                                         send_release=0, send_request=0, send_unknown=0, receive_ack=0,
-                                         receive_bootp=0, receive_decline=0, receive_discover=0,
-                                         receive_inform=0, receive_nak=0, receive_offer=0,
-                                         receive_release=0, receive_request=0, receive_unknown=0):
-    """Compare the DHCP relay counter value with the expected values."""
-    pytest_assert(
-        dhcp_relay_counter['TX']['Ack'] == send_ack,
-        "DHCP relay TX Ack counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Ack'], send_ack
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Bootp'] == send_bootp,
-        "DHCP relay TX Bootp counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Bootp'], send_bootp
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Decline'] == send_decline,
-        "DHCP relay TX Decline counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Decline'], send_decline
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Discover'] == send_discover,
-        "DHCP relay TX Discover counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Discover'], send_discover
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Inform'] == send_inform,
-        "DHCP relay TX Inform counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Inform'], send_inform
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Nak'] == send_nak,
-        "DHCP relay TX Nak counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Nak'], send_nak
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Offer'] == send_offer,
-        "DHCP relay TX Offer counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Offer'], send_offer
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Release'] == send_release,
-        "DHCP relay TX Release counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Release'], send_release
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Request'] == send_request,
-        "DHCP relay TX Request counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Request'], send_request
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['TX']['Unknown'] == send_unknown,
-        "DHCP relay TX Unknown counter value is {}, expected {}".format(
-            dhcp_relay_counter['TX']['Unknown'], send_unknown
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Ack'] == receive_ack,
-        "DHCP relay RX Ack counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Ack'], receive_ack
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Bootp'] == receive_bootp,
-        "DHCP relay RX Bootp counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Bootp'], receive_bootp
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Decline'] == receive_decline,
-        "DHCP relay RX Decline counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Decline'], receive_decline
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Discover'] == receive_discover,
-        "DHCP relay RX Discover counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Discover'], receive_discover
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Inform'] == receive_inform,
-        "DHCP relay RX Inform counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Inform'], receive_inform
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Nak'] == receive_nak,
-        "DHCP relay RX Nak counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Nak'], receive_nak
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Offer'] == receive_offer,
-        "DHCP relay RX Offer counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Offer'], receive_offer
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Release'] == receive_release,
-        "DHCP relay RX Release counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Release'], receive_release
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Request'] == receive_request,
-        "DHCP relay RX Request counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Request'], receive_request
-        )
-    )
-    pytest_assert(
-        dhcp_relay_counter['RX']['Unknown'] == receive_unknown,
-        "DHCP relay RX Unknown counter value is {}, expected {}".format(
-            dhcp_relay_counter['RX']['Unknown'], receive_unknown
-        )
-    )
+def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter):
+    """Compare the DHCP relay counter value with the expected counter."""
+    for dir in SUPPORTED_DIR:
+        for dhcp_type in SUPPORTED_DHCPV4_TYPE:
+            expected_value = expected_counter.setdefault(dir, {}).get(dhcp_type, 0)
+            actual_value = dhcp_relay_counter.setdefault(dir, {}).get(dhcp_type, 0)
+            pytest_assert(actual_value == expected_value,
+                          "DHCP relay counter {} {} is {}, but expected {}".format(dir, dhcp_type,
+                                                                                   actual_value,
+                                                                                   expected_value))
 
 
-def validate_dhcpcom_relay_counters(dhcp_relay, duthost):
+def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter, expected_downlink_counter):
     """Validate the dhcpcom relay counters"""
     downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
     # it can be portchannel or interface, it depends on the topology
     uplink_portchannels_or_interfaces = dhcp_relay['uplink_interfaces']
     client_iface = dhcp_relay['client_iface']['name']
-    dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
     portchannels = dhcp_relay['portchannels']
 
     '''
@@ -240,6 +128,15 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost):
     for portchannel_name in uplink_portchannels_or_interfaces:
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
+            portchannel_counters = query_and_sum_dhcpcom_relay_counters(duthost,
+                                                                        downlink_vlan_iface,
+                                                                        [portchannel_name])
+            members_counters = query_and_sum_dhcpcom_relay_counters(duthost,
+                                                                    downlink_vlan_iface,
+                                                                    portchannels[portchannel_name]['members'])
+            pytest_assert(portchannel_counters == members_counters,
+                          "Portchannel {} counters {} are not equal to its members counters {}"
+                          .format(portchannel_name, portchannel_counters, members_counters))
         else:
             uplink_interfaces.append(portchannel_name)
 
@@ -249,15 +146,17 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost):
         duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces
     )
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
-
-    assert vlan_interface_counter == client_interface_counter
-    assert uplink_interface_counter == uplink_portchannels_interfaces_counter
+    pytest_assert(vlan_interface_counter == client_interface_counter,
+                  "VLAN interface {} counters {} are not equal to client interface {} counters {}"
+                  .format(downlink_vlan_iface, vlan_interface_counter, client_iface, client_interface_counter))
+    pytest_assert(uplink_interface_counter == uplink_portchannels_interfaces_counter,
+                  "Uplink interfaces {} counters {} are not equal to uplink portchannels or interfaces {} counters {}"
+                  .format(uplink_interfaces, uplink_interface_counter,
+                          uplink_portchannels_or_interfaces, uplink_portchannels_interfaces_counter))
     compare_dhcpcom_relay_counter_values(vlan_interface_counter,
-                                         send_ack=1, send_offer=1, receive_bootp=1,
-                                         receive_discover=1, receive_request=2)
+                                         expected_downlink_counter)
     compare_dhcpcom_relay_counter_values(uplink_interface_counter,
-                                         send_bootp=dhcp_server_sum, send_discover=dhcp_server_sum,
-                                         send_request=dhcp_server_sum * 2, receive_ack=1, receive_offer=1)
+                                         expected_uplink_counter)
 
 
 def init_dhcpcom_relay_counters(duthost):
@@ -475,9 +374,24 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
+                dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+                dhcy_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
-                validate_dhcpcom_relay_counters(dhcp_relay, duthost)
+                    dhcy_relay_request_times = 1
+
+                expected_downlink_counter = {
+                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
+                    "TX": {"Ack": 1, "Offer": 1}
+                }
+                expected_uplink_counter = {
+                    "RX": {"Ack": 1, "Offer": 1},
+                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                }
+                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
+                                                expected_uplink_counter,
+                                                expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
