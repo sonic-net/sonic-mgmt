@@ -1,5 +1,9 @@
 {
 	"testcases": [
+		"acms/test_acms_bootstrap.py",
+		"acms/test_acms_cert_converter.py",
+		"acms/test_acms_cert_downloader.py",
+		"acms/test_acms_start.py",
 		"auditd/test_auditd.py",
 		"bmp/test_bmp_configdb.py",
 		"bmp/test_bmp_redis_instance.py",
