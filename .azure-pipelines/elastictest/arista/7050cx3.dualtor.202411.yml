@@ -83,8 +83,9 @@ parameters:
     type: string
     default: '[
       {"name": "telemetry", "op": "ON", "value": ["vms24-dual-t0-7050-2"]},
-      {"name": "ip", "op": "ON", "value": ["vms24-dual-t0-7050-2"]},
-      {"name": "ntp", "op": "ON", "value": ["vms24-dual-t0-7050-2"]}
+      {"name": "ip", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]},
+      {"name": "ntp", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]},
+      {"name": "tacacs", "op": "ON", "value": ["vmsvc1-dual-t0-7050-2"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
