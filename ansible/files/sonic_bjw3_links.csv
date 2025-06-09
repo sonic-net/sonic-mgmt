@@ -1,0 +1,7 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
+bjw3-can-7260-root-1,Ethernet17/1,bjw3-can-serv-1,ens4f1,100000,,Trunk,off
+bjw3-can-7260-root-1,Ethernet18/1,bjw3-can-serv-2,ens4f1,100000,,Trunk,off
+bjw3-can-7260-root-1,Ethernet19/1,bjw3-can-serv-3,ens4f1,100000,,Trunk,off
+bjw3-can-7260-root-1,Ethernet20/1,bjw3-can-serv-4,ens4f1,100000,,Trunk,off
+bjw3-can-7260-root-1,Ethernet21/1,bjw3-can-serv-5,ens4f1,100000,,Trunk,off
+bjw3-can-7260-root-1,Ethernet45/1,bjw3-can-7260-leaf-25,Ethernet45/1,100000,,Trunk,off

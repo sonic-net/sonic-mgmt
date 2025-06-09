@@ -1,0 +1,71 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+    bjw3:
+      children:
+        sonic:
+        fanout:
+        server:
+        mgmt:
+    ptf:
+      vars:
+        ansible_user: root
+        ansible_password: root
+      hosts:
+        # Starting from 10.150.239.1
+        # Please order the followng ptf hosts by IP address
+    pdu:
+      hosts:
+
+fanout:
+  hosts:
+    bjw3-can-7260-root-1:
+      ansible_host: 10.150.238.8
+      ansible_hostv6: 2404:f801:10:16::a96:ee08
+    bjw3-can-7260-leaf-25:
+      ansible_host: 10.150.238.15
+      ansible_hostv6: 2404:f801:10:16::a96:ee0f
+
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+    mgmt_subnet_v6_mask_length: 64
+  children:
+
+
+server:
+  hosts:
+    bjw3-can-serv-1:
+      ansible_host: 10.150.238.16
+      ansible_hostv6: 2404:f801:10:16::a96:ee10
+    bjw3-can-serv-2:
+      ansible_host: 10.150.238.17
+      ansible_hostv6: 2404:f801:10:16::a96:ee11
+    bjw3-can-serv-3:
+      ansible_host: 10.150.238.18
+      ansible_hostv6: 2404:f801:10:16::a96:ee12
+    bjw3-can-serv-4:
+      ansible_host: 10.150.238.19
+      ansible_hostv6: 2404:f801:10:16::a96:ee13
+    bjw3-can-serv-5:
+      ansible_host: 10.150.238.20
+      ansible_hostv6: 2404:f801:10:16::a96:ee14
+
+
+mgmt:
+  hosts:
+    bjw3-can-720dt-mc0-3:
+      ansible_host: 10.150.238.10
+      ansible_hostv6: 2404:f801:10:16::a96:ee0a
+      os: sonic
+    bjw3-can-720dt-mc0-4:
+      ansible_host: 10.150.238.11
+      ansible_hostv6: 2404:f801:10:16::a96:ee0b
+      os: sonic
+    bjw3-can-720dt-mc0-5:
+      ansible_host: 10.150.238.12
+      ansible_hostv6: 2404:f801:10:16::a96:ee0c
+      os: sonic

@@ -1,0 +1,6 @@
+StartDevice,StartPort,BmcIp,EndDevice,EndPort
+bjw3-can-720dt-mc0-4,etp2,192.168.239.1/23,bjw3-can-serv-1,iDRAC
+bjw3-can-720dt-mc0-4,etp4,192.168.239.2/23,bjw3-can-serv-2,iDRAC
+bjw3-can-720dt-mc0-4,etp6,192.168.239.3/23,bjw3-can-serv-3,iDRAC
+bjw3-can-720dt-mc0-4,etp8,192.168.239.4/23,bjw3-can-serv-4,iDRAC
+bjw3-can-720dt-mc0-4,etp10,192.168.239.5/23,bjw3-can-serv-5,iDRAC
