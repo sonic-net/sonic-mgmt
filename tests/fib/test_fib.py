@@ -674,14 +674,14 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 def nvgre_ipver(request):
     return request.param
 def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                            # noqa F811
-                     hash_keys, ptfhost, nvgre_ipver, updated_tbinfo, mux_server_url,       # noqa F811
-                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,            # noqa F811
-                     duts_minigraph_facts, request,                                         # noqa F811
-                     setup_active_active_ports, active_active_ports,                        # noqa F811
-                     mux_status_from_nic_simulator):                                        # noqa F811
+                    hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,                # noqa F811
+                    ignore_ttl, single_fib_for_duts, duts_running_config_facts,             # noqa F811
+                    duts_minigraph_facts, request,                                          # noqa F811
+                    setup_active_active_ports, active_active_ports,                         # noqa F811
+                    mux_status_from_nic_simulator):                                         # noqa F811
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
-                                            updated_tbinfo, request)
+                                            tbinfo, request)
     # For NVGRE, default hash key is inner 5-tuple.
     # Due to current limitation, NVGRE hash keys are updated for different vendors.
     # Hash-key will be updated once we get the full support.
@@ -709,10 +709,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                platform_dir="ptftests",
                params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
                        "ptf_test_port_map": ptf_test_port_map_active_active(
-                           ptfhost, updated_tbinfo, duthosts, mux_server_url,
+                           ptfhost, tbinfo, duthosts, mux_server_url,
                            duts_running_config_facts, duts_minigraph_facts,
-                           mux_status_from_nic_simulator()
-                           ),
+                           mux_status_from_nic_simulator()),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),
@@ -720,8 +719,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": nvgre_ipver,
-                       "topo_name": updated_tbinfo['topo']['name'],
-                       "topo_type": updated_tbinfo['topo']['type']
+                       "topo_name": tbinfo['topo']['name'],
+                       "topo_type": tbinfo['topo']['type']
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
