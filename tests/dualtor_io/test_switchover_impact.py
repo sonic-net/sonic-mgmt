@@ -192,7 +192,7 @@ def test_tor_switchover_impact(request,                                         
 
         return results, failures
 
-    ## Test Start ##
+    """Test Start"""
 
     if not request.config.getoption('--enable_switchover_impact_test'):
         logging.info("Switchover impact test disabled. \
