@@ -205,14 +205,15 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload."
-    ).format()
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
 
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
         assert wait_until(300, 10, 0, check_docker_status, duthost), (
-            "Not all Docker containers reached the 'fully started' state within 300 seconds after config reload."
-        ).format()
+            "Not all Docker containers reached the 'fully started' state within 300 seconds "
+            "after config reload on '{}'."
+        ).format(duthost.hostname)
 
         # To ensure the system is stable enough, wait for another 30s
         time.sleep(30)
@@ -251,8 +252,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload."
-    ).format()
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
 
     # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
     wait_critical_processes(duthost)
@@ -295,5 +296,5 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload."
-    ).format()
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
