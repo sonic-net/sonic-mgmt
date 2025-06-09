@@ -23,5 +23,5 @@ def setup_acms(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "systemctl reset-failed %s; systemctl restart %s" % (container_name, container_name)
+    dut_command = "docker exec %s supervisorctl reload" % (container_name)
     duthost.shell(dut_command)

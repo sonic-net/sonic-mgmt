@@ -294,7 +294,6 @@ sonic:
     mgmt_subnet_mask_length: 23
     mgmt_subnet_v6_mask_length: 64
   children:
-    sonic_arista_40:
     sonic_mlnx_40:
     sonic_mlnx_100:
     sonic_arista64_100:
@@ -302,25 +301,6 @@ sonic:
     sonic_agc7648:
     sonic_mlnx_4700:
     sonic_arista_7060c6:
-
-sonic_arista_40:
-  hosts:
-    str-a7050-acs-1:
-      ansible_host: 10.3.147.241
-      ansible_hostv6: 2a01:111:e210:3000::a03:93f1
-      hwsku: Arista-7050-QX-32S
-      model: DCS-7050QX-32S
-      serial: SSJ16463516
-      base_mac: 28:99:3a:20:8e:48
-    str-a7050-acs-3:
-      ansible_host: 10.64.246.227
-      ansible_hostv6: 2a01:111:e210:b000::a40:f6e3
-      hwsku: Arista-7050-QX-32S
-      model: DCS-7050QX-32S
-      serial: SSJ17212198
-      base_mac: 28:99:3a:b6:f5:7c
-  vars:
-    iface_speed: 40000
 
 sonic_mlnx_40:
   hosts:

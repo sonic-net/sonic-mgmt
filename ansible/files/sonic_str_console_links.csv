@@ -2,7 +2,6 @@ StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy
 console-82,10,str-7170-acs-01,ssh,digi_config,
 console-82,32,str-7170-acs-02,ssh,digi_config,
 console-82,30,str-7260cx3-acs-1,ssh,digi_config,
-console-82,1,str-a7050-acs-3,ssh,digi_config,
 console-82,36,str-a7060cx-acs-1,ssh,digi_config,
 console-179,4,str-a7060cx-acs-10,ssh,digi_config,
 console-82,8,str-agc7648-acs-1,ssh,digi_config,
