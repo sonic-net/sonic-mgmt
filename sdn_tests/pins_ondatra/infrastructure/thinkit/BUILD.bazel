@@ -197,3 +197,12 @@ build_test(
     name = "ondatra_params_test",
     targets = [":ondatra_params"],
 )
+
+#To run all Infrastructure Thinkit testcases
+test_suite(
+    name = "infrastructure_thinkit_tests",
+    tests = [
+        ":ondatra_generic_testbed_fixture_test",
+        ":ondatra_params_test",
+    ],
+)

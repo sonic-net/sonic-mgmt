@@ -33,6 +33,8 @@ filegroup(
         "//tests:z_gnmi_stress_test",
         "//tests:system_paths_test",
         "//tests:gnmi_wildcard_subscription_test",
+        "//tests/thinkit:thikit_tests",
+        "//infrastructure/thinkit:infrastructure_thinkit_tests",
     ],
     testonly = 1,
     visibility = ["//visibility:public"],

@@ -102,3 +102,14 @@ cc_test(
     ],
     linkopts = ["-lresolv"],
 )
+
+#To run all Thinkit testcases
+test_suite(
+    name = "thinkit_tests",
+    tests = [
+        ":arbitration_test",
+        ":arriba_test",
+        ":configure_mirror_testbed_test",
+        ":random_blackbox_events_test",
+    ],
+)
