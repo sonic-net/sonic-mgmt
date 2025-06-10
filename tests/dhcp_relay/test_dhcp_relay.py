@@ -146,6 +146,7 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
         duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces
     )
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
+
     pytest_assert(vlan_interface_counter == client_interface_counter,
                   "VLAN interface {} counters {} are not equal to client interface {} counters {}"
                   .format(downlink_vlan_iface, vlan_interface_counter, client_iface, client_interface_counter))
@@ -155,6 +156,7 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
                           uplink_portchannels_or_interfaces, uplink_portchannels_interfaces_counter))
     compare_dhcpcom_relay_counter_values(vlan_interface_counter,
                                          expected_downlink_counter)
+
     compare_dhcpcom_relay_counter_values(uplink_interface_counter,
                                          expected_uplink_counter)
 
@@ -243,7 +245,7 @@ def start_dhcp_monitor_debug_counter(duthost):
             program_pid_list.append(program_pid)
 
     for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("sudo kill {} || true".format(program_pid), module_ignore_errors=True)
+        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
         # Get the exit code of 'kill' command
         exit_code = kill_cmd_result["rc"]
         if exit_code != 0:
@@ -379,7 +381,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
                     dhcy_relay_request_times = 1
-
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
+                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
                     "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
                     "TX": {"Ack": 1, "Offer": 1}
