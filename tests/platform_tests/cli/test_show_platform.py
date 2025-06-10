@@ -206,8 +206,10 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
                                  duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
+        # Define the expected fields that should be present in the syseeprom output
         expected_fields = [
             "Product Name",
+            "Platform Name",
             "Part Number",
             "Serial Number",
             "Base MAC Address",
@@ -215,27 +217,96 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "Device Version",
             "MAC Addresses",
             "Manufacturer",
+            "Vendor Name",
+            "Vendor Extension",
             "ONIE Version",
             "CRC-32"]
 
-        utility_cmd = "sudo python -c \"import imp; \
-            m = imp.load_source('eeprom', '/usr/share/sonic/device/{}/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"".\
-            format(duthost.facts["platform"])
+        # Dump Redis database 6 (EEPROM database) to get all EEPROM-related data
+        cmd = "redis-dump -d 6 -y"
+        # Example Redis data structure:
+        # {
+        #     "EEPROM_INFO|0x2d": {
+        #         "expireat": 1742287244.9024103,
+        #         "ttl": -0.001,
+        #         "type": "hash",
+        #         "value": {
+        #             "Len": "10",
+        #             "Name": "Vendor Name",
+        #             "Value": "Nvidia"
+        #         }
+        #     }
+        # }
+        cmd_output = duthost.command(cmd)['stdout']
+        try:
+            db_data = json.loads(cmd_output)
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Failed to parse Redis dump output: {str(e)}")
 
-        utility_cmd_output = duthost.command(utility_cmd)
+        # Fields to exclude from validation as they are internal metadata
+        exclude_fields = ['EEPROM_INFO|Checksum', 'EEPROM_INFO|State', 'EEPROM_INFO|TlvHeader']
 
-        for field in expected_fields:
-            pytest_assert(syseeprom_output.find(field) >= 0, "Expected field '{}' was not found on '{}'".
-                          format(field, duthost.hostname))
-            pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".
-                          format(field, duthost.hostname))
+        # Get all keys containing EEPROM data from Redis
+        eeprom_db_keys_all = [key for key in db_data.keys() if "EEPROM" in key]
 
-        for line in utility_cmd_output["stdout_lines"]:
-            if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
-                line_regexp = re.sub(r'\s+', r'\\s+', line)
-                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".
-                              format(line, duthost.hostname))
+        if not eeprom_db_keys_all:
+            pytest.fail("No EEPROM keys found in Redis database")
+
+        # Filter out excluded fields to get only relevant EEPROM data
+        eeprom_db_keys_fields = [db_key for db_key in eeprom_db_keys_all if db_key not in exclude_fields]
+        logging.info(f"Found {len(eeprom_db_keys_fields)} EEPROM fields to validate")
+
+        # Track all validation errors to report them together
+        validation_errors = []
+
+        for db_key in eeprom_db_keys_fields:
+            # Analyze the structure of the Redis data for this key
+            # Example structure for a key:
+            # {
+            #     'expireat': 'float',
+            #     'ttl': 'float',
+            #     'type': 'str',
+            #     'value': ['Len', 'Name', 'Value']
+            # }
+            db_key_structure = util.analyze_structure(db_data[db_key])
+            value_structure = db_key_structure.get('value')
+            db_value_data = db_data[db_key].get('value')
+
+            # Skip if no value structure is found
+            if not value_structure:
+                logging.warning(f"No value structure found for EEPROM key: {db_key}")
+                continue
+
+            # Get all 'Name' fields from the value structure
+            value_names = util.get_db_keys('Name', value_structure)
+
+            # Validate that parameter names exist in both syseeprom output and expected fields
+            for value_name in value_names:
+                if db_value_data[value_name] and (db_value_data[value_name] not in syseeprom_output or
+                                                  db_value_data[value_name] not in expected_fields):
+                    validation_errors.append(
+                        f"EEPROM parameter name '{db_value_data[value_name]}' from Redis key '{db_key}' "
+                        f"not found in syseeprom CLI output or not in expected fields"  # noqa: E713
+                    )
+
+            # Get all 'Value' fields from the value structure
+            param_values = util.get_db_keys('Value', value_structure)
+
+            # Validate that parameter values exist in the syseeprom output
+            for param_value in param_values:
+                if db_value_data[param_value] and db_value_data[param_value] not in syseeprom_output:
+                    validation_errors.append(
+                        f"EEPROM value '{db_value_data[param_value]}' from Redis key '{db_key}' "
+                        f"not found in syseeprom CLI output"  # noqa: E713
+                    )
+
+        # If any validation errors occurred, format and report them all at once
+        if validation_errors:
+            error_msg = "\n".join([
+                "EEPROM validation failed with the following errors:",
+                *[f"- {error}" for error in validation_errors]
+            ])
+            pytest.fail(error_msg)
 
 
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
