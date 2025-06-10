@@ -1733,7 +1733,7 @@ pc/test_po_cleanup.py:
       - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
 pc/test_po_cleanup.py::test_po_cleanup_after_reload:
-  skip:
+  xfail:
     reason: "Skip test due on dualtor setup due to github issue https://github.com/sonic-net/sonic-buildimage/issues/20414"
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/20414"
