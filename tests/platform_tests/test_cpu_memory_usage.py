@@ -53,7 +53,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
         high_cpu_consume_procs['sx_sdk'] = 90
     num_cpu = int(duthost.command('nproc --all')['stdout_lines'][0])
     cpu_threshold = cpu_threshold * num_cpu
-    return memory_threshold, cpu_threshold, high_cpu_consume_procs
+    return memory_threshold, 10, high_cpu_consume_procs
 
 
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
@@ -82,16 +82,15 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,
                             outstanding_procs_counter, proc)
-
+    cpu_used_percent = monit_result.processes[0]['cpu_percent']
+    memory_used_percent = monit_result.memory['used_percent']
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold, monit_result)
+                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent)
 
 
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold, monit_result):
+                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent):
     persist_outstanding_procs = []
-    cpu_used_percent = monit_result.processes[0]['cpu_percent']
-    used_memory_percent = monit_result.memory['used_percent']
     reason = []
     for pid, freq in outstanding_procs_counter.most_common():
         if freq <= persist_threshold:
@@ -100,7 +99,7 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
-            reason.append(f"system memory usage is {used_memory_percent}%, threshold is {memory_threshold}%")
+            reason.append(f"system memory usage is {memory_used_percent}%, threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
@@ -108,7 +107,7 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
                 [outstanding_procs[p] for p in persist_outstanding_procs]
             )
             reason.append(f"system cpu usage is {cpu_used_percent}%, cpu threshold is {cpu_threshold}%")           
-        pytest.fail("system cpu and memory usage check fails due to " + "; ".join (reason))
+        pytest.fail("system cpu and memory usage check fails due to " + "; ".join(reason))
 
 
 @pytest.fixture(scope='module')
