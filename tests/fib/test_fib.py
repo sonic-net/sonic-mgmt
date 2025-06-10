@@ -673,10 +673,12 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 @pytest.fixture(params=["ipv4-ipv4", "ipv4-ipv6", "ipv6-ipv6", "ipv6-ipv4"])
 def nvgre_ipver(request):
     return request.param
-def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                          # noqa F811
-                     hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,             # noqa F811
-                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,          # noqa F811
-                     duts_minigraph_facts, request):                                      # noqa F811
+def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                            # noqa F811
+                    hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,                # noqa F811
+                    ignore_ttl, single_fib_for_duts, duts_running_config_facts,             # noqa F811
+                    duts_minigraph_facts, request,                                          # noqa F811
+                    setup_active_active_ports, active_active_ports,                         # noqa F811
+                    mux_status_from_nic_simulator):                                         # noqa F811
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -706,8 +708,10 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                "hash_test.NvgreHashTest",
                platform_dir="ptftests",
                params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts),
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                           ptfhost, tbinfo, duthosts, mux_server_url,
+                           duts_running_config_facts, duts_minigraph_facts,
+                           mux_status_from_nic_simulator()),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),
