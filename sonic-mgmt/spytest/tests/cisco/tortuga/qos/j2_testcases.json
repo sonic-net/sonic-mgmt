@@ -45,8 +45,8 @@
                 },
                 "SCHEDULER": {
                     "scheduler.0": {
-                        "meter_type": "bytes",
-                        "type": "STRICT"
+                        "type": "DWRR",
+                        "weight": "20"
                     },
                     "scheduler.1": {
                         "type": "DWRR",
@@ -54,11 +54,27 @@
                     },
                     "scheduler.2": {
                         "type": "DWRR",
-                        "weight": "40"
+                        "weight": "20"
                     },
                     "scheduler.3": {
                         "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.4": {
+                        "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.5": {
+                        "type": "DWRR",
                         "weight": "30"
+                    },
+                    "scheduler.6": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
+                    },
+                    "scheduler.7": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
                     }
                 }
             }
@@ -67,7 +83,8 @@
             "#": "hyperfabric hf6100 pids only based on, Graphene2 (g200/ gr2)",
             "metadata": [
                 {"platform" : "x86_64-hf6100_64ed-r0", "hwsku" : "Cisco-HF6100-O128S2"},
-                {"platform" : "x86_64-hf6100_64ed-r0", "hwsku" : "Cisco-HF6100-O64C256S2"}
+                {"platform" : "x86_64-hf6100_64ed-r0", "hwsku" : "Cisco-HF6100-O64C256S2"},
+                {"platform" : "x86_64-hf6100_64ed-r0", "hwsku" : "Cisco-HF6100-64ED"}
             ],
             "results": {
                 "BUFFER_POOL": {
@@ -108,8 +125,8 @@
                 },
                 "SCHEDULER": {
                     "scheduler.0": {
-                        "meter_type": "bytes",
-                        "type": "STRICT"
+                        "type": "DWRR",
+                        "weight": "20"
                     },
                     "scheduler.1": {
                         "type": "DWRR",
@@ -117,11 +134,27 @@
                     },
                     "scheduler.2": {
                         "type": "DWRR",
-                        "weight": "40"
+                        "weight": "20"
                     },
                     "scheduler.3": {
                         "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.4": {
+                        "type": "DWRR",
+                        "weight": "40"
+                    },
+                    "scheduler.5": {
+                        "type": "DWRR",
                         "weight": "30"
+                    },
+                    "scheduler.6": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
+                    },
+                    "scheduler.7": {
+                        "meter_type": "bytes",
+                        "type": "STRICT"
                     }
                 }
             }
