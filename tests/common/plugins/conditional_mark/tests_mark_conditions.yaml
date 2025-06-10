@@ -2212,6 +2212,10 @@ route/test_route_perf.py:
     reason: "Does not apply to standalone topos."
     conditions:
       - "'standalone' in topo_name"
+  xfail:
+    reason: "Test case has high failure rate on t1-lag"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18893"
 
 route/test_static_route.py:
   skip:
