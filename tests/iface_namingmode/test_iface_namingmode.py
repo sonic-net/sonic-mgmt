@@ -286,7 +286,7 @@ class TestShowLLDP():
                 )
 
         elif mode == 'default':
-            for intf in lldp_interfaces['alias']:
+            for intf in lldp_interfaces['interface']:
                 assert re.search(
                         r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
                         lldp_table
@@ -609,7 +609,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
                     (
                         "Expected to find alias '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority-group persistent-watermark shared'.\n"
                         "- Output:\n{}"
                     )
                 ).format(alias, show_pg)
@@ -619,7 +619,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
                     (
                         "Expected to find alias '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority-group persistent-watermark shared'.\n"
                         "- Output:\n{}"
                     )
                 ).format(alias, show_pg)
@@ -639,7 +639,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
                     (
                         "Expected to find alias '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority-group watermark headroom'.\n"
                         "- Output:\n{}"
                     )
                 ).format(alias, show_pg)
@@ -649,7 +649,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
                     (
                         "Expected to find interface '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority-group watermark headroom'.\n"
                         "- Output:\n{}"
                     )
                 ).format(intf, show_pg)
@@ -669,7 +669,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
                     (
                         "Expected to find alias '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority group watermark shared'.\n"
                         "- Output:\n{}"
                     )
                 ).format(alias, show_pg)
@@ -679,7 +679,7 @@ class TestShowPriorityGroup():
                 assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
                     (
                         "Expected to find interface '{}' in the output of "
-                        "'show priority-group persistent-watermark headroom'.\n"
+                        "'show priority group watermark shared'.\n"
                         "- Output:\n{}"
                     )
                 ).format(intf, show_pg)
@@ -889,7 +889,7 @@ class TestShowQueue():
                     assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None, (
                         (
                             "Expected to find alias '{}' in the output of "
-                            "'show queue persistent-watermark multicast', but it was not found.\n"
+                            "'show queue watermark multicast', but it was not found.\n"
                             "- Output:\n{}"
                         )
                     ).format(alias, show_queue_wm_mcast)
@@ -898,7 +898,7 @@ class TestShowQueue():
                     assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None, (
                         (
                             "Expected to find interface '{}' in the output of "
-                            "'show queue persistent-watermark multicast', but it was not found.\n"
+                            "'show queue watermark multicast', but it was not found.\n"
                             "- Output:\n{}"
                         )
                     ).format(intf, show_queue_wm_mcast)
@@ -918,7 +918,7 @@ class TestShowQueue():
                 assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None, (
                     (
                         "Expected to find alias '{}' in the output of "
-                        "'show queue persistent-watermark unicast', but it was not found.\n"
+                        "'show queue watermark unicast', but it was not found.\n"
                         "- Output:\n{}"
                     )
                 ).format(alias, show_queue_wm_ucast)
@@ -927,7 +927,7 @@ class TestShowQueue():
                 assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None, (
                     (
                         "Expected to find interface '{}' in the output of "
-                        "'show queue persistent-watermark unicast', but it was not found.\n"
+                        "'show queue watermark unicast', but it was not found.\n"
                         "- Output:\n{}"
                     )
                 ).format(intf, show_queue_wm_ucast)
@@ -1309,10 +1309,6 @@ class TestConfigInterface():
                 "Interface '{}' did not reach link up state within the expected time after speed configuration."
             ).format(interface)
             _verify_speed(target_speed)
-            _verify_speed(target_speed)
-            assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
-                "Interface '{}' did not reach link up state within the expected time after speed configuration."
-            ).format(interface)
 
         finally:
             # Restore to native speed after test
@@ -1323,10 +1319,6 @@ class TestConfigInterface():
             "Interface '{}' did not reach link up state within the expected time after speed configuration."
         ).format(interface)
         _verify_speed(native_speed)
-        _verify_speed(native_speed)
-        assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
-            "Interface '{}' did not reach link up state within the expected time after speed configuration."
-        ).format(interface)
         # Revert inconsistent config changes
         config_reload(duthost)
 

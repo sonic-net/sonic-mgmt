@@ -42,8 +42,9 @@ def verify_bfd_only(dut, nexthops, asic, expected_bfd_state):
         0,
         lambda: verify_bfd_state(dut, nexthops.values(), asic, expected_bfd_state),
     ), (
-        "Timed out waiting for all BFD sessions on ASIC {} of DUT '{}' to reach state '{}'."
+        "Timed out waiting to verify BFD state is expected for nexthops {} on ASIC {} of DUT '{}' to reach state '{}'."
     ).format(
+        nexthops.values(),
         asic,
         dut.hostname,
         expected_bfd_state
