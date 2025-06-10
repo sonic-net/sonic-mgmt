@@ -9,7 +9,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder              
 from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                # noqa: F401
-from tests.common.dualtor.dual_tor_common import cable_type                         # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                         # noqa F401                        # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator_control import stop_nic_grpc_server         # noqa: F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator        # noqa: F401
