@@ -51,12 +51,6 @@ DUT_ACTIVE.set()
     test_reboot_cause_only : indicate if the purpose of test is for reboot cause only
 '''
 reboot_ctrl_dict = {
-    REBOOT_TYPE_POWEROFF: {
-        "timeout": 300,
-        "wait": 120,
-        "cause": "Power Loss",
-        "test_reboot_cause_only": True
-    },
     REBOOT_TYPE_SOFT: {
         "command": "soft-reboot",
         "timeout": 300,
@@ -138,6 +132,12 @@ reboot_ctrl_dict = {
         # This change relates to changes of PR #6130 in sonic-buildimage repository
         "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
         "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_POWEROFF: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Power Loss",
+        "test_reboot_cause_only": True
     }
 }
 
@@ -476,8 +476,14 @@ def get_reboot_cause(dut):
             cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
-        if re.search(ctrl['cause'], cause):
-            return type
+        if dut.facts['asic_type'] == "cisco-8000" and dut.get_facts().get("modular_chassis") \
+           and type == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS:
+            # Skip the check for SUP heartbeat loss on T2 chassis
+            if re.search(r"Heartbeat|headless|Power Loss", cause):
+                return type
+        else:
+            if re.search(ctrl['cause'], cause):
+                return type
 
     return REBOOT_TYPE_UNKNOWN
 
