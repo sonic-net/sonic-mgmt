@@ -84,12 +84,15 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                             outstanding_procs_counter, proc)
 
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold)
+                               outstanding_procs_counter, persist_threshold, monit_result)
 
 
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold):
+                               outstanding_procs_counter, persist_threshold, monit_result):
     persist_outstanding_procs = []
+    cpu_used_percent = monit_result.processes[0]['cpu_percent']
+    used_memory_percent = monit_result.memory['used_percent']
+    reason = []
     for pid, freq in outstanding_procs_counter.most_common():
         if freq <= persist_threshold:
             break
@@ -97,13 +100,15 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
+            reason.append(f"system memory usage is {used_memory_percent}%, threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
                 cpu_threshold,
                 [outstanding_procs[p] for p in persist_outstanding_procs]
             )
-        pytest.fail("system cpu and memory usage check fails")
+            reason.append(f"system cpu usage is {cpu_used_percent}%, cpu threshold is {cpu_threshold}%")           
+        pytest.fail("system cpu and memory usage check fails due to " + "; ".join (reason))
 
 
 @pytest.fixture(scope='module')
@@ -270,6 +275,7 @@ def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
         memory_threshold,
         monit_result.memory
     )
+   
     if used_memory_percent > memory_threshold:
         outstanding_mem_polls[i] = monit_result.memory
 
