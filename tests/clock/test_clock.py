@@ -51,7 +51,7 @@ class ClockConsts:
     TIME_ZONE = "Time zone"
 
     MIN_SYSTEM_DATE = "1970-01-01"
-    MAX_SYSTEM_DATE = "2231-12-31"
+    MAX_SYSTEM_DATE = "2106-02-06"
 
     # ntp
     CMD_SHOW_NTP = "show ntp"
