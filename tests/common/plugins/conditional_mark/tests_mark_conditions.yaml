@@ -2133,7 +2133,7 @@ restapi/test_restapi.py::test_create_vrf:
       - "asic_type not in ['mellanox']"
 
 restapi/test_restapi.py::test_data_path_sad:
-  skip:
+  xfail:
     reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17997"
