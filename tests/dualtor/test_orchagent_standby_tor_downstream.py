@@ -15,7 +15,6 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa: F401

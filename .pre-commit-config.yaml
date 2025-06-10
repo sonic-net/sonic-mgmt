@@ -43,7 +43,7 @@ repos:
         files: ^tests/common2/
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    rev: v1.14.0
     hooks:
     # arguments are specified in pyproject.toml
     -   id: mypy
