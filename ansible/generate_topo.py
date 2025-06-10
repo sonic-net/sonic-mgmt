@@ -36,14 +36,14 @@ roles_cfg = {
         "asn": 65100,
         "asn_v6": 4200000000,
         "downlink": None,
-        "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000},
-        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000},
+        "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000, "asn_increment": 0},
+        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000, "asn_increment": 1},
     },
     "t1": {
         "asn": 65100,
         "asn_v6": 4200100000,
-        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000},
-        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000},
+        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000, "asn_increment": 1},
+        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000, "asn_increment": 0},
         "peer": None,
     },
     "lt2": {
