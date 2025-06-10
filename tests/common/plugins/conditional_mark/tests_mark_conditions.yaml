@@ -101,7 +101,7 @@ bfd/test_bfd.py::test_bfd_echo_mode:
       - "asic_type in ['vs']"
 
 bfd/test_bfd.py::test_bfd_multihop[ipv6]:
-  skip:
+  xfail:
     reason: "Test is skipped on Nvidia platforms due to https://github.com/sonic-net/sonic-mgmt/issues/17743"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17743 and asic_type in ['mellanox', 'nvidia']"
