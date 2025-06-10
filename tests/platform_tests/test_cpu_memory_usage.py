@@ -53,7 +53,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
         high_cpu_consume_procs['sx_sdk'] = 90
     num_cpu = int(duthost.command('nproc --all')['stdout_lines'][0])
     cpu_threshold = cpu_threshold * num_cpu
-    return memory_threshold, 10, high_cpu_consume_procs
+    return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
@@ -86,7 +86,6 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
     memory_used_percent = monit_result.memory['used_percent']
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent)
-
 
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent):
