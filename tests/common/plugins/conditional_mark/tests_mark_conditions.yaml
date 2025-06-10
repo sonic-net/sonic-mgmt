@@ -161,9 +161,11 @@ bgp/test_bgp_bbr.py:
 
 bgp/test_bgp_gr_helper.py:
   skip:
-    reason: 'bgp graceful restarted is not a supported feature for T2'
+    reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
+    conditions_logical_operator: or
     conditions:
       - "'t2' in topo_name"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18788"
 
 bgp/test_bgp_multipath_relax.py:
   skip:
@@ -657,33 +659,18 @@ dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_
       - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
-  xfail:
-    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8272
-      - "asic_type in ['mellanox']"
   skip:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
@@ -1524,6 +1511,12 @@ ipfwd/test_dir_bcast.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name or 't0-backend' in topo_name"
+  xfail:
+    reason: "Xfail due to known issue with the secondary subnet."
+    conditions:
+      - "topo_type in ['t0']"
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18786
 
 ipfwd/test_mtu.py:
   skip:
@@ -2560,10 +2553,9 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
 #######################################
 test_pktgen.py:
   skip:
-    reason: "Have known issue, only running for 'cisco-8000', skipping for all other ASIC types"
+    reason: "No need in M0/Mx/M1"
     conditions:
-      - "asic_type not in ['cisco-8000']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+      - "topo_type in ['m0', 'mx', 'm1']"
 
 #######################################
 #####         vs_chassis          #####
