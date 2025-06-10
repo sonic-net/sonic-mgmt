@@ -2114,15 +2114,15 @@ restapi/test_restapi.py:
 
 restapi/test_restapi.py::test_create_interface:
   xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997"
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi.py::test_create_interface_sad:
   xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997"
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi.py::test_create_vrf:
   skip:
@@ -2133,10 +2133,10 @@ restapi/test_restapi.py::test_create_vrf:
       - "asic_type not in ['mellanox']"
 
 restapi/test_restapi.py::test_data_path_sad:
-  skip:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997"
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
