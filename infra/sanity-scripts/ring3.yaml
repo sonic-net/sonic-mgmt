@@ -433,7 +433,12 @@ L2:
         - generic_config_updater/test_vlan_interface.py
         - dhcp_relay/test_dhcp_relay.py
       hw:
+        - arp/test_arp_extended.py
+        - fdb/test_fdb.py
+        - fdb/test_fdb_mac_learning.py
         - fdb/test_fdb_mac_move.py
+        - lldp/test_lldp.py
+        - pc/test_po_cleanup.py
         - vlan/test_vlan.py
   t2:
     sfd:
