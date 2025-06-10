@@ -174,7 +174,10 @@ def fetch_image(args):
             return -1
     
     p.sendline(f'mkdir {image_folder}')
-    checkSpace(p, testbed)
+    rc = checkSpace(p, testbed)
+    if rc == -1:
+        p.close()
+        return -1
     p.sendline(f'cd {image_folder}')
     p.expect(cmd)
     logging.debug("downloading")
