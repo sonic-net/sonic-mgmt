@@ -2082,7 +2082,7 @@
 
 - conf-name: vms70-t1-sn5640-3
   group-name: vms70-4
-  topo: t1-isolated-d56u2
+  topo: t1-isolated-d56u1-lag
   ptf_image_name: docker-ptf
   ptf: vms70-4
   ptf_ip: 10.64.247.98/23
