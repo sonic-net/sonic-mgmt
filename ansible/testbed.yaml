@@ -3827,7 +3827,7 @@
   topo: t2
   ptf_image_name: docker-ptf
   ptf: ptf8-0
-  ptf_ip: 10.212.65.82/24
+  ptf_ip: 10.212.65.96/24
   ptf_ipv6: 2603:10e2:140:3000::10c/122
   server: server_tk5_8
   vm_base: VM17000
