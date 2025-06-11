@@ -122,7 +122,8 @@ class TestSfpApi(PlatformApiTestBase):
                                                 'media_interface_technology',
                                                 'media_interface_code',
                                                 'host_electrical_interface',
-                                                'media_lane_assignment_option']
+                                                'media_lane_assignment_option',
+                                                'vdm_supported']
 
     EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS = ['active_firmware',
                                                          'inactive_firmware']
