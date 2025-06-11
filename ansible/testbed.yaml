@@ -1133,6 +1133,36 @@
   auto_recover: 'False'
   comment: tchadaga
 
+- conf-name: vmsvc1-t2-7280dr3-1
+  group-name: svc1-8
+  topo: t2_single_node_min
+  ptf_image_name: docker-ptf
+  ptf: svc1-8
+  ptf_ip: 10.206.144.36/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9100/64
+  server: server_svc_1
+  vm_base: VM10158
+  dut:
+  - svcstr-7280dr3-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: tchadaga
+
+- conf-name: vmsvc1-t2-7280dr3-2
+  group-name: svc1-9
+  topo: t2_single_node_min
+  ptf_image_name: docker-ptf
+  ptf: svc1-9
+  ptf_ip: 10.206.144.37/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9101/64
+  server: server_svc_1
+  vm_base: VM10164
+  dut:
+  - svcstr-7280dr3-2
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: tchadaga
+
 - conf-name: vms-example-ixia-1
   group-name: vms6-1
   topo: t0-64
