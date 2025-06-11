@@ -522,7 +522,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def get_skip_containers(tbinfo):
+def get_skip_containers(tbinfo, skip_vendor_specific_container):
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
@@ -540,7 +540,7 @@ def get_skip_containers(tbinfo):
 
 
 @pytest.fixture
-def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(tbinfo)
@@ -559,7 +559,12 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container, recover_critical_container):
+def test_monitoring_critical_processes(
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   tbinfo,
+                                   skip_vendor_specific_container,
+                                   recover_critical_container):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -579,7 +584,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
 
-    skip_containers = get_skip_containers(tbinfo)
+    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container,)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
