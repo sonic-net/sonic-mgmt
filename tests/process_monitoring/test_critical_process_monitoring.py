@@ -564,7 +564,7 @@ def test_monitoring_critical_processes(
                                    rand_one_dut_hostname,
                                    tbinfo,
                                    skip_vendor_specific_container,
-                                   recover_critical_container):
+                                   recover_critical_processes):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
