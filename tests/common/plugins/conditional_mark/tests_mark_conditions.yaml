@@ -1274,10 +1274,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000 or issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name"
   xfail:
     reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
     conditions:
