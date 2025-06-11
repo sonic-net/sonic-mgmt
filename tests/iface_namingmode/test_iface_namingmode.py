@@ -481,19 +481,12 @@ class TestShowInterfaces():
 
             elif mode == 'default':
                 assert re.search(
-                    r'{}\s+LACP\(A\)\(Up\).*{}'.format(
-                        key, setup['port_name_map'][value['members'][0]]),
+                    r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, value['members'][0]),
                     int_po
                 ) is not None, (
-                    (
-                        "Expected portchannel '{}' with member alias '{}' in "
-                        "'show interfaces portchannel' output, but not found.\n"
-                        "- Output:\n{}"
-                    )
+                    "Expected portchannel '{}' with member '{}' in output, but not found.\n{}"
                 ).format(
-                    key,
-                    setup['port_name_map'][value['members'][0]],
-                    int_po
+                    key, value['members'][0], int_po
                 )
 
 
