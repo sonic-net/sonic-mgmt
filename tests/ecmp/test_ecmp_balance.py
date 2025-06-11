@@ -681,6 +681,10 @@ def test_udp_packets_ecmp(
     duthost, setup, ptfadapter, ip_version, get_src_port, set_ecmp_offset
 ):
     """Verify that we can match and forward UDP packets with different patterns."""
+    hwsku = duthost.facts['hwsku']
+    if hwsku not in ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8", "Arista-7060CX-32S-Q32"
+                     "Arista-7260CX3-C64", "Arista-7260CX3-D108C10", "Arista-7260CX3-D108C8"]:
+        pytest.skip("Skipping ECMP hash offset test for this hardware SKU {} since it's not supported".format(hwsku))
     output = duthost.command(
         'bcmcmd "sc ECMPHashSet0Offset"', module_ignore_errors=True
     )
