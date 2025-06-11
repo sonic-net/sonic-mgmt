@@ -2349,6 +2349,22 @@ vms_13:
       ansible_host: 172.16.132.126
     VM13095:
       ansible_host: 172.16.132.127
+    VM13096:
+      ansible_host: 172.16.132.128
+    VM13097:
+      ansible_host: 172.16.132.129
+    VM13098:
+      ansible_host: 172.16.132.130
+    VM13099:
+      ansible_host: 172.16.132.131
+    VM13100:
+      ansible_host: 172.16.132.132
+    VM13101:
+      ansible_host: 172.16.132.133
+    VM13102:
+      ansible_host: 172.16.132.134
+    VM13103:
+      ansible_host: 172.16.132.135
 vms_16:
   hosts:
     VM16000:
