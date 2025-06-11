@@ -22,7 +22,7 @@ acl/null_route/test_null_route_helper.py:
   skip:
     reason: "Skip running on dualtor /m1 testbed"
     conditions_logical_operator: or
-    conditions:ƒ
+    conditions:
       - "'dualtor' in topo_name"
       - "'m1' in topo_type"
 
@@ -163,7 +163,7 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_multipath_relax.py:
   skip:
-    reason: "Not supported topology backend"
+    reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
   xfail:
