@@ -50,14 +50,13 @@ class TestMACFault(object):
         dut.shell('show interface status | awk \'NR>2 {print $1}\' | xargs -I{} sudo config interface startup {}')
         time.sleep(30)
 
-    #TODO: Reboot the switch before test as a WA of #4384527, remove this after the issue is fixed
+    #TODO: Reboot the switch before test as a WA to handle that config reload doesn't reset errors/faults counters on unsplit ports, remove this after the issue is fixed
     @pytest.fixture(scope="class", autouse=True)
     def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname):
         from infra.tools.redmine.redmine_api import is_redmine_issue_active
         from tests.common.reboot import reboot
-        if is_redmine_issue_active([4384527])[0]:
-            reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
-                   localhost, safe_reboot=True, check_intf_up_ports=False)
+        reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
+               localhost, safe_reboot=True, check_intf_up_ports=False)
 
     @pytest.fixture(scope="class")
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
