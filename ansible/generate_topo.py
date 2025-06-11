@@ -51,7 +51,7 @@ roles_cfg = {
         "asn_v6": 4200100000,
         "downlink": {"role": "t1", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 0, "num_lags": 1},
         "uplink": {"role": "ut2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
-        "fabric": {"role": "ft2", "asn": 4200300000, "asn_v6": 4200300000, "asn_increment": 0},
+        "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
         "peer": None
     },
 }
@@ -118,7 +118,7 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32o64lt2':        {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 49, 46, 50),
-                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30),
+                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30, 61, 62, 63),
                          "fabric_breakout": 1,
                          'fabric_ports': PortList(
                                  *[p for p in range(0, 32)]
