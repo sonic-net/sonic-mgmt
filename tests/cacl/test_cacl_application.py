@@ -580,6 +580,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         rules_to_expect_for_dualtor = [
                                        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
                                        "-A DHCP -j RETURN",
+                                       "-I INPUT 1 -d 10.1.0.34 -p tcp --dport 179 -j DROP",
+                                       " ip6tables -I INPUT 1 -d fc00:1:0:34:: -p tcp --dport 179 -j DROP",
                                        "-N DHCP"
                                       ]
         iptables_rules.extend(rules_to_expect_for_dualtor)
