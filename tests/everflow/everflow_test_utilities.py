@@ -16,7 +16,8 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
@@ -41,6 +42,8 @@ STABILITY_BUFFER = 0.05     # 50msec
 
 OUTER_HEADER_SIZE = len(packet.Ether()) + len(packet.IP()) + len(packet.GRE())
 OUTER_HEADER_SIZE_V6 = len(packet.Ether()) + len(packet.IPv6()) + len(packet.GRE())
+
+LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 
 # This IP is hardcoded into ACL rule
 TARGET_SERVER_IP = "192.168.0.2"
@@ -344,11 +347,16 @@ def erspan_ip_ver(request):
     return request.param
 
 
-def clear_queue_counters(dut):
+def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
     """
-    dut.command("sonic-clear queuecounters")
+    if asic_ns is not None and duthost.sonichost.is_multi_asic:
+        asic_id = duthost.get_asic_id_from_namespace(asic_ns)
+        asichost = duthost.asic_instance(asic_id)
+        asichost.command("sonic-clear queuecounters")
+    else:
+        duthost.command("sonic-clear queuecounters")
 
 
 def check_queue_counters(dut, asic_ns, port, queue, pkt_count):
@@ -363,7 +371,11 @@ def get_queue_counters(dut, asic_ns, port, queue):
     """
     @summary: Return the counter for a given queue in given port
     """
-    cmd = "show queue counters -n {} {}".format(asic_ns, port)
+    if dut.sonichost.is_multi_asic and asic_ns is not None:
+        cmd = "show queue counters -n {} {}".format(asic_ns, port)
+    else:
+        cmd = "show queue counters {}".format(port)
+
     output = dut.command(cmd)['stdout_lines']
     txq = "UC{}".format(queue)
     for line in output:
@@ -542,7 +554,7 @@ def load_acl_rules_config(table_name, rules_file):
 
 
 def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
-                                           tx_ports, direction, queue, everflow_dut, asic_ns, recircle_port,
+                                           tx_ports, direction, queue, asic_ns, recircle_port,
                                            expect_recv=True, valid_across_namespace=True):
     tx_port_ids = self._get_tx_port_id_list(tx_ports)
     default_ip = self.DEFAULT_DST_IP
@@ -551,7 +563,7 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
     # Number of packets to send
     packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
     for iteration, count in list(packet_count.items()):
-        clear_queue_counters(everflow_dut)
+        clear_queue_counters(duthost, asic_ns)
         for i in range(1, count + 1):
             logging.info("Sending packet {} to DUT for {}".format(i, iteration))
             self.send_and_check_mirror_packets(
@@ -571,11 +583,28 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
         # Make sure mirrored packets are sent via specific queue configured
         for q in range(1, 8):
             if str(q) == queue:
-                out = wait_until(30, 1, 0, check_queue_counters, everflow_dut, asic_ns, recircle_port, q, count)
-                assert out is True, 'Recircle port {} queue{} counter value is not same as packets sent'\
-                    .format(recircle_port, q)
+                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, count), \
+                    "Recircle port {} queue{} counter value is not same as packets sent".format(recircle_port, q)
             else:
-                assert (get_queue_counters(everflow_dut, asic_ns, recircle_port, q) == 0)
+                assert (get_queue_counters(duthost, asic_ns, recircle_port, q) == 0)
+
+
+def check_rule_creation_on_dut(duthost, command):
+    if duthost.is_supervisor_node():
+        return
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl-rule")
+    loganalyzer.load_common_config()
+    try:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        # Ignore any other errors to reduce noise
+        loganalyzer.ignore_regex = [r".*"]
+        with loganalyzer:
+            duthost.command(command)
+            wait_until(60, 5, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
+    except LogAnalyzerError as err:
+        logging.error("ACL Rule creation on {} failed.".format(duthost))
+        raise err
 
 
 class BaseEverflowTest(object):
