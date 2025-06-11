@@ -541,9 +541,9 @@ def get_skip_containers(tbinfo):
 
 @pytest.fixture
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(tbinfo)
-    duthost = duthosts[rand_one_dut_hostname]
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
     yield
