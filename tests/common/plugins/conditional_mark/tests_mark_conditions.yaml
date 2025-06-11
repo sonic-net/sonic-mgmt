@@ -169,7 +169,7 @@ bgp/test_bgp_port_disable.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Not supported on mgmt device or issue https://github.com/sonic-net/sonic-mgmt/issues/18349"
+    reason: "Not supported on mgmt device"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
   xfail:
