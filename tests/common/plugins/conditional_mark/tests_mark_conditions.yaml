@@ -150,7 +150,7 @@ bgp/test_bgp_bbr.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
 bgp/test_bgp_command.py:
-  skip:
+  xfail:
     reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 and t1-isolated-d56u2 topology on Mellanox platform'
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2'] and asic_type in ['mellanox']"
