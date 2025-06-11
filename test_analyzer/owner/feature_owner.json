@@ -1210,8 +1210,8 @@
                     "platform_tests.test_secure_upgrade",
                     "platform_tests.test_sequential_restart"
                 ],
-                "owner": "Storm Liang",
-                "email": "stormliang@microsoft.com"
+                "owner": "Rita Hui",
+                "email": "ritahui@microsoft.com"
             }
         ]
     },
@@ -1800,8 +1800,8 @@
     },
     {
         "feature": "test_pktgen",
-        "owner": "Storm Liang",
-        "email": "stormliang@microsoft.com"
+        "owner": "Shengkai Wang",
+        "email": "shengkaiwang@microsoft.com"
     },
     {
         "feature": "upgrade_path",
