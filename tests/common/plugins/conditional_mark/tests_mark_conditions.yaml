@@ -2127,6 +2127,12 @@ qos/test_voq_watchdog.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_oq_watchdog.py:
+  skip:
+    reason: "OQ watchdog tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####           radv             #####
 #######################################
