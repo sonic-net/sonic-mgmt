@@ -55,7 +55,8 @@ roles_cfg = {
         "asn_v6": 4200100000,
         "downlink": {"role": "t1", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 0, "num_lags": 1},
         "uplink": {"role": "ut2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
-        "peer": None,
+        "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
+        "peer": None
     },
 }
 
@@ -114,11 +115,32 @@ hw_port_cfg = {
                          'peer_ports': [],
                          'skip_ports': [16, 17, 44, 45, 48, 49],
                          "panel_port_step": 1},
-    'o128lt2':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                          'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
-                          'peer_ports': [],
-                          'skip_ports': PortList(63),
-                          "panel_port_step": 1},
+    'c448o16-lag-sparse':   {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 8, "us_link_step": 2,
+                             'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
+                             'peer_ports': [],
+                             'skip_ports': [13, 16, 17, 44, 45, 48, 49],
+                             "panel_port_step": 1},
+    'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
+                         'peer_ports': [],
+                         'skip_ports': PortList(63),
+                         "panel_port_step": 1},
+    'p32o64lt2':        {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(45, 49, 46, 50),
+                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30, 61, 62, 63),
+                         "fabric_breakout": 1,
+                         'fabric_ports': PortList(
+                                 *[p for p in range(0, 32)]
+                                 ),
+                         'peer_ports': [],
+                         "panel_port_step": 1},
+}
+
+overwrite_file_name = {
+    'lt2': {
+        'p32o64': "lt2-p32o64",
+        'o128': "lt2-o128",
+    }
 }
 
 vlan_group_cfgs = [
@@ -369,13 +391,13 @@ def generate_topo(role: str,
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
-                per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     # Skip breakout if defined
                     if (panel_port_id, link_id - link_id_start) in skip_ports:
                         continue
 
+                    per_role_vm_count[vm_role_cfg["role"]] += 1
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,
