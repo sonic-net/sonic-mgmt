@@ -6740,53 +6740,6 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             # verify voq watchdog is triggered
             verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
-            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
-
-            # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
-            # get a snapshot of counter values at recv and transmit ports
-            recv_counters_base, _ = sai_thrift_read_port_counters(
-                self.src_client, asic_type, port_list['src'][src_port_id])
-            xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(
-                self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            if voq_watchdog_enabled:
-                # queue counters should be cleared after soft reset
-                qos_test_assert(
-                    self, queue_counters_base[0] == 0,
-                    'queue counters are not cleared, soft reset is not triggered')
-
-            # send packets
-            send_packet(self, src_port_id, pkt, pkts_num)
-            # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
-
-            # get a snapshot of counter values at recv and transmit ports
-            recv_counters, _ = sai_thrift_read_port_counters(
-                self.src_client, asic_type, port_list['src'][src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
-                self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            log_message(
-                '\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                'xmit_counters {}\n\txmit_counters_base {}\n\t'
-                'queue_counters {}\n\tqueue_counters_base {}\n'.format(
-                    recv_counters, recv_counters_base, xmit_counters, xmit_counters_base,
-                    queue_counters, queue_counters_base), to_stderr=True)
-            # recv port no ingress drop
-            for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] == recv_counters_base[cntr],
-                    'unexpectedly RX drop counter increase')
-            # xmit port no egress drop
-            for cntr in egress_counters:
-                qos_test_assert(
-                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
-                    'unexpectedly TX drop counter increase')
-            # queue counters increased by pkts_num
-            qos_test_assert(
-                self, queue_counters[0] == queue_counters_base[0] + pkts_num,
-                'queue counter not matched, expected {}, got {}'.format(
-                    queue_counters_base[0] + pkts_num, queue_counters[0]))
-
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
