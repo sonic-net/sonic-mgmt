@@ -522,8 +522,28 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
+def get_skip_containers(tbinfo):
+    skip_containers = []
+    skip_containers.append("database")
+    skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
+    skip_containers.append("restapi")
+    # Skip 'acms' container since 'acms' process is not running on lab devices and
+    # another process `cert_converter.py' is set to auto-restart if exited.
+    skip_containers.append("acms")
+    # Skip 'radv' container on devices whose role is not T0.
+    if tbinfo["topo"]["type"] != "t0":
+        skip_containers.append("radv")
+    skip_containers = skip_containers + skip_vendor_specific_container
+    return skip_containers
+
+
 @pytest.fixture
-def recover_critical_container(duthosts, rand_one_dut_hostname):
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    skip_containers = get_skip_containers(tbinfo)
+    duthost = duthosts[rand_one_dut_hostname]
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
     yield
@@ -558,21 +578,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
-    skip_containers = []
-    skip_containers.append("database")
-    skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
-    # which will not trigger alarm message.
-    skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
-        skip_containers.append("radv")
-    skip_containers = skip_containers + skip_vendor_specific_container
+    skip_containers = get_skip_containers(tbinfo)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
