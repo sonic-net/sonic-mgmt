@@ -522,7 +522,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture
 def recover_critical_container(duthosts, rand_one_dut_hostname):
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
