@@ -1407,6 +1407,8 @@ def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
     for hostname, routes in peers_routes_to_change.items():
+        if hostname not in vms:
+            continue
         vm_offset = vms[hostname]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
