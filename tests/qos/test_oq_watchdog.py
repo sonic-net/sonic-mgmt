@@ -62,7 +62,7 @@ class TestOqWatchdog(QosSaiBase):
             disable_voq_watchdog_function_scope
     ):
         """
-            Test OQ watchdog functionality.     
+            Test OQ watchdog functionality.
             Test steps:
                 1. block voq7, sys_port scheduler set Q7 credit_pir to 0
                 2. fill leakout of Q7 by ping, make sure no packet dequeue/enqueue in OQ7 afterwards
@@ -81,7 +81,7 @@ class TestOqWatchdog(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        
+
         # Block voq7
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
@@ -95,7 +95,7 @@ class TestOqWatchdog(QosSaiBase):
 
         # Block oq0
         original_pir_oq0 = self.block_queue(dst_dut, dst_port, 0, "oq", dst_asic_index)
-        
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -113,7 +113,7 @@ class TestOqWatchdog(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.OqWatchdogTest",
             testParams=testParams)
-        
+
         # Unblock voq7 and oq0 to restore the system state
         self.unblock_queue(dst_dut, dst_port, 7, "voq", original_pir_voq7, dst_asic_index)
         self.unblock_queue(dst_dut, dst_port, 0, "oq", original_pir_oq0, dst_asic_index)

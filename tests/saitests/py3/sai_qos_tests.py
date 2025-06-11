@@ -693,12 +693,13 @@ def init_log_check(test_case):
         pre_offsets.append(int(stdout[0]))
     return pre_offsets
 
+
 def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq'):
     qos_test_assert(test_case, watchdog_type in ['voq', 'oq'],
                     "Invalid watchdog type: {}".format(watchdog_type))
     found_list = []
     for pre_offset, logfile, str_to_check in zip(pre_offsets, [SAI_LOG, SDK_LOG],
-                                                    [SAI_LOG_TO_CHECK[watchdog_type], SDK_LOG_TO_CHECK[watchdog_type]]):
+                                                 [SAI_LOG_TO_CHECK[watchdog_type], SDK_LOG_TO_CHECK[watchdog_type]]):
         egrep_str = '|'.join(str_to_check)
         check_cmd = "sudo tail -c +{} {} | egrep '{}' || true".format(pre_offset + 1, logfile, egrep_str)
         stdout, err, ret = test_case.exec_cmd_on_dut(
@@ -6806,7 +6807,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
-        asic_type = self.test_params['sonic_asic_type']
         pkts_num = int(self.test_params['pkts_num'])
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -6917,14 +6917,14 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send packets
             pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ip_id=exp_ip_id,
-                               ttl=ttl)
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ttl=ttl)
             send_packet(self, src_port_id, pkt, pkts_num)
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -6975,8 +6975,8 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
                     continue
 
             # All packets sent should be received intact
-            qos_test_assert (self, pkts_num == cnt,
-                             'Received {} packets, expected {}'.format(cnt, pkts_num))
+            qos_test_assert(self, pkts_num == cnt,
+                            'Received {} packets, expected {}'.format(cnt, pkts_num))
 
         finally:
             print("END OF TEST")
