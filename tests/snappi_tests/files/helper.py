@@ -18,7 +18,7 @@ from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma,
 from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
-
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,12 @@ def skip_warm_reboot(duthost, reboot_type):
     Returns:
         None
     """
-    SKIP_LIST = ["td2"]
+    SKIP_LIST = ["td2", "jr2", "j2c+"]
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
-    if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+    if (reboot_type == "fast") and asic_type in ["jr2", "j2c+"]:
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
         reboot_case_supported = False
     elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
         reboot_case_supported = False
@@ -79,6 +81,42 @@ def skip_pfcwd_test(duthost, trigger_pfcwd):
     """
     pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
                    'Skip trigger_pfcwd=False test cases for Broadcom devices')
+
+
+def get_number_of_streams(duthost, tx_ports, rx_ports):
+    """
+    Determines the number of test streams to use based on DUT type and port configurations.
+
+    Args:
+        duthost (obj): Device under test.
+        tx_ports (list|dict): Snappi TX ports list or single port dict.
+        rx_ports (list|dict): Snappi RX ports list or single port dict.
+
+    Returns:
+        int: Number of test streams to use.
+    """
+    def extract_unique_values(ports, key):
+        if isinstance(ports, list):
+            return list({port[key] for port in ports})
+        return [ports[key]]
+
+    no_of_test_streams = 1
+
+    if duthost.facts["platform_asic"] != 'cisco-8000':
+        return no_of_test_streams
+
+    if duthost.get_facts().get("modular_chassis"):
+        tx_duthosts = extract_unique_values(tx_ports, 'duthost')
+        rx_duthosts = extract_unique_values(rx_ports, 'duthost')
+
+        if tx_duthosts != rx_duthosts or (
+            extract_unique_values(tx_ports, 'asic_value') != extract_unique_values(rx_ports, 'asic_value')
+        ):
+            tx_ports = tx_ports if isinstance(tx_ports, list) else [tx_ports]
+            if any(int(port['speed']) >= 200000 for port in tx_ports):
+                no_of_test_streams = 10
+
+    return no_of_test_streams
 
 
 @pytest.fixture(autouse=True, params=MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
@@ -423,6 +461,8 @@ def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
         stop_pfcwd(duthost)
         disable_packet_aging(duthost)
+        if duthost.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(duthost, False)
 
     yield
 

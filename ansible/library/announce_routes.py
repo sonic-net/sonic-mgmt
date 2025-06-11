@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import itertools
 import math
 import os
 import yaml
@@ -500,6 +501,9 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
 
     vms = topo['topology']['VMs']
     for vm_name, vm in vms.items():
+        router_type = "leaf"
+        if 'tor' in topo['configuration'][vm_name]['properties']:
+            router_type = 'tor'
         vm_offset = vm['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
@@ -512,6 +516,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         spine_asn, leaf_asn_start, tor_asn_start,
                                         nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        router_type=router_type,
                                         no_default_route=no_default_route)
             if aggregate_routes_v4:
                 filterout_subnet_ipv4(aggregate_routes, routes_v4)
@@ -521,6 +526,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         spine_asn, leaf_asn_start, tor_asn_start,
                                         nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                        router_type=router_type,
                                         no_default_route=no_default_route,
                                         ipv6_address_pattern=ipv6_address_pattern)
             if aggregate_routes_v6:
@@ -1324,6 +1330,14 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
     group_nums = len(t1_vms) // T1_GROUP_SIZE
     t1_route_per_group = math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums)
 
+    # 32 route each x 4 to match 110 T1
+    extra_ipv4_t1 = itertools.chain(
+        ipaddress.ip_network("192.168.0.0/27"),
+        ipaddress.ip_network("192.169.0.0/27"),
+        ipaddress.ip_network("192.170.0.0/27"),
+        ipaddress.ip_network("192.171.0.0/27"),
+    )
+
     for group in range(group_nums):
         selected_v4_subnets = all_subnetv4[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
         selected_v6_subnets = all_subnetv6[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
@@ -1340,6 +1354,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
             for subnetv4, subnetv6 in zip(selected_v4_subnets, selected_v6_subnets):
                 ipv4_routes.append((str(subnetv4), nhipv4, as_path))
                 ipv6_routes.append((str(subnetv6), nhipv6, as_path))
+
+            ipv4_routes.append((str(next(extra_ipv4_t1)), nhipv4, as_path))
 
             change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
             change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
@@ -1391,6 +1407,8 @@ def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
     for hostname, routes in peers_routes_to_change.items():
+        if hostname not in vms:
+            continue
         vm_offset = vms[hostname]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
@@ -1468,7 +1486,7 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
-    tor_default_route = "t1-isolated" in topo_name
+    tor_default_route = "t1-isolated-d128" in topo_name
 
     topo_type = get_topo_type(topo_name)
 
