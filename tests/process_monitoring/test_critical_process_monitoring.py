@@ -522,7 +522,24 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+@pytest.fixture(autouse=True, scope="module")
+def recover_critical_container(duthosts, rand_one_dut_hostname):
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    yield
+
+    logger.info("Executing the config reload...")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    logger.info("Executing the config reload was done!")
+
+    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after testing the process monitoring!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container, recover_critical_container):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -582,16 +599,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
-    logger.info("Executing the config reload...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Executing the config reload was done!")
-
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
-
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     """Tests orchagent heartbeat after warm-restart
@@ -611,17 +618,14 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     marker = loganalyzer.init()
 
     # freeze orchagent for warm-reboot
-    def freeze_orchagent(duthost):
-        # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
-        if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
-            command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
-        else:
-            command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
-        exit_code = command_output["rc"]
-        logger.warning("command_output: {}".format(command_output))
-
-        return exit_code == 0
-    wait_until(30, 2, 0, freeze_orchagent, duthost)
+    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
+    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
+    else:
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    exit_code = command_output["rc"]
+    logger.warning("command_output: {}".format(command_output))
+    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)
