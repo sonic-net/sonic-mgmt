@@ -107,19 +107,26 @@ def get_down_bgp_sessions_neighbors(duthost):
 
 @pytest.fixture(scope="function")
 def announce_bgp_routes_teardown(localhost, tbinfo, ptfhosts):
-    yield
+    servers_dut_interfaces = {}
+    # If servers in tbinfo, means tb was deployed with multi servers
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
+    yield servers_dut_interfaces
     for ptfhost in ptfhosts:
-        announce_routes(localhost, tbinfo, ptfhost)
+        ptf_ip = ptfhost.mgmt_ip
+        announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
 
 
-def announce_routes(localhost, tbinfo, ptfhost):
+def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
     topo_name = tbinfo['topo']['name']
     localhost.announce_routes(
         topo_name=topo_name,
-        ptf_ip=ptfhost.mgmt_ip,
+        ptf_ip=ptf_ip,
         action=ACTION_ANNOUNCE,
         path="../ansible/",
-        log_path="logs"
+        log_path="logs",
+        dut_interfaces=dut_interfaces
     )
 
 
@@ -144,15 +151,16 @@ def generate_packets(routes, dut_mac, src_mac):
     return pkts
 
 
-def change_routes_on_peers(localhost, ptfhost, topo_name, peers_routes_to_change, action):
+def change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, action, dut_interfaces):
     localhost.announce_routes(
         topo_name=topo_name,
         adhoc=True,
-        ptf_ip=ptfhost.mgmt_ip,
+        ptf_ip=ptf_ip,
         action=action,
         peers_routes_to_change=peers_routes_to_change,
         path="../ansible/",
-        log_path="logs"
+        log_path="logs",
+        dut_interfaces=dut_interfaces
     )
 
 
@@ -370,6 +378,7 @@ def test_nexthop_group_member_scale(
     Expected result:
         Dataplane downtime is less than MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE.
     '''
+    servers_dut_interfaces = announce_bgp_routes_teardown
     topo_name = tbinfo['topo']['name']
     if 't1' in topo_name:
         pytest.skip("Skip test on T1 topology because every route only have one nexthop")
@@ -412,7 +421,9 @@ def test_nexthop_group_member_scale(
             remove_nexthops_in_routes({p: a for p, a in ecmp_routes.items() if p in prefixes}, nexthop_to_remove)
         )
     for ptfhost in ptfhosts:
-        change_routes_on_peers(localhost, ptfhost, topo_name, peers_routes_to_change, ACTION_WITHDRAW)
+        ptf_ip = ptfhost.mgmt_ip
+        change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_WITHDRAW,
+                               servers_dut_interfaces.get(ptf_ip, ''))
     withdraw_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
@@ -431,7 +442,8 @@ def test_nexthop_group_member_scale(
     start_time = datetime.datetime.now()
     traffic_thread.start()
     for ptfhost in ptfhosts:
-        announce_routes(localhost, tbinfo, ptfhost)
+        ptf_ip = ptfhost.mgmt_ip
+        announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
     announce_time = datetime.datetime.now()
     recovered = wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
     terminated.set()
