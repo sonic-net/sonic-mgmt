@@ -885,8 +885,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             elif config_method == everflow_utils.CONFIG_MODE_CONFIGLET:
                 pass
 
-            duthost.command(command)
-            time.sleep(2)
+            everflow_utils.check_rule_creation_on_dut(duthost, command)
 
         table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
 
@@ -932,27 +931,31 @@ class EverflowIPv4Tests(BaseEverflowTest):
         src_port = setup_info[dest_port_type]["src_port"]
         # Clear queue counters for the port asic instance
         asic_ns = everflow_dut.get_port_asic_instance(src_port).get_asic_namespace()
-        asic_id = everflow_dut.get_asic_id_from_namespace(asic_ns)
-        recircle_port = "Ethernet-Rec{}".format(asic_id)
+        if asic_ns is not None:
+            asic_id = everflow_dut.get_asic_id_from_namespace(asic_ns)
+            recircle_port = "Ethernet-Rec{}".format(asic_id)
+        else:
+            # For single-asic SKUs, recircle port is Ethernet-Rec0
+            recircle_port = "Ethernet-Rec0"
 
-        everflow_utils.verify_mirror_packets_on_recircle_port(
-            self,
-            ptfadapter,
-            setup_info,
-            setup_mirror_session,
-            everflow_dut,
-            rx_port_ptf_id,
-            [tx_port_ptf_id],
-            dest_port_type,
-            queue,
-            everflow_dut,
-            asic_ns,
-            recircle_port
-        )
-
-        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
-            "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
-            setup_info[dest_port_type]["remote_namespace"]))
+        try:
+            everflow_utils.verify_mirror_packets_on_recircle_port(
+                self,
+                ptfadapter,
+                setup_info,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type,
+                queue,
+                asic_ns,
+                recircle_port
+            )
+        finally:
+            remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+                "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
+                setup_info[dest_port_type]["remote_namespace"]))
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
