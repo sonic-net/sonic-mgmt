@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
-    def __init__(self, mg_facts, neighbors, vlan_nw):
+    def __init__(self, mg_facts, neighbors, vlan_nw, topo, config_facts):
         """
         Args:
             mg_facts (dict): parsed minigraph info
@@ -51,6 +51,8 @@ class TrafficPorts(object):
         self.pfc_wd_rx_port_addr = None
         self.pfc_wd_rx_neighbor_addr = None
         self.pfc_wd_rx_port_id = None
+        self.topo = topo
+        self.config_facts = config_facts
 
     def build_port_list(self):
         """
@@ -225,7 +227,9 @@ class TrafficPorts(object):
         rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]
         rx_port_id = self.pfc_wd_rx_port_id if isinstance(self.pfc_wd_rx_port_id, list) else [self.pfc_wd_rx_port_id]
         for item in vlan_members:
-            temp_ports[item] = {'test_neighbor_addr': self.vlan_nw,
+            ip_addr = self.vlan_nw if 'dualtor' not in self.topo else \
+                      self.config_facts['MUX_CABLE'][item]['server_ipv4'].split('/')[0]
+            temp_ports[item] = {'test_neighbor_addr': ip_addr,
                                 'rx_port': rx_port,
                                 'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                                 'peer_device': self.neighbors.get(item, {}).get('peerdevice', ''),
@@ -352,6 +356,7 @@ def select_test_ports(test_ports):
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
+    logger.info("select_test_ports: {}".format(selected_ports.keys()))
     return selected_ports
 
 
@@ -641,3 +646,35 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
         pfcwd_stat.append(parsed_dict)
 
     return pfcwd_stat
+
+
+def pfcwd_show_status(duthost, output_string):
+    """
+    Get pfcwd status
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        output_string: string to be printed
+
+    Returns:
+        pfcwd status
+    """
+    logger.debug("pfcwd_show_status: {}".format(output_string))
+
+    cmd = "show pfc counters"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd stats"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "grep \"{}\" /var/log/syslog".format("PFC Watchdog")
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
+
+    return

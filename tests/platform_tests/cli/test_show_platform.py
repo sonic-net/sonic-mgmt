@@ -27,7 +27,8 @@ from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_SHOW_PLATFORM = "show platform"
@@ -113,16 +114,9 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     @summary: Verify device's serial no with output of `sudo decode-syseeprom -s`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
     cmd = "sudo decode-syseeprom -s"
     get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
-    # For kvm testbed, when executing command `sudo decode-syseeprom -s`
-    # On some images, it will return the expected Error `ModuleNotFoundError: No module named 'sonic_platform'`
-    # and get the expected return code 2
-    # On some images, it will return the expected Error `Failed to read system EEPROM info in syseeprom on 'vlab-01'`
-    # and get the expected return code 0
-    # So let this function return in advance
-    if duthost.facts["asic_type"] == "vs" and (get_serial_no_cmd["rc"] == 1 or get_serial_no_cmd["rc"] == 0):
-        return
     assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
@@ -143,11 +137,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     syseeprom_cmd = duthost.command(cmd, module_ignore_errors=True)
-    # For kvm testbed, command `show platform syseeprom` will return the expected Error
-    # `ModuleNotFoundError: No module named 'sonic_platform'`
-    # So let this function return in advance
-    if duthost.facts["asic_type"] == "vs" and syseeprom_cmd["rc"] == 1:
-        return
     assert syseeprom_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -217,8 +206,10 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
                                  duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
+        # Define the expected fields that should be present in the syseeprom output
         expected_fields = [
             "Product Name",
+            "Platform Name",
             "Part Number",
             "Serial Number",
             "Base MAC Address",
@@ -226,27 +217,96 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "Device Version",
             "MAC Addresses",
             "Manufacturer",
+            "Vendor Name",
+            "Vendor Extension",
             "ONIE Version",
             "CRC-32"]
 
-        utility_cmd = "sudo python -c \"import imp; \
-            m = imp.load_source('eeprom', '/usr/share/sonic/device/{}/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"".\
-            format(duthost.facts["platform"])
+        # Dump Redis database 6 (EEPROM database) to get all EEPROM-related data
+        cmd = "redis-dump -d 6 -y"
+        # Example Redis data structure:
+        # {
+        #     "EEPROM_INFO|0x2d": {
+        #         "expireat": 1742287244.9024103,
+        #         "ttl": -0.001,
+        #         "type": "hash",
+        #         "value": {
+        #             "Len": "10",
+        #             "Name": "Vendor Name",
+        #             "Value": "Nvidia"
+        #         }
+        #     }
+        # }
+        cmd_output = duthost.command(cmd)['stdout']
+        try:
+            db_data = json.loads(cmd_output)
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Failed to parse Redis dump output: {str(e)}")
 
-        utility_cmd_output = duthost.command(utility_cmd)
+        # Fields to exclude from validation as they are internal metadata
+        exclude_fields = ['EEPROM_INFO|Checksum', 'EEPROM_INFO|State', 'EEPROM_INFO|TlvHeader']
 
-        for field in expected_fields:
-            pytest_assert(syseeprom_output.find(field) >= 0, "Expected field '{}' was not found on '{}'".
-                          format(field, duthost.hostname))
-            pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".
-                          format(field, duthost.hostname))
+        # Get all keys containing EEPROM data from Redis
+        eeprom_db_keys_all = [key for key in db_data.keys() if "EEPROM" in key]
 
-        for line in utility_cmd_output["stdout_lines"]:
-            if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
-                line_regexp = re.sub(r'\s+', r'\\s+', line)
-                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".
-                              format(line, duthost.hostname))
+        if not eeprom_db_keys_all:
+            pytest.fail("No EEPROM keys found in Redis database")
+
+        # Filter out excluded fields to get only relevant EEPROM data
+        eeprom_db_keys_fields = [db_key for db_key in eeprom_db_keys_all if db_key not in exclude_fields]
+        logging.info(f"Found {len(eeprom_db_keys_fields)} EEPROM fields to validate")
+
+        # Track all validation errors to report them together
+        validation_errors = []
+
+        for db_key in eeprom_db_keys_fields:
+            # Analyze the structure of the Redis data for this key
+            # Example structure for a key:
+            # {
+            #     'expireat': 'float',
+            #     'ttl': 'float',
+            #     'type': 'str',
+            #     'value': ['Len', 'Name', 'Value']
+            # }
+            db_key_structure = util.analyze_structure(db_data[db_key])
+            value_structure = db_key_structure.get('value')
+            db_value_data = db_data[db_key].get('value')
+
+            # Skip if no value structure is found
+            if not value_structure:
+                logging.warning(f"No value structure found for EEPROM key: {db_key}")
+                continue
+
+            # Get all 'Name' fields from the value structure
+            value_names = util.get_db_keys('Name', value_structure)
+
+            # Validate that parameter names exist in both syseeprom output and expected fields
+            for value_name in value_names:
+                if db_value_data[value_name] and (db_value_data[value_name] not in syseeprom_output or
+                                                  db_value_data[value_name] not in expected_fields):
+                    validation_errors.append(
+                        f"EEPROM parameter name '{db_value_data[value_name]}' from Redis key '{db_key}' "
+                        f"not found in syseeprom CLI output or not in expected fields"  # noqa: E713
+                    )
+
+            # Get all 'Value' fields from the value structure
+            param_values = util.get_db_keys('Value', value_structure)
+
+            # Validate that parameter values exist in the syseeprom output
+            for param_value in param_values:
+                if db_value_data[param_value] and db_value_data[param_value] not in syseeprom_output:
+                    validation_errors.append(
+                        f"EEPROM value '{db_value_data[param_value]}' from Redis key '{db_key}' "
+                        f"not found in syseeprom CLI output"  # noqa: E713
+                    )
+
+        # If any validation errors occurred, format and report them all at once
+        if validation_errors:
+            error_msg = "\n".join([
+                "EEPROM validation failed with the following errors:",
+                *[f"- {error}" for error in validation_errors]
+            ])
+            pytest.fail(error_msg)
 
 
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
@@ -254,6 +314,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
         wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
@@ -263,12 +324,6 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     psu_status_output = duthost.command(cmd, module_ignore_errors=True)
-
-    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
-    # And it will raise Error when executing such command
-    # We will return in advance if this test case is running on kvm testbed
-    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
-        return
     assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     psu_status_output_lines = psu_status_output["stdout_lines"]
@@ -306,12 +361,6 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
 
     logging.info("Verifying output of '{}' ...".format(cmd))
     psu_status_output = duthost.command(cmd, module_ignore_errors=True)
-
-    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
-    # And it will raise Error when executing such command
-    # We will return in advance if this test case is running on kvm testbed
-    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
-        return
     assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     psu_status_output = psu_status_output["stdout"]
@@ -497,11 +546,6 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     firmware_output = duthost.command(cmd, module_ignore_errors=True)
-    # For kvm testbed, command `show platform firmware status` will return the expected Error
-    # `ModuleNotFoundError: No module named 'sonic_platform'`
-    # So let this function return in advance
-    if duthost.facts["asic_type"] == "vs" and firmware_output["rc"] == 1:
-        return
     assert firmware_output['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -516,16 +560,11 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform pcieinfo`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
     cmd = "show platform pcieinfo -c"
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     pcieinfo_output_lines = duthost.command(cmd)["stdout_lines"]
-
-    # For kvm testbed, there is no file `/usr/share/sonic/device/x86_64-kvm_x86_64-r0/pcie.yaml`
-    # So running such command will get the error `No such file or directory`
-    # Return in advance if this test case is running on kvm testbed
-    if duthost.facts["asic_type"] == "vs":
-        return
 
     passed_check_regexp = r'\[Passed\]|PASSED'
     for line in pcieinfo_output_lines[1:]:

@@ -1,0 +1,63 @@
+topology:
+  VMs:
+{%- for vm in vm_list %}
+    {{ vm.name }}:
+      vlans:
+      {%- for vlan_id in vm.vlans %}
+        - {{ vlan_id }}
+      {%- endfor %}
+      vm_offset: {{ vm.vm_offset }}
+{%- endfor %}
+
+configuration_properties:
+  common:
+    dut_asn: {{ dut.asn_v6 }}
+    dut_type: LeafRouter
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    nhipv6: FC0A::FF
+    ipv6_address_pattern: 2064:100:0::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
+  spine:
+    swrole: spine
+  tor:
+    swrole: tor
+
+configuration:
+{%- for vm in vm_list %}
+  {{vm.name}}:
+    properties:
+    - common
+    {%- if vm.role == 't0' %}
+    - tor
+    tornum: {{vm.tornum}}
+    {%- elif vm.role == 't2' %}
+    - spine
+    {%- endif %}
+    bgp:
+      router-id: {{ vm.loopback_ipv4 }}
+      asn: {{vm.asn_v6}}
+      peers:
+        {{vm.peer_asn_v6}}:
+          - {{vm.dut_intf_ipv6}}
+    interfaces:
+      Loopback0:
+        ipv6: {{vm.loopback_ipv6}}/128
+      {%- if vm.vlans|length > 1 %}
+      {%- for idx in range(vm.vlans|length) %}
+      Ethernet{{idx+1}}:
+        lacp: 1
+      {%- endfor %}
+      Port-Channel1:
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- else %}
+      Ethernet1:
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- endif %}
+    bp_interface:
+      ipv6: {{vm.bp_ipv6}}/64
+{%- endfor %}

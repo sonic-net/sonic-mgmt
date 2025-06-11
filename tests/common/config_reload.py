@@ -3,7 +3,7 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.configlet.utils import chk_for_pfc_wd
@@ -112,17 +112,20 @@ def pfcwd_feature_enabled(duthost):
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
-@ignore_loganalyzer
+@support_ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
-                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
+                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False,
+                  yang_validate=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for sonic_host to initialize after configuration reload
     :param wait_for_bgp: True to wait for all BGP connections to come up after configuration reload
+    :param wait_for_ibgp: True to wait for all iBGP connections to come up after configuration reload. This
+                          parameter is only used when `wait_for_bgp` is True.
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :param is_dut: True if the host is DUT, False if the host may be neighbor device.
                     To the non-DUT host, it may lack of some runtime variables like `topo_type`
@@ -148,6 +151,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # Retrieve the enable_macsec passed by user for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    request = sonic_host.duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
@@ -158,7 +167,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y &>/dev/null'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config:
+        if override_config or macsec_en:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -192,7 +201,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 600) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
@@ -216,7 +225,30 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if wait_for_bgp:
         bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
+        if not wait_for_ibgp:
+            # Filter out iBGP neighbors
+            filtered_bgp_neighbors = {}
+            for asic, interfaces in bgp_neighbors.items():
+                filtered_interfaces = {
+                    ip: details for ip, details in interfaces.items()
+                    if details["local AS"] != details["remote AS"]
+                }
+
+                if filtered_interfaces:
+                    filtered_bgp_neighbors[asic] = filtered_interfaces
+
+            bgp_neighbors = filtered_bgp_neighbors
+
         pytest_assert(
             wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
+        )
+
+    if exec_tsb:
+        sonic_host.shell("TSB")
+
+    if yang_validate:
+        pytest_assert(
+            wait_until(60, 15, 0, sonic_host.yang_validate),
+            "Yang validation failed after config_reload"
         )

@@ -6,7 +6,7 @@ import sys
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from tests.telemetry.telemetry_utils import get_list_stdout
-from tests.common.helpers.telemetry_helper import _context_for_setup_streaming_telemetry
+from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
 
 EVENTS_TESTS_PATH = "./telemetry/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -32,19 +32,21 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
 
 @pytest.fixture(scope="module")
 def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
-    with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
-                                                localhost, ptfhost, gnxi_path) as result:
+    is_ipv6 = request.param
+    with setup_streaming_telemetry_context(is_ipv6, duthosts[enum_rand_one_per_hwsku_hostname],
+                                           localhost, ptfhost, gnxi_path) as result:
         yield result
 
 
 def do_init(duthost):
     for i in [BASE_DIR, DATA_DIR]:
         try:
-            os.mkdir(i)
+            os.makedirs(i, exist_ok=True)
         except OSError as e:
-            logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
+            logger.error("Unexpected error while creating directory: {}".format(e))
 
-        duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
 
 @pytest.fixture(scope="module")

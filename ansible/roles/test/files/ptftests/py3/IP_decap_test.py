@@ -50,7 +50,6 @@ import ipaddress
 import itertools
 import fib
 import time
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -59,6 +58,8 @@ from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv
 from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
+
+import macsec  # noqa F401
 
 
 class DecapPacketTest(BaseTest):
@@ -116,7 +117,7 @@ class DecapPacketTest(BaseTest):
         self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
         if self.max_internal_hops:
             self.TTL_RANGE = list(range(self.max_internal_hops + 1, 63))
-        if self.asic_type == "marvell":
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
@@ -521,15 +522,13 @@ class DecapPacketTest(BaseTest):
 
             next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+            lt2_default_route = False
+            if self.topo == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]

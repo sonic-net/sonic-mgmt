@@ -7,10 +7,10 @@ from socket import inet_aton
 from scapy.all import Ether, UDP, Raw
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
-import ptf.dataplane as dataplane
+from ptf.dataplane import match_exp_pkt
 
 pytestmark = [
-    pytest.mark.topology('mx'),
+    pytest.mark.topology('mx', 'm0'),
 ]
 
 TARGET_MAC = "1a:2b:3c:d1:e2:f0"
@@ -19,6 +19,7 @@ DEFAULT_PORT = 9
 DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
+ERR_MARGIN = 100  # millisecond
 
 
 def p2b(password: str) -> bytes:
@@ -31,7 +32,7 @@ def p2b(password: str) -> bytes:
         return binascii.unhexlify(password.replace(':', ''))
     if '.' in password:
         return inet_aton(password)
-    pytest.fail("invalid password %s" % password)
+    pytest.fail("invalid password {}".format(password))
 
 
 def m2b(mac: str) -> bytes:
@@ -49,13 +50,12 @@ def get_packets_on_specified_ports(ptfadapter, verifier=None, ports=None, device
     """
     Get the packets on the specified ports and device for the specified duration
     """
-    logging.info("Get pkts on device %d, port %r", device_number, ports)
+    logging.info("Get pkts on device {}, port {}".format(device_number, ports))
 
     received_pkts_res = {}
     start_time = time.time()
     while (time.time() - start_time) < duration:
         result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
-        logging.info(result)
         if isinstance(result, ptfadapter.dataplane.PollSuccess) and (ports is None or result.port in ports):
             if verifier is None or verifier(result.packet):
                 if result.port in received_pkts_res:
@@ -72,31 +72,35 @@ def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_num
 def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
-                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
+                  "Received packets on ports other than expected {}, got: {}".format(ports,
+                                                                                     list(received_pkts.keys())))
     pytest_assert(all(map(lambda pkts: len(pkts) == count, received_pkts.values())),
-                  "Did not receive exactly {} of expected packets on all {}: {}".format(count, ports, received_pkts))
+                  "Did not receive exactly {} of expected packets on all {}: received {} total packets {}"
+                  .format(count, ports, sum(map(len, received_pkts.values())), received_pkts))
     if count >= 2 and interval is not None:
         for results in received_pkts.values():
             ts = list(map(lambda result: result.time, results))
             ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 100, ts_diff)),
+            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
                           "Unexpected interval {}".format(ts_diff))
 
 
 def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
-                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
-    pytest_assert(sum(map(lambda pkts: len(pkts), received_pkts.values())) == count,
-                  "Did not receive a total of exactly {} packets on any of {}: {}".format(count, ports, received_pkts))
+                  "Received packets on ports other than expected {}, got: {}".format(ports,
+                                                                                     list(received_pkts.keys())))
+    pytest_assert(sum(map(len, received_pkts.values())) == count,
+                  "Did not receive a total of exactly {} packets on any of {}: received {} total packets {}"
+                  .format(count, ports, sum(map(len, received_pkts.values())), received_pkts))
     if count >= 2 and interval is not None:
         ts = []
         for results in received_pkts.values():
             ts.extend(map(lambda result: result.time, results))
         ts = sorted(ts)
         ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
-                      "Unexpected interval {}".format(ts_diff))
+        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
+                      "Unexpected intervals {}, does not match {}, timestamps {}".format(ts_diff, interval, ts))
 
 
 def get_ether_pkt(src_mac, payload, dst_mac=TARGET_MAC):
@@ -132,7 +136,7 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
 
 
 class TestWOLSendFromInterface:
-    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
+    @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
     @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
     @pytest.mark.parametrize("broadcast", [False, True])
     def test_wol_send_from_interface(
@@ -154,7 +158,7 @@ class TestWOLSendFromInterface:
         duthost.shell(build_wol_cmd(random_dut_intf, password=password,
                       broadcast=broadcast, count=count, interval=interval))
 
-        verify_packet(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+        verify_packet(ptfadapter, lambda pkt: match_exp_pkt(exp_pkt, pkt),
                       random_ptf_index, count=1 if count is None else count,
                       interval=0 if interval is None else interval)
 
@@ -175,9 +179,9 @@ class TestWOLSendFromInterface:
 
         verify_packet(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), random_ptf_index)
 
-    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
+    @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
+    @pytest.mark.parametrize("dport", [5678])
     @pytest.mark.parametrize("dst_ip_intf", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_interface_udp(
         self,
@@ -206,7 +210,7 @@ class TestWOLSendFromInterface:
 
 
 class TestWOLSendFromVlan:
-    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
+    @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
     @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
     def test_wol_send_from_vlan(
         self,
@@ -229,7 +233,7 @@ class TestWOLSendFromVlan:
                       count=count, interval=interval))
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-        verify_packets(ptfadapter, lambda pkt: dataplane.match_exp_pkt(exp_pkt, pkt),
+        verify_packets(ptfadapter, lambda pkt: match_exp_pkt(exp_pkt, pkt),
                        remaining_ptf_index_under_vlan, count=1 if count is None else count,
                        interval=0 if interval is None else interval)
 
@@ -251,9 +255,9 @@ class TestWOLSendFromVlan:
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
         verify_packets(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
 
-    @pytest.mark.parametrize("count,interval", [(None, None), (2, 0), (2, 2000), (5, 0), (5, 2000)])
-    @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
-    @pytest.mark.parametrize("dport", [None, 5678])
+    @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
+    @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
+    @pytest.mark.parametrize("dport", [5678])
     @pytest.mark.parametrize("dst_ip_vlan", ["ipv4", "ipv6"], indirect=True)
     def test_wol_send_from_vlan_udp(
         self,

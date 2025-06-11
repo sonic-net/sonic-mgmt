@@ -114,6 +114,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     if tbinfo["topo"]["type"] == "mx":
         dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
     else:
+        if not mg_facts['minigraph_portchannels']:
+            pytest.skip('No portchannels found')
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
         pytest.skip('No portchannels found')
@@ -185,7 +187,7 @@ def fixture_setUp(duthosts,
         data['loopback_v6'] = data['minigraph_facts']['minigraph_lo_interfaces'][0]['addr']
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type not in ["cisco-8000", "mellanox"]:
-        raise RuntimeError("Pls update this script for your platform.")
+        pytest.skip(f"{asic_type} is not a supported platform for this test. Only support MNLX and CISCO platforms.")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \

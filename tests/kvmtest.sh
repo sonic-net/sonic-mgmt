@@ -113,6 +113,10 @@ test_t0() {
       bgp/test_bgp_speaker.py \
       bgp/test_bgpmon.py \
       bgp/test_bgp_update_timer.py \
+      bmp/test_bmp_configdb.py \
+      bmp/test_bmp_redis_instance.py \
+      bmp/test_bmp_statedb.py \
+      bmp/test_docker_restart.py \
       container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
@@ -169,13 +173,18 @@ test_t0() {
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
+      gnmi/test_gnmi.py \
+      gnmi/test_gnmi_configdb.py \
+      gnmi/test_gnmi_appldb.py \
+      gnmi/test_gnmi_countersdb.py \
       override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py \
       radv/test_radv_ipv6_ra.py \
       database/test_db_config.py \
-      database/test_db_scripts.py"
+      database/test_db_scripts.py \
+      fips/test_fips.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -221,6 +230,13 @@ test_t2() {
 
     tgname=t2
     tests="\
+    bmp/test_bmp_configdb.py \
+    bmp/test_bmp_redis_instance.py \
+    bmp/test_bmp_statedb.py \
+    bmp/test_docker_restart.py \
+    gnmi/test_gnmi.py \
+    gnmi/test_gnmi_appldb.py \
+    gnmi/test_gnmi_countersdb.py \
     voq/test_voq_init.py"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -239,8 +255,16 @@ test_t1_lag() {
     bgp/test_bgp_update_timer.py \
     bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
+    bmp/test_bmp_configdb.py \
+    bmp/test_bmp_redis_instance.py \
+    bmp/test_bmp_statedb.py \
+    bmp/test_docker_restart.py \
     configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
+    gnmi/test_gnmi.py \
+    gnmi/test_gnmi_configdb.py \
+    gnmi/test_gnmi_appldb.py \
+    gnmi/test_gnmi_countersdb.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
@@ -261,6 +285,13 @@ test_multi_asic_t1_lag() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    bmp/test_bmp_configdb.py \
+    bmp/test_bmp_redis_instance.py \
+    bmp/test_bmp_statedb.py \
+    bmp/test_docker_restart.py \
+    gnmi/test_gnmi.py \
+    gnmi/test_gnmi_appldb.py \
+    gnmi/test_gnmi_countersdb.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
@@ -281,6 +312,10 @@ test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    bmp/test_bmp_configdb.py \
+    bmp/test_bmp_redis_instance.py \
+    bmp/test_bmp_statedb.py \
+    bmp/test_docker_restart.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \

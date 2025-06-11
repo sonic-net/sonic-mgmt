@@ -1,17 +1,27 @@
-- snmp_facts: host={{ ansible_host }} version=v2c is_eos=true community={{ snmp_rocommunity }}
-  delegate_to: localhost
-  register: snmp_data
-  ignore_errors: true
+- name: Get ceos container info
+  docker_container_info:
+    name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+  register: ctninfo
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
 
 - name: set force_restart=yes for ceos container
   set_fact: force_restart=yes
 
-- name: set force_restart=no for ceos container
-  set_fact: force_restart=no
-  when: snmp_data.ansible_facts.ansible_sysname is defined
+- name: Check if ceos container responses to snmp
+  when: ctninfo.exists
+  block:
+  - snmp_facts: host={{ ansible_host }} version=v2c is_eos=true community={{ snmp_rocommunity }}
+    delegate_to: localhost
+    register: snmp_data
+    ignore_errors: true
 
-- include_tasks: ceos_config.yml
+  - name: set force_restart=no for ceos container
+    set_fact: force_restart=no
+    when: snmp_data.ansible_facts.ansible_sysname is defined
+
 - include_vars: group_vars/vm_host/ceos.yml
+- include_tasks: ceos_config.yml
 
 - name: Create cEOS container
   become: yes

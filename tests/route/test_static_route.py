@@ -9,6 +9,7 @@ import six
 from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # noqa F811
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -24,6 +25,7 @@ import ptf.mask as mask
 import ptf.packet as packet
 from tests.common import constants
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 
 pytestmark = [
@@ -89,7 +91,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ipv6_src='2001:db8:85a3::8a2e:370:7334',
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -98,7 +100,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     else:
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ip_src='1.1.1.1',
             ip_dst=ip_dst,
             ip_ttl=64,
@@ -159,7 +161,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
                 return False
         return True
 
-    assert (wait_until(60, 15, 0, _check_routes))
+    assert wait_until(60, 15, 0, _check_routes), (
+        "Failed to verify route redistribution: prefix '{}' not found in advertised routes of all BGP neighbors."
+    ).format(prefix)
 
 
 # output example of ip [-6] route show
@@ -319,7 +323,13 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     if expected_vlan_ifaces:
         mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-    vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
+    vlan_interfaces = get_vlan_interface_list(duthost)
+    # pick up the first vlan to test
+    vlan_if_name = vlan_interfaces[0]
+    if ipv6:
+        vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
+    else:
+        vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
     prefix_len = vlan_intf['prefixlen']
 
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
@@ -332,7 +342,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
         nexthop_interfaces = nexthop_devs
     else:
         vlan_subnet = ipaddress.ip_network(vlan_intf['subnet'])
-        vlan = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]
+        vlan = mg_facts['minigraph_vlans'][vlan_if_name]
         vlan_ports = vlan['members']
         vlan_id = vlan['vlanid']
         vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports if 'PortChannel' not in port]

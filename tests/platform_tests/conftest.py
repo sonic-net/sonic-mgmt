@@ -5,7 +5,8 @@ import logging
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
-from tests.common.platform.transceiver_utils import get_ports_with_flat_memory
+from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
+    get_passive_cable_port_list, get_cmis_cable_ports_and_ver
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -208,3 +209,21 @@ def port_list_with_flat_memory(duthosts):
         ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut)})
     logging.info(f"port list with flat memory: {ports_with_flat_memory}")
     return ports_with_flat_memory
+
+
+@pytest.fixture(scope="module")
+def passive_cable_ports(duthosts):
+    passive_cable_ports = {}
+    for dut in duthosts:
+        passive_cable_ports.update({dut.hostname: get_passive_cable_port_list(dut)})
+    logging.info(f"passive_cable_ports: {passive_cable_ports}")
+    return passive_cable_ports
+
+
+@pytest.fixture(scope="module")
+def cmis_cable_ports_and_ver(duthosts):
+    cmis_cable_ports_and_ver = {}
+    for dut in duthosts:
+        cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
+    logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
+    return cmis_cable_ports_and_ver

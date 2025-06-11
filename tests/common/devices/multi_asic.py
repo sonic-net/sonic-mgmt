@@ -8,6 +8,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,8 @@ class MultiAsicSonicHost(object):
                     a_asic_name = a_asic_line.split("|")[1]
                     a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                     active_asics.append(a_asic_instance)
+            else:
+                active_asics = []
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
@@ -86,6 +89,12 @@ class MultiAsicSonicHost(object):
             "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
+
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+            service_list.append("dhcp_relay")
+
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+            service_list.append("dhcp_server")
 
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
@@ -493,7 +502,7 @@ class MultiAsicSonicHost(object):
         """
         services = [feature]
 
-        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
+        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES) or feature in ["bmp"]:
             services = []
             for asic in self.asics:
                 service_name = asic.get_docker_name(feature)
@@ -791,6 +800,17 @@ class MultiAsicSonicHost(object):
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
 
+    def is_critical_processes_running_per_asic_or_host(self, service):
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
+                if not duthost.critical_processes_running(docker_name):
+                    return False
+            return True
+        else:
+            return duthost.critical_processes_running(service)
+
     def is_service_fully_started_per_asic_or_host(self, service):
         """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
@@ -856,3 +876,44 @@ class MultiAsicSonicHost(object):
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
         return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
+
+    def get_admin_up_ports(self):
+        intf_status = get_dut_interfaces_status(self.sonichost)
+        admin_up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
+        return admin_up_ports
+
+    def shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Shutting down {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} shutdown {port}")
+        else:
+            return self.command(f"sudo config interface shutdown {port}")
+
+    def no_shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Bring up {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} startup {port}")
+        else:
+            return self.command(f"sudo config interface startup {port}")
+
+    def yang_validate(self, strict_yang_validation=True):
+        """
+        Validate yang over running config
+        """
+        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        if output['rc'] != 0:
+            return False
+        if strict_yang_validation:
+            for line in output['stdout_lines']:
+                if "Note: Below table(s) have no YANG models:" in line:
+                    logger.info(line)
+                    return False
+        return True

@@ -116,7 +116,8 @@
             "nexthop_group" : "enabled",
             "frr_mgmt_framework_config": "true",
             "docker_routing_config_mode": "unified",
-            "type": "LeafRouter"
+            "type": "LeafRouter",
+            "ring_thread_enabled": "true"
         }
     },
     "INTERFACE": {
