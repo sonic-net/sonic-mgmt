@@ -22,7 +22,7 @@ acl/null_route/test_null_route_helper.py:
   skip:
     reason: "Skip running on dualtor /m1 testbed"
     conditions_logical_operator: or
-    conditions:
+    conditions:ƒ
       - "'dualtor' in topo_name"
       - "'m1' in topo_type"
 
@@ -163,10 +163,12 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_multipath_relax.py:
   skip:
-    reason: "Not supported topology backend, or issue #17928 on Mellanox platform"
-    conditions_logical_operator: or
+    reason: "Not supported topology backend"
     conditions:
       - "'backend' in topo_name"
+  xfail:
+    reason: "Test skipped due to issue #17928 on Mellanox platform"
+    conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17928 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2']"
 
 bgp/test_bgp_port_disable.py:
