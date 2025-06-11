@@ -1273,7 +1273,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
     - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_hash:
-  skip:
+  xfail:
     reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000 or issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
     conditions_logical_operator: or
     conditions:
