@@ -1,4 +1,3 @@
-
 import json
 import sys
 import logging
@@ -41,6 +40,11 @@ ALL_RESUTLS_CSV = 'logs/week_results_df.csv'
 FAILURES_AFTER_ANALYSIS_CSV = 'logs/failures_df_post.csv'
 MIDDLE_FAILURES_CSV = 'logs/middle_failures_df.csv'
 FAILURES_AFTER_AGGREGATION_CSV = 'logs/aggregated_df_post.csv'
+FAILURES_AFTER_AGGREGATION_DEDUP_CSV = 'logs/aggregated_dedup_df_post.csv'
+FLAKY_CSV = 'logs/flaky_df.csv'
+FLAKY_AFTER_ANALYSIS_CSV = 'logs/flaky_df_post.csv'
+FLAKY_AFTER_AGGREGATION_CSV = 'logs/flaky_aggregated_df_post.csv'
+FLAKY_AFTER_DEDUPLICATION_CSV = 'logs/flaky_deduplicated_df_post.csv'
 
 def config_logging():
     """Configure log to rotating file

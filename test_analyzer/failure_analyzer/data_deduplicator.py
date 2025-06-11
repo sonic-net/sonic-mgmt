@@ -44,7 +44,6 @@ class DataDeduplicator:
         duplicated_icm_list = []
         unique_title = set()
         final_icm_list = []
-        error_final_icm_list = []
         count_platform_test = 0
         branch_counts = {branch: 0 for branch in branches}  # Initialize counts for each branch
 
@@ -59,20 +58,10 @@ class DataDeduplicator:
             if limit is not None:
                 logger.info(f"limit the number of {branch} cases to {limit}")
 
-        setup_set = set()
-        common_summary_new_icm_list = []
-
-        for icm in error_final_icm_list:
-            setup_set.add(icm['subject'])
-
-        for icm in common_summary_new_icm_table:
-            if icm['subject'] not in setup_set:
-                common_summary_new_icm_list.append(icm)
-
         failure_new_icm_table = []
         for data in original_failure_dict:
             if data['type'] == 'general':
-                failure_new_icm_table = common_summary_new_icm_list + data['table']
+                failure_new_icm_table = common_summary_new_icm_table + data['table']
                 data['table'] = failure_new_icm_table
                 logger.info("There are {} general failure cases".format(len(failure_new_icm_table)))
                 break
@@ -91,27 +80,6 @@ class DataDeduplicator:
                 duplicated_flag = False
 
                 for uploading_new_icm in final_icm_list:
-                    # TODO
-                    # if 'platform_tests' in candidator['module_path']:
-                    #     icm_branch = candidator['branch']
-                    #     for branch_name in branches:
-                    #         replaced_title = candidator['subject'].replace(icm_branch, branch_name)
-                    #         if uploading_new_icm['subject'] in replaced_title:
-                    #             logger.info(f"For platform_tests, found lower case for branch {icm_branch}, not trigger IcM: \
-                    #                         the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
-                    #             candidator['trigger_icm'] = False
-                    #             duplicated_icm_list.append(candidator)
-                    #             duplicated_flag = True
-                    #             break
-                    #         elif replaced_title in uploading_new_icm['subject']:
-                    #             logger.info(f"For platform_tests, found lower case for branch {icm_branch}, replace {uploading_new_icm['subject']} \
-                    #                         in final_icm_list with {candidator['subject']}")
-                    #             final_icm_list.remove(uploading_new_icm)
-                    #             final_icm_list.append(candidator)
-                    #             duplicated_flag = True
-                    #             break
-                    #     if duplicated_flag:
-                    #         break
                     duplicated_flag = self.check_duplicates(uploading_new_icm['subject'], candidator)
                     if duplicated_flag:
                         duplicated_icm_list.append(candidator)
@@ -153,15 +121,13 @@ class DataDeduplicator:
 
         logger.info("Count summary: platform_test {}, ".format(count_platform_test) +
                     ", ".join(f"{branch} {count}" for branch, count in branch_counts.items()))
-        for kusto_row_item in error_final_icm_list:
-            self.check_subject_match(kusto_row_item)
         for kusto_row_item in final_icm_list:
             self.check_subject_match(kusto_row_item)
         for kusto_row_item in duplicated_icm_list:
             self.check_subject_match(kusto_row_item)
         logger.debug(f"final_icm_list={json.dumps(final_icm_list, indent=4)}")
 
-        return error_final_icm_list, final_icm_list, duplicated_icm_list
+        return final_icm_list, duplicated_icm_list
 
 
     def check_subject_match(self, kusto_row):
@@ -180,6 +146,7 @@ class DataDeduplicator:
             logger.error("In check_subject_match: osversion {} not in subject {}".format(osversion_name, subject_name))
 
         return
+
     def prepare_data_for_clustering(self, failure_new_icm_table):
         """
         Prepares data for clustering by removing duplicates and NaN values.
@@ -208,6 +175,10 @@ class DataDeduplicator:
         """
         # Create a copy and initialize the aggregated column
         df = dataframe_data.copy()
+        # Return early if the dataframe is empty
+        if len(df) == 0:
+            logger.info("No failure data to process - returning empty dataframes")
+            return pd.DataFrame()
         df['aggregated'] = df['failure_summary'].apply(lambda x: False if pd.isna(x) or not x else True)
         # Create processed_summary column for storing preprocessed versions
         df['processed_summary'] = df['failure_summary'].copy()
@@ -541,6 +512,131 @@ class DataDeduplicator:
         logger.info("{}:{} {} {} {} Number of cases with failure_summary:{}".format(case_branch, asic, topology, hwsku, osversion, has_summary_count))
         return kusto_data_list
 
+    def deduplicate_summary_with_active_icm(self, aggregated_df, active_icm_df):
+        """
+        Check if any summary in aggregated_df has the same cluster with summaries in active_icm_df.
+        Only check active ICMs created within summary_expiration_days for the same branch.
+        Return aggregated_df with duplicated entries removed and a separate DataFrame with duplicated entries.
+        """
+        if aggregated_df.empty:
+            logger.info("aggregated_df is empty, returning empty DataFrames")
+            return aggregated_df, pd.DataFrame()
+
+        if active_icm_df.empty:
+            logger.info("active_icm_df is empty, no need to check duplication")
+            return aggregated_df, pd.DataFrame()
+
+        # Get summary_expiration_days from configuration
+        summary_expiration_days = configuration["threshold"]["summary_expiration_days"]
+        current_time = self.current_time
+
+        # Filter active_icm_df to only include recent entries (within summary_expiration_days)
+        cutoff_date = current_time - timedelta(days=summary_expiration_days)
+
+        recent_active_icm_df = active_icm_df[
+            (pd.to_datetime(active_icm_df['SourceCreateDate']) >= cutoff_date) &
+            (active_icm_df['FailureSummary'].notna()) &
+            (active_icm_df['FailureSummary'] != '')
+        ]
+
+        if recent_active_icm_df.empty:
+            logger.info("No recent active ICMs with valid summaries found")
+            return aggregated_df, pd.DataFrame()
+
+        # Group by branch to process each branch separately
+        deduplicated_rows = []
+        duplicated_rows = []
+
+        for branch, branch_aggregated_df in aggregated_df.groupby('branch'):
+            logger.info(f"Processing branch: {branch}")
+
+            # Filter recent active ICMs for the same branch
+            branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'] == branch]
+
+            if branch_active_icm_df.empty:
+                logger.info(f"No recent active ICMs found for branch {branch}")
+                deduplicated_rows.extend(branch_aggregated_df.to_dict('records'))
+                continue
+
+            # Extract summaries for clustering
+            aggregated_summaries = branch_aggregated_df['failure_summary'].dropna().tolist()
+            active_icm_summaries = branch_active_icm_df['FailureSummary'].tolist()
+
+            if not aggregated_summaries or not active_icm_summaries:
+                logger.info(f"No valid summaries found for branch {branch}")
+                deduplicated_rows.extend(branch_aggregated_df.to_dict('records'))
+                continue
+
+            # Preprocess summaries
+            aggregated_summaries_processed = [self.__preprocess_summary(s) for s in aggregated_summaries]
+            active_icm_summaries_processed = [self.__preprocess_summary(s) for s in active_icm_summaries]
+
+            # Combine all summaries for clustering
+            all_summaries = aggregated_summaries_processed + active_icm_summaries_processed
+
+            # Perform clustering
+            eps = configuration["threshold"]["eps"]
+            clusters = self.cluster_summaries(all_summaries, eps=eps, min_samples=1)
+
+            # Identify clusters containing active ICM summaries
+            active_icm_clusters = set(clusters[len(aggregated_summaries_processed):])
+
+            # Filter aggregated summaries that don't belong to active clusters
+            aggregated_clusters = clusters[:len(aggregated_summaries_processed)]
+
+            # Create mapping from aggregated summary index to cluster
+            valid_aggregated_indices = branch_aggregated_df.index[branch_aggregated_df['failure_summary'].notna()].tolist()
+
+            removed_count = 0
+            for i, (orig_idx, cluster) in enumerate(zip(valid_aggregated_indices, aggregated_clusters)):
+                row_dict = branch_aggregated_df.loc[orig_idx].to_dict()
+
+                if cluster not in active_icm_clusters:
+                    # Keep this row as it doesn't match any active ICM cluster
+                    deduplicated_rows.append(row_dict)
+                else:
+                    # This row matches an active ICM cluster - mark as duplicate
+                    row_dict['trigger_icm'] = False
+                    duplicated_rows.append(row_dict)
+                    removed_count += 1
+
+                    # Find the matched active ICM record for this cluster
+                    matched_active_icm = None
+                    for j, active_cluster in enumerate(clusters[len(aggregated_summaries_processed):]):
+                        if active_cluster == cluster:
+                            matched_active_icm = branch_active_icm_df.iloc[j]
+                            break
+
+                    if matched_active_icm is not None:
+                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster}")
+                        logger.info(f"  Matched active ICM title: '{matched_active_icm.get('Title', 'N/A')}'")
+                        logger.info(f"  Matched active ICM summary: '{matched_active_icm.get('FailureSummary', 'N/A')}'")
+                    else:
+                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster} (no specific match found)")
+
+            # Add rows with empty failure_summary (they can't be duplicates)
+            empty_summary_rows = branch_aggregated_df[branch_aggregated_df['failure_summary'].isna() | (branch_aggregated_df['failure_summary'] == '')]
+            deduplicated_rows.extend(empty_summary_rows.to_dict('records'))
+
+            logger.info(f"Branch {branch}: Found {removed_count} entries that match active ICM clusters")
+
+        # Create new DataFrames from deduplicated and duplicated rows
+        if deduplicated_rows:
+            deduplicated_df = pd.DataFrame(deduplicated_rows)
+        else:
+            deduplicated_df = pd.DataFrame(columns=aggregated_df.columns)
+
+        if duplicated_rows:
+            duplicated_df = pd.DataFrame(duplicated_rows)
+        else:
+            duplicated_df = pd.DataFrame(columns=aggregated_df.columns)
+
+        logger.info(f"Total entries before deduplication with active IcM summaries: {len(aggregated_df)}")
+        logger.info(f"Total entries after deduplication with active IcM summaries: {len(deduplicated_df)}")
+        logger.info(f"Total duplicated entries found: {len(duplicated_df)}")
+
+        return deduplicated_df, duplicated_df
+
     def deduplicate_limit_with_active_icm(self, kusto_data_list, icm_count_dict, active_icm_df):
         new_icm_list = []
         duplicated_icm_list = []
@@ -706,8 +802,8 @@ class DataDeduplicator:
                 line = re.sub(hostname_pattern, '', line)
                 cleaned_lines.append(line)
         cleaned_lines = '\n'.join(cleaned_lines)
-        if "traceback" in cleaned_lines:
-            logger.info("Remove numbers from summary since it's a traceback log")
+        if "traceback" in cleaned_lines or "analyze_logs" in cleaned_lines:
+            # logger.info("Remove numbers from summary since it's a traceback or analyze log")
             cleaned_lines = re.sub(r'\d+', '', cleaned_lines)           # remove numbers
         return cleaned_lines
 
@@ -764,3 +860,96 @@ class DataDeduplicator:
 
         # If there are non-noise points, check if they're all the same cluster
         return len(set(non_noise_clusters)) == 1
+
+    def deduplicate_dataframe_clusters(self, general_df, flaky_df):
+        """
+        Compare general and flaky aggregated dataframes and remove duplicated cluster entries from flaky_df.
+        Only removes duplicates when they are from the same branch.
+
+        Args:
+            general_df: DataFrame containing general failure test cases
+            flaky_df: DataFrame containing flaky failure test cases
+
+        Returns:
+            deduplicated_flaky_df: DataFrame with flaky cases that don't belong to the same clusters as general cases
+        """
+        if general_df.empty or flaky_df.empty:
+            logger.info("Either general_df or flaky_df is empty, returning original flaky_df")
+            return flaky_df
+
+        # Convert branch values to strings in both dataframes
+        general_df['branch'] = general_df['branch'].astype(str)
+        flaky_df['branch'] = flaky_df['branch'].astype(str)
+
+        # Process each branch separately
+        all_indices_to_drop = []
+
+        for branch in flaky_df['branch'].unique():
+            logger.info(f"\nProcessing branch: {branch}")
+
+            # Get dataframes for current branch
+            branch_general_df = general_df[general_df['branch'] == branch]
+            branch_flaky_df = flaky_df[flaky_df['branch'] == branch]
+
+            if branch_general_df.empty or branch_flaky_df.empty:
+                logger.info(f"No data to compare for branch {branch}")
+                continue
+
+            # Extract failure summaries for current branch
+            general_summaries = branch_general_df['failure_summary'].dropna().tolist()
+            flaky_summaries = branch_flaky_df['failure_summary'].dropna().tolist()
+
+            if not general_summaries or not flaky_summaries:
+                logger.info(f"No valid failure summaries found in branch {branch}")
+                continue
+
+            logger.info(f"Processing {len(general_summaries)} general summaries and {len(flaky_summaries)} flaky summaries for branch {branch}")
+
+            # Preprocess all summaries
+            general_summaries_processed = [self.__preprocess_summary(s) for s in general_summaries]
+            flaky_summaries_processed = [self.__preprocess_summary(s) for s in flaky_summaries]
+
+            # Create a mapping from index to processed summary for flaky_df
+            flaky_summary_mapping = {}
+            for idx, summary in zip(branch_flaky_df.index[branch_flaky_df['failure_summary'].notna()], flaky_summaries_processed):
+                flaky_summary_mapping[idx] = summary
+
+            # Combine all summaries for clustering
+            all_summaries_processed = general_summaries_processed + flaky_summaries_processed
+
+            # Perform clustering on all summaries
+            eps = configuration["threshold"]["eps"]
+            clusters = self.cluster_summaries(all_summaries_processed, eps=eps, min_samples=1)
+
+            # Identify clusters containing general failures
+            general_clusters = set(clusters[:len(general_summaries_processed)])
+
+            # Map each flaky summary to its cluster
+            flaky_clusters = clusters[len(general_summaries_processed):]
+
+            # Create a mapping from flaky summary index to its cluster
+            flaky_cluster_mapping = {}
+            for i, summary_idx in enumerate(branch_flaky_df.index[branch_flaky_df['failure_summary'].notna()]):
+                if i < len(flaky_clusters):
+                    flaky_cluster_mapping[summary_idx] = flaky_clusters[i]
+
+            # Identify indices of flaky rows to drop (those that belong to general clusters)
+            branch_indices_to_drop = []
+            for idx, cluster in flaky_cluster_mapping.items():
+                if cluster in general_clusters:
+                    branch_indices_to_drop.append(idx)
+                    logger.debug(f"Found duplicate cluster for subject: {branch_flaky_df.loc[idx, 'subject']}")
+                    logger.debug(f"Branch: {branch}")
+                    logger.debug(f"Cluster ID: {cluster}")
+                    logger.debug(f"Summary: {branch_flaky_df.loc[idx, 'failure_summary'][:80]}")
+
+            all_indices_to_drop.extend(branch_indices_to_drop)
+            logger.info(f"Branch {branch}: Removed {len(branch_indices_to_drop)} flaky entries with clusters matching general cases")
+
+        # Create a copy of flaky_df without the duplicate clusters
+        deduplicated_flaky_df = flaky_df.drop(all_indices_to_drop)
+
+        logger.info(f"\nTotal removed: {len(all_indices_to_drop)} flaky entries with clusters matching general cases")
+        logger.info(f"Total kept: {len(deduplicated_flaky_df)} unique flaky entries")
+
+        return deduplicated_flaky_df

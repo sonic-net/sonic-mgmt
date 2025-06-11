@@ -254,57 +254,97 @@ class KustoConnector(object):
         logger.info("Query common summary failure cases:{}".format(query_str))
         return self.query(query_str)
 
-    def query_test_setup_failure(self):
+    def query_flaky_failure(self):
         """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
+        Query flaky cases in past 7 days.
         """
         query_str = self.query_head + f'''
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
+        let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
         | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-        | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where not(TopologyType has_any(ExcludeTopoList))
         | where not(AsicType has_any(ExcludeAsicList))
-        | where Summary contains "test setup failure"
-        | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where Result in (ResultFilterList)
-            | where Summary contains "test setup failure"
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by OSVersion, ModulePath, opTestCase, Result)
-                                                           on $left.OSVersion == $right.OSVersion,
-                                                            $left.ModulePath == $right.ModulePath,
-                                                            $left.opTestCase == $right.opTestCase,
-                                                            $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        | where ModulePath != ""
         | where TestBranch !contains "/"
-        // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
         | where (
-                BranchName in ('master', 'internal') and TestBranch == 'internal'
-            ) or (
-                BranchName !in ('master', 'internal') and (
-                    TestBranch == strcat('internal-', BranchVersion) or
-                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-dev')
-                )
-            ) or
-                isempty(TestBranch)
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
-        | where ReproCount >= {configuration['threshold']['repro_count_limit_setup_error']}
-        | sort by ReproCount, ModulePath
+                        BranchName in ('master', 'internal') and TestBranch == 'internal'
+                    ) or (
+                        BranchName !in ('master', 'internal') and (
+                            TestBranch == strcat('internal-', BranchVersion) or
+                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                            TestBranch == strcat('internal-', BranchVersion, '-dev')
+                        )
+                    ) or
+                        isempty(TestBranch)
+        | where PipeStatus in ("FINISHED")
+        | summarize maxAttempt = max(toint(Attempt)) by BuildId
+        | where maxAttempt >= 1
+        | project BuildId
+        | distinct BuildId;
+        let dataClean = TestReportUnionData
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
+        | where not(TestbedName has_any(ExcludeTestbedList))
+        | where not (HardwareSku has_any(ExcludeHwSkuList))
+        | where not(TopologyType has_any(ExcludeTopoList))
+        | where not(AsicType has_any(ExcludeAsicList))
+        | where not(BranchName has_any(ExcludeBranchList))
+        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+        | where ModulePath != ""
+        | where TestBranch !contains "/"
+        | extend BranchVersion = substring(BranchName, 0, 6)
+        | where (
+                        BranchName in ('master', 'internal') and TestBranch == 'internal'
+                    ) or (
+                        BranchName !in ('master', 'internal') and (
+                            TestBranch == strcat('internal-', BranchVersion) or
+                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                            TestBranch == strcat('internal-', BranchVersion, '-dev')
+                        )
+                    ) or
+                        isempty(TestBranch)
+        | where TestbedName != ''
+        | where ModulePath !contains "test_posttest" and ModulePath !contains "test_pretest"
+        | where BuildId in (buildsWithRetry)
+        | extend TestNameWithTb = strcat(ModulePath, '-', TestCase)
+        | extend AttemptInt = toint(Attempt);
+        let flakySummary = dataClean
+        | summarize
+            firstFailure = minif(AttemptInt, Result in (ResultFilterList)),
+            firstSuccess = minif(AttemptInt, Result == "success")
+        by BuildId, FullCaseName
+        | where isnotempty(firstSuccess) and isnotempty(firstFailure) and firstFailure != firstSuccess;
+        flakySummary
+        | join kind=innerunique  (
+            dataClean
+        ) on BuildId, FullCaseName
+        | where Result in (ResultFilterList)
+        | extend FailedType = case(Summary contains "Pre-test sanity check failed","pre sanity check failed",
+                                    Summary contains "Recovery of sanity check failed","recovery sanity check failed",
+                                    Summary contains "stage_pre_test sanity check after recovery failed","stage_pre_test sanity check failed after recovery",
+                                    Summary contains "Did not receive expected packet" or Summary contains "Received expected packet", "expected packet loss",
+                                    Summary contains "Match Messages:" and Summary contains "analyze_logs" ,"loganalyzer",
+                                    Summary contains "bin/ptf --test-dir ptftests", "ptf script failed",
+                                    Summary contains "Not all critical processes are healthy"," critical process unhealthy",
+                                    Summary contains "system cpu and memory usage check fails", "cpu memory check failed",
+                                    Summary contains "tests.common.errors.RunAnsibleModuleFail: run module shell failed, Ansible Results", "RunAnsibleModuleFail",
+                                    Summary contains "PSU", "PSU",
+                                    Summary contains "fan ", "fan",
+                                    Summary contains "AssertionError", "AssertionError",
+                                    Summary contains "Host unreachable in the inventory", 'unreachable',
+                                    Summary contains "failed on setup with", "setup error",
+                                    Summary contains "failed on teardown with", 'teardown',
+                                    "Others")
+        | where FailedType == "loganalyzer"
+        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
+        | sort by UploadTimestamp desc
         '''.strip()
-        logger.info("Query test setup failure cases:{}".format(query_str))
+        logger.info("Query flaky failed cases:{}".format(query_str))
         return self.query(query_str)
 
     def query_failed_testcase(self):
@@ -414,7 +454,6 @@ class KustoConnector(object):
         | where ModulePath != ""
         | where Summary !in (SummaryWhileList)
         | where TestBranch !contains "/"
-        // Extract the version from the branch name, get the first 6 digits
         | extend BranchVersion = substring(BranchName, 0, 6)
         | where (
                 BranchName in ('master', 'internal') and TestBranch == 'internal'
