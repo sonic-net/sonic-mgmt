@@ -2394,7 +2394,6 @@ snmp/test_snmp_queue_counters.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test skipped due to issue #17929 on Mellanox platform"
     conditions:
