@@ -1,4 +1,6 @@
 import ipaddress
+import logging
+import os.path
 import pytest
 import random
 import time
@@ -8,19 +10,21 @@ from ptf import testutils
 
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa: F401
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import force_active_tor                                    # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
+from tests.common.dualtor.dual_tor_utils import force_active_tor                                    # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa: F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa: F401
 from tests.common.helpers import bgp
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -36,7 +40,7 @@ ANNOUNCED_SUBNET_IPV6 = "fc00:10::/64"
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # noqa F811
+def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # noqa: F811
     """Setup the interfaces used by the new BGP sessions on PTF."""
 
     def _find_test_lo_interface(mg_facts):
@@ -59,6 +63,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
     lower_tor_mg_facts = lower_tor_host.get_extended_minigraph_facts(tbinfo)
     upper_tor_intf = _find_test_lo_interface(upper_tor_mg_facts)
     lower_tor_intf = _find_test_lo_interface(lower_tor_mg_facts)
+
     assert upper_tor_intf, (
         "Failed to find the test loopback interface '{}' in the upper ToR minigraph facts."
     ).format(TEST_DEVICE_INTERFACE)
@@ -110,6 +115,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
 
     upper_tor_vlan_ipv6 = _find_ipv6_vlan(upper_tor_mg_facts)
     lower_tor_vlan_ipv6 = _find_ipv6_vlan(lower_tor_mg_facts)
+
     assert upper_tor_vlan_ipv6, (
         "Failed to find an IPv6 VLAN interface in the upper ToR minigraph facts.\n"
         "- VLAN interfaces found: {}"
@@ -184,6 +190,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
             ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
         yield connections
     finally:
+        upper_tor_host.shell("show arp")
+        lower_tor_host.shell("show arp")
+        ptfhost.shell("ip route show")
         for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
@@ -205,9 +214,33 @@ def bgp_neighbors(ptfhost, setup_interfaces):
             conn["local_addr"].split("/")[0],
             conn["local_asn"],
             conn["exabgp_port"],
-            is_passive=True
+            is_passive=True,
+            debug=True
         )
     return neighbors
+
+
+@pytest.fixture(scope="module", autouse=True)
+def save_slb_exabgp_logfiles(ptfhost, pytestconfig, request):
+    """Save slb exabgp log files to the log directory."""
+    # remove log files before test
+    log_files_before = ptfhost.shell("ls /tmp/exabgp-slb_*.log*",
+                                     module_ignore_errors=True)["stdout"].split()
+    for log_file in log_files_before:
+        ptfhost.file(path=log_file, state="absent")
+
+    yield
+
+    test_log_file = pytestconfig.getoption("log_file", None)
+    if test_log_file:
+        log_dir = os.path.dirname(os.path.abspath(test_log_file))
+        log_files = ptfhost.shell("ls /tmp/exabgp-slb_*.log*",
+                                  module_ignore_errors=True)["stdout"].split()
+        for log_file in log_files:
+            logging.debug("Save slb exabgp log %s to %s", log_file, log_dir)
+            ptfhost.fetch(src=log_file, dest=log_dir + os.path.sep, fail_on_missing=False, flat=True)
+    else:
+        logging.info("Skip saving slb exabgp log files to log directory as log directory not set.")
 
 
 @pytest.fixture(params=['ipv4', 'ipv6'])
@@ -261,10 +294,10 @@ def constants(setup_interfaces, ip_version):
 
 def test_orchagent_slb(
     bgp_neighbors, constants, conn_graph_facts,
-    force_active_tor, upper_tor_host, lower_tor_host,       # noqa F811
+    force_active_tor, upper_tor_host, lower_tor_host,       # noqa: F811
     ptfadapter, ptfhost, setup_interfaces,
-    toggle_all_simulator_ports_to_upper_tor, tbinfo,        # noqa F811
-    tunnel_traffic_monitor, vmhost                          # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, tbinfo,        # noqa: F811
+    tunnel_traffic_monitor, vmhost                          # noqa: F811
 ):
 
     def verify_bgp_session(duthost, bgp_neighbor):
@@ -286,22 +319,9 @@ def test_orchagent_slb(
         prefix = ipaddress.ip_network(route["prefix"])
         existing_route = duthost.get_ip_route_info(dstip=prefix)
         if existing:
-            assert route["nexthop"] in [str(_[0]) for _ in existing_route["nexthops"]], (
-                "Route verification failed: expected nexthop '{}' not found in DUT route table for prefix '{}'. "
-                "Actual nexthops: {}."
-            ).format(
-                route["nexthop"],
-                route["prefix"],
-                [str(_[0]) for _ in existing_route["nexthops"]]
-            )
-
+            return route["nexthop"] in [str(_[0]) for _ in existing_route["nexthops"]]
         else:
-            assert len(existing_route["nexthops"]) == 0, (
-                "Route withdrawal verification failed: nexthops still exist for prefix '{}'. Found: {}."
-            ).format(
-                route["prefix"],
-                existing_route["nexthops"]
-            )
+            return len(existing_route["nexthops"]) == 0
 
     def verify_traffic(duthost, connection, route, is_duthost_active=True, is_route_existed=True):
 
@@ -354,8 +374,28 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        verify_route(upper_tor_host, constants.route, existing=True)
-        verify_route(lower_tor_host, constants.route, existing=True)
+        pytest_assert(
+            verify_route(upper_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the upper ToR. "
+                "Expected route: {}. "
+                "Upper ToR host: {}"
+            ).format(
+                constants.route,
+                upper_tor_host
+            )
+        )
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route: {}. "
+                "Lower ToR host: {}. "
+            ).format(
+                constants.route,
+                lower_tor_host,
+            )
+        )
 
         # STEP 3: verify the route by sending some downstream traffic
         verify_traffic(
@@ -373,8 +413,30 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        verify_route(upper_tor_host, constants.route, existing=False)
-        verify_route(lower_tor_host, constants.route, existing=False)
+        pytest_assert(
+            wait_until(10, 5, 0, verify_route, upper_tor_host, constants.route, existing=False),
+            (
+                "Route is not withdrawn from the upper ToR. "
+                "Expected route to be withdrawn. "
+                "Upper ToR host: {}. "
+                "Route: {}"
+            ).format(
+                upper_tor_host,
+                constants.route
+            )
+        )
+        pytest_assert(
+            wait_until(10, 5, 0, verify_route, lower_tor_host, constants.route, existing=False),
+            (
+                "Route is not withdrawn from the lower ToR. "
+                "Expected route to be withdrawn. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
 
         # STEP 5: verify the route is removed by verifying that downstream traffic is dropped
         verify_traffic(
@@ -400,9 +462,30 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        verify_route(upper_tor_host, constants.route, existing=True)
-        verify_route(lower_tor_host, constants.route, existing=True)
-
+        pytest_assert(
+            verify_route(upper_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the upper ToR. "
+                "Expected route to exist. "
+                "Upper ToR host: {}. "
+                "Route: {}"
+            ).format(
+                upper_tor_host,
+                constants.route
+            )
+        )
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route to exist. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
         # STEP 8: verify the route by sending some downstream traffic
         verify_traffic(
             upper_tor_host, connections["upper_tor"], constants.route,
@@ -417,7 +500,18 @@ def test_orchagent_slb(
         upper_tor_bgp_neighbor.stop_session()
 
         verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor)
-        verify_route(lower_tor_host, constants.route, existing=True)
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route to exist. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
 
         lower_tor_bgp_neighbor.stop_session()
 
