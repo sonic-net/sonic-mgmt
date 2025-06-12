@@ -5,7 +5,7 @@ svcstr-7260cx3-acs-5,Ethernet2/1,svcstr-server-2,enp59s0f1,40000,,Trunk
 svcstr-7260cx3-acs-5,Ethernet7/1,svcstr-server-3,ens4f0,40000,,Trunk
 svcstr-7260cx3-acs-5,Ethernet3/1,svcstr-7260cx3-acs-1,Ethernet64/1,40000,"201-260",Trunk
 svcstr-7260cx3-acs-5,Ethernet4/1,svcstr-7260cx3-acs-2,Ethernet64/1,40000,"261-320",Trunk
-svcstr-7260cx3-acs-5,Ethernet6/1,svcstr-7260cx3-acs-3,Ethernet64/1,40000,"321-328,746-762",Trunk
+svcstr-7260cx3-acs-5,Ethernet6/1,svcstr-7260cx3-acs-3,Ethernet64/1,40000,"321-328,746-774",Trunk
 svcstr-7260cx3-acs-5,Ethernet17/1,svcstr-7260cx3-acs-6,Ethernet64/1,100000,"329-388",Trunk
 svcstr-7260cx3-acs-5,Ethernet18/1,svcstr-7260cx3-acs-7,Ethernet64/1,100000,"389-392,453-456,518-524,586-592",Trunk
 svcstr-7260cx3-acs-5,Ethernet19/1,svcstr-7260cx3-acs-8,Ethernet64/1,100000,"393-452",Trunk
@@ -477,3 +477,15 @@ svcstr-7250x3b-2,Ethernet256,svcstr-z9332f-01,Ethernet48,400000,633,Access
 svcstr-7250x3b-2,Ethernet264,svcstr-z9332f-01,Ethernet56,400000,634,Access
 svcstr-7250x3b-2,Ethernet272,svcstr-z9332f-01,Ethernet64,400000,635,Access
 svcstr-7250x3b-2,Ethernet280,svcstr-z9332f-01,Ethernet72,400000,636,Access
+svcstr-7280dr3-1,Ethernet48,svcstr-7260cx3-acs-3,Ethernet16/1,100000,763,Access
+svcstr-7280dr3-1,Ethernet96,svcstr-7260cx3-acs-3,Ethernet33/1,100000,764,Access
+svcstr-7280dr3-1,Ethernet104,svcstr-7260cx3-acs-3,Ethernet34/1,100000,765,Access
+svcstr-7280dr3-1,Ethernet192,svcstr-7260cx3-acs-3,Ethernet17/1,100000,766,Access
+svcstr-7280dr3-1,Ethernet200,svcstr-7260cx3-acs-3,Ethernet18/1,100000,767,Access
+svcstr-7280dr3-1,Ethernet272,svcstr-7260cx3-acs-3,Ethernet19/1,100000,768,Access
+svcstr-7280dr3-2,Ethernet48,svcstr-7260cx3-acs-3,Ethernet35/1,100000,769,Access
+svcstr-7280dr3-2,Ethernet96,svcstr-7260cx3-acs-3,Ethernet36/1,100000,770,Access
+svcstr-7280dr3-2,Ethernet104,svcstr-7260cx3-acs-3,Ethernet37/1,100000,771,Access
+svcstr-7280dr3-2,Ethernet192,svcstr-7260cx3-acs-3,Ethernet49/1,100000,772,Access
+svcstr-7280dr3-2,Ethernet200,svcstr-7260cx3-acs-3,Ethernet50/1,100000,773,Access
+svcstr-7280dr3-2,Ethernet272,svcstr-7260cx3-acs-3,Ethernet51/1,100000,774,Access

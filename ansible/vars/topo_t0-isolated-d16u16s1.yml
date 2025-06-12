@@ -156,7 +156,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64601
       peers:
         65100:
           - 10.0.0.64
@@ -175,7 +175,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64602
       peers:
         65100:
           - 10.0.0.80
@@ -194,7 +194,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64603
       peers:
         65100:
           - 10.0.0.96
@@ -213,7 +213,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64604
       peers:
         65100:
           - 10.0.0.112
@@ -232,7 +232,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64605
       peers:
         65100:
           - 10.0.0.128
@@ -251,7 +251,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64606
       peers:
         65100:
           - 10.0.0.144
@@ -270,7 +270,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64607
       peers:
         65100:
           - 10.0.0.160
@@ -289,7 +289,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64608
       peers:
         65100:
           - 10.0.0.176
@@ -308,7 +308,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64609
       peers:
         65100:
           - 10.0.1.64
@@ -327,7 +327,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64610
       peers:
         65100:
           - 10.0.1.80
@@ -346,7 +346,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64611
       peers:
         65100:
           - 10.0.1.96
@@ -365,7 +365,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64612
       peers:
         65100:
           - 10.0.1.112
@@ -384,7 +384,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64613
       peers:
         65100:
           - 10.0.1.128
@@ -403,7 +403,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64614
       peers:
         65100:
           - 10.0.1.144
@@ -422,7 +422,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64615
       peers:
         65100:
           - 10.0.1.160
@@ -441,7 +441,7 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 64616
       peers:
         65100:
           - 10.0.1.176
