@@ -211,7 +211,7 @@ steps:
 
 
 
-  - ${{ if eq(parameters.useRemote, true) }}:
+  - ${{ if ne(variables['Build.SourceBranchName'], 'master') }}:
       - script: |
           echo "current non-master branch, use remote template"
         displayName: "Use remote template"
