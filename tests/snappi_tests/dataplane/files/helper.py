@@ -2,6 +2,7 @@
 from tests.snappi_tests.dataplane.imports import *          # noqa F401
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class IxNetConfigParams:
     traffic_name: str = "TestTraffic"
@@ -106,7 +107,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
                 port['asn'] = gateway_to_bgp.get(port['ipGateway'])['asn']
                 port['prefix'] = peer_to_gateway.get(port['peer_port'])[1]
                 port['subnet'] = str(peer_to_gateway.get(port['peer_port'])[0]) \
-                                    + "/"+str(peer_to_gateway.get(port['peer_port'])[1])  # noqa: E127
+                                    + "/" + str(peer_to_gateway.get(port['peer_port'])[1])  # noqa: E127
     return get_snappi_ports
 
 
@@ -295,17 +296,16 @@ def create_snappi_config(config, snappi_extra_params):
                 )
                 if pconfig['network_group'] and 'route_ranges' in pconfig:
                     route_range = pconfig['route_ranges']
-                    routes = (
-                                peer.v4_routes.add(name=f"{role} Network Group_{index}")
-                                if is_ipv4 else
-                                peer.v6_routes.add(name=f"{role} Network Group_{index}")
-                            )
+                    if is_ipv4:
+                        routes = peer.v4_routes.add(name=f"{role} Network Group_{index}")
+                    else:
+                        routes = peer.v6_routes.add(name=f"{role} Network Group_{index}")
                     for rr in route_range:
                         routes.addresses.add(
-                                    address=rr[0],
-                                    prefix=rr[1],
-                                    count=rr[2],
-                                )
+                            address=rr[0],
+                            prefix=rr[1],
+                            count=rr[2],
+                        )
                     snappi_obj_handles[role]["network_group"].append(routes.name)
     return config, snappi_obj_handles
 
@@ -369,7 +369,10 @@ def setup_ixnetwork_config(ixnet, port_config_list, port_distrbution, config: Ix
     if config.bidirectional:
         trafficItem.EndpointSet.add(Sources=ixnet.Topology.find(), Destinations=ixnet.Topology.find())
     else:
-        trafficItem.EndpointSet.add(Sources=ixnet.Topology.find(Name="East"), Destinations=ixnet.Topology.find(Name="West"))
+        trafficItem.EndpointSet.add(
+            Sources=ixnet.Topology.find(Name="East"),
+            Destinations=ixnet.Topology.find(Name="West")
+        )
 
     configElement = trafficItem.ConfigElement.find()[0]
     configElement.FrameRate.update(Rate=config.frame_rate, Type="percentLineRate")
@@ -387,7 +390,11 @@ def setup_ixnetwork_config(ixnet, port_config_list, port_distrbution, config: Ix
         lbin.BinLimits = config.latency_bins.get("BinLimits")
         start_traffic(ixnet, generate_apply_traffic=True)
         logger.info("Creating Traffic Flow Latency Bin Filtering View...")
-        binView = ixnet.Statistics.View.add(Caption=config.latency_bins.get("Caption"), Visible=True, Type="layer23TrafficFlow")
+        # bin_view = ixnet.Statistics.View.add(
+        #     Caption=config.latency_bins.get("Caption", "Bin Statistics"),
+        #     Visible=True,
+        #     Type="layer23TrafficFlow"
+        # )
         # Configure the Layer23 Traffic Flow Filter
         fdd = binView.Layer23TrafficFlowFilter.find()
         fdd.update(
@@ -405,7 +412,7 @@ def setup_ixnetwork_config(ixnet, port_config_list, port_distrbution, config: Ix
             for stat in binView.Statistic.find()
             if "Store-Forward Avg Latency (ns)" in stat.Caption
         ]
-        binView.Enabled = True    
+        binView.Enabled = True
         stop_traffic(ixnet)
 
 
@@ -433,7 +440,8 @@ def stop_protocols(ixnet):
         logger.info("ERROR:Protocols session are down.")
         raise Exception(str(e))
 
-def start_traffic(ixnet, generate_apply_traffic = False):
+
+def start_traffic(ixnet, generate_apply_traffic=False):
     """Starts the traffic and ensures frames are being transmitted."""
     if generate_apply_traffic:
         logger.info("Generating Traffic")
