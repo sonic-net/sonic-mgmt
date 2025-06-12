@@ -10,6 +10,7 @@ import logging
 import pytest
 import time
 import math
+import re
 
 from collections import defaultdict
 
@@ -45,9 +46,12 @@ class TestContLinkFlap(object):
                 frr_daemon_memory_output
             )
 
-            frr_daemon_memory = asic.run_vtysh(
-                f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
-            )["stdout"].split()[-2]
+            frr_str = asic.run_vtysh(f'-c "show memory {daemon}"')["stdout"]
+            frr_daemon_memory = ''
+            for line in frr_str.splitlines():
+                if re.search("Used ordinary blocks", line):
+                    frr_daemon_memory = line.split()[-2]
+                    break
 
             frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
 
