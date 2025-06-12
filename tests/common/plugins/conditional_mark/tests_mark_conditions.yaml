@@ -1441,6 +1441,14 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
+  xfail:
+    reason: "Incorrect supported speeds for 7060X6 in STATE_DB, fix TBD"
+    conditions_logical_operator: and
+    conditions:
+      - "'7060X6' in hwsku"
+      - "topo_type in ['t1']"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
