@@ -311,7 +311,7 @@ class PFCStorm(object):
         """
         if self.asic_type == 'vs':
             return
- 	if self.peer_device.os in ['sonic', 'nxos']:
+        if self.peer_device.os in ['sonic', 'nxos']:
             with open(self.extra_vars['template_path']) as tmpl_fd:
                 tmpl = Template(tmpl_fd.read())
                 cmds = tmpl.render(**self.extra_vars).splitlines()
