@@ -161,7 +161,7 @@ parameters:
     type: string
     default: ""
 
-stages:
+steps:
   - ${{ if eq(variables['Build.SourceBranchName'], 'master') }}:
       - script: |
           echo "current master branch, use local template"
