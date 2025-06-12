@@ -1497,6 +1497,8 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
+        elif dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
+            time.sleep(120)
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1554,3 +1556,6 @@ class TestAclWithPortToggle(TestBasicAcl):
         else:
             port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()
+
+        if dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
+            time.sleep(120)
