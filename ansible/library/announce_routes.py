@@ -1407,6 +1407,8 @@ def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
     for hostname, routes in peers_routes_to_change.items():
+        if hostname not in vms:
+            continue
         vm_offset = vms[hostname]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
@@ -1484,7 +1486,7 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
-    tor_default_route = "t1-isolated" in topo_name
+    tor_default_route = "t1-isolated-d128" in topo_name
 
     topo_type = get_topo_type(topo_name)
 

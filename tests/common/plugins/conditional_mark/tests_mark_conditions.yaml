@@ -367,6 +367,12 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
+crm/test_crm_available.py:
+  xfail:
+    reason: "There is a known issue with broadcom dualtor"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18873 and 'dualtor' in topo_name and asic_type in ['broadcom']"
+
 #######################################
 #####           dash              #####
 #######################################
@@ -2276,6 +2282,10 @@ route/test_route_perf.py:
     reason: "Does not apply to standalone topos."
     conditions:
       - "'standalone' in topo_name"
+  xfail:
+    reason: "Test case has high failure rate on t1-lag"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18893"
 
 route/test_static_route.py:
   skip:
