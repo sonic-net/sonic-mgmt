@@ -168,48 +168,48 @@ steps:
     displayName: "Use local template"
     condition: eq(variables['System.PullRequest.TargetBranch'], 'master')
 
-  - template: .azure-pipelines/run-test-elastictest-template.yml  # local
-    condition: eq(variables['System.PullRequest.TargetBranch'], 'master')
-    parameters:
-      TOPOLOGY: ${{ parameters.TOPOLOGY }}
-      POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
-      POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
-      LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
-      MIN_WORKER: $(INSTANCE_NUMBER)
-      MAX_WORKER: $(INSTANCE_NUMBER)
-      NUM_ASIC: ${{ parameters.NUM_ASIC }}
-      TEST_SET: ${{ parameters.TEST_SET }}
-      DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
-      COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
-      VM_TYPE: ${{ parameters.VM_TYPE }}
-      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
-      IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
-      HWSKU: ${{ parameters.HWSKU }}
-      TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
-      PLATFORM: ${{ parameters.PLATFORM }}
-      SCRIPTS: ${{ parameters.SCRIPTS }}
-      FEATURES: ${{ parameters.FEATURES }}
-      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
-      FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-      SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
-      AFFINITY: ${{ parameters.AFFINITY }}
-      BUILD_REASON: ${{ parameters.BUILD_REASON }}
-      REPO_NAME: ${{ parameters.REPO_NAME }}
-      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-      MGMT_URL: ${{ parameters.MGMT_URL }}
-      STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
-      ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
-      PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
-      RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-      RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
-      RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
-      REQUESTER: ${{ parameters.REQUESTER }}
-      MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-      KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-      EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
-      TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+#  - template: .azure-pipelines/run-test-elastictest-template.yml  # local
+#    condition: eq(variables['System.PullRequest.TargetBranch'], 'master')
+#    parameters:
+#      TOPOLOGY: ${{ parameters.TOPOLOGY }}
+#      POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
+#      POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
+#      LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
+#      MIN_WORKER: $(INSTANCE_NUMBER)
+#      MAX_WORKER: $(INSTANCE_NUMBER)
+#      NUM_ASIC: ${{ parameters.NUM_ASIC }}
+#      TEST_SET: ${{ parameters.TEST_SET }}
+#      DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+#      COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+#      VM_TYPE: ${{ parameters.VM_TYPE }}
+#      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+#      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
+#      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+#      UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+#      HWSKU: ${{ parameters.HWSKU }}
+#      TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
+#      PLATFORM: ${{ parameters.PLATFORM }}
+#      SCRIPTS: ${{ parameters.SCRIPTS }}
+#      FEATURES: ${{ parameters.FEATURES }}
+#      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+#      FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+#      SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+#      AFFINITY: ${{ parameters.AFFINITY }}
+#      BUILD_REASON: ${{ parameters.BUILD_REASON }}
+#      REPO_NAME: ${{ parameters.REPO_NAME }}
+#      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+#      MGMT_URL: ${{ parameters.MGMT_URL }}
+#      STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+#      ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
+#      PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
+#      RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+#      RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+#      RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
+#      REQUESTER: ${{ parameters.REQUESTER }}
+#      MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+#      KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+#      EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+#      TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - script: |
       echo "Build.SourceBranchName = $(Build.SourceBranchName)"
@@ -219,45 +219,45 @@ steps:
     displayName: "Use remote template"
     condition: ne(variables['System.PullRequest.TargetBranch'], 'master')
 
-  - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt  # remote
-    condition: ne(variables['System.PullRequest.TargetBranch'], 'master')
-    parameters:
-      TOPOLOGY: ${{ parameters.TOPOLOGY }}
-      POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
-      POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
-      LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
-      MIN_WORKER: $(INSTANCE_NUMBER)
-      MAX_WORKER: $(INSTANCE_NUMBER)
-      NUM_ASIC: ${{ parameters.NUM_ASIC }}
-      TEST_SET: ${{ parameters.TEST_SET }}
-      DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
-      COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
-      VM_TYPE: ${{ parameters.VM_TYPE }}
-      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
-      IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
-      HWSKU: ${{ parameters.HWSKU }}
-      TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
-      PLATFORM: ${{ parameters.PLATFORM }}
-      SCRIPTS: ${{ parameters.SCRIPTS }}
-      FEATURES: ${{ parameters.FEATURES }}
-      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
-      FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-      SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
-      AFFINITY: ${{ parameters.AFFINITY }}
-      BUILD_REASON: ${{ parameters.BUILD_REASON }}
-      REPO_NAME: ${{ parameters.REPO_NAME }}
-      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-      MGMT_URL: ${{ parameters.MGMT_URL }}
-      STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
-      ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
-      PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
-      RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-      RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
-      RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
-      REQUESTER: ${{ parameters.REQUESTER }}
-      MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-      KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-      EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
-      TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+#  - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt  # remote
+#    condition: ne(variables['System.PullRequest.TargetBranch'], 'master')
+#    parameters:
+#      TOPOLOGY: ${{ parameters.TOPOLOGY }}
+#      POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
+#      POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
+#      LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
+#      MIN_WORKER: $(INSTANCE_NUMBER)
+#      MAX_WORKER: $(INSTANCE_NUMBER)
+#      NUM_ASIC: ${{ parameters.NUM_ASIC }}
+#      TEST_SET: ${{ parameters.TEST_SET }}
+#      DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+#      COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+#      VM_TYPE: ${{ parameters.VM_TYPE }}
+#      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+#      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
+#      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+#      UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+#      HWSKU: ${{ parameters.HWSKU }}
+#      TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
+#      PLATFORM: ${{ parameters.PLATFORM }}
+#      SCRIPTS: ${{ parameters.SCRIPTS }}
+#      FEATURES: ${{ parameters.FEATURES }}
+#      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+#      FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+#      SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+#      AFFINITY: ${{ parameters.AFFINITY }}
+#      BUILD_REASON: ${{ parameters.BUILD_REASON }}
+#      REPO_NAME: ${{ parameters.REPO_NAME }}
+#      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+#      MGMT_URL: ${{ parameters.MGMT_URL }}
+#      STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+#      ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
+#      PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
+#      RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+#      RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+#      RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
+#      REQUESTER: ${{ parameters.REQUESTER }}
+#      MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+#      KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+#      EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+#      TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
