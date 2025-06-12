@@ -107,7 +107,6 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -197,7 +196,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     testing_mode, duthost = testing_config
 
     if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
+        pass
 
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
@@ -288,7 +287,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
     testing_mode, duthost = testing_config
 
     if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
+        pass
 
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
@@ -588,7 +587,6 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost = testing_config
 
-    skip_release(duthost, ["201811", "201911", "202012"])
 
     # based on message types we currently support in ptftest/py3/dhcp_relay_test.py
     dhcp_message_types = ["Discover", "Offer", "Request", "Ack"]
