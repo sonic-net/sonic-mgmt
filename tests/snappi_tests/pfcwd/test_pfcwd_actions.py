@@ -999,9 +999,6 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
-
     try:
         run_pfc_test(api=snappi_api,
                      testbed_config=testbed_config,

@@ -19,8 +19,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.snappi_tests.pfcwd.files.pfcwd_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_pfcwd_test, reboot_duts, \
-    setup_ports_and_dut, multidut_port_info   # noqa: F401
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog, modify_voq_watchdog_cisco_8000     # noqa: F401
+    setup_ports_and_dut, multidut_port_info   # noqa: F401    # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -293,8 +292,6 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                           "Not all interfaces are up.")
             pytest_assert(wait_until(
                 WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-            if duthost.facts['asic_type'] == "cisco-8000":
-                modify_voq_watchdog_cisco_8000(duthost, False)
 
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
@@ -382,8 +379,6 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                           "Not all interfaces are up.")
             pytest_assert(wait_until(
                 WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-            if duthost.facts['asic_type'] == "cisco-8000":
-                modify_voq_watchdog_cisco_8000(duthost, False)
 
     else:
         for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):

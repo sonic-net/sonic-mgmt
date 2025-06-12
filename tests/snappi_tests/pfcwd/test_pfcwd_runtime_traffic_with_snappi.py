@@ -12,7 +12,6 @@ from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfcwd.files.\
     pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
