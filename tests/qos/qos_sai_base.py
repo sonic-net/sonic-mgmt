@@ -16,7 +16,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device
+from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
+        copy_dshell_script_cisco_8000
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
@@ -49,10 +50,12 @@ class QosBase:
         "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
     ]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag",
-                          "t1-isolated-d28u1"]
+                          "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
+                          "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag",
+                          "t1-isolated-d448u16", "t1-isolated-v6-d448u16"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
-                           "j2c+", "jr2", "th5"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
+                           "td3", "th3", "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
@@ -2157,9 +2160,12 @@ class QosSaiBase(QosBase):
                     logger.info(f"{srcport} has only lossy queue")
             if is_lossy_queue_only:
                 is_lossy_queue_only = True
-                queue_table_postfix_list = ['0-3', '4', '5']
-                queue_to_dscp_map = {'0-3': '1', '4': '11', '5': '31'}
-                queues = random.choice(queue_table_postfix_list)
+                queue_table_postfix_list = ['0', '1', '2', '3', '4', '5']
+                queue_to_dscp_map = {'0': '0', '1': '1', '2': '3', '3': '5', '4': '11', '5': '31'}
+                # for queue 0-3, the weight is 1, for queue 4 and 5, the weight is 4,
+                # because the queue 0~3 have the same dynamic threshold config
+                # so for the different dynamic threshold config, we have the same possibility to test it
+                queues = random.choices(queue_table_postfix_list, weights=(1, 1, 1, 1, 4, 4), k=1)[0]
             else:
                 queues = "0-2"
 
@@ -2174,7 +2180,7 @@ class QosSaiBase(QosBase):
         )
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
-            egress_lossy_profile['lossy_queue'] = '1' if queues == '0-3' else queues
+            egress_lossy_profile['lossy_queue'] = queues
         logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
@@ -2758,8 +2764,6 @@ class QosSaiBase(QosBase):
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
-        if dut.facts['asic_type'] != "cisco-8000":
-            raise RuntimeError("This function should have been called only for cisco-8000.")
         dshell_script = '''
 from common import *
 from sai_utils import *
@@ -2775,16 +2779,7 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        script_path = "/tmp/set_scheduler.py"
-        dut.copy(content=dshell_script, dest=script_path)
-        if dut.sonichost.is_multi_asic:
-            dest = f"syncd{asic}"
-        else:
-            dest = "syncd"
-        dut.docker_copy_to_all_asics(
-            container_name=dest,
-            src=script_path,
-            dst="/")
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2816,4 +2811,52 @@ def set_port_cir(interface, rate):
             speed=5 * 1000 * 1000 * 1000)
 
         yield
+        return
+
+    @pytest.fixture(scope='class', autouse=True)
+    def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dut_list = [dst_dut]
+        asic_index_list = [dst_asic.asic_index]
+
+        if not get_src_dst_asic_and_duts["single_asic_test"]:
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = get_src_dst_asic_and_duts['src_asic']
+            dut_list.append(src_dut)
+            asic_index_list.append(src_asic.asic_index)
+            # fabric card asics
+            for rp_dut in duthosts.supervisor_nodes:
+                for asic in rp_dut.asics:
+                    dut_list.append(rp_dut)
+                    asic_index_list.append(asic.asic_index)
+
+        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+            yield
+            return
+
+        # Disable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=False)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+        yield
+
+        # Enable voq watchdog.
+        for (dut, asic_index) in zip(dut_list, asic_index_list):
+            copy_set_voq_watchdog_script_cisco_8000(
+                dut=dut,
+                asic=asic_index,
+                enable=True)
+            cmd_opt = "-n asic{}".format(asic_index)
+            if not dst_dut.sonichost.is_multi_asic:
+                cmd_opt = ""
+            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
         return
