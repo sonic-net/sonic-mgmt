@@ -164,6 +164,7 @@ parameters:
 steps:
   - ${{ if eq(variables['System.PullRequest.TargetBranch'], 'master') }}:
       - script: |
+          echo "System.PullRequest.TargetBranch = $(System.PullRequest.TargetBranch)"
           echo "When pull request to master branch, use local template"
         displayName: "Use local template"
 
@@ -211,6 +212,9 @@ steps:
 
   - ${{ else }}:
       - script: |
+          echo "Build.SourceBranchName = $(Build.SourceBranchName)"
+          echo "System.PullRequest.TargetBranch = $(System.PullRequest.TargetBranch)"
+          echo "Build.SourceBranch = $(Build.SourceBranch)"
           echo "Use remote template"
         displayName: "Use remote template"
 
