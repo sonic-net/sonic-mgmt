@@ -232,8 +232,8 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
             return True
 
         wait_until(360, 5, 0, is_debug_shell_enabled)
-        yield
-        pass
+    yield
+    pass
 
 
 def compute_expected_packets(flow_rate_bps, pkt_size_bytes, duration_s, num_streams=1):
