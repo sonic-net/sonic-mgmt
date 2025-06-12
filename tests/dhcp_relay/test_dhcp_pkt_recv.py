@@ -103,6 +103,21 @@ class Dhcpv6PktRecvBase:
             testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=ptf_port_id)
 
 
+def remove_existing_acl_table(duthost, TABLE_NAME):
+    # Show ACL Table
+    logging.info(f"show acl table {TABLE_NAME}")
+    lines = duthost.shell(cmd=f"show acl table {TABLE_NAME}")['stdout_lines']
+    acl_existing = False
+    for line in lines:
+        if TABLE_NAME in line:
+            acl_existing = True
+            break
+    if acl_existing:
+        # Removing ACL table
+        logging.info(f"Remove ACL Table : {TABLE_NAME}")
+        duthost.shell(cmd=f"config acl remove table {TABLE_NAME}")
+
+
 class TestDhcpv6WithEmptyAclTable(Dhcpv6PktRecvBase):
     """
     Test the DUT with empty ACL table
@@ -112,6 +127,7 @@ class TestDhcpv6WithEmptyAclTable(Dhcpv6PktRecvBase):
         duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_intfs = [intf for intf, index in dut_intf_ptf_index.items() if index in ptf_indices]
+        remove_existing_acl_table(duthost, TABLE_NAME="EVERFLOW")
         acl_table_name = ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST
         duthost.add_acl_table(
             table_name=acl_table_name,
@@ -135,6 +151,7 @@ class TestDhcpv6WithMulticastAccpectAcl(Dhcpv6PktRecvBase):
         duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_intfs = [intf for intf, index in dut_intf_ptf_index.items() if index in ptf_indices]
+        remove_existing_acl_table(duthost, TABLE_NAME="EVERFLOW")
         acl_table_name = ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST
         duthost.add_acl_table(
             table_name=acl_table_name,
