@@ -1,0 +1,259 @@
+parameters:
+  - name: TOPOLOGY
+    type: string
+    default: ""
+
+  - name: POLL_INTERVAL
+    type: number
+    default: 10
+
+  - name: POLL_TIMEOUT
+    type: number
+    default: 36000
+
+  - name: MIN_WORKER
+    type: string
+    default: ""
+
+  - name: MAX_WORKER
+    type: string
+    default: ""
+
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: ""
+
+  - name: NUM_ASIC
+    default: 1
+
+  - name: TEST_SET
+    type: string
+    default: ""
+
+  - name: DEPLOY_MG_EXTRA_PARAMS
+    type: string
+    default: ""
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: ""
+
+  - name: VM_TYPE
+    type: string
+    default: "ceos"
+
+  - name: TESTBED_NAME
+    type: string
+    default: ""
+
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: "latest"
+
+  - name: IMAGE_URL
+    type: string
+    default: ""
+
+  - name: UPGRADE_IMAGE_PARAM
+    type: string
+    default: ""
+
+  - name: HWSKU
+    type: string
+    default: ""
+
+  - name: TEST_PLAN_TYPE
+    type: string
+    default: ""
+
+  - name: PLATFORM
+    type: string
+    default: ""
+
+  - name: SCRIPTS
+    type: string
+    default: ""
+
+  - name: FEATURES
+    type: string
+    default: ""
+
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: ""
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: ""
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: "[]"
+
+  - name: AFFINITY
+    type: string
+    default: "[]"
+
+  - name: BUILD_REASON
+    type: string
+    default: ""
+
+  - name: REPO_NAME
+    type: string
+    default: ""
+
+  - name: MGMT_BRANCH
+    type: string
+    default: ""
+
+  - name: MGMT_URL
+    type: string
+    default: "https://raw.githubusercontent.com/sonic-net/sonic-mgmt"
+
+  - name: STOP_ON_FAILURE
+    type: string
+    default: ""
+
+  # Enable parallel run for test cases that support parallel run
+  - name: ENABLE_PARALLEL_RUN
+    type: string
+    default: ""
+
+  # Specify the file that contains the parallel mode for test cases that need to run in parallel when
+  # ENABLE_PARALLEL_RUN is set to True. Default value is the test_parallel_modes/default.json file in this repo.
+  # This field will be ignored if ENABLE_PARALLEL_RUN is set to False.
+  - name: PARALLEL_MODES_FILE
+    type: string
+    default: ""
+
+  # The number of retries when the script fails. Global retry if retry_cases_include and retry_cases_exclude are both empty, otherwise specific retry
+  - name: RETRY_TIMES
+    type: string
+    default: ""
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: ""
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: ""
+
+  - name: REQUESTER
+    type: string
+    default: ""
+
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 480
+
+  - name: KVM_IMAGE_BRANCH
+    type: string
+    default: ""
+
+  - name: EXPECTED_RESULT
+    type: string
+    default: ""
+
+  - name: TEST_PLAN_NUM
+    type: string
+    default: ""
+
+stages:
+  - ${{ if eq(variables['Build.SourceBranchName'], 'master') }}:
+      - script: |
+          echo "current master branch, use local template"
+        displayName: "Use local template"
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml  # local
+        parameters:
+          TOPOLOGY: ${{ parameters.TOPOLOGY }}
+          POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
+          POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
+          LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          NUM_ASIC: ${{ parameters.NUM_ASIC }}
+          TEST_SET: ${{ parameters.TEST_SET }}
+          DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+          COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+          VM_TYPE: ${{ parameters.VM_TYPE }}
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+          HWSKU: ${{ parameters.HWSKU }}
+          TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
+          PLATFORM: ${{ parameters.PLATFORM }}
+          SCRIPTS: ${{ parameters.SCRIPTS }}
+          FEATURES: ${{ parameters.FEATURES }}
+          SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+          FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+          SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+          AFFINITY: ${{ parameters.AFFINITY }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          REPO_NAME: ${{ parameters.REPO_NAME }}
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+          MGMT_URL: ${{ parameters.MGMT_URL }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
+          PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+          RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
+          REQUESTER: ${{ parameters.REQUESTER }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+
+
+
+  - ${{ if eq(parameters.useRemote, true) }}:
+      - script: |
+          echo "current non-master branch, use remote template"
+        displayName: "Use remote template"
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt  # remote
+        parameters:
+          TOPOLOGY: ${{ parameters.TOPOLOGY }}
+          POLL_INTERVAL: ${{ parameters.POLL_INTERVAL }}
+          POLL_TIMEOUT: ${{ parameters.POLL_TIMEOUT }}
+          LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          NUM_ASIC: ${{ parameters.NUM_ASIC }}
+          TEST_SET: ${{ parameters.TEST_SET }}
+          DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+          COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+          VM_TYPE: ${{ parameters.VM_TYPE }}
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+          HWSKU: ${{ parameters.HWSKU }}
+          TEST_PLAN_TYPE: ${{ parameters.TEST_PLAN_TYPE }}
+          PLATFORM: ${{ parameters.PLATFORM }}
+          SCRIPTS: ${{ parameters.SCRIPTS }}
+          FEATURES: ${{ parameters.FEATURES }}
+          SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+          FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+          SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+          AFFINITY: ${{ parameters.AFFINITY }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          REPO_NAME: ${{ parameters.REPO_NAME }}
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+          MGMT_URL: ${{ parameters.MGMT_URL }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          ENABLE_PARALLEL_RUN: ${{ parameters.ENABLE_PARALLEL_RUN }}
+          PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+          RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
+          REQUESTER: ${{ parameters.REQUESTER }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
