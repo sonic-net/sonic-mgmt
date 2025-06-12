@@ -140,7 +140,7 @@ def fixture_setUp(duthosts,
                   rand_one_dut_hostname,
                   minigraph_facts,
                   tbinfo,
-                  encap_type):
+                  encap_type):        # noqa F811
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:

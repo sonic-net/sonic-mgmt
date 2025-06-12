@@ -134,7 +134,9 @@ scan_dbs = {
                 "TRANSCEIVER_INFO",
                 "TRANSCEIVER_STATUS"
             },
-            "keys_skip_val_comp": set()
+            "keys_skip_val_comp": {
+                "last_update_time"
+            }
         }
     }
 

@@ -15,6 +15,8 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
      run_traffic                                               # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -100,9 +102,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    no_of_test_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_test_streams = 10
+    no_of_test_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -144,14 +144,28 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     ingress_dut2 = tx_port[1]['duthost']
     ingress_port1 = tx_port[0]['peer_port']
     ingress_port2 = tx_port[1]['peer_port']
-    pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
     rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
     rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
-    # Calculate the total received packets
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
-    # Calculate the drop percentage
-    drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(abs(drop_percentage - 10) < 1, 'FAIL: Drop packets must be around 10 percent')
+    # Fetch relevant statistics
+    if duthost.facts['switch_type'] == "voq":
+        pkt_drop_1_ingress = get_interface_stats(
+            ingress_dut1, ingress_port1
+        )[ingress_dut1.hostname][ingress_port1]['rx_drp']
+        pkt_drop_2_ingress = get_interface_stats(
+            ingress_dut2, ingress_port2
+        )[ingress_dut2.hostname][ingress_port2]['rx_drp']
+        total_pkt_drop_ingress = pkt_drop_1_ingress + pkt_drop_2_ingress
+        drop_percentage = (100 * total_pkt_drop_ingress) / total_rx_pkts
+
+    else:
+        pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
+        drop_percentage = (100 * pkt_drop) / total_rx_pkts
+
+    target_drop_percentage = 10
+    if duthost.facts.get("platform_asic") == "broadcom-dnx":
+        target_drop_percentage = 9
+    pytest_assert(abs(drop_percentage - target_drop_percentage) < 1, 'FAIL: Drop packets must be around 10 percent')
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossy_result(flow_stats,
@@ -357,7 +371,7 @@ def __gen_data_flow(testbed_config,
     udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     flow.duration.fixed_seconds.delay.nanoseconds = 0
     if 'Background Flow 1 -> 0' in flow.name:

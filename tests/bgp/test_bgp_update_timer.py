@@ -20,11 +20,11 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup # noqa F401
-from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa:F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa:F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa:F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa:F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa:F401 E501
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 
@@ -100,6 +100,8 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter":
+        neigh_type = "SpineRouter"
     else:
         neigh_type = "ToRRouter"
 
@@ -254,8 +256,8 @@ def test_bgp_update_timer_single_route(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa F811
-    validate_active_active_dualtor_setup,  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
+    validate_active_active_dualtor_setup,  # noqa:F811
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -376,8 +378,8 @@ def test_bgp_update_timer_session_down(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa F811
-    validate_active_active_dualtor_setup,  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
+    validate_active_active_dualtor_setup,  # noqa:F811
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
