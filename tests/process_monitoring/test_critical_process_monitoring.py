@@ -529,9 +529,6 @@ def get_skip_containers(tbinfo, skip_vendor_specific_container):
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
     skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
