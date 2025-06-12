@@ -465,7 +465,7 @@ def run_traffic(duthost,
         # The 'wait' parameter should ideally be set to 0, but since reboot overwrites 'wait' if it is 0, I have
         # set it to a very small positive value instead.
         reboot(duthost, snappi_extra_params.localhost, reboot_type=snappi_extra_params.reboot_type,
-               delay=0, wait=0.01, plt_reboot_ctrl_overwrite=False)
+               delay=0, wait=0.01, return_after_reconnect=True)
 
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
