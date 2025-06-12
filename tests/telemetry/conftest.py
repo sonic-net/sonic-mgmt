@@ -27,9 +27,11 @@ def setup_user_auth(duthosts, enum_rand_one_per_hwsku_hostname):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
                   module_ignore_errors=False)
+    duthost.shell('config save -y', module_ignore_errors=False)
     yield
     duthost.shell('sonic-db-cli CONFIG_DB hdel "%s|gnmi" user_auth' % (env.gnmi_config_table),
                   module_ignore_errors=False)
+    duthost.shell('config save -y', module_ignore_errors=False)
 
 
 @pytest.fixture(scope="module", autouse=True)
