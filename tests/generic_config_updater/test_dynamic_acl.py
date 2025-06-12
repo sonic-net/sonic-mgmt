@@ -156,8 +156,16 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     upstream_port_ids = []
 
     topos_no_portchannels = (
+        't0-isolated-d256u256s2',
         't0-isolated-d128u128s2',
+        't0-isolated-d96u32s2',
+        't0-isolated-d32u32s2',
         't0-isolated-d16u16s2',
+        't1-isolated-d224u8',
+        't1-isolated-d128',
+        't1-isolated-d56u2',
+        't1-isolated-d28u1',
+        't1-isolated-d28',
     )
 
     if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
