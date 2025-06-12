@@ -470,7 +470,8 @@ class TestSfpApi(PlatformApiTestBase):
                 logger.info(f"skip test on spf {i} due to the port with flat memory")
                 continue
             dom_real_value_dict = sfp.get_transceiver_dom_real_value(platform_api_conn, i)
-            if self.expect(dom_real_value_dict is not None, "Unable to retrieve transceiver {} dom real value status".format(i)):
+            if self.expect(dom_real_value_dict is not None,
+                           "Unable to retrieve transceiver {} dom real value status".format(i)):
                 if self.expect(isinstance(dom_real_value_dict, dict),
                                "Transceiver {} dom real value appears incorrect".format(i)):
                     # TODO: This set of keys should be present no matter how many channels are present on the xcvr
