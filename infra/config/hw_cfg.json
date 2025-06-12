@@ -391,7 +391,7 @@
             "installer_mode": "sonic",
             "skip_tests": "",
             "skip_folder":"",
-            "git_update_flag": "true",
+            "git_update_flag": "false",
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"carib",
             "run_type_check": "spytest_topo_carib_only",
@@ -412,7 +412,8 @@
                 },
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_carib_only_HW.yaml",
-                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml"
+                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
@@ -447,7 +448,7 @@
             "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga",
             "skip_tests": "",
             "skip_folder":"",
-            "git_update_flag": "true",
+            "git_update_flag": "false",
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"siren",
             "run_type_check": "spytest_topo_siren_only",
@@ -469,7 +470,8 @@
                 },
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_siren_only_HW.yaml",
-                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml"
+                    "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
@@ -501,7 +503,7 @@
             "sonic_mgmt_container_202305": "tortuga_cicd2",
             "installer_mode": "sonic",
             "hw_type":"siren",
-            "git_update_flag": "true",
+            "git_update_flag": "false",
             "run_type_check": "spytest",
             "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
@@ -525,7 +527,7 @@
             "sonic_mgmt_container_202305": "tortuga_cicd2",
             "installer_mode": "sonic",
             "hw_type":"carib",
-            "git_update_flag": "true",
+            "git_update_flag": "false",
             "run_type_check": "spytest",
             "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
@@ -1186,7 +1188,8 @@
                 },
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/sol3_testbed.yaml",
-                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml"
+                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
@@ -1233,7 +1236,8 @@
                 },
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/sol3_testbed.yaml",
-                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml"
+                    "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
@@ -1383,32 +1387,16 @@
         ],
         "t0-m6-2-m64": "None",
         "b2b-tu-2-carib":  [
-            "cisco.202305.1.tortuga.carib.no-agents",
-            "cisco.202305.1.tortuga.carib.no-agents.v4",
-            "cisco.202305.1.tortuga.carib",
-            "cisco.202305.1.tortuga.carib.v4",
-            "cisco.202305.1.tortuga.carib.mfg.v4"
+            "cisco.202405c.2.tortuga.carib.no-agents"
         ],
         "b2b-tu-2-siren":  [
-            "cisco.202305.1.tortuga.siren.no-agents",
-            "cisco.202305.1.tortuga.siren.no-agents.v4",
-            "cisco.202305.1.tortuga.siren",
-            "cisco.202305.1.tortuga.siren.v4",
-            "cisco.202305.1.tortuga.siren.mfg.v4"
+            "cisco.202405c.2.tortuga.siren.no-agents"
         ],
         "b2b-tu-2-carib2":  [
-            "cisco.202305.1.tortuga.carib.no-agents",
-            "cisco.202305.1.tortuga.carib.no-agents.v4",
-            "cisco.202305.1.tortuga.carib",
-            "cisco.202305.1.tortuga.carib.v4",
-            "cisco.202305.1.tortuga.carib.mfg.v4"
+            "cisco.202405c.2.tortuga.carib.no-agents"
         ],
         "b2b-tu-2-siren2":  [
-            "cisco.202305.1.tortuga.siren.no-agents",
-            "cisco.202305.1.tortuga.siren.no-agents.v4",
-            "cisco.202305.1.tortuga.siren",
-            "cisco.202305.1.tortuga.siren.v4",
-            "cisco.202305.1.tortuga.siren.mfg.v4"
+            "cisco.202405c.2.tortuga.siren.no-agents"
         ],
         "b2b-tu-2-siren-optics":  [
             "cisco.202305.1.tortuga.siren.no-agents",

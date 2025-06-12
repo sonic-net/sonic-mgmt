@@ -238,6 +238,7 @@ def collect_results(args):
 
     SUMMARY_REPORT_FILENAME = "results.json"
     WORKSPACE = os.getenv("WORKSPACE")
+    test_suites_arg = os.getenv("TEST_SUITES")
     results_path = os.path.join(WORKSPACE, SUMMARY_REPORT_FILENAME)
 
     if 'custom_result_url' in testbed_info_dict:
@@ -250,17 +251,17 @@ def collect_results(args):
         result["report_link"] = result_url
     elif 'collect_spytest_flag' in testbed_info_dict and testbed_info_dict['collect_spytest_flag']:
         testbed_info_dict = getTestbedInfoDict(testbed)
-        if test_suites == 'cisco/tortuga/image_mgmt/image_mgmt_test.py':
+        if test_suites_arg == 'cisco/tortuga/image_mgmt/image_mgmt_test.py':
             result["report_link"] = f'http://10.29.158.30/imfs_results/{image_id}/imfs_result.txt'
         else:
-            test_suites_array = testbed_info_dict["tests_list"] if (test_suites == 'All' and "tests_list" in testbed_info_dict) else [test_suites]
-            for test_suites in test_suites_array:
-                log.debug(f"Collect results for test: {test_suites}")
-                rc, msg, test_start_time, result_sum = collect_spytest_results(testbed, test_suites, image_id, build_id)
+            test_suites_array = testbed_info_dict["tests_list"] if (test_suites_arg == 'All' and "tests_list" in testbed_info_dict) else [test_suites_arg]
+            for test_suite in test_suites_array:
+                log.debug(f"Collect results for test: {test_suite}")
+                rc, msg, test_start_time, result_sum = collect_spytest_results(testbed, test_suite, image_id, build_id)
                 if rc!=0:
                     print(f"error at collect_result! msg: {msg}")
 
-                log.debug(f"Upload results for test: {test_suites}")
+                log.debug(f"Upload results for test: {test_suite}")
                 rc, msg, result_url, log_tarball_link = upload_result(testbed, test_start_time)
                 if rc != 0:
                     print(f"error at upload_result! msg: {msg}")
@@ -268,7 +269,7 @@ def collect_results(args):
                 result_sum["report_link"] = result_url
                 result_sum["log_tarball_link"] = log_tarball_link
                 result = result_sum
-                log.debug(f"result sum for test_suites: '{test_suites}', {result}")
+                log.debug(f"result sum for test_suites: '{test_suite}', {result}")
     else:
         [report_data, allure_link] = getLatestValidAllureReport(build_id, image_id, testbed, stream)
         if not report_data:

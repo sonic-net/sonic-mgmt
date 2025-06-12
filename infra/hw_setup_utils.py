@@ -11,6 +11,8 @@ import yaml
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
 
+FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga']
+
 def load_json(filepath):
     """
     Load the json file
@@ -801,9 +803,8 @@ def prep_special_run_commands(testbed, test_suites_arg, test_suites, image_id, b
         if "$testbed_yaml" in cmd:
             cmd = cmd.strip().replace("$testbed_yaml", testbed_info_dict['testbed_yaml'])
         if "$test_name" in cmd:
-            if test_suites == "forwarding":
-                fwd_tc = testbed_info_dict["forwarding_test_list"]
-                test_params = f"--test-suite={fwd_tc}"
+            if test_suites in FORWARDING_TESTCASES:
+                test_params = f"--test-suite=/data/sonic-mgmt/spytest/{test_suites}"
                 cmd = cmd.strip().replace("/data/sonic-mgmt/spytest/tests/$test_name", test_params)
             else:
                 cmd = cmd.strip().replace("$test_name", test_suites)
