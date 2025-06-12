@@ -160,8 +160,10 @@ bgp/test_bgp_gr_helper.py:
 bgp/test_bgp_multipath_relax.py:
   skip:
     reason: "Not supported topology backend."
+    conditions_logical_operator: or
     conditions:
       - "'backend' in topo_name"
+      - "'t1-isolated' in topo_name"
 
 bgp/test_bgp_port_disable.py:
   skip:
