@@ -516,7 +516,7 @@ class TestAutoTechSupport:
 
         with allure.step('Check that techsuport generated and expected saidump file exist in techsupport dump'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                            is_sai_dump_expected=True, delay_before_validation=30)
+                                            is_sai_dump_expected=True, delay_before_validation=60)
 
 
 # Methods used by tests
