@@ -162,9 +162,9 @@ parameters:
     default: ""
 
 steps:
-  - ${{ if eq(variables['Build.SourceBranchName'], 'master') }}:
+  - ${{ if eq(variables['System.PullRequest.TargetBranch'], 'master') }}:
       - script: |
-          echo "current master branch, use local template"
+          echo "When pull request to master branch, use local template"
         displayName: "Use local template"
 
       - template: .azure-pipelines/run-test-elastictest-template.yml  # local
@@ -209,11 +209,9 @@ steps:
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
-
-
-  - ${{ if ne(variables['Build.SourceBranchName'], 'master') }}:
+  - ${{ else }}:
       - script: |
-          echo "current non-master branch, use remote template"
+          echo "Use remote template"
         displayName: "Use remote template"
 
       - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt  # remote
