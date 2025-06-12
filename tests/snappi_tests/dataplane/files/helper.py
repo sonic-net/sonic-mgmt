@@ -1,6 +1,6 @@
 
 from tests.snappi_tests.dataplane.imports import *          # noqa F401
-
+logger = logging.getLogger(__name__)
 
 @dataclass
 class IxNetConfigParams:
@@ -49,6 +49,7 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    #
         )
         for index, slave in enumerate(slave_chassis, start=2)
     ]
+
 
 
 def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
@@ -200,17 +201,10 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
     return port_list
 
 
-def get_ti_stats(ixnet):
-    tiStatistics = StatViewAssistant(ixnet, "Traffic Item Statistics")
-    tdf = pd.DataFrame(tiStatistics.Rows.RawData, columns=tiStatistics.ColumnHeaders)
-    selected_columns = [
-        "Tx Frames",
-        "Rx Frames",
-        "Frames Delta",
-        "Loss %",
-        "Tx Frame Rate",
-        "Rx Frame Rate",
-    ]
+def get_snappi_stats(ixnet, view_name, columns=None):
+    stat_obj = StatViewAssistant(ixnet, view_name)
+    tdf = pd.DataFrame(stat_obj.Rows.RawData, columns=stat_obj.ColumnHeaders)
+    selected_columns = columns if columns else stat_obj.ColumnHeaders
     tmp = tdf[selected_columns]
     return tmp
 
@@ -289,7 +283,6 @@ def create_snappi_config(config, snappi_extra_params):
             snappi_obj_handles[role]["ip"].append(ip_layer.name)
 
             if pconfig['protocol_type'] == "bgp":
-                route_range = snappi_extra_params.ROUTE_RANGES[pconfig['subnet_type']]
                 bgp = device.bgp
                 bgp.router_id = port_data["ipGateway"] if is_ipv4 else '1.1.1.1'
                 iface = bgp.ipv4_interfaces.add() if is_ipv4 else bgp.ipv6_interfaces.add()
@@ -300,7 +293,8 @@ def create_snappi_config(config, snappi_extra_params):
                     peer_address=port_data["ipGateway"],
                     as_number=port_data["asn"]
                 )
-                if pconfig['network_group']:
+                if pconfig['network_group'] and 'route_ranges' in pconfig:
+                    route_range = pconfig['route_ranges']
                     routes = (
                                 peer.v4_routes.add(name=f"{role} Network Group_{index}")
                                 if is_ipv4 else
@@ -314,3 +308,167 @@ def create_snappi_config(config, snappi_extra_params):
                                 )
                     snappi_obj_handles[role]["network_group"].append(routes.name)
     return config, snappi_obj_handles
+
+
+def setup_ixnetwork_config(ixnet, port_config_list, port_distrbution, config: IxNetConfigParams):
+    # Assign Ports
+    port_list = [
+        {"xpath": f"/vport[{i+1}]", "location": port['location'], "name": f"Port-{i:02d}"}
+        for i, port in enumerate(port_config_list)
+    ]
+    logger.info("Assigning Ports...")
+    ixnet.ResourceManager.ImportConfig(json.dumps(port_list), False)
+
+    # Assign IPs
+    vports = ixnet.Vport.find()
+    port_w, port_e = port_distrbution
+    eth_w = (
+        ixnet.Topology.add(Name="West", Vports=vports[port_w])
+        .DeviceGroup.add(Name="Device West", Multiplier="1")
+        .Ethernet.add()
+    )
+    eth_e = (
+        ixnet.Topology.add(Name="East", Vports=vports[port_e])
+        .DeviceGroup.add(Name="Device East", Multiplier="1")
+        .Ethernet.add()
+    )
+    if config.traffic_type == "ipv4":
+        ip_w = eth_w.Ipv4.add(Name="Ipv4 West")
+        ip_e = eth_e.Ipv4.add(Name="Ipv4 East")
+        bgp_w = ip_w.BgpIpv4Peer.add(Name='BGP W')
+        bgp_e = ip_e.BgpIpv4Peer.add(Name='BGP E')
+    else:
+        ip_w = eth_w.Ipv6.add(Name="Ipv6 West")
+        ip_e = eth_e.Ipv6.add(Name="Ipv6 East")
+        bgp_w = ip_w.BgpIpv6Peer.add(Name='BGP+ W')
+        bgp_e = ip_e.BgpIpv6Peer.add(Name='BGP+ E')
+    ip, gw, asn = map(list, zip(*[[pc['ipAddress'], pc['ipGateway'], pc['asn']] for pc in port_config_list]))
+    ip_w.Address.ValueList(ip[port_w])
+    ip_w.GatewayIp.ValueList(gw[port_w])
+    ip_e.Address.ValueList(ip[port_e])
+    ip_e.GatewayIp.ValueList(gw[port_e])
+    bgp_w.DutIp.ValueList(gw[port_w])
+    bgp_w.Type.Single('external')
+    bgp_w.LocalAs2Bytes.ValueList(asn[port_w])
+    bgp_e.DutIp.ValueList(gw[port_e])
+    bgp_e.Type.Single('external')
+    bgp_e.LocalAs2Bytes.ValueList(asn[port_e])
+    # Start protocols
+    logger.info("Starting protocols...")
+    start_protocols(ixnet)
+
+    # Create traffic
+    ixnet.Traffic.FrameOrderingMode = config.frame_ordering_mode
+    trafficItem = ixnet.Traffic.TrafficItem.add(
+        Name=config.traffic_name,
+        BiDirectional=config.bidirectional,
+        SrcDestMesh=config.traffic_mesh,
+        TrafficType=config.traffic_type,
+    )
+
+    if config.bidirectional:
+        trafficItem.EndpointSet.add(Sources=ixnet.Topology.find(), Destinations=ixnet.Topology.find())
+    else:
+        trafficItem.EndpointSet.add(Sources=ixnet.Topology.find(Name="East"), Destinations=ixnet.Topology.find(Name="West"))
+
+    configElement = trafficItem.ConfigElement.find()[0]
+    configElement.FrameRate.update(Rate=config.frame_rate, Type="percentLineRate")
+    configElement.TransmissionControl.update(Duration=20, Type="continous")
+    configElement.FrameRateDistribution.PortDistribution = "applyRateToAll"
+    configElement.FrameSize.FixedSize = config.frame_size
+
+    tracking = trafficItem.Tracking.find()[0]
+    tracking.TrackBy = ["sourceDestPortPair0"]
+
+    if config.latency_bins:
+        lbin = tracking.LatencyBin.find()
+        lbin.Enabled = True
+        lbin.NumberOfBins = config.latency_bins.get("NumberOfBins")
+        lbin.BinLimits = config.latency_bins.get("BinLimits")
+        start_traffic(ixnet, generate_apply_traffic=True)
+        logger.info("Creating Traffic Flow Latency Bin Filtering View...")
+        binView = ixnet.Statistics.View.add(Caption=config.latency_bins.get("Caption"), Visible=True, Type="layer23TrafficFlow")
+        # Configure the Layer23 Traffic Flow Filter
+        fdd = binView.Layer23TrafficFlowFilter.find()
+        fdd.update(
+            AggregatedAcrossPorts=False,
+            PortFilterIds=binView.AvailablePortFilter.find(),
+            TrafficItemFilterId=binView.AvailableTrafficItemFilter.find()[0],
+            EgressLatencyBinDisplayOption="showLatencyBinStats",
+        )
+        fdd.EnumerationFilter.add(
+            SortDirection="ascending",
+            TrackingFilterId=binView.AvailableTrackingFilter.find()[0],
+        )
+        [
+            setattr(stat, "Enabled", True)
+            for stat in binView.Statistic.find()
+            if "Store-Forward Avg Latency (ns)" in stat.Caption
+        ]
+        binView.Enabled = True    
+        stop_traffic(ixnet)
+
+
+def start_protocols(ixnet):
+    try:
+        ixnet.StartAllProtocols(Arg1="sync")
+        logger.info("Verifying protocols...")
+        view = StatViewAssistant(ixnet, "Protocols Summary")
+        view.CheckCondition("Sessions Not Started", StatViewAssistant.EQUAL, 0, 180)
+        view.CheckCondition("Sessions Down", StatViewAssistant.EQUAL, 0, 180)
+        logger.info("Protocols up and running.")
+    except Exception as e:
+        logger.info("ERROR:Protocols session are down.")
+        raise Exception(str(e))
+
+
+def stop_protocols(ixnet):
+    ixnet.StopAllProtocols(Arg1="sync")
+    try:
+        logger.info("Verify protocol sessions stopped")
+        protocolsSummary = StatViewAssistant(ixnet, "Protocols Summary")
+        protocolsSummary.CheckCondition("Sessions Down", StatViewAssistant.EQUAL, 0, 180)
+        protocolsSummary.CheckCondition("Sessions Up", StatViewAssistant.EQUAL, 0, 180)
+    except Exception as e:
+        logger.info("ERROR:Protocols session are down.")
+        raise Exception(str(e))
+
+def start_traffic(ixnet, generate_apply_traffic = False):
+    """Starts the traffic and ensures frames are being transmitted."""
+    if generate_apply_traffic:
+        logger.info("Generating Traffic")
+        ixnet.Traffic.TrafficItem.find()[0].Generate()
+        logger.info("Applying Traffic")
+        ixnet.Traffic.Apply()
+
+    logger.info("\tStarting traffic...")
+    ixnet.Traffic.StartStatelessTrafficBlocking()
+    ti = StatViewAssistant(ixnet, "Traffic Item Statistics")
+
+    if not ti.CheckCondition("Tx Frames", StatViewAssistant.GREATER_THAN, 0):
+        raise Exception("Traffic did not start properly.")
+    logger.info("\tTraffic started successfully.")
+
+
+def stop_traffic(ixnet, timeout=180, interval=3):
+    """Stops traffic and ensures it is fully stopped within the timeout period."""
+    if ixnet.Traffic.IsTrafficRunning:
+        logger.info("\tStopping traffic...")
+        ixnet.Traffic.StopStatelessTrafficBlocking()
+
+        for _ in range(0, timeout, interval):
+            if not ixnet.Traffic.IsTrafficRunning:
+                logger.info("\tTraffic successfully stopped.")
+                return
+            time.sleep(interval)
+
+        raise TimeoutError("\tTraffic did not stop within the timeout period.")
+
+
+def wait_with_message(message, duration):
+    """Displays a countdown while waiting."""
+    for remaining in range(duration, 0, -1):
+        logger.info(f"{message} {remaining} seconds remaining.")
+        # sys.stdout.flush()
+        time.sleep(1)
+    logger.info("")  # Ensure line break after countdown.
