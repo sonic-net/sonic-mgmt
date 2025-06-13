@@ -229,6 +229,9 @@ def exec_routes(
         if total_delay >= route_timeout:
             break
 
+    logger.info("After pushing route to swssconfig, current {} expected {}".format(
+        actual_num_routes, expected_num_routes))
+
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
     logger.info(
