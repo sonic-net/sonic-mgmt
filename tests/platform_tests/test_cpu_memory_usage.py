@@ -273,7 +273,6 @@ def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
         memory_threshold,
         monit_result.memory
     )
-   
     if used_memory_percent > memory_threshold:
         outstanding_mem_polls[i] = monit_result.memory
 
