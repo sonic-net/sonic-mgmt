@@ -234,7 +234,7 @@ class VM:
             diff = int(IPv4Address(self.bp_ipv4)) - int(IPv4Address(PTF_BACKPLANE_IPV4_UPPER_BOUND))
             self.bp_ipv4 = IPv4Address(PTF_BACKPLANE_IPV4_LOWER_BOUND) + diff - 1
             if self.bp_ipv4 >= IPv4Address(PTF_BACKPLANE_IPV4_DEFAULT_START):
-                assert(False, "Backplane IP address exceeds the allowed range")
+                assert False, "Backplane IP address exceeds the allowed range"
 
         global backplane_additional_offset_ipv6
         self.bp_ipv6 = calc_ipv6(
