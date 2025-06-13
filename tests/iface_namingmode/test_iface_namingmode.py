@@ -609,9 +609,9 @@ class TestShowPriorityGroup():
 
         elif mode == 'default':
             for intf in setup['up_ports']:
-                assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
+                assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
                     (
-                        "Expected to find alias '{}' in the output of "
+                        "Expected to find interface '{}' in the output of "
                         "'show priority-group persistent-watermark shared'.\n"
                         "- Output:\n{}"
                     )
