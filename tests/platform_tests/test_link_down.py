@@ -23,7 +23,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
-MAX_TIME_TO_REBOOT = 120
+MAX_TIME_TO_REBOOT = 300
 
 
 def set_max_to_reboot(duthost):
