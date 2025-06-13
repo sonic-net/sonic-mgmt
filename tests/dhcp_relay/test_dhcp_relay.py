@@ -430,6 +430,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
                     start_dhcp_monitor_debug_counter(standby_duthost)
+                    init_dhcpcom_relay_counters(standby_duthost)
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -439,6 +440,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
                 start_dhcp_monitor_debug_counter(duthost)
+                init_dhcpcom_relay_counters(duthost)
                 if testing_mode == DUAL_TOR_MODE:
                     expected_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
@@ -485,8 +487,25 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
+                dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+                dhcy_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
+                    dhcy_relay_request_times = 1
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
+                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                expected_downlink_counter = {
+                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
+                    "TX": {"Ack": 1, "Offer": 1}
+                }
+                expected_uplink_counter = {
+                    "RX": {"Ack": 1, "Offer": 1},
+                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                }
+                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
+                                                expected_uplink_counter,
+                                                expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
