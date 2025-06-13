@@ -271,14 +271,21 @@ def test_config_platform_cisco_voq_watchdog(duthosts, enum_rand_one_per_hwsku_ho
     """
     global chosen_duthost
     duthost = chosen_duthost
+    help_command = "config platform cisco -h"
+    result = duthost.command(help_command)
+    if "voq-watchdog" not in result["stdout"]:
+        pytest.skip("This test is skipped since voq-watchdog CLI is not supported.")
+
     namespace_option = "-n asic0" if duthost.facts.get("modular_chassis") else ""
     show_command = "show platform npu global {}".format(namespace_option)
     result = duthost.command(show_command)
     pattern = r"voq_watchdog_enabled +: +True"
     match = re.search(pattern, result["stdout"])
-    if not match:
-        pytest.skip("This test is skipped since voq watchdog is not enabled.")
-    options = ["disable", "enable"]
+    if match:
+        options = ["disable", "enable"]
+    else:
+        options = ["enable", "disable"]
+
     for option in options:
         config_command = "config platform cisco voq-watchdog {}".format(option)
         result = duthost.command(config_command)
