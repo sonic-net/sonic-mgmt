@@ -348,7 +348,7 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
     ip_addr_list = generate_neighbors(amount + 1, "4")
 
     # Split up the neighbors into chunks of size chunk_size to buffer kernel neighbor messages
-    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size] \
+    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size]
                              for i in range(0, len(ip_addr_list), chunk_size)]
 
     logger.info("Configuring {} total nexthop groups".format(amount))
@@ -356,14 +356,14 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
         ip_addr_list_batch = " ".join([str(item) for item in ip_batch[1:]])
         # Store CLI command to delete all created neighbors if test case will fail
         RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
-                                                        neigh_ip_list=ip_addr_list_batch,
-                                                        namespace=asichost.namespace))
+                                                           neigh_ip_list=ip_addr_list_batch,
+                                                           namespace=asichost.namespace))
 
         logger.info("Configuring {} nexthop groups".format(len(ip_batch)))
 
         asichost.shell(add_template.render(iface=interface,
-                                        neigh_ip_list=ip_addr_list_batch,
-                                        namespace=asichost.namespace))
+                                           neigh_ip_list=ip_addr_list_batch,
+                                           namespace=asichost.namespace))
 
         time.sleep(1)
 
