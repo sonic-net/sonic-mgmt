@@ -812,15 +812,17 @@ def test_ecmp_group_member_flap(
     )
 
     # --- Simulate port flap: shutdown one uplink port ---
+    port_index_to_shut = 0
     logging.info("Shutting down one uplink port.")
     num_asic = duthosts[0].num_asics()
     asic_ns = ""
     if num_asic > 1:
-        asic_ns = "-n asic{}".format(nh_dut_ports[0][0])
-    logging.info("Shutting down port {}".format(nh_dut_ports[0][1]))
-    duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[0][1]))
+        asic_ns = "-n asic{}".format(nh_dut_ports[port_index_to_shut][0])
+    logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
+    duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
     time.sleep(10)  # Allow time for the state to stabilize
+    filtered_ports.append(nh_ptf_ports[port_index_to_shut])
 
     # --- Re-run the PTF test after member down ---
     logging.info("Verifying ECMP behavior after member down.")
@@ -862,8 +864,9 @@ def test_ecmp_group_member_flap(
     # --- Bring the port back up and verify ---
     logging.info("Bringing the uplink port back up.")
 
-    logging.info("Enabling port {}".format(nh_dut_ports[0][1]))
-    duthosts[0].shell("sudo config interface {} startup {}".format(asic_ns, nh_dut_ports[0][1]))
+    logging.info("Enabling port {}".format(nh_dut_ports[port_index_to_shut][1]))
+    duthosts[0].shell("sudo config interface {} startup {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
+    filtered_ports.pop()
 
     time.sleep(60)  # Allow time for the state to stabilize
 
