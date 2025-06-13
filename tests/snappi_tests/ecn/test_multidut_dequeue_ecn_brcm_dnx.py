@@ -75,11 +75,7 @@ def test_dequeue_ecn(request,
         pytest.skip("Test is specific to Broadcom-DNX platform. Skipping for other platforms.")
 
     # Selecting Tx and Rx ports for the test based on port_map definitions.
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     # Selecting lossless priority for the test.
     lossless_prio = random.sample(lossless_prio_list, 1)[0]
@@ -183,11 +179,7 @@ def test_dequeue_ecn_default(request,
         pytest.skip("Test is specific to Broadcom-DNX platform. Skipping for other platforms.")
 
     # Selecting Tx and Rx ports for the test based on port_map definitions.
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     # Selecting lossless priority for the test.
     lossless_prio = random.sample(lossless_prio_list, 1)[0]
