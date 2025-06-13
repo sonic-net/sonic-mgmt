@@ -5,6 +5,18 @@ package(
     licenses = ["notice"],
 )
 
+cc_library(
+    name = "util",
+    testonly = 1,
+    srcs = ["util.cc"],
+    hdrs = ["util.h"],
+    deps = [
+        "@com_github_sonic_net_sonic_pins//gutil:testing",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/flags:flag",
+    ],
+)
+
 cc_test(
     name = "random_blackbox_events_test",
     timeout = "long",
@@ -42,8 +54,10 @@ cc_test(
         "notap",
     ],
     deps = [
+        ":util",
         "//infrastructure/thinkit:ondatra_params",
         "@com_github_sonic_net_sonic_pins//tests/forwarding:arbitration_test",
+        "@com_github_google_glog//:glog",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_googletest//:gtest_main",
     ],
@@ -101,4 +115,26 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
     linkopts = ["-lresolv"],
+)
+
+cc_test(
+    name = "packet_forwarding_test",
+    timeout = "eternal",
+    srcs = ["packet_forwarding_tests.cc"],
+    linkstatic = 1,
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/integration/system:packet_forwarding_tests",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed_fixture",
+        "@com_github_google_glog//:glog",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
