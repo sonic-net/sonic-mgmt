@@ -46,7 +46,12 @@ def pytest_generate_tests(metafunc):
     inner_ip_versions = get_ip_version_from_option(metafunc.config.getoption("--inner_ip_version"))
     encap_types = get_encap_type_from_option(metafunc.config.getoption("--encap_type"))
     for field in hash_fields:
-        if 'INNER' not in field:
+        if 'IPV6_FLOW_LABEL' in field:
+            params_tuple.extend([(algorithm, field, 'ipv6', inner_ip_version, encap_type)
+                                 for algorithm in hash_algorithms
+                                 for inner_ip_version in inner_ip_versions
+                                 for encap_type in encap_types])
+        elif 'INNER' not in field:
             params_tuple.extend([(algorithm, field, ip_version, 'None', 'None')
                                  for algorithm in hash_algorithms
                                  for ip_version in outer_ip_versions])
@@ -674,8 +679,8 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         )
 
     with allure.step(f'Randomly choose a reboot type: {reboot_type}, and reboot'):
-        # Save config if reboot type is config reload or cold reboot
-        if reboot_type in ['cold', 'reload', 'warm']:
+        # Save config if reboot type is config reload, cold, fast, warm reboot
+        if reboot_type in ['cold', 'reload', 'warm', 'fast']:
             rand_selected_dut.shell('config save -y')
         # Reload/Reboot the dut
         if reboot_type == 'reload':

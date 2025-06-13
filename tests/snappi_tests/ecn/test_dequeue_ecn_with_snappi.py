@@ -52,6 +52,7 @@ def test_dequeue_ecn(request,
         N/A
     """
 
+    skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = 1
         rx_port_count = 1
@@ -79,8 +80,6 @@ def test_dequeue_ecn(request,
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
-    skip_ecn_tests(snappi_ports[0]['duthost'])
-    skip_ecn_tests(snappi_ports[1]['duthost'])
     lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
 

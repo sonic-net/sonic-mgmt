@@ -502,7 +502,7 @@ class MultiAsicSonicHost(object):
         """
         services = [feature]
 
-        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
+        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES) or feature in ["bmp"]:
             services = []
             for asic in self.asics:
                 service_name = asic.get_docker_name(feature)
@@ -799,6 +799,17 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+
+    def is_critical_processes_running_per_asic_or_host(self, service):
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
+                if not duthost.critical_processes_running(docker_name):
+                    return False
+            return True
+        else:
+            return duthost.critical_processes_running(service)
 
     def is_service_fully_started_per_asic_or_host(self, service):
         """This function tell if service is fully started base on multi-asic/single-asic"""

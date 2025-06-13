@@ -425,7 +425,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("tx_drop_count {} -> {}".format(tx_drop_count_init, tx_drop_count_check))
                 pytest_assert(
                     ((tx_drop_count_check - tx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
-                    "PFC storm Tx ok count not correct"
+                    "PFC storm Tx drop count not correct"
                 )
             elif self.tx_action == "forward":
                 tx_ok_count_init = int(pfcwd_stat_init[0]['tx_ok_count'])
@@ -465,7 +465,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] or is_tunnel_qos_remap_enabled(duthost):
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
+                or is_tunnel_qos_remap_enabled(duthost):
             self.rx_action = "forward"
         else:
             self.rx_action = action
