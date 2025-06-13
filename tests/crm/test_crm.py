@@ -915,7 +915,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # on sn4700 devices, kernel neighbor messages were being dropped due to volume.
         if "msn4700" in asic_type:
             chunk_size = 200
-        else
+        else:
             chunk_size = nexthop_group_num
 
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
