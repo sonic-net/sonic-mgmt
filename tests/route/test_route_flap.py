@@ -124,10 +124,9 @@ def get_neighbor_info(duthost, dev_port, tbinfo):
     for neighbor in neighs:
         local_ip = neighs[neighbor]['local_addr']
         nbr_port = get_port_by_ip(config_facts, local_ip)
-        if 'Ethernet' in nbr_port:
-            for p_key, p_value in nbr_port_map.items():
-                if p_value == nbr_port:
-                    nbr_port = p_key
+        for p_key, p_value in nbr_port_map.items():
+            if p_value == nbr_port:
+                nbr_port = p_key
         if dev_port == nbr_port:
             neighbor_name = neighs[neighbor]['name']
     for k, v in dev_neigh_mdata.items():
