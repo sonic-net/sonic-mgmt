@@ -712,7 +712,8 @@ def validate_saidump_file_inside_techsupport(duthost, techsupport_folder):
             sai_sdk_dump = duthost.command(f"ls {techsupport_folder}/sai_sdk_dump/")["stdout_lines"]
             assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
             sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
-            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), "No SAI XML file found in sai_sdk_dump folder"
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump),
+            "No SAI XML file found in sai_sdk_dump folder"
 
 
 def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_line_timestamps_list):
