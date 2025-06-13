@@ -167,8 +167,10 @@ bgp/test_bgp_gr_helper.py:
 bgp/test_bgp_multipath_relax.py:
   skip:
     reason: "Not supported topology backend."
+    conditions_logical_operator: or
     conditions:
       - "'backend' in topo_name"
+      - "'t1-isolated' in topo_name"
 
 bgp/test_bgp_port_disable.py:
   skip:
@@ -1469,6 +1471,14 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
+  xfail:
+    reason: "Incorrect supported speeds for 7060X6 in STATE_DB, fix TBD"
+    conditions_logical_operator: and
+    conditions:
+      - "'7060X6' in hwsku"
+      - "topo_type in ['t1']"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
@@ -1952,11 +1962,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
 qos/test_qos_dscp_mapping.py:
-  xfail:
-    reason: "ECN marking in combination with tunnel decap not yet supported"
-    strict: True
+  skip:
+    reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['vs']"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
   skip:
