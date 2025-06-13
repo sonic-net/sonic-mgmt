@@ -518,7 +518,7 @@ sonic_cisco_8102_smartswitch:
   hosts:
     str3-8102-07:
       ansible_host: 10.3.146.173
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f4
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       mgmt_subnet_mask_length: 24
       model: 8102-28FH-DPU-O
       serial: FLM274802ER
@@ -550,7 +550,7 @@ sonic_cisco_8102_smartswitch:
           wait: 600
     str3-8102-smartswitch-02:
       ansible_host: 10.3.146.224
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f5
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e0
       mgmt_subnet_mask_length: 24
       model: 8102-28FH-DPU-O
       serial: FLM281304U1
@@ -2042,7 +2042,7 @@ sonic_mlnx_4280_smartswitch:
   hosts:
     str3-msn4280-02:
       ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f6
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
       mgmt_subnet_mask_length: 24
       model: MSN4280-WS2RXOS
       serial: MT2438XZ0G0L
@@ -2072,7 +2072,7 @@ sonic_mlnx_4280_smartswitch:
           wait: 600
     str3-msn4280-01:
       ansible_host: 10.3.146.202
-      ansible_hostv6: 2a01:111:e210:3000::a03:92f7
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ca
       mgmt_subnet_mask_length: 24
       model: MSN4280-WS2RXOS
       serial: MT2438XZ0C0T
