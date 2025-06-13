@@ -135,3 +135,50 @@ def get_skip_logical_module_list(duthost, mod_key=None):
                     for mod_id in dut_vars['skip_logical_modules'][mod_type]:
                         skip_logical_mod_list.append(mod_id)
     return skip_logical_mod_list
+
+
+def analyze_structure(data):
+    """
+    Analyze the structure of a dictionary by mapping its keys to either a list of nested keys
+    (for dictionary values) or the type name (for non-dictionary values).
+
+    Args:
+        data (dict): The dictionary to analyze
+    Example:
+        {
+            "EEPROM_INFO|0x2d": {
+                "expireat": 1742287244.9024103,
+                "ttl": -0.001,
+                "type": "hash",
+                "value": {
+                    "Value": "Nvidia",
+                    "Name": "Vendor Name"
+                }
+            }
+        }
+    Returns:
+        dict: A dictionary containing the structure analysis where:
+            - For dict values: maps to a list of keys in that nested dict
+            - For non-dict values: maps to the type name as a string
+    """
+    structure = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            structure[key] = list(value.keys())  # Get all keys inside the nested dictionary
+        else:
+            structure[key] = type(value).__name__  # Store the data type for non-dictionaries
+    return structure
+
+
+def get_db_keys(key_name, data):
+    """
+    Get all keys from a data structure that contain the specified key name.
+
+    Args:
+        key_name (str): The name to search for within the keys
+        data (list): The data structure to search through
+
+    Returns:
+        list: A list of keys that contain the specified key_name
+    """
+    return [item for item in data if key_name in item]

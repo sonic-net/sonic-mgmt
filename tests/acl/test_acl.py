@@ -10,6 +10,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 import queue
+import re
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -363,7 +364,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
-        if tbinfo["topo"]["name"] in ("t1-isolated-d28", "t1-isolated-d128"):
+        if tbinfo["topo"]["name"] in ("t1-isolated-d32", "t1-isolated-d128"):
             count = 0
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
@@ -429,10 +430,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
-    if len(port_channels) and (topo in ["t0", "m0_vlan", "m0_l3"]
-                               or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                             "t1-56-lag", "t1-28-lag", "t1-32-lag")
-                               or 't1-isolated' in tbinfo["topo"]["name"]):
+    if (
+        len(port_channels)
+        and (
+            topo in ["t0", "m0_vlan", "m0_l3"]
+            or tbinfo["topo"]["name"] in (
+                "t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+            )
+            or 't1-isolated' in tbinfo["topo"]["name"]
+        )
+        and not re.match(r"t0-.*s\d+", tbinfo["topo"]["name"])
+    ):
 
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
@@ -925,7 +934,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     def get_dst_ports(self, setup, direction):
         """Get the set of possible destination ports for the current test."""
-        if setup["topo_name"] in ("t1-isolated-d28", "t1-isolated-d128"):
+        if setup["topo_name"] in ("t1-isolated-d32", "t1-isolated-d128"):
             return setup["upstream_port_ids"] + setup["downstream_port_ids"] if direction == "downlink->uplink" \
                     else setup["downstream_port_ids"]
         return setup["upstream_port_ids"] if direction == "downlink->uplink" else setup["downstream_port_ids"]

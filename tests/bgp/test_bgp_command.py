@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
     pytest.mark.device_type('vs')
 ]
 
@@ -48,7 +48,7 @@ def test_bgp_network_command(
         ),
     )
     pytest_assert(
-        "*=" in bgp_network_output,
+        "*=" in bgp_network_output or "*>" in bgp_network_output,
         "Failed to run '{}' command, output={}".format(
             bgp_network_cmd, bgp_network_output
         ),
@@ -61,7 +61,7 @@ def test_bgp_network_command(
         "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
     )
     pytest_assert(
-        "*=" in bgp_docker_output,
+        "*=" in bgp_docker_output or "*>" in bgp_docker_output,
         "Failed to run '{}' command, output={}".format(
             bgp_docker_cmd, bgp_docker_output
         ),
