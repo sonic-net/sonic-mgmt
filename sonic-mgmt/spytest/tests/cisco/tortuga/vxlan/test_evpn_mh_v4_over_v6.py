@@ -1184,7 +1184,7 @@ def test_mac_IP_move_SH():
         reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H5 to H1 failed after mac move with unicast traffic")
 
-    h2_counter = vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
+    h2_counter = vxlan_obj.get_counters(node = nodes['leaf0'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
     if not (h2_counter <= 0.1 * int(data.pkts_per_burst)):
         report_fail(nodes['leaf1'], "Traffic from H5->H1 getting flooded on H2")
     st.log("ping and traffic from H5 to H1 passed after mac move with unicast traffic")
