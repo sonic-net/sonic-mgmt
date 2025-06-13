@@ -228,7 +228,7 @@ class VM:
                 PTF_BACKPLANE_IPV4_DEFAULT_START, self.ip_offset+1+backplane_additional_offset_ipv4)
         # Ensure backplane IP is within the allowed range
         # Default [10.10.246.1 ---- 10.10.247.254], once crossed the upper bound, it will be starting from
-        # lower bound [10.10.244.1 -- 10.10.245.255]. If the backplane IP reaches to 10.10.246.1 again. that 
+        # lower bound [10.10.244.1 -- 10.10.245.255]. If the backplane IP reaches to 10.10.246.1 again. that
         # means the range is exhausted.
         if IPv4Address(self.bp_ipv4) > IPv4Address(PTF_BACKPLANE_IPV4_UPPER_BOUND):
             diff = int(IPv4Address(self.bp_ipv4)) - int(IPv4Address(PTF_BACKPLANE_IPV4_UPPER_BOUND))
