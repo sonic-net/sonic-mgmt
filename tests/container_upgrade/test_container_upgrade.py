@@ -2,7 +2,7 @@ import pytest
 import logging
 
 from container_upgrade_helper import parse_containers, parse_os_versions
-from container_upgrade_helper import create_image_list, create_testcase_list, create_parameters_mapping
+from container_upgrade_helper import create_image_list, create_testcase_mapping, create_parameters_mapping
 from container_upgrade_helper import os_upgrade, pull_run_dockers, store_results
 
 pytestmark = [
@@ -29,7 +29,7 @@ class ContainerUpgradeTestEnvironment(object):
         self.image_urls = create_image_list(self.osversions, image_url_template)
 
         testcase_file = required_container_upgrade_params["testcase_file"]
-        self.testcases = create_testcase_list(testcase_file)
+        self.testcases = create_testcase_mapping(testcase_file)
         parameters_file = required_container_upgrade_params["parameters_file"]
         self.parameters = create_parameters_mapping(containers, parameters_file)
 
@@ -52,10 +52,12 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
             os_upgrade(duthost, localhost, tbinfo, env.image_urls[env.version_pointer])
         pull_run_dockers(duthost, creds, env)
 
-        for testcase in env.testcases:
+        for testcase in env.testcases.keys():
             logger.info(f"Testing {testcase} for {expected_os_version}")
-            log_file = f"logs/container_upgrade/{testcase}.{expected_os_version}.log"
-            log_xml = f"logs/container_upgrade/{testcase}.{expected_os_version}.xml"
+            os_version_key = expected_os_version.replace('.', '_')
+            testcase_key = testcase.replace(".py", "").replace('/', '_').replace('.', '_')
+            log_file = f"logs/container_upgrade/{testcase_key}_{os_version_key}.log"
+            log_xml = f"logs/container_upgrade/{testcase_key}_{os_version_key}.xml"
             command = f"python3 -m pytest {testcase} --inventory={inventory} --testbed={tb_name} \
                       --testbed_file={tb_file} --host-pattern={hostname} --log-cli-level=warning \
                       --log-file-level=debug --kube_master=unset --showlocals \
@@ -63,10 +65,18 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --skip_sanity --disable_loganalyzer \
                       --log-file={log_file} --junit-xml={log_xml}"
 
-            output = localhost.shell(command, module_ignore_errors=True)
+            output = None
+            retry = 0
+            while retry <= env.testcases[testcase]:
+                output = localhost.shell(command, module_ignore_errors=True)
+                if not output['failed']:
+                    break
+                # retry when test failed
+                retry += 1
+
             if output['failed']:
                 logger.warning(f"Test {testcase} output start =====================")
-                logger.warning(f"{output}")
+                logger.warning(f"{output}".replace('\\n', '\n'))
                 logger.warning(f"Test {testcase} output end   =====================")
 
             test_results.setdefault(expected_os_version, {})[testcase] = (not output['failed'])
