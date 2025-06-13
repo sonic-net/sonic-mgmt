@@ -64,13 +64,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
     upper_tor_intf = _find_test_lo_interface(upper_tor_mg_facts)
     lower_tor_intf = _find_test_lo_interface(lower_tor_mg_facts)
 
-    assert upper_tor_intf, (
-        "Failed to find the test loopback interface '{}' in the upper ToR minigraph facts."
-    ).format(TEST_DEVICE_INTERFACE)
+    assert upper_tor_intf, ("upper_tor_intf is not True or it's None")
 
-    assert lower_tor_intf, (
-        "Failed to find the test loopback interface '{}' in the lower ToR minigraph facts."
-    ).format(TEST_DEVICE_INTERFACE)
+    assert lower_tor_intf, ("lower_tor_intf is not True or it's None")
 
     upper_tor_intf_addr = "%s/%s" % (upper_tor_intf["addr"], upper_tor_intf["prefixlen"])
     lower_tor_intf_addr = "%s/%s" % (lower_tor_intf["addr"], lower_tor_intf["prefixlen"])
@@ -94,15 +90,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
     # find the vlan interface ip, used as next-hop for routes added on ptf
     upper_tor_vlan = _find_ipv4_vlan(upper_tor_mg_facts)
     lower_tor_vlan = _find_ipv4_vlan(lower_tor_mg_facts)
-    assert upper_tor_vlan, (
-        "Failed to find an IPv4 VLAN interface in the upper ToR minigraph facts.\n"
-        "- VLAN interfaces found: {}\n"
-    ).format(upper_tor_mg_facts.get("minigraph_vlan_interfaces"))
+    assert upper_tor_vlan, ("upper_tor_vlan is not True or it's None or empty")
 
-    assert lower_tor_vlan, (
-        "Failed to find an IPv4 VLAN interface in the lower ToR minigraph facts.\n"
-        "- VLAN interfaces found: {}\n"
-    ).format(lower_tor_mg_facts.get("minigraph_vlan_interfaces"))
+    assert lower_tor_vlan, ("lower_tor_vlan is not True or it's None or empty")
 
     assert upper_tor_vlan["addr"] == lower_tor_vlan["addr"], (
         "Mismatch in IPv4 VLAN interface addresses between upper and lower ToR.\n"
@@ -116,15 +106,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
     upper_tor_vlan_ipv6 = _find_ipv6_vlan(upper_tor_mg_facts)
     lower_tor_vlan_ipv6 = _find_ipv6_vlan(lower_tor_mg_facts)
 
-    assert upper_tor_vlan_ipv6, (
-        "Failed to find an IPv6 VLAN interface in the upper ToR minigraph facts.\n"
-        "- VLAN interfaces found: {}"
-    ).format(upper_tor_mg_facts.get("minigraph_vlan_interfaces"))
+    assert upper_tor_vlan_ipv6, ("upper_tor_vlan_ipv6 is not True or it's None or empty")
 
-    assert lower_tor_vlan_ipv6, (
-        "Failed to find an IPv6 VLAN interface in the lower ToR minigraph facts.\n"
-        "- VLAN interfaces found: {}"
-    ).format(lower_tor_mg_facts.get("minigraph_vlan_interfaces"))
+    assert lower_tor_vlan_ipv6, ("lower_tor_vlan_ipv6 is not True or it's None or empty")
 
     assert upper_tor_vlan_ipv6["addr"] == lower_tor_vlan_ipv6["addr"], (
         "Mismatch in IPv6 VLAN interface addresses between upper and lower ToR.\n"
