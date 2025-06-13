@@ -73,11 +73,8 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         while len(path) != 1:
             _dir = path.pop()
 
-            # TODO: Clean this up once we no longer need to support Python 2
-            if sys.version_info.major == 3:
-                args = inspect.getfullargspec(getattr(obj, 'get_' + _dir)).args
-            else:
-                args = inspect.getargspec(getattr(obj, 'get_' + _dir)).args
+            signature = inspect.signature(getattr(obj, 'get_' + _dir))
+            args = list(signature.parameters.keys())
 
             if 'index' in args:
                 _idx = int(path.pop())
