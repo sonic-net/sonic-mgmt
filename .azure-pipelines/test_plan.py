@@ -11,17 +11,17 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import copy
 import json
 import os
-import sys
 import subprocess
-import copy
+import sys
 import time
 from datetime import datetime, timezone
+from enum import Enum
 
 import requests
 import yaml
-from enum import Enum
 
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
@@ -270,6 +270,10 @@ class TestPlanManager(object):
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
         build_reason = kwargs.get("build_reason", "PullRequest")
+        lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", None)
+        # If not set lock tb timeout, set to 2 hours for pr test plans by default
+        if lock_wait_timeout_seconds is None and test_plan_type == "PR":
+            lock_wait_timeout_seconds = 7200
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -327,7 +331,7 @@ class TestPlanManager(object):
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
                 "asic_num": kwargs["num_asic"],
-                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
+                "lock_wait_timeout_seconds": lock_wait_timeout_seconds,
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
