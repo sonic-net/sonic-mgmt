@@ -94,7 +94,7 @@ stages:
                   cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
                   cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
 
-                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName) --scan_time $date
+                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName) --scan_time $current_date
                 fi
                 current_date=$(date -I -d "$current_date - 1 day")
               done
@@ -133,7 +133,7 @@ stages:
                   cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
                   cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
 
-                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master --scan_time $date
+                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master --scan_time $current_date
                 fi
                 current_date=$(date -I -d "$current_date - 1 day")
               done
