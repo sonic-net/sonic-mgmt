@@ -14,7 +14,6 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -195,9 +194,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
-        pass
-
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
@@ -286,8 +282,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
     """
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
-        pass
+  
 
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 

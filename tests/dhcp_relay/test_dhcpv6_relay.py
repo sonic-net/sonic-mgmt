@@ -9,7 +9,6 @@ from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
-from tests.common.utilities import skip_release
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
