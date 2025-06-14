@@ -8,6 +8,7 @@ import logging
 import re
 import time
 import pytest
+import xml.etree.ElementTree as ET
 
 from pkg_resources import parse_version
 from tests.common.utilities import wait_until
@@ -146,45 +147,52 @@ def check_monit_running(duthost):
     return True
 
 
-def parse_monit_output(lines):
-    data = {}
-    service = None
-    for line in lines:
-        if line.startswith("Program '"):
-            prog = line[len("Program '"):].rstrip("'")
-            service = {}
-            data[prog] = service
-            continue
-        if service is None:
-            continue
+def parse_monit_output(xml_string):
+    """
+    Parses the XML output from monit and returns a structured dict.
 
-        # Ignore line continuations that start with more than 2 whitespace
-        # characters.  We don't need the data at all.
-        if len(line) - len(line.lstrip()) > 2:
-            continue
+    Args:
+        xml_string (str): The XML string returned by monit
 
-        if line.startswith('  '):
-            key, value = line.lstrip().split('  ', 1)
-            service[key.replace(' ', '_')] = value.lstrip()
-    return data
+    Returns:
+        dict: A dictionary mapping service names to their status details
+    """
+    services = {}
+    try:
+        root = ET.fromstring(xml_string)
+        for service in root.findall(".//service"):
+            name = service.findtext("name")
+            status = {}
+            for child in service:
+                if child.tag != "name":
+                    status[child.tag] = child.text.strip() if child.text else ""
+            services[name] = status
+    except ET.ParseError as e:
+        logger.error(f"Failed to parse monit XML: {e}")
+    return services
 
 
 def get_monit_service_status(duthost, service):
-    """Returns the current status of a given monit service.
+    """
+    Returns the current status of a given monit service using the monit HTTP socket.
 
     Args:
         duthost: The AnsibleHost object of DuT.
         service: Name of the monit service
 
     Returns:
-        Status string for the monit service
+        dict: Status dictionary for the monit service, or empty if not found
     """
-    result = duthost.shell("sudo monit status -B", module_ignore_errors=True, verbose=False)
+    result = duthost.shell(
+        "sudo curl --unix-socket /var/run/monit.sock http://localhost/_status?format=xml",
+        module_ignore_errors=True,
+        verbose=False
+    )
     if result["rc"] != 0:
         return {}
 
-    services = parse_monit_output(result["stdout_lines"])
-    return services[service]
+    services = parse_monit_output(result["stdout"])
+    return services.get(service, {})
 
 
 def restart_monit_service(duthost):
