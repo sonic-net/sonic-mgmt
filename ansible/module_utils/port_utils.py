@@ -303,7 +303,11 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku in ["Arista-7800R3-48CQ2-C48", "Arista-7800R3-48CQM2-C48"]:
             for i in range(1, 49):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-        elif hwsku in ["Arista-7800R3A-36DM2-C36",
+        elif hwsku in ["Arista-7280DR3A-36",
+                       "Arista-7280DR3AK-36",
+                       "Arista-7280DR3AK-36S",
+                       "Arista-7280DR3AM-36",
+                       "Arista-7800R3A-36DM2-C36",
                        "Arista-7800R3AK-36DM2-C36",
                        "Arista-7800R3A-36DM2-D36"]:
             for i in range(1, 37):
