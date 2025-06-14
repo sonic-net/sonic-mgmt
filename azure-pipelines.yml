@@ -308,3 +308,42 @@ stages:
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+
+  - job: impacted_area_t2_elastictest
+    displayName: "impacted-area-kvmtest-t2 by Elastictest - optional"
+    dependsOn:
+    - get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: 240
+    continueOnError: true
+    pool: sonic-ubuntu-1c
+    steps:
+      - script: |
+          set -x
+
+          sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+
+          echo "$TEST_SCRIPTS" > /tmp/ts.json
+          echo "TEST_SCRIPTS value from file:"
+          cat /tmp/ts.json
+          TEST_SCRIPTS=$(jq -r -c '."t2_checker"' /tmp/ts.json)
+          rm /tmp/ts.json
+          if [[ -z "$TEST_SCRIPTS" ]]; then
+            echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
+            exit 1
+          fi
+          SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
+          echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
+        displayName: "Get t2 test scripts"
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t2
+          STOP_ON_FAILURE: "False"
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: 20
+          MAX_WORKER: 20
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
