@@ -1494,9 +1494,11 @@ class TestAclWithReboot(TestBasicAcl):
         TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
-        # We need some additional delay on e1031
+        # We need some additional delay on e1031 and X3B
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
+        elif dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
+            time.sleep(120)
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1551,6 +1553,8 @@ class TestAclWithPortToggle(TestBasicAcl):
         # Add external sleep to make sure route is in hardware
         if dut.get_facts().get("modular_chassis"):
             port_toggle(dut, tbinfo, wait_after_ports_up=180)
+        elif dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
+            port_toggle(dut, tbinfo, wait_after_ports_up=120)
         else:
             port_toggle(dut, tbinfo)
         populate_vlan_arp_entries()
