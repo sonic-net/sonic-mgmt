@@ -49,6 +49,7 @@ During the pretest phase, the test will leverage the traffic generator or the de
 
 The test needs to support the following parameters:
 
+- `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
 - `test_duration`: The duration of the test in minutes, which supports 1min by default.
 - `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
 
@@ -100,8 +101,9 @@ The metrics needs to be reported with the following labels:
 
 | User Interface Label                              | Label Key in DB                    | Example Value |
 |---------------------------------------------------|------------------------------------|---------------|
-| `METRIC_LABEL_TEST_PARAMS_DURATION_SEC`           | test.params.duration.sec           | 60            |
-| `METRIC_LABEL_TEST_PARAMS_OVERSUBSCRIPTION_RATIO` | test.params.oversubscription_ratio | 4             |
+| `METRIC_LABEL_TG_IP_VERSION`                      | tg.ip_version                      | 4             |
 | `METRIC_LABEL_TG_TRAFFIC_RATE`                    | tg.traffic_rate                    | 50            |
 | `METRIC_LABEL_TG_FRAME_BYTES`                     | tg.frame_bytes                     | 4096          |
 | `METRIC_LABEL_TG_RFC2889_ENABLED`                 | tg.rfc2889.enabled                 | true          |
+| `METRIC_LABEL_TEST_PARAMS_DURATION_SEC`           | test.params.duration.sec           | 60            |
+| `METRIC_LABEL_TEST_PARAMS_OVERSUBSCRIPTION_RATIO` | test.params.oversubscription_ratio | 4             |
