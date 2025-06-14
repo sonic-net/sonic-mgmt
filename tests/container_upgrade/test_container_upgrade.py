@@ -62,24 +62,26 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --testbed_file={tb_file} --host-pattern={hostname} --log-cli-level=warning \
                       --log-file-level=debug --kube_master=unset --showlocals \
                       --assert=plain --show-capture=no -rav --allow_recover \
-                      --skip_sanity --disable_loganalyzer \
+                      --skip_sanity --disable_loganalyzer --container_test=true \
                       --log-file={log_file} --junit-xml={log_xml}"
 
             output = None
+            passed = False
             retry = 0
-            while retry <= env.testcases[testcase]:
-                output = localhost.shell(command, module_ignore_errors=True)
-                if not output['failed']:
-                    break
-                # retry when test failed
+            max_retry = env.testcases[testcase]
+            while retry <= max_retry and not passed:
                 retry += 1
+                output = localhost.shell(command, module_ignore_errors=True)
+                passed = not output['failed']
+                if not passed:
+                    logger.warning(f"Test {testcase} passed {passed} retry: {retry}/{max_retry}")
 
-            if output['failed']:
+            if not passed:
                 logger.warning(f"Test {testcase} output start =====================")
                 logger.warning(f"{output}".replace('\\n', '\n'))
                 logger.warning(f"Test {testcase} output end   =====================")
 
-            test_results.setdefault(expected_os_version, {})[testcase] = (not output['failed'])
+            test_results.setdefault(expected_os_version, {})[testcase] = passed
         env.version_pointer += 1
 
     store_results(request, test_results, env)

@@ -12,5 +12,5 @@
     "gnmi/test_gnmi_configdb.py": 0,
     "gnmi/test_gnmi_appldb.py": 0,
     "telemetry/test_telemetry.py::test_config_db_parameters": 0,
-    "tacacs/test_accounting.py": 5
+    "tacacs/test_accounting.py": 3
 }
