@@ -82,14 +82,15 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,
                             outstanding_procs_counter, proc)
-
+    cpu_used_percent = monit_result.processes[0]['cpu_percent']
+    memory_used_percent = monit_result.memory['used_percent']
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold)
-
+                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent)
 
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold):
+                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent):
     persist_outstanding_procs = []
+    reason = []
     for pid, freq in outstanding_procs_counter.most_common():
         if freq <= persist_threshold:
             break
@@ -97,13 +98,15 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
+            reason.append(f"system memory usage is {memory_used_percent}%, threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
                 cpu_threshold,
                 [outstanding_procs[p] for p in persist_outstanding_procs]
             )
-        pytest.fail("system cpu and memory usage check fails")
+            reason.append(f"system cpu usage is {cpu_used_percent}%, cpu threshold is {cpu_threshold}%")
+        pytest.fail("system cpu and memory usage check fails due to " + "; ".join(reason))
 
 
 @pytest.fixture(scope='module')
@@ -168,7 +171,7 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
     cpu_usage_average = caculate_cpu_usge_average_value(extract_valid_cpu_usage_data(
         cpu_usage_program_to_check, poll_interval), cpu_usage_program_to_check)
     logging.info("Average cpu_usage is {}".format(cpu_usage_average))
-    assert cpu_usage_average < counterpoll_cpu_usage_threshold,\
+    assert cpu_usage_average < counterpoll_cpu_usage_threshold, \
         "cpu_usage_average of {} exceeds the cpu threshold:{}"\
         .format(program_to_check, counterpoll_cpu_usage_threshold)
     assert not outstanding_mem_polls, " Memory {} exceeds the memory threshold {} ".format(
