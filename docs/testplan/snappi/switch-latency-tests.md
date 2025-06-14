@@ -1,98 +1,107 @@
 # Snappi-based Switch Latency Test
 
-1. [Test Objective](#test-objective)
-2. [Test Setup](#test-setup)
-3. [Test Case 1: Full-mesh Latency Test](#test-case-1-full-mesh-latency-test)
-4. [Test case 2: Latency Test with an Oversubscribed Port](#test-case-2-latency-test-with-an-oversubscribed-port)
-5. [Metrics Processing](#metrics-processing)
+1. [1. Test Objective](#1-test-objective)
+2. [2. Testbed Topology](#2-testbed-topology)
+   1. [2.1. Test port configuration](#21-test-port-configuration)
+   2. [2.2. Route announcement](#22-route-announcement)
+3. [3. Common test parameters](#3-common-test-parameters)
+4. [4. Test Cases](#4-test-cases)
+   1. [4.1. Test warmup](#41-test-warmup)
+   2. [4.2. Test case 1: Full-mesh latency test](#42-test-case-1-full-mesh-latency-test)
+   3. [4.3. Test case 2: Oversubscribed latency test](#43-test-case-2-oversubscribed-latency-test)
+5. [5. Metrics to collect](#5-metrics-to-collect)
 
-## Test Objective
+## 1. Test Objective
 
 This test aims to measure the latency introduced by a switch under the fully loaded condition.
 
-## Test Setup
+## 2. Testbed Topology
 
-> **Notice**: Currently, we are testing exclusively in store-and-forward mode.
+The test is designed to be topology-agnostic. It expects the testbed to be built following the [Multi-device multi-tier testbed HLD](../../testbed/README.testbed.NUT.md), which allows us to test the latency of either a single switch or a multi-tier network.
 
-1. **Maximize Traffic Load on DUT**
+### 2.1. Test port configuration
 
-   This test uses all traffic generator ports defined in the test topology to generate the maximum possible traffic volume, stressing the DUT to capture its latency behavior under full load.
+This test will use all available ports to this testbed on the traffic generator to run the test.
 
-   - **Switch wiring**: All DUT ports must be connected to traffic generators—either directly or through intermediary devices.
+```mermaid
+graph TD
+    subgraph "Devices Under Test"
+        P1[Port 1]
+        P2[Port 2]
+        P3[Port 3]
+        PN[Port N]
+    end
+    TG[Traffic Generator]
 
-2. **Establish BGP Sessions and Routes**
+    TG <-->|Traffic| P1
+    TG <-->|Traffic| P2
+    TG <-->|Traffic| P3
+    TG <-->|Traffic| PN
+```
 
-   Follow the steps outlined in the multi-tier BGP test plan to:
-   - Set up the necessary IPv6 BGP sessions
-   - Advertise the desired IPv6 routes
+The test will read the port configuration from the testbed and device config and use it to configurate the traffic generator ports accordingly, such as speed, fec and so on.
 
-3. **Configure Traffic Flows**
+### 2.2. Route announcement
 
-   Set up traffic items on the traffic generators to ensure:
-   - Every DUT port receives traffic
-   - Every route on the DUT is exercised
+During the pretest phase, the test will leverage the traffic generator or the device connected directly to the traffic generator to inject the routes into the testbed. This facilitates the traffic routing and allows us to inject the any number of routes into the testbed for testing purposes.
 
-   For example:
-   - For each of the four traffic generators, define two topologies, each containing four **physical** ports.
-   - Configure and enable Layer 2 and Layer 3 protocols for both topologies.
-   - In IXIA-1, define two uni-directional traffic items:
-     - One targeting IXIA-2
-     - One targeting IXIA-4
-     - Both set to full mesh mode
-     - Each at 60% line rate, with a packet size of 1024 bytes
+## 3. Common test parameters
 
-   - Similarly, in IXIA-2, define traffic items targeting IXIA-1 and IXIA-3.
-   - Repeat the pattern across all traffic generators to establish a robust traffic matrix.
+The test needs to support the following parameters:
 
-## Test Case 1: Full-mesh Latency Test
+- `test_duration`: The duration of the test in minutes, which supports 1min by default.
+- `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
 
-1. **Baseline Latency Measurement**
-   - Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics.
-   - Record latency statistics from each traffic item.
-   - Compare latency differences between the two traffic items sourced from each traffic generator.
-2. **Packet Size Variation**
-   - Repeat the baseline test using different frame sizes: 64 bytes, 1024 bytes, 4096 bytes, and 8192 bytes.
-   - Analyze how packet size affects latency.
-3. **Traffic Rate Scaling**
-   - Increase each traffic item’s rate from 60% to 70%, 80%, and 90% of the line rate.
-   - For each traffic rate, repeat the baseline and packet size variation tests.
-   - Observe how latency and packet loss change with increased traffic load.
-4. **RFC2889 Mode Evaluation**
-   - Enable the RFC2889 flag in the traffic generator settings.
-   - Repeat all previous tests under this mode.
-   - Measure whether this setting has any impact on latency or packet loss.
+## 4. Test Cases
 
-## Test case 2: Latency Test with an Oversubscribed Port
+### 4.1. Test warmup
 
-This test is conducted in a one-tier network to evaluate latency under an oversubscribed state.
+Before all the test cases below, we need to do 2 steps to warm up the testbed:
 
-1. Assume the DUT has X ports connected to traffic generators. Assume the DUT has X ports connected to traffic generators. Select the last port on a traffic generator as the Rx port, and designate the remaining (X-1) ports as Tx ports.
-2. Define (X-1) traffic items, each assigned to a different Tx port, using a frame size of 86 bytes. Set each traffic stream's rate to `(line_rate × 110%) / X` to create an oversubscribed condition.
-3. Start all the traffic items simultaneously and run them for 1 minute. Record latency statistics.
-4. Repeat the test with frame size 1024 bytes, 4096 bytes, and 8192 bytes.
-5. Analyze the results by comparing latency measurements across different frame sizes, identifying any patterns or anomalies, and determining how oversubscription affects latency performance.
+1. Step 1: Run the same traffic that each test is testing for 1 minute.
+2. Step 2: Clean up the counters on the traffic generator.
 
-## Metrics Processing
+### 4.2. Test case 1: Full-mesh latency test
 
-Latency data is collected and stored periodically. The diagram below illustrates how it is organized in the database. For more details, refer to `test_reporting/telemetry/README.md`.
+This test requires more parameters to be setup besides the ones defined above:
 
-![metrics](./datapoints.png)
+- `traffic_rate`: The rate of the traffic to be sent, which supports 10%, 25%, 50%, 75% and 100% of the line rate.
+- `rfc2889_enabled`: Enables the RFC2889 mode in the traffic generator, which is a flag that can be set to `true` or `false`.
 
-For each of the above results, report the latency figures in nanoseconds to a database via the telemetry FinalMetricsReporter provided by the SONiC team. An example of how to use the interface is provided in telemetry folder. The metrics are stored as data points in our database.
+The test consists of the following steps:
 
-| User Interface Label                     | Label Key in DB          | Example Value       |
-| ---------------------------------------- | ------------------------ | ------------------- |
-| `METRIC_LABEL_DEVICE_ID`                 | device.id                | switch-A            |
-| `METRIC_LABEL_DEVICE_INGRESS_PORT_ID`    | device.port.id           | Ethernet8           |
-| `METRIC_LABEL_DEVICE_EGRESS_PORT_ID`     | device.queue.id          | Ethernet257         |
-| `METRIC_LABEL_DEVICE_TG_TRAFFIC_RATE`    | tg.traffic_rate          | 50                  |
-| `METRIC_LABEL_DEVICE_TG_FRAME_BYTES`     | tg.frame_bytes           | 4096                |
-| `METRIC_LABEL_DEVICE_TG_RFC2889_ENABLED` | tg.rfc2889.enabled       | FLAG.ON             |
+1. Generate any-to-any traffic between all ports on the traffic generator, based on the test parameters defined above.
+2. Measure and report the latency of each traffic item.
 
-| User Interface Metric Name               | Metric Name in DB        | Example Value       |
-| ---------------------------------------- | ------------------------ | ------------------- |
-| `METRIC_NAME_LATENCY_L3_MIN_NS`          | latency.l3.min.ns        | 5891                |
-| `METRIC_NAME_LATENCY_L3_MAX_NS`          | latency.l3.max.ns        | 7620                |
-| `METRIC_NAME_LATENCY_L3_AVG_NS`          | latency.l3.avg.ns        | 6387                |
+### 4.3. Test case 2: Oversubscribed latency test
 
-Categorize latency results into multiple bins based on time intervals. Analyze the distribution to better understand latency characteristics.
+This test requires more parameters to be setup besides the ones defined above:
+
+- `rx_port_index`: The index of RX port on the traffic generator. By default, the last port will be used as the RX port, and the rest will be used as TX ports.
+- `tx_port_count`: The number of TX ports to use. This helps creates the oversubscription, which supports 1 (1:1), 2 (2:1), 4 (4:1) and 8 (8:1). We always starts from the first available port on the traffic generator as the first TX port.
+- `traffic_rate`: The rate of the traffic to be sent. This is set to 100%.
+
+The test consists of the following steps:
+
+1. Generate traffic from all tx ports to the rx port, based on the test parameters defined above.
+2. Measure and report the latency of each traffic item.
+
+## 5. Metrics to collect
+
+During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
+
+| User Interface Metric Name      | Metric Name in DB | Example Value |
+|---------------------------------|-------------------|---------------|
+| `METRIC_NAME_LATENCY_L3_MIN_NS` | latency.l3.min.ns | 5891          |
+| `METRIC_NAME_LATENCY_L3_MAX_NS` | latency.l3.max.ns | 7620          |
+| `METRIC_NAME_LATENCY_L3_AVG_NS` | latency.l3.avg.ns | 6387          |
+
+The metrics needs to be reported with the following labels:
+
+| User Interface Label                              | Label Key in DB                    | Example Value |
+|---------------------------------------------------|------------------------------------|---------------|
+| `METRIC_LABEL_TEST_PARAMS_DURATION_SEC`           | test.params.duration.sec           | 60            |
+| `METRIC_LABEL_TEST_PARAMS_OVERSUBSCRIPTION_RATIO` | test.params.oversubscription_ratio | 4             |
+| `METRIC_LABEL_TG_TRAFFIC_RATE`                    | tg.traffic_rate                    | 50            |
+| `METRIC_LABEL_TG_FRAME_BYTES`                     | tg.frame_bytes                     | 4096          |
+| `METRIC_LABEL_TG_RFC2889_ENABLED`                 | tg.rfc2889.enabled                 | true          |
