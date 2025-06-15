@@ -62,7 +62,7 @@ This test requires more parameters to be setup besides the ones defined above:
 
 ## 5. Metrics to collect
 
-During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
+In this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
 | User Interface Metric Name     | Metric Name in DB | Example Value |
 |--------------------------------|-------------------|---------------|
