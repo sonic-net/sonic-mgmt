@@ -45,6 +45,9 @@ all:
         svc1-9:
           ansible_host: 10.206.144.37
           ansible_hostv6: 2a01:111:e205:100::ace:9101
+        svc6-1:
+          ansible_host: 10.206.144.81
+          ansible_hostv6: 2a01:111:e205:100::ace:9051
     pdu:
       hosts:
         pdu-124:
@@ -58,6 +61,12 @@ all:
           protocol: snmp
         pdu-118:
           ansible_host: 10.206.144.118
+          protocol: snmp
+        pdu-138:
+          ansible_host: 10.206.144.138
+          protocol: snmp
+        pdu-139:
+          ansible_host: 10.206.144.139
           protocol: snmp
 
 fanout:
@@ -89,6 +98,12 @@ fanout:
     svcstr-7260cx3-acs-12:
       ansible_host: 10.206.144.130
       ansible_hostv6: 2a01:111:e205:100::ace:9082
+    svcstr-7260cx3-acs-13:
+      ansible_host: 10.206.144.27
+      ansible_hostv6: 2a01:111:e205:100::ace:901b
+    svcstr-7260cx3-acs-14:
+      ansible_host: 10.206.144.25
+      ansible_hostv6: 2a01:111:e205:100::ace:9019
     svcstr-z9332f-01:
       os: sonic
       ansible_host: 10.206.144.22
@@ -97,6 +112,14 @@ fanout:
       os: sonic
       ansible_host: 10.206.144.23
       ansible_hostv6: 2a01:111:e205:100::ace:9099
+    svcstr-z9332f-03:
+      os: sonic
+      ansible_host: 10.206.144.28
+      ansible_hostv6: 2a01:111:e205:100::ace:901c
+    svcstr-z9332f-04:
+      os: sonic
+      ansible_host: 10.206.144.26
+      ansible_hostv6: 2a01:111:e205:100::ace:901a
 
 sonic:
   vars:
@@ -109,6 +132,8 @@ sonic:
     sonic_nokia_sup:
     sonic_nokia_7250x3b_400G:
     sonic_arista_7280dr3_400G:
+    sonic_cisco_lc_400G:
+    sonic_cisco_sup:
 
 sonic_nexus_3164:
   vars:
@@ -472,6 +497,9 @@ server:
     svcstr-server-3:
       ansible_host: 10.206.144.149
       ansible_hostv6: 2a01:111:e205:100::ace:9095
+    svcstr-server-6:
+      ansible_host: 10.206.144.24
+      ansible_hostv6: 2a01:111:e205:100::ace:9018
 
 # designated self hosted azure agents for nightly
 self_hosted_azure_agents:
@@ -479,3 +507,205 @@ self_hosted_azure_agents:
     svcstr-server-2:
       ansible_host: 10.206.144.18
       ansible_hostv6: 2a01:111:e205:100::ace:9012
+
+sonic_cisco_lc_400G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 3
+    frontend_asics: [0, 1, 2]
+  hosts:
+    svcstr-8800-lc1-1:
+      hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
+      ansible_host: 10.206.144.30
+      ansible_hostv6: 2a01:111:e205:100::ace:901e
+      serial: FJZ28411LFF
+      base_mac: 04:E3:87:B5:B9:68
+      model: '88-LC0-36FH-M'
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B1430"
+        "0x23": "FJZ28411LFF"
+        "0x24": "04:E3:87:B5:B9:68"
+        "0x26": "5"
+        "0x28": "x86_64-88_lc0_36fh_m-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x157CCC7C"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+    svcstr-8800-lc2-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 10.206.144.31
+      ansible_hostv6: 2a01:111:e205:100::ace:901f
+      serial: FOC2635N3QX
+      base_mac: 3C:26:E4:DC:12:C0
+      model: '88-LC0-36FH'
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2635N3QX"
+        "0x24": "3C:26:E4:DC:12:C0"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xE7F641CF"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+    svcstr-8800-lc3-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot3
+      loopback4096_ip: [3.3.3.9/32, 3.3.3.10/32, 3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::a/128, 2603:10e2:400::b/128]
+      ansible_host: 10.206.144.32
+      ansible_hostv6: 2a01:111:e205:100::ace:9020
+      model: '88-LC0-36FH'
+      base_mac: 80:27:6C:EB:45:38
+      serial: FOC2635N3SL
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2635N3SL"
+        "0x24": "80:27:6C:EB:45:38"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x395936AF"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+
+sonic_cisco_sup:
+  vars:
+    hwsku: Cisco-8800-RP
+    sonic_hwsku:  Cisco-8800-RP
+    model: '8800-RP'
+    sonic_hw_platform:  x86_64-8800_rp-r0
+    slot_num: slot0
+    card_type: supervisor
+    switch_type: chassis-packet
+  hosts:
+    svcstr-8800-sup-1:
+      ansible_host: 10.206.144.29
+      ansible_hostv6: 2a01:111:e205:100::ace:901d
+      num_asics: 16
+      asic_name: Q200
+      serial: FOC2747N2LN
+      base_mac: CC:36:CF:9A:0E:48
+      console_baudrate: 115200
+      chassis_id: svcstr-8800-chassis-1
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1B2228"
+        "0x23": "FOC2747N2LN"
+        "0x24": "CC:36:CF:9A:0E:48"
+        "0x26": "2"
+        "0x28": "x86_64-8800_rp-r0"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x018B0880"
+      skip_logical_modules:
+        'supervisor':
+        - SUPERVISOR1
+      skip_modules:
+        'line-cards':
+        - LINE-CARD3
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'fabric-cards':
+        - FABRIC-CARD1
+        - FABRIC-CARD3
+        - FABRIC-CARD7
+        'supervisor':
+        - SUPERVISOR1
+        'psus':
+        - psu3.0
+        - psu3.1
+        - psu3.2
+        - psu4.0
+        - psu4.1
+        - psu4.2
+        - psu5.0
+        - psu5.1
+        - psu5.2
+        - PSU1
+        - PSU2
+        - PSU3
+        - PSU4
+        - PSU5
+        - PSU6
+        - PSU7
+        - PSU8
+        - PSU9
+      asics_present: [0,1,4,5,8,9,10,11,12,13]
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 420
+          wait: 600
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900

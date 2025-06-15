@@ -38,6 +38,7 @@ svcstr-server-2,10.206.144.18/24,TestServ,Server,
 svcstr-server-3,10.206.144.149/24,TestServ,Server,
 svcstr-server-6,10.206.144.24/24,TestServ,Server,
 console-5,10.206.144.5,Cisco,ConsoleServer,ssh
+console-6,10.206.144.246,Sonic,ConsoleServer,
 pdu-124,10.206.144.124,Sentry4,Pdu,snmp
 pdu-125,10.206.144.125,Sentry4,Pdu,snmp
 pdu-117,10.206.144.117,Sentry4,Pdu,snmp
