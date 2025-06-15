@@ -8,7 +8,7 @@ from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter    
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
 from tests.common.dualtor.tor_failure_utils import shutdown_tor_heartbeat                       # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses   # noqa: F401
+                                                change_mac_addresses                            # noqa: F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
