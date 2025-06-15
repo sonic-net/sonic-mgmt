@@ -16,7 +16,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
 from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
-    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled, is_unsupported_module, \
+    skip_on_unsupported_module
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
 
@@ -921,14 +922,17 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests get_error_description() API (supported on 202106 and above)"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
-
+        supported_module = False
         for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)
             if self.expect(error_description is not None,
                            "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
                     pytest.skip("get_error_description isn't implemented. Skip the test")
-
+                info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+                if is_unsupported_module(info_dict, i):
+                    continue
+                supported_module = True
                 expected_state = 'OK'
                 if is_mellanox_device(duthost) and is_sw_control_enabled(duthost, i):
                     intf = self.sfp_setup["index_physical_port_map"][i][0]
@@ -941,8 +945,10 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == expected_state,
-                                f"Transceiver {i} is not {expected_state}, actual state is:{error_description}.")
+                                f"Transceiver {i} is not {expected_state}, actual state is: {error_description}.")
         self.assert_expectations()
+        if not supported_module:
+            skip_on_unsupported_module()
 
     def test_thermals(self, platform_api_conn):     # noqa F811
         for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
