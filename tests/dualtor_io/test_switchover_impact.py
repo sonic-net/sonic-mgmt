@@ -11,7 +11,7 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
 from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                              # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses               # noqa: F401
+                                                change_mac_addresses               # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
 import logging
