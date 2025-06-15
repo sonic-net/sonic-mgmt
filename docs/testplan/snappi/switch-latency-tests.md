@@ -52,6 +52,8 @@ The test needs to support the following parameters:
 - `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
 - `test_duration`: The duration of the test in minutes, which supports 1min by default.
 - `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
+- `route_count`: The total number of routes to be injected, which supports 0 (only peer IP is used), 1024, 16384 and 131072.
+- `route_prefix_length`: The route prefix length, which supports 24 (IPv4) and 64, 104, 120 (IPv6).
 
 ## 4. Test Cases
 
@@ -72,6 +74,7 @@ This test requires more parameters to be setup besides the ones defined above:
 The test consists of the following steps:
 
 1. Generate any-to-any traffic between all ports on the traffic generator, based on the test parameters defined above.
+   1. NOTE: The traffic generator should be configured to have at least one IP per each injected route, so all the routes can be hit during the test.
 2. Measure and report the latency of each traffic item.
 
 ### 4.3. Test case 2: Oversubscribed latency test
@@ -107,3 +110,5 @@ The metrics needs to be reported with the following labels:
 | `METRIC_LABEL_TG_RFC2889_ENABLED`                 | tg.rfc2889.enabled                 | true          |
 | `METRIC_LABEL_TEST_PARAMS_DURATION_SEC`           | test.params.duration.sec           | 60            |
 | `METRIC_LABEL_TEST_PARAMS_OVERSUBSCRIPTION_RATIO` | test.params.oversubscription_ratio | 4             |
+| `METRIC_LABEL_TEST_PARAMS_ROUTE_COUNT`            | test.params.route_count            | 16384         |
+| `METRIC_LABEL_TEST_PARAMS_ROUTE_PREFIX_LENGTH`    | test.params.route_prefix_length    | 104           |
