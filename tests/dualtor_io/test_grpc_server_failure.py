@@ -7,7 +7,6 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host                  
 from tests.common.dualtor.dual_tor_utils import lower_tor_host                      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                # noqa: F401
 from tests.common.dualtor.dual_tor_common import cable_type                         # noqa: F401
