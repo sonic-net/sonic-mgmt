@@ -186,6 +186,8 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
         wait_until(180, 20, 0, node.critical_services_fully_started)
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
         wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
+        if duthost.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(duthost, False)
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
@@ -232,8 +234,8 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
             return True
 
         wait_until(360, 5, 0, is_debug_shell_enabled)
-        yield
-        pass
+    yield
+    pass
 
 
 def compute_expected_packets(flow_rate_bps, pkt_size_bytes, duration_s, num_streams=1):
