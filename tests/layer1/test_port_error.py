@@ -47,9 +47,9 @@ class TestMACFault(object):
 
     @pytest.fixture(scope="class", autouse=True)
     def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, request):
-            from tests.common.plugins.loganalyzer_dynamic_errors_ignore.la_dynamic_errors_ignore import (
-        GitHubDynamicErrorsIgnore
-    )
+        from tests.common.plugins.loganalyzer_dynamic_errors_ignore.la_dynamic_errors_ignore import (
+            GitHubDynamicErrorsIgnore
+        )
         from tests.common.reboot import reboot
         github_checker = GitHubDynamicErrorsIgnore(conditions_dict={}, pytest_item_obj=request)
         if github_checker.is_github_issue_active("https://github.com/sonic-net/sonic-buildimage/issues/22205"):
