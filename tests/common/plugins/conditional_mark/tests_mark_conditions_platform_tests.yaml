@@ -933,6 +933,21 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
+##############################################
+#####  cli/test_show_chassis_modules.py  #####
+##############################################
+platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_midplane_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
 ###############################################
