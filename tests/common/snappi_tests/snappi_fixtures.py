@@ -139,8 +139,6 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         if __valid_ipv4_addr(v['addr']):
             l3_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     for k, v in list(l3_intf.items()):
         intf = str(k)
         gw_addr = str(v['addr'])
@@ -152,7 +150,8 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         if len(port_ids) != 1:
             continue
 
-        gen_data_flow_dest_ip(ip, duthost, intf, setup=setup)
+        namespace = duthost.get_namespace_from_asic_id(duthost.get_port_asic_instance(intf).asic_index)
+        gen_data_flow_dest_ip(ip, duthost, intf, namespace=namespace, setup=setup)
 
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
@@ -175,7 +174,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
                                        ip=ip,
                                        mac=mac,
                                        gw=gw_addr,
-                                       gw_mac=dut_mac,
+                                       gw_mac=duthost.get_dut_iface_mac(intf),
                                        prefix_len=prefix,
                                        port_type=SnappiPortType.IPInterface,
                                        peer_port=intf)
@@ -218,8 +217,6 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             vlan_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each Vlan """
     for vlan in vlan_member:
         phy_intfs = vlan_member[vlan]
@@ -258,7 +255,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=vlan_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
                                            peer_port=phy_intf)
@@ -301,8 +298,6 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             pc_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each port channel """
     pc_id = 0
     for pc in pc_member:
@@ -338,7 +333,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=pc_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.PortChannelMember,
                                            peer_port=phy_intf)
@@ -380,8 +375,10 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     """
     # As of now both single dut and multidut fixtures are being called from the same test,
     # When this function is called for T2 testbed, just return empty.
+    '''
     if is_snappi_multidut(duthosts):
         return None, []
+        '''
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -534,6 +531,10 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
     try:
         for port in snappi_ports:
             peer_port = port['peer_port']
+            asic_instance = duthost.get_port_asic_instance(peer_port)
+            config_facts = asic_instance.config_facts(
+                host=duthost.hostname,
+                source="running")['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
             if not ipv4_subnet:
@@ -779,8 +780,6 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             vlan_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each Vlan """
     for vlan in vlan_member:
         phy_intfs = vlan_member[vlan]
@@ -819,7 +818,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=vlan_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
                                            peer_port=phy_intf)
