@@ -25,7 +25,7 @@ def pytest_addoption(parser):
 
     dual_tor_io_group = parser.getgroup("Dual ToR IO test suite options")
 
-    dual_tor_io_group.addoption("--enable_switchover_impact_test", action="store_true", default=False, type=bool,
+    dual_tor_io_group.addoption("--enable_switchover_impact_test", action="store_true", default=False,
                                 help="Enable switchover impact test to be run.")
 
 
