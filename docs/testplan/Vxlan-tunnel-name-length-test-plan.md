@@ -12,17 +12,13 @@ This plan focuses specifically on the VXLAN Tunnel interface type to confirm tha
 ## 2. Test Objectives
 Verify that a VXLAN tunnel can be successfully created with a name longer than 15 characters (e.g., 16, 32, and 63 characters).
 
-Confirm that standard-length names (≤ 15 characters) continue to function correctly without regression.
-
 Ensure that the change does not negatively impact the creation, operation, or deletion of any VXLAN tunnels.
 
-Confirm that the acceptance of longer names works across multiple configuration methods, including the SONiC CLI and loading from a config_db.json file.
+Confirm that the acceptance of longer names works by using loading configuration from a config_db.json file.
 
 ## 3. Test Scope
 ### 3.1 In Scope
 Testing VXLAN interface creation with names of various lengths, specifically focusing on those greater than 15 characters.
-
-Testing via sonic-cli (config commands).
 
 Testing via config load of a config_db.json file.
 
@@ -86,5 +82,3 @@ The test plan is considered successful if:
 All test cases, including those with names longer than 15 characters, pass without error.
 
 The system remains stable and responsive after the creation and deletion of long-named interfaces.
-
-There are no regressions in handling traditionally named interfaces.
