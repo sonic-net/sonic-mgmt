@@ -34,6 +34,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+PKTS_NUM = 100
+
 
 @pytest.fixture(scope="function")
 def ignore_log_oq_watchdog(duthosts, loganalyzer):
@@ -106,7 +108,7 @@ class TestOqWatchdog(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "packet_size": 1350,
-            "pkts_num": 100,
+            "pkts_num": PKTS_NUM,
             "oq_watchdog_enabled": True,
         })
 

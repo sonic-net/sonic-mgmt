@@ -34,6 +34,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+PKTS_NUM = 100
+
 
 @pytest.fixture(scope="function")
 def ignore_log_voq_watchdog(duthosts, loganalyzer):
@@ -56,7 +58,7 @@ class TestVoqWatchdog(QosSaiBase):
         if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
             pytest.skip("Voq watchdog test is skipped since voq watchdog is not enabled.")
 
-    def testQosSaiVoqWatchdog(
+    def testVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, ignore_log_voq_watchdog
     ):
@@ -84,7 +86,7 @@ class TestVoqWatchdog(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "packet_size": 1350,
-            "pkts_num": 100,
+            "pkts_num": PKTS_NUM,
             "voq_watchdog_enabled": True,
         })
 
@@ -96,7 +98,7 @@ class TestVoqWatchdog(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
             testParams=testParams)
 
-    def testQosSaiVoqWatchdogDisable(
+    def testVoqWatchdogDisable(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, disable_voq_watchdog_function_scope
     ):
@@ -124,7 +126,7 @@ class TestVoqWatchdog(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "packet_size": 1350,
-            "pkts_num": 100,
+            "pkts_num": PKTS_NUM,
             "voq_watchdog_enabled": False,
         })
 
