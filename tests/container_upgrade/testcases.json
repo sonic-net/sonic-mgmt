@@ -1,8 +1,4 @@
 {
-    "acms/test_acms_bootstrap.py": 0,
-    "acms/test_acms_cert_converter.py": 0,
-    "acms/test_acms_cert_downloader.py": 0,
-    "acms/test_acms_start.py": 0,
     "auditd/test_auditd.py": 0,
     "bmp/test_bmp_configdb.py": 0,
     "bmp/test_bmp_redis_instance.py": 0,
