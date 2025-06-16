@@ -1359,7 +1359,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-IP_PROTOCOL-ipv4-None-None]:
   skip:
-    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
     conditions:
     - "asic_type in ['cisco-8000']"
 
@@ -1371,7 +1371,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-None]:
   skip:
-    reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
     conditions:
     - "asic_type in ['cisco-8000']"
 
