@@ -633,7 +633,9 @@ def parse_linkmeta(meta, hname):
     for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
         linkprop = linkmeta.find(str(QName(ns1, "Properties")))
         linkdevprop = linkprop.find(str(QName(ns1, "DeviceProperty")))
-        macsec_en_lnk = linkdevprop.find(str(QName(ns1, "Value"))).text
+        macsec_en_name = linkdevprop.find(str(QName(ns1, "Name"))).text
+        if macsec_en_name == "MacSecEnabled":
+            macsec_en_lnk = linkdevprop.find(str(QName(ns1, "Value"))).text
         if macsec_en_lnk:
             local_port = None
             # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
