@@ -201,6 +201,10 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-D48C8'
     ]
 
+    @pytest.fixture(scope="class", autouse=True)
+    def setup(self, disable_voq_watchdog_class_scope):
+        return
+
     @pytest.fixture(scope='function')
     def change_port_speed(
             self, request, ptfhost, duthosts, dutTestParams, fanouthosts, dutConfig, tbinfo,
