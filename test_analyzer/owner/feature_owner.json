@@ -1845,5 +1845,19 @@
                 "email": "liuh@microsoft.com"
             }
         ]
+    },
+    {
+        "feature": "auditd",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "auditd.test_auditd"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
     }
 ]
