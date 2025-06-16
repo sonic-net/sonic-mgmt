@@ -87,6 +87,7 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent)
 
+
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent):
     persist_outstanding_procs = []
