@@ -2831,7 +2831,7 @@ def set_port_cir(interface, rate):
             return False
         namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
         show_command = "show platform npu global {}".format(namespace_option)
-        result = dst_dut.command(show_command)
+        result = run_dshell_command(dst_dut, show_command)
         pattern = r"voq_watchdog_enabled +: +True"
         match = re.search(pattern, result["stdout"])
         return match
