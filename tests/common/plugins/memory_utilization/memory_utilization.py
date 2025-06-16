@@ -2,7 +2,6 @@ import logging
 import re
 import json
 from os.path import join, split
-import pytest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -17,6 +16,7 @@ class MemoryMonitor:
         self.ansible_host = ansible_host
         self.commands = []
         self.memory_values = {}
+        self.memory_errors = []
 
     def register_command(self, name, cmd, memory_params, memory_check_fn):
         """Register a command with its associated memory parameters and check function."""
@@ -253,7 +253,19 @@ class MemoryMonitor:
             logger.warning(message)
         else:
             logger.error(message)
-            pytest.fail(message)
+            # pytest.fail(message)
+            # Store error instead of failing immediately
+            self.memory_errors.append(message)
+            logger.debug("Stored memory error: {}".format(message))
+
+    def get_memory_errors(self):
+        return self.memory_errors
+
+    def has_memory_errors(self):
+        return len(self.memory_errors) > 0
+
+    def clear_memory_errors(self):
+        self.memory_errors = []
 
     def _format_threshold_for_display(self, threshold):
         """Format a threshold value for better readability in messages."""
