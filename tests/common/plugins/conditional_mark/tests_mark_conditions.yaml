@@ -2148,6 +2148,12 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
+qos/test_voq_watchdog.py:
+  skip:
+    reason: "These tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####           radv             #####
 #######################################
