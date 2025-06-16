@@ -8,6 +8,7 @@ from tests.tacacs.test_authorization import setup_authorization_tacacs, ssh_run_
 from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.tacacs.tacacs_helper import generate_commands_from_commandset_config, check_tacacs
 from tests.tacacs.utils import ssh_connect_remote_retry
+from paramiko.ssh_exception import SSHException
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -57,21 +58,35 @@ def test_command_set_config(
             subcommand.startswith("/usr/bin/uniq"):
                 subcommand = "echo test | " + subcommand
 
-        # truncate log for debug later
-        ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
+        retry = 0
+        while retry < 3:
+            try:
+                # truncate log for debug later
+                ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
 
-        logger.debug("Command start: '{}'".format(subcommand))
-        exit_code, stdout, stderr = ssh_run_command(ssh_client, subcommand)
-        stdout_str = ",".join(stdout.readlines())
-        log_message = "Command:{}\nexit_code:{}\nstdout:{}\nstderr:{}".format(subcommand, exit_code, stdout_str, stderr.readlines())
+                logger.debug("Command start: '{}'".format(subcommand))
+                exit_code, stdout, stderr = ssh_run_command(ssh_client, subcommand)
+                stdout_str = ",".join(stdout.readlines())
+                log_message = "Command:{}\nexit_code:{}\nstdout:{}\nstderr:{}".format(subcommand, exit_code, stdout_str, stderr.readlines())
 
-        if 'authorize failed by TACACS+ with given arguments' in stdout_str:
-            logger.debug("Command failed: '{}'".format(log_message))
-            failed_commands.append(log_message)
+                if 'authorize failed by TACACS+ with given arguments' in stdout_str:
+                    logger.debug("Command failed: '{}'".format(log_message))
+                    failed_commands.append(log_message)
 
-            # dump log for debug
-            res = ptfhost.command('cat /var/log/tac_plus.log')
-            logger.debug("/var/log/tac_plus.log: {}".format(res["stdout_lines"]))
+                    # dump log for debug
+                    res = ptfhost.command('cat /var/log/tac_plus.log')
+                    logger.debug("/var/log/tac_plus.log: {}".format(res["stdout_lines"]))
+
+                break
+            except paramiko.SSHException:
+                retry += 1
+                # re-create ssh connection when connection drop
+                ssh_client = ssh_connect_remote_retry(
+                                    dutip,
+                                    tacacs_creds['tacacs_ro_authorization_user'],
+                                    tacacs_creds['tacacs_ro_authorization_user_passwd'],
+                                    duthost
+                                )
 
         # run command to keep duthost connection alive
         logger.debug("Command end: '{}'".format(subcommand))
