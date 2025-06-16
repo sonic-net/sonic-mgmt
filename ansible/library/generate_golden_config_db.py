@@ -169,7 +169,7 @@ class GenerateGoldenConfigDBModule(object):
     def generate(self):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
-        elif self.topo_name in ["t1-28-lag"]:
+        elif self.topo_name in ["t1-28-lag","t0-28"]:
             config = self.generate_smartswitch_golden_config_db()
         else:
             config = "{}"
