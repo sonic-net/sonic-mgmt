@@ -11,6 +11,7 @@ import six
 import copy
 import time
 import collections
+from contextlib import contextmanager
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -2813,7 +2814,18 @@ def set_port_cir(interface, rate):
         yield
         return
 
-    @pytest.fixture(scope='class', autouse=True)
+    def voq_watchdog_enabled(self, get_src_dst_asic_and_duts):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        if dst_dut.facts['asic_type'] != "cisco-8000":
+            return False
+        namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
+        show_command = "show platform npu global {}".format(namespace_option)
+        result = dst_dut.command(show_command)
+        pattern = r"voq_watchdog_enabled +: +True"
+        match = re.search(pattern, result["stdout"])
+        return match
+
+    @contextmanager
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -2831,7 +2843,9 @@ def set_port_cir(interface, rate):
                     dut_list.append(rp_dut)
                     asic_index_list.append(asic.asic_index)
 
-        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+        # Skip if voq watchdog is not enabled.
+        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
+            logger.info("voq_watchdog is not enabled, skipping disable voq watchdog")
             yield
             return
 
@@ -2859,4 +2873,12 @@ def set_port_cir(interface, rate):
                 cmd_opt = ""
             dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
-        return
+    @pytest.fixture(scope='function')
+    def disable_voq_watchdog_function_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result
+
+    @pytest.fixture(scope='class')
+    def disable_voq_watchdog_class_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result
