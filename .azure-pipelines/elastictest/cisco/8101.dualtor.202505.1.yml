@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 3,5"
+  - cron: "0 9 * * 1,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -39,12 +39,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202411)
+    default: $(IMAGE_CISCO_202505_PRI)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202411
+    default: internal-202505
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -107,7 +107,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8101.dualtor.202411.1.NightlyTest_by_Elastictest
+    displayName: 8101.dualtor.202505.1.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
