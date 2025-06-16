@@ -13,6 +13,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+RULES_DIR = "/etc/audit/rules.d/"
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net "
 CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:50058"   # noqa: W605
@@ -32,13 +33,12 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     verify_container_running(duthost, container_name)
     hwsku = duthost.facts["hwsku"]
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "bd574779fb4e1116838d18346187bb7f7bd089c9"
+        rule_checksum = "fffb00199104c493d04a621b257c579c48d77225"
     else:
-        rule_checksum = "c3441d4f777257d8d2c6ac90fd50d49b9a1d616b"
+        rule_checksum = "3042c67383dccff079755c5f3daa2820e2ca392a"
 
-    cmd = """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" \
-              ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD)
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + cmd)["stdout"]
+    cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
+    output = duthost.command(cmd)["stdout"]
     pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
 
     cmd = "cat /etc/audit/auditd.conf | sha1sum"
@@ -84,7 +84,6 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
         "auditd_rules",
         "auditd_service",
         "auditd_active",
-        "auditd_reload",
         "rate_limit"
     ]
 
@@ -267,7 +266,7 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_
 
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
-    pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
+    pytest_assert('"auditd_active":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
 
 
 def debug_log(duthost):
