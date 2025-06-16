@@ -579,8 +579,6 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                             setup_standby_ports_on_rand_unselected_tor,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost = testing_config
-
-
     # based on message types we currently support in ptftest/py3/dhcp_relay_test.py
     dhcp_message_types = ["Discover", "Offer", "Request", "Ack"]
     for dhcp_relay in dut_dhcp_relay_data:
