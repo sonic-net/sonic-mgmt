@@ -36,6 +36,11 @@ resources:
       ref: master
       endpoint: sonic-net
 
+parameters:
+- name: TIMEOUT_IN_MINUTES_PR_TEST
+  type: number
+  default: 600
+
 stages:
 - template: /.azure-pipelines/common2/stages/analyze-code.yml
 - stage: Pre_test
@@ -88,8 +93,6 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
-  - name: TIMEOUT_IN_MINUTES_PR_TEST
-    value: 360  # 6 hours
 
   jobs:
 # Below are Impacted Area Based PR checkers
@@ -110,7 +113,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -135,7 +138,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -161,7 +164,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -188,7 +191,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -216,7 +219,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -242,7 +245,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -274,7 +277,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -303,7 +306,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ variables.TIMEOUT_IN_MINUTES_PR_TEST }}
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
