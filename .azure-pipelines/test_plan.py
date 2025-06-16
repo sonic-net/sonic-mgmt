@@ -616,8 +616,8 @@ if __name__ == "__main__":
         type=ast.literal_eval,
         dest="skip_remove_add_topo_for_nightly",
         nargs='?',
-        const='True',
-        default='True',
+        const=True,
+        default=True,
         required=False,
         choices=[True, False],
         help="Whether skip remove-topo and add-topo for nightly test."
