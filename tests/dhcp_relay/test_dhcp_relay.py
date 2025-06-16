@@ -193,7 +193,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     """
 
     testing_mode, duthost = testing_config
-     
+
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
@@ -281,7 +281,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     testing_mode, duthost = testing_config
-    
+
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
