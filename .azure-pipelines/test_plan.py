@@ -273,7 +273,11 @@ class TestPlanManager(object):
         lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", None)
         # If not set lock tb timeout, set to 2 hours for pr test plans by default
         if lock_wait_timeout_seconds is None and test_plan_type == "PR":
-            lock_wait_timeout_seconds = 7200
+            lock_wait_timeout_seconds = os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN_LOCK_TB", 7200)
+        # if not set test plan timeout, set to 6 hours for pr test plans by default
+        max_execute_seconds = kwargs.get("max_execute_seconds", None)
+        if max_execute_seconds is None and test_plan_type == "PR":
+            max_execute_seconds = os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN", 21600)
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -363,7 +367,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": max_execute_seconds,
             },
             "type": test_plan_type,
             "trigger": {

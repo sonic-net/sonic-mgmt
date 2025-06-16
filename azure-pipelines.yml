@@ -88,7 +88,8 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
-  - TIMEOUT_IN_MINUTES_PR_TEST: 360 # 6 hours
+  - name: TIMEOUT_IN_MINUTES_PR_TEST
+    value: 360  # 6 hours
 
   jobs:
 # Below are Impacted Area Based PR checkers
