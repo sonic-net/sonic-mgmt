@@ -45,24 +45,20 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
-    @staticmethod
-    def verify_ports_startup(dut):
-        dut.shell('show interface status | awk \'NR>2 {print $1}\' | xargs -I{} sudo config interface startup {}')
-        time.sleep(30)
 
-    #TODO: Reboot the switch before test as a WA to handle that config reload doesn't reset errors/faults counters on unsplit ports, remove this after the issue is fixed
     @pytest.fixture(scope="class", autouse=True)
-    def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname):
-        from infra.tools.redmine.redmine_api import is_redmine_issue_active
+    def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, request):
+        from tests.common.plugins.loganalyzer_dynamic_errors_ignore.la_dynamic_errors_ignore import GitHubDynamicErrorsIgnore
         from tests.common.reboot import reboot
-        reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
-               localhost, safe_reboot=True, check_intf_up_ports=False)
+        github_checker = GitHubDynamicErrorsIgnore(conditions_dict={}, pytest_item_obj=request)
+        if github_checker.is_github_issue_active("https://github.com/sonic-net/sonic-buildimage/issues/22205"):
+            reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
+                localhost, safe_reboot=True, check_intf_up_ports=True)
+
 
     @pytest.fixture(scope="class")
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-        self.verify_ports_startup(dut)
 
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
@@ -74,8 +70,7 @@ class TestMACFault(object):
         for port_name, eeprom_info in eeprom_infos.items():
             if parsed_presence.get(port_name) == "Present" and \
                     "SFP EEPROM detected" in eeprom_info[port_name] \
-                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper() \
-                    and self.get_interface_status(dut, interface) == "up":
+                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper():
                 available_optical_interfaces.append(port_name)
 
         pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
@@ -145,4 +140,3 @@ class TestMACFault(object):
 
             pytest_assert(remote_fault_after > remote_fault_before,
                           "MAC remote fault count did not increment after disabling/enabling tx-output on the device")
-
