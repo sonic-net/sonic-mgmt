@@ -1191,6 +1191,12 @@ gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
+gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
+  skip:
+    reason: "Warm reboot should only run on t0 topology"
+    conditions:
+      - "topo_type not in ['t0']"
+
 #######################################
 #####           hash              #####
 #######################################
@@ -2141,6 +2147,12 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
     conditions:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
+qos/test_voq_watchdog.py:
+  skip:
+    reason: "These tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
 
 #######################################
 #####           radv             #####
