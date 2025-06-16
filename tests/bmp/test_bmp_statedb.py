@@ -29,8 +29,8 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, max_attempts=120, retr
 
     assert entry_num != 0, (
         "BMP STATE_DB entry not found for the specified neighbor. "
-        "The neighbor address '{}' may be incorrect or not present in the BGP configuration."
-    ).format(neighbor_addr if 'neighbor_addr' in locals() else "unknown")
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -49,8 +49,8 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_
 
     assert entry_num != 0, (
         "BMP rib_in state entry not found for the specified neighbor. "
-        "The neighbor address '{}' may be incorrect or not present in the BGP configuration."
-    ).format(neighbor_addr if 'neighbor_addr' in locals() else "unknown")
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -69,8 +69,8 @@ def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry
 
     assert entry_num != 0, (
         "BMP rib_out state entry not found for the specified neighbor. "
-        "The neighbor address '{}' may be incorrect or not present in the BGP configuration."
-    ).format(neighbor_addr if 'neighbor_addr' in locals() else "unknown")
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def get_neighbors(duthost):
