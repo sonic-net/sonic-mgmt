@@ -163,6 +163,12 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_switchover_impact.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
