@@ -294,10 +294,10 @@ MGMT:
         # - snmp/test_snmp_interfaces.py
         # - snmp/test_snmp_lldp.py
         # - dns/static_dns/test_static_dns.py
-        # - generic_config_updater/test_aaa.py
-        # - generic_config_updater/test_dhcp_relay.py
-        # - generic_config_updater/test_ip_bgp.py
-        # - generic_config_updater/test_ntp.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
         # - memory_checker/test_memory_checker.py
         # - ssh/test_ssh_ciphers.py
         # - ssh/test_ssh_limit.py
@@ -379,10 +379,10 @@ MGMT:
         # - snmp/test_snmp_interfaces.py
         # - snmp/test_snmp_lldp.py
         # - dns/static_dns/test_static_dns.py
-        # - generic_config_updater/test_aaa.py
-        # - generic_config_updater/test_dhcp_relay.py
-        # - generic_config_updater/test_ip_bgp.py
-        # - generic_config_updater/test_ntp.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
         # - memory_checker/test_memory_checker.py
         # - ssh/test_ssh_ciphers.py
         # - ssh/test_ssh_limit.py
