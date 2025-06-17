@@ -123,6 +123,145 @@ def config_facts(rand_selected_dut):
     return rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
 
+@pytest.fixture(scope="module")
+def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_device_interface):      # noqa: F811
+    """Setup the interfaces used by the new BGP sessions on PTF."""
+
+    def _find_test_lo_interface(mg_facts):
+        for loopback in mg_facts["minigraph_lo_interfaces"]:
+            if loopback["name"] == test_device_interface:
+                return loopback
+
+    def _find_ipv4_vlan(mg_facts):
+        for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+            if is_ipv4_address(vlan_intf["addr"]):
+                return vlan_intf
+
+    def _find_ipv6_vlan(mg_facts):
+        for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+            if not is_ipv4_address(vlan_intf["addr"]):
+                return vlan_intf
+
+    # find the DUT interface ip used in the bgp session
+    upper_tor_mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
+    lower_tor_mg_facts = lower_tor_host.get_extended_minigraph_facts(tbinfo)
+    upper_tor_intf = _find_test_lo_interface(upper_tor_mg_facts)
+    lower_tor_intf = _find_test_lo_interface(lower_tor_mg_facts)
+    assert upper_tor_intf
+    assert lower_tor_intf
+    upper_tor_intf_addr = "%s/%s" % (upper_tor_intf["addr"], upper_tor_intf["prefixlen"])
+    lower_tor_intf_addr = "%s/%s" % (lower_tor_intf["addr"], lower_tor_intf["prefixlen"])
+
+    # find the server ip used in the bgp session
+    mux_configs = mux_cable_server_ip(upper_tor_host)
+    test_iface = random.choice(list(mux_configs.keys()))
+    test_server = mux_configs[test_iface]
+    test_server_ip = test_server["server_ipv4"]
+    test_server_ipv6 = test_server["server_ipv6"]
+    upper_tor_server_ptf_intf_idx = upper_tor_mg_facts["minigraph_port_indices"][test_iface]
+    lower_tor_server_ptf_intf_idx = lower_tor_mg_facts["minigraph_port_indices"][test_iface]
+    upper_tor_server_ptf_intf = "eth%s" % upper_tor_server_ptf_intf_idx
+    lower_tor_server_ptf_intf = "eth%s" % lower_tor_server_ptf_intf_idx
+    assert upper_tor_server_ptf_intf == lower_tor_server_ptf_intf
+
+    # find the vlan interface ip, used as next-hop for routes added on ptf
+    upper_tor_vlan = _find_ipv4_vlan(upper_tor_mg_facts)
+    lower_tor_vlan = _find_ipv4_vlan(lower_tor_mg_facts)
+    assert upper_tor_vlan
+    assert lower_tor_vlan
+    assert upper_tor_vlan["addr"] == lower_tor_vlan["addr"]
+    vlan_intf_addr = upper_tor_vlan["addr"]
+    vlan_intf_prefixlen = upper_tor_vlan["prefixlen"]
+
+    upper_tor_vlan_ipv6 = _find_ipv6_vlan(upper_tor_mg_facts)
+    lower_tor_vlan_ipv6 = _find_ipv6_vlan(lower_tor_mg_facts)
+    assert upper_tor_vlan_ipv6
+    assert lower_tor_vlan_ipv6
+    assert upper_tor_vlan_ipv6["addr"] == lower_tor_vlan_ipv6["addr"]
+    vlan_intf_prefixlen_ipv6 = upper_tor_vlan_ipv6["prefixlen"]
+
+    # construct the server ip with the vlan prefix length
+    upper_tor_server_ip = "%s/%s" % (test_server_ip.split("/")[0], vlan_intf_prefixlen)
+    lower_tor_server_ip = "%s/%s" % (test_server_ip.split("/")[0], vlan_intf_prefixlen)
+
+    upper_tor_server_ipv6 = "%s/%s" % (test_server_ipv6.split("/")[0], vlan_intf_prefixlen_ipv6)
+    lower_tor_server_ipv6 = "%s/%s" % (test_server_ipv6.split("/")[0], vlan_intf_prefixlen_ipv6)
+
+    # find ToRs' ASNs
+    upper_tor_asn = upper_tor_mg_facts["minigraph_bgp_asn"]
+    lower_tor_asn = lower_tor_mg_facts["minigraph_bgp_asn"]
+    assert upper_tor_asn == lower_tor_asn
+
+    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+                                             \"constants.deployment_id_asn_map[DEVICE_METADATA[\
+                                             'localhost']['deployment_id']]\"")["stdout"]
+    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+                                             \"constants.deployment_id_asn_map[DEVICE_METADATA[\
+                                             'localhost']['deployment_id']]\"")["stdout"]
+
+    connections = {
+        "upper_tor": {
+            "localhost": upper_tor_host,
+            "local_intf": test_device_interface,
+            "local_addr": upper_tor_intf_addr,
+            "local_asn": upper_tor_asn,
+            "test_intf": test_iface,
+            "neighbor_intf": upper_tor_server_ptf_intf,
+            "neighbor_addr": upper_tor_server_ip,
+            "neighbor_addr_ipv6": upper_tor_server_ipv6,
+            "neighbor_asn": upper_tor_slb_asn,
+            "exabgp_port": EXABGP_PORT_UPPER_TOR,
+        },
+        "lower_tor": {
+            "localhost": lower_tor_host,
+            "local_intf": test_device_interface,
+            "local_addr": lower_tor_intf_addr,
+            "local_asn": lower_tor_asn,
+            "test_intf": test_iface,
+            "neighbor_intf": lower_tor_server_ptf_intf,
+            "neighbor_addr": lower_tor_server_ip,
+            "neighbor_addr_ipv6": lower_tor_server_ipv6,
+            "neighbor_asn": lower_tor_slb_asn,
+            "exabgp_port": EXABGP_PORT_LOWER_TOR,
+        }
+    }
+
+    try:
+        ptfhost.shell("ifconfig %s %s" % (upper_tor_server_ptf_intf, upper_tor_server_ip))
+        for conn in list(connections.values()):
+            ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
+        yield connections
+    finally:
+        upper_tor_host.shell("show arp")
+        lower_tor_host.shell("show arp")
+        ptfhost.shell("ip route show")
+        for conn in list(connections.values()):
+            ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
+            ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def bgp_neighbors(ptfhost, setup_interfaces):
+    """Build the bgp neighbor objects used to start new bgp sessions."""
+    # allow ebgp neighbors that are multiple hops away
+    connections = setup_interfaces
+    neighbors = {}
+    for dut, conn in list(connections.items()):
+        neighbors[dut] = bgp.BGPNeighbor(
+            conn["localhost"],
+            ptfhost,
+            "slb_%s" % dut,
+            conn["neighbor_addr"].split("/")[0],
+            conn["neighbor_asn"],
+            conn["local_addr"].split("/")[0],
+            conn["local_asn"],
+            conn["exabgp_port"],
+            is_passive=True,
+            debug=True
+        )
+    return neighbors
+
+
 def pytest_configure(config):
 
     config.addinivalue_line(
