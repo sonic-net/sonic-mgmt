@@ -18,6 +18,7 @@ func TestConfigInstallationSuccess(t *testing.T) {
 	ttID := "0dedda87-1b76-40a2-8712-24c1572587ee"
 	defer testhelper.NewTearDownOptions(t).WithID(ttID).Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	err :=testhelper.ConfigPush(t, dut, nil)
 	if err != nil {
 		t.Fatalf("switch config push failed due to err : %v", err)

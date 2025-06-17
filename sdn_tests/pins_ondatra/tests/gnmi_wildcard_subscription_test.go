@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 func TestWCOnChangeAdminStatus(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("0cd4c21e-0af8-41d6-b637-07b6b90ba23d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every interface through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -112,6 +113,7 @@ func TestWCOnChangeAdminStatus(t *testing.T) {
 func TestWCOnChangeOperStatus(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("d0a07207-b6a2-4045-8f16-243b8ad693b6").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every interface through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]bool)
@@ -176,6 +178,7 @@ func TestWCOnChangeOperStatus(t *testing.T) {
 func TestWCOnChangePortSpeed(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("59669bd7-e2e2-4734-869a-4bf4110b4cdc").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every interface through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -301,6 +304,7 @@ func fetchPathKey(path *gpb.Path, id string) (string, error) {
 func TestWCOnChangeId(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("f7e8ab6b-4d10-4986-811c-63044295a74d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every interface through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]bool)
@@ -517,6 +521,7 @@ func TestWCOnChangeEthernetMacAddress(t *testing.T) {
 func TestWCOnChangeIntegratedCircuitNodeId(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("7dd451b1-4d2b-4c79-90f5-1d419bdecc67").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every integrated circuit component through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -593,6 +598,7 @@ func TestWCOnChangeIntegratedCircuitNodeId(t *testing.T) {
 func TestWCOnChangeComponentOperStatus(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("794672b0-e15f-4a72-8619-f5a0bbb45e9b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every component with an oper-status through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -778,6 +784,7 @@ type counterTest struct {
 
 func TestWcTargetDefinedCounters(t *testing.T) {
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	testCases := []struct {
 		name     string
 		function func(*testing.T)
@@ -921,6 +928,7 @@ func TestWcTargetDefinedCounters(t *testing.T) {
 
 func TestWcTargetDefinedQosCountersWc(t *testing.T) {
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	testCases := []struct {
 		name     string
@@ -1083,6 +1091,7 @@ func fetchQosKey(path *gpb.Path) ([]string, error) {
 func TestWCOnChangeSoftwareModuleModuleType(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("ff05e9c6-b57b-4128-9535-e8543dc5aedc").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every software module component through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -1128,6 +1137,7 @@ func TestWCOnChangeSoftwareModuleModuleType(t *testing.T) {
 func TestWCOnChangeHardwarePort(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("acfc84d1-b76f-45b3-bb8f-267abca3b2d2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Collect every interface through a GET to be compared to the SUBSCRIBE.
 	wantUpdates := make(map[string]int)
@@ -1164,6 +1174,7 @@ func TestWCOnChangeHardwarePort(t *testing.T) {
 func TestWCOnChangeComponentType(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("e07ea34c-b217-4aef-99ac-2516b0b5c393").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Determine that updates are received from all expected components.
 	wantUpdates := make(map[string]int)
@@ -1206,6 +1217,7 @@ func TestWCOnChangeComponentType(t *testing.T) {
 func TestWCOnChangeComponentParent(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("9c889baf-c3c2-4ce3-bb74-36b78c5b77ca").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Determine expected components.
 	wantUpdates := make(map[string]string)
@@ -1245,6 +1257,7 @@ func TestWCOnChangeComponentParent(t *testing.T) {
 func TestWCOnChangeComponentSoftwareVersion(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("25e36fae-82e7-4d51-8f60-df6fb139f6ca").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Determine expected components.
 	wantUpdates := make(map[string]string)

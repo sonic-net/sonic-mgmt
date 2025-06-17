@@ -246,7 +246,7 @@ type infoHandler struct{}
 // a randomly selected interface if it is Operationally UP. Options can be passed
 // to this method using RandomInterfaceParams struct.
 func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfaceParams) (string, error) {
-	portList := []string{"Ethernet1","Ethernet2","Ethernet3"}
+	portList := []string{"Ethernet1","Ethernet2","Ethernet3","Ethernet4"}
 	isParent := false
 	isOperDownOk := false
 	if params != nil {

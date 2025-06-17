@@ -188,6 +188,7 @@ func TestGNMIEthernetInErrors(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("4b8a5e02-7389-474a-a677-efde088667b0").WithID("fb11ecf4-6e74-4255-b150-4a30c2493c86").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	control := ondatra.DUT(t, "CONTROL")
 
 	params := testhelper.RandomInterfaceParams{

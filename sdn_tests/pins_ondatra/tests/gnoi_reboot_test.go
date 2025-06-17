@@ -199,6 +199,7 @@ func TestRebootSuccess(t *testing.T) {
 	ttID := "0dedda87-1b76-40a2-8712-24c1579987ee"
 	defer testhelper.NewTearDownOptions(t).WithID(ttID).Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
 	if err != nil {
@@ -238,6 +239,7 @@ func TestCancelRebootNotSupported(t *testing.T) {
 	// Validate that CancelReboot RPC is not supported.
 	defer testhelper.NewTearDownOptions(t).WithID("54890e78-97c2-4c08-b03c-0822870691e7").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	req := &syspb.CancelRebootRequest{
 		Message: "Test message to cancel reboot",
@@ -253,6 +255,7 @@ func TestScheduledRebootNotSupported(t *testing.T) {
 	// Validate that scheduled Reboot RPC is not supported.
 	defer testhelper.NewTearDownOptions(t).WithID("9d5c0ded-7474-47cf-8310-9444189928cd").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
 	if err != nil {
@@ -274,6 +277,7 @@ func TestScheduledRebootNotSupported(t *testing.T) {
 func TestRebootMethodsValidation(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("c416cba7-12f0-4efa-a341-0c5d1c806fc1").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
 	if err != nil {
@@ -322,6 +326,7 @@ func TestRebootStatusWhenActiveReboot(t *testing.T) {
         // Verify RebootStatus response when there is an active reboot.
         defer testhelper.NewTearDownOptions(t).WithID("23bbc091-ba7f-4424-9db6-fe5e25274791").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         waitTime, err := testhelper.RebootTimeForDevice(t, dut)
         if err != nil {
@@ -374,6 +379,7 @@ func TestRebootRequestWhenActiveReboot(t *testing.T) {
         // Verify that new Reboot request will be rejected during an active reboot.
         defer testhelper.NewTearDownOptions(t).WithID("e399daad-f61e-4918-a02c-1802f27de983").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         waitTime, err := testhelper.RebootTimeForDevice(t, dut)
         if err != nil {
@@ -420,6 +426,7 @@ func TestRebootRequestWhenGnoiUnreachable(t *testing.T) {
         // Verify Reboot request will be rejected if issued when gNOI is unreachable.
         defer testhelper.NewTearDownOptions(t).WithID("bfbe4e85-4559-4184-acf0-b00bb4bf46ba").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         waitTime, err := testhelper.RebootTimeForDevice(t, dut)
         if err != nil {

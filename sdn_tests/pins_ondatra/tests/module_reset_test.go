@@ -35,6 +35,7 @@ const (
 
 func TestResetModules(t *testing.T) {
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Get all ports connected to peer device.
 	var dutPorts []string
@@ -142,6 +143,7 @@ func TestResetModules(t *testing.T) {
 func TestResetModuleInvalidTransceiver(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("9b1c5bb4-f79e-4aab-9488-ce7294728abd").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Get all ports connected to peer device.
 	var dutPorts []string

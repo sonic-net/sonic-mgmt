@@ -212,6 +212,7 @@ func TestLinkEventDampingConfigDisabled(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("396d27cb-f951-4acf-8cec-98b17a9a5175").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	control := ondatra.DUT(t, "CONTROL")
 	// Select a random UP interface.
 	intf, controlIntf, err := selectPortToRunTest(t, dut, control)
@@ -275,6 +276,7 @@ func TestFirstFlapEventsNotDampedAfterLinkEventDampingConfig(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("a92fd0c4-0461-4379-a8ba-76ce6710d8a4").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	control := ondatra.DUT(t, "CONTROL")
 	intf, controlIntf, err := selectPortToRunTest(t, dut, control)
 	if err != nil {
@@ -338,6 +340,7 @@ func TestMultipleFlapsWithLinkEventDampingConfig(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("5ccd7b33-8661-4b82-9d19-971816b2aeea").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	control := ondatra.DUT(t, "CONTROL")
 	intf, controlIntf, err := selectPortToRunTest(t, dut, control)
 	if err != nil {

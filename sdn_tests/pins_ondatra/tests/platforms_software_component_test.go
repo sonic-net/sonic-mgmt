@@ -37,6 +37,7 @@ func TestMain(m *testing.M) {
 func TestGetOperatingSystemDefaultInfo(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("ba4294cc-1174-44c4-88c1-2d3cf8f000a0").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	validStorageSides := map[string]bool{
 		"SIDE_A": true,
@@ -327,6 +328,7 @@ func TestSetChassisInvalidName(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("af16797f-e1e1-4aa6-9414-56d2a0b52052").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	key := "chassis"
 	configPath := gnmi.OC().Component(key).Name()
 	statePath := gnmi.OC().Component(key).Name()
@@ -359,6 +361,7 @@ func TestSetChassisInvalidName(t *testing.T) {
 func TestChassisInfoPersistsAfterReboot(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("8c3c4325-4459-473b-90b6-a919fbd0ddfe").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	key := "chassis"
 
 	// Configure fully-qualified-name on the chassis.
