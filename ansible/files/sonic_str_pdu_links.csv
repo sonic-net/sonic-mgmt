@@ -3,8 +3,8 @@ pdu-107,36,str-7260cx3-acs-1,PSU1
 pdu-108,36,str-7260cx3-acs-1,PSU2
 pdu-109,18,str-a7060cx-acs-1,PSU1
 pdu-109,17,str-a7060cx-acs-1,PSU2
-pdu-107,27,str-a7060cx-acs-10,PSU1
-pdu-108,27,str-a7060cx-acs-10,PSU2
+pdu-107,21,str-a7060cx-acs-10,PSU1
+pdu-108,21,str-a7060cx-acs-10,PSU2
 pdu-105,32,str-agc7648-acs-1,PSU1
 pdu-102,26,str-msn2700-01,PSU1
 pdu-103,26,str-msn2700-01,PSU2

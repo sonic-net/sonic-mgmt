@@ -861,7 +861,7 @@ configuration:
         ipv4: 10.0.4.1/31
         ipv6: fc00::802/126
     bp_interface:
-      ipv4: 10.10.248.2/22
+      ipv4: 10.10.244.4/22
       ipv6: fc0a::202/64
   ARISTA02PT0:
     properties:
@@ -880,5 +880,5 @@ configuration:
         ipv4: 10.0.4.3/31
         ipv6: fc00::806/126
     bp_interface:
-      ipv4: 10.10.248.3/22
+      ipv4: 10.10.244.5/22
       ipv6: fc0a::203/64

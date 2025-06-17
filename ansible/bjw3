@@ -57,15 +57,15 @@ server:
 
 mgmt:
   hosts:
-    bjw3-can-720dt-mc0-3:
+    bjw3-can-720dt-mc0-1:
       ansible_host: 10.150.238.10
       ansible_hostv6: 2404:f801:10:16::a96:ee0a
       os: sonic
-    bjw3-can-720dt-mc0-4:
+    bjw3-can-720dt-mc0-2:
       ansible_host: 10.150.238.11
       ansible_hostv6: 2404:f801:10:16::a96:ee0b
       os: sonic
-    bjw3-can-720dt-mc0-5:
+    bjw3-can-720dt-mc0-3:
       ansible_host: 10.150.238.12
       ansible_hostv6: 2404:f801:10:16::a96:ee0c
       os: sonic
