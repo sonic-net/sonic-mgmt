@@ -7,7 +7,7 @@ import json
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports  # noqa F811
+from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports  # noqa: F811, F401
 from datetime import datetime
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
