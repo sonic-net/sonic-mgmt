@@ -34,7 +34,7 @@ from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, \
+from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type, \
     increment_ipv4_addr, increment_ipv6_addr
 
 pytestmark = [
@@ -166,21 +166,23 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         't1-isolated-d56u2',
         't1-isolated-d28u1',
         't1-isolated-d28',
+        't0-d18u8s4',
     )
 
     if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_all_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
-        pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
+        pytest_require(len(upstream_neigh_type) > 0 and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             port_id = mg_facts["minigraph_ptf_indices"][interface]
             if downstream_neigh_type in neighbor["name"].upper():
                 downstream_ports.append(interface)
                 downstream_port_ids.append(port_id)
-            elif upstream_neigh_type in neighbor["name"].upper():
-                upstream_ports.append(interface)
-                upstream_port_ids.append(port_id)
+            for upstream_type in upstream_neigh_type:
+                if upstream_type in neighbor["name"].upper():
+                    upstream_ports.append(interface)
+                    upstream_port_ids.append(port_id)
     else:
         downstream_ports = list(mg_facts["minigraph_vlans"][vlan_name]["members"])
         # Put all portchannel members into dst_ports
