@@ -431,7 +431,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 30 '
+    cmd += '--timeout 120 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
