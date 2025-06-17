@@ -79,7 +79,7 @@
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
     {% else %}
-        <model type='virtio-net-pci' />
+        <model type='e1000e' />
     {% endif %}
     </interface>
 {% for i in range(port_alias|length) %}
@@ -88,7 +88,7 @@
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
     {% else %}
-        <model type='virtio-net-pci' />
+        <model type='e1000e' />
     {% endif %}
         <mtu size='{{ fp_mtu_size }}' />
     </interface>
