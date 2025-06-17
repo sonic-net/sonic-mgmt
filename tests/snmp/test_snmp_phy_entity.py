@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
-from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -142,7 +142,7 @@ PSU_SENSOR_INFO = {
 }
 
 # The sort factor values are got from
-# https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18     # noqa E501
+# https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18     # noqa: E501
 XCVR_SENSOR_PATTERN = {
     'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
     'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
@@ -767,7 +767,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
 
 @pytest.mark.disable_loganalyzer
 def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_hostname,
-                                              localhost, creds_all_duts, mocker_factory):   # noqa F811
+                                              localhost, creds_all_duts, mocker_factory):   # noqa: F811
     """
 
     :param duthost: DUT host object

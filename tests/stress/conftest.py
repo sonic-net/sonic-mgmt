@@ -46,7 +46,7 @@ def cleanup_neighbors_dualtor(duthosts, ptfhost, tbinfo):
 
 @pytest.fixture(scope='module')
 def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
-                                          enum_rand_one_frontend_asic_index, cleanup_neighbors_dualtor):            # noqa F811
+                                          enum_rand_one_frontend_asic_index, cleanup_neighbors_dualtor):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     namespace = asichost.namespace

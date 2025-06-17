@@ -6,7 +6,7 @@ import random
 from tests.common.utilities import wait_until
 from tests.common.helpers.ptf_tests_helper import get_stream_ptf_ports
 from tests.common.helpers.ptf_tests_helper import select_random_link
-from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links  # noqa F401
+from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links  # noqa: F401
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.srv6_helper import SRv6Packets, create_srv6_locator, del_srv6_locator, create_srv6_sid, \
     del_srv6_sid
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='class')
-def prepare_param(rand_selected_dut, srv6_packet_type, downstream_links, upstream_links):  # noqa F811
+def prepare_param(rand_selected_dut, srv6_packet_type, downstream_links, upstream_links):  # noqa: F811
     prepare_param = {}
     prepare_param['packet_num'] = 100
     prepare_param['router_mac'] = rand_selected_dut.facts["router_mac"]
@@ -57,7 +57,7 @@ def srv6_crm_total_sids(rand_selected_dut):
     rand_selected_dut.command(f"crm config polling interval {original_crm_polling_interval}")
 
 
-def get_random_uplink_port(upstream_links, intf_infos):  # noqa F811
+def get_random_uplink_port(upstream_links, intf_infos):  # noqa: F811
     '''
     Get a random uplink port that is used by the ipv6 interface info
     '''
@@ -70,7 +70,7 @@ def get_random_uplink_port(upstream_links, intf_infos):  # noqa F811
 
 
 @pytest.fixture(scope="class", params=MySIDs.TUNNEL_MODE)
-def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links):  # noqa F811
+def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links):  # noqa: F811
     '''
     Configure 128 instances of SRV6_MY_SIDS
     '''

@@ -32,7 +32,7 @@ PING_TIME_INT = 10
 
 
 @pytest.fixture(scope='function')
-def num_dpu_modules(platform_api_conn):   # noqa F811
+def num_dpu_modules(platform_api_conn):   # noqa: F811
     """
     Returns the number of DPU modules
     """
@@ -45,7 +45,7 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
 
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):  # noqa F811
+                                    platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -60,13 +60,13 @@ def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
     if "DPUS" not in duthost.facts:
         pytest.skip("Test is not supported for this testbed")
 
-    darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules) # noqa F811
+    darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules)  # noqa: F811
 
     if darkmode:
         dpu_power_on(duthost, platform_api_conn, num_dpu_modules)
 
 
-def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa F811
+def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa: F811
     """
     Checks the liveliness of DPU
     Returns:
@@ -95,7 +95,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa 
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa F811
+def dpu_power_on(duthost, platform_api_conn, num_dpu_modules):    # noqa: F811
     """
     Executes power on all DPUs
     Returns:
@@ -313,7 +313,7 @@ def check_dpu_link_and_status(duthost, dpu_on_list,
 
 
 def get_dpu_link_status(duthost, num_dpu_modules,
-                        platform_api_conn):  # noqa F811
+                        platform_api_conn):  # noqa: F811
     """
     Checks whether DPU status is ON/OFF and store it.
     Args:
@@ -400,7 +400,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
 
 
 def pre_test_check(duthost,
-                   platform_api_conn,  # noqa F811
+                   platform_api_conn,  # noqa: F811
                    num_dpu_modules):
     """
     Collects and checks DPU status on Pre Test

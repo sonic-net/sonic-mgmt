@@ -29,7 +29,7 @@ DPU_TIME_INT = 30
 DPU_MEMORY_THRESHOLD = 90
 
 
-def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa F811
+def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -51,7 +51,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):    # noqa F811
+                      platform_api_conn, num_dpu_modules):    # noqa: F811
     """
     @summary: Verify `Reboot Cause` using parallel execution.
     """
@@ -80,7 +80,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn, num_dpu_modules):   # noqa F811
+                   platform_api_conn, num_dpu_modules):   # noqa: F811
     """
     @summary: Verify `PCIe link`
     """
