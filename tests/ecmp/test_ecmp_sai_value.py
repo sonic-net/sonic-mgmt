@@ -55,12 +55,18 @@ def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_host
     for feature, status in list(feature_list.items()):
         # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            if feature == "frr_bmp":
+                # Skip frr_bmp since it's not container just bmp option used by bgpd
+                continue
             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
     yield
     for feature, status in list(feature_list.items()):
         # Disable container autorestart back if it was initially disabled.
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            if feature == "frr_bmp":
+                # Skip frr_bmp since it's not container just bmp option used by bgpd
+                continue
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
