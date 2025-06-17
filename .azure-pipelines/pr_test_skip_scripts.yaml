@@ -5,6 +5,8 @@ t0:
   - dualtor/test_orchagent_slb.py
   # KVM do not support dualtor tunnel functionality, verify DB status would fail
   - dualtor_io/test_normal_op.py
+  # Not supported on KVM testbeds
+  - dualtor_io/test_switchover_impact.py
   # This script would toggle PDU, which is not supported on KVM
   - dualtor_io/test_tor_failure.py
   # This script only supported on Broadcom
@@ -206,6 +208,8 @@ t2:
 dualtor:
   # This test only support on dualtor-aa testbed
   - dualtor_io/test_grpc_server_failure.py
+  # This test is not intended for pr tests
+  - dualtor_io/test_tor_switchover_impact
   # This test is only for Nvidia platforms.
   - dualtor_mgmt/test_egress_drop_nvidia.py
   # This test needs some additional SAI attributes, do not support on KVM.
