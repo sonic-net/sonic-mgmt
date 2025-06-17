@@ -9,10 +9,10 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
-from .device_mocker import device_mocker_factory        # noqa F401
+from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa: F401
+from .device_mocker import device_mocker_factory        # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401
+from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -161,7 +161,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
 
 @pytest.mark.disable_loganalyzer
 def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                        device_mocker_factory, disable_thermal_policy, is_support_mock_asic):     # noqa F811
+                        device_mocker_factory, disable_thermal_policy, is_support_mock_asic):     # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -349,7 +349,7 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_log_analyzer_by_vendor', [['mellanox']], indirect=True)
 def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
-                              device_mocker_factory, ignore_log_analyzer_by_vendor, is_support_mock_asic):    # noqa F811
+                              device_mocker_factory, ignore_log_analyzer_by_vendor, is_support_mock_asic):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -396,7 +396,7 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
 @pytest.mark.disable_loganalyzer
 def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)

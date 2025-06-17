@@ -16,15 +16,15 @@
 Thrift SAI interface basic tests
 """
 
-import switch_sai_thrift        # noqa F401
+import switch_sai_thrift        # noqa: F401
 import time
 import sys
 import os
 from sai_base_test import interface_to_front_mapping
 
-from ptf.thriftutils import *       # noqa F403
-from switch_sai_thrift.ttypes import *          # noqa F403
-from switch_sai_thrift.sai_headers import*      # noqa F403
+from ptf.thriftutils import *       # noqa: F403
+from switch_sai_thrift.ttypes import *          # noqa: F403
+from switch_sai_thrift.sai_headers import *      # noqa: F403
 from switch_sai_thrift.ttypes import sai_thrift_fdb_entry_t, sai_thrift_ip_t, sai_thrift_ip_address_t,\
     sai_thrift_ip_prefix_t, sai_thrift_object_list_t, sai_thrift_vlan_list_t, sai_thrift_acl_mask_t,\
     sai_thrift_acl_data_t, sai_thrift_acl_field_data_t, sai_thrift_attribute_value_t, sai_thrift_attribute_t,\
@@ -122,12 +122,12 @@ def sai_thrift_create_fdb(client, vlan_id, mac, port, mac_action):
     fdb_entry = sai_thrift_fdb_entry_t(mac_address=mac, vlan_id=vlan_id)
     # value 0 represents static entry, id=0, represents entry type
     fdb_attribute1_value = sai_thrift_attribute_value_t(
-        s32=SAI_FDB_ENTRY_STATIC)       # noqa F405
+        s32=SAI_FDB_ENTRY_STATIC)       # noqa: F405
     fdb_attribute1 = sai_thrift_attribute_t(id=SAI_FDB_ENTRY_ATTR_TYPE,
                                             value=fdb_attribute1_value)
     # value oid represents object id, id=1 represents port id
     fdb_attribute2_value = sai_thrift_attribute_value_t(oid=port)
-    fdb_attribute2 = sai_thrift_attribute_t(id=SAI_FDB_ENTRY_ATTR_PORT_ID,      # noqa F405
+    fdb_attribute2 = sai_thrift_attribute_t(id=SAI_FDB_ENTRY_ATTR_PORT_ID,      # noqa: F405
                                             value=fdb_attribute2_value)
     # value oid represents object id, id=1 represents port id
     fdb_attribute3_value = sai_thrift_attribute_value_t(s32=mac_action)
@@ -145,10 +145,10 @@ def sai_thrift_delete_fdb(client, vlan_id, mac, port):
 
 def sai_thrift_flush_fdb_by_vlan(client, vlan_id):
     fdb_attribute1_value = sai_thrift_attribute_value_t(u16=vlan_id)
-    fdb_attribute1 = sai_thrift_attribute_t(id=SAI_FDB_FLUSH_ATTR_VLAN_ID,      # noqa F405
+    fdb_attribute1 = sai_thrift_attribute_t(id=SAI_FDB_FLUSH_ATTR_VLAN_ID,      # noqa: F405
                                             value=fdb_attribute1_value)
     fdb_attribute2_value = sai_thrift_attribute_value_t(
-        s32=SAI_FDB_FLUSH_ENTRY_DYNAMIC)        # noqa F405
+        s32=SAI_FDB_FLUSH_ENTRY_DYNAMIC)        # noqa: F405
     fdb_attribute2 = sai_thrift_attribute_t(id=SAI_FDB_FLUSH_ATTR_ENTRY_TYPE,
                                             value=fdb_attribute2_value)
     fdb_attr_list = [fdb_attribute1, fdb_attribute2]
@@ -233,9 +233,9 @@ def sai_thrift_create_route(client, vr_id, addr_family, ip_addr, ip_mask, nhop):
         ip_prefix = sai_thrift_ip_prefix_t(
             addr_family=SAI_IP_ADDR_FAMILY_IPV6, addr=addr, mask=mask)
     route_attribute1_value = sai_thrift_attribute_value_t(oid=nhop)
-    route_attribute1 = sai_thrift_attribute_t(id=SAI_ROUTE_ATTR_NEXT_HOP_ID,    # noqa F405
+    route_attribute1 = sai_thrift_attribute_t(id=SAI_ROUTE_ATTR_NEXT_HOP_ID,    # noqa: F405
                                               value=route_attribute1_value)
-    route = sai_thrift_unicast_route_entry_t(vr_id, ip_prefix)                  # noqa F405
+    route = sai_thrift_unicast_route_entry_t(vr_id, ip_prefix)                  # noqa: F405
     route_attr_list = [route_attribute1]
     client.sai_thrift_create_route(
         thrift_unicast_route_entry=route, thrift_attr_list=route_attr_list)
@@ -252,7 +252,7 @@ def sai_thrift_remove_route(client, vr_id, addr_family, ip_addr, ip_mask, nhop):
         mask = sai_thrift_ip_t(ip6=ip_mask)
         ip_prefix = sai_thrift_ip_prefix_t(
             addr_family=SAI_IP_ADDR_FAMILY_IPV6, addr=addr, mask=mask)
-    route = sai_thrift_unicast_route_entry_t(vr_id, ip_prefix)                  # noqa F405
+    route = sai_thrift_unicast_route_entry_t(vr_id, ip_prefix)                  # noqa: F405
     client.sai_thrift_remove_route(thrift_unicast_route_entry=route)
 
 
@@ -271,7 +271,7 @@ def sai_thrift_create_nhop(client, addr_family, ip_addr, rif_id):
     nhop_attribute2_value = sai_thrift_attribute_value_t(oid=rif_id)
     nhop_attribute2 = sai_thrift_attribute_t(id=SAI_NEXT_HOP_ATTR_ROUTER_INTERFACE_ID,
                                              value=nhop_attribute2_value)
-    nhop_attribute3_value = sai_thrift_attribute_value_t(s32=SAI_NEXT_HOP_IP)   # noqa F405
+    nhop_attribute3_value = sai_thrift_attribute_value_t(s32=SAI_NEXT_HOP_IP)   # noqa: F405
     nhop_attribute3 = sai_thrift_attribute_t(id=SAI_NEXT_HOP_ATTR_TYPE,
                                              value=nhop_attribute3_value)
     nhop_attr_list = [nhop_attribute1, nhop_attribute2, nhop_attribute3]
@@ -289,7 +289,7 @@ def sai_thrift_create_neighbor(client, addr_family, rif_id, ip_addr, dmac):
         ipaddr = sai_thrift_ip_address_t(
             addr_family=SAI_IP_ADDR_FAMILY_IPV6, addr=addr)
     neighbor_attribute1_value = sai_thrift_attribute_value_t(mac=dmac)
-    neighbor_attribute1 = sai_thrift_attribute_t(id=SAI_NEIGHBOR_ATTR_DST_MAC_ADDRESS,      # noqa F405
+    neighbor_attribute1 = sai_thrift_attribute_t(id=SAI_NEIGHBOR_ATTR_DST_MAC_ADDRESS,      # noqa: F405
                                                  value=neighbor_attribute1_value)
     neighbor_attr_list = [neighbor_attribute1]
     neighbor_entry = sai_thrift_neighbor_entry_t(
@@ -313,14 +313,14 @@ def sai_thrift_remove_neighbor(client, addr_family, rif_id, ip_addr, dmac):
 
 def sai_thrift_create_next_hop_group(client, nhop_list):
     nhop_group_attribute1_value = sai_thrift_attribute_value_t(
-        s32=SAI_NEXT_HOP_GROUP_ECMP)    # noqa F405
+        s32=SAI_NEXT_HOP_GROUP_ECMP)    # noqa: F405
     nhop_group_attribute1 = sai_thrift_attribute_t(id=SAI_NEXT_HOP_GROUP_ATTR_TYPE,
                                                    value=nhop_group_attribute1_value)
     nhop_objlist = sai_thrift_object_list_t(
         count=len(nhop_list), object_id_list=nhop_list)
     nhop_group_attribute2_value = sai_thrift_attribute_value_t(
         objlist=nhop_objlist)
-    nhop_group_attribute2 = sai_thrift_attribute_t(id=SAI_NEXT_HOP_GROUP_ATTR_NEXT_HOP_LIST,    # noqa F405
+    nhop_group_attribute2 = sai_thrift_attribute_t(id=SAI_NEXT_HOP_GROUP_ATTR_NEXT_HOP_LIST,    # noqa: F405
                                                    value=nhop_group_attribute2_value)
     nhop_group_attr_list = [nhop_group_attribute1, nhop_group_attribute2]
     nhop_group = client.sai_thrift_create_next_hop_group(
@@ -374,7 +374,7 @@ def sai_thrift_create_hostif_trap_group(client, queue_id):
 
 def sai_thrift_create_hostif_trap(client, trap_id, action, priority, channel, trap_group_id):
     attribute3_value = sai_thrift_attribute_value_t(s32=channel)
-    attribute3 = sai_thrift_attribute_t(id=SAI_HOSTIF_TRAP_ATTR_TRAP_CHANNEL,       # noqa F405
+    attribute3 = sai_thrift_attribute_t(id=SAI_HOSTIF_TRAP_ATTR_TRAP_CHANNEL,       # noqa: F405
                                         value=attribute3_value)
     client.sai_thrift_set_hostif_trap(trap_id, attribute3)
     attribute4_value = sai_thrift_attribute_value_t(oid=trap_group_id)
@@ -396,7 +396,7 @@ def sai_thrift_create_hostif(client, rif_or_port_id, intf_name):
     attribute1 = sai_thrift_attribute_t(id=SAI_HOSTIF_ATTR_TYPE,
                                         value=attribute1_value)
     attribute2_value = sai_thrift_attribute_value_t(oid=rif_or_port_id)
-    attribute2 = sai_thrift_attribute_t(id=SAI_HOSTIF_ATTR_RIF_OR_PORT_ID,          # noqa F405
+    attribute2 = sai_thrift_attribute_t(id=SAI_HOSTIF_ATTR_RIF_OR_PORT_ID,          # noqa: F405
                                         value=attribute2_value)
     attribute3_value = sai_thrift_attribute_value_t(chardata=intf_name)
     attribute3 = sai_thrift_attribute_t(id=SAI_HOSTIF_ATTR_NAME,
@@ -523,7 +523,7 @@ def sai_thrift_create_acl_entry(client, acl_table_id,
         # Drop
         attribute_value = sai_thrift_attribute_value_t(
             aclfield=sai_thrift_acl_field_data_t(data=sai_thrift_acl_data_t(u8=0)))
-        attribute = sai_thrift_attribute_t(id=SAI_ACL_ENTRY_ATTR_PACKET_ACTION,     # noqa F405
+        attribute = sai_thrift_attribute_t(id=SAI_ACL_ENTRY_ATTR_PACKET_ACTION,     # noqa: F405
                                            value=attribute_value)
         acl_attr_list.append(attribute)
     elif action == 2:
@@ -564,12 +564,12 @@ def sai_thrift_create_mirror_session(client, mirror_type, port,
                                         value=attribute2_value)
     mirror_attr_list.append(attribute2)
 
-    if mirror_type == SAI_MIRROR_TYPE_LOCAL:        # noqa F405
+    if mirror_type == SAI_MIRROR_TYPE_LOCAL:        # noqa: F405
         attribute4_value = sai_thrift_attribute_value_t(u16=vlan)
         attribute4 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_VLAN_ID,
                                             value=attribute4_value)
         mirror_attr_list.append(attribute4)
-    elif mirror_type == SAI_MIRROR_TYPE_REMOTE:     # noqa F405
+    elif mirror_type == SAI_MIRROR_TYPE_REMOTE:     # noqa: F405
         # vlan tpid
         attribute3_value = sai_thrift_attribute_value_t(u16=vlan_tpid)
         attribute3 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_VLAN_TPID,
@@ -587,10 +587,10 @@ def sai_thrift_create_mirror_session(client, mirror_type, port,
         attribute5 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_VLAN_PRI,
                                             value=attribute5_value)
         mirror_attr_list.append(attribute5)
-    elif mirror_type == SAI_MIRROR_TYPE_ENHANCED_REMOTE:        # noqa F405
+    elif mirror_type == SAI_MIRROR_TYPE_ENHANCED_REMOTE:        # noqa: F405
         # encap type
         attribute3_value = sai_thrift_attribute_value_t(u8=encap_type)
-        attribute3 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_ENCAP_TYPE,      # noqa F405
+        attribute3 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_ENCAP_TYPE,      # noqa: F405
                                             value=attribute3_value)
         mirror_attr_list.append(attribute3)
 
@@ -688,7 +688,7 @@ def sai_thrift_create_pool_profile(client, pool_type, size, threshold_mode):
     pool_attr_list.append(attribute)
 
     attribute_value = sai_thrift_attribute_value_t(s32=threshold_mode)
-    attribute = sai_thrift_attribute_t(id=SAI_BUFFER_POOL_ATTR_TH_MODE,     # noqa F405
+    attribute = sai_thrift_attribute_t(id=SAI_BUFFER_POOL_ATTR_TH_MODE,     # noqa: F405
                                        value=attribute_value)
     pool_attr_list.append(attribute)
     pool_id = client.sai_thrift_create_pool_profile(pool_attr_list)
@@ -956,12 +956,12 @@ def sai_thrift_create_vlan_member(client, vlan_id, port_id, tagging_mode):
     vlan_member_attr_list.append(attribute)
 
     attribute_value = sai_thrift_attribute_value_t(oid=port_id)
-    attribute = sai_thrift_attribute_t(id=SAI_VLAN_MEMBER_ATTR_PORT_ID,         # noqa F405
+    attribute = sai_thrift_attribute_t(id=SAI_VLAN_MEMBER_ATTR_PORT_ID,         # noqa: F405
                                        value=attribute_value)
     vlan_member_attr_list.append(attribute)
 
     attribute_value = sai_thrift_attribute_value_t(s32=tagging_mode)
-    attribute = sai_thrift_attribute_t(id=SAI_VLAN_MEMBER_ATTR_TAGGING_MODE,    # noqa F405
+    attribute = sai_thrift_attribute_t(id=SAI_VLAN_MEMBER_ATTR_TAGGING_MODE,    # noqa: F405
                                        value=attribute_value)
     vlan_member_attr_list.append(attribute)
     vlan_member_id = client.sai_thrift_create_vlan_member(

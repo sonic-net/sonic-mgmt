@@ -13,7 +13,7 @@ from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa: F401
 from tests.common.config_reload import config_reload
 from ipaddress import IPv4Network
 from unittest.mock import patch
@@ -282,7 +282,7 @@ class TestSSIP:
     @pytest.fixture(scope="class", autouse=True)
     def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                             enum_frontend_asic_index, mgmt_interface, routed_interfaces,
-                            backup_and_restore_config_db_on_duts, localhost):  # noqa F811
+                            backup_and_restore_config_db_on_duts, localhost):  # noqa: F811
         """
         Setup env for ssip(syslog soruce ip) test
         """

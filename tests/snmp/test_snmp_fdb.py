@@ -3,18 +3,18 @@ import ptf.testutils as testutils
 import logging
 import pprint
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
-from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup   # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa: F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
 from tests.common.helpers.assertions import pytest_assert
 
@@ -131,10 +131,10 @@ def check_snmp_facts(duthost, localhost, hostip, creds_all_duts, config_portchan
 
 @pytest.mark.bsl
 @pytest.mark.po2vlan
-def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
-                              toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
-                              setup_standby_ports_on_rand_unselected_tor,           # noqa F811
-                              rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts): # noqa F811
+def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa: F811
+                              toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa: F811
+                              setup_standby_ports_on_rand_unselected_tor,           # noqa: F811
+                              rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts):   # noqa: F811
     """
     Send tagged packets from each port.
     Verify SNMP FDB entry

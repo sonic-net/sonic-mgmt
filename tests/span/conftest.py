@@ -4,12 +4,12 @@ Conftest file for span tests
 
 import pytest
 
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 from tests.common.utilities import skip_release
 
 
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):   # noqa F811
+def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):   # noqa: F811
     '''
     Used to get config facts for selected DUT
 

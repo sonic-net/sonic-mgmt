@@ -12,7 +12,7 @@ import sys
 import texttable
 import math
 import os
-import macsec  # noqa F401
+import macsec  # noqa: F401
 import concurrent.futures
 from ptf.testutils import (ptf_ports,
                            dp_poll,
@@ -931,23 +931,23 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dual_tor: represents whether the source and
             #           destination ports are configured with additional lossless queues
             # According to SONiC configuration all dscp are classified to queue 1 except:
-            #            Normal scenario   Dual ToR scenario                                               Leaf router with separated DSCP_TO_TC_MAP                            # noqa E501
-            #            All ports         Normal ports    Ports with additional lossless queues           downstream (source is T2)                upstream (source is T0)     # noqa E501
-            # dscp  8 -> queue 0           queue 0         queue 0                                         queue 0                                  queue 0                     # noqa E501
-            # dscp  5 -> queue 2           queue 1         queue 1                                         queue 1                                  queue 1                     # noqa E501
-            # dscp  3 -> queue 3           queue 3         queue 3                                         queue 3                                  queue 3                     # noqa E501
-            # dscp  4 -> queue 4           queue 4         queue 4                                         queue 4                                  queue 4                     # noqa E501
-            # dscp 46 -> queue 5           queue 5         queue 5                                         queue 5                                  queue 5                     # noqa E501
-            # dscp 48 -> queue 6           queue 7         queue 7                                         queue 7                                  queue 7                     # noqa E501
-            # dscp  2 -> queue 1           queue 1         queue 2                                         queue 1                                  queue 2                     # noqa E501
-            # dscp  6 -> queue 1           queue 1         queue 6                                         queue 1                                  queue 6                     # noqa E501
+            #            Normal scenario   Dual ToR scenario                                               Leaf router with separated DSCP_TO_TC_MAP                            # noqa: E501
+            #            All ports         Normal ports    Ports with additional lossless queues           downstream (source is T2)                upstream (source is T0)     # noqa: E501
+            # dscp  8 -> queue 0           queue 0         queue 0                                         queue 0                                  queue 0                     # noqa: E501
+            # dscp  5 -> queue 2           queue 1         queue 1                                         queue 1                                  queue 1                     # noqa: E501
+            # dscp  3 -> queue 3           queue 3         queue 3                                         queue 3                                  queue 3                     # noqa: E501
+            # dscp  4 -> queue 4           queue 4         queue 4                                         queue 4                                  queue 4                     # noqa: E501
+            # dscp 46 -> queue 5           queue 5         queue 5                                         queue 5                                  queue 5                     # noqa: E501
+            # dscp 48 -> queue 6           queue 7         queue 7                                         queue 7                                  queue 7                     # noqa: E501
+            # dscp  2 -> queue 1           queue 1         queue 2                                         queue 1                                  queue 2                     # noqa: E501
+            # dscp  6 -> queue 1           queue 1         queue 6                                         queue 1                                  queue 6                     # noqa: E501
             # rest 56 dscps -> queue 1
             # So for the 64 pkts sent the mapping should be the following:
-            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57                                     59                                        57                         # noqa E501
-            # queue 2/6  1                 0               1                                                0                                         0                         # noqa E501
-            # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
-            # queue 5    1                 1               1                                                1                                         1                         # noqa E501
-            # queue 7    0                 1               1                                                1                                         1                         # noqa E501
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57                                     59                                        57                         # noqa: E501
+            # queue 2/6  1                 0               1                                                0                                         0                         # noqa: E501
+            # queue 3/4  1                 1               1                                                1                                         1                         # noqa: E501
+            # queue 5    1                 1               1                                                1                                         1                         # noqa: E501
+            # queue 7    0                 1               1                                                1                                         1                         # noqa: E501
 
             if tc_to_dscp_count_map:
                 for tc in tc_to_dscp_count_map.keys():
@@ -1513,7 +1513,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 # The inner DSCP is set to testing value,
                 # and the outer DSCP is set to 0 as it has no impact on remapping
                 # On Nvidia platforms, the dscp mode is pipe and the PG is determined by the outer dscp before decap
-                outer_dscp = inner_dscp if asic_type == 'mellanox' else 0  # noqa F841
+                outer_dscp = inner_dscp if asic_type == 'mellanox' else 0  # noqa: F841
                 pkt = self._build_testing_pkt(
                     active_tor_mac=active_tor_mac,
                     standby_tor_mac=standby_tor_mac,
@@ -2351,9 +2351,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         time.sleep(5)
         switch_init(self.clients)
         initialize_diag_counter(self)
-        last_pfc_counter = 0  # noqa F841
-        recv_port_counters = [] # noqa F841
-        transmit_port_counters = []  # noqa F841
+        last_pfc_counter = 0  # noqa: F841
+        recv_port_counters = []  # noqa: F841
+        transmit_port_counters = []  # noqa: F841
 
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
@@ -2555,19 +2555,19 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             '''
             Send various numbers of pkts to each dst port to occupy PG buffer, as below:
 
-                                                                                                          shared buffer theshold                # noqa E501
+                                                                                                          shared buffer theshold                # noqa: E501
                                                                          xon offset                            |
                                                                              |                                 |
             PG config:                                                       +                                 +
-            -----------------------------------------------------------------*---------------------------------*----------------------          # noqa E501
+            -----------------------------------------------------------------*---------------------------------*----------------------          # noqa: E501
             pkts in each port:                                          +                                            +
                                                                         |                                            |
             |<--- pkts_num_trig_pfc - pkts_num_dismiss_pfc - margin --->|                                            |
                                  in dst port 1                          |                                            |
                                                                         |<---   pkts_num_dismiss_pfc + margin*2  --->|
                                                                                          in dst port 2               |
-                                                                                                                     |<--- X pkts --->|         # noqa E501
-                                                                                                                       in dst port 3            # noqa E501
+                                                                                                                     |<--- X pkts --->|         # noqa: E501
+                                                                                                                       in dst port 3            # noqa: E501
             '''
             # send packets to dst port 1, occupying the "xon"
             step_id += 1

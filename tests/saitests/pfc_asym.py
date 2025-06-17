@@ -21,7 +21,7 @@ import ptf.testutils as testutils
 from switch import sai_thrift_read_port_counters, switch_init, sai_thrift_clear_all_counters
 from sai_base_test import ThriftInterfaceDataPlane
 
-import switch_sai_thrift        # noqa F401
+import switch_sai_thrift        # noqa: F401
 from switch_sai_thrift.ttypes import sai_thrift_attribute_t, sai_thrift_attribute_value_t
 from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS
 

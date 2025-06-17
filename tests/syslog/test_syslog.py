@@ -1,6 +1,6 @@
 import logging
 import pytest
-from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa F401
+from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa: F401
 
 logger = logging.getLogger(__name__)
 

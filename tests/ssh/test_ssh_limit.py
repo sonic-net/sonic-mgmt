@@ -3,7 +3,7 @@ import logging
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds     # noqa: F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 from tests.common.utilities import paramiko_ssh
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
@@ -59,7 +59,7 @@ def modify_template(admin_session, template_path, additional_content, hwsku, typ
     exec_command(admin_session, 'sudo cat {0}'.format(template_path))
 
 
-def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
+def modify_templates(duthost, tacacs_creds, creds):     # noqa: F811
     dut_ip = duthost.mgmt_ip
     hwsku = duthost.facts["hwsku"]
     type = get_device_type(duthost)
@@ -98,7 +98,7 @@ def limit_template_exist(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # noqa F811
+def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
 
     # if template file not exist on duthost, ignore this UT
@@ -145,7 +145,7 @@ def get_login_result(ssh_session):
     return login_message
 
 
-def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):    # noqa F811
+def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):    # noqa: F811
     """
         This test case will test following 2 scenarios:
             1. Following 2 templates can be render by hostcfgd correctly:
