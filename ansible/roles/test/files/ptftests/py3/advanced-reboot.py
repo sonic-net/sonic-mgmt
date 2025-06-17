@@ -692,8 +692,10 @@ class ReloadTest(BaseTest):
 
         self.random_vlan = random.choice(self.vlan_ports)
         self.from_server_src_port = self.random_vlan
-        self.from_server_src_ipv4_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys() if ipaddress.ip_address(addr).version == 4])
-        self.from_server_src_ipv6_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys() if ipaddress.ip_address(addr).version == 6])
+        self.from_server_src_ipv4_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys()
+                                                        if ipaddress.ip_address(addr).version == 4])
+        self.from_server_src_ipv6_addr = random.choice([addr for addr in self.vlan_host_map[self.random_vlan].keys()
+                                                        if ipaddress.ip_address(addr).version == 6])
         self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_ipv4_addr])
         self.from_server_dst_ipv4_addr = self.random_ip(self.test_params['default_ipv4_range'])
         self.from_server_dst_ipv6_addr = self.random_ip(self.test_params['default_ipv6_range'])
@@ -932,14 +934,16 @@ class ReloadTest(BaseTest):
 
         self.watcher_from_server_ipv4_iter = itertools.cycle(self.from_servers_ipv4)
         self.watcher_from_server_ipv6_iter = itertools.cycle(self.from_servers_ipv6)
-        self.log("Prepared {} IPv4 and {} IPv6 packets from servers".format(len(self.from_servers_ipv4), len(self.from_servers_ipv6)))
+        self.log("Prepared {} IPv4 and {} IPv6 packets from servers".format(
+            len(self.from_servers_ipv4), len(self.from_servers_ipv6)))
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys() if ipaddress.ip_address(x).version == 4])
+            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys()
+                                      if ipaddress.ip_address(x).version == 4])
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
@@ -1062,7 +1066,8 @@ class ReloadTest(BaseTest):
         self.arp_vlan_gw_ping_packets = []
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys() if ipaddress.ip_address(x).version == 4])
+            src_addr = random.choice([x for x in self.vlan_host_ping_map[src_port].keys()
+                                      if ipaddress.ip_address(x).version == 4])
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_arp_packet(eth_src=src_mac,
