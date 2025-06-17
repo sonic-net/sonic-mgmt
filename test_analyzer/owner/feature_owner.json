@@ -660,6 +660,24 @@
         ]
     },
     {
+        "feature": "gnoi",
+        "owner": "Dawei Huang",
+        "email": "daweihuang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "gnmi.test_gnoi_killprocess",
+                    "gnmi.test_gnoi_os",
+                    "gnmi.test_gnoi_system",
+                    "gnmi.test_gnoi_system_grpc",
+                    "gnmi.test_gnoi_system_reboot",
+                ],
+                "owner": "Dawei Huang",
+                "email": "daweihuang@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "golden_config_infra",
         "owner": "Jingwen Xie",
         "email": "jingwenxie@microsoft.com",
