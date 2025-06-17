@@ -42,6 +42,7 @@ PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
 MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing packets
 STATIC_ROUTES = ['0.0.0.0/0', '::/0']
 ICMP_TYPE = 123
+WITHDRAW_ROUTE_NUMBER = 1
 
 
 @pytest.fixture(scope="module")
@@ -87,7 +88,10 @@ def bgp_peers_info(tbinfo, duthost):
         ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
         bgp_info[hostname][PTF_PORT] = ptf_port
         bgp_info[hostname][DUT_PORT] = alias[ptf_port]['name']
+
         topo_cfg_intfs = tbinfo['topo']['properties']['configuration'][hostname]['interfaces']
+        if 'Loopback0' in topo_cfg_intfs and 'ipv6' in topo_cfg_intfs['Loopback0']:
+            bgp_info[hostname]['lo_v6'] = topo_cfg_intfs['Loopback0']['ipv6']
         if 'ipv6' in topo_cfg_intfs['Ethernet1']:
             bgp_info[hostname][IPV6_KEY] = \
                 topo_cfg_intfs['Ethernet1']['ipv6'].split('/')[0]
@@ -136,9 +140,9 @@ def get_all_bgp_ipv6_routes(duthost):
     )
 
 
-def generate_packets(routes, dut_mac, src_mac):
+def generate_packets(prefixes, dut_mac, src_mac):
     pkts = []
-    for prefix in routes.keys():
+    for prefix in prefixes:
         addr = str(ipaddress.ip_network(prefix)[1])
         pkt = simple_icmpv6_packet(
             eth_dst=dut_mac,
@@ -285,7 +289,27 @@ def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, time
     return True
 
 
-@pytest.mark.parametrize("flapping_port_count", [1,  10, 20])
+def get_ecmp_routes(startup_routes, bgp_peers_info):
+    p2p_ipv6_nei_map = {
+        value[IPV6_KEY]: hostname for hostname, value in bgp_peers_info.items()
+    }
+    lo_ipv6_set = set([value['lo_v6'] for _, value in bgp_peers_info.items()])
+    neighbor_ecmp_routes = {}
+    for prefix, value in startup_routes.items():
+        # Default route
+        if prefix in STATIC_ROUTES:
+            continue
+        if prefix in lo_ipv6_set:
+            continue
+        for nexthop in value[0]['nexthops']:
+            if nexthop['ip'] not in p2p_ipv6_nei_map:
+                continue
+            neighbor_ecmp_routes.setdefault(p2p_ipv6_nei_map[nexthop['ip']], set())
+            neighbor_ecmp_routes[p2p_ipv6_nei_map[nexthop['ip']]].add(prefix)
+    return neighbor_ecmp_routes
+
+
+@pytest.mark.parametrize("flapping_port_count", [1, 10, 20])
 def test_sessions_flapping(
     duthost,
     ptfadapter,
@@ -308,19 +332,24 @@ def test_sessions_flapping(
     '''
     pdp = ptfadapter.dataplane
     exp_mask = setup_packet_mask_counters
-    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-    random.shuffle(bgp_ports)
-    flapping_ports, unflapping_ports = bgp_ports[:flapping_port_count], bgp_ports[flapping_port_count:]
+    bgp_neighbors = [hostname for hostname in bgp_peers_info.keys()]
+
+    random.shuffle(bgp_neighbors)
+    flapping_neighbors, unflapping_neighbors = bgp_neighbors[:flapping_port_count], bgp_neighbors[flapping_port_count:]
+    flapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in flapping_neighbors]
+    unflapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in unflapping_neighbors]
+
     logger.info("Flapping_port_count is %d, flapping ports: %s and unflapping ports %s",
                 flapping_port_count, flapping_ports, unflapping_ports)
-    injection_dut_port = random.choice(unflapping_ports)
+    injection_bgp_neighbor = random.choice(unflapping_neighbors)
+    injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
+    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
     pkts = generate_packets(
-        ecmp_routes,
+        neighbor_ecmp_routes[injection_bgp_neighbor],
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
@@ -362,7 +391,8 @@ def test_nexthop_group_member_scale(
     tbinfo,
     bgp_peers_info,
     setup_packet_mask_counters,
-    announce_bgp_routes_teardown
+    announce_bgp_routes_teardown,
+    request
 ):
     '''
     This test is to make sure when routes on BGP peers are flapping,
@@ -385,26 +415,37 @@ def test_nexthop_group_member_scale(
 
     pdp = ptfadapter.dataplane
     exp_mask = setup_packet_mask_counters
-    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-    injection_dut_port = random.choice(bgp_ports)
+    injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
+    injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {
-        r: v for r, v in startup_routes.items()
-        if len(v[0]['nexthops']) == len(bgp_peers_info) and r not in STATIC_ROUTES
-    }
+    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
+
     pkts = generate_packets(
-        ecmp_routes,
+        neighbor_ecmp_routes[injection_bgp_neighbor],
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
-    routes_in_tuple = [(r, nhipv6, None) for r in ecmp_routes.keys()]
-    peers_routes_to_change = {peer: routes_in_tuple[index::len(bgp_peers_info.keys())]
-                              for index, peer in enumerate(bgp_peers_info.keys())}
+    peers_routes_to_change = {}
+    selected_routes = set()
 
+    max_flap_neighbor_number = request.config.option.max_flap_neighbor_number
+    for index, (neighbor_hostname, routes) in enumerate(neighbor_ecmp_routes.items()):
+        if max_flap_neighbor_number and index == max_flap_neighbor_number:
+            break
+        withdraw_number = 0
+        for route in routes:
+            if route in selected_routes:
+                continue
+            peers_routes_to_change.setdefault(neighbor_hostname, [])
+            peers_routes_to_change[neighbor_hostname].append((route, nhipv6, None))
+            selected_routes.add(route)
+            withdraw_number += 1
+            if withdraw_number == WITHDRAW_ROUTE_NUMBER:
+                break
     # ------------withdraw routes and test ------------ #
     terminated = Event()
     traffic_thread = Thread(
@@ -418,7 +459,7 @@ def test_nexthop_group_member_scale(
         prefixes = [r[0] for r in routes]
         nexthop_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n == peer]
         expected_routes.update(
-            remove_nexthops_in_routes({p: a for p, a in ecmp_routes.items() if p in prefixes}, nexthop_to_remove)
+            remove_nexthops_in_routes({p: a for p, a in startup_routes.items() if p in prefixes}, nexthop_to_remove)
         )
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
@@ -476,15 +517,18 @@ def test_device_unisolation(
     '''
     pdp = ptfadapter.dataplane
     exp_mask = setup_packet_mask_counters
+
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-    injection_dut_port = random.choice(bgp_ports)
+
+    injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
+    injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost)
-    ecmp_routes = {r: v for r, v in startup_routes.items() if len(v[0]['nexthops']) > 1 and r not in STATIC_ROUTES}
+    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
     pkts = generate_packets(
-        ecmp_routes,
+        neighbor_ecmp_routes[injection_bgp_neighbor],
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
