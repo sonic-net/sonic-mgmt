@@ -87,13 +87,12 @@ FWD:
         - hash/test_generic_hash.py::test_algorithm_config
         - hash/test_generic_hash.py::test_backend_error_messages
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
-        - acl/test_acl.py::TestBasicAcl
+        - acl/test_acl.py::TestAclWithPortToggle
       hw:
         - crm/test_crm.py::test_crm_neighbor
         - bfd/test_bfd_traffic.py
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
         - everflow/test_everflow_per_interface.py
-        - generic_config_updater/test_dynamic_acl.py
         - generic_config_updater/test_ipv6.py
         - ip/test_ip_packet.py
         - ipfwd/test_nhop_group.py
@@ -123,6 +122,8 @@ FWD:
         - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
         - everflow/test_everflow_ipv6.py::test_src_ipv6_mirroring
         - everflow/test_everflow_ipv6.py::test_invalid_tcp_rule
+      hw:
+        - generic_config_updater/test_dynamic_acl.py
 
 PLT:
   t0-64:

@@ -168,6 +168,7 @@ FWD: #Rajendra Thirumurthi
         - crm/test_crm.py::test_crm_neighbor
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+        - acl/test_acl.py::TestBasicAcl
   t2-min:
     sfd:
       sim:
