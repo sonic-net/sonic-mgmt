@@ -5,9 +5,9 @@ import time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import get_platform_data
-from tests.common.utilities import wait_until  # noqa F401
-from tests.common.helpers.thermal_control_test_helper import mocker_factory  # noqa F401
-from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, PsuPowerThresholdMocker  # noqa F401
+from tests.common.utilities import wait_until  # noqa: F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory  # noqa: F401
+from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, PsuPowerThresholdMocker  # noqa:F401
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -22,7 +22,7 @@ MAX_PSUS = None
 
 
 @pytest.fixture(autouse=True)
-def check_feature_supported(request, duthosts, rand_one_dut_hostname, mocker_factory): # noqa F811
+def check_feature_supported(request, duthosts, rand_one_dut_hostname, mocker_factory):  # noqa: F811
     global MAX_PSUS
     global mocker
     duthost = duthosts[rand_one_dut_hostname]
@@ -55,7 +55,7 @@ def mock_ambient_temp_threshold():
 
 
 @pytest.fixture
-def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mock_ambient_temp_threshold):  # noqa F811
+def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mock_ambient_temp_threshold):  # noqa: F811
     psudaemon_restarted = False
     duthost = duthosts[rand_one_dut_hostname]
 
