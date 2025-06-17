@@ -446,6 +446,9 @@ def test_nexthop_group_member_scale(
             withdraw_number += 1
             if withdraw_number == WITHDRAW_ROUTE_NUMBER:
                 break
+    pytest_assert(max_flap_neighbor_number and len(peers_routes_to_change) == max_flap_neighbor_number or
+                  len(peers_routes_to_change) == len(neighbor_ecmp_routes),
+                  "Flap neighbor count is not enough: {}".format(len(peers_routes_to_change)))
     # ------------withdraw routes and test ------------ #
     terminated = Event()
     traffic_thread = Thread(
