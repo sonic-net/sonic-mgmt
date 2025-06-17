@@ -523,11 +523,11 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
                                         nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
                                         router_type=router_type,
                                         no_default_route=no_default_route, offset=current_routes_offset)
+            routes_number = len(routes_v4)
             if aggregate_routes_v4:
                 filterout_subnet_ipv4(aggregate_routes, routes_v4)
                 routes_v4.extend(aggregate_routes_v4)
             change_routes(action, ptf_ip, port, routes_v4)
-            routes_number = len(routes_v4)
         if enable_ipv6_routes_generation:
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         spine_asn, leaf_asn_start, tor_asn_start,
@@ -535,11 +535,11 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
                                         router_type=router_type,
                                         no_default_route=no_default_route,
                                         ipv6_address_pattern=ipv6_address_pattern, offset=current_routes_offset)
+            routes_number = len(routes_v6)
             if aggregate_routes_v6:
                 filterout_subnet_ipv6(aggregate_routes, routes_v6)
                 routes_v6.extend(aggregate_routes_v6)
             change_routes(action, ptf_ip, port6, routes_v6)
-            routes_number = len(routes_v6)
         group_index = index * neighbor_groups // vms_len
         next_group_index = (index + 1) * neighbor_groups // vms_len
         if group_index != next_group_index:
