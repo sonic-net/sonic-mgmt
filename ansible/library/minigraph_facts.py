@@ -636,22 +636,22 @@ def parse_linkmeta(meta, hname):
         macsec_en_name = linkdevprop.find(str(QName(ns1, "Name"))).text
         if macsec_en_name == "MacSecEnabled":
             macsec_en_lnk = linkdevprop.find(str(QName(ns1, "Value"))).text
-        if macsec_en_lnk:
-            local_port = None
-            # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
-            key = linkmeta.find(str(QName(ns1, "Key"))).text
-            endpoints = key.split(';')
-            local_endpoint = endpoints[1]
-            remote_endpoint = endpoints[0]
-            t = local_endpoint.split(':')
-            if len(t) == 2 and t[0].lower() == hname.lower():
-                local_port = t[1]
-                macsec_enabled_ports.append(local_port)
-                neighbor_host = remote_endpoint.split(':')[0]
-                macsec_neighbors.append(neighbor_host)
-            else:
-                # Cannot find a matching hname, something went wrong
-                continue
+            if macsec_en_lnk:
+                local_port = None
+                # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
+                key = linkmeta.find(str(QName(ns1, "Key"))).text
+                endpoints = key.split(';')
+                local_endpoint = endpoints[1]
+                remote_endpoint = endpoints[0]
+                t = local_endpoint.split(':')
+                if len(t) == 2 and t[0].lower() == hname.lower():
+                    local_port = t[1]
+                    macsec_enabled_ports.append(local_port)
+                    neighbor_host = remote_endpoint.split(':')[0]
+                    macsec_neighbors.append(neighbor_host)
+                else:
+                    # Cannot find a matching hname, something went wrong
+                    continue
     return macsec_enabled_ports, macsec_neighbors
 
 
