@@ -10,7 +10,8 @@ from collections import Counter
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py # noqa F401
+from tests.common.fixtures.ptfhost_utils import \
+    copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py  # noqa: F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ pytestmark = [
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 PTF_LAG_NAME = "bond1"
 DUT_LAG_NAME = "PortChannel1"
