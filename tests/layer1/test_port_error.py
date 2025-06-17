@@ -45,13 +45,13 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
-    #TODO: Reboot the switch before test as a WA of #22205, remove this after the issue is fixed
+    # TODO: Reboot the switch before test as a WA of #22205, remove this after the issue is fixed
     @pytest.fixture(scope="class", autouse=True)
     def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, request):
         from tests.common.reboot import reboot
         reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
-              localhost, safe_reboot=True, check_intf_up_ports=True)
-
+               localhost, safe_reboot=True, check_intf_up_ports=True)
+    
     @pytest.fixture(scope="class")
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
