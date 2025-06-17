@@ -14,6 +14,16 @@ parameters:
     default: ""
     displayName: "Upgrade image parameter"
 
+  - name: SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY
+    type: string
+    default: "True"
+    displayName: "Whether skip remove-topo and add-topo for nightly test"
+
+  - name: ADD_TOPO_PARAMS
+    type: string
+    default: ""
+    displayName: "Add topo parameters"
+
   - name: DEPLOY_MG_EXTRA_PARAMS
     type: string
     default: ""
@@ -145,6 +155,8 @@ steps:
       LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+      SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }}
+      ADD_TOPO_PARAMS: ${{ parameters.ADD_TOPO_PARAMS }}
       DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
       SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
       AFFINITY: ${{ parameters.AFFINITY }}
