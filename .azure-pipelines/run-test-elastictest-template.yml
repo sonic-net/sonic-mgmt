@@ -37,6 +37,14 @@ parameters:
     type: string
     default: ""
 
+  - name: SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY
+    type: string
+    default: "True"
+
+  - name: ADD_TOPO_PARAMS
+    type: string
+    default: ""
+
   - name: DEPLOY_MG_EXTRA_PARAMS
     type: string
     default: ""
@@ -255,6 +263,8 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
+      --add-topo-params ${{ parameters.ADD_TOPO_PARAMS }} \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
       --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
