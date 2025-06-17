@@ -27,8 +27,8 @@ parameters:
     default: ""
 
   - name: LOCK_WAIT_TIMEOUT_SECONDS
-    type: number
-    default: 0
+    type: string
+    default: "0"
 
   - name: NUM_ASIC
     default: 1
