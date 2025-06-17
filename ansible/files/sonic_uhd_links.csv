@@ -1,0 +1,11 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth
+str43-c93180yc-c13-u25,Et51,str2-8101-fanout-13,etp0,100000
+str43-c93180yc-c13-u25,Et52,str2-8101-fanout-13,etp1,100000
+str43-c93180yc-c13-u25,Et53,str2-msn4700-fanout-13,etp1,100000
+str43-c93180yc-c13-u25,Et54,str2-msn4700-fanout-13,etp2,100000
+str-ixia-uhd400-c19-u36,Et1,str-ocs-dlx64-acs-0,3A,400000
+str-ixia-uhd400-c19-u36,Et2,str-ocs-dlx64-acs-0,4A,400000
+str-ixia-uhd400-c19-u36,Et3,str2-8101-fanout-13,etp2,100000
+str-ixia-uhd400-c19-u36,Et4,str2-8101-fanout-13,etp3,100000
+str-ixia-uhd400-c19-u36,Et5,str2-msn4700-fanout-13,etp3,100000
+str-ixia-uhd400-c19-u36,Et6,str2-msn4700-fanout-13,etp4,100000
