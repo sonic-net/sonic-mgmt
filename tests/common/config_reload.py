@@ -208,6 +208,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        sonic_host.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
