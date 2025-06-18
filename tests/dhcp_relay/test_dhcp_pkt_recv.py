@@ -3,6 +3,7 @@ import ptf.packet as scapy
 import pytest
 import random
 import re
+import json
 
 from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
@@ -101,6 +102,38 @@ class Dhcpv6PktRecvBase:
                 / DHCP6_Solicit(trid=test_trid)
             ptfadapter.dataplane.flush()
             testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=ptf_port_id)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def remove_and_add_acl_table(rand_selected_dut):
+
+    duthost = rand_selected_dut
+    TABLE_NAME = "EVERFLOW"
+    # Show ACL Table
+    logging.info(f"show acl table {TABLE_NAME}")
+    lines = duthost.shell(cmd=f"show acl table {TABLE_NAME}")['stdout_lines']
+    acl_existing = False
+    for line in lines:
+        if TABLE_NAME in line:
+            acl_existing = True
+            break
+    if acl_existing:
+        # Removing ACL table
+        logging.info(f"Remove ACL Table : {TABLE_NAME}")
+        duthost.shell(cmd=f"config acl remove table {TABLE_NAME}")
+
+    yield
+
+    # Recover ACL Table
+    config_db_json = "/etc/sonic/config_db.json"
+    output = duthost.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    entry_json = json.loads(output)
+    if TABLE_NAME in entry_json:
+        entry = entry_json[TABLE_NAME]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+            .format(TABLE_NAME, entry['type'], ",".join(entry['ports']), entry['stage'])
+        logging.info("Restoring ACL table {TABLE_NAME}")
+        duthost.shell(cmd_create_table)
 
 
 class TestDhcpv6WithEmptyAclTable(Dhcpv6PktRecvBase):
