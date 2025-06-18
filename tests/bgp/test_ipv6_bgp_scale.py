@@ -130,7 +130,8 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
         action=ACTION_ANNOUNCE,
         path="../ansible/",
         log_path="logs",
-        dut_interfaces=dut_interfaces
+        dut_interfaces=dut_interfaces,
+        upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else None
     )
 
 
@@ -178,7 +179,7 @@ def remove_nexthops_in_routes(routes, nexthops):
         else:
             attr[0]['nexthops'] = _nhs
     for prefix in prefxies_to_remove:
-        ret_routes.pop(prefix)
+        ret_routes[prefix] = []
     return ret_routes
 
 
@@ -309,6 +310,15 @@ def get_ecmp_routes(startup_routes, bgp_peers_info):
     return neighbor_ecmp_routes
 
 
+def remove_routes_with_nexthops(candidate_routes, nexthop_to_remove, result_routes):
+    removed_routes = remove_nexthops_in_routes(candidate_routes, nexthop_to_remove)
+    for prefix, value in removed_routes.items():
+        if len(value) == 0:
+            result_routes.pop(prefix)
+        else:
+            result_routes[prefix] = value
+
+
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20])
 def test_sessions_flapping(
     duthost,
@@ -355,7 +365,8 @@ def test_sessions_flapping(
     )
 
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
-    expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
+    expected_routes = deepcopy(startup_routes)
+    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -461,9 +472,9 @@ def test_nexthop_group_member_scale(
     for peer, routes in peers_routes_to_change.items():
         prefixes = [r[0] for r in routes]
         nexthop_to_remove = [b[IPV6_KEY] for n, b in bgp_peers_info.items() if n == peer]
-        expected_routes.update(
-            remove_nexthops_in_routes({p: a for p, a in startup_routes.items() if p in prefixes}, nexthop_to_remove)
-        )
+        current_routes = {p: a for p, a in startup_routes.items() if p in prefixes}
+        remove_routes_with_nexthops(current_routes, nexthop_to_remove, expected_routes)
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_WITHDRAW,
@@ -537,7 +548,8 @@ def test_device_unisolation(
     )
 
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
-    expected_routes = remove_nexthops_in_routes(startup_routes, nexthops_to_remove)
+    expected_routes = deepcopy(startup_routes)
+    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
     try:
         duthost.shutdown_multiple(bgp_ports)
         ports_shut_time = datetime.datetime.now()
