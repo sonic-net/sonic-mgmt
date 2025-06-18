@@ -7,6 +7,7 @@ import time
 import logging
 import pytest
 import json
+import tempfile
 from ptf import mask
 from scapy.all import Ether
 from tests.common.utilities import wait_until
@@ -244,16 +245,40 @@ def remove_acl_table(duthost):
 
 
 def add_single_acl_rule(duthost, table_name, rule_name, inner_src_prefix, vni_id, modified_mac):
-    cmd = (
-        f"config acl add rule {table_name} {rule_name} "
-        f"--action set_mac "
-        f"--src_ip {inner_src_prefix} "
-        f"--vni {vni_id} "
-        f"--set_inner_src_mac {modified_mac} "
-        "--priority 1000"
-    )
-    logger.info(f"Adding ACL rule {rule_name} with IP {inner_src_prefix} to set inner MAC to {modified_mac}")
-    duthost.shell(cmd)
+    """
+    Adds a single ACL rule using JSON-based acl-loader approach.
+    The rule rewrites the inner source MAC based on inner source IP and VNI.
+    """
+    # Build the ACL config in the required format
+    acl_config = {
+        "ACL_RULE": {
+            f"{table_name}|{rule_name}": {
+                "INNER_SRC_IP": inner_src_prefix,
+                "TUNNEL_VNI": str(vni_id),
+                "INNER_SRC_MAC_REWRITE_ACTION": modified_mac,
+                "PRIORITY": "100"
+            }
+        }
+    }
+
+    # Write to temporary file
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tmpfile:
+        json.dump(acl_config, tmpfile, indent=4)
+        tmpfile_path = tmpfile.name
+
+    dest_path = f"/tmp/{rule_name}_acl.json"
+
+    logger.info(f"Adding ACL rule {rule_name} with IP {inner_src_prefix} and VNI {vni_id} via acl-loader")
+
+    try:
+        # Copy the JSON to the DUT and load it
+        duthost.copy(src=tmpfile_path, dest=dest_path)
+        duthost.shell(f"acl-loader update full {dest_path}")
+        time.sleep(1)
+    finally:
+        # Clean up both temp and DUT files
+        os.remove(tmpfile_path)
+        duthost.shell(f"rm -f {dest_path}")
 
 
 def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
@@ -279,12 +304,6 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
 
     logger.info("Waiting for ACL rule to be applied...")
     time.sleep(10)
-
-    logger.info("Verifying ACL table type presence with 'show acl table-type'")
-    output = duthost.shell("show acl table-type")["stdout"]
-    logger.info("ACL table-type output:\n%s", output)
-
-    pytest_assert(ACL_TABLE_TYPE in output, f"ACL table type {ACL_TABLE_TYPE} not found in output")
 
     logger.info("Verifying ACL table type in CONFIG_DB")
     config_db_key = f"ACL_TABLE_TYPE|{ACL_TABLE_TYPE}"
@@ -338,7 +357,7 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
         pytest_assert(wait_until(60, 2, 0, check_rule_counters, duthost), "ACL rule counters are not ready")
 
 
-def remove_acl_rules(self, duthost):
+def remove_acl_rules(duthost):
     duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
     remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
     duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
@@ -354,22 +373,20 @@ def remove_acl_rules(self, duthost):
     pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
 
 
-def apply_config_in_dut(self, duthost, config, name="vxlan"):
-        """
-            The given json(config) will be copied to the DUT and loaded up.
-        """
-        if self.Constants['DEBUG']:
-            filename = "/tmp/" + name + ".json"
-        else:
-            filename = "/tmp/" + name + "-" + str(time.time()) + ".json"
-        duthost.copy(content=config, dest=filename)
-        duthost.shell("sudo config load {} -y".format(filename))
-        time.sleep(1)
-        if not self.Constants['KEEP_TEMP_FILES']:
-            duthost.shell("rm {}".format(filename))
+def apply_config_in_dut(duthost, config, name="vxlan"):
+    """
+        The given json(config) will be copied to the DUT and loaded up.
+    """
+    filename = "/tmp/" + name + ".json"
+
+    duthost.copy(content=config, dest=filename)
+    duthost.shell("sudo config load {} -y".format(filename))
+    time.sleep(1)
+
+    duthost.shell("rm {}".format(filename))
 
 
-def create_vxlan_tunnel(self, duthost, tunnel_name, src_ip):
+def create_vxlan_tunnel(duthost, tunnel_name, src_ip):
     """
     Configure VXLAN_TUNNEL in CONFIG_DB using src_ip (typically Loopback0 IP).
 
@@ -388,10 +405,10 @@ def create_vxlan_tunnel(self, duthost, tunnel_name, src_ip):
 
     config_json = json.dumps(config, indent=4)
     logger.info("Applying VXLAN_TUNNEL config: %s", config_json)
-    self.apply_config_in_dut(duthost, config_json, f"vxlan_tunnel_{tunnel_name}")
+    apply_config_in_dut(duthost, config_json, f"vxlan_tunnel_{tunnel_name}")
 
 
-def create_two_vnets(self, duthost, tunnel_name):
+def create_two_vnets(duthost, tunnel_name):
     """
     Program exactly two VNET entries with fixed VNIs: 799999 and 799998.
 
@@ -405,22 +422,20 @@ def create_two_vnets(self, duthost, tunnel_name):
                 "vxlan_tunnel": tunnel_name,
                 "vni": "799999",
                 "peer_list": "",
-                "advertise_prefix": "false",
-                "overlay_dmac": self.OVERLAY_DMAC
+                "advertise_prefix": "false"
             },
             "Vnet2": {
                 "vxlan_tunnel": tunnel_name,
                 "vni": "799998",
                 "peer_list": "",
-                "advertise_prefix": "false",
-                "overlay_dmac": self.OVERLAY_DMAC
+                "advertise_prefix": "false"
             }
         }
     }
 
     config_json = json.dumps(config, indent=4)
     logger.info("Applying VNET config:\n%s", config_json)
-    self.apply_config_in_dut(duthost, config_json, f"vnets_{tunnel_name}")
+    apply_config_in_dut(duthost, config_json, f"vnets_{tunnel_name}")
 
 
 @pytest.mark.parametrize("inner_src_ips, inner_src_prefix", [
@@ -459,7 +474,7 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
     # === Program VXLAN_TUNNEL and VNET config ===
     logger.info("Configuring VXLAN_TUNNEL and VNETs with Loopback IP")
     create_vxlan_tunnel(duthost, vxlan_tunnel_name, loopback_src_ip)
-    create_vnets(duthost, vxlan_tunnel_name)
+    create_two_vnets(duthost, vxlan_tunnel_name)
     time.sleep(10)
 
     # Setup ACL table and rule
