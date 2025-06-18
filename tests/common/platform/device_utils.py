@@ -1138,6 +1138,12 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
 @pytest.fixture(scope='module')
 def add_platform_api_server_port_nat_for_dpu(
         ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+    '''
+    This fixture is used to add a NAT rule to the DPU's eth0-midplane interface
+    to forward traffic from NPU to the platform API server on DPU.
+    It is used to test the platform API test on DPU of the Smartswitch.
+    The NAT rule is added before the test and removed after the test.
+    '''
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_dpu():
         ip_interface_status = duthost.show_and_parse('show ip interface')
