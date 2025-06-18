@@ -33,7 +33,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     # restart ntp server
     ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
 
@@ -41,7 +41,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     # root dispersion of more than 3 seconds (configurable via /etc/chrony/chrony.conf, but we currently
     # don't touch that setting). Therefore, block here until the root dispersion is less than 3 seconds
     # so that we don't incorrectly fail the test.
-    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, NtpDaemon.NTP),
+    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type),
                   "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
 
     # check to see if iburst option is present
