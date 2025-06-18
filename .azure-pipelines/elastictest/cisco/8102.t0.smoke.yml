@@ -47,6 +47,10 @@ parameters:
     type: string
     default: internal-stage
 
+  - name: RETRY_TIMES
+    type: string
+    default: "0"
+
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
@@ -134,6 +138,7 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         PTF_IMAGE_TAG: "internal"
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
 
     - template: ../../repo_mgmt/elastictest-analyze-test-results.yml
       parameters:
