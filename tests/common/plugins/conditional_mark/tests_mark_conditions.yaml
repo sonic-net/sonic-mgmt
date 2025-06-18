@@ -494,13 +494,16 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
   skip:
     reason: "Skip test_dhcp_relay_counter in 201911"
+    conditions_logical_operator: or
+    conditions:
+     - "'release in ['201811', '201911','202012']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
   skip:
     reason: "Skip test_dhcp_relay_default on dualtor in 201911"
     conditions_logical_operator: or
     conditions:
-      - "'dualtor' in topo_name and release in ['201811', '201911']"
+     - "'release in ['201811', '201911']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
@@ -531,13 +534,13 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enab
     reason: "Skip test_dhcp_relay_with_source_port_ip_in_relay_enabled on dualtor in 201911"
     conditions_logical_operator: or
     conditions:
-      - "'dualtor' in topo_name and release in ['201811', '201911']"
+      - "'release in ['201811', '201911']"
 
 dhcp_relay/test_dhcp_relay.py::test_interface_binding:
   skip:
     reason: "Skip test_interface_binding in 201911"
     conditions:
-      - "'dualtor' in topo_name and release in ['201811', '201911']"
+      - "'release in ['201811', '201911','202126']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
@@ -581,39 +584,34 @@ dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap:
   skip:
-    reason: "Skip test_dhcp_relay_after_link_flap on dualtor or 201911"
+    reason: "Skip test_dhcp_relay_after_link_flap in 201911"
     conditions:
-      - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
+      - "'release in ['201811','201911', '202106']"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
   skip:
-    reason: "Skip test_dhcp_relay_default on dualtor or 201911"
+    reason: "Skip test_dhcp_relay_default in 201911"
     conditions:
-      - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
+     - "'release in ['201811','201911', '202106']"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down:
   skip:
-    reason: "Skip test_dhcp_relay_start_with_uplinks_down on dualtor or 201911"
+    reason: "Skip test_dhcp_relay_start_with_uplinks_down in 201911"
     conditions:
-      - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
+      - "'release in ['201811','201911', '202106']"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
   skip:
-    reason: "Skip test_dhcpv6_relay_counter on dualtor or 201911"
+    reason: "Skip test_dhcpv6_relay_counter in 201911"
     conditions:
-      - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
+      - "'release in ['201911', '202106']"
 
 dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
   skip:
-    reason: "Skip test_interface_binding on dualtor or 201911"
+    reason: "Skip test_interface_binding in 201911"
     conditions:
-      - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
-      
+       - "'release in ['201911', '202106']"
+
 #######################################
 #####         drop_packets        #####
 #######################################
