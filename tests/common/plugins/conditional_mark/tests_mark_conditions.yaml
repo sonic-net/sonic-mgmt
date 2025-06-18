@@ -605,7 +605,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap:
     reason: "Skip test_dhcp_relay_after_link_flap on dualtor or 201911"
     conditions:
       - "'dualtor' in topo_name"
-      - "'201911' in duthost.os_version"
+      - "'201911' in duthost.os_version"   
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down:
   skip:
