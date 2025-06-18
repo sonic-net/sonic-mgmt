@@ -56,9 +56,8 @@ A completely different approach is used in the `tests/gnmi` directory:
    - Generates the stubs in place, rather than in a designated directory
    - Cleans up the generated files after tests complete
 
-While both approaches are functional, they have significant limitations:
+While both approaches are functional, they have limitations:
 - Requires internet connectivity to clone repositories during test execution (SAI validation)
-- Results in non-deterministic behavior if repositories change (SAI validation)
 - Lacks version control for third-party dependencies (both approaches)
 - Has limited scope (only handles specific proto files that each approach needs)
 - Duplicates effort across different test components
