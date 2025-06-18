@@ -481,7 +481,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes, suffix
 
 
-def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_neighbor_groups=None):
+def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_neighbor_groups=0):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -500,7 +500,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
                                                       ENABLE_IPV6_ROUTES_GENERATION_DEFAULT_VALUE)
     enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
                                                       ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
-    if upstream_neighbor_groups is None:
+    if upstream_neighbor_groups == 0:
         upstream_neighbor_groups = common_config.get("upstream_neighbor_groups", DEFAULT_NEIGHBOR_GROUPS)
 
     vms = topo['topology']['VMs']
@@ -1474,7 +1474,7 @@ def main():
             adhoc=dict(required=False, type='bool', default=False),
             peers_routes_to_change=dict(required=False, type='dict', default={}),
             log_path=dict(required=False, type='str', default=''),
-            upstream_neighbor_groups=dict(required=False, type='int', default=None)
+            upstream_neighbor_groups=dict(required=False, type='int', default=0)
         ),
         supports_check_mode=False)
 
