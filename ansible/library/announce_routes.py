@@ -376,6 +376,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     # NOTE: Using large enough values (e.g., podset_number = 200,
     # us to overflow the 192.168.0.0/16 private address space here.
     # This should be fine for internal use, but may pose an issue if used otherwise
+    suffix = 0
     for podset in range(0, podset_number):
         for tor in range(0, tor_number):
             for subnet in range(0, tor_subnet_number):
