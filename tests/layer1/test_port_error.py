@@ -51,7 +51,7 @@ class TestMACFault(object):
         from tests.common.reboot import reboot
         reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
                localhost, safe_reboot=True, check_intf_up_ports=True)
-    
+
     @pytest.fixture(scope="class")
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
