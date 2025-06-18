@@ -1476,12 +1476,9 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Incorrect supported speeds for 7060X6 in STATE_DB, fix TBD"
-    conditions_logical_operator: and
+    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
     conditions:
-      - "'7060X6' in hwsku"
-      - "topo_type in ['t1']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/19034
+      - "'Arista-7060X6' in hwsku"
 
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
