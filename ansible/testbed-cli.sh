@@ -142,7 +142,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -166,6 +166,7 @@ function read_yaml
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
   inv_name=${line_arr[12]}
   servers=${line_arr[15]}
+  upstream_neighbor_groups=${line_arr[16]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
 }
@@ -319,6 +320,7 @@ function add_topo
           -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
           -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
           -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
+          -e upstream_neighbor_groups="$upstream_neighbor_groups" \
           $ansible_options $@
 
     if [ $i -eq 0 ]; then
@@ -440,6 +442,7 @@ function renumber_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
+      -e upstream_neighbor_groups="$upstream_neighbor_groups" \
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
@@ -489,6 +492,7 @@ function refresh_dut
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e force_stop_sonic_vm="yes" \
+        -e upstream_neighbor_groups="$upstream_neighbor_groups" \
         $ansible_options $@
 
   echo Done
