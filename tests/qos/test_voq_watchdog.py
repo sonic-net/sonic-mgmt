@@ -94,6 +94,10 @@ class TestVoqWatchdog(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
             testParams=testParams)
 
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
+            testParams=testParams)
+
     def testVoqWatchdogDisable(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, disable_voq_watchdog_function_scope
@@ -128,4 +132,8 @@ class TestVoqWatchdog(QosSaiBase):
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+            testParams=testParams)
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
             testParams=testParams)

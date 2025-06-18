@@ -1,6 +1,7 @@
 import json
 import re
 from tests.common.reboot import reboot
+from tests.common.utilities import wait_until
 
 
 def is_cisco_device(dut):
@@ -97,3 +98,18 @@ set_voq_watchdog({})
 '''.format(enable)
 
     copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
+
+
+def check_dshell_ready(duthost):
+    show_command = "sudo show platform npu rx cgm_global"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        return False
+    return True
+
+
+def run_dshell_command(duthost, command):
+    if not wait_until(300, 20, 0, check_dshell_ready, duthost):
+        raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
+    return duthost.shell(command)

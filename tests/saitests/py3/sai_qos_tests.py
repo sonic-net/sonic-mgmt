@@ -125,10 +125,13 @@ DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 10
 PG_TOLERANCE = 2
 
-# Constants for voq watchdog test
-VOQ_WATCHDOG_TIMEOUT_SECONDS = 60
-SAI_LOG_TO_CHECK = ["HARDWARE_WATCHDOG", "soft_reset"]
-SDK_LOG_TO_CHECK = ["VOQ Appears to be stuck"]
+# Constants for voq/oq watchdog test
+WATCHDOG_TIMEOUT_SECONDS = {"voq": 60,
+                            "oq": 5}
+SAI_LOG_TO_CHECK = {"voq": ["HARDWARE_WATCHDOG", "soft_reset"],
+                    "oq": ["HARDWARE_WATCHDOG", "soft_reset"]}
+SDK_LOG_TO_CHECK = {"voq": ["VOQ Appears to be stuck"],
+                    "oq": []}
 SAI_LOG = "/var/log/sai.log"
 SDK_LOG = "/var/log/syslog"
 
@@ -676,6 +679,46 @@ def get_peer_addresses(data):
     addresses = set()
     get_peer_addr(data, addresses)
     return list(addresses)
+
+
+def init_log_check(test_case):
+    pre_offsets = []
+    for logfile in [SAI_LOG, SDK_LOG]:
+        offset_cmd = "stat -c %s {}".format(logfile)
+        stdout, err, ret = test_case.exec_cmd_on_dut(
+            test_case.dst_server_ip,
+            test_case.test_params['dut_username'],
+            test_case.test_params['dut_password'],
+            offset_cmd)
+        pre_offsets.append(int(stdout[0]))
+    return pre_offsets
+
+
+def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq'):
+    qos_test_assert(test_case, watchdog_type in ['voq', 'oq'],
+                    "Invalid watchdog type: {}".format(watchdog_type))
+    found_list = []
+    for pre_offset, logfile, str_to_check in zip(pre_offsets, [SAI_LOG, SDK_LOG],
+                                                 [SAI_LOG_TO_CHECK[watchdog_type], SDK_LOG_TO_CHECK[watchdog_type]]):
+        egrep_str = '|'.join(str_to_check)
+        check_cmd = "sudo tail -c +{} {} | egrep '{}' || true".format(pre_offset + 1, logfile, egrep_str)
+        stdout, err, ret = test_case.exec_cmd_on_dut(
+            test_case.dst_server_ip,
+            test_case.test_params['dut_username'],
+            test_case.test_params['dut_password'],
+            check_cmd)
+        log_message("Log for {}: {}".format(egrep_str, stdout))
+        for string in str_to_check:
+            if string in "".join(stdout):
+                found_list.append(True)
+            else:
+                found_list.append(False)
+    if watchdog_enabled:
+        qos_test_assert(test_case, all(found is True for found in found_list),
+                        "{} watchdog trigger not detected".format(watchdog_type))
+    else:
+        qos_test_assert(test_case, all(found is False for found in found_list),
+                        "unexpected {} watchdog trigger".format(watchdog_type))
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -6632,42 +6675,6 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
 
 
 class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
-    def init_log_check(self):
-        pre_offsets = []
-        for logfile in [SAI_LOG, SDK_LOG]:
-            offset_cmd = "stat -c %s {}".format(logfile)
-            stdout, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                offset_cmd)
-            pre_offsets.append(int(stdout[0]))
-        return pre_offsets
-
-    def verify_log(self, pre_offsets, voq_watchdog_enabled=True):
-        found_list = []
-        for pre_offset, logfile, str_to_check in zip(pre_offsets, [SAI_LOG, SDK_LOG],
-                                                     [SAI_LOG_TO_CHECK, SDK_LOG_TO_CHECK]):
-            egrep_str = '|'.join(str_to_check)
-            check_cmd = "sudo tail -c +{} {} | egrep '{}' || true".format(pre_offset + 1, logfile, egrep_str)
-            stdout, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                check_cmd)
-            log_message("Log for {}: {}".format(egrep_str, stdout))
-            for string in str_to_check:
-                if string in "".join(stdout):
-                    found_list.append(True)
-                else:
-                    found_list.append(False)
-        if voq_watchdog_enabled:
-            qos_test_assert(self, all(found is True for found in found_list),
-                            "VOQ watchdog trigger not detected")
-        else:
-            qos_test_assert(self, all(found is False for found in found_list),
-                            "unexpected VOQ watchdog trigger")
-
     def runTest(self):
         switch_init(self.clients)
 
@@ -6721,49 +6728,170 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-        pre_offsets = self.init_log_check()
+        pre_offsets = init_log_check(self)
 
         try:
             # send packets
             send_packet(self, src_port_id, pkt, pkts_num)
 
             # allow enough time to trigger voq watchdog
-            time.sleep(VOQ_WATCHDOG_TIMEOUT_SECONDS * 1.3)
+            time.sleep(WATCHDOG_TIMEOUT_SECONDS["voq"] * 1.3)
 
             # verify voq watchdog is triggered
-            self.verify_log(pre_offsets, voq_watchdog_enabled)
+            verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
+        finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
+
+class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.clients)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        router_mac = self.test_params['router_mac']
+        sonic_version = self.test_params['sonic_version']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
+        pkts_num = int(self.test_params['pkts_num'])
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        # get counter names to query
+        ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        # Prepare IP packet data
+        ttl = 64
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac is not None:
+            pkt_dst_mac = def_vlan_mac
+
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ttl=ttl)
+
+        log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
+
+        pre_offsets = init_log_check(self)
+
+        try:
+            # send packets
+            send_packet(self, src_port_id, pkt, pkts_num)
+
+            # allow enough time to trigger oq watchdog
+            time.sleep(WATCHDOG_TIMEOUT_SECONDS["oq"] * 1.3)
+
+            # verify voq watchdog is triggered
+            verify_log(self, pre_offsets, oq_watchdog_enabled, "oq")
+
+        finally:
+            print("END OF TEST")
+
+
+class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.clients)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        router_mac = self.test_params['router_mac']
+        sonic_version = self.test_params['sonic_version']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num = int(self.test_params['pkts_num'])
+        exp_ip_id = 110
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        # get counter names to query
+        ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        # Prepare IP packet data
+        ttl = 64
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac is not None:
+            pkt_dst_mac = def_vlan_mac
+
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ttl=ttl)
+
+        log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+        )
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        try:
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             # get a snapshot of counter values at recv and transmit ports
             recv_counters_base, _ = sai_thrift_read_port_counters(
                 self.src_client, asic_type, port_list['src'][src_port_id])
-            xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(
+            xmit_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            if voq_watchdog_enabled:
-                # queue counters should be cleared after soft reset
-                qos_test_assert(
-                    self, queue_counters_base[0] == 0,
-                    'queue counters are not cleared, soft reset is not triggered')
 
             # send packets
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ttl=ttl)
             send_packet(self, src_port_id, pkt, pkts_num)
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
-
             # get a snapshot of counter values at recv and transmit ports
             recv_counters, _ = sai_thrift_read_port_counters(
                 self.src_client, asic_type, port_list['src'][src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             log_message(
                 '\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                'xmit_counters {}\n\txmit_counters_base {}\n\t'
-                'queue_counters {}\n\tqueue_counters_base {}\n'.format(
-                    recv_counters, recv_counters_base, xmit_counters, xmit_counters_base,
-                    queue_counters, queue_counters_base), to_stderr=True)
+                'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+                    recv_counters, recv_counters_base, xmit_counters, xmit_counters_base),
+                to_stderr=True)
             # recv port no ingress drop
             for cntr in ingress_counters:
                 qos_test_assert(
@@ -6774,11 +6902,34 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
                 qos_test_assert(
                     self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly TX drop counter increase')
-            # queue counters increased by pkts_num
-            qos_test_assert(
-                self, queue_counters[0] == queue_counters_base[0] + pkts_num,
-                'queue counter not matched, expected {}, got {}'.format(
-                    queue_counters_base[0] + pkts_num, queue_counters[0]))
+
+            # Set receiving socket buffers to some big value
+            for p in list(self.dataplane.ports.values()):
+                p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
+
+            cnt = 0
+            recv_pkt = scapy.Ether()
+            while recv_pkt:
+                received = self.dataplane.poll(
+                    device_number=0, port_number=dst_port_id, timeout=2)
+                if isinstance(received, self.dataplane.PollFailure):
+                    recv_pkt = None
+                    break
+                recv_pkt = scapy.Ether(received.packet)
+
+                try:
+                    if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
+                            recv_pkt[scapy.IP].id == exp_ip_id:
+                        cnt += 1
+                except AttributeError:
+                    continue
+                except IndexError:
+                    # Ignore captured non-IP packet
+                    continue
+
+            # All packets sent should be received intact
+            qos_test_assert(self, pkts_num == cnt,
+                            'Received {} packets, expected {}'.format(cnt, pkts_num))
 
         finally:
-            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+            print("END OF TEST")
