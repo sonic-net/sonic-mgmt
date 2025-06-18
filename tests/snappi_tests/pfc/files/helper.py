@@ -399,7 +399,7 @@ def run_tx_drop_counter(
                                         exp_dur_sec=DATA_FLOW_DURATION_SEC +
                                         data_flow_delay_sec,
                                         snappi_extra_params=snappi_extra_params)
-    link_state = None
+    cs = None
     try:
         time.sleep(1)
         # Collect metrics from DUT once again
@@ -434,7 +434,7 @@ def run_tx_drop_counter(
         pytest_assert(tx_dut_drop_frames == tx_dut_drop_frames_1,
                       "Mismatch in TX drop counters post DUT port {} oper down".format(dut_port))
     finally:
-        if link_state:
+        if cs:
             # Bring the link back up
             cs.port.link.state = cs.port.link.UP
             api.set_control_state(cs)

@@ -522,7 +522,46 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def get_skip_containers(tbinfo, skip_vendor_specific_container):
+    skip_containers = []
+    skip_containers.append("database")
+    skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
+    skip_containers.append("restapi")
+    # Skip 'radv' container on devices whose role is not T0.
+    if tbinfo["topo"]["type"] != "t0":
+        skip_containers.append("radv")
+    skip_containers = skip_containers + skip_vendor_specific_container
+    return skip_containers
+
+
+@pytest.fixture
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    duthost = duthosts[rand_one_dut_hostname]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    yield
+
+    logger.info("Executing the config reload...")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    logger.info("Executing the config reload was done!")
+
+    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after testing the process monitoring!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_monitoring_critical_processes(
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   tbinfo,
+                                   skip_vendor_specific_container,
+                                   recover_critical_processes):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -541,21 +580,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
-    skip_containers = []
-    skip_containers.append("database")
-    skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
-    # which will not trigger alarm message.
-    skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
-        skip_containers.append("radv")
-    skip_containers = skip_containers + skip_vendor_specific_container
+    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
@@ -581,16 +607,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
-
-    logger.info("Executing the config reload...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Executing the config reload was done!")
-
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
