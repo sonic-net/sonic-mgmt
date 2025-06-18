@@ -114,19 +114,19 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
-    # some new keys added for QSFP-DD and OSFP in 202205 or later branch
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['host_lane_count',
-                                                'media_lane_count',
-                                                'cmis_rev',
-                                                'host_lane_assignment_option',
-                                                'media_interface_technology',
-                                                'media_interface_code',
-                                                'host_electrical_interface',
-                                                'media_lane_assignment_option',
-                                                'vdm_supported']
+    # some new keys added for CMIS optics in 202205 or later branch
+    EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
+                                        'media_lane_count',
+                                        'cmis_rev',
+                                        'host_lane_assignment_option',
+                                        'media_interface_technology',
+                                        'media_interface_code',
+                                        'host_electrical_interface',
+                                        'media_lane_assignment_option',
+                                        'vdm_supported']
 
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS = ['active_firmware',
-                                                         'inactive_firmware']
+    EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
+                                                 'inactive_firmware']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -423,8 +423,8 @@ class TestSfpApi(PlatformApiTestBase):
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS + \
                                 ["active_apsel_hostlane{}".format(n) for n in range(1, active_apsel_hostlane_count + 1)]
                             firmware_info_dict = sfp.get_transceiver_info_firmware_versions(platform_api_conn, i)
                             if self.expect(firmware_info_dict is not None,
