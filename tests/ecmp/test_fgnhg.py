@@ -11,10 +11,10 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa: F401
 
 # Constants
 NUM_NHs = 8

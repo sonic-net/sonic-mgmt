@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # noqa: F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
