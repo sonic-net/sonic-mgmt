@@ -58,6 +58,7 @@ A completely different approach is used in the `tests/gnmi` directory:
 
 While both approaches are functional, they have limitations:
 - Requires internet connectivity to clone repositories during test execution (SAI validation)
+- Difficult to support `import` in `.proto` files from other repo. (GNMI)
 - Lacks version control for third-party dependencies (both approaches)
 - Has limited scope (only handles specific proto files that each approach needs)
 - Duplicates effort across different test components
