@@ -21,6 +21,8 @@
     {% endif %}
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
+    {% elif fanout_hwsku == "Arista-7060X6-64PE-P64" %}
+            "fec" : "rs",
     {% endif %}
     {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] or 'mellanox' in fanout_sonic_version["asic_type"] %}
         {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
