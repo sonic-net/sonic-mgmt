@@ -194,22 +194,7 @@ def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
     duthost.shell(f"config load -y {acl_type_file}")
 
     logger.info("Waiting for ACL table type to apply...")
-    time.sleep(3)
-
-    logger.info("Verifying ACL table type presence with 'show acl table-type'")
-    output = duthost.shell("show acl table-type")["stdout"]
-    logger.info("ACL table-type output:\n%s", output)
-
-    pytest_assert(acl_type_name in output, f"ACL table type {acl_type_name} not found in output")
-
-    logger.info("Verifying ACL table type in CONFIG_DB")
-    config_db_key = f"ACL_TABLE_TYPE|{acl_type_name}"
-    db_cmd = f"redis-cli -n 4 HGETALL \"{config_db_key}\""
-    config_db_output = duthost.shell(db_cmd)["stdout"]
-    logger.info("CONFIG_DB entry:\n%s", config_db_output)
-
-    for field in ["BIND_POINTS", "MATCHES", "ACTIONS"]:
-        pytest_assert(field in config_db_output, f"{field} missing in CONFIG_DB for ACL type {acl_type_name}")
+    time.sleep(10)
 
 
 def setup_acl_table(duthost, ports):
@@ -230,27 +215,7 @@ def setup_acl_table(duthost, ports):
 
     logger.info(f"Creating ACL table {ACL_TABLE_NAME} with ports: {ports}")
     duthost.shell(cmd)
-    time.sleep(2)  # Let the system stabilize
-
-    # === Show ACL Table Verification ===
-    logger.info("Verifying ACL table state using 'show acl table'")
-    result = duthost.shell("show acl table", module_ignore_errors=True)
-    output = result.get("stdout", "")
-    logger.info("Output of 'show acl table':\n%s", output)
-
-    if ACL_TABLE_NAME not in output:
-        pytest.fail(f"ACL table {ACL_TABLE_NAME} not found in 'show acl table' output")
-
-    # Check each line for table status
-    for line in output.splitlines():
-        if ACL_TABLE_NAME in line:
-            if "pending" in line.lower():
-                pytest.fail(f"ACL table {ACL_TABLE_NAME} is in 'Pending creation' state")
-            elif "created" in line.lower() or "egress" in line.lower():
-                logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
-                return
-
-    pytest.fail(f"Unable to determine valid state for ACL table {ACL_TABLE_NAME}")
+    time.sleep(10)  # Let the system stabilize
 
 
 def remove_acl_table(duthost):
@@ -265,7 +230,7 @@ def remove_acl_table(duthost):
         logger.warning(f"Failed to remove ACL table via config command. Output:\n{result.get('stdout', '')}")
         pytest.fail(f"Failed to remove ACL table {ACL_TABLE_NAME}")
 
-    time.sleep(2)  # Allow time for removal to take effect
+    time.sleep(10)  # Allow time for removal to take effect
 
     logger.info(f"Verifying ACL table {ACL_TABLE_NAME} was removed from STATE_DB")
     db_cmd = f"redis-cli -n 6 KEYS 'ACL_TABLE_TABLE:{ACL_TABLE_NAME}'"
@@ -276,6 +241,19 @@ def remove_acl_table(duthost):
         pytest.fail(f"ACL table {ACL_TABLE_NAME} was not removed from STATE_DB")
     else:
         logger.info(f"ACL table {ACL_TABLE_NAME} successfully removed from STATE_DB")
+
+
+def add_single_acl_rule(duthost, table_name, rule_name, inner_src_prefix, vni_id, modified_mac):
+    cmd = (
+        f"config acl add rule {table_name} {rule_name} "
+        f"--action set_mac "
+        f"--src_ip {inner_src_prefix} "
+        f"--vni {vni_id} "
+        f"--set_inner_src_mac {modified_mac} "
+        "--priority 1000"
+    )
+    logger.info(f"Adding ACL rule {rule_name} with IP {inner_src_prefix} to set inner MAC to {modified_mac}")
+    duthost.shell(cmd)
 
 
 def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
@@ -300,7 +278,42 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     duthost.shell(f"config load -y {dest_path}")
 
     logger.info("Waiting for ACL rule to be applied...")
-    time.sleep(5)
+    time.sleep(10)
+
+    logger.info("Verifying ACL table type presence with 'show acl table-type'")
+    output = duthost.shell("show acl table-type")["stdout"]
+    logger.info("ACL table-type output:\n%s", output)
+
+    pytest_assert(ACL_TABLE_TYPE in output, f"ACL table type {ACL_TABLE_TYPE} not found in output")
+
+    logger.info("Verifying ACL table type in CONFIG_DB")
+    config_db_key = f"ACL_TABLE_TYPE|{ACL_TABLE_TYPE}"
+    db_cmd = f"redis-cli -n 4 HGETALL \"{config_db_key}\""
+    config_db_output = duthost.shell(db_cmd)["stdout"]
+    logger.info("CONFIG_DB entry:\n%s", config_db_output)
+
+    for field in ["BIND_POINTS", "MATCHES", "ACTIONS"]:
+        pytest_assert(field in config_db_output, f"{field} missing in CONFIG_DB for ACL type {ACL_TABLE_TYPE}")
+
+    # === Show ACL Table Verification ===
+    logger.info("Verifying ACL table state using 'show acl table'")
+    result = duthost.shell("show acl table", module_ignore_errors=True)
+    output = result.get("stdout", "")
+    logger.info("Output of 'show acl table':\n%s", output)
+
+    if ACL_TABLE_NAME not in output:
+        pytest.fail(f"ACL table {ACL_TABLE_NAME} not found in 'show acl table' output")
+
+    # Check each line for table status
+    for line in output.splitlines():
+        if ACL_TABLE_NAME in line:
+            if "pending" in line.lower():
+                pytest.fail(f"ACL table {ACL_TABLE_NAME} is in 'Pending creation' state")
+            elif "created" in line.lower() or "egress" in line.lower():
+                logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
+                return
+
+    pytest.fail(f"Unable to determine valid state for ACL table {ACL_TABLE_NAME}")
 
     logger.info("Verifying ACL rule installation with 'show acl rule'")
     output = duthost.shell("show acl rule")["stdout"]
@@ -329,7 +342,7 @@ def remove_acl_rules(self, duthost):
     duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
     remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
     duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
-    time.sleep(5)
+    time.sleep(10)
 
     # === STATE_DB Deletion Check ===
     logger.info("Checking STATE_DB to confirm ACL rule deletion...")
@@ -379,7 +392,7 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
     duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VXLAN_TUNNEL|{vxlan_tunnel_name}' src_ip {loopback_src_ip}")
     duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VNET|{vnet_1}' vni {vni_id} vxlan_tunnel {vxlan_tunnel_name}")
     duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VNET|{vnet_2}' vni 799998 vxlan_tunnel {vxlan_tunnel_name}")
-    time.sleep(2)
+    time.sleep(10)
 
     # Setup ACL table and rule
     setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
@@ -520,15 +533,3 @@ def test_multiple_acl_rules_inner_src_mac_rewrite(duthost, ptfadapter, prepare_t
     remove_acl_rules(duthost)
     remove_acl_table(duthost)
 
-
-def add_single_acl_rule(duthost, table_name, rule_name, inner_src_prefix, vni_id, modified_mac):
-    cmd = (
-        f"config acl add rule {table_name} {rule_name} "
-        f"--action set_mac "
-        f"--src_ip {inner_src_prefix} "
-        f"--vni {vni_id} "
-        f"--set_inner_src_mac {modified_mac} "
-        "--priority 1000"
-    )
-    logger.info(f"Adding ACL rule {rule_name} with IP {inner_src_prefix} to set inner MAC to {modified_mac}")
-    duthost.shell(cmd)
