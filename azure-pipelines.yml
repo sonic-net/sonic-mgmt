@@ -93,6 +93,7 @@ stages:
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
         MGMT_BRANCH: $(BUILD_BRANCH)
+        PTF_IMAGE_TAG: "202411"
 
   - job: t0_2vlans_elastictest
     displayName: "kvmtest-t0-2vlans by Elastictest"
@@ -109,6 +110,7 @@ stages:
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
         MGMT_BRANCH: $(BUILD_BRANCH)
+        PTF_IMAGE_TAG: "202411"
 
   - job: t1_lag_elastictest
     displayName: "kvmtest-t1-lag by Elastictest"
@@ -123,6 +125,7 @@ stages:
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
         MGMT_BRANCH: $(BUILD_BRANCH)
+        PTF_IMAGE_TAG: "202411"
 
   - job: dualtor_elastictest
     displayName: "kvmtest-dualtor-t0 by Elastictest"
@@ -138,6 +141,7 @@ stages:
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          PTF_IMAGE_TAG: "202411"
 
   - job: multi_asic_elastictest
     displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
@@ -154,6 +158,7 @@ stages:
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          PTF_IMAGE_TAG: "202411"
 
   - job: sonic_t0_elastictest
     displayName: "kvmtest-t0-sonic by Elastictest"
@@ -171,6 +176,7 @@ stages:
           VM_TYPE: vsonic
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          PTF_IMAGE_TAG: "202411"
 
   - job: dpu_elastictest
     displayName: "kvmtest-dpu by Elastictest"
@@ -185,3 +191,4 @@ stages:
           MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          PTF_IMAGE_TAG: "202411"
