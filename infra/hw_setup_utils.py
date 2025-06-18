@@ -973,7 +973,7 @@ def pollingRuns(testbed_info_dict, test_suites):
     child = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
     child.expect(local_ucs)
     while True:
-        time.sleep(300) #timeout for 5 minutes
+        time.sleep(120) #timeout for 2 minutes
         run_count = checkForExistingRuns(child, DEFAULT_RUN_STRING, local_ucs)
         log.debug(f"checkForExistingRuns: {run_count}")
         if run_count==0:
@@ -997,11 +997,15 @@ def flushChannel(thread):
             break
     log.debug("flush complete")
 
-def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites, test_name, skip_folders, skip_tests):
+def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites, test_name, skip_folders, skip_tests, remote_file=None):
+    testcase_start = datetime.now()
+    testcase_start_time = testcase_start.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
+    log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
     testbed_info_dict = getTestbedInfoDict(testbed)
     t1 = testbed_info_dict['ucs_tb']
     t2 = testbed_info_dict['mth_tb']
     t = testbed_info_dict['topology']
+    log.debug(skip_tests)
     skip_tests_string = testbed_info_dict['skip_tests']+" "+skip_tests.replace(",", " ") if 'skip_tests' in testbed_info_dict else skip_tests.replace(",", " ")
     skip_folders_list = testbed_info_dict['skip_folder']+" "+skip_folders.replace(",", " ") if 'skip_folder' in testbed_info_dict else skip_folders.replace(",", " ")
     log.debug(f'skip_folders_list: {skip_folders_list}')
@@ -1085,13 +1089,19 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
         thread.sendline()
         thread.expect(docker_promt)
         log.debug(f"Run completed for {test_suites}!")
-        # log.debug(thread.before)
-        # flushChannel(thread)
     elif x==3:
         log.debug(f"Run completed for {test_suites}!")
     else:
         log.debug("No expect string match found!")
     time.sleep(60)
+    now = datetime.now()
+    testcase_end_time = now.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
+    log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
+    log.debug(f'Testcase - {test_name} end time {testcase_end_time}')
+    log.debug(f'Time elapsed - {now-testcase_start}')
+    output = f'Testcase - {test_name}'+'\n'+f'start time - {testcase_start_time}'+'\n'+f'end time - {testcase_end_time}'+'\n'+f'Time elapsed - {now-testcase_start}'+'\n'
+    if remote_file:
+        remote_file.write(output)
     return 0
 
 def removeImageDir(thread, cmd, image, password):

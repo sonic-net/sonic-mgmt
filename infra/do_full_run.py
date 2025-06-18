@@ -7,6 +7,7 @@ from run_scripts import get_testcases
 import yaml
 import os
 import json
+import paramiko
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
     checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME
@@ -107,9 +108,9 @@ def run_test(args):
     test_tag = args.test_tag
     topology = args.topology
     platform = args.platform
-    if skip_folders=="null":
+    if skip_folders=="null" or skip_folders==None:
         skip_folders = ""
-    if skip_tests=="null":
+    if skip_tests=="null" or skip_tests==None:
         skip_tests = ""
     rerun = args.rerun
     testbed_info_dict = getTestbedInfoDict(testbed)
@@ -192,13 +193,28 @@ def run_test(args):
     p2.expect(docker_prompt)
 
     if testfile and test_tag:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(testbed_info_dict['ucs_host_name'], username=testbed_info_dict['ucs_username'], password=testbed_info_dict['ucs_password'])
+        sftp = client.open_sftp()
+        remote_file_path = f"/home/sonic/ring3-time-{build_id}.txt"
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
-        for test_suite in test_suites_array:
-            exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, p2, test_suite, test_suite, skip_folders, skip_tests)
-            if exit_code!=0:
-                time.sleep(30)
-                p2.close()
-                return exit_code
+        with sftp.file(remote_file_path, mode='a') as remote_file:
+            for test_suite in test_suites_array:
+                exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, p2, test_suite, test_suite, skip_folders, skip_tests, remote_file)
+                if exit_code!=0:
+                    time.sleep(30)
+                    p2.close()
+                    return exit_code
+        # Output contents of the file
+        log.debug(f"Output contents of the file - {remote_file_path}")
+        with sftp.file(remote_file_path, mode='r') as remote_file:
+            content = remote_file.read().decode()  # decode bytes to string
+            log.debug(content)
+        
+        sftp.close()
+        client.close()
+
     elif test_suites_arg and "," in test_suites_arg:
         test_suites_array = test_suites_arg.split(",")
         for test_suite in test_suites_array:
@@ -212,8 +228,8 @@ def run_test(args):
     else:
         log.error(f"No tests fund! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
         return -1
-    log.debug("Timeout for 5 minutes to let the run finish")
-    time.sleep(300)
+    log.debug("Timeout for 2 minutes to let the run finish")
+    time.sleep(120)
     p2.close()
     return exit_code
 
