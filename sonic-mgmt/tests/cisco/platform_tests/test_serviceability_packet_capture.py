@@ -70,7 +70,7 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu trap"
-    assert "Buffer is empty" in result["stdout"], "CLI output missing/not correct"
+    assert "Wrote 0 packets" in result["stdout"], "CLI output missing/not correct"
 
     # 4. Send traffic with corrupt packet
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
@@ -141,7 +141,7 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
 
     # 8 Test to verify we don't get unwanted events in dump
     # 8.1 enable packet-debug with event type
-    result = duthost.command("sudo config platform cisco packet-debug drops enable -e 2")
+    result = duthost.command("sudo config platform cisco packet-debug drops enable -e 0")
     # 8.2 run the test. it shall generate HEADER_ERR drops
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=True)
     # 8.3 get a dump and verify we don't get any dump
@@ -151,9 +151,9 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
     # 8.4 Verify no traceback
     assert not traceback_found, "Traceback found in show platform npu trap"
     # 8.5 Verify no output
-    assert 'Buffer is empty' in result["stdout"] , "CLI output missing/not correct"
+    assert 'Wrote 0 packets' in result["stdout"] , "CLI output missing/not correct"
     # 8.6 disable packet capture
-    result = duthost.command("sudo config platform cisco packet-debug drops disable -e 2")
+    result = duthost.command("sudo config platform cisco packet-debug drops disable -e 0")
     logging.info(result)
     time.sleep(10)
     assert "Packet capture disabled" in result["stdout"], "CLI output missing/not correct"
