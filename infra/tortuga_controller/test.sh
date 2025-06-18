@@ -29,9 +29,8 @@ elif [[ -d "${BIN_DIR}" ]]; then
   chmod +x "${CONFIG_GEN}"
 fi
 
-# Common static routes, sub-interfaces and routed port configs for PyVxr setups.
+# Common sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole,Vrf40000|8.8.8.2/32#41.216.0.3#4"
 PYVXR_POLICIES="policy-imp#false#*|true#9999:99"
 PYVXR_POLICIES="${PYVXR_POLICIES},policy-exp#true#*|false#*#9999:99|false#*#4|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
 PYVXR_DHCPS="*"
@@ -41,12 +40,13 @@ PYVXR_VRFS=""
 PYVXR_STPS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
 START_TIME=$(date +%s)
-TEST_TAGS="sonic-test,ipv4,ipv6,loopback,no-claim"
+TEST_TAGS="ipv4,ipv6,loopback"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
 STP=true
 DHCP=vlan
+LAG=true
 BREAKOUTS="$"
 LOADTEST="*"
 TIMEOUT="15m"
@@ -59,7 +59,7 @@ DHCP_PORT="Ethernet1_12"
 SUBINF_PORT="Ethernet1_11"
 LAG_PORT1="Ethernet1_9"
 LAG_PORT2="Ethernet1_13"
-ROUTE_PORT="Ethernet1_32"
+ROUTED_PORT="Ethernet1_32"
 
 # Parse command line arguments.
 while :
@@ -99,6 +99,9 @@ do
   -no-stp)
     STP=false
     shift;;
+  -no-lag)
+    LAG=false
+    shift;;
   -vrfs)
     PYVXR_VRFS="${2}"
     shift; shift;;
@@ -120,13 +123,13 @@ do
     CGEN_TEST="${2}"
     shift; shift;;
   -g200)
-    STP_PORT1="Ethernet1_16"
-    STP_PORT2="Ethernet1_17"
-    DHCP_PORT="Ethernet1_12"
-    LAG_PORT1="Ethernet1_9"
-    LAG_PORT2="Ethernet1_13"
-    ROUTE_PORT="Ethernet1_63"
-    SUBINF_PORT="Ethernet1_11"
+    STP_PORT1="Ethernet1_8_2"
+    STP_PORT2="Ethernet1_9_1"
+    DHCP_PORT="Ethernet1_6_2"
+    LAG_PORT1="Ethernet1_5_1"
+    LAG_PORT2="Ethernet1_7_1"
+    ROUTED_PORT="Ethernet1_32_1"
+    SUBINF_PORT="Ethernet1_6_1"
     BREAKOUTS="*"
     shift;;
   *)
@@ -137,13 +140,24 @@ done
 # Number of leaf switches - 1.
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 
-# Add sub-interfaces on hosts connected to SUB_INF_PORT.
-PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#2|lo"
-PYVXR_PORTS="leaf0|${ROUTE_PORT}#41.230.10.2/24#Vrf12000000"
-
 # Enable bulk-mode config.
 if [[ "${BULK_MODE}" == true ]]; then
   TEST_TAGS="${TEST_TAGS},bulk-config"
+fi
+
+# Add sub-interfaces on hosts connected to the ports specified in SUBINF_PORT.
+PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#2|lo"
+
+# Add a routed port on leaf0 with point-to-point network.
+PYVXR_PORTS="leaf0|${ROUTED_PORT}#41.230.10.1/31#Vrf12000000"
+
+# Add static routes -- one blackhole, one using point-to-point IP and one a normal route.
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.230.10.0,Vrf40000|8.8.8.2/32#41.216.0.3#4"
+
+# Add BGP peers. bgp1 uses default policies, and bgp2 uses custom policies.
+PYVXR_BGPPEERS="Vrf12000000|bgp1#4000|41.230.10.0#2000|leaf0#${ROUTED_PORT}"
+if [[ ${LENGTH} -gt 1 ]]; then
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|bgp2#4000|41.216.0.5#3000|leaf1#Loopback10|policy-exp#policy-imp"
 fi
 
 # Add PortChannels for single switch setup.
@@ -188,12 +202,6 @@ fi
 
 PYVXR_IPS="Vrf40000|${PYVXR_IPS}|10"
 
-# Add BGP peers. bgp1 uses default policies, and bgp2 uses custom policies.
-PYVXR_BGPPEERS="Vrf40000|bgp1#4000|41.216.0.4#2000|leaf0#Loopback10"
-if [[ ${LENGTH} -gt 1 ]]; then
-  PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|bgp2#4000|41.216.0.5#3000|leaf1#Loopback10|policy-exp#policy-imp"
-fi
-
 # Enable STP for PyVxr. STP is always on leaf0.
 if [[ "${STP}" == true ]]; then
   HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|${STP_PORT1}|80|true"
@@ -208,7 +216,7 @@ else
 fi
 
 # Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
-# Fourth host has an untagged Vlan of 40. Vrf40000 has a Loopback of 41.216.230.1
+# Fourth host has an untagged Vlan 40. Vrf40000 has a Loopback with 41.216.230.1 as IP.
 if [[ "${DHCP}" == "vlan" ]]; then
   PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
@@ -230,6 +238,11 @@ if [[ -z "${PYVXR_VRFS}" ]]; then
   PYVXR_VRFS="*"
 fi
 
+# Disable PortChannels.
+if [[ "${LAG}" == false ]]; then
+  PYVXR_CHANNELS="*"
+fi
+
 TEST_TAGS="${TEST_TAGS},dhcp-${DHCP}"
 if [[ "${BREAKOUTS}" == "$" ]]; then
   TEST_TAGS="${TEST_TAGS},breakout"
@@ -242,7 +255,6 @@ function run_pyvxr() {
     --lldp \
     --auto \
     --prefix \
-    --verify \
     --orgName "${ORG_NAME}" \
     --hostUser "${HOST_USER}" \
     --test "${CGEN_TEST}" \

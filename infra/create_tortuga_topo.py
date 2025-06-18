@@ -474,10 +474,7 @@ def start_controller(device_type):
     cwd = os.getcwd()
     os.chdir('./tortuga_controller')
 
-    if device_type == 'laguna':
-        os.system("bash -c './test.sh -no-breakout -g200 -no-stp |& tee test_op.log'".format(test_path))
-    else:
-        os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
+    os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
 
     test_output = subprocess.check_output("grep -i 'Completed in' test_op.log | wc -l", shell=True).strip()
 

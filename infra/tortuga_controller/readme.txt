@@ -57,7 +57,12 @@ NOTES:
 7) Execute ./test.sh from your Linux dev machine to run tests.
    - You may execute test.sh as many times as you want.
    - Each run of test.sh will clear out switch configs and re-configure them.
-   - Each test.sh may take up to 8m. This includes time to reboot PyVxr nodes.
+   - Each test.sh may take up to 25m. This includes time to reboot PyVxr nodes.
+
+8) You can also run ./test.sh using commandline arguments. This is useful when you don't
+   want to modify test.sh. In this case step #6 is not needed.
+
+   ./test.sh -n <fabric-name> -p <pyvxr-host> -s <spine-ports> -l <leaf-ports> -h <host-ports>
 
 Notes:
  - You must execute reset_sim.sh when there is a new SONiC image.

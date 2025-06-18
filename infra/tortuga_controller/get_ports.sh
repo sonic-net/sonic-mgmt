@@ -53,8 +53,33 @@ h25=$(echo "${ports}" | jq .trex25.xr_redir22)
 h26=$(echo "${ports}" | jq .trex26.xr_redir22)
 h27=$(echo "${ports}" | jq .trex27.xr_redir22)
 h28=$(echo "${ports}" | jq .trex28.xr_redir22)
+bronco0=$(echo "${ports}" | jq .bronco0.xr_redir22)
+bronco1=$(echo "${ports}" | jq .bronco1.xr_redir22)
+bronco2=$(echo "${ports}" | jq .bronco2.xr_redir22)
+bronco3=$(echo "${ports}" | jq .bronco3.xr_redir22)
+bronco4=$(echo "${ports}" | jq .bronco4.xr_redir22)
+bronco5=$(echo "${ports}" | jq .bronco5.xr_redir22)
+bronco6=$(echo "${ports}" | jq .bronco6.xr_redir22)
+bronco7=$(echo "${ports}" | jq .bronco7.xr_redir22)
+bronco8=$(echo "${ports}" | jq .bronco8.xr_redir22)
+bronco9=$(echo "${ports}" | jq .bronco9.xr_redir22)
+c225s0=$(echo "${ports}" | jq .c225s0.xr_redir22)
+c225s1=$(echo "${ports}" | jq .c225s1.xr_redir22)
+c225s2=$(echo "${ports}" | jq .c225s2.xr_redir22)
+c225s3=$(echo "${ports}" | jq .c225s3.xr_redir22)
+c225s4=$(echo "${ports}" | jq .c225s4.xr_redir22)
+c225s5=$(echo "${ports}" | jq .c225s5.xr_redir22)
+c225s6=$(echo "${ports}" | jq .c225s6.xr_redir22)
+c225s7=$(echo "${ports}" | jq .c225s7.xr_redir22)
+c225s8=$(echo "${ports}" | jq .c225s8.xr_redir22)
+c225s9=$(echo "${ports}" | jq .c225s9.xr_redir22)
 
-hosts="${h1},${h2}"
+if [[ "${h1}" != "null" ]]; then
+    hosts="--hosts ${h1}"
+fi
+if [[ "${h2}" != "null" ]]; then
+  hosts="${hosts},${h2}"
+fi
 if [[ "${h3}" != "null" ]]; then
   hosts="${hosts},${h3}"
 fi
@@ -169,11 +194,75 @@ if [[ "${l8}" != "null" ]]; then
   leaves="${leaves},${l8}"
 fi
 
+broncos=
+if [[ "${bronco0}" != "null" ]]; then
+  broncos="--bronco ${bronco0}"
+fi
+if [[ "${bronco1}" != "null" ]]; then
+  broncos="${broncos},${bronco1}"
+fi
+if [[ "${bronco2}" != "null" ]]; then
+  broncos="${broncos},${bronco2}"
+fi
+if [[ "${bronco3}" != "null" ]]; then
+  broncos="${broncos},${bronco3}"
+fi
+if [[ "${bronco4}" != "null" ]]; then
+  broncos="${broncos},${bronco4}"
+fi
+if [[ "${bronco5}" != "null" ]]; then
+  broncos="${broncos},${bronco5}"
+fi
+if [[ "${bronco6}" != "null" ]]; then
+  broncos="${broncos},${bronco6}"
+fi
+if [[ "${bronco7}" != "null" ]]; then
+  broncos="${broncos},${bronco7}"
+fi
+if [[ "${bronco8}" != "null" ]]; then
+  broncos="${broncos},${bronco8}"
+fi
+if [[ "${bronco9}" != "null" ]]; then
+  broncos="${broncos},${bronco9}"
+fi
+
+c225s=
+if [[ "${c225s0}" != "null" ]]; then
+  c225s="--c225s ${c225s0}"
+fi
+if [[ "${c225s1}" != "null" ]]; then
+  c225s="${c225s},${c225s1}"
+fi
+if [[ "${c225s2}" != "null" ]]; then
+  c225s="${c225s},${c225s2}"
+fi
+if [[ "${c225s3}" != "null" ]]; then
+  c225s="${c225s},${c225s3}"
+fi
+if [[ "${c225s4}" != "null" ]]; then
+  c225s="${c225s},${c225s4}"
+fi
+if [[ "${c225s5}" != "null" ]]; then
+  c225s="${c225s},${c225s5}"
+fi
+if [[ "${c225s6}" != "null" ]]; then
+  c225s="${c225s},${c225s6}"
+fi
+if [[ "${c225s7}" != "null" ]]; then
+  c225s="${c225s},${c225s7}"
+fi
+if [[ "${c225s8}" != "null" ]]; then
+  c225s="${c225s},${c225s8}"
+fi
+if [[ "${c225s9}" != "null" ]]; then
+  c225s="${c225s},${c225s9}"
+fi
+
 if [[ "${n1}" != "null" ]] && [[ "${l0}" != "null" ]]; then
-  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} --hosts ${hosts}"
-  echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts} ${broncos} ${c225s}"
+  echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14} ${broncos} ${c225s}"
 elif [[ "${n1}" != "null" ]]; then
-   echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${hosts}"
+   echo "--pyvxr ${host} --spines 0 --leaves ${n1} ${hosts} ${broncos} ${c225s}"
 else
-  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} --hosts ${hosts}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts} ${broncos} ${c225s}"
 fi
