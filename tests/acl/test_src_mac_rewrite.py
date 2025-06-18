@@ -354,6 +354,75 @@ def remove_acl_rules(self, duthost):
     pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
 
 
+def apply_config_in_dut(self, duthost, config, name="vxlan"):
+        """
+            The given json(config) will be copied to the DUT and loaded up.
+        """
+        if self.Constants['DEBUG']:
+            filename = "/tmp/" + name + ".json"
+        else:
+            filename = "/tmp/" + name + "-" + str(time.time()) + ".json"
+        duthost.copy(content=config, dest=filename)
+        duthost.shell("sudo config load {} -y".format(filename))
+        time.sleep(1)
+        if not self.Constants['KEEP_TEMP_FILES']:
+            duthost.shell("rm {}".format(filename))
+
+
+def create_vxlan_tunnel(self, duthost, tunnel_name, src_ip):
+    """
+    Configure VXLAN_TUNNEL in CONFIG_DB using src_ip (typically Loopback0 IP).
+
+    Args:
+        duthost: DUT host object
+        tunnel_name: Name of the VXLAN tunnel (e.g. 'vtep_v4')
+        src_ip: Source IP (e.g. from Loopback0)
+    """
+    config = {
+        "VXLAN_TUNNEL": {
+            tunnel_name: {
+                "src_ip": src_ip
+            }
+        }
+    }
+
+    config_json = json.dumps(config, indent=4)
+    logger.info("Applying VXLAN_TUNNEL config: %s", config_json)
+    self.apply_config_in_dut(duthost, config_json, f"vxlan_tunnel_{tunnel_name}")
+
+
+def create_two_vnets(self, duthost, tunnel_name):
+    """
+    Program exactly two VNET entries with fixed VNIs: 799999 and 799998.
+
+    Args:
+        duthost: DUT host object
+        tunnel_name: VXLAN tunnel name (must already exist)
+    """
+    config = {
+        "VNET": {
+            "Vnet1": {
+                "vxlan_tunnel": tunnel_name,
+                "vni": "799999",
+                "peer_list": "",
+                "advertise_prefix": "false",
+                "overlay_dmac": self.OVERLAY_DMAC
+            },
+            "Vnet2": {
+                "vxlan_tunnel": tunnel_name,
+                "vni": "799998",
+                "peer_list": "",
+                "advertise_prefix": "false",
+                "overlay_dmac": self.OVERLAY_DMAC
+            }
+        }
+    }
+
+    config_json = json.dumps(config, indent=4)
+    logger.info("Applying VNET config:\n%s", config_json)
+    self.apply_config_in_dut(duthost, config_json, f"vnets_{tunnel_name}")
+
+
 @pytest.mark.parametrize("inner_src_ips, inner_src_prefix", [
     (["192.168.0.1"], "192.168.0.1/32"),               # Single IP test
     (["192.168.0.{}".format(i) for i in range(1, 5)], "192.168.0.0/24")  # Range test
@@ -389,9 +458,8 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
 
     # === Program VXLAN_TUNNEL and VNET config ===
     logger.info("Configuring VXLAN_TUNNEL and VNETs with Loopback IP")
-    duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VXLAN_TUNNEL|{vxlan_tunnel_name}' src_ip {loopback_src_ip}")
-    duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VNET|{vnet_1}' vni {vni_id} vxlan_tunnel {vxlan_tunnel_name}")
-    duthost.shell(f"sonic-db-cli CONFIG_DB hmset 'VNET|{vnet_2}' vni 799998 vxlan_tunnel {vxlan_tunnel_name}")
+    create_vxlan_tunnel(duthost, vxlan_tunnel_name, loopback_src_ip)
+    create_vnets(duthost, vxlan_tunnel_name)
     time.sleep(10)
 
     # Setup ACL table and rule
