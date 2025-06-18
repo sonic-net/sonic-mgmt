@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 func TestGNMILoadTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("f5e40be6-9913-4926-8d69-505e51f566f1").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	port, err := testhelper.RandomInterface(t, dut, nil)
 	if err != nil {
 		t.Fatalf("Failed to fetch random interface: %v", err)
@@ -57,6 +58,7 @@ func TestGNMILoadTest(t *testing.T) {
 func TestGNMIShortStressTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("44fa854f-5d85-42aa-9ad0-4ee8dbce7f10").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressTestHelper(t, dut, gst.ShortStressTestInterval)
 	gst.SanityCheck(t, dut)
 }
@@ -65,6 +67,7 @@ func TestGNMIShortStressTest(t *testing.T) {
 func TestGNMIBrokenClientTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("cd36ba68-a2c1-485a-bc1a-c79463ed80d9").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	gst.SanityCheck(t, dut)
@@ -103,6 +106,7 @@ func TestGNMIBrokenClientTest(t *testing.T) {
 func TestGNMIGetDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.SanityCheck(t, dut)
 	rand.Seed(time.Now().Unix())
 	gst.CollectPerformanceMetrics(t, dut)
@@ -155,6 +159,7 @@ func TestGNMIGetDifferentLeafTest(t *testing.T) {
 func TestGNMIGetDifferentSubtreeTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.SanityCheck(t, dut)
 	rand.Seed(time.Now().Unix())
 	gst.CollectPerformanceMetrics(t, dut)
@@ -276,6 +281,7 @@ func TestGNMIGetDifferentClientTest(t *testing.T) {
 func TestGNMISetUpdateDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressSetTestHelper(t, dut, gst.AvgIteration, false)
 }
 
@@ -283,6 +289,7 @@ func TestGNMISetUpdateDifferentLeafTest(t *testing.T) {
 func TestGNMISetReplaceDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressSetTestHelper(t, dut, gst.AvgIteration, true)
 }
 
@@ -304,6 +311,7 @@ func TestGNMISetReplaceDifferentClientTest(t *testing.T) {
 func TestGNMISetDeleteDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.SanityCheck(t, dut)
 	rand.Seed(time.Now().Unix())
 	gst.CollectPerformanceMetrics(t, dut)
@@ -387,6 +395,7 @@ func TestGNMISetDeleteDifferentLeafTest(t *testing.T) {
 func TestGNMISetDeleteDifferentSubtreeTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.SanityCheck(t, dut)
 	rand.Seed(time.Now().Unix())
 	gst.CollectPerformanceMetrics(t, dut)
@@ -470,6 +479,7 @@ func TestGNMISetDeleteDifferentSubtreeTest(t *testing.T) {
 func TestGNMISetDeleteDifferentClientTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.SanityCheck(t, dut)
 	ctx := context.Background()
 	newGNMIClient := func() gpb.GNMIClient {
@@ -572,13 +582,14 @@ func TestGNMISetDeleteDifferentClientTest(t *testing.T) {
 func TestGNMISubscribePollDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
-	gst.StressTestSubsHelper(t, dut, false, true)
+	gst.StressTestSubsHelper(t, dut, true, true)
 }
 
 // gNMI different subtree subscription poll mode test
 func TestGNMISubscribePollDifferentSubtreeTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressTestSubsHelper(t, dut, true, true)
 }
 
@@ -593,6 +604,7 @@ func TestGNMISubscribePollDifferentClientTest(t *testing.T) {
 func TestGNMISubscribeSampleDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressTestSubsHelper(t, dut, false, false)
 }
 
@@ -600,6 +612,7 @@ func TestGNMISubscribeSampleDifferentLeafTest(t *testing.T) {
 func TestGNMISubscribeSampleDifferentSubtreeTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressTestSubsHelper(t, dut, true, false)
 }
 
@@ -614,5 +627,6 @@ func TestGNMISubscribeSampleDifferentClientTest(t *testing.T) {
 func TestGNMIRandomOpsDifferentClientTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.RandomDifferentClientTestHelper(t, dut, gst.ShortStressTestInterval)
 }

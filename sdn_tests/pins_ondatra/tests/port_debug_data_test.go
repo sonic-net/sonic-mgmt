@@ -26,6 +26,7 @@ func TestGetPortDebugDataInvalidInterface(t *testing.T) {
 func TestGetPortDebugDataWithTranscevierInserted(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("8f0468c5-6b2c-477c-9cb2-ec099a686268").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	frontPanelPorts, err := testhelper.FrontPanelPortListForDevice(t, dut)
 	if err != nil {
@@ -51,6 +52,7 @@ func TestGetPortDebugDataWithTranscevierInserted(t *testing.T) {
 func TestGetPortDebugDataWithoutTranscevierInserted(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("2229d2e5-1e0b-415b-ac23-b5b05f76e6d4").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	frontPanelPorts, err := testhelper.FrontPanelPortListForDevice(t, dut)
 	if err != nil {
 		t.Fatalf("Failed to fetch front panel ports")

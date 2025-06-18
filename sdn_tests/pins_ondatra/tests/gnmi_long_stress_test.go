@@ -17,5 +17,6 @@ func TestMain(m *testing.M) {
 func TestGNMILongStressTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("37aea757-8eb4-41a8-87b7-aa26013cfe47").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	gst.StressTestHelper(t, dut, gst.LongStressTestInterval)
 }

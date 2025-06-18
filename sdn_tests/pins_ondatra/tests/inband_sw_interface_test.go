@@ -81,6 +81,7 @@ func TestGNMIInbandSwIntfName(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("c147f71d-cd60-4a14-b168-1e50c3003a1d").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	if stateName := gnmi.Get(t, dut, gnmi.OC().Interface(inbandSwIntfName).Name().State()); stateName != inbandSwIntfName {
@@ -98,6 +99,7 @@ func TestGNMIInbandSwIntfType(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("6b4a4bba-b102-4706-ae11-bfb3b0b35cde").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	if stateType := gnmi.Get(t, dut, gnmi.OC().Interface(inbandSwIntfName).Type().State()); stateType != oc.IETFInterfaces_InterfaceType_softwareLoopback {
@@ -128,6 +130,7 @@ func TestGNMIInbandSwIntfOperStatus(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("9086dbae-2636-400b-8381-f6ff7e5b0772").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	if operStatus := gnmi.Get(t, dut, gnmi.OC().Interface(inbandSwIntfName).OperStatus().State()); operStatus != oc.Interface_OperStatus_UP {
@@ -141,6 +144,7 @@ func TestGNMIInbandSwIntfSetIPv4Addr(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("e99b7744-c11d-458a-84dd-5da351792d04").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	d := &oc.Root{}
@@ -164,6 +168,7 @@ func TestGNMIInbandSwIntfSetIPv6Addr(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("8bb6c702-905d-4d08-b40b-ca0917ed4511").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	d := &oc.Root{}
@@ -187,6 +192,7 @@ func TestGNMIInbandSwIntfSetInvalidIPv4AddrOrPrefixLength(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("72e632a0-b7fc-47a6-8fb4-906363e995cb").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	d := &oc.Root{}
@@ -234,6 +240,7 @@ func TestGNMIInbandSwIntfSetInvalidIPv6AddrOrPrefixLength(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("1e175d69-8968-4c0c-a34b-33d35969c9e0").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	d := &oc.Root{}

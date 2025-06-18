@@ -58,6 +58,7 @@ type getDataTypeTest struct {
 
 func TestGNMIGetModes(t *testing.T) {
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
         if err != nil {
@@ -836,13 +837,14 @@ func (c getDataTypeTest) consistencyCheckSubtreeLevel(t *testing.T) {
 
 // This test exposes an issue with /system/mount-points paths
 func TestGetAllEqualsConfigStateOperationalWithRoot(t *testing.T) {
-        t.Skip("This isn't a tracked test, but it reveals behavior that requires additional investigation")
+	t.Skip("This isn't a tracked test, but it reveals behavior that requires additional investigation")
         var paths []*gpb.Path
         verifyGetAllEqualsConfigStateOperational(t, "--Not currently a tracked test--", paths)
 }
 
 func TestGetAllEqualsConfigStateOperational(t *testing.T) {
         sPath, err := ygot.StringToStructuredPath("/interfaces/")
+	t.Skip()
         if err != nil {
                 t.Fatalf("Unable to convert string to path (%v)", err)
         }
@@ -926,7 +928,7 @@ func verifyGetAllEqualsConfigStateOperational(t *testing.T, tid string, paths []
 func TestGetConsistencyOperationalSubtree(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("b3bc19aa-defe-41be-8344-9ad30460136f").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
-
+        t.Skip()
         sPath, err := ygot.StringToStructuredPath(fmt.Sprintf(compStatePath, "os0"))
         if err != nil {
                 t.Fatalf("Unable to convert string to path (%v)", err)

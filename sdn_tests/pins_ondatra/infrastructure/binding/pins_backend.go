@@ -42,7 +42,7 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 	}
 
 	// Load certificate of the CA who signed server's certificate.
-	pemServerCA, err := os.ReadFile("ondatra/certs/ca_crt.pem")
+	pemServerCA, err := os.ReadFile("/var/AzDevOps/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/ca_crt.pem")
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 		return fmt.Errorf("failed to add server CA's certificate")
 	}
 	// Load client's certificate and private key
-	clientCert, err := tls.LoadX509KeyPair("ondatra/certs/client_crt.pem", "ondatra/certs/client_key.pem")
+	clientCert, err := tls.LoadX509KeyPair("/var/AzDevOps/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/client_crt.pem", "/var/AzDevOps/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/client_key.pem")
 	if err != nil {
 		return err
 	}
@@ -92,26 +92,10 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 				ID:   "DUT",
 				Name: dut,
 				PortMap: map[string]*binding.Port{
-					"port1":  {Name: "Ethernet1/1/1"},
-					"port2":  {Name: "Ethernet1/1/5"},
-					"port3":  {Name: "Ethernet1/2/1"},
-					"port4":  {Name: "Ethernet1/2/5"},
-					"port5":  {Name: "Ethernet1/3/1"},
-					"port6":  {Name: "Ethernet1/3/5"},
-					"port7":  {Name: "Ethernet1/4/1"},
-					"port8":  {Name: "Ethernet1/4/5"},
-					"port9":  {Name: "Ethernet1/5/1"},
-					"port10": {Name: "Ethernet1/5/5"},
-					"port11": {Name: "Ethernet1/6/1"},
-					"port12": {Name: "Ethernet1/6/5"},
-					"port13": {Name: "Ethernet1/7/1"},
-					"port14": {Name: "Ethernet1/7/5"},
-					"port15": {Name: "Ethernet1/8/1"},
-					"port16": {Name: "Ethernet1/8/5"},
-					"port17": {Name: "Ethernet1/9/1"},
-					"port18": {Name: "Ethernet1/9/5"},
-					"port19": {Name: "Ethernet1/10/1"},
-					"port20": {Name: "Ethernet1/10/5"},
+					"port1":  {Name: "Ethernet1"},
+					"port2":  {Name: "Ethernet2"},
+					"port3":  {Name: "Ethernet3"},
+					"port4":  {Name: "Ethernet4"},
 				},
 			},
 			GRPC: bindingbackend.GRPCServices{
@@ -127,26 +111,10 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 					ID:   "CONTROL",
 					Name: control,
 					PortMap: map[string]*binding.Port{
-						"port1":  {Name: "Ethernet1/1/1"},
-						"port2":  {Name: "Ethernet1/1/5"},
-						"port3":  {Name: "Ethernet1/2/1"},
-						"port4":  {Name: "Ethernet1/2/5"},
-						"port5":  {Name: "Ethernet1/3/1"},
-						"port6":  {Name: "Ethernet1/3/5"},
-						"port7":  {Name: "Ethernet1/4/1"},
-						"port8":  {Name: "Ethernet1/4/5"},
-						"port9":  {Name: "Ethernet1/5/1"},
-						"port10": {Name: "Ethernet1/5/5"},
-						"port11": {Name: "Ethernet1/6/1"},
-						"port12": {Name: "Ethernet1/6/5"},
-						"port13": {Name: "Ethernet1/7/1"},
-						"port14": {Name: "Ethernet1/7/5"},
-						"port15": {Name: "Ethernet1/8/1"},
-						"port16": {Name: "Ethernet1/8/5"},
-						"port17": {Name: "Ethernet1/9/1"},
-						"port18": {Name: "Ethernet1/9/5"},
-						"port19": {Name: "Ethernet1/10/1"},
-						"port20": {Name: "Ethernet1/10/5"},
+						"port1":  {Name: "Ethernet4"},
+						"port2":  {Name: "Ethernet3"},
+						"port3":  {Name: "Ethernet2"},
+						"port4":  {Name: "Ethernet1"},
 					},
 				},
 				GRPC: bindingbackend.GRPCServices{

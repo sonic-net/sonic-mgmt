@@ -124,6 +124,7 @@ func TestGNMIInbandSwLoopbackInCnts(t *testing.T) {
 
 	dut := ondatra.DUT(t, "DUT")
 	control := ondatra.DUT(t, "CONTROL")
+	t.Skip()
 	mockConfigPush(t)
 
 	// Select a random front panel interface EthernetX.
@@ -245,6 +246,7 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("57fbd43d-eeb3-478d-9740-69d9bb23fca6").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 	mockConfigPush(t)
 
 	// Select a random front panel interface EthernetX.

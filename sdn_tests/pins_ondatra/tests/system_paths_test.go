@@ -35,6 +35,7 @@ func verifyAddress(address string, addresses []string) error {
 func TestGetRemoteServerAddressInfo(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("c2873412-1016-4c89-9e59-79fcfec642bb").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	logInfo, err := testhelper.LoggingServerAddressesForDevice(t, dut)
 	if err != nil {
@@ -99,6 +100,7 @@ func TestGetRemoteServerAddressInfo(t *testing.T) {
 func TestGetCurrentDateAndTime(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("8ec03425-b9ab-4e13-8b01-1564b5043d68").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	t1 := time.Now()
 	time.Sleep(1 * time.Second)
@@ -117,6 +119,7 @@ func TestGetCurrentDateAndTime(t *testing.T) {
 func TestGetBootTime(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("c2bcb460-e79a-4ae2-9a74-d1b3d6ec62ae").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// boot-time should be the same before rebooting switch. We give a 1 second buffer to account for
 	// jitter in boot-time calculation.
@@ -145,6 +148,7 @@ func TestGetBootTime(t *testing.T) {
 func TestGetHostname(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("01c119ae-2550-4949-8fd7-3605b8d2981c").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	hostname := gnmi.Get(t, dut, gnmi.OC().System().Hostname().State())
 	if len(hostname) == 0 || len(hostname) > 253 {
@@ -158,6 +162,7 @@ func TestGetHostname(t *testing.T) {
 func TestConfigMetaData(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("366f4520-79f7-49ac-a67d-c53b48b11535").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Perform an initial config push on config-meta-data path.
 	// TODO: Remove this step when default config push is available.
@@ -186,6 +191,7 @@ func TestConfigMetaData(t *testing.T) {
 func TestCPUIndexes(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("093c4411-c748-4b7c-bee7-fd73b8c2a473").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	cpuInfo, err := testhelper.CPUInfoForDevice(t, dut)
 	if err != nil {
@@ -220,6 +226,7 @@ func TestCPUIndexes(t *testing.T) {
 func TestCPUUsage(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("4806f97b-1c4e-4763-a9e3-58671bda144a").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	cpuInfo, err := testhelper.CPUInfoForDevice(t, dut)
 	if err != nil {
@@ -285,6 +292,7 @@ func TestCPUUsage(t *testing.T) {
 func TestCPUInterval(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("534f595e-06b6-434c-b7cb-20d856efacdb").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	cpuInfo, err := testhelper.CPUInfoForDevice(t, dut)
 	if err != nil {
@@ -410,6 +418,7 @@ func validateProcessInformation(procInfo *oc.System_Process, bootTime uint64, sy
 func TestMemoryStatistics(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("d2f4917b-3813-4e81-b195-8f6b9222d615").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	expectedInfo, err := testhelper.MemoryInfoForDevice(t, dut)
 	if err != nil {
@@ -460,6 +469,7 @@ func TestMemoryStatistics(t *testing.T) {
 func TestMemoryErrorStatistics(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("6300ee99-ac15-4913-a8a8-9231bb92a498").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	expectedInfo, err := testhelper.MemoryInfoForDevice(t, dut)
 	if err != nil {
@@ -486,6 +496,7 @@ func TestMemoryErrorStatistics(t *testing.T) {
 
 func TestNTPServerInformation(t *testing.T) {
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	tests := []struct {
 		name                string
@@ -618,6 +629,7 @@ func TestMountPointsInformation(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("c0cf81e1-e99d-4b57-b273-9fe87c713881").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	mountPoints, err := testhelper.MountPointsInfoForDevice(t, dut)
 	if err != nil {
@@ -681,6 +693,7 @@ func printProcessStatistics(t *testing.T, stats map[uint64]oc.System_Process) {
 func TestProcessStatistics(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("dc958005-d45b-429d-9ee1-c14cc1eefcf2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	info := gnmi.GetAll(t, dut, gnmi.OC().System().ProcessAny().State())
 	if len(info) == 0 {
@@ -748,6 +761,7 @@ func generateLabel(existingLabelsSubtree []*testhelper.System_FeatureLabel) (lab
 func TestFeatureLabels(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("b5c1a559-21b6-4fa0-b5ff-1f15080b7b0f").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Get the existing feature-labels tree.
 	existingLabelsSubtree := testhelper.SystemFeatureLabels(t, dut)

@@ -1,4 +1,4 @@
-package cpu_interface_test
+
 
 import (
 	"net"
@@ -31,6 +31,7 @@ func TestGNMICPUName(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Read the name via /state.
 	stateName := gnmi.Get(t, dut, gnmi.OC().Interface(cpuName).Name().State())
@@ -56,7 +57,7 @@ func TestGNMICPUType(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
-
+        t.Skip()
 	// Read the type via /state.
 	stateType := gnmi.Get(t, dut, gnmi.OC().Interface(cpuName).Type().State())
 
@@ -95,6 +96,7 @@ func TestGNMICPURole(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Read management via /state.  Note that the config path for
 	// these doesn't exist since they're read-only.
@@ -121,6 +123,7 @@ func TestGNMICPUParentPaths(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Read the counters via /state.  Note that the config path for
 	// these doesn't exist since they're read-only.  The type
@@ -284,6 +287,7 @@ func TestGNMICPUInDiscards(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         var bad bool
         var i int

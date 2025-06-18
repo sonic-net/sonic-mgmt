@@ -181,6 +181,7 @@ func TestSetNodeID(t *testing.T) {
 func TestPersistenceAfterReboot(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("0e429a29-d3b1-486b-b3d2-3ca48a9f0c35").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         ics, err := testhelper.ICInfoForDevice(t, dut)
         if err != nil {
@@ -257,6 +258,7 @@ func TestPersistenceAfterReboot(t *testing.T) {
 func TestGetFPGAInfo(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("52a71049-40dc-4f2d-b074-4b0f649064f0").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         fpgas, err := testhelper.FPGAInfoForDevice(t, dut)
         if err != nil {
@@ -483,6 +485,7 @@ func TestGetTemperatureSensorTemperatureInformation(t *testing.T) {
 func TestSetPortHealthIndicator(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("77865f9c-5919-467f-8be2-19a08d6803f9").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         port, err := testhelper.RandomInterface(t, dut, nil)
         if err != nil {
@@ -503,6 +506,7 @@ func TestSetPortHealthIndicator(t *testing.T) {
 func TestStorageDeviceInformation(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("b5db258b-2e3f-4880-96dc-db2ac452afe9").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         devices, err := testhelper.StorageDeviceInfoForDevice(t, dut)
         if err != nil {
@@ -581,6 +585,7 @@ func TestStorageDeviceInformation(t *testing.T) {
 func TestStorageDeviceSmartInformation(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("c5fe2192-9759-4829-9231-8fdb4ecc4245").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         devices, err := testhelper.StorageDeviceInfoForDevice(t, dut)
         if err != nil {

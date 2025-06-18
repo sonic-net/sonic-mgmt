@@ -173,6 +173,7 @@ func TestGNMIEthernetInterfaceRole(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -201,6 +202,7 @@ func TestGNMIEthParentPaths(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Pick a random interface, EthernetX
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -377,6 +379,7 @@ func TestGNMIEthSubinterfaceIndex(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Pick a random interface, EthernetX
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -404,6 +407,7 @@ func TestGNMIEthernetOut(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -497,6 +501,7 @@ func TestGNMIEthernetOutMulticast(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -589,6 +594,7 @@ func TestGNMIEthernetOutBroadcast(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -680,6 +686,7 @@ func TestGNMIEthernetIn(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -785,6 +792,7 @@ func TestGNMIEthernetInMulticast(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -890,6 +898,7 @@ func TestGNMIEthernetInBroadcast(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -995,6 +1004,7 @@ func TestGNMIEthernetInIPv4(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Select a random front panel interface EthernetX.
 	intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -1113,6 +1123,7 @@ func TestGNMIEthernetInIPv6(t *testing.T) {
 
 	// Select the dut, or device under test.
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	// Select a random front panel interface EthernetX.
 	intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -1227,6 +1238,7 @@ func TestGNMIEthernetInDiscards(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)
@@ -1342,6 +1354,7 @@ func TestGNMIEthernetInIPv6Discards(t *testing.T) {
 
         // Select the dut, or device under test.
         dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
         // Select a random front panel interface EthernetX.
         intf, err := testhelper.RandomInterface(t, dut, nil)

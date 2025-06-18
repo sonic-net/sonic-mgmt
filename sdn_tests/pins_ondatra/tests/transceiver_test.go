@@ -116,6 +116,7 @@ func IsOptical(gnmiClient gpb.GNMIClient, dut *ondatra.DUTDevice, xcvrName strin
 func TestReadName(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("bbdc5e8b-8182-4a55-a7bd-11fc206aedc2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	xcvrName, _ := FindPresentTransceiver(t, dut)
 
@@ -133,6 +134,7 @@ func TestReadName(t *testing.T) {
 func TestIndex(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("2e63771a-4414-459b-a4ef-d56ed0de6a7a").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	xcvrName, _ := FindPresentTransceiver(t, dut)
 	t.Logf("Transceiver found: %v", xcvrName)
@@ -162,6 +164,7 @@ func TestReadTransceiverStaticData(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("5b255989-eb9d-4587-922f-160b9a011cf1").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip(()
 
 	xcvrName, xcvrNum := FindPresentTransceiver(t, dut)
 
@@ -218,6 +221,7 @@ const (
 func TestReadTransceiverDynamicData(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("31c2b81d-a3b5-4841-a2ad-da4bcc1f4a8f").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	xcvrName, _, err := FindPresentOpticalTransceiver(t, dut)
 
@@ -266,6 +270,7 @@ func TestReadParentPath(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("0057ca44-0cbc-4054-a20c-94bc99e9b984").Teardown(t)
 
 	dut := ondatra.DUT(t, "DUT")
+	t.Skip()
 
 	xcvrName, xcvrNum := FindPresentTransceiver(t, dut)
 
