@@ -420,8 +420,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                         upstream_ports[neighbor['namespace']].append(interface)
                         upstream_port_ids.append(port_id)
                         upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
-                    if neigh_type == "PT0":
-                        upstream_service_ports[neighbor['namespace']].append(interface)
+                        if neigh_type == "PT0":
+                            upstream_service_ports[neighbor['namespace']].append(interface)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
