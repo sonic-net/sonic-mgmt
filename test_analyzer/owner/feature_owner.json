@@ -670,7 +670,7 @@
                     "gnmi.test_gnoi_os",
                     "gnmi.test_gnoi_system",
                     "gnmi.test_gnoi_system_grpc",
-                    "gnmi.test_gnoi_system_reboot",
+                    "gnmi.test_gnoi_system_reboot"
                 ],
                 "owner": "Dawei Huang",
                 "email": "daweihuang@microsoft.com"
