@@ -407,6 +407,11 @@ def validate_dump_file_content(duthost, dump_folder_path):
     if duthost.facts['asic_type'] in ["mellanox"]:
         sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
         assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+        if "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
