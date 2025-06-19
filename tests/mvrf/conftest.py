@@ -7,6 +7,7 @@ from tests.common.gu_utils import create_checkpoint, rollback
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_snmp_ready(duthosts, localhost):
     for duthost in duthosts:
