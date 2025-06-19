@@ -110,6 +110,7 @@ The current testbed yaml definition is not designed to support NUT, so we will c
     - { name: ".*-t2-.*", type: "SpineRouter", loopback_v4: "100.1.2.0/24", loopback_v6: "2064:100:0:2::/64", start_asn: 63001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
   tg:
     - tg-1
+  tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
   inv_name: lab
   auto_recover: 'True'
   comment: "Testbed for NUT with multi-tier topology"
@@ -147,21 +148,19 @@ Here is an example of the device metadata for a T0 switch after the `deploy-cfg`
 ```json
 "DEVICE_METADATA": {
     "localhost": {
+        "hwsku": "ABCDEFG",
         "bgp_asn": "64001",
+        "bgp_router_id": "10.1.0.1",
         "buffer_model": "traditional",
-        "cloudtype": "Public",
-        "default_bgp_status": "up",
+        "create_only_config_db_buffers": "true",
+        "default_bgp_status": "down",
         "default_pfcwd_status": "enable",
         "deployment_id": "1",
-        "docker_routing_config_mode": "separated",
         "hostname": "switch-t0-0",
-        "hwsku": "ABCDEFG",
-        "region": "None",
-        "synchronous_mode": "enable",
+        "mac": "50:00:e6:e5:56:1c",
+        "platform": "some-platform",
         "timezone": "UTC",
-        "type": "ToRRouter",
-        "yang_config_validation": "disable",
-        "bgp_router_id": "10.100.0.81"
+        "type": "BackEndToRRouter"
     }
 }
 ```
@@ -170,7 +169,7 @@ Certain information is not defined specifically in the `sonic_*_devices.csv` fil
 
 The detailed step follows the following algorithm:
 
-1. Read all IP pools defined in the testbed YAML file and unify the IP pools across all devices. (Different devices can share the same IP pool.)
+1. Read all loopback IP pools defined in the testbed YAML file and create allocators based on the usage. Multiple devices can share the same pool.
 2. Walk through the devices defined in the testbed from first to last. For each device,
    1. Curve out a loopback v4 IP from the unified IP pool (1 IP), based on the device index.
    2. Curve out a loopback v6 IP from the unified IP pool (1 IP), based on the device index.
@@ -186,6 +185,7 @@ With the link definition, the port configuration will be update on the T0 switch
   { "op": "replace", "path": "/PORT/Ethernet256/admin_status", "value": "up" },
   { "op": "replace", "path": "/PORT/Ethernet256/fec", "value": "rs" },
   { "op": "replace", "path": "/PORT/Ethernet256/speed", "value": "100000" },
+  { "op": "replace", "path": "/PORT/Ethernet256/description", "value": "Link to switch-t1-0 Ethernet0" },
   ...
 ]
 ```
@@ -197,7 +197,7 @@ An example of the port configuration generated for the T0 switch is as follows:
     "Ethernet256": {
         "admin_status": "up",
         "alias": "etp33a",
-        "description": "etp33a",
+        "description": "Link to switch-t1-0 Ethernet0",
         "fec": "rs",
         "index": "33",
         "lanes": "273",
@@ -266,7 +266,9 @@ The detailed step follows the following algorithm:
 
 ```json
 [
-  { "op": "add", "path": "/INTERFACE/Ethernet256|2001:db9::1:0:1/126", "value": "" },
+  { "op": "add", "path": "/INTERFACE", "value": {} },
+  { "op": "add", "path": "/INTERFACE/Ethernet256", "value": {} },
+  { "op": "add", "path": "/INTERFACE/Ethernet256|2001:db9::1:0:1/126", "value": {} },
   ...
 ]
 ```
@@ -336,10 +338,10 @@ To enable BGP sessions, the BGP neighbor configuration must be generated for eac
     "value": {
         "cluster": "StressTest",
         "deployment_id": "1",
-        "lo_addr": "100.1.1.1/32",
-        "lo_addr_v6": "2064:100:0:1::1/128",
-        "mgmt_addr": "10.250.1.1/24",
-        "mgmt_addr_v6": "fec0::1:1/64",
+        "lo_addr": "100.1.1.1",
+        "lo_addr_v6": "2064:100:0:1::1",
+        "mgmt_addr": "10.250.1.1",
+        "mgmt_addr_v6": "fec0::1:1",
         "hwsku": "ABCDEFG",
         "type": "LeafRouter"
     }
@@ -380,10 +382,10 @@ To enable BGP sessions, the BGP neighbor configuration must be generated for eac
     "value": {
         "cluster": "StressTest",
         "deployment_id": "1",
-        "lo_addr": "100.1.0.1/32",
-        "lo_addr_v6": "2064:100:0:0::1/128",
-        "mgmt_addr": "10.250.0.1/24",
-        "mgmt_addr_v6": "fec0::0:1/64",
+        "lo_addr": "100.1.0.1",
+        "lo_addr_v6": "2064:100:0:0::1",
+        "mgmt_addr": "10.250.0.1",
+        "mgmt_addr_v6": "fec0::0:1",
         "hwsku": "ABCDEFG",
         "type": "ToRRouter"
     }
