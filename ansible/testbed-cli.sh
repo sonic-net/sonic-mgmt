@@ -183,6 +183,48 @@ function read_file
   fi
 }
 
+function read_nut_file
+{
+  echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['name']))")
+  echo ""
+
+  IFS=$'+' read -r -a tb_lines <<< $content
+  linecount=${#tb_lines[@]}
+
+  if [ $linecount == 0 ]
+  then
+    echo "Couldn't find testbed name '$1'"
+    exit
+  elif [ $linecount -gt 1 ]
+  then
+    echo "Find more than one testbed name in $tbfile"
+    exit
+  else
+    echo "Testbed found: $1"
+  fi
+
+  tb_line=${tb_lines[0]}
+  line_arr=($1)
+  for attr in inv_name test_tags duts;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    line_arr=("${line_arr[@]}" "$value")
+  done
+
+  inv_name=${line_arr[1]}
+  echo "- Inventory: $inv_name"
+
+  test_tags=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[2]}\")))")
+  echo "- Test Tags: $test_tags"
+
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[3]}\")))")
+  echo "- DUTs: $duts"
+
+  echo ""
+}
+
 function start_vms
 {
   if [[ $vm_type == ceos ]]; then
