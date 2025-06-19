@@ -36,7 +36,6 @@ spine0:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
         neighbor TRANSIT bfd
-        neighbor TRANSIT bfd disable-strict-mode
         neighbor D1D3P1 interface peer-group TRANSIT
         neighbor D1D3P2 interface peer-group TRANSIT
         neighbor D1D4P1 interface peer-group TRANSIT
@@ -97,7 +96,6 @@ spine1:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
         neighbor TRANSIT bfd
-        neighbor TRANSIT bfd disable-strict-mode
         neighbor D2D3P1 interface peer-group TRANSIT
         neighbor D2D3P2 interface peer-group TRANSIT
         neighbor D2D4P1 interface peer-group TRANSIT
@@ -191,7 +189,6 @@ leaf0:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
         neighbor TRANSIT bfd
-        neighbor TRANSIT bfd disable-strict-mode
         neighbor D3D1P1 interface peer-group TRANSIT
         neighbor D3D1P2 interface peer-group TRANSIT
         neighbor D3D2P1 interface peer-group TRANSIT
@@ -302,7 +299,6 @@ leaf1:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
         neighbor TRANSIT bfd
-        neighbor TRANSIT bfd disable-strict-mode
         neighbor D4D1P1 interface peer-group TRANSIT
         neighbor D4D1P2 interface peer-group TRANSIT
         neighbor D4D2P1 interface peer-group TRANSIT

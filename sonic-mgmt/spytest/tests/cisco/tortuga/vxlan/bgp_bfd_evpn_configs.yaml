@@ -153,7 +153,6 @@ leaf0:
         neighbor OVERLAY ebgp-multihop 255
         neighbor OVERLAY update-source Loopback27
         neighbor OVERLAY bfd
-        neighbor OVERLAY bfd disable-strict-mode
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
@@ -257,7 +256,6 @@ leaf1:
         neighbor OVERLAY ebgp-multihop 255
         neighbor OVERLAY update-source Loopback27
         neighbor OVERLAY bfd
-        neighbor OVERLAY bfd disable-strict-mode
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
