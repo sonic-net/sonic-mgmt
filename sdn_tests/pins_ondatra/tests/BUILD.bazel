@@ -124,7 +124,7 @@ ondatra_test(
 )
 
 #module reset test
-ondatra_test_suite(
+ondatra_test(
     name = "module_reset_test",
     srcs = ["module_reset_test.go"],
     deps = [

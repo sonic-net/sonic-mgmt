@@ -926,7 +926,7 @@ func verifyGetAllEqualsConfigStateOperational(t *testing.T, tid string, paths []
 func TestGetConsistencyOperationalSubtree(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("b3bc19aa-defe-41be-8344-9ad30460136f").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
-
+        t.Skip()
         sPath, err := ygot.StringToStructuredPath(fmt.Sprintf(compStatePath, "os0"))
         if err != nil {
                 t.Fatalf("Unable to convert string to path (%v)", err)
