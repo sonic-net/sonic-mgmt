@@ -40,6 +40,9 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
             output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
             if "sonic-telemetry" not in output:
                 continue
+        if feature_name == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
 
 

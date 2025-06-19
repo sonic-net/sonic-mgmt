@@ -35,6 +35,7 @@ import ptf
 import signal
 import threading
 import time
+import macsec  # noqa F401
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -576,7 +577,7 @@ class BGPTest(PolicyTest):
             )
             assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
                 "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
-        elif self.asic_type not in ['broadcom']:
+        elif self.asic_type not in ['broadcom', 'marvell-teralynx']:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
                 "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
