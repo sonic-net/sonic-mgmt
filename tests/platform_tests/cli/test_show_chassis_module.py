@@ -34,9 +34,9 @@ def parse_chassis_module(output, expected_headers):
         pytest_assert(
             header_v in headers,
             (
-                "Missing header '{}'. Expected: {}. Actual: {}"
+                "header {} is not in headers {}"
             ).format(
-                header_v, expected_headers, headers
+                header_v, headers
             )
         )
 
@@ -94,57 +94,23 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             if mod_idx in skip_logical_lc_list:
                 continue
             else:
-                pytest_assert(
-                    res[mod_idx]['Oper-Status'] == 'Empty',
-                    (
-                        "Oper-status for slot {} should be Empty but it is {}. "
-                        "Expected module to be empty, but it may be in a different state. "
-                        "Module details: {}"
-                    ).format(
-                        mod_idx,
-                        res[mod_idx]['Oper-Status'],
-                        res[mod_idx]
-                    )
-                )
-
+                pytest_assert(res[mod_idx]['Oper-Status'] == 'Empty',
+                              "Oper-status for slot {} should be Empty but it is {}".format(
+                                  mod_idx, res[mod_idx]['Oper-Status']))
         else:
-            pytest_assert(
-                res[mod_idx]['Oper-Status'] == 'Online',
-                (
-                    "Oper-status for slot {} should be Online but it is {}. "
-                    "Module details: {}"
-                ).format(
-                    mod_idx,
-                    res[mod_idx]['Oper-Status'],
-                    res[mod_idx]
-                )
-            )
+            pytest_assert(res[mod_idx]['Oper-Status'] == 'Online',
+                          "Oper-status for slot {} should be Online but it is {}".format(
+                              mod_idx, res[mod_idx]['Oper-Status']))
 
             # If inventory contains physical slot info, perform expected slot number check
             if exp_module_slot_info:
-                pytest_assert(
-                    mod_idx in exp_module_slot_info,
-                    (
-                        "Module {} is expected to be present in the module slot information "
-                        "but it is missing. Expected module slot information: {}. Actual module slot information: {}"
-                    ).format(
-                        mod_idx,
-                        exp_module_slot_info,
-                        res
-                    )
-                )
+                pytest_assert(mod_idx in exp_module_slot_info,
+                              "Module {} is expected to be present but it is missing".format(
+                                  mod_idx))
 
                 pytest_assert(res[mod_idx]['Physical-Slot'] == exp_module_slot_info[mod_idx],
-                              (
-                                  "Module {} expected slot {} from inventory file not matching show output {}. "
-                                  "Expected module slot information: {}. Actual module slot information: {}"
-                              ).format(
-                                  mod_idx,
-                                  exp_module_slot_info[mod_idx],
-                                  res[mod_idx]['Physical-Slot'],
-                                  exp_module_slot_info,
-                                  res
-                              ))
+                              "Module {} expected slot {} not matching show output {}".format(
+                                  mod_idx, exp_module_slot_info[mod_idx], res[mod_idx]['Physical-Slot']))
             else:
                 # In case Inventory file does not have the slot info, just log it but no need to fail the test
                 logger.info("Inventory file has no record of module_slot_info")

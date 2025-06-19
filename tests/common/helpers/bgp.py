@@ -176,10 +176,9 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("teardown session return: %s" % resp)
         assert resp.status_code == 200, (
-            "Expected HTTP 200 from exabgp API, but got {}. Response: {}."
+            "Expected HTTP 200 from exabgp API, but got {}."
         ).format(
-            resp.status_code,
-            resp.text
+            resp.status_code
         )
 
         self.ptfhost.exabgp(name=self.name, state="stopped")
@@ -200,10 +199,9 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
-            "Expected HTTP 200 from exabgp API, but got {}. Response: {}."
+            "Expected HTTP 200 from exabgp API, but got {}."
         ).format(
-            resp.status_code,
-            resp.text
+            resp.status_code
         )
 
     def withdraw_route(self, route):
@@ -217,10 +215,9 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("withdraw return: %s", resp)
         assert resp.status_code == 200, (
-            "Expected HTTP 200 from exabgp API, but got {}. Response: {}."
+            "Expected HTTP 200 from exabgp API, but got {}."
         ).format(
-            resp.status_code,
-            resp.text
+            resp.status_code
         )
 
     def announce_routes_batch(self, routes):
@@ -244,10 +241,9 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
-            "Expected HTTP 200 from exabgp API, but got {}. Response: {}."
+            "Expected HTTP 200 from exabgp API, but got {}."
         ).format(
-            resp.status_code,
-            resp.text
+            resp.status_code
         )
 
     def withdraw_routes_batch(self, routes):
@@ -271,8 +267,7 @@ class BGPNeighbor(object):
         resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
-            "Expected HTTP 200 from exabgp API, but got {}. Response: {}."
+            "Expected HTTP 200 from exabgp API, but got {}."
         ).format(
-            resp.status_code,
-            resp.text
+            resp.status_code
         )
