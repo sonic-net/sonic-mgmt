@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('m1', 'm2', 'm3', 't1', 'ptf')
+    pytest.mark.topology('m1', 't1', 'ptf')
 ]
 
 

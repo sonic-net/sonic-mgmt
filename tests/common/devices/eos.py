@@ -212,12 +212,19 @@ class EosHost(AnsibleHostBase):
             logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
+    def is_multiagent(self):
+        out = self.eos_command(commands=["show ip route summary | json"])
+        model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
+        return model == "multi-agent"
+
     def kill_bgpd(self):
-        out = self.eos_config(lines=['agent Rib shutdown'])
+        agent = 'Bgp' if self.is_multiagent() else 'Rib'
+        out = self.eos_config(lines=['agent {} shutdown'.format(agent)])
         return out
 
     def start_bgpd(self):
-        out = self.eos_config(lines=['no agent Rib shutdown'])
+        agent = 'Bgp' if self.is_multiagent() else 'Rib'
+        out = self.eos_config(lines=['no agent {} shutdown'.format(agent)])
         return out
 
     def no_shutdown_bgp(self, asn):
@@ -575,3 +582,6 @@ class EosHost(AnsibleHostBase):
             parents=['interface {}'.format(interface_name)])
         logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
         return out
+
+    def config(self, lines=None, parents=None, module_ignore_errors=False):
+        return self.eos_config(lines=lines, parents=parents)
