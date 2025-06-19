@@ -64,6 +64,11 @@
     loop_control:
       loop_var: dut_name
 
+  - name: set batch_mode for lt2 topo
+    set_fact:
+      batch_mode: True
+    when: "'lt2' in topo"
+
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "unbind"
@@ -75,6 +80,7 @@
       duts_fp_ports: "{{ duts_fp_ports }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Stop ptf container ptf_{{ vm_set_name }}
@@ -173,6 +179,7 @@
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
