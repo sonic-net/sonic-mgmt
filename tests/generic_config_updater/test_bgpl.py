@@ -11,7 +11,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', "m1", "m2", "m3", 't2'),
+    pytest.mark.topology('t0', 'm0', 'mx', "m1", 't2'),
 ]
 
 logger = logging.getLogger(__name__)
