@@ -18,6 +18,9 @@
    1. [5.1. Port configuration](#51-port-configuration)
    2. [5.2. Routes advertisement](#52-routes-advertisement)
    3. [5.3. Verifying Route Advertisement](#53-verifying-route-advertisement)
+6. [6. Command references](#6-command-references)
+   1. [6.1. Generate config: `gen-cfg`](#61-generate-config-gen-cfg)
+   2. [6.2. Deploy config: `deploy-cfg`](#62-deploy-config-deploy-cfg)
 
 ## 1. Overview
 
@@ -258,7 +261,7 @@ dut_template:
 
 The detailed step follows the following algorithm:
 
-1. Read all IP pools defined in the testbed YAML file and unify the IP pools across all devices. (Different devices can share the same IP pool.)
+1. Read P2P IP pools defined in the testbed YAML file and create IP allocators based on usage.
 2. Set devices in the TG (Traffic generator) list in the testbed as the start devices.
 3. Walk through the links defined in the `sonic_*_links.csv` file in BFS order.
 4. For each link (port pair), curve out a 2-bit subnet from the unified IP pool (4 IPs), where the second IP will be used on the downlink port, while the third IP will be used on the uplink port.
@@ -423,3 +426,28 @@ If more routes is required for testing, the test case will need to inject routes
 ### 5.3. Verifying Route Advertisement
 
 To verify that routes are being correctly advertised, we can run `show ip route bgp` or `show ipv6 route bgp` on the T0 switch and confirm all routes advertised by the traffic generator are visible in the routing table. This ensures that the routes injected by the traffic generator are propagated through the multi-tier network.
+
+## 6. Command references
+
+### 6.1. Generate config: `gen-cfg`
+
+`gen-cfg` will generate the configuration for the testbed without applying it to the devices. This is useful for testing and debugging purposes, allowing you to see what configuration will be applied without actually changing the device configuration.
+
+```bash
+# ./testbed-cli.sh -t <testbed-yaml-file-path> gen-cfg <testbed-name> <inventory-name> <password-file>
+./testbed-cli.sh -t testbed.nut.yaml gen-cfg testbed-nut-1 ixia ../../password.txt 
+```
+
+The configuration will be generated into a few places:
+
+- `/tmp/config_patch.json` (on each DUT): This is the patch that will be applied to the newly generated config DB.
+- `/tmp/config_db_new.json` (on each DUT): This is the new config DB that will be applied to the device.
+
+### 6.2. Deploy config: `deploy-cfg`
+
+`deploy-cfg` will do everything that `gen-cfg` does, but also apply the configuration to the devices in the testbed. This will generate the configuration and apply it to the devices in the testbed.
+
+```bash
+# ./testbed-cli.sh -t <testbed-yaml-file-path> deploy-cfg <testbed-name> <inventory-name> <password-file>
+./testbed-cli.sh -t testbed.nut.yaml deploy-cfg testbed-nut-1 ixia ../../password.txt 
+```
