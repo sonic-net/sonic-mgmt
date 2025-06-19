@@ -97,8 +97,8 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
-            all_used_percentage = [f"{per['used_percent']}%" for per in outstanding_mem_polls.values()]
-            reason.append(f"system memory usage is [{', '.join(all_used_percentage)}], threshold is {memory_threshold}%")
+            all_mem_usage = [f"{per['used_percent']}%" for per in outstanding_mem_polls.values()]
+            reason.append(f"system memory usage is [{', '.join(all_mem_usage)}], threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
