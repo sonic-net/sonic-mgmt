@@ -207,7 +207,8 @@ class TestPlanManager(object):
     def get_token(self):
 
         # 1. Run az login with re-try
-        az_login_cmd = f"az login --identity --username {self.managed_identity_id}"
+        print("az login --identity --client-id")
+        az_login_cmd = f"az login --identity --client-id {self.managed_identity_id}"
         az_login_attempts = 0
         while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
             try:
@@ -329,6 +330,8 @@ class TestPlanManager(object):
                 "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
             },
             "test_option": {
+                "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
+                "add_topo_params": kwargs.get("add_topo_params", ""),
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
@@ -378,7 +381,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=20)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception(f"HTTP execute failure, url: {tp_url}, raw_resp: {raw_resp}, exception: {str(exception)}")
@@ -607,6 +610,27 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Test set."
+    )
+    parser_create.add_argument(
+        "--skip-remove-add-topo-for-nightly",
+        type=ast.literal_eval,
+        dest="skip_remove_add_topo_for_nightly",
+        nargs='?',
+        const=True,
+        default=True,
+        required=False,
+        choices=[True, False],
+        help="Whether skip remove-topo and add-topo for nightly test."
+    )
+    parser_create.add_argument(
+        "--add-topo-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="add_topo_params",
+        default="",
+        required=False,
+        help="Add topology extra params"
     )
     parser_create.add_argument(
         "--deploy-mg-extra-params",
@@ -1051,6 +1075,8 @@ if __name__ == "__main__":
                 tp.create(
                     args.topology,
                     test_plan_name=test_plan_name,
+                    skip_remove_add_topo_for_nightly=args.skip_remove_add_topo_for_nightly,
+                    add_topo_params=args.add_topo_params,
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,

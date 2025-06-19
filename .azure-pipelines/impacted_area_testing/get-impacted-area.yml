@@ -3,7 +3,7 @@ steps:
     set -x
 
     git fetch --all
-    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get diff folders fails."
