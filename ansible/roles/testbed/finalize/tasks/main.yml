@@ -1,0 +1,8 @@
+---
+- import_tasks: setup_telemetry_certs.yml
+  when: deploy is defined and deploy | bool == true
+
+- import_tasks: setup_restapi_certs.yml
+  when: deploy is defined and deploy | bool == true
+
+- import_tasks: setup_core_uploader.yml
