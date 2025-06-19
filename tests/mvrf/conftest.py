@@ -99,12 +99,13 @@ def enable_queue_counterpoll_type(duthosts):
 
 
 def pytest_addoption(parser):
-    """
-    Adds options to pytest that are used by the snmp tests.
-    """
-    parser.addoption(
-        "--percentage",
-        action="store",
-        default=False,
-        help="Set percentage difference for snmp test",
-        type=int)
+    # Check if --percentage is already added
+    if not any(opt.dest == "percentage" for opt in parser._anonymous.options):
+        parser.addoption(
+            "--percentage",
+            action="store",
+            default=False,
+            help="Set percentage difference for snmp test",
+            type=int
+        )
+
