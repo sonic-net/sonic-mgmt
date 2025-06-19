@@ -2704,6 +2704,19 @@ voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortl
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
 
+voq/test_voq_counter.py::test_voq_drop_counter:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
+    conditions:
+      - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_queue_counter:
+  skip:
+    reason: "Skip test_voq_queue_counter for non broadcom-dnx 't2' platforms."
+    conditions:
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+
 voq/test_voq_fabric_capacity.py:
   skip:
     reason: "Skip test_voq_fabric_capacity on unsupported testbed."
