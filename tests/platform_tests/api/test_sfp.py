@@ -114,18 +114,19 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
-    # some new keys added for QSFP-DD and OSFP in 202205 or later branch
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['host_lane_count',
-                                                'media_lane_count',
-                                                'cmis_rev',
-                                                'host_lane_assignment_option',
-                                                'media_interface_technology',
-                                                'media_interface_code',
-                                                'host_electrical_interface',
-                                                'media_lane_assignment_option']
+    # some new keys added for CMIS optics in 202205 or later branch
+    EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
+                                        'media_lane_count',
+                                        'cmis_rev',
+                                        'host_lane_assignment_option',
+                                        'media_interface_technology',
+                                        'media_interface_code',
+                                        'host_electrical_interface',
+                                        'media_lane_assignment_option',
+                                        'vdm_supported']
 
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS = ['active_firmware',
-                                                         'inactive_firmware']
+    EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
+                                                 'inactive_firmware']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -141,7 +142,7 @@ class TestSfpApi(PlatformApiTestBase):
         'dom_capability'
     ]
 
-    EXPECTED_XCVR_BULK_STATUS_KEYS = [
+    EXPECTED_XCVR_DOM_REAL_VALUE_KEYS = [
         'temperature',
         'voltage',
         'rx1power',
@@ -422,8 +423,8 @@ class TestSfpApi(PlatformApiTestBase):
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS + \
                                 ["active_apsel_hostlane{}".format(n) for n in range(1, active_apsel_hostlane_count + 1)]
                             firmware_info_dict = sfp.get_transceiver_info_firmware_versions(platform_api_conn, i)
                             if self.expect(firmware_info_dict is not None,
@@ -458,7 +459,7 @@ class TestSfpApi(PlatformApiTestBase):
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_transceiver_bulk_status(self, duthosts, enum_rand_one_per_hwsku_hostname,
+    def test_get_transceiver_dom_real_value(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                          localhost, platform_api_conn, port_list_with_flat_memory): # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -468,18 +469,19 @@ class TestSfpApi(PlatformApiTestBase):
             if index_physical_port_map[i] in port_list_with_flat_memory[duthost.hostname]:
                 logger.info(f"skip test on spf {i} due to the port with flat memory")
                 continue
-            bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
-            if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
-                if self.expect(isinstance(bulk_status_dict, dict),
-                               "Transceiver {} bulk status appears incorrect".format(i)):
+            dom_real_value_dict = sfp.get_transceiver_dom_real_value(platform_api_conn, i)
+            if self.expect(dom_real_value_dict is not None,
+                           "Unable to retrieve transceiver {} dom real value status".format(i)):
+                if self.expect(isinstance(dom_real_value_dict, dict),
+                               "Transceiver {} dom real value appears incorrect".format(i)):
                     # TODO: This set of keys should be present no matter how many channels are present on the xcvr
                     #       If the xcvr has multiple channels, we should adjust the fields here accordingly
-                    actual_keys = list(bulk_status_dict.keys())
+                    actual_keys = list(dom_real_value_dict.keys())
 
-                    missing_keys = set(self.EXPECTED_XCVR_BULK_STATUS_KEYS) - set(actual_keys)
+                    missing_keys = set(self.EXPECTED_XCVR_DOM_REAL_VALUE_KEYS) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(
-                            False, "Transceiver {} bulk status does not contain field: '{}'".format(i, key))
+                            False, "Transceiver {} dom real value does not contain field: '{}'".format(i, key))
         self.assert_expectations()
 
     def test_get_transceiver_threshold_info(self, duthosts, enum_rand_one_per_hwsku_hostname,
