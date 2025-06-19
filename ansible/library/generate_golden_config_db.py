@@ -45,7 +45,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
 
 def is_full_lossy_hwsku(hwsku):
     """
-    Return True if the platform is lossy-only and PFCWD should default to ‘disable’.
+    Return True if the platform is lossy-only and PFCWD should default to 'disable'.
     """
     return hwsku in LOSSY_HWSKU
 
