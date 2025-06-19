@@ -95,6 +95,7 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* meta_sai_validate_route_entry:.* already exists.*",
         ".*ERR.* status: SAI_STATUS_ITEM_ALREADY_EXISTS.*",
         ".*ERR.* addRoutePost: Failed to create route.*",
+        ".*ERR.* handleSaiFailure: Encountered failure in create operation, SAI API: SAI_API_ROUTE.*",
         ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
