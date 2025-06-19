@@ -11,17 +11,17 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import copy
 import json
 import os
-import sys
 import subprocess
-import copy
+import sys
 import time
 from datetime import datetime, timezone
+from enum import Enum
 
 import requests
 import yaml
-from enum import Enum
 
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
@@ -270,6 +270,14 @@ class TestPlanManager(object):
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
         build_reason = kwargs.get("build_reason", "PullRequest")
+        lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", 0)
+        # If not set lock tb timeout, set to 2 hours for pr test plans by default
+        if lock_wait_timeout_seconds == 0 and test_plan_type == "PR":
+            lock_wait_timeout_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN_LOCK_TB", 7200))
+        # if not set test plan timeout, set to 6 hours for pr test plans by default
+        max_execute_seconds = kwargs.get("max_execute_seconds", 0)
+        if max_execute_seconds == 0 and test_plan_type == "PR":
+            max_execute_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN", 21600))
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -327,7 +335,7 @@ class TestPlanManager(object):
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
                 "asic_num": kwargs["num_asic"],
-                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
+                "lock_wait_timeout_seconds": lock_wait_timeout_seconds,
             },
             "test_option": {
                 "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
@@ -361,7 +369,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": max_execute_seconds,
             },
             "type": test_plan_type,
             "trigger": {
@@ -596,8 +604,8 @@ if __name__ == "__main__":
         type=int,
         dest="lock_wait_timeout_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max lock testbed wait seconds. None or the values <= 0 means endless."
     )
@@ -936,8 +944,8 @@ if __name__ == "__main__":
         type=int,
         dest="max_execute_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max execute seconds of the test plan."
     )
