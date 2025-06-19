@@ -161,9 +161,7 @@ generate_stubs() {
 }
 
 # Find all proto files
-find "$THIRD_PARTY_DIR" -name "*.proto" | while read proto_file; do
-    generate_stubs "$proto_file"
-done
+find "$THIRD_PARTY_DIR" -name "*.proto" -exec generate_stubs {} \;
 
 # Create __init__.py files for all directories
 find "$GENERATED_DIR" -type d | while read dir; do
