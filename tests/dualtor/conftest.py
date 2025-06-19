@@ -1,20 +1,25 @@
 import pytest
 import logging
 import json
+import random
 import time
 
 from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.helpers import bgp
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 copy_arp_responder_py   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import *                        # noqa: F401, F403
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import is_ipv4_address
 
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
+EXABGP_PORT_UPPER_TOR = 11000
+EXABGP_PORT_LOWER_TOR = 11001
 
 
 @pytest.fixture
@@ -124,8 +129,16 @@ def config_facts(rand_selected_dut):
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_device_interface):      # noqa: F811
+def test_device_interface(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_device_interface):
     """Setup the interfaces used by the new BGP sessions on PTF."""
+
+    if "dualtor" not in tbinfo['topo']['name']:
+        pytest.skip("This is only applicable for dualtor topology")
 
     def _find_test_lo_interface(mg_facts):
         for loopback in mg_facts["minigraph_lo_interfaces"]:
@@ -229,7 +242,10 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     try:
         ptfhost.shell("ifconfig %s %s" % (upper_tor_server_ptf_intf, upper_tor_server_ip))
         for conn in list(connections.values()):
-            ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
+            ptfhost.shell(
+                "ip route show %s | grep -q '%s' || ip route add %s via %s" %
+                (conn["local_addr"], vlan_intf_addr, conn["local_addr"], vlan_intf_addr)
+            )
         yield connections
     finally:
         upper_tor_host.shell("show arp")
