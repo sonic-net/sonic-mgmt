@@ -1130,7 +1130,7 @@ class QosSaiBase(QosBase):
                         (get_src_dst_asic_and_duts["src_asic"]
                          .sonichost.facts["hwsku"]
                          in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])
-                        or is_supported_per_dir):
+                            or is_supported_per_dir):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
