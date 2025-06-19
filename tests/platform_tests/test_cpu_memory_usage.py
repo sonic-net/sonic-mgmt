@@ -82,31 +82,31 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,
                             outstanding_procs_counter, proc)
-    cpu_used_percent = monit_result.processes[0]['cpu_percent']
-    memory_used_percent = monit_result.memory['used_percent']
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent)
+                               outstanding_procs_counter, persist_threshold)
 
 
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
-                               outstanding_procs_counter, persist_threshold, cpu_used_percent, memory_used_percent):
+                               outstanding_procs_counter, persist_threshold):
     persist_outstanding_procs = []
     reason = []
     for pid, freq in outstanding_procs_counter.most_common():
         if freq <= persist_threshold:
-            break
-        persist_outstanding_procs.append(pid)
+            continue
+        persist_outstanding_procs.append({"pid": pid, "freq": freq})
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
-            reason.append(f"system memory usage is {memory_used_percent}%, threshold is {memory_threshold}%")
+            all_used_percentage = [f"{per['used_percent']}%" for per in outstanding_mem_polls.values()]
+            reason.append(f"system memory usage is [{', '.join(all_used_percentage)}], threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
                 cpu_threshold,
-                [outstanding_procs[p] for p in persist_outstanding_procs]
+                [outstanding_procs[p['pid']] for p in persist_outstanding_procs]
             )
-            reason.append(f"system cpu usage is {cpu_used_percent}%, cpu threshold is {cpu_threshold}%")
+            all_freqs = [f"{proc['freq']}%" for proc in persist_outstanding_procs]
+            reason.append(f"system cpu usage is [{', '.join(all_freqs)}], cpu threshold is {cpu_threshold}%")
         pytest.fail("system cpu and memory usage check fails due to " + "; ".join(reason))
 
 
