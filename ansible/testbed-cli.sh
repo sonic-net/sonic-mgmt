@@ -587,6 +587,42 @@ function test_minigraph
   echo Done
 }
 
+function deploy_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying config to testbed '$testbed_name'"
+
+  read_nut_file $testbed_name
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+function generate_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Generate config for testbed '$testbed_name' for testing"
+
+  read_nut_file $testbed_name
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+
+  echo Done
+}
+
 function config_y_cable
 {
   testbed_name=$1
@@ -909,6 +945,10 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  deploy-cfg)  deploy_config $@
+               ;;
+  gen-cfg)     generate_config $@
                ;;
   config-y-cable) config_y_cable $@
                ;;
