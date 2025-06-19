@@ -126,5 +126,6 @@
       topo_name: "{{ topo }}"
       ptf_ip: "{{ ptf_host_ip }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      upstream_neighbor_groups: "{{ upstream_neighbor_groups | int }}"
     delegate_to: localhost
   when: exabgp_action == 'start'
