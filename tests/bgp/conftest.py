@@ -706,6 +706,14 @@ def pytest_addoption(parser):
         default=3,
         help="continuous reboot time number. default is 3"
     )
+    parser.addoption(
+        "--max_flap_neighbor_number",
+        action="store",
+        dest="max_flap_neighbor_number",
+        type=int,
+        default=None,
+        help="Max flap neighbor number, default is None"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
