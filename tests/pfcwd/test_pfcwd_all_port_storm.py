@@ -174,6 +174,23 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
+def resolve_arp(duthost, ptfhost, test_ports_info):
+    """
+    Populate ARP info for the DUT vlan port
+
+    Args:
+        ptfhost: ptf host instance
+        test_ports_info: test ports information
+    """
+    for port, port_info in test_ports_info.items():
+        if port_info['test_port_type'] == 'vlan':
+            neighbor_ip = port_info['test_neighbor_addr']
+            ptf_port = f"eth{port_info['test_port_id']}"
+            ptfhost.command(f"ifconfig {ptf_port} {neighbor_ip}")
+            duthost.command(f"docker exec -i swss arping {neighbor_ip} -c 5")
+            break
+
+
 @pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic') # noqa E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
@@ -234,8 +251,9 @@ class TestPfcwdAllPortStorm(object):
                 test_port = device_conn[intf]['peerport']
                 if test_port in setup_pfc_test['test_ports']:
                     selected_test_ports.append(test_port)
-
-        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
+        resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'])
+        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports'],
+                                     pkt_count=500):
             self.run_test(duthost,
                           storm_hndle,
                           expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
