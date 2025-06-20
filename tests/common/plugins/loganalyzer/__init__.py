@@ -87,7 +87,16 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if should_rotate_log and not is_modular_chassis:
         parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
     for duthost in duthosts:
-        analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name, request=request)
+        analyzer = LogAnalyzer(
+            ansible_host=duthost,
+            marker_prefix=request.node.name,
+            request=request,
+            dut_run_dir="/tmp",
+            additional_files={
+                "/var/log/frr/bgpd.log": "",
+                "/var/log/frr/zebra.log": ""
+            }
+        )
         analyzer.load_common_config()
         analyzers[duthost.hostname] = analyzer
     markers = parallel_run(analyzer_add_marker, [analyzers], {}, duthosts, timeout=120)
