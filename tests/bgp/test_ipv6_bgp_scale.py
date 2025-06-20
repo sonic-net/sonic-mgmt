@@ -186,26 +186,33 @@ def remove_nexthops_in_routes(routes, nexthops):
     return ret_routes
 
 
-def compare_routes(running_routes, expected_routes):
-    is_same = True
+def compare(routes_a, routes_b, additional_routes):
     diff_cnt = 0
-    if len(expected_routes) != len(running_routes):
-        is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
-                    len(expected_routes), len(running_routes))
-        return is_same
-    for prefix, attr in expected_routes.items():
-        if prefix not in running_routes:
-            is_same = False
+    for prefix, attr in routes_a.items():
+        if prefix not in routes_b:
+            if prefix in additional_routes:
+                continue
+            logger.info("Prefix {} unexpected".format(prefix))
             diff_cnt += 1
             continue
-        except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
-        running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
-        if except_nhs != running_nhs:
-            is_same = False
+        nhs_a = [nh['ip'] for nh in attr[0]['nexthops'] if "active" in nh and nh["active"]]
+        nhs_b = [nh['ip'] for nh in routes_b[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
+        if nhs_a != nhs_b:
             diff_cnt += 1
-    logger.info("%d of %d routes are different", diff_cnt, len(expected_routes))
-    return is_same
+    return diff_cnt
+
+
+def compare_routes(running_routes, expected_routes, expected_additional=[], running_additional=[]):
+    diff_cnt = 0
+    if len(expected_routes) != len(running_routes):
+        logger.warning("Count unmatch, expected_routes count=%d,  running_routes count=%d",
+                       len(expected_routes), len(running_routes))
+        if len(expected_additional) == 0 and len(running_additional) == 0:
+            return False
+    diff_cnt = compare(running_routes, expected_routes, running_additional)
+    diff_cnt += compare(expected_routes, running_routes, expected_additional)
+    logger.info("%d routes are different", diff_cnt)
+    return diff_cnt == 0
 
 
 def caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
@@ -280,9 +287,11 @@ def send_packets(
         rounds_cnt += 1
 
 
-def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME):
+def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME,
+                                      expected_additional=[], running_additional=[]):
     is_first_run = True
-    while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
+    while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes,
+                             expected_additional=expected_additional, running_additional=running_additional):
         if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout) and not is_first_run:
             logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
             logging.info("Expected routes: %s", expected_routes)
@@ -517,7 +526,8 @@ def test_device_unisolation(
     ptfadapter,
     bgp_peers_info,
     setup_packet_mask_counters,
-    announce_bgp_routes_teardown
+    announce_bgp_routes_teardown,
+    tbinfo
 ):
     '''
     This test is for the worst senario that all ports are flapped,
@@ -554,13 +564,18 @@ def test_device_unisolation(
     expected_routes = deepcopy(startup_routes)
     remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
     try:
+        # In T1 topo, upstream T2 and downstream T0 would announce default routes to DUT, but T0's default routes are
+        # with shorter as path. If T2 and T0 bgp sessions are all up, default routes announced by T0 would take effect
+        # After we shutdown all T0 bgp, default route wouldn't disappear, announced by T2 would take effect
+        running_additional = ["::/0"] if "t1" in tbinfo["topo"]["name"] else []
         duthost.shutdown_multiple(bgp_ports)
         ports_shut_time = datetime.datetime.now()
         recovered = wait_for_ipv6_bgp_routes_recovery(
             duthost,
             expected_routes,
             ports_shut_time,
-            MAX_CONVERGENCE_WAIT_TIME
+            MAX_CONVERGENCE_WAIT_TIME,
+            running_additional=running_additional
         )
         if not recovered:
             pytest.fail("BGP routes are not stable in long time")
