@@ -1,5 +1,11 @@
 import hashlib
-import imp
+try:
+    import importlib.util
+    import importlib.machinery
+    use_importlib = True
+except ImportError:
+    import imp
+    use_importlib = False
 import logging
 import os
 
@@ -10,9 +16,24 @@ from ansible.plugins import connection
 
 logger = logging.getLogger(__name__)
 
+
+def load_source(modname, filename):
+    loader = importlib.machinery.SourceFileLoader(modname, filename)
+    spec = importlib.util.spec_from_file_location(modname, filename, loader=loader)
+    module = importlib.util.module_from_spec(spec)
+    # The module is always executed and not cached in sys.modules.
+    # Uncomment the following line to cache the module.
+    # sys.modules[module.__name__] = module
+    loader.exec_module(module)
+    return module
+
+
 # HACK: workaround to import the SSH connection plugin
 _ssh_mod = os.path.join(os.path.dirname(connection.__file__), "ssh.py")
-_ssh = imp.load_source("_ssh", _ssh_mod)
+if use_importlib:
+    _ssh = load_source("_ssh", _ssh_mod)
+else:
+    _ssh = imp.load_source("_ssh", _ssh_mod)
 
 # Use same options as the builtin Ansible SSH plugin
 DOCUMENTATION = _ssh.DOCUMENTATION
