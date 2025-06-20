@@ -395,12 +395,12 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     SERVICES = [
         {"docker": "lldp", "service": "lldp-syncd"},
-        {"docker": "lldp", "service": "lldpd"},
-        {"docker": "bgp",  "service": "bgpd"},
-        {"docker": "bgp",  "service": "bgpmon"}
+        {"docker": "lldp", "service": "lldpd"}
     ]
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="stop", **service)
+
+    rand_selected_dut.shell("sudo config bgp shutdown all")
 
     asic = rand_selected_dut.get_asic_name()
     if 'spc' in asic:
@@ -413,6 +413,9 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     enable_container_autorestart(
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
+
+    rand_selected_dut.shell("sudo config bgp start all")
+
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
 
