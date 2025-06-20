@@ -1,6 +1,7 @@
 import logging
 import time
 import csv
+import json
 import os
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
@@ -14,8 +15,7 @@ from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_pause_flows, run_traffic                                       # noqa: F401
-import json
-from tests.snappi_tests.files.helper import get_fabric_mapping
+from tests.snappi_tests.files.helper import get_fabric_mapping, get_npu_voq_queue_counters
 
 logger = logging.getLogger(__name__)
 
@@ -26,25 +26,21 @@ PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
 
 
-def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
+def get_npu_voq_hbm(duthost, asic):
 
     asic_namespace_string = ""
-    if duthost.is_multi_asic:
-        asic = duthost.get_port_asic_instance(interface)
+    if asic:
         asic_namespace_string = " -n " + asic.namespace
 
-    clear_cmd = ""
-    if clear:
-        clear_cmd = " -c"
-
     full_line = "".join(duthost.shell(
-        "show platform npu voq queue_counters -t {} -i {} -d{}{}".
-        format(priority, interface, asic_namespace_string, clear_cmd))['stdout_lines'])
+        "show platform npu voq hbm {} -d".
+        format(asic_namespace_string))['stdout_lines'])
     dict_output = json.loads(full_line)
-    for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
-        dict_output[entry] = value
+    # for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
+    #    dict_output[entry] = value
 
     return dict_output
+
 
 #  When bp_fabric_ecn_marking_check is True
 #
@@ -1075,3 +1071,169 @@ def run_ecn_marking_ect_marked_pkts(
                         dut.hostname, tx_port['peer_port'], priority, pfc_count))
 
             pytest_assert(False, "No ECN marking in the data path")
+
+
+def run_voq_eviction_to_hbm(
+                            api,
+                            testbed_config,
+                            port_config_list,
+                            test_prio_list,
+                            prio_dscp_map,
+                            tx_port_index=1,
+                            snappi_extra_params=None):
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
+
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[tx_port_index]
+    ingress_duthost = tx_port['duthost']
+
+    hosts_to_stop_pfcwd = {
+        (egress_duthost, rx_port['asic_value']),
+        (ingress_duthost, tx_port['asic_value'])
+    }
+
+    logger.info("Stopping PFC watchdog")
+    for host, asic_value in hosts_to_stop_pfcwd:
+        stop_pfcwd(host, asic_value)
+
+    TEST_FLOW_NAME = 'Test Flow'
+    DATA_FLOW_PKT_SIZE = 1350
+    DATA_FLOW_DURATION_SEC = 2
+    DATA_FLOW_DELAY_SEC = 1
+
+    port_id = 0
+    # Generate base traffic config
+    base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
+                                                 port_config_list=port_config_list, port_id=port_id)
+
+    snappi_extra_params.base_flow_config = base_flow_config
+
+    # Set default traffic flow configs if not set
+    if snappi_extra_params.traffic_flow_config.data_flow_config is None:
+        snappi_extra_params.traffic_flow_config.data_flow_config = {
+            "flow_name": TEST_FLOW_NAME,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_rate_percent": 10,
+            "flow_rate_pps": None,
+            "flow_rate_bps": None,
+            "flow_pkt_size": DATA_FLOW_PKT_SIZE,
+            "flow_pkt_count": None,
+            "flow_delay_sec": DATA_FLOW_DELAY_SEC,
+            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+        }
+
+    testbed_config.flows.clear()
+
+    generate_test_flows(testbed_config=testbed_config,
+                        test_flow_prio_list=test_prio_list,
+                        prio_dscp_map=prio_dscp_map,
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=1)
+
+    flows = testbed_config.flows
+
+    all_flow_names = [flow.name for flow in flows]
+    data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
+
+    asic_instance = ingress_duthost.get_port_asic_instance(tx_port['peer_port'])
+
+    """ Run traffic """
+    _, _, _ = run_traffic(
+                        egress_duthost,
+                        api=api,
+                        config=testbed_config,
+                        data_flow_names=data_flow_names,
+                        all_flow_names=all_flow_names,
+                        exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                        DATA_FLOW_DELAY_SEC,
+                        snappi_extra_params=snappi_extra_params)
+
+    hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+    pytest_assert(len(hbm_json['Queues']) == 0, "VoQ eviction to HBM not expected when no congestion is induced")
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+
+    if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
+        snappi_extra_params.traffic_flow_config.pause_flow_config = {
+            "flow_name": PAUSE_FLOW_NAME,
+            "flow_dur_sec": None,
+            "flow_rate_percent": None,
+            "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
+            "flow_rate_bps": None,
+            "flow_pkt_size": 64,
+            "flow_pkt_count": None,
+            "flow_delay_sec": 0,
+            "flow_traffic_type": traffic_flow_mode.CONTINUOUS
+        }
+
+    def run_voq_eviction_test(pause_prio_list, expected_voq_count, err_msg):
+        # Remove any existing pause flow
+        for index, flow in list(enumerate(testbed_config.flows)):
+            if PAUSE_FLOW_NAME in flow.name:
+                testbed_config.flows.remove(index)
+
+        # Generate pause flows
+        generate_pause_flows(
+            testbed_config=testbed_config,
+            pause_prio_list=pause_prio_list,
+            global_pause=False,
+            snappi_extra_params=snappi_extra_params
+        )
+
+        # Apply and run the config
+        api.set_config(testbed_config)
+
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
+
+        time.sleep(1)
+        hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
+
+        pytest_assert(len(hbm_json['Queues']) == expected_voq_count, err_msg)
+        time.sleep(1)
+
+        hbm_json = get_npu_voq_hbm(ingress_duthost, asic_instance)
+        pytest_assert(len(hbm_json['Queues']) == 0, 'VoQ should be unevicted from HBM when the pause flow is stopped')
+
+    # First test with both priorities
+    run_voq_eviction_test(
+        pause_prio_list=test_prio_list,
+        expected_voq_count=2,
+        err_msg="VoQ eviction to HBM expected for both TC"
+    )
+
+    # Test with only the first priority
+    run_voq_eviction_test(
+        pause_prio_list=[test_prio_list[0]],
+        expected_voq_count=1,
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[0])
+    )
+
+    # Test with only the second priority
+    run_voq_eviction_test(
+        pause_prio_list=[test_prio_list[1]],
+        expected_voq_count=1,
+        err_msg="VoQ eviction to HBM expected for TC : {}".format(test_prio_list[1])
+    )
+
+    # Test case 4: no pause priorities
+    run_voq_eviction_test(
+        pause_prio_list=[],
+        expected_voq_count=0,
+        err_msg="VoQ eviction to HBM not expected when no pause priorities are set"
+    )
