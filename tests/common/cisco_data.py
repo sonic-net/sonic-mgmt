@@ -1,6 +1,7 @@
 import json
 import re
 from tests.common.reboot import reboot
+from tests.common.utilities import wait_until
 
 
 def is_cisco_device(dut):
@@ -106,3 +107,9 @@ def check_dshell_ready(duthost):
     if err_msg in output:
         return False
     return True
+
+
+def run_dshell_command(duthost, command):
+    if not wait_until(300, 20, 0, check_dshell_ready, duthost):
+        raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
+    return duthost.shell(command)
