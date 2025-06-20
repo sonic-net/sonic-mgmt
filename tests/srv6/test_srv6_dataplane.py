@@ -399,11 +399,16 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
-def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, with_srh):
+def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, with_srh, loganalyzer):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
+
+    # Reloading the configuration will restart eth0 and update the TACACS settings.
+    # This change may introduce a delay, potentially causing temporary TACACS reporting errors.
+    loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
+                                                       r".*nss_tacplus: .*"])
 
     # verify the forwarding works
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
