@@ -57,8 +57,6 @@ class GitHubIssueChecker(IssueCheckerBase):
         direct_url = self.api_url
         proxy_url = os.getenv("SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL")
 
-        logger.info(f"[chunangli]proxy_url: {proxy_url}")
-
         issue_data = None
 
         # Attempt to access via proxy first (if configured)
@@ -68,7 +66,6 @@ class GitHubIssueChecker(IssueCheckerBase):
         if proxy_url:
             try:
                 proxy_endpoint = f"{proxy_url.rstrip('/')}/?{urlencode({'github_issue_url': direct_url})}"
-                logger.info(f"[chunangli]proxy_endpoint: {proxy_endpoint}")
                 logger.info("Attempting to access GitHub API via proxy.")
                 issue_data = fetch_issue(proxy_endpoint)
             except Exception as proxy_err:
