@@ -149,6 +149,12 @@ steps:
             tcam_hole_option=--tcam_hole
         fi
 
+        if [[ ${{ parameters.VM_TYPE }} == "ceos" ]]; then
+            if [[ "${{ parameters.TESTBED_NAME }}" == *"7060"* || "${{ parameters.TESTBED_NAME }}" == *"2700"* ]]; then
+                ceos_lacp_multiplier_option="--ceos_neighbor_lacp_multiplier=5"
+            fi
+        fi
+
         if [[ ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }} == True ]]; then
             CONSISTENCY_CHECKER_ARGS="--enable_consistency_checker"
             CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_libsairedis_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/libsairedis_1.0.0_amd64.deb"
@@ -213,7 +219,7 @@ steps:
                 echo From URL is $from_url
                 echo To URL is $to_url
 
-                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $CONSISTENCY_CHECKER_ARGS"
+                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
 
                 if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                     EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -264,7 +270,7 @@ steps:
             hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
             popd
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $CONSISTENCY_CHECKER_ARGS"
+            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
