@@ -1,11 +1,4 @@
 ---
-- name: replace config_db.json with the new one
-  become: true
-  copy:
-    src: /tmp/config_db_new.json
-    dest: /etc/sonic/config_db.json
-    remote_src: true
-
 - name: reload config to pick up new config_db.json
   command: config reload -yf
   become: true
@@ -22,10 +15,6 @@
     timeout: 600
   changed_when: false
 
-- name: reload qos config
+- name: bring up all bgp sessions for test
   become: true
-  shell: config qos reload --no-dynamic-buffer
-
-- name: save the configuration
-  become: true
-  shell: config save -y
+  shell: config bgp startup all

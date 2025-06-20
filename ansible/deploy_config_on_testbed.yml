@@ -4,4 +4,4 @@
   roles:
   - testbed/prepare
   - testbed/nut
-  # - testbed/finalize
+  - testbed/finalize

@@ -6,3 +6,5 @@
   when: deploy is defined and deploy | bool == true
 
 - import_tasks: setup_core_uploader.yml
+
+- import_tasks: final_config_reload.yml
