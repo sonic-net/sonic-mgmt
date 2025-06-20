@@ -345,3 +345,9 @@ r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22348
 r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33411748
+r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33376635
+r, ".* ERR kernel.*audit: rate limit exceeded.*"
