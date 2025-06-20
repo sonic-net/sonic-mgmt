@@ -10,6 +10,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.enable_active_active
 @pytest.mark.parametrize("test_device_interface", ["Loopback3", "Loopback1"], indirect=True)
 def test_bgp_block_loopback1(
     bgp_neighbors, upper_tor_host, lower_tor_host,                  # noqa: F811
@@ -36,15 +37,19 @@ def test_bgp_block_loopback1(
         lower_tor_bgp_neighbor.start_session()
         upper_tor_bgp_neighbor.start_session()
 
-        time.sleep(10)  # wait for BGP sessions to establish
+        time.sleep(30)  # wait for BGP sessions to establish
 
         # STEP 2: verify BGP sessions are established
         if setup_interfaces["upper_tor"]["local_intf"] == "Loopback1":
             verify_bgp_session(upper_tor_host, upper_tor_bgp_neighbor, should_be_established=False)
-            verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor, should_be_established=False)
         else:
             verify_bgp_session(upper_tor_host, upper_tor_bgp_neighbor, should_be_established=True)
+
+        if setup_interfaces["lower_tor"]["local_intf"] == "Loopback1":
+            verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor, should_be_established=False)
+        else:
             verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor, should_be_established=True)
+
     finally:
         upper_tor_bgp_neighbor.stop_session()
         lower_tor_bgp_neighbor.stop_session()
