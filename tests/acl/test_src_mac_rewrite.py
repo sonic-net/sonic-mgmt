@@ -460,16 +460,16 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
     vnet_1 = "Vnet1"
     vnet_2 = "Vnet2"
     vxlan_tunnel_name = "vtep_v4"
+    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     original_inner_src_mac = "00:66:77:88:99:aa"
     first_modified_mac = "00:11:22:33:44:55"
     second_modified_mac = "00:aa:bb:cc:dd:ee"
-    outer_src_mac = "00:11:22:33:44:66"
+    outer_src_mac = ptfadapter.dataplane.get_mac(0, ptf_port_1)
     outer_dst_mac = duthost.facts['router_mac']
     outer_dst_ip = "20.1.1.1"
     RULE_NAME = "rule_1"
     table_name = ACL_TABLE_NAME
-    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
 
     # === Program VXLAN_TUNNEL and VNET config ===
     logger.info("Configuring VXLAN_TUNNEL and VNETs with Loopback IP")
@@ -582,10 +582,11 @@ def test_multiple_acl_rules_inner_src_mac_rewrite(duthost, ptfadapter, prepare_t
         }
     ]
 
+    ptf_port_1, ptf_port_2, dut_port_1, dut_port_2 = prepare_test_ports
     inner_dst_ip = "192.168.0.100"
     original_inner_src_mac = "00:66:77:88:99:aa"
     vni_id = 5000
-    outer_src_mac = "00:11:22:33:44:66"
+    outer_src_mac = ptfadapter.dataplane.get_mac(0, ptf_port_1)
     outer_dst_mac = duthost.facts['router_mac']
     outer_src_ip = "10.1.1.1"
     outer_dst_ip = "20.1.1.1"
