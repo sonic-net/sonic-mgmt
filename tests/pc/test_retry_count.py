@@ -200,7 +200,7 @@ def check_lacpdu_packet_version(duthost):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
+def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers, collect_techsupport_all_nbrs):
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
@@ -215,7 +215,7 @@ def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut):
+def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut, collect_techsupport_all_nbrs):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
         duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
