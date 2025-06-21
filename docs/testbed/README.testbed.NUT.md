@@ -443,7 +443,7 @@ To verify that routes are being correctly advertised, we can run `show ip route 
 
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> gen-cfg <testbed-name> <inventory-name> <password-file>
-./testbed-cli.sh -t testbed.nut.yaml gen-cfg testbed-nut-1 ixia ../../password.txt
+./testbed-cli.sh -t testbed.nut.yaml gen-cfg nut-testbed-1 ixia ../../password.txt
 ```
 
 The configuration will be generated into a few places:
@@ -457,5 +457,5 @@ The configuration will be generated into a few places:
 
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> deploy-cfg <testbed-name> <inventory-name> <password-file>
-./testbed-cli.sh -t testbed.nut.yaml deploy-cfg testbed-nut-1 ixia ../../password.txt
+./testbed-cli.sh -t testbed.nut.yaml deploy-cfg nut-testbed-1 ixia ../../password.txt
 ```
