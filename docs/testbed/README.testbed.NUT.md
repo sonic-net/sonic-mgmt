@@ -13,7 +13,7 @@
       1. [4.4.1. Enable BGP Feature](#441-enable-bgp-feature)
       2. [4.4.2. Interface IP assignment](#442-interface-ip-assignment)
       3. [4.4.3. Generate BGP Neighbor configuration](#443-generate-bgp-neighbor-configuration)
-   5. [4.5. Load config](#45-load-config)
+   5. [4.5. Apply config](#45-apply-config)
 5. [5. Traffic generator setup](#5-traffic-generator-setup)
    1. [5.1. Port configuration](#51-port-configuration)
    2. [5.2. Routes advertisement](#52-routes-advertisement)
@@ -402,13 +402,16 @@ To enable BGP sessions, the BGP neighbor configuration must be generated for eac
 </tr>
 </table>
 
-### 4.5. Load config
+### 4.5. Apply config
 
 After all the configuration patches are generated, the `deploy-cfg` command will
 
 1. Apply all patches to the clean initial configuration generated in the first step, using `jsonpatch` command.
 2. Backup and replace the original `config_db.json` with the newly generated one.
 3. Run `config reload` to apply the new configuration.
+4. Run `config qos reload` to apply the new QoS configuration, if any.
+5. Finish some common post-configuration tasks, such as deploy certificates, enable core analyzer and etc.
+6. Run a final config save and config reload to ensure all changes are applied.
 
 Once the configurations are applied, the BGP session will be established, and the switches will begin exchanging routing information.
 
