@@ -251,6 +251,7 @@ class VMTopology(object):
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
+        self._is_multi_duts = True if len(self.duts_name) > 1 else False
 
         if ptf_exists:
             self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
@@ -286,13 +287,31 @@ class VMTopology(object):
                         self.VMs[k] = v
 
         if check_bridge:
-            for hostname, attrs in self.VMs.items():
-                vmname = self.vm_names[self.vm_base_index +
-                                       attrs['vm_offset']]
-                vm_bridges = self.get_vm_bridges(vmname)
-                if len(attrs['vlans']) > len(vm_bridges):
-                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                    % (hostname, vmname, len(vm_bridges)))
+            if self._is_multi_duts:
+                for hostname, attrs in self.VMs.items():
+                    vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                    vm_bridges = self.get_vm_bridges(vmname)
+                    if len(attrs['vlans']) > len(vm_bridges):
+                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
+                                        % (hostname, vmname, len(vm_bridges)))
+            # The approach below offers a vast speed improvement for performing check_bridge (particularly for
+            # topologies with a large number of interfaces, but it does not work for multi-dut approaches such as
+            # dualtor, hence why the former approach is preserved above for that case.
+            else:
+                # Get the intf information in a tabulated format. Discard the header row.
+                intf_rows = VMTopology.cmd('ifconfig -a -s').split('\n')[1:]
+                # Keep first column only.
+                intf_names = [ row.split(' ')[0] for row in intf_rows ]
+                for hostname, attrs in self.VMs.items():
+                    vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                    vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
+                    num_intfs = 0
+                    for intf in intf_names:
+                        if re.search(vm_bridge_regx, intf):
+                            num_intfs += 1
+                    if len(attrs['vlans']) > num_intfs:
+                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
+                                        % (hostname, vmname, num_intfs))
 
         self.VM_LINKs = {}
         if 'VM_LINKs' in self.topo:
@@ -304,7 +323,6 @@ class VMTopology(object):
             for k, v in self.topo['OVS_LINKs'].items():
                 self.OVS_LINKs[k] = v
 
-        self._is_multi_duts = True if len(self.duts_name) > 1 else False
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
