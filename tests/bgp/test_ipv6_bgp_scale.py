@@ -131,7 +131,7 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
         path="../ansible/",
         log_path="logs",
         dut_interfaces=dut_interfaces,
-        upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else None
+        upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else 0
     )
 
 
