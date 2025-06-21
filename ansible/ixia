@@ -408,9 +408,9 @@ sonic_nvidia_sn5640_stress:
     str-sn5640-stress-11:
       ansible_host: 10.64.246.88
     str-sn5640-stress-12:
-      ANSIBLE_HOST: 10.64.246.89
+      ansible_host: 10.64.246.89
     str-sn5640-snake-1:
-      ANSIBLE_HOST: 10.64.246.106
+      ansible_host: 10.64.246.106
   vars:
     hwsku: Mellanox-SN5640-C512S2
     iface_speed: 100000

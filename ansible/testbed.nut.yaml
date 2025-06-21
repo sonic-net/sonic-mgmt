@@ -1,0 +1,76 @@
+---
+- name: nut-testbed-1
+  comment: "Example testbed for NUT with multi-tier topology"
+  inv_name: lab
+  test_tags: []
+  duts:
+    - switch-t0-01
+    - switch-t0-02
+    - switch-t1-01
+    - switch-t1-02
+  dut_templates:
+    - name: ".*-t0-.*"
+      type: "BackEndToRRouter"
+      loopback_v4: "10.1.0.0/24"
+      loopback_v6: "2064:100:0:0::/64"
+      asn_base: 64001
+      asn_step: 1
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+    - name: ".*-t1-.*"
+      type: "BackEndLeafRouter"
+      loopback_v4: "10.1.1.0/24"
+      loopback_v6: "2064:100:0:1::/64"
+      asn_base: 65001
+      asn_step: 0
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+  tgs:
+    - tgen-1
+    - tgen-2
+  tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  auto_recover: 'True'
+
+- name: nut-sn5640-stress-1
+  comment: "Testbed for NUT with multi-tier topology"
+  inv_name: ixia
+  test_tags: [ snappi-capacity ]
+  duts:
+    - str-sn5640-stress-01
+    - str-sn5640-stress-02
+    - str-sn5640-stress-03
+    - str-sn5640-stress-04
+    - str-sn5640-stress-11
+    - str-sn5640-stress-12
+  dut_templates:
+    - name: ".*-0[0-9]$"
+      type: "BackEndToRRouter"
+      loopback_v4: "10.1.0.0/24"
+      loopback_v6: "2064:100:0:0::/64"
+      asn_base: 64001
+      asn_step: 1
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+      extra_meta:
+        region: "ussouth"
+        mgmt_type: "FairWater"
+        resource_type: "Azure"
+    - name: ".*-1[0-9]$"
+      type: "BackEndLeafRouter"
+      loopback_v4: "10.1.1.0/24"
+      loopback_v6: "2064:100:0:1::/64"
+      asn_base: 65001
+      asn_step: 0
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+      extra_meta:
+        region: "ussouth"
+        mgmt_type: "FairWater"
+        resource_type: "Azure"
+  tgs:
+    - msr-ixia-aresone-800ge-1
+    - msr-ixia-aresone-800ge-2
+    - msr-ixia-aresone-800ge-3
+    - msr-ixia-aresone-800ge-4
+  tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  auto_recover: 'True'
