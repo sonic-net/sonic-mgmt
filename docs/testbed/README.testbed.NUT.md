@@ -13,7 +13,7 @@
       1. [4.4.1. Enable BGP Feature](#441-enable-bgp-feature)
       2. [4.4.2. Interface IP assignment](#442-interface-ip-assignment)
       3. [4.4.3. Generate BGP Neighbor configuration](#443-generate-bgp-neighbor-configuration)
-   5. [4.5. Verifying BGP Establishment](#45-verifying-bgp-establishment)
+   5. [4.5. Load config](#45-load-config)
 5. [5. Traffic generator setup](#5-traffic-generator-setup)
    1. [5.1. Port configuration](#51-port-configuration)
    2. [5.2. Routes advertisement](#52-routes-advertisement)
@@ -108,9 +108,9 @@ The current testbed yaml definition is not designed to support NUT, so we will c
     - switch-t1-2
     - switch-t2-1
   dut_template:
-    - { name: ".*-t0-.*", type: "ToRRouter", loopback_v4: "100.1.0.0/24", loopback_v6: "2064:100:0:0::/64", start_asn: 64001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-    - { name: ".*-t1-.*", type: "LeafRouter", loopback_v4: "100.1.1.0/24", loopback_v6: "2064:100:0:1::/64", start_asn: 65001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-    - { name: ".*-t2-.*", type: "SpineRouter", loopback_v4: "100.1.2.0/24", loopback_v6: "2064:100:0:2::/64", start_asn: 63001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+    - { name: ".*-t0-.*", type: "ToRRouter", loopback_v4: "100.1.0.0/24", loopback_v6: "2064:100:0:0::/64", asn_base: 64001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+    - { name: ".*-t1-.*", type: "LeafRouter", loopback_v4: "100.1.1.0/24", loopback_v6: "2064:100:0:1::/64", asn_base: 65001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+    - { name: ".*-t2-.*", type: "SpineRouter", loopback_v4: "100.1.2.0/24", loopback_v6: "2064:100:0:2::/64", asn_base: 63001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
   tg:
     - tg-1
   tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
@@ -123,14 +123,16 @@ The current testbed yaml definition is not designed to support NUT, so we will c
 
 ### 4.1. Initial config generation
 
-First, the device basic config must be generated using the device information defined in the `sonic_*_devices.csv` file. The `deploy-cfg` command will first read the device definitions from `sonic_*_devices.csv` file, then use `sonic-cfggen` to generate the basic configuration based on the HWSKU and save it to disk, as below:
+First of all, an initial configuration needs to be generated for applying our testbed setup, such as port, IP and BGP configs. At this step, the `deploy-cfg` command will:
 
-```bash
-sonic-cfggen -H -k <hwsku-name> --write-to-db
-config save -y
-```
+1. First, use jq to backup some tables from the existing `config_db.json`. This allows us to preserve some settings, that might comes from manual fixes, such as DEVICE_METADATA, FEATURE, NTP and etc.
+2. Second, use `sonic-cfggen` to load the backup `config_db.json` and generate a clean initial configuration based on the HWSKU and save it to disk, as below:
 
-After this, all other changes will be made to the config DB via standard GCU (Generic Config Update) commands.
+  ```bash
+  sonic-cfggen -H -k <hwsku-name> --json /tmp/config_db_keep.json --print-data > /tmp/config_db_clean.json
+  ```
+
+After this, all other changes will be made to the config DB via json patches.
 
 ### 4.2. Generate device metadata
 
@@ -181,7 +183,7 @@ The detailed step follows the following algorithm:
 
 ### 4.3. Generate port config
 
-With the link definition, the port configuration will be update on the T0 switch during `deploy-cfg`, which setup port speed, FEC, auto negotiation, and other port attributes.
+`deploy-cfg` will also load the connection graph defined in `sonic_*_devices.csv` file, and use it to generate all the port configurations, which setup port speed, FEC, auto negotiation, and other port attributes.
 
 ```json
 [
@@ -400,9 +402,15 @@ To enable BGP sessions, the BGP neighbor configuration must be generated for eac
 </tr>
 </table>
 
-### 4.5. Verifying BGP Establishment
+### 4.5. Load config
 
-Once the configurations are applied, the BGP session will be established, and the switches will begin exchanging routing information. Proper verification using `show bgp summary` and `show bgp neighbors` commands can be conducted to confirm session establishment and route propagation.
+After all the configuration patches are generated, the `deploy-cfg` command will
+
+1. Apply all patches to the clean initial configuration generated in the first step, using `jsonpatch` command.
+2. Backup and replace the original `config_db.json` with the newly generated one.
+3. Run `config reload` to apply the new configuration.
+
+Once the configurations are applied, the BGP session will be established, and the switches will begin exchanging routing information.
 
 ## 5. Traffic generator setup
 
@@ -435,7 +443,7 @@ To verify that routes are being correctly advertised, we can run `show ip route 
 
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> gen-cfg <testbed-name> <inventory-name> <password-file>
-./testbed-cli.sh -t testbed.nut.yaml gen-cfg testbed-nut-1 ixia ../../password.txt 
+./testbed-cli.sh -t testbed.nut.yaml gen-cfg testbed-nut-1 ixia ../../password.txt
 ```
 
 The configuration will be generated into a few places:
@@ -449,5 +457,5 @@ The configuration will be generated into a few places:
 
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> deploy-cfg <testbed-name> <inventory-name> <password-file>
-./testbed-cli.sh -t testbed.nut.yaml deploy-cfg testbed-nut-1 ixia ../../password.txt 
+./testbed-cli.sh -t testbed.nut.yaml deploy-cfg testbed-nut-1 ixia ../../password.txt
 ```
