@@ -67,6 +67,12 @@ x86_64-nvidia_sn4280-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+arm64-nvda_bf-bf3comdpu:
+  default:
+    valid_timeout: 45
+    greater_timeout: 100
+    too_big_timeout: 66000
+
 # Dell watchdog
 x86_64-dell.*:
   default:
