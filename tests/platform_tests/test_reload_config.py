@@ -60,7 +60,16 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
-        assert wait_until(360, 20, 0, config_system_checks_passed, duthost)
+        assert wait_until(360, 20, 0, config_system_checks_passed, duthost), (
+            "System checks did not pass within the allotted time after config reload. "
+            "Hostname: {}\n"
+            "Platform: {}\n"
+            "HWSKU: {}\n"
+        ).format(
+            duthost.hostname,
+            duthost.facts.get("platform"),
+            duthost.facts.get("hwsku")
+        )
 
     logging.info("Reload configuration")
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
@@ -73,8 +82,20 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.facts["platform"] in ["x86_64-cel_e1031-r0", "x86_64-88_lc0_36fh_m-r0"]:
         max_wait_time_for_transceivers = 900
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
-                      duthost, interfaces, xcvr_skip_list), "Not all transceivers are detected \
-    in {} seconds".format(max_wait_time_for_transceivers)
+                      duthost, interfaces, xcvr_skip_list), (
+        "Not all transceivers detected in {timeout} seconds. "
+        "- Hostname: {hostname}\n"
+        "- Platform: {platform}\n"
+        "- HWSKU: {hwsku}\n"
+        "- Interfaces checked: {interfaces}\n"
+        "- Max wait time (seconds): {timeout}"
+    ).format(
+        timeout=max_wait_time_for_transceivers,
+        hostname=duthost.hostname,
+        platform=duthost.facts.get('platform'),
+        hwsku=duthost.facts.get('hwsku'),
+        interfaces=list(interfaces.keys())
+    )
 
     logging.info("Check transceiver status")
     for asic_index in duthost.get_frontend_asic_ids():
@@ -170,26 +191,70 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Reload configuration check")
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     # config reload command shouldn't work immediately after system reboot
-    assert result and "Retry later" in out['stdout']
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert result and "Retry later" in out['stdout'], (
+        "The config reload command did not return the expected 'Retry later' message. "
+        "Output: '{}'\n"
+        "Hostname: {}\n"
+        "Platform: {}\n"
+        "HWSKU: {}\n"
+    ).format(
+        out['stdout'],
+        duthost.hostname,
+        duthost.facts.get("platform"),
+        duthost.facts.get("hwsku")
+    )
+
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
 
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
-        assert wait_until(300, 10, 0, check_docker_status, duthost)
+        assert wait_until(300, 10, 0, check_docker_status, duthost), (
+            "Not all Docker containers reached the 'fully started' state within 300 seconds "
+            "after config reload on '{}'."
+        ).format(duthost.hostname)
+
         # To ensure the system is stable enough, wait for another 30s
         time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" not in out['stdout']
+    assert result and "Retry later" not in out['stdout'], (
+        "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
+        "Output: '{}'\n"
+        "Hostname: {}\n"
+        "Platform: {}\n"
+        "HWSKU: {}\n"
+    ).format(
+        out['stdout'],
+        duthost.hostname,
+        duthost.facts.get("platform"),
+        duthost.facts.get("hwsku")
+    )
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" in out['stdout']
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert result and "Retry later" in out['stdout'], (
+        "The config reload command did not return the expected 'Retry later' message. "
+        "Output: '{}'\n"
+        "Hostname: {}\n"
+        "Platform: {}\n"
+        "HWSKU: {}\n"
+    ).format(
+        out['stdout'],
+        duthost.hostname,
+        duthost.facts.get("platform"),
+        duthost.facts.get("hwsku")
+    )
+
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
+
     # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
     wait_critical_processes(duthost)
     logging.info("Stopping swss docker and checking config reload")
@@ -201,11 +266,35 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     # Without swss running config reload option should not proceed
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" in out['stdout']
+    assert result and "Retry later" in out['stdout'], (
+        "The config reload command did not return the expected 'Retry later' message. "
+        "Output: '{}'\n"
+        "Hostname: {}\n"
+        "Platform: {}\n"
+        "HWSKU: {}\n"
+    ).format(
+        out['stdout'],
+        duthost.hostname,
+        duthost.facts.get("platform"),
+        duthost.facts.get("hwsku")
+    )
 
     # However with force option config reload should proceed
     logging.info("Performing force config reload")
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
-    assert "Retry later" not in out['stdout']
+    assert "Retry later" not in out['stdout'], (
+        "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
+        "Output: '{}'\n"
+        "Hostname: {}\n"
+        "Platform: {}\n"
+        "HWSKU: {}\n"
+    ).format(
+        out['stdout'],
+        duthost.hostname,
+        duthost.facts.get("platform"),
+        duthost.facts.get("hwsku")
+    )
 
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services)
+    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
+    ).format(duthost.hostname, delayed_services)
