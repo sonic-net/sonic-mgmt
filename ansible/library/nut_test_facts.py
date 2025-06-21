@@ -13,7 +13,7 @@ version_added:  1.0.0.0
 short_description: get lab network under test (NUT) testbed information
 options:
     - testbed_file:
-      Description: the CSV file name which describe all testbeds
+      Description: The YAML file name which describe all testbeds
       Default: NUT_TESTBED_FILE
       required: False
     - testbed_name:
@@ -29,7 +29,7 @@ EXAMPLES = '''
           test_tags: [ snappi-capacity ]
           duts:
             - switch-t0-1
-            - switch-t1-1
+            - ...
           dut_templates:
             - name: ".*-t0-.*"
               type: "ToRRouter"
@@ -38,16 +38,14 @@ EXAMPLES = '''
               asn_base: 64001
               p2p_v4: "10.0.0.0/16"
               p2p_v6: "fc0a::/64"
-            - name: ".*-t1-.*"
-              type: "LeafRouter"
-              loopback_v4: "100.1.1.0/24"
-              loopback_v6: "2064:100:0:1::/64"
-              asn_base: 65001
-              p2p_v4: "10.0.0.0/16"
-              p2p_v6: "fc0a::/64"
+              extra_meta:
+                cloudtype: "Public"
+                ...
+            - ....
           tgs:
             - tg-1
-          tg_asn_base: 60001
+            - ...
+          tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
           inv_name: lab
           auto_recover: 'True'
           comment: "Testbed for NUT with multi-tier topology"
@@ -57,7 +55,7 @@ EXAMPLES = '''
       nut_test_facts:
 
     - name: get testbed-nut-1 topology information
-      nut_test_facts: testbed_name="testbed-nut-1"
+      nut_test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
 '''
 
 RETURN = '''
@@ -66,7 +64,7 @@ RETURN = '''
             "testbed-nut-1": {
                 "name": "testbed-nut-1",
                 "test_tags": [ "snappi-capacity" ],
-                "duts": [ "switch-t0-1", "switch-t1-1" ],
+                "duts": [ "switch-t0-1", ... ],
                 "dut_templates": [{
                     "name": ".*-t0-.*"
                     "type": "ToRRouter"
@@ -74,10 +72,16 @@ RETURN = '''
                     "loopback_v6": "2064:100:0:0::/64"
                     "asn_base": 64001
                     "p2p_v4": "10.0.0.0/16"
-                    "p2p_v6": "fc0a::/64"
+                    "p2p_v6": "fc0a::/64",
+                    "extra_meta": { "cloudtype": "Public", ... }
                 }, ...]
-                "tgs": [ "tg-1" ],
-                "tg_asn_base": 60001,
+                "tgs": [ "tg-1", ... ],
+                "tg_template": {
+                    "type": "Server",
+                    "asn_base": 60001,
+                    "p2p_v4": "10.0.0.0/16",
+                    "p2p_v6": "fc0a::/64"
+                }
             }
             ....
         }

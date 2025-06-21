@@ -46,15 +46,17 @@ EXAMPLES = '''
             "test_tags": [ "snappi-capacity" ],
             "duts": [ "switch-t0-1", "switch-t1-1" ],
             "dut_templates": [{
-                "name": ".*-t0-.*"
-                "type": "ToRRouter"
-                "loopback_v4": "100.1.0.0/24"
-                "loopback_v6": "2064:100:0:0::/64"
-                "asn_base": 64001
-                "p2p_v4": "10.0.0.0/16"
-                "p2p_v6": "fc0a::/64"
+                "name": ".*-t0-.*",
+                "type": "ToRRouter",
+                "loopback_v4": "100.1.0.0/24",
+                "loopback_v6": "2064:100:0:0::/64",
+                "asn_base": 64001,
+                "p2p_v4": "10.0.0.0/16",
+                "p2p_v6": "fc0a::/64",
+                ...
             }, ...]
             "tgs": [ "tg-1" ],
+            ...
         }
 
     Input connection facts:
@@ -77,7 +79,7 @@ EXAMPLES = '''
             "device_vlan_range": {
                 "VlanRange": "201-980,1041-1100"
             },
-            "device_vlan_port:=: {
+            "device_vlan_port": {
                 ...
                 "Ethernet44": {
                   "vlanids": "801-860",
@@ -107,7 +109,20 @@ RETURN = '''
                 "bgp_router_id": "100.1.0.1",
             }
         },
-        "device_bgp_neighbors": {
+        "device_bgp_neighbor_devices": {
+            "switch-t0-1": {
+                "switch-t1-1": {
+                    "type": "LeafRouter",
+                    "hwsku": "SomeHwSku",
+                    "loopback_v4": "10.0.0.1/32",
+                    "loopback_v6": "fc0a::1/128",
+                    "mgmt_v4": "10.1.0.1/24",
+                    "mgmt_v6": "fc0a::1/64"
+                },
+                ...
+            }
+        },
+        "device_bgp_neighbor_ports": {
             "tg-1": {
                 "Port1.1": {
                     "p2p_v4_subnet": "10.0.0.1",
@@ -238,8 +253,11 @@ class GenerateDeviceConfig():
         """
         Set device metadata such as loopback IPs, BGP ASN, and router ID based on the device template.
         """
-        logging.debug(f"Setting device type for {dut}: {self.device_templates[dut]['type']}")
         self.device_meta[dut]['type'] = self.device_templates[dut]['type']
+        logging.debug(f"Setting device type for {dut}: {self.device_meta[dut]['type']}")
+
+        self.device_meta[dut]['extra_meta'] = self.device_templates[dut].get('extra_meta', {})
+        logging.debug(f"Setting device extra meta for {dut}: {self.device_meta[dut]['extra_meta']}")
 
     def _allocate_dut_loopback_ip(self, index, dut):
         """
