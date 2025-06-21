@@ -15,12 +15,25 @@ class NtpDaemon(Enum):
 @contextmanager
 def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
+    ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
+    ntp_conf_path = None
+    ntp_service_name = None
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ntp_conf_path = '/etc/ntpsec/ntp.conf'
+        ntp_service_name = 'ntpsec'
+    elif ntp_daemon_type == NtpDaemon.CHRONY:
+        ntp_conf_path = '/etc/chrony/chrony.conf'
+        ntp_service_name = 'chrony'
+    elif ntp_daemon_type == NtpDaemon.NTP:
+        ntp_conf_path = '/etc/ntp.conf'
+        ntp_service_name = 'ntp'
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+    ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
 
@@ -28,7 +41,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     # root dispersion of more than 3 seconds (configurable via /etc/chrony/chrony.conf, but we currently
     # don't touch that setting). Therefore, block here until the root dispersion is less than 3 seconds
     # so that we don't incorrectly fail the test.
-    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, NtpDaemon.NTP),
+    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type),
                   "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
 
     # check to see if iburst option is present
@@ -49,7 +62,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     yield
 
     # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
+    ptfhost.service(name=ntp_service_name, state="stopped")
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
@@ -67,18 +80,22 @@ def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
         yield result
 
 
-@pytest.fixture(scope="module")
-def ntp_daemon_in_use(duthost):
-    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+def get_ntp_daemon_in_use(host):
+    ntpsec_conf_stat = host.stat(path="/etc/ntpsec/ntp.conf")
     if ntpsec_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTPSEC
-    chrony_conf_stat = duthost.stat(path="/etc/chrony/chrony.conf")
+    chrony_conf_stat = host.stat(path="/etc/chrony/chrony.conf")
     if chrony_conf_stat["stat"]["exists"]:
         return NtpDaemon.CHRONY
-    ntp_conf_stat = duthost.stat(path="/etc/ntp.conf")
+    ntp_conf_stat = host.stat(path="/etc/ntp.conf")
     if ntp_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTP
     pytest.fail("Unable to determine NTP daemon in use")
+
+
+@pytest.fixture(scope="module")
+def ntp_daemon_in_use(duthost):
+    return get_ntp_daemon_in_use(duthost)
 
 
 def check_ntp_status(host, ntp_daemon_in_use):
