@@ -1,0 +1,7 @@
+---
+- import_tasks: testbed_facts.yml
+- import_tasks: allocate_ip.yml
+- import_tasks: create_config_patch.yml
+- import_tasks: prepare_config.yml
+- import_tasks: apply_config.yml
+  when: deploy is defined and deploy|bool == true
