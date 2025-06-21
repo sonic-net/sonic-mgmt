@@ -11,9 +11,13 @@
   debug:
     var: device_conn[inventory_hostname]
 
-- name: output device bgp neighbors
+- name: output device bgp neighbor devices
   debug:
-    var: device_bgp_neighbors[inventory_hostname]
+    var: device_bgp_neighbor_devices[inventory_hostname]
+
+- name: output device bgp neighbor ports
+  debug:
+    var: device_bgp_neighbor_ports[inventory_hostname]
     #var: device_bgp_neighbors
 
 - name: define features settings
