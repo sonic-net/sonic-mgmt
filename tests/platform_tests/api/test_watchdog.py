@@ -6,8 +6,10 @@ import yaml
 import pytest
 from tests.common.helpers.platform_api import watchdog
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service, \
+      add_platform_api_server_port_nat_for_dpu, get_ansible_ssh_port    # noqa F401
 from .platform_api_test_base import PlatformApiTestBase
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
 
 from collections import OrderedDict
 
@@ -62,7 +64,7 @@ class TestWatchdogApi(PlatformApiTestBase):
                 duthost.shell("systemctl start cpu_wdt.service")
 
     @pytest.fixture(scope='module')
-    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname):
+    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa F811
         ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
         results in a dictionary which holds parameters for test '''
 
@@ -94,7 +96,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency()
     def test_arm_disarm_states(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                               platform_api_conn, conf):  # noqa F811
+                               platform_api_conn, conf, ansible_adhoc):  # noqa F811
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
@@ -134,7 +136,8 @@ class TestWatchdogApi(PlatformApiTestBase):
             self.expect(remaining_time is -1,
                         "Watchdog remaining_time {} seconds is wrong for disarmed state".format(remaining_time))
 
-        res = localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5,
+        ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if duthost.is_dpu() else 22
+        res = localhost.wait_for(host=duthost.mgmt_ip, port=ansible_ssh_port, state="stopped", delay=5,
                                  timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
         self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
