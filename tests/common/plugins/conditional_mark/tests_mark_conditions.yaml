@@ -1475,12 +1475,10 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
-  xfail:
-    reason: "Incorrect supported speeds for 7060X6 in STATE_DB, fix TBD"
-    conditions_logical_operator: and
+  skip:
+    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
     conditions:
-      - "'7060X6' in hwsku"
-      - "topo_type in ['t1']"
+      - "'Arista-7060X6' in hwsku"
 
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
@@ -1914,6 +1912,12 @@ qos/test_buffer_traditional.py:
 qos/test_ecn_config.py:
   skip:
     reason: "This test only support on cisco device"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_oq_watchdog.py:
+  skip:
+    reason: "OQ watchdog tests only apply to cisco 8000 platforms."
     conditions:
       - "asic_type not in ['cisco-8000']"
 
@@ -2699,6 +2703,19 @@ voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortl
     conditions:
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_drop_counter:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
+    conditions:
+      - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_queue_counter:
+  skip:
+    reason: "Skip test_voq_queue_counter for non broadcom-dnx 't2' platforms."
+    conditions:
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
 
 voq/test_voq_fabric_capacity.py:
   skip:
