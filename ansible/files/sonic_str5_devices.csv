@@ -16,6 +16,8 @@ str5-7060x6-512-5,10.64.247.135/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str5-7060x6-512-fan-5,10.64.247.136/23,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
 str5-7060x6-512-6,10.64.247.146/23,Arista-7060X6-64PE-B-O128,DevSonic,,sonic
 str5-7060x6-512-fan-6,10.64.247.147/23,Arista-7060X6-64PE-B-O128S2,FanoutLeafSonic,,sonic
+str5-7060x6-16pe-384c-2,10.64.247.154/23,Arista-7060X6-16PE-384C-O128S2,DevSonic,,sonic
+str5-7060x6-16pe-384c-fan-2,10.64.247.155/23,Arista-7060X6-16PE-384C-O128S2,FanoutLeafSonic,,sonic
 str5-sn5640-1,10.64.247.137/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-1,10.64.247.138/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-sn5640-4,10.64.246.160/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
