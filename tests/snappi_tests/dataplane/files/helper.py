@@ -253,6 +253,7 @@ def create_snappi_l1config(snappi_api, get_snappi_ports):
     snappi_ports = get_snappi_ports
     config = snappi_api.config()
     _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
+    _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = "port settings"
@@ -480,3 +481,28 @@ def wait_with_message(message, duration):
         # sys.stdout.flush()
         time.sleep(1)
     logger.info("")  # Ensure line break after countdown.
+
+
+@pytest.fixture(scope="function")
+def get_dut_to_dut_port(duthosts,  # noqa: F811
+                        conn_graph_facts,  # noqa: F811
+                        fanout_graph_facts_multidut,  # noqa: F811
+                        ):
+    def _get_dut_to_dut_port(conn_graph_facts, bt1_device_names):
+        device_conn = conn_graph_facts['device_conn']
+        bt1_ports = []
+        bt1_info = {}
+        bt1_device_names = [bt1_device_names]
+        for bt1_device_name in bt1_device_names:
+            for duthost in duthosts:
+                if duthost.hostname != bt1_device_name:
+                    for port in device_conn[duthost.hostname].keys():
+                        if device_conn[duthost.hostname][port]['peerdevice'] == bt1_device_name:
+                            bt1_ports.append(port)
+                        else:
+                            continue
+            if not bt1_ports:
+                pytest_assert(False, f"No ports found for {bt1_device_name} in the connection graph.")
+            bt1_info[bt1_device_name] = bt1_ports
+        return bt1_info
+    return _get_dut_to_dut_port
