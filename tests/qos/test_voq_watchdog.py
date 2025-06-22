@@ -99,7 +99,7 @@ class TestVoqWatchdog(QosSaiBase):
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
                 testParams=testParams)
-            
+
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
                 testParams=testParams)
