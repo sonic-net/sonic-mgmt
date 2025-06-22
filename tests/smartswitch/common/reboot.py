@@ -26,7 +26,7 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
         if duthost.is_smartswitch():
             if dpu_name is None:
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
-                sync_reboot_history_queue_with_dut(hostname)
+                sync_reboot_history_queue_with_dut(duthost)
 
                 logger.info("Rebooting the switch {} with type {}".format(hostname, reboot_type))
                 return duthost.command("sudo reboot")
