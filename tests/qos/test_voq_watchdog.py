@@ -58,7 +58,7 @@ class TestVoqWatchdog(QosSaiBase):
         if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
             pytest.skip("Voq watchdog test is skipped since voq watchdog is not enabled.")
 
-    @pytest.mark.parametrize("voq_watchdog_enabled", ["True", "False"])
+    @pytest.mark.parametrize("voq_watchdog_enabled", [True, False])
     def testVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             duthosts, get_src_dst_asic_and_duts, voq_watchdog_enabled
