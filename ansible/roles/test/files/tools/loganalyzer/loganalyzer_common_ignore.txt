@@ -330,3 +330,9 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33411748
+r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33376635
+r, ".* ERR kernel.*audit: rate limit exceeded.*"
