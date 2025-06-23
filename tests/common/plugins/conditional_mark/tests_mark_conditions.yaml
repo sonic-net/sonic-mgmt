@@ -531,7 +531,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enabled:
   skip:
-    reason: "Skip test_dhcp_relay_with_source_port_ip_in_relay_enabled in be dualtor and old release version"
+    reason: "Skip test_dhcp_relay_with_source_port_ip_in_relay_enabled in old release version"
     conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911']"
@@ -585,6 +585,7 @@ dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap:
   skip:
     reason: "Skip test_dhcp_relay_after_link_flap in old release version"
+    conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202106']"
       - "'dualtor-aa' in topo_name"
@@ -598,6 +599,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down:
   skip:
     reason: "Skip test_dhcp_relay_start_with_uplinks_down in old release version"
+    conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202106']"
       - "'dualtor' in topo_name"

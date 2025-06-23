@@ -440,9 +440,6 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
     """
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the link flap testcase on dual tor testbeds")
-
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -485,9 +482,6 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
        relays packets properly.
     """
     testing_mode, duthost = testing_config
-
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the uplinks down testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
