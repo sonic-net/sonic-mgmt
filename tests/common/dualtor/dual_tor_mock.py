@@ -315,8 +315,17 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     bgp_neighbors = list(dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
     ipv4_neighbors = []
+    portchannel_neighbors = []
+
+    ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+    for intf in ip_intf_facts:
+        if 'PortChannel' in intf:
+            portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv4'])
 
     for neighbor in bgp_neighbors:
+        if neighbor not in portchannel_neighbors:
+            continue
+
         neighbor_ip = ip_address(neighbor)
 
         if type(neighbor_ip) is IPv4Address:
