@@ -113,5 +113,6 @@ class TestControlPlane():
             return True
         # To check whether the MKA establishment happened within 60 seconds
         assert wait_until(60, 5, 2, check_mka_new_session)
-        # Teardown
-        cleanup_macsec_configuration(duthost, ctrl_link, new_profile_name)
+        # Revert back to original configuration
+        setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
+                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
