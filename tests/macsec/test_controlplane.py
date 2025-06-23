@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session,\
                            get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
-from tests.common.macsec.macsec_config_helper import setup_macsec_configuration, cleanup_macsec_configuration
+from tests.common.macsec.macsec_config_helper import setup_macsec_configuration
 from tests.common.macsec.macsec_platform_helper import get_platform, get_macsec_ifname
 
 logger = logging.getLogger(__name__)
