@@ -1,0 +1,103 @@
+name: SwitchoverTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+
+schedules:
+  - cron: "00 1 * * 1"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "vms66-dual-t0-8101c1-03,vms29-dual-t0-8101c1-02,vms18-dual-t0-8101c1-01,testbed-bjw2-can-dual-t0-8101c1-1,testbed-bjw2-can-dual-t0-8101c1-2"
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_202505)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202505
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: "dualtor_io/test_switchover_impact.py::test_tor_switchover_impact"
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: ""
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202505)"
+    displayName: "Common test parameters"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[{"name": "dualtor_io/test_switchover_impact.py", "param": "--enable_switchover_impact_test"}]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 1800
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 8101.dualtor-aa.202505.switchover.SwitchoverTest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
