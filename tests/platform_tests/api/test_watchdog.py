@@ -64,7 +64,8 @@ class TestWatchdogApi(PlatformApiTestBase):
                 duthost.shell("systemctl start cpu_wdt.service")
 
     @pytest.fixture(scope='module')
-    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa: F811
+    def conf(self, request,
+             duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa: F811
         ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
         results in a dictionary which holds parameters for test '''
 
