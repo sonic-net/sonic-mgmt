@@ -460,7 +460,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_transceiver_dom_real_value(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                         localhost, platform_api_conn, port_list_with_flat_memory):  # noqa: F811
+                                            localhost, platform_api_conn, port_list_with_flat_memory):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
