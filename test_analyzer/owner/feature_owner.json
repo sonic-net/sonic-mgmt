@@ -1210,8 +1210,8 @@
                 "scripts": [
                     "platform_tests.counterpoll.test_counterpoll_watermark"
                 ],
-                "owner": "Junhua Zhai",
-                "email": "junhuazhai@microsoft.com"
+                "owner": "Judy Joseph",
+                "email": "jujoseph@microsoft.com"
             },
             {
                 "scripts": [
@@ -1235,15 +1235,15 @@
     },
     {
         "feature": "portstat",
-        "owner": "Junhua Zhai",
-        "email": "junhuazhai@microsoft.com",
+        "owner": "Judy Joseph",
+        "email": "jujoseph@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "portstat.test_portstat"
                 ],
-                "owner": "Junhua Zhai",
-                "email": "junhuazhai@microsoft.com"
+                "owner": "Judy Joseph",
+                "email": "jujoseph@microsoft.com"
             }
         ]
     },
