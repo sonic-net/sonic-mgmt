@@ -29,7 +29,8 @@ def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     else:
         sonic_db_cli = "sonic-db-cli"
     # add a static route to create the STATIC_ROUTE table
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 nexthop 'fc00::1' ifname 'Ethernet0'")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32\
+        nexthop 'fc00::1' ifname 'Ethernet0'")
 
     yield
 
@@ -108,7 +109,8 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             frr_config = duthost.command("vtysh" + f" -n {enum_frontend_asic_index}"
                                          + " -c \"show running-config\"")["stdout"]
         else:
-            frr_config = duthost.command("vtysh" + " -c \"show running-config\"" + " | grep \"fcbb:bbbb::/32\"")["stdout"]
+            frr_config = duthost.command("vtysh" + " -c \"show running-config\"" + " | grep \"fcbb:bbbb::/32\"")
+            ["stdout"]
         # verify that FRR config is updatedd correctly
         assert "Ethernet1" in frr_config, "Static route is not updated in FRR's configuration"
     finally:
