@@ -21,7 +21,6 @@ from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_s
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa: F401
 from tests.common.utilities import is_ipv4_address
 
-
 from tests.common.fixtures.fib_utils import (  # noqa: F401
     single_fib_for_duts,
     get_fib_info,
