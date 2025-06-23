@@ -33,7 +33,7 @@ from tests.common.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
 from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa: F401
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor  # noqa: F401
 from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type, \
     increment_ipv4_addr, increment_ipv6_addr
 
