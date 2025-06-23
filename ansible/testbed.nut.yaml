@@ -32,7 +32,7 @@
   auto_recover: 'True'
 
 - name: nut-sn5640-stress-1
-  comment: "Testbed for NUT with multi-tier topology"
+  comment: "SN5640 Stress Testbed"
   inv_name: ixia
   test_tags: [ snappi-capacity ]
   duts:
@@ -72,5 +72,45 @@
     - msr-ixia-aresone-800ge-2
     - msr-ixia-aresone-800ge-3
     - msr-ixia-aresone-800ge-4
+  tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  auto_recover: 'True'
+
+- name: nut-sn5640-snake-1
+  comment: "SN5640 Snake Testbed"
+  inv_name: ixia
+  test_tags: [ ]
+  duts:
+    - str-sn5640-snake-1
+  dut_templates:
+    - name: ".*"
+      type: "ToRRouter"
+      loopback_v4: "10.1.0.0/24"
+      loopback_v6: "2064:100:0:0::/64"
+      asn_base: 64001
+      asn_step: 1
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+  tgs:
+    - msr-ixia-aresone-800ge-7
+  tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  auto_recover: 'True'
+
+- name: nut-7060x6-512-snake-1
+  comment: "7060x6-512 Snake Testbed"
+  inv_name: ixia
+  test_tags: [ ]
+  duts:
+    - str-7060x6-512-snake-1
+  dut_templates:
+    - name: ".*"
+      type: "ToRRouter"
+      loopback_v4: "10.1.0.0/24"
+      loopback_v6: "2064:100:0:0::/64"
+      asn_base: 64001
+      asn_step: 1
+      p2p_v4: "10.0.0.0/16"
+      p2p_v6: "fc0a::/64"
+  tgs:
+    - msr-ixia-aresone-800ge-7
   tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
   auto_recover: 'True'
