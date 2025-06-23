@@ -158,8 +158,7 @@ Some definitions:
 |leaf_number|number of other T1s|
 |tor_number|number of downstream T0s|
 
-- Routes annoucned by per T2 device, total number: 2
-  - 1 default route (But with longer as path compared to T0s')
+- Routes annoucned by per T2 device, total number: 1
   - 1 Loopback route
 - Routes advertised by per T0 devices, total number: (1 + tor_subnet_number) * tor_number + leaf_number
   - 1 Loopback route and `tor_subnet_number` subnet routes (Each sets of these routes in DUT has only one different nexthop to each T0)
