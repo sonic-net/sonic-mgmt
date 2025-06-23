@@ -609,6 +609,9 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         tor_default_route = True
     routes_to_change = {}
     for k, v in vms_config.items():
+        curr_no_default_route = no_default_route
+        if topo_name in BGP_SCALE_T1S and 'spine' in v['properties']:
+            curr_no_default_route = True
         if dpus and k in dpus:
             continue
 
@@ -635,7 +638,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                                                          None, leaf_asn_start, tor_asn_start,
                                                          nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                          router_type=router_type, tor_index=tor_index,
-                                                         no_default_route=no_default_route,
+                                                         no_default_route=curr_no_default_route,
                                                          tor_default_route=tor_default_route)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
@@ -646,7 +649,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                                                          None, leaf_asn_start, tor_asn_start,
                                                          nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                          router_type=router_type, tor_index=tor_index,
-                                                         no_default_route=no_default_route,
+                                                         no_default_route=curr_no_default_route,
                                                          ipv6_address_pattern=ipv6_address_pattern,
                                                          tor_default_route=tor_default_route)
                 if aggregate_routes_v6:
