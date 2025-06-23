@@ -1,4 +1,0 @@
----
-- name: allocate ip for device
-  nut_allocate_ip: testbed_facts="{{ testbed_facts }}" device_info="{{ device_info }}" device_port_links="{{ device_conn }}"
-  delegate_to: localhost

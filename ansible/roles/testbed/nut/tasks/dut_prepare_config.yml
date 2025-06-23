@@ -1,4 +1,10 @@
 ---
+- name: copy config patch to remote machine
+  copy:
+    src: "{{ playbook_dir }}/../tests/metadata/config_patch.{{ inventory_hostname }}.json"
+    dest: /tmp/config_patch.json
+    remote_src: false
+
 - name: preserve key configurations from existing config_db.json using jq
   shell: "jq '{ {{ tables_to_keep | join(',') }} }' /etc/sonic/config_db.json > /tmp/config_db_keep.json"
   vars:
