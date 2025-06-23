@@ -519,8 +519,6 @@ configuration_properties:
     dut_type: MgmtLeafRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-    ma_asn: 65201
-    mb_asn: 65211
     m0_subnet_number: 1
     m0_subnet_size: 64
     m0_asn: 65001
