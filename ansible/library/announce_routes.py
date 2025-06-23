@@ -632,22 +632,23 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         if router_type:
             if enable_ipv4_routes_generation:
                 routes_v4, last_suffix = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
-                                               nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                               router_type=router_type, tor_index=tor_index,
-                                               no_default_route=no_default_route, tor_default_route=tor_default_route)
+                                                         None, leaf_asn_start, tor_asn_start,
+                                                         nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
+                                                         router_type=router_type, tor_index=tor_index,
+                                                         no_default_route=no_default_route,
+                                                         tor_default_route=tor_default_route)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, last_suffix = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
-                                               nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                               router_type=router_type, tor_index=tor_index,
-                                               no_default_route=no_default_route,
-                                               ipv6_address_pattern=ipv6_address_pattern,
-                                               tor_default_route=tor_default_route)
+                                                         None, leaf_asn_start, tor_asn_start,
+                                                         nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
+                                                         router_type=router_type, tor_index=tor_index,
+                                                         no_default_route=no_default_route,
+                                                         ipv6_address_pattern=ipv6_address_pattern,
+                                                         tor_default_route=tor_default_route)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
@@ -682,16 +683,16 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
             tor_asn = tor_asn_start + index
             if enable_ipv4_routes_generation:
                 routes_v4, last_suffix = generate_t1_to_t0_routes("v4", current_routes_offset, leaf_number, 1, tor_asn,
-                                                                leaf_asn_start, nhipv4, nhipv6,
-                                                                ipv6_address_pattern=lov6_address_pattern)
+                                                                  leaf_asn_start, nhipv4, nhipv6,
+                                                                  ipv6_address_pattern=lov6_address_pattern)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, last_suffix = generate_t1_to_t0_routes("v6", current_routes_offset, leaf_number, 1, tor_asn,
-                                                                leaf_asn_start, nhipv6, nhipv6,
-                                                                ipv6_address_pattern=lov6_address_pattern)
+                                                                  leaf_asn_start, nhipv6, nhipv6,
+                                                                  ipv6_address_pattern=lov6_address_pattern)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
