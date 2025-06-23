@@ -1733,7 +1733,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
-  skip:
+  xfail:
     reason: "Uniform decap mode not enabled on these asic types"
     conditions_logical_operator: or
     conditions:
