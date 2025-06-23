@@ -673,7 +673,7 @@
                 # Needs to be followed by config reload to take affect
 
             when: inventory_hostname != sup_dut
-        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric"))
+        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku)
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
