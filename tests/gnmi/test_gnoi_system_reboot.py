@@ -6,6 +6,7 @@ from .helper import gnoi_request, extract_gnoi_response, apply_cert_config
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -32,6 +33,13 @@ RebootMethod = {
 }
 
 REBOOT_MESSAGE = "gnoi test reboot"
+
+
+def is_gnmi_container_running(duthost):
+    """
+    Check if the gNMI container is running on the DUT.
+    """
+    return duthost.is_container_running("gnmi")
 
 
 def check_reboot_status(duthost, localhost, expected_active, expected_reason, expected_method):
@@ -90,6 +98,9 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     # Wait for critical processses before ending
     wait_critical_processes(duthost)
 
+    # Wait for gNMI container to be running
+    wait_until(120, 10, 0, is_gnmi_container_running, duthost)
+
     # This is an adhoc workaround because the cert config is cleared after reboot.
     # We should refactor the test to always use the default config.
     apply_cert_config(duthost)
@@ -130,6 +141,9 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
 
     # Wait for critical processses before ending
     wait_critical_processes(duthost)
+
+    # Wait for gNMI container to be running
+    wait_until(120, 10, 0, is_gnmi_container_running, duthost)
 
     # This is an adhoc workaround because the cert config is cleared after reboot.
     # We should refactor the test to always use the default config.
