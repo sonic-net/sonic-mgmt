@@ -301,7 +301,7 @@ class VMTopology(object):
                 # Get the intf information in a tabulated format. Discard the header row.
                 intf_rows = VMTopology.cmd('ifconfig -a -s').split('\n')[1:]
                 # Keep first column only.
-                intf_names = [ row.split(' ')[0] for row in intf_rows ]
+                intf_names = [row.split(' ')[0] for row in intf_rows]
                 for hostname, attrs in self.VMs.items():
                     vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
                     vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
