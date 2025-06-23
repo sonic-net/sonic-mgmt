@@ -70,7 +70,7 @@ def get_transceiver_info_firmware_versions(conn, index):
     return sfp_api(conn, index, 'get_transceiver_info_firmware_versions')
 
 
-def get_transceiver_bulk_status(conn, index):
+def get_transceiver_dom_real_value(conn, index):
     return sfp_api(conn, index, 'get_transceiver_dom_real_value')
 
 
