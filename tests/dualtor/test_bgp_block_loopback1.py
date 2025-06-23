@@ -14,7 +14,8 @@ pytestmark = [
 @pytest.mark.parametrize("test_device_interface", ["Loopback3", "Loopback1"], indirect=True)
 def test_bgp_block_loopback1(
     bgp_neighbors, upper_tor_host, lower_tor_host,                  # noqa: F811
-    setup_interfaces, toggle_all_simulator_ports_to_upper_tor       # noqa: F811
+    setup_interfaces, toggle_all_simulator_ports_to_upper_tor,      # noqa: F811
+    test_device_interface
 ):
     """
     Test BGP block on Loopback1 interface and allowed on Loopback3 interface.
@@ -39,15 +40,12 @@ def test_bgp_block_loopback1(
 
         time.sleep(30)  # wait for BGP sessions to establish
 
-        # STEP 2: verify BGP sessions are established
-        if setup_interfaces["upper_tor"]["local_intf"] == "Loopback1":
+        # STEP 2: verify BGP sessions are dropped on loopback1 and established on Loopback3
+        if test_device_interface == "Loopback1":
             verify_bgp_session(upper_tor_host, upper_tor_bgp_neighbor, should_be_established=False)
-        else:
-            verify_bgp_session(upper_tor_host, upper_tor_bgp_neighbor, should_be_established=True)
-
-        if setup_interfaces["lower_tor"]["local_intf"] == "Loopback1":
             verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor, should_be_established=False)
         else:
+            verify_bgp_session(upper_tor_host, upper_tor_bgp_neighbor, should_be_established=True)
             verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor, should_be_established=True)
 
     finally:
