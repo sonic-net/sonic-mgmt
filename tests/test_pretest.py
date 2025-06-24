@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -373,16 +374,47 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
-
-def test_update_saithrift_ptf(request, ptfhost):
+def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
     '''
     py_saithrift_url = request.config.getoption("--py_saithrift_url")
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
+
+    duthost = duthosts[enum_dut_hostname]
+    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
+    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+    version = version_reg.findall(output)[0] if version_reg.search(output) else "" # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d, SONiC.master.882522-695c23859
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else "" # only broadcom, cisco-8000, mellanox support qos sai tests
+
+    if "master" in version:
+        branch_name = "master"
+    elif "internal" in version:
+        branch_name = "internal"
+    else:
+        # Extract year/month from version string to determine branch
+        date_match = re.search(r'(\d{4})(\d{2})', version)
+        if date_match:
+            year, month = date_match.groups()
+            branch_name = f"internal-{year}{month}"
+        else:
+            pytest.fail("Unable to parse or recognize version format: {}".format(version))
+
+    debian_codename = "bookworm"
+    if branch_name.startswith("internal-") and branch_name < "internal-202505":
+        debian_codename = "bullseye"
+
     pkg_name = py_saithrift_url.split("/")[-1]
+    ip_addr = py_saithrift_url.split("/")[2]
     ptfhost.shell("rm -f {}".format(pkg_name))
+
+    if branch_name == "master":
+        py_saithrift_url = f"http://{ip_addr}/mssonic-public-pipelines/Azure.sonic-buildimage.official.{asic}/master/{asic}/latest/target/debs/{debian_codename}/{pkg_name}"
+    else:
+        py_saithrift_url = f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}"
+
     # Retry download of saithrift library
     retry_count = 5
     while retry_count > 0:
@@ -393,7 +425,7 @@ def test_update_saithrift_ptf(request, ptfhost):
         retry_count -= 1
 
     if result["failed"] or "OK" not in result["msg"]:
-        pytest.skip("Download failed/error while installing python saithrift package")
+        pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
     # We need to move it out to the correct location
