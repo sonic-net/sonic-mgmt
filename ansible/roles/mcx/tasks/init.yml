@@ -8,7 +8,11 @@
 
 - name: Check that HwSku is Arista-720DT-48S
   fail: msg="Device HwSku is not Arista-720DT-48S"
-  when: HwSku != "Arista-720DT-48S"
+  when: "'Arista-720DT' not in HwSku"
+
+- name: Rotate the password
+  shell: "echo {{ mgmt_admin_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+  ignore_errors: true
 
 - name: Set credential for auto-recovery
   set_fact:
@@ -40,7 +44,7 @@
   shell: sonic-cfggen -H -k {{ HwSku }} -d -j /tmp/base_config.json --print-data > /tmp/new_config.json
 
 - name: Remove INTERFACE
-  shell: jq 'del(.INTERFACE)' /tmp/config_db.json > /etc/sonic/config_db.json
+  shell: jq 'del(.INTERFACE)' /tmp/new_config.json > /etc/sonic/config_db.json
 
 - name: Config reload
   shell: config reload -y
