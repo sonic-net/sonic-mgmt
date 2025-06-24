@@ -18,7 +18,7 @@ Supported topologies: T0, DualToR, M0
 
 #### test_dhcp_relay.py
 
-Current test_dhcp_relay would send and verify packets relayed, there is already verification for dhcpmon syslog counter (Only count Vlan and 4 types of packets). We would make below changes to this test case:
+Current test_dhcp_relay would send and verify packets relayed, there is already verification for dhcpmon syslog counter (Only count Vlan and 5 types of packets). We would make below changes to this test case:
 
 - Verify DB counter
 
@@ -29,6 +29,21 @@ Current test_dhcp_relay would send and verify packets relayed, there is already 
 
     1. In dhcp_relay_test.py, send more types of DHCP packets
     2. Verify counter in COUNTERS_DB
+
+- Verify DHCP packets sent to standby interfaces
+
+    1. In dhcp_relay_test.py, send DHCP reply packets to standby interfaces of DualToR
+    2. Verify packets relaying status and COUNTERS_DB. Expected result is that ingress packets would be counted and relayed
+
+- Verify DHCP packets with bad IP / UDP checksum
+
+    1. In dhcp_relay_test.py, send DHCP packets with incorect IP / UDP checksum
+    2. Verify packets relaying status and COUNTERS_DB. Expected result is that ingress packets wouldn't be counted and relayed
+
+- Verify DHCP packets with length exceeds limit
+
+    1. In dhcp_relay_test.py, send DHCP packets with length exceeds limit
+    2. Verify packets relaying status and COUNTERS_DB, expected result is that ingress packets wouldn't be counted and relayed
 
 ### New Added
 
