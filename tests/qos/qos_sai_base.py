@@ -13,22 +13,23 @@ import time
 import collections
 from contextlib import contextmanager
 
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
         copy_dshell_script_cisco_8000, run_dshell_command
-from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
+from tests.common.dualtor.dual_tor_utils \
+    import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
 from tests.common.dualtor.mux_simulator_control \
-    import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa F401
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa F401
+    import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa: F401
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa: F401
 from tests.common.utilities import check_qos_db_fv_reference_with_table
-from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.common.system_utils import docker  # noqa F401
+from tests.common.system_utils import docker  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 from tests.common.devices.eos import EosHost
@@ -583,7 +584,7 @@ class QosSaiBase(QosBase):
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
-                    testVlanIp = ipaddress.ip_address(vlan["addr"])  # noqa F821
+                    testVlanIp = ipaddress.ip_address(vlan["addr"])  # noqa: F821
                     break
             pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
@@ -603,8 +604,8 @@ class QosSaiBase(QosBase):
         return dutPortIps
 
     @pytest.fixture(scope='module')
-    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host, # noqa F811
-                                   core_dump_and_config_check): # noqa F811
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host,  # noqa: F811
+                                   core_dump_and_config_check):  # noqa: F811
         """
             Swap syncd on DUT host
 
@@ -652,7 +653,7 @@ class QosSaiBase(QosBase):
                             "multi_dut_longlink_to_shortlink",
                             "multi_dut_shortlink_to_shortlink",
                             "multi_dut_shortlink_to_longlink"])
-    def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host): # noqa F811
+    def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host):  # noqa: F811
         test_port_selection_criteria = request.param
         logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
         src_dut_index = 0
@@ -759,7 +760,7 @@ class QosSaiBase(QosBase):
         }
 
     @pytest.fixture(scope='class')
-    def get_src_dst_asic_and_duts(self, duthosts, tbinfo, select_src_dst_dut_and_asic, lower_tor_host): # noqa F811
+    def get_src_dst_asic_and_duts(self, duthosts, tbinfo, select_src_dst_dut_and_asic, lower_tor_host):  # noqa: F811
         if 'dualtor' in tbinfo['topo']['name']:
             src_dut = lower_tor_host
             dst_dut = lower_tor_host
@@ -943,7 +944,8 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
-        lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps):  # noqa F811
+        lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps  # noqa: F811
+    ):
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -1362,7 +1364,13 @@ class QosSaiBase(QosBase):
         }
 
     @pytest.fixture(scope='class')
-    def ssh_tunnel_to_syncd_rpc(self, duthosts, get_src_dst_asic_and_duts, swapSyncd_on_selected_duts, tbinfo, lower_tor_host): # noqa F811
+    def ssh_tunnel_to_syncd_rpc(
+        self,
+        duthosts,
+        get_src_dst_asic_and_duts, swapSyncd_on_selected_duts,
+        tbinfo, lower_tor_host  # noqa: F811
+    ):
+
         all_asics = get_src_dst_asic_and_duts['all_asics']
 
         for a_asic in all_asics:
@@ -1374,7 +1382,10 @@ class QosSaiBase(QosBase):
             a_asic.remove_ssh_tunnel_sai_rpc()
 
     @pytest.fixture(scope='class')
-    def updateIptables(self, duthosts, get_src_dst_asic_and_duts, swapSyncd_on_selected_duts, tbinfo, lower_tor_host): # noqa F811
+    def updateIptables(self,
+                       duthosts, get_src_dst_asic_and_duts,
+                       swapSyncd_on_selected_duts, tbinfo, lower_tor_host  # noqa: F811
+                       ):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
 
@@ -1405,8 +1416,10 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
-        swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
-            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports):  # noqa F811
+        swapSyncd_on_selected_duts,
+        enable_container_autorestart, disable_container_autorestart, get_mux_status,  # noqa: F811
+        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+    ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1626,7 +1639,7 @@ class QosSaiBase(QosBase):
         self, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-        tbinfo, lower_tor_host # noqa F811
+        tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Prepares DUT host QoS configuration
@@ -1921,7 +1934,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host # noqa F811
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -1953,7 +1966,7 @@ class QosSaiBase(QosBase):
         return
 
     @pytest.fixture(scope='module', autouse=True)
-    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts): # noqa F811
+    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts):  # noqa: F811
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
@@ -2011,7 +2024,8 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
-        self, request, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
+        self, request, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host  # noqa: F811
+    ):
         """
             Retreives shared headroom pool size
 
@@ -2030,7 +2044,8 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def ingressLosslessProfile(
-        self, request, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts # noqa F811
+        self, request,
+        get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts  # noqa: F811
     ):
         """
             Retreives ingress lossless profile
@@ -2066,7 +2081,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def ingressLossyProfile(
-        self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host # noqa F811
+        self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives ingress lossy profile
@@ -2094,7 +2109,8 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def egressLosslessProfile(
-        self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts # noqa F811
+        self, request, duthosts,
+        get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts  # noqa: F811
     ):
         """
             Retreives egress lossless profile
@@ -2130,7 +2146,8 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def egressLossyProfile(
-        self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts # noqa F811
+        self, request,
+        duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host, dualtor_ports_for_duts  # noqa: F811
     ):
         """
             Retreives egress lossy profile
@@ -2188,7 +2205,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
-            self, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
+            self, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives lossless scheduler profile
@@ -2211,7 +2228,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def lossySchedProfile(
-        self, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
+        self, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives lossy scheduler profile
@@ -2235,7 +2252,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture
     def updateSchedProfile(
         self, duthosts, get_src_dst_asic_and_duts,
-        dutQosConfig, losslessSchedProfile, lossySchedProfile, tbinfo, lower_tor_host  # noqa F811
+        dutQosConfig, losslessSchedProfile, lossySchedProfile, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Updates lossless/lossy scheduler profiles
@@ -2311,7 +2328,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture
     def resetWatermark(
-        self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host   # noqa F811
+        self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host   # noqa: F811
     ):
         """
             Reset queue watermark
@@ -2374,7 +2391,7 @@ class QosSaiBase(QosBase):
             return result\
         "
 
-        duthost = get_src_dst_asic_and_duts['src_dut']  # noqa F841
+        duthost = get_src_dst_asic_and_duts['src_dut']  # noqa: F841
 
         dualtor_ports_str = get_src_dst_asic_and_duts['src_asic'].run_redis_cmd(
             argv=["sonic-db-cli", "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
@@ -2582,7 +2599,7 @@ class QosSaiBase(QosBase):
 
     def populate_arp_entries(
         self, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa F811
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
         Update ARP entries of QoS SAI test ports
