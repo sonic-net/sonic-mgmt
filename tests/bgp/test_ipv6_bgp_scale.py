@@ -19,7 +19,8 @@ from ptf.mask import Mask
 pytestmark = [
     pytest.mark.topology(
         't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510',
-        't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2'
+        't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2',
+        't1-isolated-d254u2', 't1-isolated-d510u2s2'
     )
 ]
 
@@ -131,7 +132,8 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
         path="../ansible/",
         log_path="logs",
         dut_interfaces=dut_interfaces,
-        upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else None
+        upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else 0,
+        downstream_neighbor_groups=tbinfo['downstream_neighbor_groups'] if 'downstream_neighbor_groups' in tbinfo else 0
     )
 
 
@@ -144,7 +146,8 @@ def get_all_bgp_ipv6_routes(duthost):
 def generate_packets(prefixes, dut_mac, src_mac):
     pkts = []
     for prefix in prefixes:
-        addr = str(ipaddress.ip_network(prefix)[1])
+        network = ipaddress.ip_network(prefix)
+        addr = str(network[0] if network.num_addresses == 1 else network[1])
         pkt = simple_icmpv6_packet(
             eth_dst=dut_mac,
             eth_src=src_mac,
@@ -514,7 +517,8 @@ def test_device_unisolation(
     ptfadapter,
     bgp_peers_info,
     setup_packet_mask_counters,
-    announce_bgp_routes_teardown
+    announce_bgp_routes_teardown,
+    tbinfo
 ):
     '''
     This test is for the worst senario that all ports are flapped,
