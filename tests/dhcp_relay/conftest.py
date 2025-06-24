@@ -129,6 +129,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
         dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
+        dhcp_relay_data['portchannels'] = mg_facts['minigraph_portchannels']
 
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
