@@ -9,12 +9,12 @@ from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_feature
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, tacacs_v6_context
-from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_context, ntp_daemon_in_use     # noqa F401
+from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_context, ntp_daemon_in_use     # noqa: F401
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
-from tests.common.helpers.syslog_helpers import run_syslog, check_default_route     # noqa F401
+from tests.common.helpers.syslog_helpers import run_syslog, check_default_route     # noqa: F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.fixtures.duthost_utils import duthosts_ipv6_mgmt_only # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds # noqa F401
+from tests.common.fixtures.duthost_utils import duthosts_ipv6_mgmt_only  # noqa: F401
+from tests.common.fixtures.tacacs import tacacs_creds  # noqa: F401
 from tests.conftest import get_hosts_per_hwsku
 
 
@@ -55,16 +55,16 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
         # Sample logs:
 
         # Mar 28 05:18:28.331508 dut INFO logrotate: Sending SIGHUP to OA log_file_name: /var/log/swss/sairedis.rec
-        # Mar 28 05:18:28.459615 dut WARNING pmon#CCmisApi: y_cable_port 11: attempt=6, GET http://192.168.0.1:8082/mux/vms21-6/20 for physical_port 11 failed with URLError(timeout('timed out')) # noqa E501
-        # Mar 28 05:18:28.459615 dut WARNING pmon#CCmisApi: y_cable_port 11: Retry GET http://192.168.0.1:8082/mux/vms21-6/20 for physical port 11 timeout after 30 seconds, attempted=6 # noqa E501
-        # Mar 28 05:18:28.460209 dut ERR pmon#CCmisApi: Error: Could not establish the active side for Y cable port Ethernet40 to perform read_y_cable update state db # noqa E501
+        # Mar 28 05:18:28.459615 dut WARNING pmon#CCmisApi: y_cable_port 11: attempt=6, GET http://192.168.0.1:8082/mux/vms21-6/20 for physical_port 11 failed with URLError(timeout('timed out')) # noqa: E501
+        # Mar 28 05:18:28.459615 dut WARNING pmon#CCmisApi: y_cable_port 11: Retry GET http://192.168.0.1:8082/mux/vms21-6/20 for physical port 11 timeout after 30 seconds, attempted=6 # noqa: E501
+        # Mar 28 05:18:28.460209 dut ERR pmon#CCmisApi: Error: Could not establish the active side for Y cable port Ethernet40 to perform read_y_cable update state db # noqa: E501
         # Mar 28 05:18:28.460598 dut NOTICE swss#orchagent: message repeated 2 times: [ :- start: performing log rotate]
-        # Mar 28 05:18:28.460598 dut NOTICE swss#orchagent: :- addOperation: Mux setting State DB entry (hw state unknown, mux state unknown) for port Ethernet40 # noqa E501
-        # Mar 28 05:18:28.461333 dut NOTICE mux#linkmgrd: MuxManager.cpp:288 addOrUpdateMuxPortMuxState: Ethernet40: state db mux state: unknown # noqa E501
-        # Mar 28 05:18:28.461640 dut NOTICE mux#linkmgrd: link_manager/LinkManagerStateMachineActiveStandby.cpp:686 handleMuxStateNotification: Ethernet40: state db mux state: Unknown # noqa E501
-        # Mar 28 05:18:28.462126 dut NOTICE mux#linkmgrd: link_manager/LinkManagerStateMachineActiveStandby.cpp:1297 LinkProberWaitMuxUnknownLinkUpTransitionFunction: Ethernet40 # noqa E501
+        # Mar 28 05:18:28.460598 dut NOTICE swss#orchagent: :- addOperation: Mux setting State DB entry (hw state unknown, mux state unknown) for port Ethernet40 # noqa: E501
+        # Mar 28 05:18:28.461333 dut NOTICE mux#linkmgrd: MuxManager.cpp:288 addOrUpdateMuxPortMuxState: Ethernet40: state db mux state: unknown # noqa: E501
+        # Mar 28 05:18:28.461640 dut NOTICE mux#linkmgrd: link_manager/LinkManagerStateMachineActiveStandby.cpp:686 handleMuxStateNotification: Ethernet40: state db mux state: Unknown # noqa: E501
+        # Mar 28 05:18:28.462126 dut NOTICE mux#linkmgrd: link_manager/LinkManagerStateMachineActiveStandby.cpp:1297 LinkProberWaitMuxUnknownLinkUpTransitionFunction: Ethernet40 # noqa: E501
 
-        ".*ERR pmon#CCmisApi: Error: Could not establish the active side for Y cable port Ethernet[0-9]* to perform read_y_cable update state db", # noqa E501
+        ".*ERR pmon#CCmisApi: Error: Could not establish the active side for Y cable port Ethernet[0-9]* to perform read_y_cable update state db",  # noqa: E501
     ]
 
     if loganalyzer:
@@ -75,7 +75,10 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
 def log_eth0_interface_info(duthosts):
     for duthost in duthosts:
         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}] after fixture") # noqa E231
+        logging.debug(
+            f"Checking host [{duthost.hostname}] "
+            f"ifconfig eth0: [{duthost_interface}] after fixture"
+            )
 
 
 def log_dut_tacacs(duthost, ptfhost):
@@ -99,7 +102,7 @@ def log_dut_tacacs(duthost, ptfhost):
         logging.debug(f"forced_mgmt_routes: {forced_mgmt_rte}, interface address: {intf_values[2]}")
 
 
-def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only): # noqa F411
+def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
@@ -115,7 +118,7 @@ def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only): # noqa F411
             executor.submit(verify_bgp_facts, duthost)
 
 
-def test_show_features_ipv6_only(duthosts_ipv6_mgmt_only): # noqa F411
+def test_show_features_ipv6_only(duthosts_ipv6_mgmt_only):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -123,7 +126,7 @@ def test_show_features_ipv6_only(duthosts_ipv6_mgmt_only): # noqa F411
             executor.submit(run_show_features, duthosts_ipv6_mgmt_only, duthost.hostname)
 
 
-def test_image_download_ipv6_only(creds, duthosts_ipv6_mgmt_only): # noqa F411
+def test_image_download_ipv6_only(creds, duthosts_ipv6_mgmt_only):  # noqa: F411, F811
     """
     Test image download in mgmt ipv6 only scenario
     """
@@ -154,7 +157,7 @@ def test_image_download_ipv6_only(creds, duthosts_ipv6_mgmt_only): # noqa F411
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
                          [("fd82:b34f:cc99::100", None),
                           ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog_ipv6_only(duthosts_ipv6_mgmt_only, check_default_route,          # noqa F411
+def test_syslog_ipv6_only(duthosts_ipv6_mgmt_only, check_default_route,          # noqa: F411, F811
                           rand_selected_dut, dummy_syslog_server_ip_a,
                           dummy_syslog_server_ip_b):
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
@@ -162,7 +165,7 @@ def test_syslog_ipv6_only(duthosts_ipv6_mgmt_only, check_default_route,         
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
 
 
-def test_snmp_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, creds_all_duts): # noqa F411
+def test_snmp_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, creds_all_duts):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
@@ -186,7 +189,7 @@ def test_snmp_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, creds_all_d
             executor.submit(verify_snmp_ipv6_only, duthost)
 
 
-def test_ro_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds): # noqa F411
+def test_ro_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
@@ -204,7 +207,7 @@ def test_ro_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only,
             executor.submit(verify_ro_user_ipv6_only, duthost)
 
 
-def test_rw_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds): # noqa F411
+def test_rw_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
@@ -222,7 +225,7 @@ def test_rw_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only,
             executor.submit(verify_rw_usr_ipv6_only, duthost)
 
 
-def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, ptfhost, gnxi_path): # noqa F411
+def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, ptfhost, gnxi_path):  # noqa: F411,F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
@@ -249,8 +252,8 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
 
 
 # use function scope fixture so that duthosts_ipv6_mgmt_only will run before setup_ntp_func
-def test_ntp_ipv6_only(duthosts_ipv6_mgmt_only,             # noqa F411
-                       rand_one_dut_hostname, ptfhost, ptf_use_ipv6, ntp_daemon_in_use):  # noqa F811
+def test_ntp_ipv6_only(duthosts_ipv6_mgmt_only,             # noqa: F411, F811
+                       rand_one_dut_hostname, ptfhost, ptf_use_ipv6, ntp_daemon_in_use):  # noqa: F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
     duthost = duthosts_ipv6_mgmt_only[rand_one_dut_hostname]
