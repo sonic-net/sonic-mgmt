@@ -32,7 +32,7 @@ DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
 
 DOWNSTREAM_IP_PORT_MAP = {}
 
-UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "20c1:d180::11"}
+UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2064:100::11"}
 
 PACKET_COUNT = 100
 PACKET_COUNT_MAX_DIFF = 4
@@ -337,29 +337,33 @@ def save_test_results(duthost, test_results, ip_version, with_ecmpoffset=False):
             )
             if packets_count:
                 format_results[pattern][interface]["packets_count"] = packets_count
+
     for pattern, interfaces in format_results.items():
+        packet_counts = []
         for interface, data in interfaces.items():
-            packet_counts = []
-
             # Collect all packet counts for this interface under this pattern
-            for tuple_key, _ in data["tuples"].items():
-                if "count" in data:
-                    packet_counts.append(data["count"])
+            if "count" in data:
+                packet_counts.append(data["count"])
+            else:
+                pytest_assert(
+                    False,
+                    f"Pattern '{pattern}' on interface '{interface}' has no 'count' field",
+                )
 
-            # If we have packet counts to compare
-            if packet_counts:
-                min_count = min(packet_counts)
-                max_count = max(packet_counts)
-                diff = max_count - min_count
+        # If we have packet counts to compare for this pattern
+        if packet_counts:
+            min_count = min(packet_counts)
+            max_count = max(packet_counts)
+            diff = max_count - min_count
 
-                # If the difference is more than 4, fail the case
-                if diff > PACKET_COUNT_MAX_DIFF:
-                    error_msg = (
-                        f"High variance in packet counts for {pattern} on {interface}: "
-                        f"min={min_count}, max={max_count}, diff={diff}"
-                    )
-                    logger.error(error_msg)
-                    pytest_assert(False, error_msg)
+            # If the difference is more than 4, fail the case
+            if diff > PACKET_COUNT_MAX_DIFF:
+                error_msg = (
+                    f"High variance in packet counts for {pattern}: "
+                    f"min={min_count}, max={max_count}, diff={diff}, threshold={PACKET_COUNT_MAX_DIFF}"
+                )
+                logger.error(error_msg)
+                pytest_assert(False, error_msg)
     logger.info("Formatted results by interface:")
     logger.info(json.dumps(format_results, indent=4))
     try:
@@ -487,7 +491,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
     base_sport = 100
     base_dport = 80
     proto = 17
-    INCREMENT = 40
+    INCREMENT = 80
     # Dictionary to store test results for all patterns
     test_results = {
         "pattern_1": {},  # varying source ports
@@ -682,7 +686,8 @@ def test_udp_packets_ecmp(
 ):
     """Verify that we can match and forward UDP packets with different patterns."""
     hwsku = duthost.facts['hwsku']
-    if hwsku not in ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8", "Arista-7060CX-32S-Q32"
+    logger.info(f"Running ECMP hash offset test for hardware SKU: {hwsku}")
+    if hwsku not in ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8", "Arista-7060CX-32S-Q32",
                      "Arista-7260CX3-C64", "Arista-7260CX3-D108C10", "Arista-7260CX3-D108C8"]:
         pytest.skip("Skipping ECMP hash offset test for this hardware SKU {} since it's not supported".format(hwsku))
     output = duthost.command(
