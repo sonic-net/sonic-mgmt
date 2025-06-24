@@ -1489,7 +1489,7 @@ def main():
 
     is_storage_backend = "backend" in topo_name
     tor_default_route = "t1-isolated-d128" in topo_name
-    skip_peer_switches = "t0-isolated" in topo_name
+    skip_peer_switches = "t0-isolated" in topo_name or topo_name in ['t0-d18u8s4']
 
     topo_type = get_topo_type(topo_name)
 
