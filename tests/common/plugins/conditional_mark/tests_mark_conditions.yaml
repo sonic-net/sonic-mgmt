@@ -1402,6 +1402,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_nexthop_flap[CRC-IP_PROTOCOL-ipv4-None-None]:
+  skip:
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
+    conditions:
+    - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
@@ -1414,6 +1420,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-None]:
+  skip:
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
+    conditions:
+    - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_reboot:
   skip:
@@ -2645,6 +2657,12 @@ upgrade_path:
     conditions:
       - "asic_type in ['vs']"
 
+upgrade_path/test_multi_hop_upgrade_path.py:
+  skip:
+    reason: "Only supported on T0 topology"
+    conditions:
+      - "'t0' not in topo_type"
+
 upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
   skip:
     reason: "Only supported on T2 topology"
@@ -2703,6 +2721,19 @@ voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortl
     conditions:
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_drop_counter:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
+    conditions:
+      - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_queue_counter:
+  skip:
+    reason: "Skip test_voq_queue_counter for non broadcom-dnx 't2' platforms."
+    conditions:
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
 
 voq/test_voq_fabric_capacity.py:
   skip:
