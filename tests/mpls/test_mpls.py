@@ -245,7 +245,7 @@ class TestBasicMpls:
         pkt1 = epkt['IP']
         epkt['Ethernet'].type = 0x8847
         epkt['Ethernet'].remove_payload()
-        mp = MPLS(label=1000002, s=1, ttl=255)          # noqa F821
+        mp = MPLS(label=1000002, s=1, ttl=255)          # noqa: F821
         mp.remove_payload()
         epkt /= mp
         epkt /= pkt1
