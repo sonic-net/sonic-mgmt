@@ -111,6 +111,8 @@ pdu-127,10.3.154.244,Sentry4,Pdu,snmp,
 pdu-128,10.3.155.82,Sentry4,Pdu,snmp,
 pdu-129,10.3.155.83,Sentry4,Pdu,snmp,
 pdu-130,10.3.155.84,Sentry4,Pdu,snmp,
+pdu-46,10.3.154.46,Sentrty,Pdu,snmp,
+pdu-47,10.3.154.47,Sentrty,Pdu,snmp,
 console-80,10.3.145.80,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 console-178,10.3.145.178,Cisco,ConsoleServer,ssh,
@@ -123,6 +125,7 @@ console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
 console-185,10.3.145.185,Cisco,ConsoleServer,ssh,
+console-176,10.3.145.176,Cisco,ConsoleServer,ssh,
 str3-z9332f-02,10.3.146.118/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-z9332f-06,10.3.146.7/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-7060-acs-1,10.3.146.240/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
@@ -159,3 +162,7 @@ str3-msn4700-12,10.3.146.107/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str3-msn4700-fanout-12,10.3.146.124/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str3-t2-aresone-ixia,10.3.145.74/32,SNAPPI-tester,DevSnappiApiServ,,
 str3-t2-aresone-ixia-api-serv,10.64.246.189/32,SNAPPI-tester,DevSnappiApiServ,,ixia
+str3-t0-8102-smartswitch-01,10.3.147.207/24,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
+str3-t0-8101-fanout-01,10.3.147.206/24,Cisco-8101-32FH-O,FanoutLeafSonic,,sonic
+str3-t0-8102-smartswitch-02,10.3.147.210/24,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
+str3-t0-8101-fanout-02,10.3.147.208/24,Cisco-8101-32FH-O,FanoutLeafSonic,,sonic

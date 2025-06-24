@@ -75,39 +75,8 @@
   auto_recover: 'True'
   comment: prsunny
 
-- conf-name: vms-sn2700-t0
-  group-name: vms1-3
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: ptf_vms1-3
-  ptf_ip: 10.255.0.180/24
-  ptf_ipv6:
-  server: server_1
-  vm_base: VM0100
-  dut:
-    - str-msn2700-01
-  inv_name: lab
-  auto_recover: 'True'
-  upstream_neighbor_groups: 1
-  comment: Tests Mellanox SN2700 vms
-
-- conf-name: vms-s6000-t0
-  group-name: vms2-1
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: ptf_vms2-1
-  ptf_ip: 10.255.1.179/24
-  ptf_ipv6:
-  server: server_1
-  vm_base: VM0100
-  dut:
-    - lab-s6000-01
-  inv_name: lab
-  auto_recover: 'True'
-  comment: Tests Dell S6000 vms
-
-- conf-name: vms-a7260-t0
-  group-name: vms3-1
+- conf-name: vms7-t0-7260-1
+  group-name: vms7-7
   topo: t0-116
   ptf_image_name: docker-ptf
   ptf: vms7-7
@@ -1920,9 +1889,9 @@
   auto_recover: 'True'
   comment: zitingguo
 
-- conf-name: vms74-t0-sn5600-5
+- conf-name: vms74-t1-sn5600-5
   group-name: vms74-2
-  topo: t0-isolated-d2u254s1
+  topo: t1-isolated-d254u2
   ptf_image_name: docker-ptf
   ptf: vms74-2
   ptf_ip: 10.64.247.103/23
@@ -1945,21 +1914,6 @@
   vm_base: VM41000
   dut:
   - str4-7060x6-64pe-th5p-1
-  inv_name: str4
-  auto_recover: 'True'
-  comment: dashuaizhang
-
-- conf-name: vms71-ft2-7060x6-7
-  group-name: vms71-2
-  topo: ft2-64
-  ptf_image_name: docker-ptf
-  ptf: vms71-2
-  ptf_ip: 10.64.247.118/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f776/64
-  server: server_71
-  vm_base: VM41264
-  dut:
-  - str4-7060x6-64pe-7
   inv_name: str4
   auto_recover: 'True'
   comment: dashuaizhang
@@ -3646,6 +3600,38 @@
   is_smartswitch: 'True'
   comment: paravind
 
+- conf-name: vms10-t0-smartswitch-8102-01
+  group-name: vms10-1 
+  topo: t0-standalone-32
+  ptf_image_name: docker-ptf
+  ptf: vms10-1
+  ptf_ip: 10.64.246.160/24
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6a0/64
+  server: server_13
+  vm_base: VM13096
+  dut:
+    - str3-t0-8102-smartswitch-01
+  inv_name: str3
+  auto_recover: 'True'
+  is_smartswitch: 'True'
+  comment: kbedida
+
+- conf-name: vms10-t0-smartswitch-8102-02 
+  group-name: vms10-2 
+  topo: t0-standalone-32
+  ptf_image_name: docker-ptf
+  ptf: vms10-2  
+  ptf_ip: 10.64.246.161/24
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6a1/64
+  server: server_13
+  vm_base: VM13100
+  dut:
+    - str3-t0-8102-smartswitch-02
+  inv_name: str3
+  auto_recover: 'True'
+  is_smartswitch: 'True'
+  comment: kbedida
+
 - conf-name: vms29-t2-route-conv-7808
   group-name: vms20-ixia-12
   topo: tgen_t2_2lc_route_conv
@@ -4265,3 +4251,33 @@
   - str5-7060x6-512-5
   inv_name: str5
   comment: wendachu
+
+- conf-name: vms13-lt2-7060x6-8
+  group-name: vms13-1
+  topo: lt2-p32o64
+  ptf_image_name: docker-ptf
+  ptf: vms13-1
+  ptf_ip: 10.64.247.122/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f77a/64
+  server: server_13
+  vm_base: VM13000
+  dut:
+  - str4-7060x6-512-8
+  inv_name: str4
+  auto_recover: 'True'
+  comment: MattSoulsby
+
+- conf-name: vms13-ft2-7060x6-4
+  group-name: vms13-2
+  topo: ft2-64
+  ptf_image_name: docker-ptf
+  ptf: vms13-2
+  ptf_ip: 10.64.247.128/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f77b/64
+  server: server_13
+  vm_base: VM13500
+  dut:
+  - str4-7060x6-512-4
+  inv_name: str4
+  auto_recover: 'True'
+  comment: MattSoulsby
