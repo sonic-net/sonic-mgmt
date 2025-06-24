@@ -7,6 +7,7 @@ import (
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
+        "github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"google.golang.org/grpc"
 )
@@ -24,23 +25,15 @@ type Device struct {
 	PortMap map[string]*binding.Port
 }
 
-// GRPCService represents supported grpc service.
-type GRPCService string
-
-const (
-	// GNMI represents gnmi grpc service.
-	GNMI GRPCService = "gnmi"
-	// GNOI represents gnoi grpc service.
-	GNOI GRPCService = "gnoi"
-	// GNSI represents gnsi grpc service.
-	GNSI GRPCService = "gnsi"
-	// P4RT represents p4rt grpc service.
-	P4RT GRPCService = "p4rt"
-)
+// ServiceInfo contains address and grpc timeout info for the service.
+type ServiceInfo struct {
+	Addr    string        // GRPC server address for the service.
+	Timeout time.Duration // Time to wait for each grpc call for this service.
+}
 
 // GRPCServices contains addresses for services using grpc protocol.
 type GRPCServices struct {
-	Addr map[GRPCService]string
+	Info map[introspect.Service]ServiceInfo
 }
 
 // HTTPService contains addresses for services using HTTP protocol.

@@ -13,6 +13,7 @@ import (
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
+        "github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
@@ -57,8 +58,8 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 		return err
 	}
 
-	for _, service := range grpc.Addr {
-		b.configs[service] = &tls.Config{
+	for _, serviceInfo := range grpc.Info {
+		b.configs[serviceInfo.Addr] = &tls.Config{
 			Certificates: []tls.Certificate{clientCert},
 			RootCAs:      certPool,
 			ServerName:   serverName,
@@ -75,14 +76,14 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 	// Fill in the Dut and Control device details.
 	dut := "192.168.0.1"     // sample dut address.
 	control := "192.168.0.2" // sample control address.
-	log.Infof("testbed Dut:%s Control switch:%s", dut, control)
+	log.InfoContextf(ctx, "testbed Dut:%s Control switch:%s", dut, control)
 
 	grpcPort := "9339"
 	p4rtPort := "9559"
-	dutGRPCAddr := fmt.Sprintf("%v:%v", dut, grpcPort)
-	dutP4RTAddr := fmt.Sprintf("%v:%v", dut, p4rtPort)
-	controlGRPCAddr := fmt.Sprintf("%v:%v", control, grpcPort)
-	controlP4RTAddr := fmt.Sprintf("%v:%v", control, p4rtPort)
+	dutGRPCInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, grpcPort)}
+	dutP4RTInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, p4rtPort)}
+	controlGRPCInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", control, grpcPort)}
+	controlP4RTInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", control, p4rtPort)}
 
 	// Modify the reservation based on your topology.
 	r := &bindingbackend.ReservedTopology{
@@ -115,11 +116,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 				},
 			},
 			GRPC: bindingbackend.GRPCServices{
-				Addr: map[bindingbackend.GRPCService]string{
-					bindingbackend.GNMI: dutGRPCAddr,
-					bindingbackend.GNOI: dutGRPCAddr,
-					bindingbackend.GNSI: dutGRPCAddr,
-					bindingbackend.P4RT: dutP4RTAddr,
+				Info: map[introspect.Service]bindingbackend.ServiceInfo{
+					introspect.GNMI: dutGRPCInfo,
+					introspect.GNOI: dutGRPCInfo,
+					introspect.GNSI: dutGRPCInfo,
+					introspect.P4RT: dutP4RTInfo,
 				},
 			}},
 			{
@@ -150,11 +151,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 					},
 				},
 				GRPC: bindingbackend.GRPCServices{
-					Addr: map[bindingbackend.GRPCService]string{
-						bindingbackend.GNMI: controlGRPCAddr,
-						bindingbackend.GNOI: controlGRPCAddr,
-						bindingbackend.GNSI: controlGRPCAddr,
-						bindingbackend.P4RT: controlP4RTAddr,
+					Info: map[introspect.Service]bindingbackend.ServiceInfo{
+						introspect.GNMI: controlGRPCInfo,
+						introspect.GNOI: controlGRPCInfo,
+						introspect.GNSI: controlGRPCInfo,
+						introspect.P4RT: controlP4RTInfo,
 					},
 				}},
 		}}
