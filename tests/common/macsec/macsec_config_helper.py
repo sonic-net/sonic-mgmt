@@ -1,7 +1,8 @@
 import logging
 import time
 
-from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, submit_async_task
+from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
+     submit_async_task, load_all_macsec_info
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
@@ -14,10 +15,24 @@ __all__ = [
     'set_macsec_profile',
     'delete_macsec_profile',
     'enable_macsec_port',
-    'disable_macsec_port'
+    'disable_macsec_port',
+    'get_macsec_enable_status',
+    'get_macsec_profile'
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def get_macsec_enable_status(host):
+    # Retrieve the enable_macsec flag passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("--enable_macsec", default=False)
+
+
+def get_macsec_profile(host):
+    # Retrieve the macsec_profile passed by user for this testrun
+    request = host.duthosts.request
+    return request.config.getoption("--macsec_profile", default=None)
 
 
 def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
@@ -64,6 +79,34 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         # So, if send_sci = false and the neighbor device is SONiC VM,
         # LLDPd need to use the real MAC address as the source MAC address
         host.command("lldpcli configure system bond-slave-src-mac-type real")
+
+
+def is_macsec_configured(host, mac_profile, ctrl_links):
+    is_profile_present = False
+    is_port_profile_present = False
+    profile_name = mac_profile['name']
+
+    # Check macsec profile is configured in all namespaces
+    if host.is_multi_asic:
+        for ns in host.get_asic_namespace_list():
+            CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
+            cmd = "sonic-db-cli {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            output = host.command(cmd)['stdout'].strip()
+            profile = output.split('|')[1] if output else None
+            is_profile_present = (profile == profile_name)
+    else:
+        cmd = "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
+        output = host.command(cmd)['stdout'].strip()
+        profile = output.split('|')[1] if output else None
+        is_profile_present = (profile == profile_name)
+
+    # Check if macsec profile is configured on interfaces
+    for port, nbr in ctrl_links.items():
+        cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(getns_prefix(host, port), port)
+        output = host.command(cmd)['stdout'].strip()
+        is_port_profile_present = (output == profile_name)
+
+    return is_profile_present and is_port_profile_present
 
 
 def delete_macsec_profile(host, port, profile_name):
@@ -184,7 +227,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
+                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo):
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile
     i = 0
@@ -220,3 +263,6 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
     logger.info("Setup macsec configuration finished")
+
+    # Load the MACSEC_INFO, to have data of all macsec sessions
+    load_all_macsec_info(duthost, ctrl_links, tbinfo)

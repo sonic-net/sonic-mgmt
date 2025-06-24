@@ -50,7 +50,6 @@ import ipaddress
 import itertools
 import fib
 import time
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -59,6 +58,8 @@ from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv
 from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
+
+import macsec  # noqa F401
 
 
 class DecapPacketTest(BaseTest):
@@ -525,11 +526,6 @@ class DecapPacketTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]

@@ -7,6 +7,7 @@
 
 import copy
 import logging
+from jinja2 import Template
 import json
 import re
 
@@ -28,6 +29,9 @@ GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
+MACSEC_PROFILE_PATH = '/tmp/profile.json'
+GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
+GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +51,16 @@ def is_full_lossy_hwsku(hwsku):
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
-                                                       port_index_map=dict(require=False, type='dict', default=None),
-                                                       hwsku=dict(require=False, type='str', default=None)),
+                                    port_index_map=dict(require=False, type='dict', default=None),
+                                    macsec_profile=dict(require=False, type='str', default=None),
+                                    num_asics=dict(require=False, type='int', default=1),
+                                    hwsku=dict(require=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.hwsku = self.module.params['hwsku']
+        self.macsec_profile = self.module.params['macsec_profile']
+        self.num_asics = self.module.params['num_asics']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -262,11 +270,32 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({"PORT": port_config}, indent=4)
 
+    def generate_t2_golden_config_db(self):
+        with open(MACSEC_PROFILE_PATH) as f:
+            macsec_profiles = json.load(f)
+
+            profile = macsec_profiles.get(self.macsec_profile)
+            if profile:
+                profile['macsec_profile'] = self.macsec_profile
+
+            # Update the profile context with the asic count
+            profile['asic_cnt'] = self.num_asics
+
+            def safe_open_template(template_path):
+                with open(template_path) as template_file:
+                    return Template(template_file.read())
+
+            # Render the template using the profile
+            rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+
+        return rendered_json
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
             module_msg = module_msg + " for mgfx"
         elif self.topo_name == "t1-28-lag":
             config = self.generate_smartswitch_golden_config_db()
@@ -278,6 +307,7 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_t2_golden_config_db()
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
+            module_msg = module_msg + " for t2"
         elif self.hwsku and is_full_lossy_hwsku(self.hwsku):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
@@ -293,10 +323,7 @@ class GenerateGoldenConfigDBModule(object):
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
-        self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         self.module.exit_json(change=True, msg=module_msg)
-
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
