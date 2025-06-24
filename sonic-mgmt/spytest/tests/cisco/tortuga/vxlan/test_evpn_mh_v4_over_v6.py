@@ -2108,7 +2108,7 @@ def test_SH_mac_IP_move_H1_H5():
         reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "ping and traffic from H3 to H1 failed after mac move with unicast traffic")
 
-    h2_counter =  vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
+    h2_counter =  vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D3T1P1, r_t_key='rx_ok')
     if not (h2_counter <= 0.1 * int(data.pkts_per_burst)):
         reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
         report_fail(nodes['leaf1'], "Traffic from H3->H1 getting flooded on H2")
@@ -2361,8 +2361,9 @@ def test_SH_mac_IP_move_H3_H4():
         move_back_H3_H4_intf_config()
         report_fail(nodes['leaf1'], "ping and traffic from H5 to H1 failed after mac move with unicast traffic")
 
-    h2_counter = vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D2T1P2, r_t_key='rx_ok')
+    h2_counter = vxlan_obj.get_counters(node = nodes['leaf1'], cmd='show interface counters', target_iface = vars.D3T1P1, r_t_key='rx_ok')
     if not (h2_counter <= 0.1 * int(data.pkts_per_burst)):
+        get_cli_out()
         reset_topology_after_mac_move(port_name_map["H4"], port_name_map["H3"])
         move_back_H3_H4_intf_config()
         report_fail(nodes['leaf1'], "Traffic from H5->H3 getting flooded on H2")
