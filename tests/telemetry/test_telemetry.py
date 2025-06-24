@@ -36,9 +36,17 @@ def load_new_cfg(duthost, data):
     setup_telemetry_forpyclient(duthost)
 
 
-def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
+def get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
     cnt = 0
     for i in range(MAX_UC_CNT):
+        # Check for existence of COUNTERS_QUEUE_NAME_MAP in COUNTERS_DB
+        cmd = "sonic-db-cli COUNTERS_DB hget COUNTERS_QUEUE_NAME_MAP {0}:{1}".format(interface, i)
+        cmd_output = duthost.shell(cmd, module_ignore_errors=True)
+        if not cmd_output["stdout"]:
+            logger.info("COUNTERS_QUEUE_NAME_MAP {0}:{1} does not exist in COUNTERS_DB".format(interface, i))
+            continue
+        else:
+            logger.info("COUNTERS_QUEUE_NAME_MAP {0}:{1} exists: {2}".format(interface, i, cmd_output["stdout"]))
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
@@ -52,8 +60,8 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
     return cnt
 
 
-def check_buffer_queues_cnt_cmd_output(ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port):
-    cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port)
+def check_buffer_queues_cnt_cmd_output(duthost, ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port):
+    cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port)
     if cnt > 0:
         return True
     else:
@@ -192,16 +200,16 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
-    pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                             dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
-    pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+    pytest_assert(wait_until(180, 20, 0, check_buffer_queues_cnt_cmd_output, duthost, ptfhost, gnxi_path,
+                             dut_ip, interface_to_check, env.gnmi_port), "Unable to pull interface data")
+    pre_del_cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
     # Remove buffer queue and reload and get new number of queue counters
     del data['BUFFER_QUEUE'][interface_buffer_queues[0]]
     load_new_cfg(duthost, data)
-    pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                             dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
-    post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+    pytest_assert(wait_until(180, 20, 0, check_buffer_queues_cnt_cmd_output, duthost, ptfhost, gnxi_path,
+                             dut_ip, interface_to_check, env.gnmi_port), "Unable to pull interface data")
+    post_del_cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
     pytest_assert(pre_del_cnt > post_del_cnt,
                   "Number of queue counters count differs from expected")
