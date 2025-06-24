@@ -107,7 +107,7 @@ async def async_test_performance(duthost, call_sanity_check, reorged_test_config
 # Ideally, test_performance should not give errors and only collect results regardless of the
 # errors received. Analyzing the result is reserved for test_performance_stats
 def test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
-                     path, test_name, op, success_criteria, run_index):     # noqa F811
+                     path, test_name, op, success_criteria, run_index):     # noqa: F811
     asyncio.run(async_test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
                                        path, test_name, op, success_criteria, run_index))
 
