@@ -112,10 +112,10 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             frr_config = duthost.command("vtysh" + f" -n {enum_frontend_asic_index}"
                                          + " -c \"show running-config\"")["stdout"]
         else:
-            frr_config = duthost.command("vtysh" + " -c \"show running-config\"" + " | grep \"fcbb:bbbb::/32\"")
-            ["stdout"]
+            frr_config = duthost.command("vtysh" + " -c \"show running-config\"")["stdout"]
         # verify that FRR config is updatedd correctly
-        assert "Ethernet1" in frr_config, "Static route is not updated in FRR's configuration"
+        assert "ipv6 route fcbb:bbbb::/32 fc00::1 Ethernet1" in frr_config,\
+               "Static route is not updated in FRR's configuration"
     finally:
         delete_tmpfile(duthost, tmpfile)
 
