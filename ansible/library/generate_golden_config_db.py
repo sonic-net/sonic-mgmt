@@ -382,15 +382,15 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_ft2_golden_config_db(self):
+    def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
         **Only PORT table is updated**.
         """
-        SUPPORTED_TOPO = ["ft2-64"]
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128-d110u14"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
-        SUPPORTED_PORT_SPEED = ["100000", "200000", "400000", "800000"]
+        SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
         port_config = ori_config.get("PORT", {})
         for name, config in port_config.items():
@@ -411,8 +411,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif self.topo_name in ["ft2-64"]:
-            config = self.generate_ft2_golden_config_db()
+        elif "ft2" in self.topo_name or "lt2" in self.topo_name:
+            config = self.generate_lt2_ft2_golden_config_db()
         elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
