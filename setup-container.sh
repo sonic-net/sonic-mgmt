@@ -7,7 +7,7 @@ declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
 declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:yutongtest"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
-declare -r LOCAL_IMAGE_TAG="master"
+declare -r LOCAL_IMAGE_TAG="yutongzhang"
 declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"
 
 declare -r ROOT_PASS="root"
@@ -41,7 +41,7 @@ declare EXISTING_CONTAINER_NAME=""
 #
 
 CONTAINER_NAME=""
-IMAGE_ID=""
+IMAGE_ID="sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:yutongtest"
 LINK_DIR=""
 MOUNT_POINTS="-v \"/var/run/docker.sock:/var/run/docker.sock:rslave\""
 PUBLISH_PORTS=""

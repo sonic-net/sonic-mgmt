@@ -1885,10 +1885,6 @@ Totals               6450                 6449
         return self.facts
 
     def get_running_config_facts(self):
-        import traceback
-        print("[DEBUG] get_running_config_facts called from:")
-        traceback.print_stack()
-
         return self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
 
     def get_vlan_intfs(self):
