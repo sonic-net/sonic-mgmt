@@ -22,10 +22,10 @@ import logging
 import pytest
 
 from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink                                                      # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
+    separated_dscp_to_tc_map_on_uplink                                                      # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from .qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
