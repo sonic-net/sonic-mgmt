@@ -1,5 +1,6 @@
 import pytest
 import logging
+import time
 
 from tests.common.gu_utils import apply_patch, expect_op_success, create_path
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
@@ -67,6 +68,7 @@ def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, e
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
     expect_op_success(duthost, output)
+    time.sleep(5)  # wait for the config to be applied
 
     try:
         if duthost.is_multi_asic:
@@ -103,6 +105,7 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
     expect_op_success(duthost, output)
+    time.sleep(5)  # wait for the config to be applied
 
     try:
         if duthost.is_multi_asic:
@@ -146,6 +149,7 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+        time.sleep(5)  # wait for the config to be applied
 
         assert len(duthost.command(sonic_db_cli + " CONFIG_DB KEYS STATIC*")['stdout']) == 0, \
             "STATIC ROUTE configuration was not cleaned up in CONFIG_DB"
