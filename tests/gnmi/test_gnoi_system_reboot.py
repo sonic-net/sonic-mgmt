@@ -7,7 +7,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.common.plugins.ansible_fixtures import ansible_adhoc
 from tests.common.platform.device_utils import create_npu_host_based_on_dpu_info
 
 
