@@ -540,7 +540,7 @@ dhcp_relay/test_dhcp_relay.py::test_interface_binding:
   skip:
     reason: "Skip test_interface_binding in old release version"
     conditions:
-      - "'release in ['201811', '201911', '202106']"
+      - "release in ['201811', '201911', '202106']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
