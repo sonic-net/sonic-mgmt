@@ -2,8 +2,8 @@ import logging
 import pytest
 
 from collections import namedtuple, Counter
-from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa F401
-from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa F401
+from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa: F401
+from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa: F401
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 from tests.common.mellanox_data import is_mellanox_device
@@ -134,7 +134,7 @@ def disable_pfcwd(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname,
-                                      setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa F811
+                                      setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa: F811
                                       counterpoll_cpu_threshold, disable_pfcwd):
     """Check DUT memory usage and process cpu usage are within threshold.
     Disable all counterpoll types except tested one
@@ -179,7 +179,7 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
         outstanding_mem_polls, memory_threshold)
 
 
-def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):      # noqa F811
+def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):      # noqa: F811
     if cpu_usage_program_to_check:
         logging.info('CPU usage for counterpoll type {} : {}'.format(
             counterpoll_type, cpu_usage_program_to_check))
@@ -278,7 +278,7 @@ def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
         outstanding_mem_polls[i] = monit_result.memory
 
 
-def disable_all_counterpoll_type_except_tested(duthost, counterpoll_type):      # noqa F811
+def disable_all_counterpoll_type_except_tested(duthost, counterpoll_type):      # noqa: F811
     available_types = ConterpollHelper.get_available_counterpoll_types(duthost)
     available_types.remove(counterpoll_type)
     ConterpollHelper.disable_counterpoll(duthost, available_types)
