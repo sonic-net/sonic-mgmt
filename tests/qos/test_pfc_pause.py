@@ -5,7 +5,7 @@ import time
 
 from natsort import natsorted
 
-from .qos_fixtures import lossless_prio_dscp_map                                            # noqa F401
+from .qos_fixtures import lossless_prio_dscp_map                                            # noqa: F401
 from .qos_helpers import (
     ansible_stdout_to_str,
     get_all_vlans,
@@ -17,13 +17,13 @@ from .qos_helpers import (
     get_max_priority
 )
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode                   # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode                   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -107,7 +107,7 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     duthost.shell('sudo pfcwd start_default')
 
 
-def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,       # noqa F811
+def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,       # noqa: F811
              fanout_info, traffic_params, pause_prio=None, queue_paused=True,
              send_pause=True, pfc_pause=True, max_test_intfs_count=128):
     """
@@ -237,8 +237,8 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,   
 
 
 def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
-                            conn_graph_facts, fanout_graph_facts,               # noqa F811
-                            lossless_prio_dscp_map, enum_dut_lossless_prio):    # noqa F811
+                            conn_graph_facts, fanout_graph_facts,               # noqa: F811
+                            lossless_prio_dscp_map, enum_dut_lossless_prio):    # noqa: F811
     """
     Test if PFC pause frames can pause a lossless priority without affecting the other priorities
 
@@ -313,10 +313,10 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     pytest_assert(len(test_errors) == 0, test_errors)
 
 
-def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_graph_facts,        # noqa F811
-                fanout_graph_facts, lossless_prio_dscp_map, enum_dut_lossless_prio, # noqa F811
-                setup_standby_ports_on_rand_unselected_tor,       # noqa F811
-                toggle_all_simulator_ports_to_rand_selected_tor): # noqa F811
+def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_graph_facts,        # noqa: F811
+                fanout_graph_facts, lossless_prio_dscp_map, enum_dut_lossless_prio,  # noqa: F811
+                setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
+                toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """
     Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
 
