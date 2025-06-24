@@ -683,7 +683,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 def nvgre_ipver(request):
     return request.param
 
-  
+
 def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                            # noqa: F811
                     hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,                # noqa: F811
                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,             # noqa: F811
