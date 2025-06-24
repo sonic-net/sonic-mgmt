@@ -8,7 +8,7 @@ from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -67,7 +67,7 @@ class TestModuleApi(PlatformApiTestBase):
     # it relies on the platform_api_conn_per_supervisor fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn): # noqa F811
+    def setup(self, platform_api_conn):  # noqa: F811
         if self.num_modules is None:
             try:
                 self.num_modules = int(chassis.get_num_modules(platform_api_conn))
@@ -85,14 +85,14 @@ class TestModuleApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         self.skip_mod_list = get_skip_mod_list(duthost)
 
-    def skip_absent_module(self, module_num, platform_api_conn):    # noqa F811
+    def skip_absent_module(self, module_num, platform_api_conn):    # noqa: F811
         name = module.get_name(platform_api_conn, module_num)
         if name in self.skip_mod_list:
             logger.info("Skipping module {} since it is part of skip_mod_list".format(name))
             return True
         return False
 
-    def skip_module_other_than_myself(self, module_num, platform_api_conn): # noqa F811
+    def skip_module_other_than_myself(self, module_num, platform_api_conn):  # noqa: F811
         if chassis.is_modular_chassis(platform_api_conn):
             name = module.get_name(platform_api_conn, module_num)
             module_slot = module.get_slot(platform_api_conn, module_num)
@@ -103,7 +103,7 @@ class TestModuleApi(PlatformApiTestBase):
             return False
         return False
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -113,7 +113,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             presence = module.get_presence(platform_api_conn, i)
@@ -126,7 +126,7 @@ class TestModuleApi(PlatformApiTestBase):
                         logger.info("Skipping module {} since it is part of skip_mod_list".format(name))
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -138,7 +138,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -150,7 +150,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -160,7 +160,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):   # noqa F811
+    def test_get_position_in_parent(self, platform_api_conn):   # noqa: F811
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
                 continue
@@ -170,7 +170,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Position value must be an integer value for module {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):   # noqa F811
+    def test_is_replaceable(self, platform_api_conn):   # noqa: F811
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
                 continue
@@ -185,7 +185,7 @@ class TestModuleApi(PlatformApiTestBase):
     # Functions to test methods defined in ModuleBase class
     #
 
-    def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         # Ensure the base MAC address of each module is sane
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
@@ -207,7 +207,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_system_eeprom_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                    platform_api_conn):     # noqa F811
+                                    platform_api_conn):     # noqa: F811
         """
         Test that we can retrieve sane system EEPROM info from each module of the DUT via the platform API
         """
@@ -287,7 +287,7 @@ class TestModuleApi(PlatformApiTestBase):
                         "Module {}: Serial number appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_components(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_components(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
 
         # TODO: Ensure the number of components and that the returned list is correct for this platform
         for mod_idx in range(self.num_modules):
@@ -309,7 +309,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
         self.assert_expectations()
 
-    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         # TODO: Ensure the number of fans and that the returned list is correct for this platform
         for mod_idx in range(self.num_modules):
@@ -331,7 +331,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
         self.assert_expectations()
 
-    def test_psus(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa F811
+    def test_psus(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa: F811
 
         # TODO: Ensure the number of PSUs and that the returned list is correct for this platform
         for mod_idx in range(self.num_modules):
@@ -353,7 +353,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
         self.assert_expectations()
 
-    def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa F811
+    def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa: F811
 
         # TODO: Ensure the number of thermals and that the returned list is correct for this platform
         for mod_idx in range(self.num_modules):
@@ -375,7 +375,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Thermal {} is incorrect".format(therm_idx))
         self.assert_expectations()
 
-    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa F811
+    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):      # noqa: F811
 
         # TODO: Ensure the number of SFPs and that the returned list is correct for this platform
         for mod_idx in range(self.num_modules):
@@ -398,7 +398,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                             platform_api_conn):   # noqa F811
+                             platform_api_conn):   # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -409,7 +409,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Module {} description appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -420,7 +420,7 @@ class TestModuleApi(PlatformApiTestBase):
                             "Module {} slot id is not correct ".format(i))
         self.assert_expectations()
 
-    def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -432,7 +432,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                        localhost, platform_api_conn):  # noqa F811
+                                        localhost, platform_api_conn):  # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -444,7 +444,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_midplane_ip(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                             platform_api_conn):   # noqa F811
+                             platform_api_conn):   # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -458,7 +458,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_is_midplane_reachable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                   platform_api_conn):      # noqa F811
+                                   platform_api_conn):      # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -473,7 +473,7 @@ class TestModuleApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_oper_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                             platform_api_conn):   # noqa F811
+                             platform_api_conn):   # noqa: F811
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i, platform_api_conn):
@@ -484,7 +484,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(status in MODULE_STATUS, "Module {}  status {} is invalid value".format(i, status))
         self.assert_expectations()
 
-    def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         reboot_type = 'default'
         reboot_timeout = 300
 
