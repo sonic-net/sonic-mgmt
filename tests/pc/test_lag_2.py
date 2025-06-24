@@ -3,11 +3,11 @@ import pytest
 import time
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -24,8 +24,7 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts): # noqa F811
-
+def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts):  # noqa: F811
     logger.info("########### Setup for lag testing ###########")
 
     yield ptfhost
@@ -45,7 +44,7 @@ def is_vtestbed(duthost):
 
 
 class LagTest:
-    def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):      # noqa F811
+    def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):      # noqa: F811
         self.duthost = duthost
         self.tbinfo = tbinfo
         self.ptfhost = ptfhost
@@ -278,7 +277,7 @@ def skip_if_no_lags(duthosts):
                                       "lacp_rate",
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
-             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa F811
+             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa: F811
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
