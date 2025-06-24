@@ -298,16 +298,13 @@ class VMTopology(object):
             # topologies with a large number of interfaces, but it does not work for multi-dut approaches such as
             # dualtor, hence why the former approach is preserved above for that case.
             else:
-                # Get the intf information in a tabulated format. Discard the header row.
-                intf_rows = VMTopology.cmd('ifconfig -a -s').split('\n')[1:]
-                # Keep first column only.
-                intf_names = [row.split(' ')[0] for row in intf_rows]
+                intf_names = [intf['ifname'] for intf in json.loads(VMTopology.cmd('ip -j addr'))]
                 for hostname, attrs in self.VMs.items():
                     vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
                     vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
                     num_intfs = 0
-                    for intf in intf_names:
-                        if re.search(vm_bridge_regx, intf):
+                    for intf_name in intf_names:
+                        if re.search(vm_bridge_regx, intf_name):
                             num_intfs += 1
                     if len(attrs['vlans']) > num_intfs:
                         raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
