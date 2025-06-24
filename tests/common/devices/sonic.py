@@ -87,7 +87,8 @@ class SonicHost(AnsibleHostBase):
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
 
-        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        self._running_config_facts = None
+        device_metadata = self._get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
         if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
@@ -102,6 +103,11 @@ class SonicHost(AnsibleHostBase):
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
+
+    def _get_running_config_facts(self):
+        if self._running_config_facts is None:
+            self._running_config_facts = self.get_running_config_facts()
+        return self._running_config_facts
 
     def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)

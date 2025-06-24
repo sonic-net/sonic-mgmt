@@ -36,6 +36,7 @@ class MultiAsicSonicHost(object):
         self.loganalyzer = None
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
+        self._config_facts = None
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
@@ -54,6 +55,11 @@ class MultiAsicSonicHost(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def _get_config_facts(self):
+        if self._config_facts is None:
+            self._config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        return self._config_facts
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
@@ -79,7 +85,7 @@ class MultiAsicSonicHost(object):
                 active_asics = []
         service_list += self._DEFAULT_SERVICES
 
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        config_facts = self._get_config_facts()
         # NOTE: Add mux to critical services for dualtor
         if (
             "DEVICE_METADATA" in config_facts and
