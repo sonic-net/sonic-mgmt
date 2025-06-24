@@ -120,7 +120,8 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
         for bgp_nbr_adv_cmd in adv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
-            assert routes_json['totalPrefixCounter'] == len(duthosts)
+            # Verify advertisement of Loopack IPs from all frontend nodes and default route
+            assert routes_json['totalPrefixCounter'] == len(duthosts.frontend_nodes) + 1
             assert routes_json['filteredPrefixCounter'] == 0
 
         rc = duthost.shell('sudo azng_migration -d')
