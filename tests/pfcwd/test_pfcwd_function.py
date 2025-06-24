@@ -6,7 +6,7 @@ import time
 import six
 import re
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -17,8 +17,8 @@ from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state
 from tests.common.utilities import wait_until
 
@@ -868,11 +868,21 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.rx_action = action
         self.tx_action = action
 
-    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                           ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
-                           setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
-                           toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
-                           set_pfc_time_cisco_8000): # noqa F811
+    def test_pfcwd_actions(
+            self,
+            request,
+            fake_storm,
+            setup_pfc_test,
+            setup_dut_test_params,
+            enum_fanout_graph_facts,  # noqa: F811
+            ptfhost,
+            duthosts,
+            enum_rand_one_per_hwsku_frontend_hostname,
+            fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+            set_pfc_time_cisco_8000  # noqa: F811
+            ):
         """
         PFCwd functional test
 
@@ -947,11 +957,15 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     logger.info("--- Stop PFC WD ---")
                     self.dut.command("pfcwd stop")
 
-    def test_pfcwd_multi_port(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
-                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
-                              toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
-                              set_pfc_time_cisco_8000): # noqa F811
+    def test_pfcwd_multi_port(
+            self,
+            request,
+            fake_storm,
+            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+            set_pfc_time_cisco_8000):  # noqa: F811
         """
         Tests pfcwd behavior when 2 ports are under pfc storm one after the other
 
@@ -1032,11 +1046,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
 
-    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa F811
-                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, dualtor_ports, # noqa F811
-                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,       # noqa F811
-                              toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
-                              set_pfc_time_cisco_8000): # noqa F811
+    def test_pfcwd_mmu_change(
+            self,
+            request,
+            fake_storm,
+            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa: F811
+            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+            fanouthosts, dualtor_ports,  # noqa: F811
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+            set_pfc_time_cisco_8000):  # noqa: F811
         """
         Tests if mmu changes impact Pfcwd functionality
 
@@ -1127,11 +1146,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
 
-    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                               tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
-                               setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
-                               toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
-                               set_pfc_time_cisco_8000): # noqa F811
+    def test_pfcwd_port_toggle(
+            self, request, fake_storm,
+            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,   # noqa: F811
+            set_pfc_time_cisco_8000):  # noqa: F811
         """
         Test PfCWD functionality after toggling port
 
@@ -1235,11 +1256,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.dut.command("pfcwd stop")
 
     def test_pfcwd_no_traffic(
-            self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
+            self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
-            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
-            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa F811
-            set_pfc_time_cisco_8000): # noqa F811
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa: F811
+            set_pfc_time_cisco_8000):  # noqa: F811
         """
         Verify the pfcwd is not triggered when no traffic is sent, even when pfc storm is active.
         Args:
