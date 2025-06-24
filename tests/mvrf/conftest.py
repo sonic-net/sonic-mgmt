@@ -97,15 +97,3 @@ def enable_queue_counterpoll_type(duthosts):
     for duthost in duthosts:
         if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
             duthost.command('counterpoll queue enable')
-
-
-def pytest_addoption(parser):
-    """
-    Adds options to pytest that are used by the snmp tests.
-    """
-    parser.addoption(
-        "--percentage",
-        action="store",
-        default=False,
-        help="Set percentage difference for snmp test",
-        type=int)
