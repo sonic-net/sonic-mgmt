@@ -16,7 +16,8 @@ pytestmark = [
 
 
 def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                         enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, port_list_with_flat_memory):   # noqa F811
+                         enum_frontend_asic_index,
+                         conn_graph_facts, xcvr_skip_list, port_list_with_flat_memory):   # noqa: F811
     """
     @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
