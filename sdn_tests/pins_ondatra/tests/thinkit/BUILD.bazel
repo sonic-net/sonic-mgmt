@@ -13,7 +13,7 @@ cc_test(
     tags = [
         "exclusive",
         "external",
-        "guitar",
+        "experimental",
         "manual",
         "notap",
     ],
@@ -37,7 +37,7 @@ cc_test(
     tags = [
         "exclusive",
         "external",
-        "guitar",
+        "experimental",
         "manual",
         "notap",
     ],
@@ -60,7 +60,7 @@ cc_test(
     tags = [
         "exclusive",
         "external",
-        "guitar",
+        "experimental",
         "manual",
         "notap",
     ],
@@ -85,7 +85,7 @@ cc_test(
     tags = [
         "exclusive",
         "external",
-        "guitar",
+        "experimental",
         "manual",
         "notap",
     ],
