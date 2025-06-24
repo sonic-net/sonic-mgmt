@@ -14,7 +14,7 @@ from .util import parse_eeprom, parse_eeprom_hexdump
 from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
-from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
+from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa: F401
 from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
@@ -487,7 +487,7 @@ def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp):    # noqa F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp):    # noqa: F811
     """
     @summary: Check SFP reset using 'sfputil reset'
     """
@@ -570,7 +570,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       enum_frontend_asic_index, conn_graph_facts,
-                                      tbinfo, xcvr_skip_list, shutdown_ebgp):   # noqa F811
+                                      tbinfo, xcvr_skip_list, shutdown_ebgp):   # noqa: F811
     """
     @summary: Check SFP low power mode
 
