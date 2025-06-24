@@ -7,7 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import json
 import pytest
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.mellanox_data import SPC3_HWSKUS
 from .check_hw_mgmt_service import check_hw_management_service
 
@@ -18,7 +18,7 @@ pytestmark = [
 
 
 def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname,
-                                 conn_graph_facts, tbinfo, xcvr_skip_list):     # noqa F811
+                                 conn_graph_facts, tbinfo, xcvr_skip_list):     # noqa: F811
     """This test case is to check SFP using the ethtool.
     """
     duthost = duthosts[rand_one_dut_hostname]
