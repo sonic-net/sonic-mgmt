@@ -1244,7 +1244,7 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
     conditions_logical_operator: or
     conditions:
-      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
