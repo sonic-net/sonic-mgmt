@@ -125,7 +125,8 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
             assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor,\
-                "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
+                "TRANSCEIVER_DOM_SENSOR of subport %s of %s port is not found in DB" \
+                % (lport_to_first_subport_mapping[intf], intf)
 
 
 def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
