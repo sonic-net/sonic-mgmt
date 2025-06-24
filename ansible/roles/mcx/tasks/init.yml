@@ -37,10 +37,10 @@
   shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
 
 - name: Generate new config_db.json with sonic-cfggen
-  shell: sonic-cfggen -H -k {{ HwSku }} -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
+  shell: sonic-cfggen -H -k {{ HwSku }} -d -j /tmp/base_config.json --print-data > /tmp/new_config.json
 
 - name: Remove INTERFACE
-  shell: jq 'del(.INTERFACE)' /etc/sonic/config_db.json > /etc/sonic/config_db.json
+  shell: jq 'del(.INTERFACE)' /tmp/config_db.json > /etc/sonic/config_db.json
 
 - name: Config reload
   shell: config reload -y
@@ -51,7 +51,7 @@
 - name: Cp udev_prefix.sh
   copy:
     src: udev_prefix.sh
-    dst: /usr/local/bin/udev_prefix.sh
+    dest: /usr/local/bin/udev_prefix.sh
     owner: root
     group: root
     mode: "0644"
@@ -59,7 +59,7 @@
 - name: Cp 50-ttyUSB-C0.rules
   copy:
     src: 50-ttyUSB-C0.rules
-    dst: /etc/udev/rules.d/50-ttyUSB-C0.rules
+    dest: /etc/udev/rules.d/50-ttyUSB-C0.rules
     owner: root
     group: root
     mode: "0644"
