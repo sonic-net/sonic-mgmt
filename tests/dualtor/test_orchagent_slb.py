@@ -17,9 +17,9 @@ from tests.common.dualtor.dual_tor_utils import force_active_tor                
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa: F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa: F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa: F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
 from tests.common.helpers import bgp
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import is_ipv4_address

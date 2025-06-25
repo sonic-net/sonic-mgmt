@@ -15,8 +15,8 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter               # noqa F401
 from tests.common.dualtor.nic_simulator_control import set_drop_active_active                   # noqa F401
 from tests.common.dualtor.nic_simulator_control import TrafficDirection
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa: F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_common import active_active_ports                            # noqa F401
