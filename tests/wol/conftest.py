@@ -4,7 +4,7 @@ import ipaddress
 import logging
 import json
 import time
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa: F401
 
 
 ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
