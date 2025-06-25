@@ -374,6 +374,7 @@ def generate_topo(role: str,
             end_vlan_range = link_id_start + len(lag_port) * num_breakout
 
             vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+            vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
             vm = VM(range(link_id_start, end_vlan_range), len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                     dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id_start,
                     num_lags=len(lag_port) * num_breakout)
@@ -405,6 +406,7 @@ def generate_topo(role: str,
 
                     per_role_vm_count[vm_role_cfg["role"]] += 1
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+                    vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,
                             num_lags=vm_role_cfg.get('num_lags', 0))
