@@ -1,0 +1,21 @@
+Value TABLE_VERSION (\d+)
+Value ROUTER_ID (\S+)
+Value VRF_ID (\d+)
+Value LOCAL_PREF (\d+)
+Value LOCAL_AS (\d+)
+Value STATUS (\*>|\*|>)
+Value NETWORK (\d{1,3}(\.\d{1,3}){3}\/\d{1,2}|[0-9a-fA-F:]+\/\d{1,3})
+Value NEXT_HOP (\S+)
+Value ROUTES (\d+)
+Value PATHS (\d+)
+
+Start
+  ^BGP\s+table\s+version\s+is\s+${TABLE_VERSION},\s+local\s+router\s+ID\s+is\s+${ROUTER_ID},\s+vrf\s+id\s+${VRF_ID}
+  ^Default\s+local\s+pref\s+${LOCAL_PREF},\s+local\s+AS\s+${LOCAL_AS}
+  ^Status\s+codes: -> Continue
+  ^Nexthop\s+codes: -> Continue
+  ^Origin\s+codes: -> Continue
+  ^RPKI\s+validation\s+codes: -> Continue
+  ^\s+Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> Continue
+  ^\s+${STATUS}\s+${NETWORK}?\s+${NEXT_HOP}\S+ -> Record
+  ^Displayed\s+${ROUTES}\s+routes\s+and\s+${PATHS}\s+total\s+paths -> Record

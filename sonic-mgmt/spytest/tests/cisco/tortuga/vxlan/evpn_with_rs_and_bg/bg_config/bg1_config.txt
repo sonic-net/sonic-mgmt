@@ -1,0 +1,386 @@
+conf t
+hostname bg1
+feature bash-shell
+nv overlay evpn
+feature bgp
+feature interface-vlan
+feature vn-segment-vlan-based
+feature lldp
+feature nv overlay
+system default switchport
+
+vlan 1,92,700,1092-1093
+vlan 92
+  vn-segment 5092
+vlan 1092
+  vn-segment 205000
+vlan 1093
+  vn-segment 205001
+
+ip prefix-list DEFAULT-ROUTE seq 5 permit 0.0.0.0/0 
+ipv6 prefix-list DEFAULT-ROUTE-V6 seq 5 permit 0::/0 
+ip community-list standard IX_VTEP_L3_V6 seq 10 permit 1717:1717 
+ip community-list standard IX_VTEP_L3_V6_SUPER seq 10 permit 1718:1718 
+route-map ACCEPT_SUPER permit 10
+  match community IX_VTEP_L3_V6_SUPER 
+route-map ACCEPT_SUPER deny 20
+  match community IX_VTEP_L3_V6 
+route-map ACCEPT_SUPER permit 30
+route-map INSIDE-RECEIVE-DGW-ROUTES-V6 permit 10
+  match ipv6 address prefix-list DEFAULT-ROUTE-V6 
+route-map INSIDE-RECEIVE-DGW-ROUTES-V6 permit 20
+  match ip address prefix-list DEFAULT-ROUTE 
+route-map INSIDE-RECEIVE-DGW-ROUTES-V6 deny 1000
+route-map INSIDE_OUT permit 10
+  match community IX_VTEP_L3_V6_SUPER 
+  set as-path replace 66000
+route-map INSIDE_OUT permit 20
+route-map OUTSIDE-SEND-DGW-ROUTES-V6 permit 10
+  match ipv6 address prefix-list DEFAULT-ROUTE-V6 
+route-map OUTSIDE-SEND-DGW-ROUTES-V6 permit 20
+  match ip address prefix-list DEFAULT-ROUTE 
+route-map OUTSIDE-SEND-DGW-ROUTES-V6 deny 1000
+route-map RECEIVE-RIF-ROUTES-V6 permit 10
+route-map SEND-RIF-ROUTES-V6 deny 10
+  match ip address prefix-list DEFAULT-ROUTE 
+route-map SEND-RIF-ROUTES-V6 deny 15
+  match ipv6 address prefix-list DEFAULT-ROUTE-V6 
+route-map SEND-RIF-ROUTES-V6 permit 20
+  set community 10422:15200 
+route-map all permit 10
+vrf context Inside
+  vni 205000
+  rd auto
+  address-family ipv4 unicast
+    route-target import 205017:10202 evpn
+    route-target import 205019:10202 evpn
+    route-target import 205021:10202 evpn
+    route-target import 205023:10202 evpn
+    route-target import 205025:10202 evpn
+    route-target import 205027:10202 evpn
+    route-target import 205029:10202 evpn
+    route-target import 205031:10202 evpn
+    route-target import 205033:10202 evpn
+    route-target import 205035:10202 evpn
+    route-target import 205037:10202 evpn
+    route-target import 205039:10202 evpn
+    route-target import 205041:10202 evpn
+    route-target import 205043:10202 evpn
+    route-target import 205045:10202 evpn
+    route-target import 205047:10202 evpn
+    route-target import 205049:10202 evpn
+    route-target import 205051:10202 evpn
+    route-target import 205053:10202 evpn
+    route-target import 205055:10202 evpn
+    route-target import 205057:10202 evpn
+    route-target import 205059:10202 evpn
+    route-target import 205061:10202 evpn
+    route-target import 205063:10202 evpn
+    route-target import 205065:10202 evpn
+    route-target import 205067:10202 evpn
+    route-target import 205069:10202 evpn
+    route-target import 205071:10202 evpn
+    route-target import 205073:10202 evpn
+    route-target import 205075:10202 evpn
+    route-target import 205077:10202 evpn
+    route-target import 205079:10202 evpn
+    route-target import 205081:10202 evpn
+    route-target import 205083:10202 evpn
+    route-target import 205085:10202 evpn
+    route-target import 205087:10202 evpn
+    route-target import 205089:10202 evpn
+    route-target import 205091:10202 evpn
+    route-target import 205093:10202 evpn
+    route-target import 205095:10202 evpn
+    route-target import 205097:10202 evpn
+    route-target import 205099:10202 evpn
+    route-target import 205101:10202 evpn
+    route-target import 205103:10202 evpn
+    route-target import 205105:10202 evpn
+    route-target import 205107:10202 evpn
+    route-target import 205109:10202 evpn
+    route-target import 205111:10202 evpn
+    route-target import 205113:10202 evpn
+    route-target import 5:100 evpn
+    route-target import 5:101 evpn
+    route-target import 5:102 evpn
+    route-target import 5:103 evpn
+    route-target import 5:104 evpn
+    route-target import 5:105 evpn
+    route-target import 5:106 evpn
+    route-target import 5:107 evpn
+    route-target import 5:108 evpn
+    route-target import 5:109 evpn
+    route-target export 205000:10202
+    route-target export 205000:10202 evpn
+  address-family ipv6 unicast
+    route-target import 205017:10202 evpn
+    route-target import 205019:10202 evpn
+    route-target import 205021:10202 evpn
+    route-target import 205023:10202 evpn
+    route-target import 205025:10202 evpn
+    route-target import 205027:10202 evpn
+    route-target import 205029:10202 evpn
+    route-target import 205031:10202 evpn
+    route-target import 205033:10202 evpn
+    route-target import 205035:10202 evpn
+    route-target import 205037:10202 evpn
+    route-target import 205039:10202 evpn
+    route-target import 205041:10202 evpn
+    route-target import 205043:10202 evpn
+    route-target import 205045:10202 evpn
+    route-target import 205047:10202 evpn
+    route-target import 205049:10202 evpn
+    route-target import 205051:10202 evpn
+    route-target import 205053:10202 evpn
+    route-target import 205055:10202 evpn
+    route-target import 205057:10202 evpn
+    route-target import 205059:10202 evpn
+    route-target import 205061:10202 evpn
+    route-target import 205063:10202 evpn
+    route-target import 205065:10202 evpn
+    route-target import 205067:10202 evpn
+    route-target import 205069:10202 evpn
+    route-target import 205071:10202 evpn
+    route-target import 205073:10202 evpn
+    route-target import 205075:10202 evpn
+    route-target import 205077:10202 evpn
+    route-target import 205079:10202 evpn
+    route-target import 205081:10202 evpn
+    route-target import 205083:10202 evpn
+    route-target import 205085:10202 evpn
+    route-target import 205087:10202 evpn
+    route-target import 205089:10202 evpn
+    route-target import 205091:10202 evpn
+    route-target import 205093:10202 evpn
+    route-target import 205095:10202 evpn
+    route-target import 205097:10202 evpn
+    route-target import 205099:10202 evpn
+    route-target import 205101:10202 evpn
+    route-target import 205103:10202 evpn
+    route-target import 205105:10202 evpn
+    route-target import 205107:10202 evpn
+    route-target import 205109:10202 evpn
+    route-target import 205111:10202 evpn
+    route-target import 205113:10202 evpn
+    route-target import 5:100 evpn
+    route-target import 5:101 evpn
+    route-target import 5:102 evpn
+    route-target import 5:103 evpn
+    route-target import 5:104 evpn
+    route-target import 5:105 evpn
+    route-target import 5:106 evpn
+    route-target import 5:107 evpn
+    route-target import 5:108 evpn
+    route-target import 5:109 evpn
+    route-target export 205000:10202
+    route-target export 205000:10202 evpn
+vrf context Landing
+  vni 205001
+  rd auto
+  address-family ipv4 unicast
+    route-target import 205000:10202
+    route-target import 205000:10202 evpn
+    route-target export 205001:10202 evpn
+    route-target export 9:900 evpn
+    import vrf advertise-vpn
+  address-family ipv6 unicast
+    route-target import 205000:10202
+    route-target import 205000:10202 evpn
+    route-target export 205001:10202 evpn
+    route-target export 9:900 evpn
+    import vrf advertise-vpn
+system nve peer-vni-counter
+
+interface Vlan1
+
+interface Vlan92
+  description l2 vni vlan
+  no shutdown
+  vrf member Inside
+  ip address 9.2.9.2/24
+
+interface Vlan700
+  description customer VLAN ... but no l2 vni yet
+  no shutdown
+  vrf member Inside
+  ip address 21.0.0.1/24
+  ipv6 address 2001::1/64
+
+interface Vlan1092
+  no shutdown
+  vrf member Inside
+  ip forward
+  ipv6 address use-link-local-only
+
+interface Vlan1093
+  no shutdown
+  vrf member Landing
+  ip forward
+  ipv6 address use-link-local-only
+
+interface nve1
+  no shutdown
+  description maybe better global ingress-replication protocol bgp 
+  host-reachability protocol bgp
+  source-interface loopback0
+  global ingress-replication protocol bgp
+  member vni 5092
+  member vni 205000 associate-vrf
+  member vni 205001 associate-vrf
+
+
+interface Ethernet1/4
+  switchport access vlan 92
+
+interface Ethernet1/3
+  description towards fanout to ixia port 212
+  no switchport
+  vrf member Inside
+  ip address 25.0.0.2/24
+  ipv6 address 2005::2/64
+  no shutdown
+
+interface Ethernet1/2
+  description towards spine1-setup2 etp52 MTU should be 9100
+  no switchport
+  mtu 9100
+  ip forward
+  ipv6 address 7620:172:200:c7::1716/126
+  no shutdown
+
+
+interface Ethernet1/1
+  description towards spine0-setup2 etp52 MTU should be 9100
+  no switchport
+  mtu 9100
+  ip forward
+  ipv6 address 7620:149:200:c7::1716/126
+  no shutdown
+
+
+
+interface loopback0
+  ip address 12.12.12.12/32
+icam monitor scale
+
+router bgp 4206320059
+  address-family ipv4 unicast
+    redistribute direct route-map all
+  address-family l2vpn evpn
+  neighbor 7620:149:200:c7::1717
+    remote-as 4206760186
+    address-family ipv4 unicast
+      send-community
+      route-map SEND-RIF-ROUTES-V6 out
+    address-family ipv6 unicast
+      send-community
+      route-map SEND-RIF-ROUTES-V6 out
+  neighbor 7620:172:200:c7::1717
+    remote-as 4206760187
+    address-family ipv4 unicast
+      send-community
+      route-map SEND-RIF-ROUTES-V6 out
+    address-family ipv6 unicast
+      send-community
+      route-map SEND-RIF-ROUTES-V6 out
+  neighbor 101.10.10.10
+    remote-as 4206346017
+    disable-connected-check
+    ebgp-multihop 15
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+      route-map ACCEPT_SUPER in
+      route-map OUTSIDE-SEND-DGW-ROUTES-V6 out
+  neighbor 102.10.10.10
+    remote-as 4206346017
+    disable-connected-check
+    ebgp-multihop 15
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+      route-map ACCEPT_SUPER in
+      route-map OUTSIDE-SEND-DGW-ROUTES-V6 out
+  vrf Inside
+    router-id 120.120.120.120
+    address-family ipv4 unicast
+    address-family ipv6 unicast
+    neighbor 2005::1
+      remote-as 66000
+      address-family ipv6 unicast
+        send-community
+        send-community extended
+        route-map INSIDE-RECEIVE-DGW-ROUTES-V6 in
+        route-map INSIDE_OUT out
+    neighbor 25.0.0.1
+      remote-as 66000
+      address-family ipv4 unicast
+        send-community
+        send-community extended
+        route-map INSIDE-RECEIVE-DGW-ROUTES-V6 in
+        route-map INSIDE_OUT out
+evpn
+  vni 5092 l2
+    route-target import 205017:10202
+    route-target import 205019:10202
+    route-target import 205021:10202
+    route-target import 205023:10202
+    route-target import 205025:10202
+    route-target import 205027:10202
+    route-target import 205029:10202
+    route-target import 205031:10202
+    route-target import 205033:10202
+    route-target import 205035:10202
+    route-target import 205037:10202
+    route-target import 205039:10202
+    route-target import 205041:10202
+    route-target import 205043:10202
+    route-target import 205045:10202
+    route-target import 205047:10202
+    route-target import 205049:10202
+    route-target import 205051:10202
+    route-target import 205053:10202
+    route-target import 205055:10202
+    route-target import 205057:10202
+    route-target import 205059:10202
+    route-target import 205061:10202
+    route-target import 205063:10202
+    route-target import 205065:10202
+    route-target import 205067:10202
+    route-target import 205069:10202
+    route-target import 205071:10202
+    route-target import 205073:10202
+    route-target import 205075:10202
+    route-target import 205077:10202
+    route-target import 205079:10202
+    route-target import 205081:10202
+    route-target import 205083:10202
+    route-target import 205085:10202
+    route-target import 205087:10202
+    route-target import 205089:10202
+    route-target import 205091:10202
+    route-target import 205093:10202
+    route-target import 205095:10202
+    route-target import 205097:10202
+    route-target import 205099:10202
+    route-target import 205101:10202
+    route-target import 205103:10202
+    route-target import 205105:10202
+    route-target import 205107:10202
+    route-target import 205109:10202
+    route-target import 205111:10202
+    route-target import 205113:10202
+    route-target import 5:100
+    route-target import 5:101
+    route-target import 5:102
+    route-target import 5:103
+    route-target import 5:104
+    route-target import 5:105
+    route-target import 5:106
+    route-target import 5:107
+    route-target import 5:108
+    route-target import 5:109
+    route-target import 5:110
+    route-target export 205001:10202
+no system default switchport shutdown

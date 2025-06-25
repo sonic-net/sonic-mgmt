@@ -45,6 +45,7 @@ show_ip_bgp_peer_group.tmpl, .*, sonic, show ip bgp peer-group
 show_ip_bgp_peer_group.tmpl, .*, sonic, show bgp all\s+(vrf .*\s+)?peer-group
 show_bgp_ipv4v6uni_routes.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?route-map
 show_bgp_ipv4v6uni_stats.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?statistics
+show_bgp_vrf_routes.tmpl, .*, sonic, show bgp vrf .* ipv(4|6) unicast
 show_ip_bgp_summary.tmpl, .*, sonic, show ip bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show ipv6 bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv4 summary

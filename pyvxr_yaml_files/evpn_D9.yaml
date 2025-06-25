@@ -1,0 +1,147 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    pending_timeout: 60
+    hours: 48
+    partition: regression
+
+devices:
+  leaf0: &sonic_router
+      image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+      linecard_types:
+      - matilda64
+      linux_password: cisco123
+      linux_username: cisco
+      onie-install: /ws/zhwang3-sjc/apple_sim/sonic-cisco-8000.bin
+      os_type: sonic
+      memory: 40GB
+      platform: spitfire_f
+      xr_port_redir:
+        - 22
+      pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth 
+
+  leaf1:
+    <<: *sonic_router
+
+  spine0:
+    <<: *sonic_router
+
+  spine1:
+    <<: *sonic_router
+
+  rs1:
+    <<: *sonic_router
+
+  rs2:
+    <<: *sonic_router
+
+  l3:
+    <<: *sonic_router
+
+  bg1: &nxosbg
+    platform: nxos
+    image: /auto/andbeverlyhills7/release/kerry/nexus/REL_10_2_8_30/boot/nxosv/nexus9300v64.10.2.9.M.qcow2  # Update image based on need
+    memory: 10GB
+    vcpu: 4
+    xr_port_redir:                                            # Update the ports that are needed
+      - 22
+    xr_hostname: admin
+    xr_password: cisco123
+    #xr_config: |                                              # Any config that you wish to apply immediately after bootup
+    #  feature bash-shell
+    #  feature nxapi
+    #  feature netconf
+    #  nxapi http port 80
+  
+  bg2: 
+    <<: *nxosbg
+
+
+  sonic_mgmt:
+    platform: linux
+    xr_port_redir: [22]
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password: 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+    data_ports:
+      - data[0..1]
+
+  T1:
+    platform: ixia-web
+    ixia_images:
+      windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_10.00.2403.47.qcow2
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_10.00_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_10.00_KVM.qcow2
+    data_ports:
+        - data[0..7]
+    vcpu: 16    
+    memory: '16G'
+    
+    
+    
+
+connections:
+  hubs:
+    spine0_leaf0:
+      - spine0.Ethernet[0..3]
+      - leaf0.Ethernet[0..3]
+    spine0_leaf1:
+      - spine0.Ethernet[4..7]
+      - leaf1.Ethernet[0..3]
+    spine1_leaf0:
+      - spine1.Ethernet[0..3]
+      - leaf0.Ethernet[4..7]
+    spine1_leaf1:
+      - spine1.Ethernet[4..7]
+      - leaf1.Ethernet[4..7]
+    spine0_rs1:
+      - spine0.Ethernet8
+      - rs1.Ethernet0
+    spine0_rs2:
+      - spine0.Ethernet9
+      - rs2.Ethernet0
+    spine1_rs1:
+      - spine1.Ethernet8
+      - rs1.Ethernet1
+    spine1_rs2:
+      - spine1.Ethernet9
+      - rs2.Ethernet1
+    spine0_bg1:
+      - spine0.Ethernet10
+      - bg1.Ethernet1/1
+    spine0_bg2:
+      - spine0.Ethernet11
+      - bg2.Ethernet1/1
+    spine1_bg1:
+      - spine1.Ethernet10
+      - bg1.Ethernet1/2
+    spine1_bg2:
+      - spine1.Ethernet11
+      - bg2.Ethernet1/2
+    spine0_l3:
+      - spine0.Ethernet12
+      - l3.Ethernet0
+    spine1_l3:
+      - spine1.Ethernet12
+      - l3.Ethernet1
+    bg1_l3:
+      - bg1.Ethernet1/3
+      - l3.Ethernet2
+    bg2_l3:
+      - bg2.Ethernet1/3
+      - l3.Ethernet3
+    ixia_leaf0:
+      - leaf0.Ethernet8
+      - T1.data0
+    ixia_leaf1:
+      - leaf1.Ethernet8
+      - T1.data1
+    ixia_l3:
+      - l3.Ethernet[4..5]   
+      - T1.data[2..3]
