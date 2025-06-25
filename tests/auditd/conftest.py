@@ -6,11 +6,6 @@ from tests.common.helpers.assertions import pytest_assert as py_assert
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
-    parser.addoption("--container_test", action="store", default="",
-                     help="This flag indicates that the test is being run by the container test.")
-
-
 @pytest.fixture(scope="module")
 def check_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
