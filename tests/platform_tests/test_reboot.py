@@ -13,8 +13,8 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
-    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
-    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+    check_reboot_cause_history, reboot_ctrl_dict, wait_for_startup,\
+    REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
@@ -88,7 +88,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
+    dut.reboot_type_history_queue.append(reboot_type)
 
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
     if dut.is_supervisor_node():
@@ -171,7 +171,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
         else:
             logging.info("Check reboot-cause history")
             assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
-                              REBOOT_TYPE_HISTOYR_QUEUE), \
+                              dut.reboot_type_history_queue), \
                 "Check reboot-cause history failed after rebooted by %s" % reboot_type
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info(
