@@ -13,6 +13,7 @@ IGNORE_REG_LIST = [
     ".*Calculated address.*",
     ".*removeVlan: Failed to remove ref count.*"
 ]
+BACKUP_CONFIG_DB_NAME = "config_db.json.backup"
 
 
 @pytest.fixture(scope="function")
@@ -36,6 +37,7 @@ def log_analyzer_setup(duthost, loganalyzer):
 @pytest.fixture(scope="module")
 def mx_common_setup_teardown(duthost, tbinfo):
     # Get vlan configs
+    duthost.shell("config save /etc/sonic/{} -y".format(BACKUP_CONFIG_DB_NAME))
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     vlan_configs = json.load(open(os.path.join(FILE_DIR, MX_VLAN_CONFIG_FILE), "r"))
 
@@ -49,7 +51,8 @@ def mx_common_setup_teardown(duthost, tbinfo):
 
     yield dut_index_port, ptf_index_port, vlan_configs
 
-    config_reload(duthost, config_source="minigraph", override_config=True)
+    duthost.shell("mv /etc/sonic/{} /etc/sonic/config_db.json".format(BACKUP_CONFIG_DB_NAME))
+    config_reload(duthost, safe_reload=True)
 
 
 @pytest.fixture(scope="module")
