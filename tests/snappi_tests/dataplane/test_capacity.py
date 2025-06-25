@@ -1,186 +1,316 @@
-from tests.snappi_tests.dataplane.imports import *    # noqa F403
-from snappi_tests.dataplane.files.helper import *        # noqa F403
+from tests.snappi_tests.dataplane.imports import *  # noqa: F401
+
+sys.path.append("../test_reporting/telemetry")
+from snappi_tests.dataplane.files.helper import (
+    create_snappi_config,
+    create_traffic_items,
+    set_primary_chassis,
+    create_snappi_l1config,
+    get_duthost_bgp_details,
+)  # noqa: F401
+from reporter_factory import TelemetryReporterFactory
+from metric_definitions import *
+from metrics import GaugeMetric
 
 logger = logging.getLogger(__name__)
+POLL_INTERVAL_SEC = 30
+TRAFFIC_RATE = 56  # Some test parameter
+FRAME_SIZE = 512
+DATA_FLOW_DURATION_SEC = 120
+TIMEOUT = 30
+
+
+common_labels = [
+    Point("Test_Info")
+    .tag("METRIC_LABEL_TESTBED", "TB-XYZ")
+    .tag("METRIC_LABEL_TEST_BUILD", "2024.1103")
+    .tag("METRIC_LABEL_TEST_CASE", os.path.basename(__file__))
+    .tag("METRIC_LABEL_TEST_FILE", os.path.basename(__file__))
+    .tag(
+        "METRIC_LABEL_TEST_JOBID",
+        f'{os.path.basename(__file__)}_{datetime.now().strftime("%Y%m%d")}_{datetime.now().strftime("%H:%M:%S")}',
+    )
+]
+
+reporter = TelemetryReporterFactory.create_periodic_metrics_reporter(common_labels)
+
 
 pytestmark = [pytest.mark.topology("tgen")]
 
-# Test Parameters
-traffic_run_duration = 10  # Configurable traffic run duration
-frame_sizes = [66, 86, 128, 256, 512, 1024, 2048, 4096, 8192]  # Frame Sizes
-frame_ordering = ["RFC2889", "none"]
-test_results = pd.DataFrame(
-    columns=[
-        "Frame Ordering",
-        "Frame Size",
-        "Line Rate (%)",
-        "Tx Frames",
-        "Rx Frames",
-        "Frames Delta",
-        "Loss %",
-        "Status",
-        "Duration (s)",
-    ]
-)
 
-
-@pytest.fixture(scope="session", autouse=True)
-def session_teardown(request):
-    yield
-    request.session.ixnet_session.remove()
-    logger.info("\n=== Custom session teardown in Test Script ===")
-
-
-def test_packet_drop_threshold(
-    request,
-    snappi_api,  # noqa F811
-    conn_graph_facts,  # noqa F811
-    fanout_graph_facts,  # noqa F811
+@pytest.mark.parametrize("subnet_type", ["IPv6"])
+def test_capacity_ipv4(
     duthosts,
-    set_primary_chassis,
-    get_snappi_ports,
+    snappi_api,
+    set_primary_chassis,  # noqa: F811
+    get_snappi_ports,  # noqa: F811
+    create_snappi_l1config,  # noqa: F811
+    subnet_type,
+    fanout_graph_facts_multidut,
 ):
     """
-    Test to measure latency introduced by the switch under fully loaded conditions.
+    Demo Test Riff
+
+    Args:
+        duthosts (pytest fixture): list of DUTs
+        snappi_api (pytest fixture): SNAPPI session
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
+    Returns:
+        N/A
     """
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.interface_type = "bgp"
     snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports)
-
-    session_assistant = SessionAssistant(
-        IpAddress=snappi_api._address,
-        RestPort=snappi_api._port,
-        UserName=snappi_api._username,
-        Password=snappi_api._password,
-        SessionName="PacketDropThreshold",
-    )
-    logger.info(f"Starting IxNetwork Session Id {session_assistant.Session}")
-    ixnet = session_assistant.Ixnetwork
-    request.session.ixnet_session = session_assistant.Session
-    logger.info("Session and ixnetwork initialized.")
-
-    for ch in snappi_api._ixnet_specific_config.chassis_chains:
-        ixnet.Locations.add(Hostname=ch.primary, ChainTopology="star")
-        for se in ch.secondary:
-            ixnet.Locations.add(Hostname=se.location, PrimaryDevice=ch.primary)
-
-    port_distribution = (
-        slice(0, len(snappi_ports) // 2),
-        slice(len(snappi_ports) // 2, None)
-    )
-    config = IxNetConfigParams(traffic_type="ipv6")
-    setup_ixnetwork_config(ixnet, snappi_ports, port_distribution, config)
-    hls = ixnet.Traffic.TrafficItem.find().HighLevelStream.find()
-    frame_size_hljson_template = [
+    half_ports = int(len(snappi_ports) / 2)
+    tx_ports = snappi_ports[:half_ports]
+    rx_ports = snappi_ports[half_ports:]
+    snappi_config = create_snappi_l1config
+    snappi_extra_params.protocol_config = {
+        "Tx": {"network_group": False, "protocol_type": "bgp", "ports": tx_ports, "subnet_type": subnet_type},
+        "Rx": {"network_group": False, "protocol_type": "bgp", "ports": rx_ports, "subnet_type": subnet_type},
+    }
+    snappi_config, snappi_obj_handles = create_snappi_config(snappi_config, snappi_extra_params)
+    snappi_extra_params.traffic_flow_config = [
         {
-            "xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]",
-            "frameSize": {"xpath": f"/traffic/trafficItem[1]/highLevelStream[{index+1}]/frameSize"},
+            "line_rate": TRAFFIC_RATE,
+            "frame_size": FRAME_SIZE,
+            "is_rdma": False,
+            "flow_name": "Capacity_Traffic",
+            "tx_names": snappi_obj_handles["Tx"]["ip"],
+            "rx_names": snappi_obj_handles["Rx"]["ip"],
         }
-        for index in range(len(hls))
     ]
-    for ordering in frame_ordering:
-        ixnet.Traffic.FrameOrderingMode = ordering
-        ixnet.Traffic.TrafficItem.find().Generate()
-        ixnet.Traffic.Apply()
-        logger.info(f"FrameOrderingMode: {ordering}")
-        for frame_size in frame_sizes:
-            logger.info(f"Finding Packet Drop Threshold for FrameOrderingMode: {ordering} Frame Size: {frame_size}")
-            hljson = [
-                {
-                    **hl,
-                    "frameSize": {
-                        **hl["frameSize"],
-                        "fixedSize": frame_size
-                    }
-                }
-                for hl in frame_size_hljson_template
-            ]
-            ixnet.ResourceManager.ImportConfig(json.dumps(hljson), False)
-            """ Uses binary search to determine the max line rate without loss. """
-            if boundary_check(ixnet, hls, 100):
+
+    snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
+    snappi_api.set_config(snappi_config)
+    logger.info("Starting Protocol")
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.START
+    snappi_api.set_control_state(cs)
+    wait(TIMEOUT, "For Protocols To start")
+    logger.info("Starting transmit on all flows ...")
+    ts = snappi_api.control_state()
+    ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.START
+    snappi_api.set_control_state(ts)
+    time.sleep(30)
+    poll_stats(duthosts, duration_sec=DATA_FLOW_DURATION_SEC, interval_sec=POLL_INTERVAL_SEC)
+    reporter.report()
+    logger.info("Stopping transmit on all flows ...")
+    ts = snappi_api.control_state()
+    ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.STOP
+    snappi_api.set_control_state(ts)
+
+
+def poll_stats(duthosts, duration_sec, interval_sec):
+    """
+    Poll IxNetwork statistics view at regular intervals (in seconds) for a given duration.
+
+    Args:
+        duthost: Device under test (passed to your stats collector)
+        duration_sec: Total duration to poll for, in seconds
+        interval_sec: Interval between polls, in seconds (e.g., 0.5 for 500ms)
+    """
+    metric_groups = get_metric_groups()
+
+    def collect_and_report_metrics(duthost):
+        """
+        Collects metrics from the DUT and reports them to the specified reporter.
+        """
+        duthostname = duthost.hostname
+        for group_name, group_data in metric_groups.items():
+            command = group_data["command"]
+            metrics = group_data["metrics"]
+            preprocess = group_data.get("preprocess")
+            process = group_data["process"]
+
+            try:
+                raw_output = duthost.command(command)["stdout"]
+                json_output = json.loads(raw_output)
+            except Exception as e:
+                logger.error(f"[{duthostname}] Failed to run '{command}': {e}")
                 continue
 
-            low, high, best_rate = 1, 100, 1
-            while high - low > 0.1:  # Stop when precision is within 0.5%
-                mid = round((low + high) / 2, 2)
-                logger.info("=" * 50)
-                logger.info(f"Testing {mid}% Line Rate   Range: {low}% - {high}%")
-                logger.info("=" * 50)
-                if boundary_check(ixnet, hls, mid):
-                    best_rate, low = mid, mid
-                else:
-                    high = mid  # Decrease rate if loss
+            processed_items = preprocess(json_output) if preprocess else json_output
+            if isinstance(processed_items, dict):
+                processed_items = [processed_items]
 
-            logger.info(
-                f"Final Maximum Line Rate Without Loss for FrameOrderingMode: {ordering}, "
-                f"Frame Size: {frame_size}, is: {best_rate}%"
-            )
+            for item in processed_items:
+                labels, values = process(item, duthostname)
+                for metric_key, value in values.items():
+                    metric_obj = metrics.get(metric_key)
+                    if metric_obj:
+                        metric_obj.record(labels, value)
+                    else:
+                        logger.warning(f"Metric '{metric_key}' not found in the metrics dictionary")
 
-    for ordering_mode, group in test_results.groupby("Frame Ordering"):
-        summary = f"""
-        Summary for Frame Ordering Mode: {ordering_mode}
-        {"=" * 100}
-        {tabulate(group, headers="keys", tablefmt="psql", showindex=False)}
-        {"=" * 100}
-        """
-        logger.info(summary.strip())
+    end_time = time.time() + duration_sec
+
+    logger.info(f"Started polling every {interval_sec:.2f}s for {duration_sec}s")
+
+    while time.time() < end_time:
+        poll_start = time.time()
+        try:
+            for duthost in duthosts:
+                collect_and_report_metrics(duthost)
+                logger.info(f"Polled {duthost.hostname}at {time.strftime('%H:%M:%S')}, rows={len(reporter.metrics)}")
+        except Exception as e:
+            logger.exception(e, "Failed during polling or data collection")
+        # Maintain fixed interval
+        elapsed = time.time() - poll_start
+        time.sleep(max(0, interval_sec - elapsed))
+
+    logger.info(f"Finished polling after {duration_sec}s.")
 
 
-def boundary_check(ixnet, hls, line_rate):
-    """Tests if the given line rate results in frame loss."""
-    logger.info(f"Updating percentLineRate to: {line_rate}")
-    frame_size = hls.FrameSize.FixedSize
-    frame_rate_hljson = [
-        {
-            "xpath": f"/traffic/trafficItem[1]/highLevelStream[{index + 1}]",
-            "frameRate": {
-                "xpath": f"/traffic/trafficItem[1]/highLevelStream[{index + 1}]/frameRate",
-                "rate": line_rate,
+# Define all metrics centrally
+def get_metric_groups():
+    metric_groups = {
+        METRIC_GROUP.PORT_METRICS.value: {
+            "metrics": {
+                "STATE": GaugeMetric(name=METRIC_NAME_PORT_STATE, description="Xyz", unit="V", reporter=reporter),
+                "RX_BPS": GaugeMetric(name=METRIC_NAME_PORT_RX_BPS, description="Xyz", unit="V", reporter=reporter),
+                "RX_UTIL": GaugeMetric(
+                    name=METRIC_NAME_PORT_RX_UTIL_PCT, description="Xyz", unit="V", reporter=reporter
+                ),
+                "RX_OK": GaugeMetric(
+                    name=METRIC_NAME_PORT_RX_PACKETS_OK, description="Xyz", unit="V", reporter=reporter
+                ),
+                "RX_ERR": GaugeMetric(
+                    name=METRIC_NAME_PORT_RX_PACKETS_ERR, description="Xyz", unit="V", reporter=reporter
+                ),
+                "RX_DRP": GaugeMetric(
+                    name=METRIC_NAME_PORT_RX_PACKETS_DROP, description="Xyz", unit="V", reporter=reporter
+                ),
+                "RX_OVR": GaugeMetric(
+                    name=METRIC_NAME_PORT_RX_PACKETS_OVERRUN, description="Xyz", unit="V", reporter=reporter
+                ),
+                "TX_BPS": GaugeMetric(name=METRIC_NAME_PORT_TX_BPS, description="Xyz", unit="V", reporter=reporter),
+                "TX_UTIL": GaugeMetric(
+                    name=METRIC_NAME_PORT_TX_UTIL_PCT, description="Xyz", unit="V", reporter=reporter
+                ),
+                "TX_OK": GaugeMetric(
+                    name=METRIC_NAME_PORT_TX_PACKETS_OK, description="Xyz", unit="V", reporter=reporter
+                ),
+                "TX_ERR": GaugeMetric(
+                    name=METRIC_NAME_PORT_TX_PACKETS_ERR, description="Xyz", unit="V", reporter=reporter
+                ),
+                "TX_DRP": GaugeMetric(
+                    name=METRIC_NAME_PORT_TX_PACKETS_DROP, description="Xyz", unit="V", reporter=reporter
+                ),
+                "TX_OVR": GaugeMetric(
+                    name=METRIC_NAME_PORT_TX_PACKETS_OVERRUN, description="Xyz", unit="V", reporter=reporter
+                ),
             },
-        }
-        for index in range(len(hls))
-    ]
-    ixnet.ResourceManager.ImportConfig(json.dumps(frame_rate_hljson), False)
-    start_traffic(ixnet)
-    wait_with_message("Running traffic for", traffic_run_duration)
-    stop_traffic(ixnet)
-    wait_with_message("Waiting for stats to settle", 5)
-
-    # Fetch traffic stats inline using Pandas
-    view = StatViewAssistant(ixnet, "Traffic Item Statistics")
-    df = pd.DataFrame(view.Rows.RawData, columns=view.ColumnHeaders)
-
-    # Select only necessary columns and convert them to numeric
-    df = df[["Traffic Item", "Tx Frames", "Rx Frames", "Frames Delta", "Loss %"]]
-    df[["Loss %"]] = pd.to_numeric(df["Loss %"], errors="coerce")
-
-    # Check if loss occurred (Loss % > 0)
-    df["Status"] = (df["Loss %"] == 0).map({True: "PASS", False: "FAIL"})
-    # Print the DataFrame for results
-    logger.info(
-        f'Dumping Frame Size/Rate: {frame_size}/{line_rate} Traffic Item Stats:\n'
-        f'{tabulate(df, headers="keys", tablefmt="psql", showindex=False)}'
-    )
-
-    loss = df["Loss %"].max()  # Get max loss in case of multiple traffic items
-    ixnet.ClearStats()
-
-    # Create a DataFrame for the current test result directly
-    global test_results
-    result_df = pd.DataFrame(
-        [
-            {
-                "Frame Ordering": ixnet.Traffic.FrameOrderingMode,
-                "Frame Size": hls.FrameSize.FixedSize,
-                "Line Rate (%)": line_rate,
-                "Tx Frames": df["Tx Frames"].sum(),
-                "Rx Frames": df["Rx Frames"].sum(),
-                "Frames Delta": df["Frames Delta"].sum(),
-                "Loss %": df["Loss %"].max(),
-                "Status": df["Status"].iloc[0],
-                "Duration (s)": traffic_run_duration,
-            }
-        ]
-    )
-
-    # Append the new result to the global test_results DataFrame
-    test_results = pd.concat([test_results, result_df], ignore_index=True)
-    return loss == 0  # True if no loss, False if loss occurs
+            "command": "portstat -s all -j",
+            "preprocess": lambda data: [{"Port": port, **metrics_fileds} for port, metrics_fileds in data.items()],
+            "process": lambda counters, duthostname: (
+                {METRIC_LABEL_DEVICE_ID: duthostname, METRIC_LABEL_DEVICE_PORT_ID: counters.get("Port", "Unknown")},
+                {key: counters.get(key, 0) for key in metric_groups[METRIC_GROUP.PORT_METRICS.value]["metrics"].keys()},
+            ),
+        },
+        METRIC_GROUP.QUEUE_METRICS.value: {
+            "metrics": {
+                "bytes": GaugeMetric(
+                    name=METRIC_NAME_QUEUE_WATERMARK_BYTES, description="Xyz", unit="V", reporter=reporter
+                )
+            },
+            "command": "show queue watermark unicast --json",
+            "preprocess": lambda data: [
+                {"Port": port, "queue_id": k, "bytes": int(v)}
+                for port, port_data in data.items()
+                for k, v in port_data.items()
+            ],
+            "process": lambda queue, duthostname: (
+                {
+                    METRIC_LABEL_DEVICE_ID: duthostname,
+                    METRIC_LABEL_DEVICE_PORT_ID: queue.get("Port", "Unknown"),
+                    METRIC_LABEL_DEVICE_QUEUE_ID: queue.get("queue_id", "Unknown"),
+                    METRIC_LABEL_DEVICE_QUEUE_CAST: "unicast",
+                },
+                {key: queue.get(key, 0) for key in metric_groups[METRIC_GROUP.QUEUE_METRICS.value]["metrics"].keys()},
+            ),
+        },
+        METRIC_GROUP.PSU_METRICS.value: {
+            "metrics": {
+                "voltage": GaugeMetric(
+                    name=METRIC_NAME_PSU_VOLTAGE,
+                    description="Power supply unit voltage reading",
+                    unit="V",
+                    reporter=reporter,
+                ),
+                "current": GaugeMetric(
+                    name=METRIC_NAME_PSU_CURRENT,
+                    description="Power supply unit current reading",
+                    unit="A",
+                    reporter=reporter,
+                ),
+                "power": GaugeMetric(
+                    name=METRIC_NAME_PSU_POWER,
+                    description="Power supply unit power reading",
+                    unit="W",
+                    reporter=reporter,
+                ),
+                "status": GaugeMetric(
+                    name=METRIC_NAME_PSU_STATUS, description="Power supply unit status", unit="N/A", reporter=reporter
+                ),
+                "led": GaugeMetric(
+                    name=METRIC_NAME_PSU_LED, description="Power supply unit LED state", unit="N/A", reporter=reporter
+                ),
+            },
+            "command": "show platform psu --json",
+            "process": lambda psu, duthostname: (
+                {
+                    METRIC_LABEL_DEVICE_ID: duthostname,
+                    METRIC_LABEL_DEVICE_PSU_ID: psu.get("name", "Unknown"),
+                    METRIC_LABEL_DEVICE_PSU_MODEL: psu.get("model", "Unknown"),
+                    METRIC_LABEL_DEVICE_PSU_SERIAL: psu.get("serial", "Unknown"),
+                    METRIC_LABEL_DEVICE_PSU_HW_REV: psu.get("revision", "Unknown"),
+                },
+                {key: psu.get(key, 0) for key in metric_groups[METRIC_GROUP.PSU_METRICS.value]["metrics"].keys()},
+            ),
+        },
+        METRIC_GROUP.TEMPERATURE_METRICS.value: {
+            "metrics": {
+                "Temperature": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_READING,
+                    description="Sensor temperature reading",
+                    unit="V",
+                    reporter=reporter,
+                ),
+                "High_TH": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_HIGH_TH, description="High threshold", unit="V", reporter=reporter
+                ),
+                "Low_TH": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_LOW_TH, description="Low threshold", unit="V", reporter=reporter
+                ),
+                "Crit_High_TH": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_CRIT_HIGH_TH,
+                    description="Critical high threshold",
+                    unit="V",
+                    reporter=reporter,
+                ),
+                "Crit_Low_TH": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_CRIT_LOW_TH,
+                    description="Critical low threshold",
+                    unit="V",
+                    reporter=reporter,
+                ),
+                "Warning": GaugeMetric(
+                    name=METRIC_NAME_TEMPERATURE_WARNING, description="Warning level", unit="V", reporter=reporter
+                ),
+            },
+            "command": "show platform temperature --json",
+            "process": lambda temperature, duthostname: (
+                {
+                    METRIC_LABEL_DEVICE_ID: duthostname,
+                    METRIC_LABEL_DEVICE_SENSOR_ID: temperature.get("Sensor", "Unknown"),
+                },
+                {
+                    key: temperature.get(key, 0)
+                    for key in metric_groups[METRIC_GROUP.TEMPERATURE_METRICS.value]["metrics"].keys()
+                },
+            ),
+        },
+    }
+    return metric_groups
