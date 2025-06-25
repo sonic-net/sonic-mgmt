@@ -1,7 +1,7 @@
-from tests.common.snappi_tests.snappi_fixtures import (                           # noqa F401
+from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
     snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_rib_in_convergence_test
-from tests.common.fixtures.conn_graph_facts import (                        # noqa F401
+from tests.common.fixtures.conn_graph_facts import (                        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -12,11 +12,11 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('convergence_test_iterations', [1])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
-def test_rib_in_convergence(snappi_api,                    # noqa F811
+def test_rib_in_convergence(snappi_api,                    # noqa: F811
                             duthost,
-                            tgen_ports,                 # noqa F811
-                            conn_graph_facts,           # noqa F811
-                            fanout_graph_facts,         # noqa F811
+                            tgen_ports,                 # noqa: F811
+                            conn_graph_facts,           # noqa: F811
+                            fanout_graph_facts,         # noqa: F811
                             multipath,
                             convergence_test_iterations,
                             number_of_routes,
