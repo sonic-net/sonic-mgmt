@@ -3,7 +3,6 @@ import logging
 import pytest
 import re
 
-from spytest.spytest import env
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features
