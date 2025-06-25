@@ -60,7 +60,7 @@ def run_bgp_outbound_uplink_blackout_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -110,7 +110,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -160,7 +160,7 @@ def run_bgp_outbound_ungraceful_restart(api,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -212,7 +212,7 @@ def run_bgp_outbound_process_restart_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -263,7 +263,7 @@ def run_bgp_outbound_link_flap_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
