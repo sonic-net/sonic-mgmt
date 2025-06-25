@@ -71,6 +71,50 @@ class GenerateGoldenConfigDBModule(object):
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_light_mode = self.module.params['is_light_mode']
 
+    def get_frr_version(self):
+        try:
+            frr_version_output = subprocess.check_output(["vtysh", "-c", "show version"]).decode("utf-8")
+            frr_version_match = re.search(r"FRRouting (\d+\.\d+\.\d+)", frr_version_output)
+            if frr_version_match:
+                return frr_version_match.group(1)
+            else:
+                return None
+        except subprocess.CalledProcessError as e:
+            return None
+
+    def compare_frr_version(self, version1, version2):
+        v1 = list(map(int, version1.split('.')))
+        v2 = list(map(int, version2.split('.')))
+        for i in range(max(len(v1), len(v2))):
+            v1_val = v1[i] if i < len(v1) else 0
+            v2_val = v2[i] if i < len(v2) else 0
+            if v1_val > v2_val:
+                return 1
+            elif v1_val < v2_val:
+                return -1
+        return 0
+
+    def generate_frr_config_mode_golden_config_db(self):
+        frr_version = self.get_frr_version()
+        if frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0:
+            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+            if rc != 0:
+                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+            # Generate config table from init_cfg.ini
+            ori_config_db = json.loads(out)
+
+            golden_config_db = {}
+            if "DEVICE_METADATA" in ori_config_db:
+                golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+                if ("localhost" in golden_config_db["DEVICE_METADATA"] and
+                   "docker_routing_config_mode" in golden_config_db["DEVICE_METADATA"]["localhost"]):
+                    golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "unified"
+
+            return json.dumps(golden_config_db, indent=4)
+        else:
+            return json.dumps({})
+
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -622,6 +666,8 @@ class GenerateGoldenConfigDBModule(object):
         # update dns config
         config = self.update_dns_config(config)
 
+        # update router_config_mode
+        config = self.generate_frr_config_mode_golden_config_db(config)
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
