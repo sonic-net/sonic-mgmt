@@ -104,7 +104,6 @@ FWD:
   t2:
     sfd:
       hw:
-        - acl/test_acl.py::TestAclWithReboot
         - crm/test_crm.py
         - fib/test_fib.py
         - ipfwd/test_dip_sip.py
