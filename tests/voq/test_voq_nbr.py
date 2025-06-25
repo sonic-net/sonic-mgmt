@@ -27,7 +27,7 @@ from tests.common.helpers.voq_helpers import get_ptf_port
 from tests.common.helpers.voq_helpers import get_vm_with_ip
 from tests.common.devices.eos import EosHost
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa: F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [
