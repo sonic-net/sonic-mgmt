@@ -254,6 +254,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
+bgp/test_traffic_shift_sup.py:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
 #######################################
 #####            cacl             #####
 #######################################
@@ -746,10 +752,6 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
-dualtor_io/test_switchover_impact.py:
-  skip:
-    reason: "This test takes a long time, skipping until it can be triggered weekly rather than nightly"
-
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
@@ -811,8 +813,10 @@ dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
 dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
   skip:
     reason: "Skipping test because test is not supported on this hwsku"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####             ecmp            #####
@@ -1033,11 +1037,36 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
+fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
+  xfail:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+
+fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
+  xfail:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+
 fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx', 'm1']"
+
+fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
+  xfail:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+      -
+
+fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
+  xfail:
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -1191,6 +1220,12 @@ gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
+gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
+  skip:
+    reason: "Warm reboot should only run on t0 topology"
+    conditions:
+      - "topo_type not in ['t0']"
+
 #######################################
 #####           hash              #####
 #######################################
@@ -1245,6 +1280,10 @@ hash/test_generic_hash.py::test_ecmp_hash:
     reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+  xfail:
+    reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -1371,6 +1410,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_nexthop_flap[CRC-IP_PROTOCOL-ipv4-None-None]:
+  skip:
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
+    conditions:
+    - "asic_type in ['cisco-8000']"
+
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
@@ -1383,6 +1428,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-None]:
+  skip:
+    reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
+    conditions:
+    - "asic_type in ['cisco-8000']"
 
 hash/test_generic_hash.py::test_reboot:
   skip:
@@ -1444,12 +1495,10 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
-  xfail:
-    reason: "Incorrect supported speeds for 7060X6 in STATE_DB, fix TBD"
-    conditions_logical_operator: and
+  skip:
+    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
     conditions:
-      - "'7060X6' in hwsku"
-      - "topo_type in ['t1']"
+      - "'Arista-7060X6' in hwsku"
 
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
@@ -1886,6 +1935,12 @@ qos/test_ecn_config.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_oq_watchdog.py:
+  skip:
+    reason: "OQ watchdog tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -2141,6 +2196,12 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
     conditions:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
+qos/test_voq_watchdog.py:
+  skip:
+    reason: "These tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
 
 #######################################
 #####           radv             #####
@@ -2604,6 +2665,12 @@ upgrade_path:
     conditions:
       - "asic_type in ['vs']"
 
+upgrade_path/test_multi_hop_upgrade_path.py:
+  skip:
+    reason: "Only supported on T0 topology"
+    conditions:
+      - "'t0' not in topo_type"
+
 upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
   skip:
     reason: "Only supported on T2 topology"
@@ -2662,6 +2729,19 @@ voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortl
     conditions:
       - "(switch_type=='voq')"
       - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_drop_counter:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
+    conditions:
+      - "('t2' in topo_name)"
+
+voq/test_voq_counter.py::test_voq_queue_counter:
+  skip:
+    reason: "Skip test_voq_queue_counter for non broadcom-dnx 't2' platforms."
+    conditions:
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
 
 voq/test_voq_fabric_capacity.py:
   skip:
