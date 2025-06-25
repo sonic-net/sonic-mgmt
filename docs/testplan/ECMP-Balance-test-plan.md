@@ -9,7 +9,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 - Verify ECMP load balancing distributes traffic evenly across available paths
 - Validate hash tuple calculations using different packet field variations
 - Confirm ECMP hash offset changes impact packet distribution
-- Ensure packet forwarding accuracy and interface utilization
+- Ensure packet forwarding accuracy
 
 ## Test Scope
 
@@ -133,7 +133,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
   - IPv6: 60c0:a800::5
 - **Default Destination IPs:**
   - IPv4: 194.50.16.1
-  - IPv6: 20c1:d180::11
+  - IPv6: 2064:100::11
 - **Base Ports:**
   - Source Port: 100
   - Destination Port: 80
@@ -235,11 +235,11 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 # Test Constants
 PACKET_COUNT = 100
 PACKET_COUNT_MAX_DIFF = 4
-INCREMENT = 40
+INCREMENT = 80
 
 # IP Addresses
 DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
-UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "20c1:d180::11"}
+UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2064:100::11"}
 
 # Test Markers
 pytestmark = [
@@ -320,6 +320,3 @@ Key log entries to monitor:
 
 - Support for additional ASIC vendors
 - TCP traffic pattern testing
-- Dynamic route addition/removal during testing
-- Performance benchmarking capabilities
-- Automated test result comparison and trending
