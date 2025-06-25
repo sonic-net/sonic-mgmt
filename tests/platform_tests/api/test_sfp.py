@@ -733,9 +733,9 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
             info_dict = port_index_to_info_dict[sfp_port_idx]
 
-            # only flap interfaces where are CMIS optics,
-            # non-CMIS optics should stay up after sfp_reset(), no need to flap.
-            if "cmis_rev" in info_dict:
+            # If the xcvr supports low-power mode then it needs to be flapped
+            # to come out of low-power mode after sfp_reset().
+            if self.is_xcvr_support_lpmode(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
