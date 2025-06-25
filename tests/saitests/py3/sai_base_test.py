@@ -30,7 +30,7 @@ from paramiko.ssh_exception import BadHostKeyException, AuthenticationException,
 # dictionary of interface_to_front_mapping with key 'src' or 'dst' and the ports for those target
 interface_to_front_mapping = {}
 
-from switch import (sai_thrift_port_tx_enable,      # noqa E402
+from switch import (sai_thrift_port_tx_enable,      # noqa: E402
                     sai_thrift_port_tx_disable,
                     sai_thrift_credit_wd_enable,
                     sai_thrift_credit_wd_disable)

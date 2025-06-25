@@ -11,8 +11,8 @@ import time
 import json
 import re
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common import reboot
 from tests.common import config_reload

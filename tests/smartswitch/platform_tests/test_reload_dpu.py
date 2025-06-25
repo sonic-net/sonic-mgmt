@@ -28,7 +28,7 @@ DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
 def test_dpu_status_post_switch_reboot(duthosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
-                                       platform_api_conn, num_dpu_modules):  # noqa F811, E501
+                                       platform_api_conn, num_dpu_modules):  # noqa: F811, E501
     """
     @summary: To Check Ping between NPU and DPU
               after reboot of NPU
@@ -54,7 +54,7 @@ def test_dpu_status_post_switch_reboot(duthosts,
 def test_dpu_status_post_switch_config_reload(duthosts,
                                               enum_rand_one_per_hwsku_hostname,
                                               localhost,
-                                              platform_api_conn, num_dpu_modules):   # noqa F811, E501
+                                              platform_api_conn, num_dpu_modules):   # noqa: F811, E501
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
