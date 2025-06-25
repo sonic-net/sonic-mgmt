@@ -22,7 +22,7 @@ SETUP_ENV_CP = "test_setup_checkpoint"
 
 def pytest_addoption(parser):
     parser.addoption("--container_test", action="store", default="",
-                     help="This flag indicate the test running by conntainer test")
+                     help="This flag indicates that the test is being run by the container test.")
 
 
 @pytest.fixture(scope="function", autouse=True)
