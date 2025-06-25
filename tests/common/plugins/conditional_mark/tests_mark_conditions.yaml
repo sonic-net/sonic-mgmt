@@ -813,8 +813,10 @@ dut_console/test_console_baud_rate.py::test_baud_rate_sonic_connect:
 dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
   skip:
     reason: "Skipping test because test is not supported on this hwsku"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####             ecmp            #####
