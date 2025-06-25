@@ -126,7 +126,7 @@ def write_hosts_file(file_path, hosts_map, original_lines):
                 ip = parts[0]
                 hostname = parts[1]
                 existing_pairs.add((ip, hostname))
-    
+
     with open(file_path, 'w') as f:
         # Write original lines first
         for line in original_lines:
@@ -146,7 +146,7 @@ def write_hosts_file(file_path, hosts_map, original_lines):
             # Check if this IP-hostname pair already exists in the original file
             if (ip, hostname) in existing_pairs:
                 continue
-                
+
             entry = f"{ip.ljust(max_ip_length)} {hostname}"
             if len(hosts_map[ip]) > 1:
                 f.write(f"# Warning: IP {ip} is mapped to multiple hostnames: {', '.join(hosts_map[ip])}\n")
