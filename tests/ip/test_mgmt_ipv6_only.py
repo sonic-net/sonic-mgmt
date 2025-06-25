@@ -232,11 +232,15 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
     def verify_telemetry_output_ipv6_only(dut):
         with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
             env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
+            dut.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
+                      module_ignore_errors=False)
             dut_ip = get_mgmt_ipv6(dut)
             cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
                 [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
             show_gnmi_out = dut.shell(cmd)['stdout']
             result = str(show_gnmi_out)
+            dut.shell('sonic-db-cli CONFIG_DB hdel "%s|gnmi" user_auth' % (env.gnmi_config_table),
+                      module_ignore_errors=False)
             inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
             pytest_assert(inerrors_match is not None,
                           "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
