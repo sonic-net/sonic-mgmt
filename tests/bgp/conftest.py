@@ -26,6 +26,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
 
     @reset_ansible_local_tmp
     def configure_nbr_gr(node=None, results=None):
@@ -193,7 +194,6 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         # Disable graceful restart in case of failure
         parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
         pytest.fail(err_msg)
-
     yield
 
     results = parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)

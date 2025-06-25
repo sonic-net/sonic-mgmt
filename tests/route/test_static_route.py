@@ -26,7 +26,7 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
-
+from tests.common.helpers.bgp import get_bgp_neighbors_from_config_facts
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -128,7 +128,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
 
 def wait_all_bgp_up(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = get_bgp_neighbors_from_config_facts(duthost, config_facts)
     if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after config reload")
 
