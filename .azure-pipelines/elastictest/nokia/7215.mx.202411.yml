@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 3,6"
+  - cron: "0 12 23 6 *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -86,7 +86,9 @@ parameters:
 
   - name: AFFINITY
     type: string
-    default: '[]'
+    default: '[
+      {"name": "bgp/test_bgp_gr_helper.py", "op": "ON", "value": ["testbed-bjw2-can-7215-3"]}
+    ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
