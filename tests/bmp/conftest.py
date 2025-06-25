@@ -1,5 +1,3 @@
-import pytest
-
 
 def pytest_addoption(parser):
     parser.addoption("--container_test", action="store", default="",
