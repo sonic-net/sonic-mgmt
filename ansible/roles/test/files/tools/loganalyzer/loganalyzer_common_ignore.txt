@@ -356,3 +356,19 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33479668
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33411748
+r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33376635
+r, ".* ERR kernel.*audit: rate limit exceeded.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/22346
+r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/22348
+r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
