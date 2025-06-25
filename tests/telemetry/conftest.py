@@ -18,11 +18,6 @@ DATA_DIR = os.path.join(BASE_DIR, "files")
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
-    parser.addoption("--container_test", action="store", default="",
-                     help="This flag indicates that the test is being run by the container test.")
-
-
 @pytest.fixture(scope="module", autouse=True)
 def setup_user_auth(duthosts, enum_rand_one_per_hwsku_hostname):
     """
