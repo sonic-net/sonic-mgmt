@@ -7,11 +7,11 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts                      # noqa F401
+    fanout_graph_facts                      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config       # noqa F401
+    snappi_api, snappi_testbed_config       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list                         # noqa F401
+    lossy_prio_list                         # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
@@ -21,17 +21,17 @@ pytestmark = [pytest.mark.topology('tgen')]
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'fast'])
-def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # noqa F811
-                                               snappi_testbed_config,       # noqa F811
-                                               conn_graph_facts,            # noqa F811
-                                               fanout_graph_facts,          # noqa F811
+def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # noqa: F811
+                                               snappi_testbed_config,       # noqa: F811
+                                               conn_graph_facts,            # noqa: F811
+                                               fanout_graph_facts,          # noqa: F811
                                                localhost,
                                                duthosts,
                                                rand_one_dut_hostname,
                                                rand_one_dut_portname_oper_up,
                                                rand_lossless_prio,
-                                               all_prio_list,               # noqa F811
-                                               prio_dscp_map,               # noqa F811
+                                               all_prio_list,               # noqa: F811
+                                               prio_dscp_map,               # noqa: F811
                                                reboot_type):
     """
     Test if PFC can pause a single lossless priority during warm or fast reboots
@@ -96,17 +96,17 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'fast'])
-def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # noqa F811
-                                              snappi_testbed_config,        # noqa F811
-                                              conn_graph_facts,             # noqa F811
-                                              fanout_graph_facts,           # noqa F811
+def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # noqa: F811
+                                              snappi_testbed_config,        # noqa: F811
+                                              conn_graph_facts,             # noqa: F811
+                                              fanout_graph_facts,           # noqa: F811
                                               localhost,
                                               duthosts,
                                               rand_one_dut_hostname,
                                               rand_one_dut_portname_oper_up,
-                                              lossless_prio_list,           # noqa F811
-                                              lossy_prio_list,              # noqa F811
-                                              prio_dscp_map,                # noqa F811
+                                              lossless_prio_list,           # noqa: F811
+                                              lossy_prio_list,              # noqa: F811
+                                              prio_dscp_map,                # noqa: F811
                                               reboot_type):
     """
     Test if PFC can pause multiple lossless priorities during warm or fast reboots
