@@ -3,7 +3,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401  # lgtm [py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401  # lgtm [py/unused-import]
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [

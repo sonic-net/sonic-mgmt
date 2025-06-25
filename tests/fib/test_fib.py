@@ -6,22 +6,27 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
 
 from tests.ptf_runner import ptf_runner
-from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side            # noqa F401
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
-from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side            # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa: F401
 from tests.common.utilities import is_ipv4_address
 
-from tests.common.fixtures.fib_utils import single_fib_for_duts, get_fib_info, get_t2_fib_info, gen_fib_info_file             # noqa F401
+from tests.common.fixtures.fib_utils import (  # noqa: F401
+    single_fib_for_duts,
+    get_fib_info,
+    get_t2_fib_info,
+    gen_fib_info_file,
+    )
 from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_require
 
@@ -233,13 +238,13 @@ def updated_tbinfo(tbinfo):
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
-                   toggle_all_simulator_ports_to_random_side,           # noqa F811
-                   updated_tbinfo, mux_server_url,                      # noqa F401
+                   toggle_all_simulator_ports_to_random_side,           # noqa: F811
+                   updated_tbinfo, mux_server_url,                      # noqa: F401, F811
                    mux_status_from_nic_simulator,
-                   ignore_ttl, single_fib_for_duts,                     # noqa F401
+                   ignore_ttl, single_fib_for_duts,                     # noqa: F401, F811
                    duts_running_config_facts, duts_minigraph_facts,
-                   validate_active_active_dualtor_setup,                # noqa F401
-                   request):                                            # noqa F811
+                   validate_active_active_dualtor_setup,                # noqa: F401, F811
+                   request):                                            # noqa: F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -454,8 +459,8 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
 
 @pytest.fixture
 def setup_active_active_ports(
-    active_active_ports, rand_selected_dut, rand_unselected_dut,                        # noqa F811
-    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup   # noqa F811
+    active_active_ports, rand_selected_dut, rand_unselected_dut,                        # noqa: F811
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup   # noqa: F811
 ):
     if active_active_ports:
         # The traffic from active-active mux ports are ECMPed twice:first time on the NiC to
@@ -470,11 +475,11 @@ def setup_active_active_ports(
     return
 
 
-def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noqa F811
-              hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
-              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
-              single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa F811
-              setup_active_active_ports, active_active_ports, request):                         # noqa F811
+def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noqa: F811
+              hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa: F811
+              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa: F811
+              single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa: F811
+              setup_active_active_ports, active_active_ports, request):                         # noqa: F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -524,10 +529,12 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
 
 # The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
 # used as hash keys
-def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
-                     hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
-                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
-                     duts_minigraph_facts, request):                                # noqa F811
+
+
+def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa: F811
+                     hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa: F811
+                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa: F811
+                     duts_minigraph_facts, request):                                # noqa: F811
     # Only run this test on T1 or T0 (including dualtor) topologies
     pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
     logging.info(f"Topology type: {tbinfo['topo']['type']}")
@@ -571,10 +578,10 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa F811
 # Only inner frame length is tested at this moment
 
 
-def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # noqa F811
-                              ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa F811
+def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # noqa: F811
+                              ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa: F811
                               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,
-                              request):                  # noqa F811
+                              request):                  # noqa: F811
     hash_keys = ['inner_length']
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -617,12 +624,14 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
 @pytest.fixture(params=["ipv4-ipv4", "ipv4-ipv6", "ipv6-ipv6", "ipv6-ipv4"])
 def vxlan_ipver(request):
     return request.param
-def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                          # noqa F811
-                     hash_keys, ptfhost, vxlan_ipver, tbinfo, mux_server_url,             # noqa F811
-                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,          # noqa F811
-                     duts_minigraph_facts, toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa F811
-                     mux_status_from_nic_simulator, setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                     request):                                                                  # noqa F811
+
+
+def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                          # noqa: F811
+                    hash_keys, ptfhost, vxlan_ipver, tbinfo, mux_server_url,             # noqa: F811
+                    ignore_ttl, single_fib_for_duts, duts_running_config_facts,          # noqa: F811
+                    duts_minigraph_facts, toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
+                    mux_status_from_nic_simulator, setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                    request):                                                                  # noqa: F811
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -673,12 +682,14 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 @pytest.fixture(params=["ipv4-ipv4", "ipv4-ipv6", "ipv6-ipv6", "ipv6-ipv4"])
 def nvgre_ipver(request):
     return request.param
-def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                            # noqa F811
-                    hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,                # noqa F811
-                    ignore_ttl, single_fib_for_duts, duts_running_config_facts,             # noqa F811
-                    duts_minigraph_facts, request,                                          # noqa F811
-                    setup_active_active_ports, active_active_ports,                         # noqa F811
-                    mux_status_from_nic_simulator):                                         # noqa F811
+
+
+def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                            # noqa: F811
+                    hash_keys, ptfhost, nvgre_ipver, tbinfo, mux_server_url,                # noqa: F811
+                    ignore_ttl, single_fib_for_duts, duts_running_config_facts,             # noqa: F811
+                    duts_minigraph_facts, request,                                          # noqa: F811
+                    setup_active_active_ports, active_active_ports,                         # noqa: F811
+                    mux_status_from_nic_simulator):                                         # noqa: F811
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -731,12 +742,12 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
 def test_ecmp_group_member_flap(
     duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
-    toggle_all_simulator_ports_to_random_side,  # noqa F811
-    updated_tbinfo, mux_server_url,  # noqa F401
+    toggle_all_simulator_ports_to_random_side,  # noqa: F811
+    updated_tbinfo, mux_server_url,  # noqa: F401, F811
     mux_status_from_nic_simulator, ignore_ttl,
-    single_fib_for_duts,  # noqa F401
+    single_fib_for_duts,  # noqa: F401, F811
     duts_running_config_facts, duts_minigraph_facts,
-    validate_active_active_dualtor_setup, request  # noqa F401
+    validate_active_active_dualtor_setup, request  # noqa: F401, F811
 ):
     """Test ECMP group member flap handling."""
 
