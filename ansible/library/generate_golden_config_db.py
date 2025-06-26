@@ -27,6 +27,7 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
@@ -448,6 +449,8 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
+            temp_file.write(config)
+        with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
 
