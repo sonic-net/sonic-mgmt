@@ -37,8 +37,7 @@ CoPP is to limit the rate of traffic sent to CPU, and then generating packets ab
 | docker exec dhcp_relay supervisorctl status \| grep dhcp \| awk '{print $2}' | verify the status of processes in dhcp are running |
 | loganalyzer    | check no error keywords related to DHCP and CoPP |
 
-## Test structure 
-===============
+## Test structure
 
 ### Configuration
 -------------------
@@ -57,7 +56,7 @@ CoPP is to limit the rate of traffic sent to CPU, and then generating packets ab
 Test cases
 ----------
 
-### Test case 
+### Test case
 
 Test objective: To test the DHCP relay service can survive the max load that we lift to CPU.
 
