@@ -1,8 +1,8 @@
-from tests.common.snappi_tests.snappi_fixtures import snappi_api     # noqa F401
-from tests.common.snappi_tests.snappi_fixtures import (                       # noqa F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api     # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import (                       # noqa: F401
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi_tests.lacp.files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
-from tests.common.fixtures.conn_graph_facts import (                    # noqa F401
+from tests.common.fixtures.conn_graph_facts import (                    # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -12,12 +12,12 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('port_count', [4])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
-def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa F811
+def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: F811
                                        duthost,
-                                       tgen_ports,                      # noqa F811
+                                       tgen_ports,                      # noqa: F811
                                        iterations,
-                                       conn_graph_facts,                # noqa F811
-                                       fanout_graph_facts,              # noqa F811
+                                       conn_graph_facts,                # noqa: F811
+                                       fanout_graph_facts,              # noqa: F811
                                        port_count,
                                        number_of_routes,):
     """

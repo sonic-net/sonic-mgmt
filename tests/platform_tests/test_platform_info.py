@@ -17,7 +17,7 @@ from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
-    mocker_factory, disable_thermal_policy  # noqa F401
+    mocker_factory, disable_thermal_policy  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -354,7 +354,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 @pytest.mark.disable_loganalyzer
 def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
                                         suspend_and_resume_hw_tc_on_mellanox_device,
-                                        mocker_factory, disable_thermal_policy):  # noqa F811
+                                        mocker_factory, disable_thermal_policy):  # noqa: F811
     """
     @summary: Check output of 'show platform fan'.
     """
@@ -376,7 +376,7 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
                                           suspend_and_resume_hw_tc_on_mellanox_device,
-                                          mocker_factory, ignore_particular_error_log):  # noqa F811
+                                          mocker_factory, ignore_particular_error_log):  # noqa: F811
     """
     @summary: Check output of 'show platform temperature'
     """
@@ -438,7 +438,7 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):  # noqa F811
+def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):  # noqa: F811
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """
