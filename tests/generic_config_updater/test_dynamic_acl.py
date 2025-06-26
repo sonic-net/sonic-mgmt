@@ -5,6 +5,7 @@ import binascii
 import netaddr
 import struct
 import math
+import json
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -78,7 +79,7 @@ DST_IPV6_BLOCKED = "103:23:3:1::1"
 
 MAX_IP_RULE_PRIORITY = 800
 MAX_DROP_RULE_PRIORITY = 200
-MAX_ACL_RULE_SCALE = 45
+DEFAULT_MAX_ACL_RULE_SCALE = 75
 
 # DHCP Constants
 
@@ -112,8 +113,13 @@ dhcp6opts = {79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
              }
 
 
-class _LLAddrField(MACField):
-    pass
+# key: hwsku name
+# value: max number of ACL entries supported by the sku
+rules_per_hwsku = {
+    # Wistron
+    'Wistron_sw_to3200k_32x100': 50,
+    'wistron_6512_32r_32x100': 50
+    }
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -151,6 +157,10 @@ def remove_dataacl_table(duthosts, rand_selected_dut):
             .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
         logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
         rand_selected_dut.shell(cmd_create_table)
+
+
+class _LLAddrField(MACField):
+    pass
 
 
 class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
@@ -261,7 +271,9 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     # Generate destination IP's for scale test
     scale_dest_ips = {}
-    for i in range(1, MAX_ACL_RULE_SCALE+1):
+    hwsku = rand_selected_dut.facts['hwsku']
+    max_ace = rules_per_hwsku.get(hwsku, DEFAULT_MAX_ACL_RULE_SCALE)
+    for i in range(1, max_ace+1):
         ipv4_rule_name = "FORWARD_RULE_" + str(i)
         ipv6_rule_name = "V6_FORWARD_RULE_" + str(i)
         ipv4_address = DST_IP_FORWARDED_SCALE_PREFIX + str(i)
