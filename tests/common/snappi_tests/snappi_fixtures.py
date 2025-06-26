@@ -8,6 +8,7 @@ import snappi
 import sys
 import random
 import subprocess
+import csv
 import json
 import os
 from copy import copy
@@ -16,7 +17,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet, parse_override
+     get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -1327,57 +1328,72 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     Yields:
     """
-    logger.info("Configuring UHD connect")
-    uhdConnect_ip = tbinfo['uhd_ip']
 
-    num_cps_cards = tbinfo['num_cps_cards']
-    num_tcpbg_cards = tbinfo['num_tcpbg_cards']
-    num_udpbg_cards = tbinfo['num_udpbg_cards']
-    num_dpus = tbinfo['num_dpus']
-    dpu_ports_list = tbinfo['dpu_ports_list']
+    def read_links_from_csv(file_path):
+        with open(file_path, 'r') as f:
+            return list(csv.DictReader(f))
 
-    cards_dict = {
-        'num_cps_cards': num_cps_cards,
-        'num_tcpbg_cards': num_tcpbg_cards,
-        'num_udpbg_cards': num_udpbg_cards,
-        'num_dpus': num_dpus,
-        'dpu_ports_list': dpu_ports_list
-    }
+    uhd_enabled = request.config.getoption("--uhd_config")
+    if uhd_enabled:
+        # Load UHD-specific config file
+        logger.info("Loading UHD-specific config file")
 
-    total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
+        logger.info("Configuring UHD connect")
+        csv_data = read_links_from_csv(uhd_enabled)
+        dpu_cards = [row for row in csv_data if row['OutPort'] == 'True']
+        l47_cards = [row for row in csv_data if row['OutPort'] == 'False']
 
-    uhdSettings = NetworkConfigSettings()  # noqa: F405
-    uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
-    subnet_mask = uhdSettings.subnet_mask
+        uhdConnect_ip = tbinfo['uhd_ip']
+        num_cps_cards = tbinfo['num_cps_cards']
+        num_tcpbg_cards = tbinfo['num_tcpbg_cards']
+        num_udpbg_cards = tbinfo['num_udpbg_cards']
+        num_dpus = len(dpu_cards)
 
-    ip_list = create_uhdIp_list(subnet_mask, uhdSettings)  # noqa: F405
-    fp_ports_list = create_front_panel_ports(int(total_cards*2), uhdSettings, cards_dict)  # noqa: F405
-    arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
-    connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,  # noqa: F405
-                                          arp_bypass_list)  # noqa: F405
+        cards_dict = {
+            'num_cps_cards': num_cps_cards,
+            'num_tcpbg_cards': num_tcpbg_cards,
+            'num_udpbg_cards': num_udpbg_cards,
+            'num_dpus': num_dpus,
+            'l47_cards': l47_cards,
+            'dpu_cards': dpu_cards
+        }
 
-    config = {
-        "profiles": create_profiles(uhdSettings),  # noqa: F405
-        "front_panel_ports": fp_ports_list,
-        "connections": connections_list
-    }
+        total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
 
-    headers = {  # noqa: F841
-        'Content-Type': 'application/json'
-    }
+        uhdSettings = NetworkConfigSettings()  # noqa: F405
+        uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+        subnet_mask = uhdSettings.subnet_mask
 
-    file_name = "tempUhdConfig.json"
-    file_location = os.getcwd()
-    uhd_post_url = uhdSettings.uhd_post_url
-    url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
-    json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
+        ip_list = create_uhdIp_list(subnet_mask, uhdSettings)  # noqa: F405
+        fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
+        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
+        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                              cards_dict,  arp_bypass_list)
 
-    uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
-                   '{}').format(file_location, file_name, url)
-    subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        config = {
+            "profiles": create_profiles(uhdSettings),  # noqa: F405
+            "front_panel_ports": fp_ports_list,
+            "connections": connections_list
+        }
 
-    rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
-    subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+        headers = {  # noqa: F841
+            'Content-Type': 'application/json'
+        }
+
+        file_name = "tempUhdConfig.json"
+        file_location = os.getcwd()
+        uhd_post_url = uhdSettings.uhd_post_url
+        url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
+        json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
+
+        uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
+                       '{}').format(file_location, file_name, url)
+        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+
+        rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
+        subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+    else:
+        logger.info("UHD config not enabled, skipping config")
 
     return
 

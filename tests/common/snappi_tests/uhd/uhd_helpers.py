@@ -197,8 +197,8 @@ def create_front_panel_ports(count, config, cards_dict):
 
     # l47 Front Panel
     fp_list = []
-    front_panel_port = 9
-    channel = 1
+    front_panel_port = int(cards_dict['l47_cards'][0]['FrontPanel'])
+    channel = int(cards_dict['l47_cards'][0]['Channel'])
     num_channels = config.uhd_num_channels
 
     # TODO num_channels will need an update
@@ -223,18 +223,20 @@ def create_front_panel_ports(count, config, cards_dict):
     # l47 Front Panel DPU
     # TODO add num_dpuPorts then build this part
     dpu_port_1 = {"name": "l47_port_1", "choice": "port_group",
-        "port_group":  # noqa: E128
-        {  # noqa: E128
-            "ports": [
-            {  # noqa: E122
-            "front_panel_port": cards_dict['dpu_ports_list'][0], "layer_1_profile_name": "{}".format(  # noqa: E122
-                config.layer1_profile_names[3]),  # noqa: E122
-            "switchover_port": {"front_panel_port": cards_dict['dpu_ports_list'][1],  # noqa: E122
-                                "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])}  # noqa: E122
-            }
-            ]
-        }
-    }
+                  "port_group":  # noqa: E128
+                      {  # noqa: E127
+                          "ports": [
+                              {  # noqa: E122
+                                  "front_panel_port": int(cards_dict['dpu_cards'][0]['FrontPanel']),
+                                  "layer_1_profile_name": "{}".format(config.layer1_profile_names[3]),  # noqa: E122
+                                  "switchover_port": {"front_panel_port":
+                                                          int(cards_dict['dpu_cards'][1]['FrontPanel']),  # noqa: E122
+                                                      "layer_1_profile_name":
+                                                          "{}".format(config.layer1_profile_names[3])}  # noqa: E122
+                              }
+                          ]
+                      }
+                  }
 
     fp_list.append(dpu_port_1)
 
