@@ -313,12 +313,9 @@ def test_fabric_card_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
             fc_snmp_fact['entPhysSwVer']
         )
 
-        assert fc_snmp_fact['entPhysSerialNum'] == '' if is_null_str(fc_info['serial']) else fc_info['serial'], (
-            "Fabric card serial number mismatch. Expected '{}', but got '{}'."
-        ).format(
-            '' if is_null_str(fc_info['serial']) else fc_info['serial'],
-            fc_snmp_fact['entPhysSerialNum']
-        )
+        assert fc_snmp_fact['entPhysSerialNum'] == ('' if is_null_str(fc_info['serial']) else fc_info['serial']), (
+            "Fabric card model name mismatch. fc_info['model']: {}"
+        ).format(fc_info['model'])
 
         assert fc_snmp_fact['entPhysMfgName'] == '', (
             "Fabric card manufacturer name is not empty. Expected empty string, but got '{}'."
@@ -328,16 +325,15 @@ def test_fabric_card_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
 
         assert fc_snmp_fact['entPhysModelName'] == '' if is_null_str(
             fc_info['model']) else fc_info['model'], (
-            "Fabric card model name mismatch. Expected '{}', but got '{}'."
+            "Fabric card model name mismatch. fc_info['model']: {}"
         ).format(
-            '' if is_null_str(fc_info['model']) else fc_info['model'],
-            fc_snmp_fact['entPhysModelName']
+            fc_info['model']
         )
         assert fc_snmp_fact['entPhysIsFRU'] == REPLACEABLE if fc_info[
             'is_replaceable'] == 'True' else NOT_REPLACEABLE, (
-            "Fabric card is FRU mismatch. Expected '{}', but got '{}'."
+             "Fabric card is FRU mismatch. fc_info['is_replaceable'] is '{}', fc_snmp_fact['entPhysIsFRU'] is '{}'."
         ).format(
-            REPLACEABLE if fc_info['is_replaceable'] == 'True' else NOT_REPLACEABLE,
+            fc_info['is_replaceable'],
             fc_snmp_fact['entPhysIsFRU']
         )
 
@@ -366,102 +362,91 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
         expect_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find fan drawer '{}' in physical entity MIB. "
-            "Expected OID '{}' is missing. Physical entity MIB: {}"
+            "Expected OID '{}' is missing"
         ).format(
             name,
-            expect_oid,
-            snmp_physical_entity_info
+            expect_oid
         )
 
         drawer_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert drawer_snmp_fact['entPhysDescr'] == name, (
             "Fan drawer description mismatch. Expected '{}', but got '{}'. "
-            "Physical entity MIB: {}"
         ).format(
             name,
-            drawer_snmp_fact['entPhysDescr'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysDescr']
         )
         assert drawer_snmp_fact['entPhysContainedIn'] == CHASSIS_SUB_ID, (
             "Fan drawer containment mismatch. Expected 'entPhysContainedIn' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             CHASSIS_SUB_ID,
-            drawer_snmp_fact['entPhysContainedIn'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysContainedIn']
         )
         assert drawer_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_CONTAINER, (
             "Fan drawer class mismatch. Expected 'entPhysClass' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'."
         ).format(
             PHYSICAL_CLASS_CONTAINER,
-            drawer_snmp_fact['entPhysClass'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysClass']
         )
         assert drawer_snmp_fact['entPhyParentRelPos'] == position, (
             "Fan drawer relative position mismatch. Expected 'entPhyParentRelPos' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'."
         ).format(
             position,
-            drawer_snmp_fact['entPhyParentRelPos'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhyParentRelPos']
         )
         assert drawer_snmp_fact['entPhysName'] == name, (
-            "Fan drawer name mismatch. Expected '{}', but got '{}'. Physical entity MIB: {}"
+            "Fan drawer name mismatch. Expected '{}', but got '{}'. "
         ).format(
             name,
-            drawer_snmp_fact['entPhysName'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysName']
         )
         assert drawer_snmp_fact['entPhysHwVer'] == '', (
-            "Fan drawer hardware version mismatch. Expected empty string, but got '{}'. Physical entity MIB: {}"
+            "Fan drawer hardware version mismatch. Expected empty string, but got '{}'. "
         ).format(
-            drawer_snmp_fact['entPhysHwVer'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysHwVer']
         )
         assert drawer_snmp_fact['entPhysFwVer'] == '', (
-            "Fan drawer firmware version mismatch. Expected empty string, but got '{}'. Physical entity MIB: {}"
+            "Fan drawer firmware version mismatch. Expected empty string, but got '{}'."
         ).format(
-            drawer_snmp_fact['entPhysFwVer'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysFwVer']
         )
         assert drawer_snmp_fact['entPhysSwVer'] == '', (
-            "Fan drawer software version mismatch. Expected empty string, but got '{}'. Physical entity MIB: {}"
+            "Fan drawer software version mismatch. Expected empty string, but got '{}'."
         ).format(
-            drawer_snmp_fact['entPhysSwVer'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysSwVer']
         )
         assert drawer_snmp_fact['entPhysSerialNum'] == (
             '' if is_null_str(drawer_info['serial']) else drawer_info['serial']
         ), (
-            "Fan drawer serial number mismatch. Expected '{}', but got '{}'. Physical entity MIB: {}"
+            "Fan drawer serial number mismatch. Expected '{}', but got '{}'."
         ).format(
-            '' if is_null_str(drawer_info['serial']) else drawer_info['serial'],
-            drawer_snmp_fact['entPhysSerialNum'],
-            snmp_physical_entity_info
+            drawer_info['serial'],
+            drawer_snmp_fact['entPhysSerialNum']
         )
         assert drawer_snmp_fact['entPhysMfgName'] == '', (
-            "Fan drawer manufacturer name mismatch. Expected empty string, but got '{}'. Physical entity MIB: {}"
+            "Fan drawer manufacturer name mismatch. Expected empty string, but got '{}'."
         ).format(
-            drawer_snmp_fact['entPhysMfgName'],
-            snmp_physical_entity_info
+            drawer_snmp_fact['entPhysMfgName']
         )
         assert drawer_snmp_fact['entPhysModelName'] == (
             '' if is_null_str(drawer_info['model']) else drawer_info['model']
         ), (
-            "Fan drawer model name mismatch. Expected '{}', but got '{}'. Physical entity MIB: {}"
+            "Fan drawer model name mismatch. drawer_info['is_replaceable']: '{}', "
+            "drawer_snmp_fact['entPhysModelName']: '{}'"
         ).format(
-            '' if is_null_str(drawer_info['model']) else drawer_info['model'],
-            drawer_snmp_fact['entPhysModelName'],
-            snmp_physical_entity_info
+            drawer_info['is_replaceable'],
+            drawer_snmp_fact['entPhysModelName']
         )
-        assert drawer_snmp_fact['entPhysIsFRU'] == REPLACEABLE if drawer_info[
-            'is_replaceable'] == 'True' else NOT_REPLACEABLE, (
-            "Fan drawer replaceable mismatch. Expected '{}', but got '{}'. Physical entity MIB: {}"
+        assert drawer_snmp_fact['entPhysIsFRU'] == (
+            REPLACEABLE if drawer_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
+        ), (
+            "Fan drawer replaceable mismatch. drawer_info['is_replaceable']: '{}', "
+            "drawer_snmp_fact['entPhysIsFRU']: '{}'"
         ).format(
-            REPLACEABLE if drawer_info['is_replaceable'] == 'True' else NOT_REPLACEABLE,
-            drawer_snmp_fact['entPhysIsFRU'],
-            snmp_physical_entity_info
+            drawer_info['is_replaceable'],
+            drawer_snmp_fact['entPhysIsFRU']
         )
 
 
@@ -502,283 +487,232 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find fan {} in physical entity mib. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             name,
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert fan_snmp_fact['entPhysDescr'] == name, (
             "Fan description mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             name,
             fan_snmp_fact['entPhysDescr'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysContainedIn'] == CHASSIS_SUB_ID if parent_name == CHASSIS_KEY else parent_oid, (
             "Fan containment mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
-            CHASSIS_SUB_ID if parent_name == CHASSIS_KEY else parent_oid,
+            parent_oid,
             fan_snmp_fact['entPhysContainedIn'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_FAN, (
             "Fan class mismatch. Expected 'entPhysClass' to be '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             PHYSICAL_CLASS_FAN,
             fan_snmp_fact['entPhysClass'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhyParentRelPos'] == position, (
             "Fan parent relative position mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             position,
             fan_snmp_fact['entPhyParentRelPos'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysName'] == name, (
             "Fan name mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             name,
             fan_snmp_fact['entPhysName'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysHwVer'] == '', (
             "Fan hardware version mismatch. Expected empty string, but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             fan_snmp_fact['entPhysHwVer'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysFwVer'] == '', (
             "Fan firmware version mismatch. Expected empty string, but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             fan_snmp_fact['entPhysFwVer'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysSwVer'] == '', (
             "Fan software version mismatch. Expected empty string, but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             fan_snmp_fact['entPhysSwVer'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysSerialNum'] == ('' if is_null_str(fan_info['serial']) else fan_info[
             'serial']), (
             "Fan serial number mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
-            '' if is_null_str(fan_info['serial']) else fan_info['serial'],
+            fan_info['serial'],
             fan_snmp_fact['entPhysSerialNum'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysMfgName'] == '', (
             "Fan manufacturer mismatch. Expected empty string, but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             fan_snmp_fact['entPhysMfgName'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysModelName'] == '' if is_null_str(
             fan_info['model']) else fan_info['model'], (
             "Fan model name mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
-            '' if is_null_str(fan_info['model']) else fan_info['model'],
+            fan_info['model'],
             fan_snmp_fact['entPhysModelName'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
         assert fan_snmp_fact['entPhysIsFRU'] == (
             REPLACEABLE if fan_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
         ), (
             "Fan replaceable mismatch. Expected '{}', but got '{}'. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
-            REPLACEABLE if fan_info['is_replaceable'] == 'True' else NOT_REPLACEABLE,
+            fan_info['is_replaceable'],
             fan_snmp_fact['entPhysIsFRU'],
             key,
-            fan_info,
-            snmp_physical_entity_info
+            fan_info
         )
 
         if not is_null_str(fan_info['speed']):
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
             assert tachometers_oid in snmp_physical_entity_info, (
                 "Cannot find fan tachometers info in physical entity MIB. "
-                "Expected OID '{}'. Physical entity MIB: {}"
+                "Expected OID '{}'."
             ).format(
                 tachometers_oid,
-                snmp_physical_entity_info
             )
 
             tachometers_fact = snmp_physical_entity_info[tachometers_oid]
             assert tachometers_fact['entPhysDescr'] == 'Tachometers for {}'.format(name), (
                 "Fan tachometers description mismatch. Expected '{}', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 'Tachometers for {}'.format(name),
                 tachometers_fact['entPhysDescr'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
 
             assert tachometers_fact['entPhysContainedIn'] == expect_oid, (
                 "Fan tachometers containment mismatch. Expected '{}', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 expect_oid,
                 tachometers_fact['entPhysContainedIn'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR, (
                 "Fan tachometers class mismatch. Expected '{}', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 PHYSICAL_CLASS_SENSOR,
                 tachometers_fact['entPhysClass'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhyParentRelPos'] == 1, (
                 "Fan tachometers parent relative position mismatch. Expected '1', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhyParentRelPos'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysName'] == 'Tachometers for {}'.format(
                 name), (
                 "Fan tachometers name mismatch. Expected 'Tachometers for {}', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 name,
                 tachometers_fact['entPhysName'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysHwVer'] == '', (
                 "Fan tachometers hardware version mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysHwVer'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysFwVer'] == '', (
                 "Fan tachometers firmware version mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysFwVer'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysSwVer'] == '', (
                 "Fan tachometers software version mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysSwVer'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysSerialNum'] == '', (
                 "Fan tachometers serial number mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysSerialNum'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysMfgName'] == '', (
                 "Fan tachometers manufacturer name mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysMfgName'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysModelName'] == '', (
                 "Fan tachometers model name mismatch. Expected empty string, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysModelName'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_fact['entPhysIsFRU'] == NOT_REPLACEABLE, (
                 "Fan tachometers replaceability mismatch. Expected NOT_REPLACEABLE, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_fact['entPhysIsFRU'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
 
         # snmp_entity_sensor_info is only supported in image newer than 202012
@@ -797,43 +731,35 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
                 int(EntitySensorDataType.UNKNOWN)), (
                 "Fan tachometers type mismatch. Expected type 'UNKNOWN', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_sensor_fact['entPhySensorType'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_sensor_fact['entPhySensorPrecision'] == '0', (
                 "Fan tachometers precision mismatch. Expected precision '0', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_sensor_fact['entPhySensorPrecision'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_sensor_fact['entPhySensorScale'] == EntitySensorDataScale.UNITS, (
                 "Fan tachometers scale mismatch. Expected scale 'UNITS', but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_sensor_fact['entPhySensorScale'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             # Fan tachometer sensor value(percent) is a int between 0 and 100
             assert 0 < int(tachometers_sensor_fact['entPhySensorValue']) <= 100, (
                 "Fan tachometers sensor value out of range. Expected value between 1 and 100, but got '{}'. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 tachometers_sensor_fact['entPhySensorValue'],
                 key,
-                fan_info,
-                snmp_physical_entity_info
+                fan_info
             )
             assert tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.OK)) \
                 or tachometers_sensor_fact['entPhySensorOperStatus'] == str(int(EntitySensorStatus.NONOPERATIONAL)) \
@@ -873,22 +799,19 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             assert expect_oid not in snmp_physical_entity_info, (
                 "PSU {} is not present in Redis DB but it is present in physical entity mib. "
                 "Redis DB key: {}. Redis DB value: {}. "
-                "Physical entity MIB: {}"
             ).format(
                 name,
                 key,
-                psu_info,
-                snmp_physical_entity_info
+                psu_info
             )
             continue
 
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find PSU '{}' in physical entity MIB. "
-            "Expected OID '{}' is missing. Physical entity MIB: {}"
+            "Expected OID '{}' is missing. "
         ).format(
             name,
-            expect_oid,
-            snmp_physical_entity_info
+            expect_oid
         )
         psu_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert psu_snmp_fact['entPhysDescr'] == name, (
@@ -945,7 +868,7 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         ), (
             "PSU serial number mismatch. Expected '{}' but got '{}'."
         ).format(
-            '' if is_null_str(psu_info['serial']) else psu_info['serial'],
+            psu_info['serial'],
             psu_snmp_fact['entPhysSerialNum']
         )
         assert psu_snmp_fact['entPhysMfgName'] == '', (
@@ -958,7 +881,7 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             psu_info['model']) else psu_info['model'], (
             "PSU model name mismatch. Expected '{}' but got '{}'."
         ).format(
-            '' if is_null_str(psu_info['model']) else psu_info['model'],
+            psu_info['model'],
             psu_snmp_fact['entPhysModelName']
         )
         assert psu_snmp_fact['entPhysIsFRU'] == (
@@ -966,8 +889,8 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         ), (
             "PSU replaceable mismatch. Expected '{}' but got '{}'."
         ).format(
-            'replaceable' if psu_info['is_replaceable'] == 'True' else 'not replaceable',
-            'replaceable' if psu_snmp_fact['entPhysIsFRU'] == REPLACEABLE else 'not replaceable'
+            psu_info['is_replaceable'],
+            psu_snmp_fact['entPhysIsFRU']
         )
 
         _check_psu_sensor(duthost, name, psu_info, expect_oid,
@@ -990,21 +913,19 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
         if is_null_str(psu_info[field]):
             assert expect_oid not in snmp_physical_entity_info, (
                 "Unexpectedly found PSU sensor OID '{}' in physical entity MIB. "
-                "Redis DB value: {}. Physical entity MIB: {}"
+                "Redis DB value: {}. "
             ).format(
                 expect_oid,
-                psu_info,
-                snmp_physical_entity_info
+                psu_info
             )
             continue
 
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find PSU sensor OID '{}' in physical entity MIB. "
-            "Redis DB value: {}. Physical entity MIB: {}"
+            "Redis DB value: {}. "
         ).format(
             expect_oid,
-            psu_info,
-            snmp_physical_entity_info
+            psu_info
         )
         phy_entity_snmp_fact = snmp_physical_entity_info[expect_oid]
         sensor_name = '{sensor_name} for {psu_name}'.format(
@@ -1166,7 +1087,9 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
-    assert keys, 'Thermal information does not exist in DB'
+    assert keys, (
+        "Thermal information does not exist in DB:{} "
+    ).format(keys)
     for key in keys:
         thermal_info = redis_hgetall(duthost, STATE_DB, key)
         if is_null_str(thermal_info['temperature']):
@@ -1182,103 +1105,89 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find thermal {} in physical entity mib. "
             "Redis DB key: {}. Redis DB value: {}. "
-            "Physical entity MIB: {}"
         ).format(
             name,
             key,
-            thermal_info,
-            snmp_physical_entity_info
+            thermal_info
         )
         thermal_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert thermal_snmp_fact['entPhysDescr'] == name, (
             "Thermal description mismatch. Expected 'entPhysDescr' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             name,
-            thermal_snmp_fact['entPhysDescr'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysDescr']
         )
         assert thermal_snmp_fact['entPhysContainedIn'] == CHASSIS_MGMT_SUB_ID, (
             "Thermal containment mismatch. Expected 'entPhysContainedIn' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             CHASSIS_MGMT_SUB_ID,
-            thermal_snmp_fact['entPhysContainedIn'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysContainedIn']
         )
         assert thermal_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR, (
             "Thermal class mismatch. Expected 'entPhysClass' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             PHYSICAL_CLASS_SENSOR,
-            thermal_snmp_fact['entPhysClass'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysClass']
         )
         assert thermal_snmp_fact['entPhyParentRelPos'] == position, (
             "Thermal relative position mismatch. Expected 'entPhyParentRelPos' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             position,
-            thermal_snmp_fact['entPhyParentRelPos'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhyParentRelPos']
         )
         assert thermal_snmp_fact['entPhysName'] == name, (
             "Thermal name mismatch. Expected 'entPhysName' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             name,
-            thermal_snmp_fact['entPhysName'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysName']
         )
         assert thermal_snmp_fact['entPhysHwVer'] == '', (
             "Thermal hardware version mismatch. Expected 'entPhysHwVer' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysHwVer'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysHwVer']
         )
         assert thermal_snmp_fact['entPhysFwVer'] == '', (
             "Thermal firmware version mismatch. Expected 'entPhysFwVer' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysFwVer'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysFwVer']
         )
         assert thermal_snmp_fact['entPhysSwVer'] == '', (
             "Thermal software version mismatch. Expected 'entPhysSwVer' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysSwVer'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysSwVer']
         )
         assert thermal_snmp_fact['entPhysSerialNum'] == '', (
             "Thermal serial number mismatch. Expected 'entPhysSerialNum' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysSerialNum'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysSerialNum']
         )
         assert thermal_snmp_fact['entPhysMfgName'] == '', (
             "Thermal manufacturer name mismatch. Expected 'entPhysMfgName' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysMfgName'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysMfgName']
         )
         assert thermal_snmp_fact['entPhysModelName'] == '', (
             "Thermal model name mismatch. Expected 'entPhysModelName' to be '', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            thermal_snmp_fact['entPhysModelName'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysModelName']
         )
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE, (
             "Thermal FRU mismatch. Expected 'entPhysIsFRU' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             NOT_REPLACEABLE,
-            thermal_snmp_fact['entPhysIsFRU'],
-            snmp_physical_entity_info
+            thermal_snmp_fact['entPhysIsFRU']
         )
 
         # snmp_entity_sensor_info is only supported in image newer than 202012
@@ -1351,11 +1260,9 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
             'Cannot find port {} in physical entity mib. '
             'Expected to find port in snmp fact but it is missing. '
             'Redis keys: {}. '
-            'Physical entity MIB: {}'
         ).format(
             name,
-            keys,
-            snmp_physical_entity_info
+            keys
         )
         transceiver_info = redis_hgetall(duthost, STATE_DB, key)
         transceiver_snmp_fact = name_to_snmp_facts[name]
@@ -1363,98 +1270,85 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
             'Cannot find port {} description in physical entity MIB. '
             'Expected to find description in snmp fact but it is missing. '
             'Redis keys: {}. '
-            'Physical entity MIB: {}'
         ).format(
             name,
-            keys,
-            snmp_physical_entity_info
+            keys
         )
         assert transceiver_snmp_fact['entPhysContainedIn'] == CHASSIS_SUB_ID, (
             'Transceiver containment mismatch. Expected "entPhysContainedIn" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             CHASSIS_SUB_ID,
-            transceiver_snmp_fact['entPhysContainedIn'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysContainedIn']
         )
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT, (
             'Transceiver class mismatch. Expected "entPhysClass" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             PHYSICAL_CLASS_PORT,
-            transceiver_snmp_fact['entPhysClass'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysClass']
         )
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1, (
             'Transceiver relative position mismatch. Expected "entPhyParentRelPos" to be -1, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
-            transceiver_snmp_fact['entPhyParentRelPos'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhyParentRelPos']
         )
         assert transceiver_snmp_fact['entPhysName'] == name, (
             'Transceiver name mismatch. Expected "entPhysName" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             name,
-            transceiver_snmp_fact['entPhysName'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysName']
         )
         assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info[transceiver_rev_key], (
             'Transceiver hardware revision mismatch. Expected "entPhysHwVer" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             transceiver_info[transceiver_rev_key],
-            transceiver_snmp_fact['entPhysHwVer'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysHwVer']
         )
         assert transceiver_snmp_fact['entPhysFwVer'] == '', (
             'Transceiver firmware version mismatch. Expected "entPhysFwVer" to be empty, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
-            transceiver_snmp_fact['entPhysFwVer'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysFwVer']
         )
         assert transceiver_snmp_fact['entPhysSwVer'] == '', (
             'Transceiver software version mismatch. Expected "entPhysSwVer" to be empty, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
-            transceiver_snmp_fact['entPhysSwVer'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysSwVer']
         )
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial'], (
             'Transceiver serial number mismatch. Expected "entPhysSerialNum" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             transceiver_info['serial'],
-            transceiver_snmp_fact['entPhysSerialNum'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysSerialNum']
         )
         assert transceiver_snmp_fact['entPhysMfgName'] == transceiver_info['manufacturer'], (
             'Transceiver manufacturer name mismatch. Expected "entPhysMfgName" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             transceiver_info['manufacturer'],
-            transceiver_snmp_fact['entPhysMfgName'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysMfgName']
         )
         assert transceiver_snmp_fact['entPhysModelName'] == transceiver_info['model'], (
             'Transceiver model name mismatch. Expected "entPhysModelName" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
             transceiver_info['model'],
-            transceiver_snmp_fact['entPhysModelName'],
-            snmp_physical_entity_info
+            transceiver_snmp_fact['entPhysModelName']
         )
         assert transceiver_snmp_fact['entPhysIsFRU'] == (
             REPLACEABLE if transceiver_info['is_replaceable'] == 'True' else NOT_REPLACEABLE
         ), (
             'Transceiver replaceable status mismatch. Expected "entPhysIsFRU" to be {}, '
-            'but got {}. Physical entity MIB: {}'
+            'but got {}. '
         ).format(
-            REPLACEABLE if transceiver_info['is_replaceable'] == 'True' else NOT_REPLACEABLE,
-            transceiver_snmp_fact['entPhysIsFRU'],
-            snmp_physical_entity_info
+            transceiver_info['is_replaceable'],
+            transceiver_snmp_fact['entPhysIsFRU']
         )
 
         _check_transceiver_dom_sensor_info(
@@ -1476,100 +1370,87 @@ def _check_transceiver_dom_sensor_info(duthost, name, transceiver_oid, snmp_phys
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find port sensor OID '{}' in physical entity MIB. "
             "Expected to find the sensor OID in SNMP facts but it is missing. "
-            "Transceiver OID: {}. Physical entity MIB: {}"
+            "Transceiver OID: {}. "
         ).format(
             expect_oid,
-            transceiver_oid,
-            snmp_physical_entity_info
+            transceiver_oid
         )
         sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert sensor_snmp_fact['entPhysDescr'] is not None, (
             "Sensor description is empty. Expected 'entPhysDescr' to be not empty, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysDescr', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysDescr']
         )
         assert sensor_snmp_fact['entPhysContainedIn'] == transceiver_oid, (
             "Sensor containment mismatch. Expected 'entPhysContainedIn' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'."
         ).format(
             transceiver_oid,
-            sensor_snmp_fact['entPhysContainedIn'],
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysContainedIn']
         )
         assert sensor_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_SENSOR, (
             "Sensor class mismatch. Expected 'entPhysClass' to be '{}', "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
             PHYSICAL_CLASS_SENSOR,
-            sensor_snmp_fact['entPhysClass'],
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysClass']
         )
         assert sensor_snmp_fact['entPhyParentRelPos'] == index + 1, (
             "Sensor relative position mismatch. Expected 'entPhyParentRelPos' to be {}, "
-            "but got {}. Physical entity MIB: {}"
+            "but got {}. "
         ).format(
             index + 1,
-            sensor_snmp_fact['entPhyParentRelPos'],
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhyParentRelPos']
         )
         assert sensor_snmp_fact['entPhysName'] is not None, (
             "Sensor name is empty. Expected 'entPhysName' to be not empty, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysName', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysName']
         )
         assert sensor_snmp_fact['entPhysHwVer'] == '', (
             "Sensor hardware version mismatch. Expected 'entPhysHwVer' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysHwVer', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysHwVer']
         )
         assert sensor_snmp_fact['entPhysFwVer'] == '', (
             "Sensor firmware version mismatch. Expected 'entPhysFwVer' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysFwVer', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysFwVer']
         )
         assert sensor_snmp_fact['entPhysSwVer'] == '', (
             "Sensor software version mismatch. Expected 'entPhysSwVer' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysSwVer', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysSwVer']
         )
         assert sensor_snmp_fact['entPhysSerialNum'] == '', (
             "Sensor serial number mismatch. Expected 'entPhysSerialNum' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysSerialNum', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysSerialNum']
         )
         assert sensor_snmp_fact['entPhysMfgName'] == '', (
             "Sensor manufacture name mismatch. Expected 'entPhysMfgName' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysMfgName', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysMfgName']
         )
         assert sensor_snmp_fact['entPhysModelName'] == '', (
             "Sensor model name mismatch. Expected 'entPhysModelName' to be an empty string, "
-            "but got '{}'. Physical entity MIB: {}"
+            "but got '{}'. "
         ).format(
-            sensor_snmp_fact.get('entPhysModelName', ''),
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysModelName']
         )
         assert sensor_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE, (
             "Sensor is FRU mismatch. Expected 'entPhysIsFRU' to be {}, "
-            "but got {}. Physical entity MIB: {}"
+            "but got {}. "
         ).format(
             NOT_REPLACEABLE,
-            sensor_snmp_fact['entPhysIsFRU'],
-            snmp_physical_entity_info
+            sensor_snmp_fact['entPhysIsFRU']
         )
 
 
@@ -1778,13 +1659,13 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
             if is_sensor_test_supported(duthost):
                 assert tachometers_oid not in entity_mib_info and tachometers_oid not in entity_sensor_mib_info, (
                     'Absence fan tachometers info should not be present in the mib, but it is. '
-                    'Redis DB value: {}. Entity MIB: {}. Entity Sensor MIB: {}'
-                ).format(fan_info, entity_mib_info, entity_sensor_mib_info)
+                    'Tachometers OID: {}. Entity MIB: {}. Entity Sensor MIB: {}'
+                ).format(tachometers_oid, entity_mib_info, entity_sensor_mib_info)
             else:
                 assert tachometers_oid not in entity_mib_info, (
                     'Absence fan tachometers info should not be present in the mib, but it is. '
-                    'Redis DB value: {}. Entity MIB: {}'
-                ).format(fan_info, entity_mib_info)
+                    'Tachometers OID: {}. Entity MIB: {}'
+                ).format(tachometers_oid, entity_mib_info)
 
 
 def redis_get_keys(duthost, db_id, pattern):
