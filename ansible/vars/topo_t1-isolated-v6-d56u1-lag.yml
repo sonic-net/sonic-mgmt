@@ -4,47 +4,47 @@ topology:
       vlans:
         - 0
       vm_offset: 0
-    ARISTA02T0:
+    ARISTA09T0:
       vlans:
         - 8
       vm_offset: 1
-    ARISTA03T0:
+    ARISTA17T0:
       vlans:
         - 16
       vm_offset: 2
-    ARISTA04T0:
+    ARISTA25T0:
       vlans:
         - 24
       vm_offset: 3
-    ARISTA05T0:
+    ARISTA33T0:
       vlans:
         - 32
       vm_offset: 4
-    ARISTA06T0:
+    ARISTA41T0:
       vlans:
         - 40
       vm_offset: 5
-    ARISTA07T0:
+    ARISTA49T0:
       vlans:
         - 48
       vm_offset: 6
-    ARISTA08T0:
+    ARISTA57T0:
       vlans:
         - 56
       vm_offset: 7
-    ARISTA09T0:
+    ARISTA65T0:
       vlans:
         - 64
       vm_offset: 8
-    ARISTA10T0:
+    ARISTA73T0:
       vlans:
         - 72
       vm_offset: 9
-    ARISTA11T0:
+    ARISTA81T0:
       vlans:
         - 80
       vm_offset: 10
-    ARISTA12T0:
+    ARISTA89T0:
       vlans:
         - 88
       vm_offset: 11
@@ -53,179 +53,179 @@ topology:
         - 96
         - 97
       vm_offset: 12
-    ARISTA13T0:
+    ARISTA97T0:
       vlans:
         - 100
       vm_offset: 13
-    ARISTA14T0:
+    ARISTA105T0:
       vlans:
         - 108
       vm_offset: 14
-    ARISTA15T0:
+    ARISTA113T0:
       vlans:
         - 120
       vm_offset: 15
-    ARISTA16T0:
+    ARISTA121T0:
       vlans:
         - 128
       vm_offset: 16
-    ARISTA17T0:
+    ARISTA129T0:
       vlans:
         - 136
       vm_offset: 17
-    ARISTA18T0:
+    ARISTA137T0:
       vlans:
         - 144
       vm_offset: 18
-    ARISTA19T0:
+    ARISTA145T0:
       vlans:
         - 152
       vm_offset: 19
-    ARISTA20T0:
+    ARISTA153T0:
       vlans:
         - 160
       vm_offset: 20
-    ARISTA21T0:
+    ARISTA161T0:
       vlans:
         - 168
       vm_offset: 21
-    ARISTA22T0:
+    ARISTA169T0:
       vlans:
         - 176
       vm_offset: 22
-    ARISTA23T0:
+    ARISTA177T0:
       vlans:
         - 184
       vm_offset: 23
-    ARISTA24T0:
+    ARISTA185T0:
       vlans:
         - 192
       vm_offset: 24
-    ARISTA25T0:
+    ARISTA193T0:
       vlans:
         - 200
       vm_offset: 25
-    ARISTA26T0:
+    ARISTA201T0:
       vlans:
         - 208
       vm_offset: 26
-    ARISTA27T0:
+    ARISTA209T0:
       vlans:
         - 216
       vm_offset: 27
-    ARISTA28T0:
+    ARISTA217T0:
       vlans:
         - 224
       vm_offset: 28
-    ARISTA29T0:
+    ARISTA225T0:
       vlans:
         - 232
       vm_offset: 29
-    ARISTA30T0:
+    ARISTA233T0:
       vlans:
         - 240
       vm_offset: 30
-    ARISTA31T0:
+    ARISTA241T0:
       vlans:
         - 248
       vm_offset: 31
-    ARISTA32T0:
+    ARISTA249T0:
       vlans:
         - 256
       vm_offset: 32
-    ARISTA33T0:
+    ARISTA257T0:
       vlans:
         - 264
       vm_offset: 33
-    ARISTA34T0:
+    ARISTA265T0:
       vlans:
         - 272
       vm_offset: 34
-    ARISTA35T0:
+    ARISTA273T0:
       vlans:
         - 280
       vm_offset: 35
-    ARISTA36T0:
+    ARISTA281T0:
       vlans:
         - 288
       vm_offset: 36
-    ARISTA37T0:
+    ARISTA289T0:
       vlans:
         - 296
       vm_offset: 37
-    ARISTA38T0:
+    ARISTA297T0:
       vlans:
         - 304
       vm_offset: 38
-    ARISTA39T0:
+    ARISTA305T0:
       vlans:
         - 312
       vm_offset: 39
-    ARISTA40T0:
+    ARISTA313T0:
       vlans:
         - 320
       vm_offset: 40
-    ARISTA41T0:
+    ARISTA321T0:
       vlans:
         - 332
       vm_offset: 41
-    ARISTA42T0:
+    ARISTA329T0:
       vlans:
         - 340
       vm_offset: 42
-    ARISTA43T0:
+    ARISTA337T0:
       vlans:
         - 352
       vm_offset: 43
-    ARISTA44T0:
+    ARISTA345T0:
       vlans:
         - 360
       vm_offset: 44
-    ARISTA45T0:
+    ARISTA353T0:
       vlans:
         - 368
       vm_offset: 45
-    ARISTA46T0:
+    ARISTA361T0:
       vlans:
         - 376
       vm_offset: 46
-    ARISTA47T0:
+    ARISTA369T0:
       vlans:
         - 384
       vm_offset: 47
-    ARISTA48T0:
+    ARISTA377T0:
       vlans:
         - 392
       vm_offset: 48
-    ARISTA49T0:
+    ARISTA385T0:
       vlans:
         - 400
       vm_offset: 49
-    ARISTA50T0:
+    ARISTA393T0:
       vlans:
         - 408
       vm_offset: 50
-    ARISTA51T0:
+    ARISTA401T0:
       vlans:
         - 416
       vm_offset: 51
-    ARISTA52T0:
+    ARISTA409T0:
       vlans:
         - 424
       vm_offset: 52
-    ARISTA53T0:
+    ARISTA417T0:
       vlans:
         - 432
       vm_offset: 53
-    ARISTA54T0:
+    ARISTA425T0:
       vlans:
         - 440
       vm_offset: 54
-    ARISTA55T0:
+    ARISTA433T0:
       vlans:
         - 448
       vm_offset: 55
-    ARISTA56T0:
+    ARISTA441T0:
       vlans:
         - 456
       vm_offset: 56
@@ -267,7 +267,7 @@ configuration:
         ipv6: fc00::2/126
     bp_interface:
       ipv6: fc0a::2/64
-  ARISTA02T0:
+  ARISTA09T0:
     properties:
     - common
     - tor
@@ -285,7 +285,7 @@ configuration:
         ipv6: fc00::22/126
     bp_interface:
       ipv6: fc0a::a/64
-  ARISTA03T0:
+  ARISTA17T0:
     properties:
     - common
     - tor
@@ -303,7 +303,7 @@ configuration:
         ipv6: fc00::42/126
     bp_interface:
       ipv6: fc0a::12/64
-  ARISTA04T0:
+  ARISTA25T0:
     properties:
     - common
     - tor
@@ -321,7 +321,7 @@ configuration:
         ipv6: fc00::62/126
     bp_interface:
       ipv6: fc0a::1a/64
-  ARISTA05T0:
+  ARISTA33T0:
     properties:
     - common
     - tor
@@ -339,7 +339,7 @@ configuration:
         ipv6: fc00::82/126
     bp_interface:
       ipv6: fc0a::22/64
-  ARISTA06T0:
+  ARISTA41T0:
     properties:
     - common
     - tor
@@ -357,7 +357,7 @@ configuration:
         ipv6: fc00::a2/126
     bp_interface:
       ipv6: fc0a::2a/64
-  ARISTA07T0:
+  ARISTA49T0:
     properties:
     - common
     - tor
@@ -375,7 +375,7 @@ configuration:
         ipv6: fc00::c2/126
     bp_interface:
       ipv6: fc0a::32/64
-  ARISTA08T0:
+  ARISTA57T0:
     properties:
     - common
     - tor
@@ -393,7 +393,7 @@ configuration:
         ipv6: fc00::e2/126
     bp_interface:
       ipv6: fc0a::3a/64
-  ARISTA09T0:
+  ARISTA65T0:
     properties:
     - common
     - tor
@@ -411,7 +411,7 @@ configuration:
         ipv6: fc00::102/126
     bp_interface:
       ipv6: fc0a::42/64
-  ARISTA10T0:
+  ARISTA73T0:
     properties:
     - common
     - tor
@@ -429,7 +429,7 @@ configuration:
         ipv6: fc00::122/126
     bp_interface:
       ipv6: fc0a::4a/64
-  ARISTA11T0:
+  ARISTA81T0:
     properties:
     - common
     - tor
@@ -447,7 +447,7 @@ configuration:
         ipv6: fc00::142/126
     bp_interface:
       ipv6: fc0a::52/64
-  ARISTA12T0:
+  ARISTA89T0:
     properties:
     - common
     - tor
@@ -486,7 +486,7 @@ configuration:
         ipv6: fc00::182/126
     bp_interface:
       ipv6: fc0a::62/64
-  ARISTA13T0:
+  ARISTA97T0:
     properties:
     - common
     - tor
@@ -504,7 +504,7 @@ configuration:
         ipv6: fc00::192/126
     bp_interface:
       ipv6: fc0a::66/64
-  ARISTA14T0:
+  ARISTA105T0:
     properties:
     - common
     - tor
@@ -522,7 +522,7 @@ configuration:
         ipv6: fc00::1b2/126
     bp_interface:
       ipv6: fc0a::6e/64
-  ARISTA15T0:
+  ARISTA113T0:
     properties:
     - common
     - tor
@@ -540,7 +540,7 @@ configuration:
         ipv6: fc00::1e2/126
     bp_interface:
       ipv6: fc0a::7a/64
-  ARISTA16T0:
+  ARISTA121T0:
     properties:
     - common
     - tor
@@ -558,7 +558,7 @@ configuration:
         ipv6: fc00::202/126
     bp_interface:
       ipv6: fc0a::82/64
-  ARISTA17T0:
+  ARISTA129T0:
     properties:
     - common
     - tor
@@ -576,7 +576,7 @@ configuration:
         ipv6: fc00::222/126
     bp_interface:
       ipv6: fc0a::8a/64
-  ARISTA18T0:
+  ARISTA137T0:
     properties:
     - common
     - tor
@@ -594,7 +594,7 @@ configuration:
         ipv6: fc00::242/126
     bp_interface:
       ipv6: fc0a::92/64
-  ARISTA19T0:
+  ARISTA145T0:
     properties:
     - common
     - tor
@@ -612,7 +612,7 @@ configuration:
         ipv6: fc00::262/126
     bp_interface:
       ipv6: fc0a::9a/64
-  ARISTA20T0:
+  ARISTA153T0:
     properties:
     - common
     - tor
@@ -630,7 +630,7 @@ configuration:
         ipv6: fc00::282/126
     bp_interface:
       ipv6: fc0a::a2/64
-  ARISTA21T0:
+  ARISTA161T0:
     properties:
     - common
     - tor
@@ -648,7 +648,7 @@ configuration:
         ipv6: fc00::2a2/126
     bp_interface:
       ipv6: fc0a::aa/64
-  ARISTA22T0:
+  ARISTA169T0:
     properties:
     - common
     - tor
@@ -666,7 +666,7 @@ configuration:
         ipv6: fc00::2c2/126
     bp_interface:
       ipv6: fc0a::b2/64
-  ARISTA23T0:
+  ARISTA177T0:
     properties:
     - common
     - tor
@@ -684,7 +684,7 @@ configuration:
         ipv6: fc00::2e2/126
     bp_interface:
       ipv6: fc0a::ba/64
-  ARISTA24T0:
+  ARISTA185T0:
     properties:
     - common
     - tor
@@ -702,7 +702,7 @@ configuration:
         ipv6: fc00::302/126
     bp_interface:
       ipv6: fc0a::c2/64
-  ARISTA25T0:
+  ARISTA193T0:
     properties:
     - common
     - tor
@@ -720,7 +720,7 @@ configuration:
         ipv6: fc00::322/126
     bp_interface:
       ipv6: fc0a::ca/64
-  ARISTA26T0:
+  ARISTA201T0:
     properties:
     - common
     - tor
@@ -738,7 +738,7 @@ configuration:
         ipv6: fc00::342/126
     bp_interface:
       ipv6: fc0a::d2/64
-  ARISTA27T0:
+  ARISTA209T0:
     properties:
     - common
     - tor
@@ -756,7 +756,7 @@ configuration:
         ipv6: fc00::362/126
     bp_interface:
       ipv6: fc0a::da/64
-  ARISTA28T0:
+  ARISTA217T0:
     properties:
     - common
     - tor
@@ -774,7 +774,7 @@ configuration:
         ipv6: fc00::382/126
     bp_interface:
       ipv6: fc0a::e2/64
-  ARISTA29T0:
+  ARISTA225T0:
     properties:
     - common
     - tor
@@ -792,7 +792,7 @@ configuration:
         ipv6: fc00::3a2/126
     bp_interface:
       ipv6: fc0a::ea/64
-  ARISTA30T0:
+  ARISTA233T0:
     properties:
     - common
     - tor
@@ -810,7 +810,7 @@ configuration:
         ipv6: fc00::3c2/126
     bp_interface:
       ipv6: fc0a::f2/64
-  ARISTA31T0:
+  ARISTA241T0:
     properties:
     - common
     - tor
@@ -828,7 +828,7 @@ configuration:
         ipv6: fc00::3e2/126
     bp_interface:
       ipv6: fc0a::fa/64
-  ARISTA32T0:
+  ARISTA249T0:
     properties:
     - common
     - tor
@@ -846,7 +846,7 @@ configuration:
         ipv6: fc00::402/126
     bp_interface:
       ipv6: fc0a::102/64
-  ARISTA33T0:
+  ARISTA257T0:
     properties:
     - common
     - tor
@@ -864,7 +864,7 @@ configuration:
         ipv6: fc00::422/126
     bp_interface:
       ipv6: fc0a::10a/64
-  ARISTA34T0:
+  ARISTA265T0:
     properties:
     - common
     - tor
@@ -882,7 +882,7 @@ configuration:
         ipv6: fc00::442/126
     bp_interface:
       ipv6: fc0a::112/64
-  ARISTA35T0:
+  ARISTA273T0:
     properties:
     - common
     - tor
@@ -900,7 +900,7 @@ configuration:
         ipv6: fc00::462/126
     bp_interface:
       ipv6: fc0a::11a/64
-  ARISTA36T0:
+  ARISTA281T0:
     properties:
     - common
     - tor
@@ -918,7 +918,7 @@ configuration:
         ipv6: fc00::482/126
     bp_interface:
       ipv6: fc0a::122/64
-  ARISTA37T0:
+  ARISTA289T0:
     properties:
     - common
     - tor
@@ -936,7 +936,7 @@ configuration:
         ipv6: fc00::4a2/126
     bp_interface:
       ipv6: fc0a::12a/64
-  ARISTA38T0:
+  ARISTA297T0:
     properties:
     - common
     - tor
@@ -954,7 +954,7 @@ configuration:
         ipv6: fc00::4c2/126
     bp_interface:
       ipv6: fc0a::132/64
-  ARISTA39T0:
+  ARISTA305T0:
     properties:
     - common
     - tor
@@ -972,7 +972,7 @@ configuration:
         ipv6: fc00::4e2/126
     bp_interface:
       ipv6: fc0a::13a/64
-  ARISTA40T0:
+  ARISTA313T0:
     properties:
     - common
     - tor
@@ -990,7 +990,7 @@ configuration:
         ipv6: fc00::502/126
     bp_interface:
       ipv6: fc0a::142/64
-  ARISTA41T0:
+  ARISTA321T0:
     properties:
     - common
     - tor
@@ -1008,7 +1008,7 @@ configuration:
         ipv6: fc00::532/126
     bp_interface:
       ipv6: fc0a::14e/64
-  ARISTA42T0:
+  ARISTA329T0:
     properties:
     - common
     - tor
@@ -1026,7 +1026,7 @@ configuration:
         ipv6: fc00::552/126
     bp_interface:
       ipv6: fc0a::156/64
-  ARISTA43T0:
+  ARISTA337T0:
     properties:
     - common
     - tor
@@ -1044,7 +1044,7 @@ configuration:
         ipv6: fc00::582/126
     bp_interface:
       ipv6: fc0a::162/64
-  ARISTA44T0:
+  ARISTA345T0:
     properties:
     - common
     - tor
@@ -1062,7 +1062,7 @@ configuration:
         ipv6: fc00::5a2/126
     bp_interface:
       ipv6: fc0a::16a/64
-  ARISTA45T0:
+  ARISTA353T0:
     properties:
     - common
     - tor
@@ -1080,7 +1080,7 @@ configuration:
         ipv6: fc00::5c2/126
     bp_interface:
       ipv6: fc0a::172/64
-  ARISTA46T0:
+  ARISTA361T0:
     properties:
     - common
     - tor
@@ -1098,7 +1098,7 @@ configuration:
         ipv6: fc00::5e2/126
     bp_interface:
       ipv6: fc0a::17a/64
-  ARISTA47T0:
+  ARISTA369T0:
     properties:
     - common
     - tor
@@ -1116,7 +1116,7 @@ configuration:
         ipv6: fc00::602/126
     bp_interface:
       ipv6: fc0a::182/64
-  ARISTA48T0:
+  ARISTA377T0:
     properties:
     - common
     - tor
@@ -1134,7 +1134,7 @@ configuration:
         ipv6: fc00::622/126
     bp_interface:
       ipv6: fc0a::18a/64
-  ARISTA49T0:
+  ARISTA385T0:
     properties:
     - common
     - tor
@@ -1152,7 +1152,7 @@ configuration:
         ipv6: fc00::642/126
     bp_interface:
       ipv6: fc0a::192/64
-  ARISTA50T0:
+  ARISTA393T0:
     properties:
     - common
     - tor
@@ -1170,7 +1170,7 @@ configuration:
         ipv6: fc00::662/126
     bp_interface:
       ipv6: fc0a::19a/64
-  ARISTA51T0:
+  ARISTA401T0:
     properties:
     - common
     - tor
@@ -1188,7 +1188,7 @@ configuration:
         ipv6: fc00::682/126
     bp_interface:
       ipv6: fc0a::1a2/64
-  ARISTA52T0:
+  ARISTA409T0:
     properties:
     - common
     - tor
@@ -1206,7 +1206,7 @@ configuration:
         ipv6: fc00::6a2/126
     bp_interface:
       ipv6: fc0a::1aa/64
-  ARISTA53T0:
+  ARISTA417T0:
     properties:
     - common
     - tor
@@ -1224,7 +1224,7 @@ configuration:
         ipv6: fc00::6c2/126
     bp_interface:
       ipv6: fc0a::1b2/64
-  ARISTA54T0:
+  ARISTA425T0:
     properties:
     - common
     - tor
@@ -1242,7 +1242,7 @@ configuration:
         ipv6: fc00::6e2/126
     bp_interface:
       ipv6: fc0a::1ba/64
-  ARISTA55T0:
+  ARISTA433T0:
     properties:
     - common
     - tor
@@ -1260,7 +1260,7 @@ configuration:
         ipv6: fc00::702/126
     bp_interface:
       ipv6: fc0a::1c2/64
-  ARISTA56T0:
+  ARISTA441T0:
     properties:
     - common
     - tor
