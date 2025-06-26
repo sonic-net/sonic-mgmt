@@ -668,8 +668,31 @@ class AdvancedReboot:
             failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
                            if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
-                                             "failure summary:\n{}".format(self.request.node.name, failed_list))
+                                             "failure summary:\n{}".format(self.request.node.name, self.__format_test_failures(failed_list)))
         return result
+
+    def __format_test_failures(self, failed_list):
+        """
+        Format test failures into a human-readable string.
+        @param failed_list: List of tuples [(test_case_name, [failure_messages])]
+        @return: Formatted string with proper line breaks and structure
+        """
+        if not failed_list:
+            return "No failures"
+        
+        formatted_output = []
+        for test_case, failures in failed_list:
+            formatted_output.append(f"\n{'='*60}")
+            formatted_output.append(f"FAILED TEST: {test_case}")
+            formatted_output.append('='*60)
+            
+            for i, failure in enumerate(failures, 1):
+                formatted_output.append(f"\nFailure {i}:")
+                formatted_output.append('-' * 40)
+                formatted_output.append(failure)
+        
+        formatted_output.append('\n' + '='*60)
+        return '\n'.join(formatted_output)
 
     def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles='peer_dev_info,neigh_port_info',
                           preboot_setup=None, postboot_setup=None):
@@ -801,7 +824,7 @@ class AdvancedReboot:
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed multi-hop test {testname}, "
                                              "failure summary:\n{fail_summary}".format(
                                                 testname=self.request.node.name,
-                                                fail_summary=failed_list
+                                                fail_summary=self.__format_test_failures(failed_list)
                                             ))
 
         return True  # Success
