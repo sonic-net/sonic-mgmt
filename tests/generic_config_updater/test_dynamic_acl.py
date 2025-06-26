@@ -126,7 +126,6 @@ rules_per_hwsku = {
 def remove_dataacl_table(duthosts, rand_selected_dut):
     """
     Remove DATAACL to free TCAM resources.
-    The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME_1 = "DATAACL"
     for duthost in duthosts:
