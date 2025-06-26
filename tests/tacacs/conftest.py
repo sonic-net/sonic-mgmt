@@ -6,11 +6,6 @@ from tests.common.helpers.tacacs.tacacs_helper import tacacs_v6_context
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
-    parser.addoption("--container_test", action="store", default="",
-                     help="This flag indicate the if tacacs test running by conntainer test")
-
-
 @pytest.fixture
 def skip_in_container_test(request):
     container_test = request.config.getoption("--container_test", default="")
