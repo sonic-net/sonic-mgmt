@@ -221,15 +221,15 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
                                        testing_config, setup_standby_ports_on_rand_unselected_tor,
                                        toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
                                        dhcp_type, clean_processes_after_stress_test,
-                                       rand_unselected_dut):
+                                       rand_unselected_dut, request):
     '''
     Test DHCP relay counters functionality can handle the maximum load within 5% miss.
     '''
     testing_mode, duthost = testing_config
     packets_send_duration = 120
-    client_packets_per_sec = 50
-    if duthost.hostname.__contains__('720dt'):
-        client_packets_per_sec = 100
+    client_packets_per_sec = 50\
+        if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
+    import pdb; pdb.set_trace()  # noqa: T201
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])

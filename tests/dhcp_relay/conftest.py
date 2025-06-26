@@ -33,6 +33,12 @@ def pytest_addoption(parser):
         default=100,
         help="Set custom restart rounds",
     )
+    parser.addoption(
+        "--max_packets_per_sec",
+        action="store",
+        type=int,
+        help="Set maximum packets per second for stress test",
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
