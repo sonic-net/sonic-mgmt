@@ -80,6 +80,9 @@ all:
           - mc0
           - mx
           - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dpu-1
       children:
         server_1:
