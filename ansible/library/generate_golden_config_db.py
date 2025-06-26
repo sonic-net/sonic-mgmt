@@ -109,7 +109,7 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
                 if ("localhost" in golden_config_db["DEVICE_METADATA"] and
                    "docker_routing_config_mode" in golden_config_db["DEVICE_METADATA"]["localhost"]):
-                    golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "unified"
+                    golden_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
 
             return json.dumps(golden_config_db, indent=4)
         else:
