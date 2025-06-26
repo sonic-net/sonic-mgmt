@@ -229,7 +229,6 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
     packets_send_duration = 120
     client_packets_per_sec = 50\
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
-    import pdb; pdb.set_trace()  # noqa: T201
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
