@@ -3339,10 +3339,10 @@ def setup_connection(request, setup_gnmi_server):
 
 @pytest.fixture(scope="module", autouse=True)
 def restore_golden_config_db(duthost):
-    yield
     if file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH_ORI):
         duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH_ORI, GOLDEN_CONFIG_DB_PATH))
         logger.info("[restore_golden_config_db] Restored {}".format(GOLDEN_CONFIG_DB_PATH))
+    yield
 
 
 @pytest.fixture(scope="session")
