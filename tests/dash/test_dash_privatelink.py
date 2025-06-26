@@ -61,15 +61,26 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     dpuhost = dpuhosts[dpu_index]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
-        **pl.APPLIANCE_CONFIG if non_floating_vnic else **pl.APPLIANCE_CONFIG_FLOATING_VNIC
+        **pl.APPLIANCE_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.METER_POLICY_V4_CONFIG
     }
-    logger.info(base_config_messages)
+    base_config_messages_floating_vnic = {
+        **pl.APPLIANCE_CONFIG_FLOATING_VNIC
+        **pl.ROUTING_TYPE_PL_CONFIG,
+        **pl.VNET_CONFIG,
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG
+    }
 
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+    if non_floating_vnic:
+        logger.info(base_config_messages)
+        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+    else:
+        logger.info(base_config_messages_floating_vnic)
+        apply_messages(localhost, duthost, ptfhost, base_config_messages_floating_vnic, dpuhost.dpu_index)
 
     route_and_mapping_messages = {
         **pl.PE_VNET_MAPPING_CONFIG,
