@@ -3,7 +3,6 @@ import time
 import socket
 import random
 import struct
-import ipaddress
 import logging
 import jinja2
 import json
@@ -52,9 +51,6 @@ class SmartSwitchHaTrafficTest:
         self.namespace = namespace
         self.tcp_sport = 1234
 
-        # Calculate valid range for T1 src/dst addresses
-        mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
-
         self.time_to_listen = 300.0
         self.sniff_time_incr = 0
         # Inter-packet send-interval (minimum interval 3.5ms)
@@ -69,7 +65,6 @@ class SmartSwitchHaTrafficTest:
         logger.info("Using send interval {}".format(self.send_interval))
         self.packets_to_send = min(int(self.time_to_listen / (self.send_interval * 2)), 45000)
         self.packets_sent_per_server = dict()
-
 
         self.all_packets = []
 
@@ -102,13 +97,11 @@ class SmartSwitchHaTrafficTest:
         logger.info("Force stop the ptf sniffer process by sending SIGTERM")
         self.ptfhost.command("pkill -SIGTERM -f %s" % self.ptf_sniffer, module_ignore_errors=True)
 
-
     def start_io_test(self):
         """
         @summary: The entry point to start the TOR dataplane I/O test.
         """
         self.send_and_sniff()
-
 
     def random_host_ip(self):
         """
@@ -167,10 +160,10 @@ class SmartSwitchHaTrafficTest:
         self.sniff_timeout = self.time_to_listen + self.sniff_time_incr
         self.sniffer_start = datetime.datetime.now()
         logger.info("Sniffer started at {}".format(str(self.sniffer_start)))
-        #self.sniff_filter = "tcp and tcp dst port {} and tcp src port {} and not icmp".\
+        # self.sniff_filter = "tcp and tcp dst port {} and tcp src port {} and not icmp".\
         #    format(TCP_DST_PORT, self.tcp_sport)
         self.sniff_filter = "tcp and tcp dst port {} and not icmp".\
-            format(TCP_DST_PORT, self.tcp_sport)
+            format(TCP_DST_PORT)
 
         # We run a PTF script on PTF to sniff traffic. The PTF script calls
         # scapy.sniff which by default capture the backplane interface for
@@ -184,8 +177,7 @@ class SmartSwitchHaTrafficTest:
         output = self.ptfhost.shell('cat /sys/class/net/backplane/address',
                                     module_ignore_errors=True)
         if not output['failed']:
-            ptf_bp_mac = output['stdout']
-            #self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
+            # self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
             self.sniff_filter = '({})'.format(self.sniff_filter)
 
         self.capture_pcap = '/tmp/capture.pcap'
@@ -323,7 +315,7 @@ class SmartSwitchHaTrafficTest:
             result = self.examine_each_packet(server_ip, server_to_packet_map[server_ip])
             logger.info("Server {} results:\n{}"
                         .format(server_ip, json.dumps(result, indent=4)))
-            self.test_results[dst_ip] = result
+            self.test_results[server_ip] = result
 
     def examine_each_packet(self, server_ip, packets):
         num_sent_packets = 0

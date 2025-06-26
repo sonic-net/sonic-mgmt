@@ -45,6 +45,7 @@ def remove_namespace(ptfhost, name_of_namespace, port_name, port_ip):
 
         ptfhost.shell_cmds(cmds=cmds)
 
+
 def add_static_route_to_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
     """
     Add static route on the PTF
@@ -62,6 +63,7 @@ def add_static_route_to_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=
     else:
         ptfhost.shell('ip route add {} nexthop via {}'
                       .format(network_ip, next_hop_ip))
+
 
 def add_static_route_to_dut(duthost, network_ip, next_hop_ip):
     """
@@ -95,19 +97,6 @@ def dpu_index():
     return 1
 
 
-def get_interface_ip(duthost, interface):
-    cmd = f"ip addr show {interface} | grep -w inet | awk '{{print $2}}'"
-    output = duthost.shell(cmd)["stdout"].strip()
-    return ip_interface(output)
-
-
-@pytest.fixture(scope="module")
-def dpu_ip(duthost, dpu_index):
-    dpu_port = get_dpu_dataplane_port(duthost, dpu_index)
-    npu_interface_ip = get_interface_ip(duthost, dpu_port)
-    return npu_interface_ip.ip + 1
-
-
 class PtfTcpTestAdapter(PtfTestAdapter):
     def __init__(self, base_adapter: PtfTestAdapter):
         self.__dict__.update(base_adapter.__dict__)
@@ -119,9 +108,7 @@ class PtfTcpTestAdapter(PtfTestAdapter):
         self.ptfhost.shell(cmd)
 
     def start_tcp_client(self, namespace=None):
-        cmd = f"python3 /root/tcp_client.py "
+        cmd = "python3 /root/tcp_client.py "
         if namespace:
             cmd = f"ip netns exec {namespace} {cmd}"
         self.ptfhost.shell(cmd)
-
-

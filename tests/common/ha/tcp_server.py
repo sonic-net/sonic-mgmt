@@ -17,4 +17,3 @@ while received_count < 1000:
 
 print(f"Received {received_count} packets")
 conn.close()
-
