@@ -15,7 +15,6 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -219,7 +218,6 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -307,9 +305,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     """
 
     testing_mode, duthost = testing_config
-
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
 
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
@@ -417,9 +412,6 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     testing_mode, duthost = testing_config
-
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
 
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
@@ -737,9 +729,6 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                             setup_standby_ports_on_rand_unselected_tor,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost = testing_config
-
-    skip_release(duthost, ["201811", "201911", "202012"])
-
     # based on message types we currently support in ptftest/py3/dhcp_relay_test.py
     dhcp_message_types = ["Discover", "Offer", "Request", "Ack"]
     for dhcp_relay in dut_dhcp_relay_data:
