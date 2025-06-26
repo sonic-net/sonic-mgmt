@@ -278,6 +278,12 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
 
+    #################################
+    #   Container upgrade test options         #
+    #################################
+    parser.addoption("--container_test", action="store", default="",
+                     help="This flag indicates that the test is being run by the container test.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
