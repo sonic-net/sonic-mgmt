@@ -9,7 +9,6 @@ from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
-from tests.common.utilities import skip_release
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -260,7 +259,6 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
     new_vlan_id = setup_and_teardown_no_servers_vlan
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -344,7 +342,6 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                               setup_active_active_as_active_standby):            # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201911", "202106"])
 
     message_types = ["Unknown", "Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release",
                      "Decline", "Reconfigure", "Information-Request", "Relay-Forward", "Relay-Reply", "Malformed"]
@@ -413,7 +410,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     _, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
 
     # Please note: relay interface always means vlan interface
     for dhcp_relay in dut_dhcp_relay_data:
@@ -443,10 +439,6 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
        then test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])
-
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the link flap testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -490,10 +482,6 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
        relays packets properly.
     """
     testing_mode, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])
-
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the uplinks down testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
