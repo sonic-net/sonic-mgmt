@@ -12,7 +12,7 @@ from tests.snappi_tests.pfc.files.m2o_fluctuating_lossless_helper import run_m2o
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.fixture(autouse=True, scope='module')
