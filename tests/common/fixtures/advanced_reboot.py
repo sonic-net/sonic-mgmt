@@ -668,7 +668,9 @@ class AdvancedReboot:
             failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
                            if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
-                                             "failure summary:\n{}".format(self.request.node.name, self.__format_test_failures(failed_list)))
+                                             "failure summary:\n{}".format(
+                                                 self.request.node.name,
+                                                 self.__format_test_failures(failed_list)))
         return result
 
     def __format_test_failures(self, failed_list):
@@ -679,18 +681,18 @@ class AdvancedReboot:
         """
         if not failed_list:
             return "No failures"
-        
+
         formatted_output = []
         for test_case, failures in failed_list:
             formatted_output.append(f"\n{'='*60}")
             formatted_output.append(f"FAILED TEST: {test_case}")
             formatted_output.append('='*60)
-            
+
             for i, failure in enumerate(failures, 1):
                 formatted_output.append(f"\nFailure {i}:")
                 formatted_output.append('-' * 40)
                 formatted_output.append(failure)
-        
+
         formatted_output.append('\n' + '='*60)
         return '\n'.join(formatted_output)
 
