@@ -32,6 +32,7 @@ from typing import Optional, Dict, List, Any
 import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from datetime import datetime
+from netaddr import IPNetwork
 
 # ==============================
 #  Packet Processing & Networking

@@ -1,4 +1,3 @@
-
 from tests.snappi_tests.dataplane.imports import *          # noqa F401
 logger = logging.getLogger(__name__)
 
@@ -197,8 +196,12 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
                 "api_server_ip": port["api_server_ip"],
                 "asic_type": port["asic_type"],
                 "asic_value": port["asic_value"],
+                "port_id": port["port_id"],
+                "fec": port["fec"],
+                "autoneg": port["autoneg"] 
             }
         )
+
     return port_list
 
 
@@ -253,7 +256,7 @@ def create_snappi_l1config(snappi_api, get_snappi_ports):
     snappi_ports = get_snappi_ports
     config = snappi_api.config()
     _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
-    _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
+
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = "port settings"
@@ -272,6 +275,21 @@ def create_snappi_config(config, snappi_extra_params):
     for role, pconfig in snappi_extra_params.protocol_config.items():
         is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
         for index, port_data in enumerate(pconfig['ports']):
+            if pconfig['is_rdma']:
+                layer1 = config.layer1.layer1()[-1]
+                layer1.name = f"{port_data['port_id']} rmda setting"
+                layer1.port_names = [f"Port_{port_data['port_id']}"]
+                layer1.speed = port_data['snappi_speed_type']
+                pfc = layer1.flow_control.ieee_802_1qbb
+                pfc.pfc_delay = 0
+
+                if pfcQueueGroupSize == 8:
+                    for i in range(8):
+                        setattr(pfc, f'pfc_class_{i}', i)
+                elif pfcQueueGroupSize == 4:
+                    for i in range(8):
+                        setattr(pfc, f'pfc_class_{i}', pfcQueueValueDict[i])
+
             device = config.devices.device(name=f"{role} Topology {index}")[-1]
             eth = device.ethernets.add(name=f"{role} Ethernet_{index}", mac=port_data["src_mac_address"])
             eth.connection.port_name = f"Port_{port_data['port_id']}"
