@@ -3344,6 +3344,7 @@ def restore_golden_config_db(duthost):
         duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH_ORI, GOLDEN_CONFIG_DB_PATH))
         logger.info("[restore_golden_config_db] Restored {}".format(GOLDEN_CONFIG_DB_PATH))
 
+
 @pytest.fixture(scope="session")
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
