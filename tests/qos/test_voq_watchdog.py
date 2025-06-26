@@ -37,7 +37,7 @@ pytestmark = [
 PKTS_NUM = 100
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def ignore_log_voq_watchdog(duthosts, loganalyzer):
     if not loganalyzer:
         yield
@@ -58,9 +58,10 @@ class TestVoqWatchdog(QosSaiBase):
         if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
             pytest.skip("Voq watchdog test is skipped since voq watchdog is not enabled.")
 
+    @pytest.mark.parametrize("voq_watchdog_enabled", [True, False])
     def testVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, ignore_log_voq_watchdog
+            duthosts, get_src_dst_asic_and_duts, voq_watchdog_enabled
     ):
         """
             Test VOQ watchdog
@@ -70,70 +71,39 @@ class TestVoqWatchdog(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                voq_watchdog_enabled (bool): if VOQ watchdog is enabled or not
             Returns:
                 None
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
 
-        testParams = dict()
-        testParams.update(dutTestParams["basicParams"])
-        testParams.update({
-            "dscp": 8,
-            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
-            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            "src_port_id": dutConfig["testPorts"]["src_port_id"],
-            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "packet_size": 1350,
-            "pkts_num": PKTS_NUM,
-            "voq_watchdog_enabled": True,
-        })
+        try:
+            if not voq_watchdog_enabled:
+                self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=False)
 
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
-            testParams=testParams)
+            testParams = dict()
+            testParams.update(dutTestParams["basicParams"])
+            testParams.update({
+                "dscp": 8,
+                "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+                "packet_size": 1350,
+                "pkts_num": PKTS_NUM,
+                "voq_watchdog_enabled": voq_watchdog_enabled,
+            })
 
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
-            testParams=testParams)
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
+                testParams=testParams)
 
-    def testVoqWatchdogDisable(
-            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, disable_voq_watchdog_function_scope
-    ):
-        """
-            Test VOQ watchdog
-            Args:
-                ptfhost (AnsibleHost): Packet Test Framework (PTF)
-                dutTestParams (Fixture, dict): DUT host test params
-                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
-                    and test ports
-                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
-            Returns:
-                None
-            Raises:
-                RunAnsibleModuleFail if ptf test fails
-        """
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
+                testParams=testParams)
 
-        testParams = dict()
-        testParams.update(dutTestParams["basicParams"])
-        testParams.update({
-            "dscp": 8,
-            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
-            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            "src_port_id": dutConfig["testPorts"]["src_port_id"],
-            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "packet_size": 1350,
-            "pkts_num": PKTS_NUM,
-            "voq_watchdog_enabled": False,
-        })
-
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.VoqWatchdogTest",
-            testParams=testParams)
-
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
-            testParams=testParams)
+        finally:
+            if not voq_watchdog_enabled:
+                self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=True)
