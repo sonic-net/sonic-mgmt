@@ -1340,22 +1340,22 @@ def config_uhd_connect(request, duthost, tbinfo):
 
         logger.info("Configuring UHD connect")
         csv_data = read_links_from_csv(uhd_enabled)
-        dpu_cards = [row for row in csv_data if row['OutPort'] == 'True']
-        l47_cards = [row for row in csv_data if row['OutPort'] == 'False']
+        dpu_ports = [row for row in csv_data if row['OutPort'] == 'True']
+        l47_ports = [row for row in csv_data if row['OutPort'] == 'False']
 
         uhdConnect_ip = tbinfo['uhd_ip']
         num_cps_cards = tbinfo['num_cps_cards']
         num_tcpbg_cards = tbinfo['num_tcpbg_cards']
         num_udpbg_cards = tbinfo['num_udpbg_cards']
-        num_dpus = len(dpu_cards)
+        num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
             'num_cps_cards': num_cps_cards,
             'num_tcpbg_cards': num_tcpbg_cards,
             'num_udpbg_cards': num_udpbg_cards,
-            'num_dpus': num_dpus,
-            'l47_cards': l47_cards,
-            'dpu_cards': dpu_cards
+            'num_dpus_ports': num_dpu_ports,
+            'l47_ports': l47_ports,
+            'dpu_ports': dpu_ports
         }
 
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
@@ -1368,7 +1368,7 @@ def config_uhd_connect(request, duthost, tbinfo):
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
         arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
         connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
-                                              cards_dict,  arp_bypass_list)
+                                              cards_dict, arp_bypass_list)
 
         config = {
             "profiles": create_profiles(uhdSettings),  # noqa: F405
