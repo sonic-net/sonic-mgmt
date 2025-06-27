@@ -117,8 +117,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `vendor_rev`: The vendor revision number.
 
     Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
-    The `normalized_vendor_pn` from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.  
-    > Note: If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.  
+    The `normalized_vendor_pn` from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.
+    > Note: If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.
 
     Example of an dictionary created by parsing the above files
 
@@ -271,51 +271,57 @@ The following tests aim to validate various functionalities of the transceiver u
 
 ##### 1.4.1 CMIS CDB Firmware Binary Management
 
-###### 1.4.1.1 Firmware Binary Naming Convention
+###### 1.4.1.1 Firmware Binary Naming Guidelines
 
-CMIS CDB firmware binaries **must** be named using the following convention:
+CMIS CDB firmware binaries **must** not have not have spaces or special characters (except the below special characters) in their filenames.
+The valid special characters are `-` and `_`.
 
-```
-<normalized_vendor_name>_<normalized_vendor_part_number>_<firmware_version>.bin
-```
+###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
 
-- `<normalized_vendor_name>`: The normalized vendor name, created by applying the normalization rules below.
-- `<normalized_vendor_part_number>`: The normalized vendor part number, created by applying the normalization rules below.
-- `<firmware_version>`: Always in the format `X.Y.Z`, where `X`, `Y`, and `Z` are integers representing the major, minor, and build number respectively.
+To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
 
-**Normalization Rules:**
+> **Important Note:** These normalization rules are designed for test framework consumption and firmware binary storage organization. They are **not** applied to the actual transceiver EEPROM data, which remains unchanged.
 
-- Except for `-` and `_`, all non-alphanumeric characters (including spaces and special characters such as `/`, `.`, `&`, `#`, `@`, etc.) in the vendor name or part number should be replaced with an underscore (`_`).
-- Replace any sequence of spaces, dots, or special characters with a single underscore.
-- If the vendor part number contains a cable length (e.g., `15M`, `10KM`, `100CM`), replace the numeric portion representing the cable length with `GENERIC_N_END`, where `N` is the number of digits in the original length. The unit (e.g., `M`, `KM`, `CM`) is preserved after the placeholder.
+**Core Normalization Rules:**
 
-  **Examples:**
+1. **Character Replacement:**
+   - Preserve hyphens (`-`) and underscores (`_`) as they are filesystem-safe
+   - Replace all other non-alphanumeric characters (spaces, `/`, `.`, `&`, `#`, `@`, `%`, `+`, etc.) with underscores (`_`)
+   - Handle consecutive special characters by replacing sequences with a single underscore
 
-  | Original Part Number         | Normalized Part Number                  | Explanation |
-  |-----------------------------|-----------------------------------------|-------------|
-  | QSFP-100G-AOC-15M           | QSFP-100G-AOC-GENERIC_2_ENDM            | 15 has 2 digits, M unit preserved |
-  | QSFP-100G-AOC-10YY          | QSFP-100G-AOC-GENERIC_2_ENDYY           | 10 has 2 digits, YY suffix preserved |
-  | QSFP-100G-AOC-100           | QSFP-100G-AOC-GENERIC_3_END             | 100 has 3 digits, no unit |
-  | QSFP-100G-AOC-3M            | QSFP-100G-AOC-GENERIC_1_ENDM            | 3 has 1 digit, M unit preserved |
-  | SFP-1000M                   | SFP-GENERIC_4_ENDM                      | 1000 has 4 digits, M unit preserved |
+2. **Cable Length Normalization:**
+   - **Purpose:** Standardize part numbers that differ only by cable length to enable firmware sharing across length variants
+   - **Replacement Format:** `GENERIC_N_END<UNIT>` where `N` = number of digits in the original length
+   - **Preservation:** Non-unit suffixes after length are preserved (e.g., `10YY` → `GENERIC_2_ENDYY`)
 
-  This ensures that cable length variations are normalized for inventory and automation purposes while maintaining unit information.
-- Remove leading/trailing underscores and ensure no double underscores remain.
-- Convert all characters to uppercase for consistency.
+   **Cable Length Examples:**
 
-**Examples:**
+   | Original Part Number         | Normalized Part Number                  | Explanation |
+   |-----------------------------|-----------------------------------------|-------------|
+   | QSFP-100G-AOC-15M           | QSFP-100G-AOC-GENERIC_2_ENDM            | 15 has 2 digits, M unit preserved |
+   | QSFP-100G-AOC-10YY          | QSFP-100G-AOC-GENERIC_2_ENDYY           | 10 has 2 digits, YY suffix preserved |
+   | QSFP-100G-AOC-100           | QSFP-100G-AOC-GENERIC_3_END             | 100 has 3 digits, no unit |
+   | QSFP-100G-AOC-3M            | QSFP-100G-AOC-GENERIC_1_ENDM            | 3 has 1 digit, M unit preserved |
+   | SFP-1000M                   | SFP-GENERIC_4_ENDM                      | 1000 has 4 digits, M unit preserved |
 
-| Vendor Name   | Vendor Part Number      | Firmware Version | Filename                                      |
-|---------------|------------------------|------------------|-----------------------------------------------|
-| AcmeCorp      | QSFP-100G-AOC-15M      | 1.2.3            | ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin    |
-| Example Inc   | QSFP 200G LR4          | 2.0.1            | EXAMPLE_INC_QSFP_200G_LR4_2.0.1.bin           |
-| VendorX       | SFP-25G-SR             | 3.4.5            | VENDORX_SFP-25G-SR_3.4.5.bin                  |
-| Test&Co       | QSFP-100G-AOC-10KM     | 1.0.0            | TEST_CO_QSFP-100G-AOC-GENERIC_2_ENDKM_1.0.0.bin    |
-| My.Vendor     | SFP/25G/SR             | 4.5.6            | MY_VENDOR_SFP_25G_SR_4.5.6.bin                |
-| DemoVendor    | QSFP-100G-AOC-3M       | 5.6.7            | DEMOVENDOR_QSFP-100G-AOC-GENERIC_1_ENDM_5.6.7.bin  |
-| SampleCorp    | QSFP-100G-AOC-100CM    | 8.9.0            | SAMPLECORP_QSFP-100G-AOC-GENERIC_3_ENDCM_8.9.0.bin |
+3. **Cleanup and Formatting:**
+   - Remove leading and trailing underscores
+   - Replace multiple consecutive underscores with a single underscore
+   - Convert the entire result to uppercase for consistency
 
-> **Note:** These rules ensure compatibility and uniqueness across filesystems and automation tools.
+4. **Usage:**
+   - Use normalized names for directory structures and firmware binary organization
+   - Enable firmware inventory management across cable length variants
+   - Ensure cross-platform filesystem compatibility
+
+**Vendor Name Examples:**
+
+| Original Vendor Name    | Normalized Vendor Name | Explanation |
+|------------------------|------------------------|-------------|
+| ACME Corp.             | ACME_CORP              | Space and dot replaced with underscore |
+| Example & Co           | EXAMPLE_CO             | Ampersand and space replaced |
+| Vendor/Inc             | VENDOR_INC             | Slash replaced with underscore |
+| Multi___Underscore     | MULTI_UNDERSCORE       | Multiple underscores consolidated |
 
 Sample script to normalize vendor name and part number (script assumes that the length is already replaced with `GENERIC_N_END`):
 
@@ -340,7 +346,7 @@ def normalize_vendor_field(field: str) -> str:
     return field.upper()
 ```
 
-###### 1.4.1.2 Firmware Binary Storage on SONiC Device
+###### 1.4.1.3 Firmware Binary Storage on SONiC Device
 
 The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
 
@@ -357,7 +363,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 
 **Requirements:**
 
-- All directory and file names **must be uppercase** and follow the normalization rules defined in section 1.4.1.1
+- All directory and file names **must be uppercase** and follow the normalization rules defined in section 1.4.1.2
 - Use the `GENERIC_N_END` placeholder for cable lengths as described in the normalization rules
 
 **Example Directory Structure:**
@@ -374,7 +380,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 └── ...
 ```
 
-###### 1.4.1.3 Firmware Binary Storage on Remote Server
+###### 1.4.1.4 Firmware Binary Storage on Remote Server
 
 The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
 
