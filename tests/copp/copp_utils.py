@@ -456,7 +456,7 @@ def get_vlan_ip(duthost, ip_version):
     if ip_version == "4":
         vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[0]['subnet'])
     else:
-        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[1]['subnet'])
+        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[-1]['subnet'])
 
     ip_addr = str(vlan_subnet[2])
     return ip_addr
