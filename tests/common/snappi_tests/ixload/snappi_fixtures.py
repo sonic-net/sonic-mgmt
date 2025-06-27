@@ -2,6 +2,7 @@
 This module contains the snappi fixture in the snappi_tests directory.
 """
 from tests.common.snappi_tests.ixload.snappi_helper import main  # noqa F401
+from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 import pytest
 import logging
 
@@ -67,10 +68,8 @@ def config_snappi_l47(request, duthosts, tbinfo):
     snappi_l47_params = {}
 
     l47_version = tbinfo['l47_version']
-
     chassis_ip = tbinfo['chassis_ip']
     gw_ip = tbinfo['l47_gateway']
-
     test_filename = "dash_cps"
     initial_cps_obj = 1000000
 
@@ -91,23 +90,17 @@ def config_snappi_l47(request, duthosts, tbinfo):
         'version': l47_version,
     }
 
+    nw_config = NetworkConfigSettings()
+
+    api, config, initial_cps_value = main(ports_list, connection_dict, nw_config,
+                                          test_type_dict['cps'], test_type_dict['initial_cps_obj'])
+
     snappi_l47_params['test_type_dict'] = test_type_dict
     snappi_l47_params['connection_dict'] = connection_dict
     snappi_l47_params['ports_list'] = ports_list
-
-    """
-    api, config, initial_cps_value = main(connection_dict, test_type_dict['cps'],
-                                          test_type_dict['test_filename'], test_type_dict['initial_cps_obj'],)
-
-    ixl_cfg = {}
-    ixl_cfg['test_type_dict'] = test_type_dict
-    ixl_cfg['connection_dict'] = connection_dict
-
-    ixl_cfg['api'] = api
-    ixl_cfg['config'] = config
-    ixl_cfg['initial_cps_value'] = initial_cps_value
-
-    return ixl_cfg
-    """
+    snappi_l47_params['api'] = api
+    snappi_l47_params['config'] = config
+    snappi_l47_params['initial_cps_value'] = initial_cps_value
+    snappi_l47_params['nw_config'] = nw_config
 
     return snappi_l47_params
