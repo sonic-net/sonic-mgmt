@@ -2,9 +2,9 @@
 IPinIP Decap configs for different ASICs:
 Table Name in APP_DB: TUNNEL_DECAP_TABLE:IPINIP_TUNNEL
 
-Config          Mellanox <= [201911]        Mellanox >= [202012]        Broadcom <= [201911]        Broadcom >= [202012]     Innovium               # noqa: E501
+Config          Mellanox <= [202411]        Mellanox >= [202505]        Broadcom <= [201911]        Broadcom >= [202012]     Innovium               # noqa: E501
 dscp_mode       uniform                     uniform                     pipe                        uniform                  pipe                   # noqa: E501
-ecn_mode        standard                    standard                    copy_from_outer             copy_from_outer          copy_from_outer        # noqa: E501
+ecn_mode        standard                    copy_from_outer             copy_from_outer             copy_from_outer          copy_from_outer        # noqa: E501
 ttl_mode        pipe                        pipe                        pipe                        pipe                     pipe                   # noqa: E501
 '''
 import json
@@ -256,8 +256,6 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
     ttl_mode = supported_ttl_dscp_params['ttl']
     dscp_mode = supported_ttl_dscp_params['dscp']
     vxlan = supported_ttl_dscp_params['vxlan']
-    if duthosts[0].facts['asic_type'] in ['mellanox']:
-        ecn_mode = 'standard'
 
     cross_decap = True
     # Skip the IPv4inIPv6 and IPv6inIPv4. Run only the IPv4inIPv4 and IPv6inIPv6
