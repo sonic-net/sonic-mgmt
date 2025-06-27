@@ -77,7 +77,7 @@ type P4RTClient struct {
 
 // P4RTClientOptions contains the fields for creation of P4RTClient.
 type P4RTClientOptions struct {
-	p4info *p4infopb.P4Info
+	P4Info *p4infopb.P4Info
 }
 
 func generateElectionID() *p4pb.Uint128 {
@@ -204,7 +204,7 @@ func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient,
 		dut:    d,
 	}
 	if options != nil {
-		p4Client.p4Info = options.p4info
+		p4Client.p4Info = options.P4Info
 	}
 	var err error
 	p4Client.deviceID, err = testhelperDeviceIDGet(t, d)
