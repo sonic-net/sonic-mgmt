@@ -1,6 +1,7 @@
 
 import pytest
 import ptf.packet as scapy
+import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -15,6 +16,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
@@ -31,6 +33,8 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
     error_margin = 0.01
     client_packets_per_sec = 25\
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
+    logger.info("Testing mode: {}, client packets per second: {}, error margin: {}".format(
+        testing_mode, client_packets_per_sec, error_margin))
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
         client_port_id = dhcp_relay['client_iface']['port_idx']
