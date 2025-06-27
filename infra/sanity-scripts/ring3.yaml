@@ -290,19 +290,16 @@ MGMT:
         - ssh/test_ssh_default_password.py
 
       hw:
-        # - snmp/test_snmp_interfaces.py
-        # - snmp/test_snmp_lldp.py
-        # - dns/static_dns/test_static_dns.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
-        # - memory_checker/test_memory_checker.py
-        # - ssh/test_ssh_ciphers.py
-        # - ssh/test_ssh_limit.py
-        # - snmp/test_snmp_cpu.py
-        # - snmp/test_snmp_memory.py
-        # - snmp/test_snmp_queue.py
-        # - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -311,7 +308,11 @@ MGMT:
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        # - snmp/test_snmp_link_local.py
+        # - dns/static_dns/test_static_dns.py
+        # - memory_checker/test_memory_checker.py
+        # - ssh/test_ssh_ciphers.py
+        # - ssh/test_ssh_limit.py
+        # - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
@@ -323,7 +324,7 @@ MGMT:
         # - console/test_console_udevrule.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
-        # - ssh/test_ssh_default_password.py
+
   t2:
     sfd:
       hw:
@@ -373,19 +374,13 @@ MGMT:
         - ssh/test_ssh_default_password.py
 
       hw:
-        # - snmp/test_snmp_interfaces.py
-        # - snmp/test_snmp_lldp.py
-        # - dns/static_dns/test_static_dns.py
-        # - generic_config_updater/test_aaa.py
-        # - generic_config_updater/test_ip_bgp.py
-        # - generic_config_updater/test_ntp.py
-        # - memory_checker/test_memory_checker.py
-        # - ssh/test_ssh_ciphers.py
-        # - ssh/test_ssh_limit.py
-        # - snmp/test_snmp_cpu.py
-        # - snmp/test_snmp_memory.py
-        # - snmp/test_snmp_queue.py
-        # - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -394,7 +389,14 @@ MGMT:
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        # - snmp/test_snmp_link_local.py
+        # - dns/static_dns/test_static_dns.py
+        # - generic_config_updater/test_aaa.py
+        # - generic_config_updater/test_ip_bgp.py
+        # - generic_config_updater/test_ntp.py
+        # - memory_checker/test_memory_checker.py
+        # - ssh/test_ssh_ciphers.py
+        # - ssh/test_ssh_limit.py
+        # - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
@@ -406,7 +408,6 @@ MGMT:
         # - console/test_console_udevrule.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
-        # - ssh/test_ssh_default_password.py
 
 L2:
   t0-64:
