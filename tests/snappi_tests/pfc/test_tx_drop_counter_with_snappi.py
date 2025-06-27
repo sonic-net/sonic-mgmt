@@ -3,16 +3,17 @@ import logging
 
 from tests.common.helpers.assertions import pytest_require    # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts, fanout_graph_facts_multidut # noqa F401
+    fanout_graph_facts, fanout_graph_facts_multidut  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
     snappi_testbed_config, get_snappi_ports_single_dut, \
-    get_snappi_ports, is_snappi_multidut # noqa F401
+    get_snappi_ports, is_snappi_multidut  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, disable_pfcwd   # noqa F401
+    lossless_prio_list, disable_pfcwd   # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_tx_drop_counter
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
@@ -24,11 +25,11 @@ def number_of_tx_rx_ports():
 
 
 def test_tx_drop_counter(
-                    snappi_api, # noqa F811
-                    lossless_prio_list, # noqa F811
-                    prio_dscp_map,# noqa F811
-                    setup_ports_and_dut,  # noqa F811
-                    disable_pfcwd  # noqa F811
+                    snappi_api,  # noqa: F811
+                    lossless_prio_list,  # noqa: F811
+                    prio_dscp_map,  # noqa: F811
+                    setup_ports_and_dut,  # noqa: F811
+                    disable_pfcwd  # noqa: F811
                     ):
     """
     Test if device under test (DUT) is incrementing

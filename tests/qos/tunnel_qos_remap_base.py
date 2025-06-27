@@ -11,9 +11,9 @@ from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.system_utils import docker
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa: F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa: F401
 from tests.common.utilities import get_iface_ip
 from .qos_helpers import dutBufferConfig
 from .files.cisco.qos_param_generator import QosParamCisco
@@ -136,7 +136,7 @@ def counter_poll_config(duthost, type, interval_ms):
 
 
 @pytest.fixture(scope='class')
-def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
+def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module):  # noqa: F811
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
     or config DB depending on the ASIC type.
@@ -205,7 +205,7 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
 
 
 @pytest.fixture(scope='module')
-def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_module):    # noqa F811
+def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_module):    # noqa: F811
     '''
     Generate a dict including test required params
     '''
@@ -395,12 +395,12 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     SERVICES = [
         {"docker": "lldp", "service": "lldp-syncd"},
-        {"docker": "lldp", "service": "lldpd"},
-        {"docker": "bgp",  "service": "bgpd"},
-        {"docker": "bgp",  "service": "bgpmon"}
+        {"docker": "lldp", "service": "lldpd"}
     ]
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="stop", **service)
+
+    rand_selected_dut.shell("sudo config bgp shutdown all")
 
     asic = rand_selected_dut.get_asic_name()
     if 'spc' in asic:
@@ -413,6 +413,9 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     enable_container_autorestart(
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
+
+    rand_selected_dut.shell("sudo config bgp start all")
+
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
 
