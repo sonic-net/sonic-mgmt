@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from typing import Any
 from ansible.module_utils.basic import AnsibleModule
