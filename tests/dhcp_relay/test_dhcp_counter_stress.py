@@ -83,6 +83,9 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             validate_dhcpcom_relay_counters(dhcp_relay, duthost,
                                             expected_uplink_counter,
                                             expected_downlink_counter, error_margin)
+            if testing_mode == DUAL_TOR_MODE:
+                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
+                                                {}, {}, 0)
 
         def _verify_client_packets(pkts, dhcp_type):
             actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
@@ -97,6 +100,9 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             validate_dhcpcom_relay_counters(dhcp_relay, duthost,
                                             expected_uplink_counter,
                                             expected_downlink_counter, error_margin)
+            if testing_mode == DUAL_TOR_MODE:
+                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
+                                                {}, {}, 0)
 
         if dhcp_type in ['discover', 'request']:
             interface = client_port_name
