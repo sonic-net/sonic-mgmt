@@ -73,6 +73,9 @@
     - msr-ixia-aresone-800ge-3
     - msr-ixia-aresone-800ge-4
   tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  l1s:
+    - str-ocs-dlx64-acs-10
+    - str-ocs-dlx64-acs-11
   auto_recover: 'True'
 
 - name: nut-sn5640-snake-1
@@ -93,6 +96,11 @@
   tgs:
     - msr-ixia-aresone-800ge-7
   tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  l1s:
+    - str-ocs-dlx64-acs-02
+    - str-ocs-dlx64-acs-03
+    - str-ocs-dlx64-acs-04
+    - str-ocs-dlx64-acs-05
   auto_recover: 'True'
 
 - name: nut-7060x6-512-snake-1
@@ -113,4 +121,9 @@
   tgs:
     - msr-ixia-aresone-800ge-7
   tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  l1s:
+    - str-ocs-dlx64-acs-02
+    - str-ocs-dlx64-acs-03
+    - str-ocs-dlx64-acs-04
+    - str-ocs-dlx64-acs-05
   auto_recover: 'True'
