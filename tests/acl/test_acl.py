@@ -45,6 +45,7 @@ pytestmark = [
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
+HIGH_ROUTES_THRESHOLD = 10000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
@@ -1493,12 +1494,29 @@ class TestAclWithReboot(TestBasicAcl):
             return
         TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
+
+        route_convergence_delay = 10
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        if v4_routes_count > HIGH_ROUTES_THRESHOLD or v6_routes_count > HIGH_ROUTES_THRESHOLD:
+            logger.info("Increasing route convergence delay as number of v4 and/or v6 routes is greater than {}"
+                        .format(HIGH_ROUTES_THRESHOLD))
+            route_convergence_delay = 120
+
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
-        # We need some additional delay on e1031 and X3B
+        # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
-            time.sleep(240)
-        elif dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
-            time.sleep(120)
+            route_convergence_delay = 240
+        elif dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+            # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+            # We observe flakiness failure on chassis devices
+            # Suspect it's because the route is not programmed into hardware
+            # Add external sleep to make sure route is in hardware
+            route_convergence_delay = 180
+
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1511,16 +1529,8 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
-        # Delay 10 seconds for route convergence
-        time.sleep(10)
-
-        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
-        # We observe flakiness failure on chassis devices
-        # Suspect it's because the route is not programmed into hardware
-        # Add external sleep to make sure route is in hardware
-        if dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
-            logger.info("Sleep 180s on Cisco chassis")
-            time.sleep(180)
+        # Delay for route convergence
+        time.sleep(route_convergence_delay)
 
         populate_vlan_arp_entries()
 
@@ -1547,14 +1557,24 @@ class TestAclWithPortToggle(TestBasicAcl):
         if TestAclWithPortToggle.dut_port_toggled:
             return
         TestAclWithPortToggle.dut_port_toggled = True
+
+        route_convergence_delay = 60
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        if v4_routes_count > HIGH_ROUTES_THRESHOLD or v6_routes_count > HIGH_ROUTES_THRESHOLD:
+            logger.info("Increasing route convergence delay as number of v4 and/or v6 routes is greater than {}"
+                        .format(HIGH_ROUTES_THRESHOLD))
+            route_convergence_delay = 120
+
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
         if dut.get_facts().get("modular_chassis"):
-            port_toggle(dut, tbinfo, wait_after_ports_up=180)
-        elif dut.facts["hwsku"] == "Nokia-IXR7250-X3B":
-            port_toggle(dut, tbinfo, wait_after_ports_up=120)
-        else:
-            port_toggle(dut, tbinfo)
+            route_convergence_delay = 180
+
+        port_toggle(dut, tbinfo, wait_after_ports_up=route_convergence_delay)
         populate_vlan_arp_entries()
