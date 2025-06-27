@@ -6,7 +6,7 @@ import re
 
 from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import capture_and_check_packet_on_dut
 
@@ -70,7 +70,7 @@ class Dhcpv6PktRecvBase:
         return indices
 
     def test_dhcpv6_multicast_recv(self, rand_selected_dut,
-                                   toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
                                    setup_standby_ports_on_rand_unselected_tor,
                                    ptfadapter, setup_teardown):
         """
