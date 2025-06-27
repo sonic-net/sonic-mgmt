@@ -1,0 +1,56 @@
+---
+- name: Init account key and proxy
+  set_fact:
+    core_key: ""
+    core_proxy: ""
+
+- name: Test if core_analyzer.rc.json exists
+  stat:
+    path: /etc/sonic/core_analyzer.rc.json
+  register: rc_stat
+
+- name: read account key
+  set_fact:
+    core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
+  when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+
+- name: read https proxy
+  set_fact:
+    core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
+  when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
+
+- name: Put secret in core_analyzer.rc.json
+  lineinfile:
+    name: /etc/sonic/core_analyzer.rc.json
+    regexp: '(^.*)account_key'
+    line: '\1account_key": "{{ core_key }}",'
+    backrefs: yes
+  become: true
+  when: core_key != ""
+
+- name: Put https-proxy in core_analyzer.rc.json
+  lineinfile:
+    name: /etc/sonic/core_analyzer.rc.json
+    regexp: '(^.*)https_proxy'
+    line: '\1https_proxy": "{{ core_proxy }}"'
+    backrefs: yes
+  become: true
+  when: core_proxy != ""
+
+- name: enable core uploader service
+  become: true
+  command: systemctl enable core_uploader.service
+  when: core_key != ""
+
+- name: start core uploader service
+  become: true
+  command: systemctl start core_uploader.service
+  when: core_key != ""
+
+- name: Replace snmp community string
+  lineinfile:
+    name: /etc/sonic/snmp.yml
+    regexp: '^snmp_rocommunity:'
+    line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+  become: true
+  when: init_cfg_profile is not defined
