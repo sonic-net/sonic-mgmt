@@ -1941,9 +1941,9 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Skip 4600 and 4700 reason"
-    condition: 
-      - "'platform' in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0']"
+    reason: "Skip on all platforms except 2700, 7050cx3, 7260, and 7060 for no warm reboot usecase."
+    conditions:
+      - "all(x not in hwsku for x in ['2700', '7050cx3', '7260', '7060'])"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
