@@ -27,6 +27,7 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
@@ -45,7 +46,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
 
 def is_full_lossy_hwsku(hwsku):
     """
-    Return True if the platform is lossy-only and PFCWD should default to ‘disable’.
+    Return True if the platform is lossy-only and PFCWD should default to 'disable'.
     """
     return hwsku in LOSSY_HWSKU
 
@@ -95,7 +96,7 @@ class GenerateGoldenConfigDBModule(object):
         # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
-            return "{}"
+            return {}
 
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         gold_config_db = {
@@ -168,8 +169,8 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key,
-                                                     auto_restart="enabled", state="enabled"):
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
+                                                     state="enabled", feature_data=None):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
@@ -178,24 +179,28 @@ class GenerateGoldenConfigDBModule(object):
             # need existing config + selected feature
             gold_config_db = full_config
 
-        feature_data = {
-            feature_key: {
-                "auto_restart": auto_restart,
-                "check_up_status": "false",
-                "delayed": "False",
-                "has_global_scope": "False",
-                "has_per_asic_scope": "True",
-                "high_mem_alert": "disabled",
-                "set_owner": "local",
-                "state": state,
-                "support_syslog_rate_limit": "false"
+        if feature_data is None:
+            feature_data = {
+                feature_key: {
+                    "auto_restart": auto_restart,
+                    "check_up_status": "false",
+                    "delayed": "False",
+                    "has_global_scope": "False",
+                    "has_per_asic_scope": "True",
+                    "high_mem_alert": "disabled",
+                    "set_owner": "local",
+                    "state": state,
+                    "support_syslog_rate_limit": "false"
+                }
             }
-        }
+
         for namespace, ns_data in gold_config_db.items():
             if "FEATURE" in ns_data:
                 feature_section = ns_data["FEATURE"]
                 feature_section.update(feature_data)
                 ns_data["FEATURE"] = feature_section
+            else:
+                ns_data["FEATURE"] = feature_data
 
         return json.dumps(gold_config_db, indent=4)
 
@@ -378,15 +383,15 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_ft2_golden_config_db(self):
+    def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
         **Only PORT table is updated**.
         """
-        SUPPORTED_TOPO = ["ft2-64"]
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128-d110u14"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
-        SUPPORTED_PORT_SPEED = ["100000", "200000", "400000", "800000"]
+        SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
         port_config = ori_config.get("PORT", {})
         for name, config in port_config.items():
@@ -407,8 +412,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif self.topo_name in ["ft2-64"]:
-            config = self.generate_ft2_golden_config_db()
+        elif "ft2" in self.topo_name or "lt2" in self.topo_name:
+            config = self.generate_lt2_ft2_golden_config_db()
         elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
@@ -433,7 +438,19 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
+        # Disable dash-ha feature for all multi-asic platforms
+        if multi_asic.is_multi_asic():
+            config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
+                "dash-ha": {
+                    "auto_restart": "disabled",
+                    "state": "disabled",
+                    "has_per_asic_scope": "True",
+                }
+            })
+
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
+            temp_file.write(config)
+        with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
 

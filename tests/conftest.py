@@ -57,6 +57,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.utilities import get_upstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
@@ -86,6 +87,8 @@ cache = FactsCache()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -274,6 +277,12 @@ def pytest_addoption(parser):
     #   Stress test options         #
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
+
+    #################################
+    #   Container upgrade test options         #
+    #################################
+    parser.addoption("--container_test", action="store", default="",
+                     help="This flag indicates that the test is being run by the container test.")
 
 
 def pytest_configure(config):
@@ -1375,12 +1384,15 @@ def generate_params_frontend_hostname(request, macsec_only=False):
 
     if macsec_only:
         host_type = "macsec"
-        if 't2' in tbinfo['topo']['name']:
-            # currently in the T2 topo only the uplink linecard will have
-            # macsec enabled
+        if 't2' in tbinfo['topo']['name'] and request.config.option.enable_macsec:
+            # currently in the T2 topo only the uplink linecard will have macsec enabled
+            # Please add "macsec_card = True" param to inventory the inventory file
+            # under Line Card with macsec capability.
             for dut in duts:
                 if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
                     frontend_duts.append(dut)
+            if not frontend_duts:
+                logging.info("no macsec card found")
         else:
             frontend_duts.append(duts[0])
     else:
@@ -2050,11 +2062,13 @@ def parse_override(testbed, field):
     with open(override_file, 'r') as f:
         all_values = yaml.safe_load(f)
         if testbed not in all_values or field not in all_values[testbed]:
-            return False, None
+            # When T1-tgen is available, we should do "return False, None"
+            return True, []
 
         return True, all_values[testbed][field]
 
-    return False, None
+    # When T1-tgen is available, we should do "return False, None"
+    return True, []
 
 
 def generate_skeleton_port_info(request):
@@ -2218,15 +2232,8 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "m0":
-        upstream_nbr_type = "M1"
-    elif tbinfo["topo"]["type"] == "mx":
-        upstream_nbr_type = "M0"
-    elif tbinfo["topo"]["type"] == "t0":
-        upstream_nbr_type = "T1"
-    elif tbinfo["topo"]["type"] == "t1":
-        upstream_nbr_type = "T2"
-    else:
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo["topo"]["type"], is_upper=True)
+    if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
     for a_dut in duthosts.frontend_nodes:
@@ -3334,6 +3341,14 @@ def setup_connection(request, setup_gnmi_server):
                                                         client_key_path=client_key)
         yield gnmi_connection
         channel.close()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_golden_config_db(duthost):
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH_ORI):
+        duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH_ORI, GOLDEN_CONFIG_DB_PATH))
+        logger.info("[restore_golden_config_db] Restored {}".format(GOLDEN_CONFIG_DB_PATH))
+    yield
 
 
 @pytest.fixture(scope="session")
