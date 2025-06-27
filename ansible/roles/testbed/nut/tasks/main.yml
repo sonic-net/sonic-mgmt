@@ -1,0 +1,6 @@
+---
+- import_tasks: testbed_facts.yml
+- import_tasks: dut_create_config_patch.yml
+- import_tasks: dut_prepare_config.yml
+- import_tasks: dut_apply_config.yml
+  when: deploy is defined and deploy|bool == true
