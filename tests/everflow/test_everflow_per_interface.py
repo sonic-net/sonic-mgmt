@@ -86,7 +86,7 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
 
 
 @pytest.fixture(scope='module')
-def apply_mirror_session(setup_info, erspan_ip_ver):  # noqa F811
+def apply_mirror_session(setup_info, erspan_ip_ver):  # noqa: F811
     mirror_session_info = BaseEverflowTest.mirror_session_info(
         EVERFLOW_SESSION_NAME, setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"])
     logger.info("Applying mirror session to DUT")
@@ -100,7 +100,7 @@ def apply_mirror_session(setup_info, erspan_ip_ver):  # noqa F811
 
 
 @pytest.fixture(scope='module')
-def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session, erspan_ip_ver):  # noqa F811
+def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session, erspan_ip_ver):  # noqa: F811
     """
     Setup the route for mirror session destination ip and update monitor port list.
     Remove the route as part of cleanup.
@@ -131,7 +131,7 @@ def ip_ver(request):
 
 
 @pytest.fixture(scope='module')
-def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):  # noqa F811
+def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):  # noqa: F811
     """
     Apply ACL rule for matching input_ports
     """
@@ -172,7 +172,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
 
 
 def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, pkt_ip_ver,
-                            erspan_ip_ver=4):  # noqa F811
+                            erspan_ip_ver=4):  # noqa: F811
     if pkt_ip_ver == 'ipv4':
         packet = testutils.simple_tcp_packet(
             eth_src=ptfadapter.dataplane.get_mac(
@@ -209,8 +209,8 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
+def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa: F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa: F811
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
@@ -232,8 +232,8 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
 
 
-def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
+def test_everflow_packet_format(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa: F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa: F811
     """Verify that mirrored packets do not contain VLAN tags or unexpected fields."""
     everflow_config = apply_acl_rule
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'],
