@@ -1,0 +1,8 @@
+---
+- name: finalize testbed configuration
+  when: deploy is defined and deploy | bool == true
+  block:
+  - import_tasks: setup_telemetry_certs.yml
+  - import_tasks: setup_restapi_certs.yml
+  - import_tasks: setup_core_uploader.yml
+  - import_tasks: final_config_reload.yml
