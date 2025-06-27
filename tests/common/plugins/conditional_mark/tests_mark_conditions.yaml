@@ -1943,7 +1943,7 @@ platform_tests/test_advanced_reboot.py:
   skip:
     reason: "Skip on all platforms except 2700, 7050cx3, 7260, and 7060 for no warm reboot usecase."
     conditions:
-      - "all(x not in hwsku for x in ['2700', '7050cx3', '7260', '7060'])"
+      - "all(x not in hwsku for x in ['2700', '7050CX3', '7260', '7060'])"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
