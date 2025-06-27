@@ -165,3 +165,10 @@ def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
         yield DUAL_TOR_MODE, duthost
     else:
         yield SINGLE_TOR_MODE, duthost
+
+
+@pytest.fixture(scope="function")
+def clean_processes_after_stress_test(ptfhost):
+    yield
+    ptfhost.shell("kill -9 $(ps aux | grep  dhcp_relay_stress_test | grep -v 'grep' | awk '{print $2}')",
+                  module_ignore_errors=True)

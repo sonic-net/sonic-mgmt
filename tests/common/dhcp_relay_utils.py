@@ -4,6 +4,10 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+SUPPORTED_DHCPV4_TYPE = [
+    "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
+]
+SUPPORTED_DIR = ["TX", "RX"]
 
 
 def restart_dhcp_service(duthost):
@@ -61,12 +65,8 @@ def query_and_sum_dhcpcom_relay_counters(duthost, vlan_name, interface_name_list
     return total_counters
 
 
-def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter, error_in_percentage=0):
+def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter, error_in_percentage=0.0):
     """Compare the DHCP relay counter value with the expected counter."""
-    SUPPORTED_DHCPV4_TYPE = [
-        "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
-    ]
-    SUPPORTED_DIR = ["TX", "RX"]
     for dir in SUPPORTED_DIR:
         for dhcp_type in SUPPORTED_DHCPV4_TYPE:
             expected_value = expected_counter.setdefault(dir, {}).get(dhcp_type, 0)
@@ -76,15 +76,15 @@ def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter, e
             if expected_value == actual_value:
                 logger.info(logger_message)
             else:
-                logger.warning(logger_message + ", the actual value is not equal to the expected value")
+                yield logger_message + ", the actual value is not equal to the expected value"
             pytest_assert(abs(actual_value - expected_value) <=
-                          expected_value * error_in_percentage / 100,
+                          int(expected_value * error_in_percentage / 100),
                           "DHCP relay counter {} {} {} is not equal to expected value {} within error {}%"
                           .format(dir, dhcp_type, actual_value, expected_value, error_in_percentage))
 
 
 def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter,
-                                    expected_downlink_counter, error_in_percentage=0):
+                                    expected_downlink_counter, error_in_percentage=0.0):
     """Validate the dhcpcom relay counters"""
     logger.info("Expected uplink counters: {}, expected downlink counters: {}, error in percentage: {}%".format(
         expected_uplink_counter, expected_downlink_counter, error_in_percentage))
@@ -101,6 +101,8 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
         uplink_interfaces will equal to uplink_portchannels_or_interfaces
     '''
     uplink_interfaces = []
+    common_msg = "comparing {} counters and {} counters"
+
     for portchannel_name in uplink_portchannels_or_interfaces:
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
@@ -113,9 +115,15 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
             # Compare the portchannel counters with the sum of its members' counters
             logger.info("Start comparing portchannel {} counters and its member {} counters".format(
                 portchannel_name, portchannels[portchannel_name]['members']))
-            compare_dhcpcom_relay_counter_values(portchannel_counters,
-                                                 members_counters,
-                                                 error_in_percentage)
+
+            # If the portchannel counters and its members' counters are not equal, yield a warning message
+            compare_result = compare_dhcpcom_relay_counter_values(
+                portchannel_counters, members_counters, error_in_percentage)
+            while msg := next(compare_result, False):
+                logger.warning(
+                    ("Warning found when " + common_msg + ": {}")
+                    .format(portchannel_name, portchannels[portchannel_name]['members'], str(msg)))
+
         else:
             uplink_interfaces.append(portchannel_name)
 
@@ -126,19 +134,39 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
     )
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
 
-    logger.info("Start comparing vlan interface counters and client interface counters")
-    compare_dhcpcom_relay_counter_values(vlan_interface_counter,
-                                         client_interface_counter,
-                                         error_in_percentage)
-    logger.info("Start comparing uplink portchannels counters and uplink interface counters")
-    compare_dhcpcom_relay_counter_values(uplink_portchannels_interfaces_counter,
-                                         uplink_interface_counter,
-                                         error_in_percentage)
-    logger.info("Start comparing vlan interface counters and expected downlink counters")
-    compare_dhcpcom_relay_counter_values(vlan_interface_counter,
-                                         expected_downlink_counter,
-                                         error_in_percentage)
-    logger.info("Start comparing uplink interface counters and expected uplink counters")
-    compare_dhcpcom_relay_counter_values(uplink_interface_counter,
-                                         expected_uplink_counter,
-                                         error_in_percentage)
+    common_msg = "comparing {} counters and {} counters"
+    logger.info(common_msg.format(downlink_vlan_iface, client_iface))
+    compare_result = compare_dhcpcom_relay_counter_values(vlan_interface_counter,
+                                                          client_interface_counter,
+                                                          error_in_percentage)
+    while msg := next(compare_result, False):
+        logger.warning(
+            ("Warning found when " + common_msg + ": {}")
+            .format(downlink_vlan_iface, client_iface, str(msg)))
+
+    logger.info(common_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces))
+    compare_result = compare_dhcpcom_relay_counter_values(uplink_portchannels_interfaces_counter,
+                                                          uplink_interface_counter,
+                                                          error_in_percentage)
+    while msg := next(compare_result, False):
+        logger.warning(
+            ("Warning found when " + common_msg + ": {}")
+            .format(uplink_portchannels_or_interfaces, uplink_interfaces, str(msg)))
+
+    logger.info(common_msg.format(downlink_vlan_iface, "expected_downlink_counter"))
+    compare_result = compare_dhcpcom_relay_counter_values(vlan_interface_counter,
+                                                          expected_downlink_counter,
+                                                          error_in_percentage)
+    while msg := next(compare_result, False):
+        logger.warning(
+            ("Warning found when " + common_msg + ": {}")
+            .format(downlink_vlan_iface, "expected_downlink_counter", str(msg)))
+
+    logger.info(common_msg.format(uplink_interfaces, "expected_uplink_counter"))
+    compare_result = compare_dhcpcom_relay_counter_values(uplink_interface_counter,
+                                                          expected_uplink_counter,
+                                                          error_in_percentage)
+    while msg := next(compare_result, False):
+        logger.warning(
+            ("Warning found when " + common_msg + ": {}")
+            .format(uplink_interfaces, "expected_uplink_counter", str(msg)))
