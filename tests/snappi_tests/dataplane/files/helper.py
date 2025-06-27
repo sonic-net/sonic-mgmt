@@ -262,10 +262,10 @@ def create_snappi_l1config(snappi_api, get_snappi_ports):
     layer1.name = "port settings"
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.rs_fec = port_data['fec']
     layer1.auto_negotiation.link_training = False
     layer1.speed = "speed_" + str(int(int(snappi_ports[0]["speed"]) / 1000)) + "_gbps"
-    layer1.auto_negotiate = False
+    layer1.auto_negotiate = Faport_data['autoneg']lse
     return config
 
 
@@ -280,6 +280,10 @@ def create_snappi_config(config, snappi_extra_params):
                 layer1.name = f"{port_data['port_id']} rmda setting"
                 layer1.port_names = [f"Port_{port_data['port_id']}"]
                 layer1.speed = port_data['snappi_speed_type']
+                layer1.ieee_media_defaults = False
+                layer1.auto_negotiation.rs_fec = port_data['fec']
+                layer1.auto_negotiation.link_training = False
+                layer1.auto_negotiate = port_data['autoneg']
                 pfc = layer1.flow_control.ieee_802_1qbb
                 pfc.pfc_delay = 0
 
