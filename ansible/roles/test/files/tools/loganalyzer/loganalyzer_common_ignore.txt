@@ -374,3 +374,9 @@ r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundErr
 
 # Ignore k8 error
 r, ".* ERR systemd\[\d*\]: dummyk8s.service:.*Refusing.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33411748
+r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33376635
+r, ".* ERR kernel.*audit: rate limit exceeded.*"
