@@ -40,3 +40,57 @@ vmsvc5-t2-8800-ixia:
           - hostname: svcstr2-8800-lc2-1
             port_name: Ethernet280
   pfcQueueGroupSize: 8
+vms20-rdma-t0-7050cx3:
+  multidut_port_info:
+    - multi-dut-single-asic-to-short-link:
+        rx_ports:
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet100
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet104
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet108
+        tx_ports:
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet100
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet104
+          - hostname: STR-7050CX3-C19-U37
+            port_name: Ethernet108
+  pfcQueueGroupSize: 8
+vms20-rdma-t1-8102:
+  multidut_port_info:
+    - multi-dut-single-asic-to-short-link:
+        rx_ports:
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet184
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet188
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet192
+        tx_ports:
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet184
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet188
+          - hostname: STR-8102-C19-U24
+            port_name: Ethernet192
+  pfcQueueGroupSize: 8
+vms20-rdma-t0-8111:
+  multidut_port_info:
+    - multi-dut-single-asic-to-short-link:
+        rx_ports:
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet200
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet208
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet216
+        tx_ports:
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet200
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet208
+          - hostname: STR-8111-C14-U18
+            port_name: Ethernet216
+  pfcQueueGroupSize: 8
