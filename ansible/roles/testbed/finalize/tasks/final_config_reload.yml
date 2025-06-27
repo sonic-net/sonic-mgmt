@@ -1,0 +1,20 @@
+---
+- name: reload config to pick up new config_db.json
+  command: config reload -yf
+  become: true
+
+- name: wait for switch to become reachable again
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH_[\\w\\.]+ Debian"
+    delay: 10
+    timeout: 600
+  changed_when: false
+
+- name: bring up all bgp sessions for test
+  become: true
+  shell: config bgp startup all
