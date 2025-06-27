@@ -1307,6 +1307,35 @@
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py  platform_tests/test_sim_reboot.py bgp/test_bgp_stress_link_flap.py",
             "skip_folder":"configlet vrf mvrf cisco"
         },
+        "mathilda-dualtor-t0-1": {
+            "ucs_host_name": "sonic-ucs-m6-5",
+            "ucs_host": "172.27.147.210",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "m64-tor-0,m64-tor-1",
+            "scp_ip":"1.74.23.137",
+            "installer_mode":"sonic",
+            "ucs_tb": "m64-dtor",
+            "telnet_host": ["172.27.147.153", "172.27.147.50"],
+            "telnet_port": ["2002", "2012"],
+            "telnet_details": ["172.27.147.153 2002", "172.27.147.50 2012"],
+            "dut_ssh": ["1.74.23.15", "1.74.23.16"],
+            "topology": "dualtor",
+            "telnet_flag": "False",
+	    "docker_prompt": "@sonic-ucs-m6-5",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202405c": "cicd_prod_202405c",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py  platform_tests/test_sim_reboot.py bgp/test_bgp_stress_link_flap.py",
+            "skip_folder":"configlet vrf mvrf cisco"
+        },
         "cmono-t0-2": {
             "ucs_host_name": "sonic-ucs-m6-25",
             "ucs_host": "172.26.235.72",
@@ -1438,13 +1467,14 @@
             "cisco.202405c.2.tortuga.laguna.hwqual"
         ],
         "aaa14-t2": "None",
+        "mathilda-dualtor-t0-1": "None",
         "cmono-t0-2": "None"
     },
     "testbeds": {
         "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning"],
         "t2" : ["aaa14-t2"],
-        "dualtor" : ["dualtor-m6-30-tornado"]
+        "dualtor" : ["dualtor-m6-30-tornado", "mathilda-dualtor-t0-1"]
     },
     "testbed_image_ucs_map" : {
         "t1-m6-22-m64":"ucs_m3_2",
@@ -1479,6 +1509,7 @@
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
         "dualtor-m6-30-tornado": "ucs_m6_30",
+        "mathilda-dualtor-t0-1": "ucs_m6_5",
         "cmono-t0-2":"ucs_m6_25"
     },
     "file_server_dict" : {
@@ -1641,6 +1672,15 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.27.145.101:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m6_5": {
+            "host": "sonic-ucs-m6-5",
+            "ip": "1.74.23.137",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@1.74.23.137:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         },
