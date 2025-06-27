@@ -69,6 +69,7 @@ def main():
     parser.add_argument("--db_table_mapping", help="The json mapping to ingest data", type=str, default="")
     parser.add_argument("--repo_url", help="The url of the repo", type=str, default="")
     parser.add_argument("--branch", help="The checkout branch", type=str, default="")
+    parser.add_argument("--scan_time", help="The snapshot of PR checkout date", type=str, default="")
     args = parser.parse_args()
 
     location = args.location
@@ -77,6 +78,7 @@ def main():
     db_table_mapping = args.db_table_mapping
     repo_url = args.repo_url
     branch = args.branch
+    scan_time = args.scan_time
 
     # Collect all test scripts (file names)
     scripts = collect_test_scripts(location)
@@ -95,7 +97,12 @@ def main():
     test_cases = []
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
-    scantime = str(datetime.now())
+
+    if scan_time:
+        parsed_date = datetime.strptime(scan_time, "%Y-%m-%d")
+        scan_time = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        scan_time = str(datetime.now())
 
     for test_case in collected_test_cases:
         script_name = test_case.split("::", 1)[0]  # Extract script file name
@@ -106,13 +113,12 @@ def main():
             "testcase": test_case_name,
             "filepath": script_name,
             "topology": topology,
-            "scantime": scantime,
+            "scantime": scan_time,
             "trackid": trackid,
             "repository": repo_url,
             "branch": branch
         })
 
-    print(test_cases)
     upload_results(test_cases, db_name, db_table, db_table_mapping)
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.common.dualtor.data_plane_utils import save_pcap                 # noqa F401
+from tests.common.dualtor.data_plane_utils import save_pcap                 # noqa: F401
 
 
 def pytest_configure(config):
@@ -16,6 +16,17 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "last: mark fixture to run last"
     )
+
+
+def pytest_addoption(parser):
+    """
+    Adds pytest options that are used by dual ToR IO tests
+    """
+
+    dual_tor_io_group = parser.getgroup("Dual ToR IO test suite options")
+
+    dual_tor_io_group.addoption("--enable_switchover_impact_test", action="store_true", default=False,
+                                help="Enable switchover impact test to be run.")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -38,6 +49,8 @@ def setup_loganalyzer(loganalyzer):
     KERNEL_BOOTUP_SYSLOG = "kernel: [    0.000000] Linux version"
 
     def _setup_loganalyzer(duthost, collect_only=False, collect_from_bootup=False):
+        if not loganalyzer:
+            return
         if collect_only:
             loganalyzer[duthost.hostname].match_regex = []
             loganalyzer[duthost.hostname].expect_regex = []
