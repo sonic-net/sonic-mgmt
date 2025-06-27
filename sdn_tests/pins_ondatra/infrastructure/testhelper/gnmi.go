@@ -126,31 +126,31 @@ func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
 }
 
 // ConfigGet returns a full config for the given DUT.
-func (d GNMIConfigDUT) ConfigGet() ([]byte, error) {
+func (d GNMIConfigDUT) ConfigGet(t *testing.T) ([]byte, error) {
 	return os.ReadFile("ondatra/data/config.json")
 }
 
 // ConfigPush pushes the given config onto the DUT. If nil is passed in for config,
 // this function will use ConfigGet() to get a full config for the DUT.
-func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config *[]byte) error {
+func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
 	if dut == nil {
 		return errors.New("nil DUT passed into ConfigPush()")
 	}
+        var err error
 	if config == nil {
-		getConfig, err := GNMIConfigDUT{dut}.ConfigGet()
+		config, err = GNMIConfigDUT{dut}.ConfigGet(t)
 		if err != nil {
 			return err
 		}
-		config = &getConfig
 	}
 	setRequest := &gpb.SetRequest{
 		Prefix: &gpb.Path{Origin: "openconfig", Target: testhelperDUTNameGet(dut)},
 		Replace: []*gpb.Update{{
 			Path: &gpb.Path{},
-			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: *config}},
+			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: config}},
 		}},
 	}
 	t.Logf("Pushing config on %v: %v", testhelperDUTNameGet(dut), setRequest)
-	_, err := gnmiSet(t, dut, setRequest)
+	_, err = gnmiSet(t, dut, setRequest)
 	return err
 }
