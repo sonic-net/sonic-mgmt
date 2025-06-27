@@ -1423,11 +1423,11 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
 
     default_route_as_path = get_uplink_router_as_path("upperspine", None)
 
-    all_subnetv4 = list(ipaddress.ip_network(BASE_ADDR_V4).subnets(new_prefix=24))
-    all_subnetv6 = list(ipaddress.ip_network(BASE_ADDR_V6).subnets(new_prefix=124))
+    all_subnetv4 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V4)).subnets(new_prefix=24))
+    all_subnetv6 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V6)).subnets(new_prefix=124))
 
     group_nums = len(t1_vms) // T1_GROUP_SIZE
-    t1_route_per_group = math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums)
+    t1_route_per_group = int(math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums))
 
     # 32 route each x 4 to match 110 T1
     extra_ipv4_t1 = itertools.chain(
