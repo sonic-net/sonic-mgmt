@@ -41,7 +41,7 @@ ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
 OUTBOUND_DIR_LOOKUP = "src_mac"
-OUTBOUND_DIR_LOOKUP_FLOATING_VNIC = "dst_mac"
+OUTBOUND_DIR_LOOKUP_FLOATING_NIC = "dst_mac"
 METER_POLICY_V4 = "MeterPolicyV4"
 METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
 METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
@@ -55,12 +55,13 @@ APPLIANCE_CONFIG = {
     }
 }
 
-APPLIANCE_CONFIG_FLOATING_VNIC = {
+APPLIANCE_CONFIG_FLOATING_NIC = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
-        "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP_FLOATING_VNIC
+        "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP_FLOATING_NIC,
+        "trusted_vni": ENCAP_VNI
     }
 }
 
