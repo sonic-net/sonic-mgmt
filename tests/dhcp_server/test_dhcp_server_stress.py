@@ -3,13 +3,14 @@ import ipaddress
 import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from dhcp_server_test_common import apply_dhcp_server_config_gcu, empty_config_patch, append_common_config_patch
-
+from dhcp_server_test_common import apply_dhcp_server_config_gcu, empty_config_patch, \
+        append_common_config_patch
+from tests.common.fixtures.dhcp_utils import enable_sonic_dhcpv4_relay_agent
 
 pytestmark = [
     pytest.mark.topology('mx'),
+    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
-
 
 @pytest.fixture(scope="module", autouse=True)
 def dhcp_client_setup_teardown_on_ptf(ptfhost, creds):
@@ -64,7 +65,9 @@ def parse_vlan_setting_from_running_config(duthost, tbinfo):
 def test_dhcp_server_with_multiple_dhcp_clients(
     duthost,
     ptfhost,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    enable_sonic_dhcpv4_relay_agent,
+    relay_agent
 ):
     """
         Make sure all ports can get assigend ip when all ports request ip at same time
