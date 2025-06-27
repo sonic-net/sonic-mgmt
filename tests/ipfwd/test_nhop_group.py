@@ -327,7 +327,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
 
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
-    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
                               module_ignore_errors=True)["stdout"]
     if route in asic_info:
         logger.info(f"Matched ASIC route: {asic_info}")
@@ -808,7 +808,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "th5": th_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
-                                              "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
+                                              "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
+                                              "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
