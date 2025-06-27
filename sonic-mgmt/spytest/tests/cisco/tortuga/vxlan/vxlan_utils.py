@@ -716,10 +716,11 @@ def configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vla
     st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
     st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
 
-def verify_bgp(nodes, prefix, src_vtep, expected_l3vni='1000'):
+def verify_bgp(nodes, prefix, src_vtep, expected_l3vni='1000', single_run=False):
     st.log("Start BGP verification check on {}" .format(src_vtep))
     start_time = time.time()
-    iter = 0
+    iter = 0 if not single_run else NO_OF_BGP_RETRIES - 1
+
     parsed = []
     while len(parsed) == 0 and iter < NO_OF_BGP_RETRIES:
         if iter > 0:

@@ -223,3 +223,31 @@ def verify_vrf_route_l3vni(nodes, prefix_ip, vtep_host, vrf):
         ):
             return True
     return False
+
+
+def reload_config(node):
+    """
+    reload_config
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+    Returns:
+        None
+    """
+    configure_cmd(node, "sudo config reload -y")
+
+
+def restart_container(dut, container):
+    """
+    restart_daemon
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+        dut_name (str)  : Dut
+        container (str) : Container name
+    Returns:
+        None
+    """
+    configure_cmd(dut, "sudo docker restart {}".format(container))
+    # wait for 20 seconds
+    # to allow the restart to take effect
+    # and the system to stabilize
+    st.wait(20)

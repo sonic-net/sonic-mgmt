@@ -79,12 +79,22 @@ def verify_mac_advertisements(nodes, dut_name, mac, expected):
     return True
 
 
-def configure_cmd(node, cmd):
+def configure_cmd(node, cmd, **kwargs):
     """
     Configure command on the node
     :param node: Node to configure command
     :param cmd: Command to configure
     :return: None
     """
-    st.config(node, cmd, type="vtysh")
+    st.config(node, cmd, type="vtysh", **kwargs)
     st.wait(10)
+
+
+def show_cmd(node, cmd, skip_tmpl=True, skip_error_check=False):
+    """
+    show command on the node
+    :param node: Node to configure command
+    :param cmd: Command to configure
+    :return: None
+    """
+    return st.show(node, cmd, type="vtysh", skip_tmpl=skip_tmpl, skip_error_check=skip_error_check)

@@ -4,10 +4,14 @@ leaf0:
         evpn mh redirect-off
         end
         exit
+
+
       deconfig: |
         no evpn mh redirect-off
         end
         exit
+
+
     sonic:
       config: |
         swssloglevel -l INFO -c orchagent
@@ -124,6 +128,8 @@ leaf0:
         advertise ipv6 unicast 
         exit-address-family
         exit
+
+
       deconfig: |
         vrf Vrf01
         no vni 5030
@@ -132,16 +138,22 @@ leaf0:
         no router bgp 10
         end
         exit
+
+
 leaf1:
     pre-sonic-bgp:
         config: |
             evpn mh redirect-off
             end
             exit
+
+
         deconfig: |
             no evpn mh redirect-off
             end
             exit
+
+
     sonic:
       config: |
         swssloglevel -l INFO -c orchagent
@@ -258,6 +270,8 @@ leaf1:
         advertise ipv6 unicast 
         exit-address-family
         exit
+
+
       deconfig: |
         vrf Vrf01
         no vni 5030
@@ -266,16 +280,22 @@ leaf1:
         no router bgp 20
         end
         exit
+
+
 leaf2:
     pre-sonic-bgp:
       config: |
         evpn mh redirect-off
         end
         exit
+
+
       deconfig: |
         no evpn mh redirect-off
         end
         exit
+
+
     sonic:
       config: |
         swssloglevel -l INFO -c orchagent
@@ -394,6 +414,7 @@ leaf2:
         end
         exit
         
+
       deconfig: |
         vrf Vrf01
         no vni 5030
@@ -402,6 +423,8 @@ leaf2:
         no router bgp 30
         end
         exit
+
+
 spine0:
     pre-sonic-bgp:
       config: |
@@ -463,7 +486,11 @@ spine0:
         exit-address-family
         end
         exit
+
+
       deconfig: |
         no router bgp 80
         end
         exit
+
+        

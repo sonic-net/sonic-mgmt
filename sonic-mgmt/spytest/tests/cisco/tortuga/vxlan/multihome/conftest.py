@@ -1,11 +1,8 @@
 import pytest
-import yaml
 import re
-from threading import Thread
 
 import evpn_mh_utils as mh_utils
 import vxlan_utils
-import tortuga_common_utils as t_common
 from multihome.const import (
     lag_name,
     lag_ports,
@@ -14,6 +11,7 @@ from multihome.const import (
     spytest_data,
 )
 from spytest import st
+from multihome import dut
 from multihome.const import spytest_data
 
 
@@ -33,95 +31,6 @@ def testbed_vars():
     return vars, nodes
 
 
-def config_static(config, nodes, add=True):
-    """
-    param Any: configuration in YAML format
-    param nodes: WorkArea nodes map
-    param add: add or delete the configuration
-    """
-    with open(config, "r") as file:
-        configuration = yaml.load(file, Loader=yaml.FullLoader)
-        # Map of switch and list of their thread
-        config_threads = {}
-        # list of switches
-        switches = ["spine0", "leaf0", "leaf1", "leaf2"]
-        for switch, value in configuration.items():
-            if add:
-                config_threads[switch] = [
-                    Thread(
-                        target=t_common.config_node,
-                        args=(nodes[switch], value["pre-sonic-bgp"]["config"], "vtysh"),
-                    ),
-                    Thread(
-                        target=t_common.config_node,
-                        args=(
-                            nodes[switch],
-                            configuration[switch]["sonic"]["config"],
-                            "",
-                        ),
-                    ),
-                    Thread(
-                        target=t_common.config_node,
-                        args=(nodes[switch], value["bgp"]["config"], "vtysh"),
-                    ),
-                ]
-            else:
-                config_threads[switch] = [
-                    Thread(
-                        target=t_common.config_node,
-                        args=(nodes[switch], value["bgp"]["deconfig"], "vtysh"),
-                    ),
-                    Thread(
-                        target=t_common.config_node,
-                        args=(
-                            nodes[switch],
-                            configuration[switch]["sonic"]["deconfig"],
-                            "",
-                        ),
-                    ),
-                    Thread(
-                        target=t_common.config_node,
-                        args=(
-                            nodes[switch],
-                            value["pre-sonic-bgp"]["deconfig"],
-                            "vtysh",
-                        ),
-                    ),
-                ]
-
-        def start_thread(thread):
-            """
-            Start the thread
-            :param thread: Thread to be started
-            """
-            thread.start()
-            return thread
-
-        def wait_on_thread(thread1, thread2, thread3, thread4):
-            """
-            Wait for the thread to finish
-            :param thread1: Thread 1
-            :param thread2: Thread 2
-            :param thread3: Thread 3
-            :param thread4: Thread 4
-            """
-            st.wait(2)
-            thread1.join()
-            thread2.join()
-            thread3.join()
-            thread4.join()
-
-        # Run config threads each stage in parallel across DUTs
-        # order of execution pre-sonic-bgp -> sonic -> bgp
-        while config_threads["leaf0"]:
-            t1 = start_thread(config_threads["leaf0"].pop(0))
-            t2 = start_thread(config_threads["leaf1"].pop(0))
-            t3 = start_thread(config_threads["leaf2"].pop(0))
-            t4 = start_thread(config_threads["spine0"].pop(0))
-            wait_on_thread(t1, t2, t3, t4)
-        st.log("Config applied successfully")
-
-
 @pytest.fixture(scope="module", autouse=True)
 def configure():
     """
@@ -134,7 +43,7 @@ def configure():
     config_file = "multihome/config.yaml"
     updated_config_file = vxlan_utils.modify_config_file(config_file, vars)
     mh_utils.change_fdb_ageout("6000")
-    config_static(updated_config_file, nodes)
+    dut.configure(updated_config_file, nodes)
 
     lag_handle = vxlan_utils.config_lag_interface(
         lag_name,
@@ -171,15 +80,15 @@ def configure():
         "/topology:\d+", lag_handle[lag_name]["int_handle"]
     ).group()
     tg.tg_test_control(action="stop_protocol", handle=topology_handle)
-    st.wait(10)
+    dut.wait(10)
     tg.tg_topology_config(topology_handle=topology_handle, mode="destroy")
-    st.wait(5)
+    dut.wait(5)
     tg.tg_emulation_lag_config(
         mode="delete", lag_handle=lag_handle[lag_name]["lag_handle"], lag_name=lag_name
     )
-    st.wait(5)
+    dut.wait(5)
 
-    config_static(updated_config_file, nodes, add=False)
+    dut.configure(updated_config_file, nodes, add=False)
     mh_utils.change_fdb_ageout("600")
 
     vxlan_utils.remove_temp_config(updated_config_file)
