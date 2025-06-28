@@ -14,14 +14,22 @@ all:
       hosts:
         msr-ixia-api-serv-1:
           ansible_host: 10.64.246.150
+          version: ixnetworkweb_9.30
         ixia-apiserver3:
           ansible_host: 10.64.246.190
+          version: ixnetworkweb_10.25.2405.106
+        ixia-apiserver4:
+          ansible_host: 10.64.246.25
+          version: ixnetworkweb_10.80.2412.123
         str-aresone-api-serv-01:
           ansible_host: 10.64.246.191
+          version: ixnetworkweb_10.25.2405.106
         str-aresone-api-serv-02:
           ansible_host: 10.64.246.192
+          version: ixnetworkweb_10.25.2405.106
         str-aresone-api-serv-03:
           ansible_host: 10.64.246.193
+          version: ixnetworkweb_10.25.2405.106
       vars:
         ansible_ssh_user: admin
         ansible_ssh_pass: admin

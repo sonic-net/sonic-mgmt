@@ -200,7 +200,7 @@
   topo: tgen-t0-3-32
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-9
-  ptf_ip: 10.64.246.150/23
+  ptf_ip: 10.64.246.25/23
   ptf_ipv6:
   server: server_20
   vm_base:
@@ -215,7 +215,7 @@
   topo: tgen-t1-64-4
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-10
-  ptf_ip: 10.64.246.150/23
+  ptf_ip: 10.64.246.25/23
   ptf_ipv6:
   server: server_20
   vm_base:
@@ -230,7 +230,7 @@
   topo: tgen-t0-3-32
   ptf_image_name: docker-keysight-api-server
   ptf: vms20-ixia-11
-  ptf_ip: 10.64.246.150/23
+  ptf_ip: 10.64.246.25/23
   ptf_ipv6:
   server: server_20
   vm_base:
