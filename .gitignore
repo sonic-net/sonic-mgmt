@@ -24,3 +24,5 @@ ansible/*_tmp
 sonic-dump/
 **/common/sai_validation/generated/
 **/common/sai_validation/github.com/
+tests/pfc_headroom_test_params/*.json
+tests/priority/*.json
