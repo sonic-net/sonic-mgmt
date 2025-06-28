@@ -1246,7 +1246,7 @@ def get_pfc_count(duthost, port):
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override:
+    if is_override and override_data is not None:
         return override_data
     return default
 
