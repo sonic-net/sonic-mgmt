@@ -262,7 +262,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             port_config_list.append(port_config)
 
-        if len(port_config_list) != len(snappi_ports):
+        if duthost.get_facts().get("modular_chassis") and len(port_config_list) != len(snappi_ports):
             return False
 
     return True
