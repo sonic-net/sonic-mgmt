@@ -420,9 +420,14 @@ class Test_VNET_BGP_route_Precedence():
                 adv = routes_adv[vnet][prefix]
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
+                # configure loopback with a host address within the network
+                if self.prefix_type == 'v4':
+                    loopback_ip = adv.rsplit('.', 1)[0] + '.1'
+                else:
+                    loopback_ip = adv.rstrip(':') + '::1'
                 cmds = ["configure",
                         "interface loopback 10",
-                        "{} address {}/{}".format(type1, prefix, self.adv_mask),
+                        "{} address {}/{}".format(type1, loopback_ip, self.adv_mask),
                         "exit",
                         bgp_id_cmd,
                         "address-family {}".format(type),
@@ -446,9 +451,13 @@ class Test_VNET_BGP_route_Precedence():
                 adv_pfx = routes_adv[vnet][prefix]
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
+                if self.prefix_type == 'v4':
+                    loopback_ip = adv_pfx.rsplit('.', 1)[0] + '.1'
+                else:
+                    loopback_ip = adv_pfx.rstrip(':') + '::1'
                 cmds = ["configure",
                         "interface loopback 10",
-                        "no {} address {}/{}".format(type1, prefix, self.prefix_mask),
+                        "no {} address {}/{}".format(type1, loopback_ip, self.prefix_mask),
                         "exit",
                         bgp_id_cmd,
                         "address-family {}".format(type),
