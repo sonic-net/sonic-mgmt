@@ -93,14 +93,14 @@ def test_snmp_queue_counters(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    ignore_regex_list = [
-        r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
-        r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
-        ]
-    if duthost.sonichost.facts['platform_asic'] == 'broadcom':
-        ignore_regex_list.append(r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value \d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*")    # noqa: E501
-
-    loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
+    if loganalyzer:
+        ignore_regex_list = [
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
+            ]
+        if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+            ignore_regex_list.append(r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value \d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*")    # noqa: E501
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']

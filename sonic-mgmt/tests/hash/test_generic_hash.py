@@ -14,12 +14,12 @@ from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxla
     get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa: F401
 
 DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
@@ -46,7 +46,12 @@ def pytest_generate_tests(metafunc):
     inner_ip_versions = get_ip_version_from_option(metafunc.config.getoption("--inner_ip_version"))
     encap_types = get_encap_type_from_option(metafunc.config.getoption("--encap_type"))
     for field in hash_fields:
-        if 'INNER' not in field:
+        if 'IPV6_FLOW_LABEL' in field:
+            params_tuple.extend([(algorithm, field, 'ipv6', inner_ip_version, encap_type)
+                                 for algorithm in hash_algorithms
+                                 for inner_ip_version in inner_ip_versions
+                                 for encap_type in encap_types])
+        elif 'INNER' not in field:
             params_tuple.extend([(algorithm, field, ip_version, 'None', 'None')
                                  for algorithm in hash_algorithms
                                  for ip_version in outer_ip_versions])

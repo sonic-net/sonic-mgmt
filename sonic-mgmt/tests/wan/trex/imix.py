@@ -20,7 +20,7 @@ class STLImix(object):
 
     def create_stream(self, size, pps, isg, vm):
         # Create base packet and pad it to size
-        base_pkt = Ether()/IP()/UDP()       # noqa F821
+        base_pkt = Ether()/IP()/UDP()       # noqa: F821
         pad = max(0, size - len(base_pkt)) * 'x'
 
         pkt = STLPktBuilder(pkt=base_pkt/pad,

@@ -9,7 +9,8 @@ SERVER_PORT = 8000
 
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
-def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa F811
+
+def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa: F811
     name = psu.get_name(platform_api_conn, psu_num)
     if name in psu_skip_list:
         logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))

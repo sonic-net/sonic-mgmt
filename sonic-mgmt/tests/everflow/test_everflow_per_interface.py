@@ -56,8 +56,9 @@ def build_candidate_ports(duthost, tbinfo, ns):
             continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
 
-        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4 and i % 2:
-            candidate_ports.update({dut_port: ptf_idx})
+        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4:
+            if candidate_neigh_name == 'T0' or i % 2:
+                candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
 

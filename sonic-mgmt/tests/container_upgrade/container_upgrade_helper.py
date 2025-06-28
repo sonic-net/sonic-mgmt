@@ -84,12 +84,11 @@ def create_image_list(os_versions, image_url_template_string):
     return image_list
 
 
-def create_testcase_list(testcase_file):
+def create_testcase_mapping(testcase_file):
     with open(testcase_file, 'r') as file:
         data = json.load(file)
-    testcases = data.get('testcases', [])
 
-    return testcases
+    return data
 
 
 def create_parameters_mapping(containers, parameters_file):

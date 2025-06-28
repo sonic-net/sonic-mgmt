@@ -1,0 +1,10 @@
+{ "op": "add", "path": "/INTERFACE", "value": {} },
+{% for port, peer in bgp_neighbor_ports.items() %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}", "value": {} },
+{% if peer.local_ip_v4 %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ peer.local_ip_v4 }}~1{{ peer.p2p_v4_subnet_size }}", "value": {} },
+{% endif %}
+{% if peer.local_ip_v6 %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ peer.local_ip_v6 }}~1{{ peer.p2p_v6_subnet_size }}", "value": {} },
+{% endif %}
+{% endfor %}

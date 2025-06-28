@@ -1,4 +1,4 @@
-// Package testhelper contains APIs that help in writing GPINs Ondatra tests.
+// Package testhelper contains APIs that help in writing PINs Ondatra tests.
 package testhelper
 
 import (
@@ -19,6 +19,8 @@ import (
 )
 
 var pph portPmdHandler
+
+var dutModelName string
 
 // Function pointers that interact with the switch. They enable unit testing
 // of methods that interact with the switch.
@@ -163,6 +165,11 @@ const (
 	FrontPanelPortPrefix = "Ethernet"
 )
 
+// BackplanePortPrefix defines prefix string for backplane ports.
+const (
+	BackplanePortPrefix = "Ethernet-BP"
+)
+
 // RandomInterfaceParams contains optional list of parameters than can be passed to RandomInterface():
 // PortList: If passed, only ports in this list must be considered when picking a random interface.
 // IsParent: If set, only parent ports must be considered.
@@ -207,6 +214,7 @@ type TearDownOptions struct {
 	DUTDeviceInfo     DUTInfo
 	DUTPeerDeviceInfo DUTInfo
 	SaveLogs          func(t *testing.T, savePrefix string, dut, peer DUTInfo)
+        configRestorer    *ConfigRestorer
 }
 
 // NewTearDownOptions creates the TearDownOptions structure with default values.
@@ -230,6 +238,15 @@ func (o TearDownOptions) WithIDs(ids []string) TearDownOptions {
 	for _, id := range ids {
 		o.IDs = append(o.IDs, id)
 	}
+	return o
+}
+
+// WithConfigRestorer enables config restoration
+// of the reserved devices on teardown.
+// Accepts a list of paths to ignore while checking for config changes.
+// The test will fail if the config is not restored.
+func (o TearDownOptions) WithConfigRestorer(t *testing.T, ignorePaths []string) TearDownOptions {
+	o.configRestorer = NewConfigRestorerWithIgnorePaths(t, ignorePaths)
 	return o
 }
 
@@ -343,7 +360,7 @@ func VerifyPortsOperStatus(t *testing.T, d *ondatra.DUTDevice, ports ...string) 
 
 // IsFrontPanelPort returns true if the specified port is a front panel port.
 func IsFrontPanelPort(port string) bool {
-	return strings.HasPrefix(port, FrontPanelPortPrefix)
+	return strings.HasPrefix(port, FrontPanelPortPrefix) && !strings.HasPrefix(port, BackplanePortPrefix)
 }
 
 // FrontPanelPortListForDevice returns the list of front panel ports on the switch.

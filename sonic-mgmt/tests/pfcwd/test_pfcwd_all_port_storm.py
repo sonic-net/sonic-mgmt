@@ -3,10 +3,10 @@ import os
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -92,7 +92,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
+def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa: F811
                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
@@ -174,7 +174,24 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic') # noqa E501
+def resolve_arp(duthost, ptfhost, test_ports_info):
+    """
+    Populate ARP info for the DUT vlan port
+
+    Args:
+        ptfhost: ptf host instance
+        test_ports_info: test ports information
+    """
+    for port, port_info in test_ports_info.items():
+        if port_info['test_port_type'] == 'vlan':
+            neighbor_ip = port_info['test_neighbor_addr']
+            ptf_port = f"eth{port_info['test_port_id']}"
+            ptfhost.command(f"ifconfig {ptf_port} {neighbor_ip}")
+            duthost.command(f"docker exec -i swss arping {neighbor_ip} -c 5")
+            break
+
+
+@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')  # noqa: E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action):
@@ -234,8 +251,9 @@ class TestPfcwdAllPortStorm(object):
                 test_port = device_conn[intf]['peerport']
                 if test_port in setup_pfc_test['test_ports']:
                     selected_test_ports.append(test_port)
-
-        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
+        resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'])
+        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports'],
+                                     pkt_count=500):
             self.run_test(duthost,
                           storm_hndle,
                           expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],

@@ -21,7 +21,7 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3', 't1', 't2'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -769,7 +769,7 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
 
 
 @pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
-def cacl_protocol(request):       # noqa F811
+def cacl_protocol(request):       # noqa: F811
     """
     Return the protocol to be tested
     """

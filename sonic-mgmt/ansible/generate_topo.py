@@ -3,11 +3,15 @@
 from collections import defaultdict, namedtuple
 import copy
 from typing import Any, Dict, List, Tuple, Union
-from ipaddress import IPv4Network, IPv6Network
+from ipaddress import IPv4Network, IPv6Network, IPv4Address
 import click
 import jinja2
 
 PTF_BACKPLANE_IPV4 = "10.10.246.254"
+# current PTF subnet is  10.10.246.0/22
+PTF_BACKPLANE_IPV4_LOWER_BOUND = "10.10.244.1"
+PTF_BACKPLANE_IPV4_UPPER_BOUND = "10.10.247.254"
+PTF_BACKPLANE_IPV4_DEFAULT_START = "10.10.246.1"
 backplane_additional_offset_ipv4 = 0
 PTF_BACKPLANE_IPV6 = "fc0a::ff"
 backplane_additional_offset_ipv6 = 0
@@ -36,14 +40,14 @@ roles_cfg = {
         "asn": 65100,
         "asn_v6": 4200000000,
         "downlink": None,
-        "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000},
-        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000},
+        "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000, "asn_increment": 0},
+        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000, "asn_increment": 1},
     },
     "t1": {
         "asn": 65100,
         "asn_v6": 4200100000,
-        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000},
-        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000},
+        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000, "asn_increment": 1},
+        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000, "asn_increment": 0},
         "peer": None,
     },
     "lt2": {
@@ -51,7 +55,7 @@ roles_cfg = {
         "asn_v6": 4200100000,
         "downlink": {"role": "t1", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 0, "num_lags": 1},
         "uplink": {"role": "ut2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
-        "fabric": {"role": "ft2", "asn": 4200300000, "asn_v6": 4200300000, "asn_increment": 0},
+        "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
         "peer": None
     },
 }
@@ -123,7 +127,7 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32o64lt2':        {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 49, 46, 50),
-                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30),
+                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30, 61, 62, 63),
                          "fabric_breakout": 1,
                          'fabric_ports': PortList(
                                  *[p for p in range(0, 32)]
@@ -217,11 +221,21 @@ class VM:
         # Backplane IPs
         global backplane_additional_offset_ipv4
         self.bp_ipv4 = calc_ipv4(
-            "10.10.246.1", self.ip_offset+1+backplane_additional_offset_ipv4)
+            PTF_BACKPLANE_IPV4_DEFAULT_START, self.ip_offset+1+backplane_additional_offset_ipv4)
         if self.bp_ipv4 == PTF_BACKPLANE_IPV4:
             backplane_additional_offset_ipv4 = 1
             self.bp_ipv4 = calc_ipv4(
-                "10.10.246.1", self.ip_offset+1+backplane_additional_offset_ipv4)
+                PTF_BACKPLANE_IPV4_DEFAULT_START, self.ip_offset+1+backplane_additional_offset_ipv4)
+        # Ensure backplane IP is within the allowed range
+        # Default [10.10.246.1 ---- 10.10.247.254], once crossed the upper bound, it will be starting from
+        # lower bound [10.10.244.1 -- 10.10.245.255]. If the backplane IP reaches to 10.10.246.1 again. that
+        # means the range is exhausted.
+        if IPv4Address(self.bp_ipv4) > IPv4Address(PTF_BACKPLANE_IPV4_UPPER_BOUND):
+            diff = int(IPv4Address(self.bp_ipv4)) - int(IPv4Address(PTF_BACKPLANE_IPV4_UPPER_BOUND))
+            self.bp_ipv4 = IPv4Address(PTF_BACKPLANE_IPV4_LOWER_BOUND) + diff - 1
+            if self.bp_ipv4 >= IPv4Address(PTF_BACKPLANE_IPV4_DEFAULT_START):
+                assert False, "Backplane IP address exceeds the allowed range"
+
         global backplane_additional_offset_ipv6
         self.bp_ipv6 = calc_ipv6(
             "fc0a::1", (self.ip_offset+1+backplane_additional_offset_ipv6))
@@ -383,13 +397,13 @@ def generate_topo(role: str,
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
-                per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     # Skip breakout if defined
                     if (panel_port_id, link_id - link_id_start) in skip_ports:
                         continue
 
+                    per_role_vm_count[vm_role_cfg["role"]] += 1
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,

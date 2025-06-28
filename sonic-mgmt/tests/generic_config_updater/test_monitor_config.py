@@ -119,8 +119,8 @@ def verify_monitor_config(duthost, ip_netns_namespace_prefix):
 
     admin@vlab-01:~$ show mirror_session mirror_session_dscp_test
     ERSPAN Sessions
-    Name                      Status    SRC IP    DST IP    GRE      DSCP    TTL  Queue    Policer                  Monitor Port    SRC Port    Direction       # noqa E501
-    ------------------------  --------  --------  --------  -----  ------  -----  -------  -----------------------  --------------  ----------  -----------     # noqa E501
+    Name                      Status    SRC IP    DST IP    GRE      DSCP    TTL  Queue    Policer                  Monitor Port    SRC Port    Direction       # noqa:E501
+    ------------------------  --------  --------  --------  -----  ------  -----  -------  -----------------------  --------------  ----------  -----------     # noqa:E501
     mirror_session_dscp_test  active    1.1.1.1   2.2.2.2               5     32           everflow_policer_test
     ...
     """

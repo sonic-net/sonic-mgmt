@@ -19,9 +19,9 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_dst_ip_absent, test_src_ip_is_multicast_addr, test_src_ip_is_class_e, test_ip_is_zero_addr, \
     test_dst_ip_link_local, test_loopback_filter, test_ip_pkt_with_expired_ttl, test_broken_ip_header, \
     test_absent_ip_header, test_unicast_ip_incorrect_eth_dst, test_non_routable_igmp_pkts, test_acl_drop, \
-    test_acl_egress_drop  # noqa F401
+    test_acl_egress_drop  # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from ..common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
@@ -157,8 +157,8 @@ def handle_backend_acl(duthost, tbinfo):
         duthost.shell('systemctl restart backend-acl')
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa F811
-                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa F811
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa: F811
+                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa: F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -319,7 +319,7 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test(duthosts):
-    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa F811
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa: F811
                          comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
@@ -349,7 +349,7 @@ def do_test(duthosts):
 
 
 def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            setup, fanouthost, pkt_fields, ports_info):  # noqa F811
+                            setup, fanouthost, pkt_fields, ports_info):  # noqa: F811
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
@@ -386,8 +386,8 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports,   # noqa F811
-                                     pkt_fields, rif_port_down, ports_info):     # noqa F811
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports,   # noqa: F811
+                                     pkt_fields, rif_port_down, ports_info):     # noqa: F811
     """
     @summary: Verify that packets on ingress port are not dropped
               when egress RIF link is down and check that drop counters not incremented
@@ -409,7 +409,7 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports,  
 
 
 def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           setup, tx_dut_ports, pkt_fields, ports_info):    # noqa F811
+                           setup, tx_dut_ports, pkt_fields, ports_info):    # noqa: F811
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
@@ -435,8 +435,8 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa F811
-                                  pkt_fields, mtu_config, ports_info):                      # noqa F811
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa: F811
+                                  pkt_fields, mtu_config, ports_info):                      # noqa: F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """

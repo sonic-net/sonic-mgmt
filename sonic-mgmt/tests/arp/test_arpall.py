@@ -11,7 +11,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # no
 
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 logger = logging.getLogger(__name__)

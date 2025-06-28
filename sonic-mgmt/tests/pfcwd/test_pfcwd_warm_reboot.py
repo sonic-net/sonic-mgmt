@@ -7,7 +7,7 @@ import time
 import traceback
 
 from tests.common.broadcom_data import is_broadcom_device
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -495,7 +495,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
-    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts,    # noqa F811
+    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts,    # noqa: F811
                         ptfhost, duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
@@ -601,7 +601,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         )
                         self.run_test(port, queue, detect=(bitmask & 1),
                                       storm_start=not t_idx or storm_deferred or storm_restored,
-                                      first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),  # noqa E501
+                                      first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),  # noqa: E501
                                       storm_defer=(bitmask & 4))
                         pfcwd_show_status(self.dut, "pfcwd wr: run_test end")
                     except Exception as e:
@@ -621,7 +621,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa: F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       localhost, fanouthosts, two_queues):
         """

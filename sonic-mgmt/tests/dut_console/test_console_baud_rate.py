@@ -2,7 +2,6 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.reboot import reboot
 
 
 pytestmark = [
@@ -104,11 +103,11 @@ def test_baud_rate_sonic_connect(console_client_setup_teardown):
     assert_expect_text(client, "login:", console_port, timeout_sec=1)
 
 
-def test_baud_rate_boot_connect(localhost, duthost, console_client_setup_teardown, boot_connect_teardown):
+def test_baud_rate_boot_connect(duthost, console_client_setup_teardown, boot_connect_teardown):
     client, console_port = console_client_setup_teardown
     platform = duthost.facts["platform"]
     pytest_require(platform in BOOT_TYPE, "Unsupported platform: {}".format(platform))
-    reboot(duthost, localhost, wait_for_ssh=False)
+    duthost.shell("sudo reboot", module_async=True)
     if BOOT_TYPE[platform] == "ABoot":
         run_aboot_test(client, console_port)
     elif BOOT_TYPE[platform] == "UBoot-ONIE":

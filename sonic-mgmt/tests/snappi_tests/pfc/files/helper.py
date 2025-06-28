@@ -4,14 +4,14 @@ import time
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa F401
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     disable_packet_aging, enable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id, wait_for_arp  # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id, wait_for_arp  # noqa: F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow, \
     verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
@@ -399,7 +399,7 @@ def run_tx_drop_counter(
                                         exp_dur_sec=DATA_FLOW_DURATION_SEC +
                                         data_flow_delay_sec,
                                         snappi_extra_params=snappi_extra_params)
-    link_state = None
+    cs = None
     try:
         time.sleep(1)
         # Collect metrics from DUT once again
@@ -434,7 +434,7 @@ def run_tx_drop_counter(
         pytest_assert(tx_dut_drop_frames == tx_dut_drop_frames_1,
                       "Mismatch in TX drop counters post DUT port {} oper down".format(dut_port))
     finally:
-        if link_state:
+        if cs:
             # Bring the link back up
             cs.port.link.state = cs.port.link.UP
             api.set_control_state(cs)
