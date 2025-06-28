@@ -22,3 +22,5 @@ ansible/*_tmp
 .python-version
 
 sonic-dump/
+**/common/sai_validation/generated/
+**/common/sai_validation/github.com/
