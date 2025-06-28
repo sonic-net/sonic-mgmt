@@ -21,6 +21,7 @@ class ClockConsts:
     DATE = "date"
     TIME = "time"
     TIMEZONE = "timezone"
+    
     TEST_TIMEZONE = "Asia/Jerusalem"
     TIME_MARGIN = 6
     TIME_MARGIN_MODULAR = 16
@@ -458,8 +459,6 @@ def test_config_ntp(duthosts, init_timezone):
         2. Verify NTP server added
         3. Delete the added NTP server
         4. Verify NTP server deleted
-        5. Try to add an invalid NTP server
-        6. Verify error and that NTP server hasn't changed
     """
     with allure.step(f'Add the NTP server {ClockConsts.NTP_SERVER_IP}'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, ClockConsts.NTP_SERVER_IP)
@@ -478,4 +477,3 @@ def test_config_ntp(duthosts, init_timezone):
     with allure.step('Verify command success'):
         assert output == ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ClockConsts.NTP_SERVER_IP), \
             f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ClockConsts.NTP_SERVER_IP)}"'
-
