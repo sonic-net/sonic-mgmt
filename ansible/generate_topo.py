@@ -374,6 +374,7 @@ def generate_topo(role: str,
             end_vlan_range = link_id_start + len(lag_port) * num_breakout
 
             vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+            vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
             vm = VM(range(link_id_start, end_vlan_range), len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                     dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id_start,
                     num_lags=len(lag_port) * num_breakout)
@@ -397,14 +398,19 @@ def generate_topo(role: str,
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
+                if 'lt2' not in role:    # For non LT2 topo , the VM id is per-link basis.
+                    per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     # Skip breakout if defined
                     if (panel_port_id, link_id - link_id_start) in skip_ports:
                         continue
 
-                    per_role_vm_count[vm_role_cfg["role"]] += 1
+                    if 'lt2' in role:  # for LT2 topo, the VM id is continuous regardless of the link.
+                        per_role_vm_count[vm_role_cfg["role"]] += 1
+
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+                    vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,
                             num_lags=vm_role_cfg.get('num_lags', 0))
