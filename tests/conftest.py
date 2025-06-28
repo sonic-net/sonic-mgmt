@@ -780,6 +780,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
+    if 'nut' in tbinfo['topo']['name']:
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:

@@ -21,6 +21,7 @@
 6. [6. Command references](#6-command-references)
    1. [6.1. Generate config: `gen-cfg`](#61-generate-config-gen-cfg)
    2. [6.2. Deploy config: `deploy-cfg`](#62-deploy-config-deploy-cfg)
+   3. [6.3. Run tests](#63-run-tests)
 
 ## 1. Overview
 
@@ -114,6 +115,7 @@ The current testbed yaml definition is not designed to support NUT, so we will c
   tg:
     - tg-1
   tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  tg_api_server: 10.2.0.1:443
   inv_name: lab
   auto_recover: 'True'
   comment: "Testbed for NUT with multi-tier topology"
@@ -461,4 +463,13 @@ The configuration will be generated into a few places:
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> deploy-cfg <testbed-name> <inventory-name> <password-file>
 ./testbed-cli.sh -t testbed.nut.yaml deploy-cfg nut-testbed-1 ixia ../../password.txt
+```
+
+### 6.3. Run tests
+
+We can directly use the `pytest` module to run the tests against the NUT testbed:
+
+```bash
+# Under tests directory, run:
+python3 -m pytest --inventory <inventory-file> --host-pattern all --testbed nut-testbed-1 --testbed_file ../ansible/testbed.nut.yaml --show-capture=stdout --log-cli-level info <test_file>
 ```
