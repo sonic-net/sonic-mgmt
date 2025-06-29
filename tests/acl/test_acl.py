@@ -847,7 +847,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     applying an empty configuration file.
     """
 
-    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
+    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 30
 
     @abstractmethod
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
