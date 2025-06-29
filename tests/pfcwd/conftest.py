@@ -3,11 +3,11 @@ import pytest
 import os
 import os.path
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa: F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
 from tests.common.utilities import str2bool
@@ -81,7 +81,7 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa: F811
 ):
     """
     Sets up all the parameters needed for the PFCWD tests
@@ -192,7 +192,7 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
         dst="/")
 
     asic_arg = ""
-    if asic_id:
+    if asic_id != "":
         asic_arg = f"-n asic{asic_id}"
     duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
 
