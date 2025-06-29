@@ -149,6 +149,12 @@ bgp/test_bgp_bbr.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
+bgp/test_bgp_command.py:
+  xfail:
+    reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 and t1-isolated-d56u2 topology on Mellanox platform'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2'] and asic_type in ['mellanox']"
+
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
@@ -483,6 +489,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "Skip DHCP relay test on not supported SKUs"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17988 and hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for Cisco backend platform"
@@ -1082,6 +1094,12 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 #####            fib              #####
 #######################################
+fib/test_fib.py:
+  skip:
+    reason: 'Hash test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
+
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
@@ -1176,6 +1194,8 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
+      - "'t2' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-nvidia_sn5610n-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -2379,6 +2399,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####              sflow          #####
 #######################################
+sflow:
+  skip:
+    reason: "Skip sflow tests on not supported SKUs"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17988 and hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+
 sflow/test_sflow.py:
   skip:
     reason: "Sflow feature is default disabled on vs platform"
@@ -2514,6 +2540,11 @@ snmp/test_snmp_queue_counters.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
+  xfail:
+    reason: "Test skipped due to issue #17929 on Mellanox platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
+
 
 #######################################
 #####            span             #####
