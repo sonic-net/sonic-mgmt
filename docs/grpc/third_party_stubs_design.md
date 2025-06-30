@@ -176,23 +176,78 @@ echo "gRPC stubs generated successfully."
 
 ### Integration with pytest
 
-The build script will be invoked during pytest session setup through a session-scoped fixture in `conftest.py`:
+The build script will NOT be invoked automatically by default, as most tests do not require gRPC stubs. Tests that need gRPC stubs must explicitly opt-in by either:
+
+1. **Using a pytest marker** to indicate the test requires gRPC stubs:
 
 ```python
+# In conftest.py
 @pytest.fixture(scope="session", autouse=True)
-def build_grpc_stubs(request):
-    """Build gRPC stubs for third-party proto definitions."""
+def build_grpc_stubs_if_needed(request):
+    """Build gRPC stubs only if tests are marked as requiring them."""
+    # Check if any test in the session has the 'grpc' marker
+    markers = [item.get_closest_marker("grpc") for item in request.session.items]
+    if not any(markers):
+        return  # No tests need gRPC stubs
+    
     script_path = os.path.join(os.path.dirname(__file__), "build_grpc_stubs.sh")
     base_dir = os.path.dirname(__file__)
-
-    # Skip if running in check mode
-    if request.config.getoption("--check"):
-        return
 
     result = subprocess.run([script_path, base_dir], check=True)
     if result.returncode != 0:
         pytest.fail(f"Failed to build gRPC stubs: {result.stderr}")
+
+# In test files
+@pytest.mark.grpc
+def test_gnmi_functionality():
+    """Test that requires gRPC stubs."""
+    # Test implementation
 ```
+
+2. **Using a command-line option** to explicitly enable stub building:
+
+```python
+# In conftest.py
+def pytest_addoption(parser):
+    parser.addoption(
+        "--build-grpc-stubs",
+        action="store_true",
+        default=False,
+        help="Build gRPC stubs before running tests"
+    )
+
+@pytest.fixture(scope="session", autouse=True)
+def build_grpc_stubs_if_requested(request):
+    """Build gRPC stubs only if explicitly requested."""
+    if not request.config.getoption("--build-grpc-stubs"):
+        return
+    
+    script_path = os.path.join(os.path.dirname(__file__), "build_grpc_stubs.sh")
+    base_dir = os.path.dirname(__file__)
+
+    result = subprocess.run([script_path, base_dir], check=True)
+    if result.returncode != 0:
+        pytest.fail(f"Failed to build gRPC stubs: {result.stderr}")
+
+# Usage: pytest --build-grpc-stubs tests/gnmi/
+```
+
+3. **Manual stub building** for development:
+
+```bash
+# Developers can manually run the build script when needed
+./tests/build_grpc_stubs.sh ./tests
+```
+
+### When to Enable Stub Building
+
+Since stub building is opt-in, tests should only enable it when they actually need gRPC functionality. Examples include:
+
+- Tests that interact with gNMI/gNOI services
+- Tests that validate gRPC-based configurations
+- Tests that use OpenConfig telemetry streaming
+
+For tests that don't use gRPC (which is the majority), no action is needed - they will run without the overhead of building stubs.
 
 ### Using the Generated Stubs
 
@@ -268,6 +323,7 @@ The implementation will proceed in the following phases:
 
 4. **CI Integration**:
    - Ensure submodules are properly cloned during CI builds
+   - Configure CI to use the `--build-grpc-stubs` flag only for test suites that require gRPC
    - Add checks for compatibility between proto versions and test code
 
 ## Benefits and Considerations
@@ -294,9 +350,10 @@ The implementation will proceed in the following phases:
 ### Considerations
 
 - **Repository Size**: Git submodules will increase the repository size
-- **Build Time**: Generating stubs for all protos may increase setup time
+- **Build Time**: Generating stubs is opt-in, so only tests that need gRPC will incur the build time overhead
 - **Compatibility**: Ensuring compatibility between different proto versions
 - **Maintenance**: Need to periodically update submodules to incorporate upstream changes
+- **Developer Experience**: Developers need to be aware of when to enable stub building for their tests
 
 ## Conclusion
 
