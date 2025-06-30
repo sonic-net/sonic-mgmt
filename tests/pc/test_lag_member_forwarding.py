@@ -179,6 +179,8 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         # Make sure data forwarding starts to fail
         if peer_device_dest_ip:
             ptfadapter.dataplane.flush()
+            #Wait for the LAG status to be disabled and cleanup to complete
+            time.sleep(10)
             built_and_send_tcp_ip_packet(False)
 
         if duthost.facts['asic_type'] == "vs":
