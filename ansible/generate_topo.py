@@ -348,6 +348,12 @@ def generate_topo(role: str,
             link_id_end = link_id_start + 1
             link_step = 1
             link_type = 'peer'
+        elif panel_port_id in port_cfg.get("fabric_ports", []):
+            vm_role_cfg = dut_role_cfg["fabric"]
+
+            link_id_end = link_id_start + port_cfg.get("fabric_breakout", 1)
+            link_step = 1
+            link_type = 'fabric'
         else:
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
@@ -454,12 +460,16 @@ def write_topo_file(role: str,
                     downlink_port_count: int,
                     uplink_port_count: int,
                     peer_port_count: int,
+                    suffix: str,
                     file_content: str):
     downlink_keyword = f"d{downlink_port_count}" if downlink_port_count > 0 else ""
     uplink_keyword = f"u{uplink_port_count}" if uplink_port_count > 0 else ""
     peer_keyword = f"s{peer_port_count}" if peer_port_count > 0 else ""
 
-    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}.yml"
+    file_path = f"vars/topo_{role}-{keyword}-{downlink_keyword}{uplink_keyword}{peer_keyword}{suffix}.yml"
+
+    if role in overwrite_file_name and keyword in overwrite_file_name[role]:
+        file_path = f"vars/topo_{overwrite_file_name[role][keyword]}.yml"
 
     with open(file_path, "w") as f:
         f.write(file_content)
@@ -499,11 +509,14 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
+    - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
 
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
@@ -520,8 +533,10 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
         vlan_group_list = generate_vlan_groups(downlinkif_list)
     file_content = generate_topo_file(
         role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, vlan_group_list)
+
     write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
-                    len(peer_ports), file_content)
+                    len(peer_ports), '-lag' if 'lag' in link_cfg else '',
+                    file_content)
 
 
 if __name__ == "__main__":
