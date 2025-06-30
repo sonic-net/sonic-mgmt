@@ -81,6 +81,9 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from ansible.plugins.loader import init_plugin_loader
+
+init_plugin_loader([])
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
