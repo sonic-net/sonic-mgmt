@@ -452,7 +452,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     acl_table_ports = defaultdict(list)
 
     if (topo in ["t0", "mx", "m0_vlan", "m0_l3", "m1", "ft2"]
-            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag")
+            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag", "t1-48-lag")
             or 't1-isolated' in tbinfo["topo"]["name"]):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -465,7 +465,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
