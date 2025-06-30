@@ -52,7 +52,7 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    #
 
 
 
-def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
+def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
     """
     Example:
     {
@@ -90,11 +90,16 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports):    # noqa F811
             }
             for k, v in bgp_neighbors.items()
         }
-        peer_to_gateway = {
-            port: (str(ipaddress.ip_interface(ip).ip), ipaddress.ip_interface(ip).network.prefixlen)
-            for port, ip_info in interfaces.items()
-            for ip in ip_info
-        }
+        peer_to_gateway = {}
+
+        for port, ip_info in interfaces.items():
+            for ip in ip_info:
+                if subnet_type == 'IPv4' and not ipaddress.ip_address(ip.split('/')[0]).version == 4:
+                    continue
+                ip_obj = ipaddress.ip_interface(ip)
+                ip_address = str(ip_obj.ip)
+                prefix_length = ip_obj.network.prefixlen
+                peer_to_gateway[port] = (ip_address, prefix_length)
         mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
         for index, port in enumerate(get_snappi_ports):
             if port['duthost'] == duthost:
@@ -262,10 +267,10 @@ def create_snappi_l1config(snappi_api, get_snappi_ports):
     layer1.name = "port settings"
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = port_data['fec']
+    layer1.auto_negotiation.rs_fec = snappi_ports[0]['fec']
     layer1.auto_negotiation.link_training = False
     layer1.speed = "speed_" + str(int(int(snappi_ports[0]["speed"]) / 1000)) + "_gbps"
-    layer1.auto_negotiate = Faport_data['autoneg']lse
+    layer1.auto_negotiate = snappi_ports[0]['autoneg']
     return config
 
 

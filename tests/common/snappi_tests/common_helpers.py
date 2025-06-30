@@ -911,6 +911,14 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
 
     return ipv6_list
 
+def get_other_hosts_from_ipv6_host(ip_str, prefix_length):
+    # Parse the IPv6 address and subnet
+    interface = ipaddress.IPv6Interface(f"{ip_str}/{prefix_length}")
+    network = interface.network
+    input_ip = interface.ip
+    
+    # Return all other valid host addresses (excluding the input IP)
+    return [str(ip) for ip in network.hosts() if ip != input_ip]
 
 def sec_to_nanosec(secs):
     """ Convert seconds to nanoseconds """
