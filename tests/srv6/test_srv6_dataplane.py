@@ -10,8 +10,8 @@ from scapy.layers.l2 import Ether
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
 from tests.srv6.srv6_utils import MySIDs, runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
-    validate_srv6_in_appl_db, validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
-    get_neighbor_mac, validate_srv6_in_asic_db, validate_srv6_route, verify_asic_db_sid_entry_exist
+    validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
+    get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -20,7 +20,8 @@ from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv6_packet
+from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv6_packet, \
+    validate_srv6_in_appl_db, validate_srv6_in_asic_db, validate_srv6_route
 
 logger = logging.getLogger(__name__)
 
@@ -196,15 +197,15 @@ class SRv6Base():
         clear_srv6_counters(duthost)
 
         logger.info('Validate SRv6 table in APPL DB')
-        pytest_assert(wait_until(60, 5, 0, validate_srv6_in_appl_db, duthost),
+        pytest_assert(wait_until(60, 5, 0, validate_srv6_in_appl_db, duthost, MySIDs.MY_SID_LIST),
                       "SRv6 table in APPL DB is not as expected")
 
         logger.info('Validate SRv6 table in ASIC DB')
-        pytest_assert(wait_until(60, 5, 0, validate_srv6_in_asic_db, duthost),
+        pytest_assert(wait_until(60, 5, 0, validate_srv6_in_asic_db, duthost, MySIDs.MY_SID_LIST),
                       "SRv6 table in ASIC DB is not as expected")
 
         logger.info('Validate SRv6 route in ASIC DB')
-        pytest_assert(wait_until(120, 5, 0, validate_srv6_route, duthost),
+        pytest_assert(wait_until(120, 5, 0, validate_srv6_route, duthost, ROUTE_BASE),
                       "SRv6 route in ASIC DB is not as expected")
 
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, self.params['ptf_downlink_port']).decode('utf-8')
