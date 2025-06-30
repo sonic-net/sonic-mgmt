@@ -188,7 +188,7 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True)
+            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True, override_config=True)
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -367,6 +367,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
+    upstream_service_ports = defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
     upstream_port_id_to_router_mac_map = {}
@@ -419,6 +420,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                         upstream_ports[neighbor['namespace']].append(interface)
                         upstream_port_ids.append(port_id)
                         upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                        if neigh_type == "PT0":
+                            upstream_service_ports[neighbor['namespace']].append(interface)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -466,9 +469,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
-        and not re.match(r"t0-.*s\d+", tbinfo["topo"]["name"])
     ):
-
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -478,6 +479,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         acl_table_ports = t2_info['acl_table_ports']
     else:
         for namespace, port in list(upstream_ports.items()):
+            acl_table_ports[namespace] += port
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += port
+
+    if re.match(r"t0-.*s\d+", tbinfo["topo"]["name"]):
+        for namespace, port in list(upstream_service_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
@@ -839,7 +847,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     applying an empty configuration file.
     """
 
-    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
+    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 30
 
     @abstractmethod
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
