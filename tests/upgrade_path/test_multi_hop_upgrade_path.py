@@ -97,7 +97,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
                                          get_advanced_reboot, multihop_advanceboot_loganalyzer_factory, # noqa F811
                                          verify_dut_health, nbrhosts, fanouthosts, vmhost,              # noqa F811
                                          backup_and_restore_config_db, advanceboot_neighbor_restore,    # noqa F811
-                                         sad_case_type, restore_image):
+                                         sad_case_type, restore_image):                                 # noqa F811
 
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
