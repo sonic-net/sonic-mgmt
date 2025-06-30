@@ -36,6 +36,8 @@ class MultiAsicSonicHost(object):
         self.loganalyzer = None
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
+        self._config_facts = None
+        self.hostname = hostname
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
