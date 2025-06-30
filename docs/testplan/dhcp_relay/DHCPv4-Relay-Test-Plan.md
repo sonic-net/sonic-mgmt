@@ -44,7 +44,7 @@
     - [Debug Commands](#debug-commands)
 
 ## Document Information
-- **Test Suite**: SONiCv4 DHCPv4 relay Testing
+- **Test Suite**: SONiC DHCPv4 relay Testing
 - **File**: `tests/dhcp_relay/test_dhcp_relay.py`
 - **Date**: June 25, 2025
 - **Version**: 1.0
@@ -153,7 +153,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 #### 3.2 Random Source Port Test (`test_dhcp_relay_random_sport`)
 - **Objective**: Test DHCPv4 relay with non-standard client ports
-- **Relay Agents**: ISC only
+- **Relay Agents**: Both ISC and SONiC
 - **Test Steps**:
   1. Generate random source port (1000-65535)
   2. Execute PTF test with random port
@@ -280,7 +280,6 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 ### Feature Restrictions
 - Unicast MAC testing limited to single VLAN setups
-- Random source port testing ISC-only
 - non-default VRF testing SONiC-only
 - Option 82 features like server override are SONiC-only
 
