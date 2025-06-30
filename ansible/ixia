@@ -383,7 +383,7 @@ sonic_str3_cisco_8800:
       ansible_host: 10.3.146.97
   vars:
     hwsku: Cisco-88-LC0-36FH-O36
-    iface_speed: 100000    
+    iface_speed: 100000
 
 sonic_nvidia_sn5600_stress:
   hosts:
