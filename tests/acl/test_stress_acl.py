@@ -205,7 +205,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
             upstream_port_neighbor_ips[interface] = ipv4_addr
 
     dst_ip_addr = None
-    if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u16",
+    if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u15-lag",
                                   "t1-isolated-d56u1-lag"]:
         dst_ip_addr = random.choices(list(upstream_port_neighbor_ips.values()))
     return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
