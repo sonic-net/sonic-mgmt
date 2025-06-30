@@ -751,6 +751,25 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
       - "asic_type in ['vpp']"
 
 #######################################
+#####         LLDP                #####
+#######################################
+lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+lldp/test_lldp_syncd.py::test_lldp_entry_table_after_syncd_orchagent:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
 #####         Log Fidelity        #####
 #######################################
 log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown:
