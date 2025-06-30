@@ -477,6 +477,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                 acl_table_ports[''].append(k)
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
+    elif topo == "lt2":
+        # For LT2, add portchannels for downstream links
+        for k, v in list(port_channels.items()):
+            acl_table_ports[v['namespace']].append(k)
+        # Add RIF for upstream links
+        for namespace, port in list(upstream_ports.items()):
+            acl_table_ports[namespace] += port
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
