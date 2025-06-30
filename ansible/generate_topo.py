@@ -105,8 +105,8 @@ hw_port_cfg = {
                          'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
-    'c448o16':          {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
+    'c448o16-lag':      {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
                          'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
@@ -507,13 +507,11 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'o128t1'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
-    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
-    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
-    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
-    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
