@@ -1,5 +1,6 @@
 # Helper functions to be used only for cisco platforms.
-from tests.common.cisco_data import copy_set_voq_watchdog_script_cisco_8000
+from tests.common.utilities import wait_until
+from tests.common.cisco_data import copy_set_voq_watchdog_script_cisco_8000, check_dshell_ready
 import pytest
 
 
@@ -27,6 +28,8 @@ def modify_voq_watchdog_cisco_8000(duthost, enable):
     #    copy_set_voq_watchdog_script_cisco_8000(duthost, "", enable=enable)
     '''
 
+    if not wait_until(300, 20, 0, check_dshell_ready, duthost):
+        raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     for asic in asics:
         copy_set_voq_watchdog_script_cisco_8000(duthost, asic, enable=enable)
         duthost.shell(f"sudo show platform npu script -n asic{asic} -s set_voq_watchdog.py")
