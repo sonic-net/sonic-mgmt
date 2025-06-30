@@ -359,7 +359,8 @@ class TestPlanManager(object):
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
-                    "kvm_image_branch": kvm_image_branch
+                    "kvm_image_branch": kvm_image_branch,
+                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -670,6 +671,16 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="KVM build id."
+    )
+    parser_create.add_argument(
+        "--kvm-image-build-pipeline-id",
+        type=str,
+        dest="kvm_image_build_pipeline_id",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="KVM image build pipeline id."
     )
     parser_create.add_argument(
         "--mgmt-branch",
@@ -1099,6 +1110,7 @@ if __name__ == "__main__":
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
+                    kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
                     min_worker=args.min_worker,
                     max_worker=args.max_worker,
                     pr_id=pr_id,
