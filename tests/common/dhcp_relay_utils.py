@@ -65,6 +65,13 @@ def query_and_sum_dhcpcom_relay_counters(duthost, vlan_name, interface_name_list
     return total_counters
 
 
+def compare_dhcpcom_relay_counters_with_warning(actual_counter, expected_counter, warning_msg, error_in_percentage=0.0):
+    compare_result = compare_dhcpcom_relay_counter_values(
+        actual_counter, expected_counter, error_in_percentage)
+    while msg := next(compare_result, False):
+        logger.warning(warning_msg + ": " + str(msg))
+
+
 def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter, error_in_percentage=0.0):
     """Compare the DHCP relay counter value with the expected counter."""
     for dir in SUPPORTED_DIR:
@@ -73,8 +80,6 @@ def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter, e
             actual_value = dhcp_relay_counter.setdefault(dir, {}).get(dhcp_type, 0)
             logger_message = "DHCP relay counter {} {}: actual value {}, expected value {}".format(
                 dir, dhcp_type, actual_value, expected_value)
-            if expected_value == "*":
-                continue  # Skip comparison if expected value is a wildcard
             if expected_value == actual_value:
                 logger.info(logger_message)
             else:
@@ -103,7 +108,7 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
         uplink_interfaces will equal to uplink_portchannels_or_interfaces
     '''
     uplink_interfaces = []
-    common_msg = "comparing {} counters and {} counters, hostname:{}, "
+    compare_warning_msg = "Warning for comparing {} counters and {} counters, hostname:{}. "
 
     for portchannel_name in uplink_portchannels_or_interfaces:
         if portchannel_name in portchannels.keys():
@@ -114,18 +119,13 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
             members_counters = query_and_sum_dhcpcom_relay_counters(duthost,
                                                                     downlink_vlan_iface,
                                                                     portchannels[portchannel_name]['members'])
-            # Compare the portchannel counters with the sum of its members' counters
-            logger.info(common_msg.format(
-                portchannel_name, portchannels[portchannel_name]['members'], duthost.hostname))
 
             # If the portchannel counters and its members' counters are not equal, yield a warning message
-            compare_result = compare_dhcpcom_relay_counter_values(
-                portchannel_counters, members_counters, error_in_percentage)
-            while msg := next(compare_result, False):
-                logger.warning(
-                    ("Warning found when " + common_msg + ": {}")
-                    .format(portchannel_name, portchannels[portchannel_name]['members'], duthost.hostname, str(msg)))
-
+            compare_dhcpcom_relay_counters_with_warning(
+                portchannel_counters, members_counters,
+                compare_warning_msg.format(portchannel_name,
+                                           portchannels[portchannel_name]['members'], duthost.hostname),
+                error_in_percentage)
         else:
             uplink_interfaces.append(portchannel_name)
 
@@ -136,38 +136,19 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
     )
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
 
-    logger.info(common_msg.format(downlink_vlan_iface, client_iface, duthost.hostname))
-    compare_result = compare_dhcpcom_relay_counter_values(vlan_interface_counter,
-                                                          client_interface_counter,
-                                                          error_in_percentage)
-    while msg := next(compare_result, False):
-        logger.warning(
-            ("Warning found when " + common_msg + ": {}")
-            .format(downlink_vlan_iface, client_iface, duthost.hostname, str(msg)))
-
-    logger.info(common_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname))
-    compare_result = compare_dhcpcom_relay_counter_values(uplink_portchannels_interfaces_counter,
-                                                          uplink_interface_counter,
-                                                          error_in_percentage)
-    while msg := next(compare_result, False):
-        logger.warning(
-            ("Warning found when " + common_msg + ": {}")
-            .format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname, str(msg)))
-
-    logger.info(common_msg.format(downlink_vlan_iface, "expected_downlink_counter", duthost.hostname))
-    compare_result = compare_dhcpcom_relay_counter_values(vlan_interface_counter,
-                                                          expected_downlink_counter,
-                                                          error_in_percentage)
-    while msg := next(compare_result, False):
-        logger.warning(
-            ("Warning found when " + common_msg + ": {}")
-            .format(downlink_vlan_iface, "expected_downlink_counter", duthost.hostname, str(msg)))
-
-    logger.info(common_msg.format(uplink_interfaces, "expected_uplink_counter", duthost.hostname))
-    compare_result = compare_dhcpcom_relay_counter_values(uplink_interface_counter,
-                                                          expected_uplink_counter,
-                                                          error_in_percentage)
-    while msg := next(compare_result, False):
-        logger.warning(
-            ("Warning found when " + common_msg + ": {}")
-            .format(uplink_interfaces, "expected_uplink_counter", duthost.hostname, str(msg)))
+    compare_dhcpcom_relay_counters_with_warning(
+        vlan_interface_counter, client_interface_counter,
+        compare_warning_msg.format(downlink_vlan_iface, client_iface, duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        uplink_portchannels_interfaces_counter, uplink_interface_counter,
+        compare_warning_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        vlan_interface_counter, expected_downlink_counter,
+        compare_warning_msg.format(downlink_vlan_iface, "expected_downlink_counter", duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        uplink_interface_counter, expected_uplink_counter,
+        compare_warning_msg.format(uplink_interfaces, "expected_uplink_counter", duthost.hostname),
+        error_in_percentage)
