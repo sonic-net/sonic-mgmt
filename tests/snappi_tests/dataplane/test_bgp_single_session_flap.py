@@ -20,6 +20,7 @@ TIMEOUT = 30
 FLAP_DETAILS = {"device_name": "sonic-s6100-dut1", "port_name": "Ethernet18"}
 ROUTE_RANGES = {
     "IPv6": [["5000::1", 64, 2500], ["4000::1", 64, 2500]],
+    "IPv4": [['100.1.1.1', 24, 2500], ['200.1.1.1', 24, 2500]]
 }
 
 
@@ -46,13 +47,15 @@ def test_bgp_sessions(
         subnet_type in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(subnet_type)
     )
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports)
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
     tx_ports = [snappi_ports[0]]
     rx_ports = snappi_ports[1:]
     snappi_config = create_snappi_l1config
     snappi_extra_params.protocol_config = {
-        "Tx": {"network_group": False, "protocol_type": "bgp", "ports": tx_ports, "subnet_type": subnet_type},
-        "Rx": {"network_group": True, "protocol_type": "bgp", "ports": rx_ports, "subnet_type": subnet_type},
+        "Tx": {"network_group": False, "protocol_type": "bgp", "ports": tx_ports,
+               "subnet_type": subnet_type, 'is_rdma': False},
+        "Rx": {"network_group": True, "route_ranges": ROUTE_RANGES[subnet_type], "protocol_type": "bgp",
+               "ports": rx_ports, "subnet_type": subnet_type, 'is_rdma': False},
     }
     snappi_config, snappi_obj_handles = create_snappi_config(snappi_config, snappi_extra_params)
     snappi_extra_params.traffic_flow_config = [
@@ -65,9 +68,8 @@ def test_bgp_sessions(
             "rx_names": snappi_obj_handles["Rx"]["network_group"],
         },
     ]
-
     snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
-    get_pkt_loss_duration(duthosts, snappi_api, snappi_config, tx_ports, rx_ports)
+    get_pkt_loss_duration(duthosts, snappi_api, snappi_config, tx_ports, rx_ports, subnet_type)
 
 
 def check_bgp_state(snappi_api, type):
@@ -103,7 +105,7 @@ def get_port_stats(api):
     return api.get_metrics(request).port_metrics
 
 
-def get_pkt_loss_duration(duthosts, snappi_api, snappi_config, tx_ports, rx_ports):
+def get_pkt_loss_duration(duthosts, snappi_api, snappi_config, tx_ports, rx_ports, subnet_type):
     """
     Get the packet loss duration
     """
@@ -118,7 +120,10 @@ def get_pkt_loss_duration(duthosts, snappi_api, snappi_config, tx_ports, rx_port
         cs.protocol.all.state = cs.protocol.all.START
         snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
-        check_bgp_state(snappi_api, type="bgpv6")
+        if subnet_type == "IPv4":
+            check_bgp_state(snappi_api, type="bgpv4")
+        elif subnet_type == "IPv6":
+            check_bgp_state(snappi_api, type="bgpv6")
         logger.info("Starting Traffic")
         cs = snappi_api.control_state()
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
