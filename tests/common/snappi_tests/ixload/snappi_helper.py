@@ -270,7 +270,7 @@ def set_timelineCustom(api, initial_cps_value):
 
     timeline_json = {
         'rampUpValue': 1000000,
-        'sustainTime': 180
+        'sustainTime': 300
     }
     # response = requests.patch(url_activityList, json=activityList_json)
     """
