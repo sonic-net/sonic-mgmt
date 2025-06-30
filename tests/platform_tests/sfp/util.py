@@ -12,9 +12,9 @@ def parse_output(output_lines):
     res = {}
     for line in output_lines:
         fields = line.split()
-        if len(fields) != 2:
+        if len(fields) < 2:
             continue
-        res[fields[0]] = fields[1]
+        res[fields[0]] = line.replace(fields[0], '').strip()
     return res
 
 
