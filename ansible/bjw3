@@ -18,6 +18,30 @@ all:
         # Please order the followng ptf hosts by IP address
     pdu:
       hosts:
+        bjw3-pdu-126-62:  # R402M
+          ansible_host: 10.150.126.62
+          protocol: snmp
+        bjw3-pdu-126-63:  # R402S
+          ansible_host: 10.150.126.63
+          protocol: snmp
+        bjw3-pdu-126-64:  # R403M
+          ansible_host: 10.150.126.64
+          protocol: snmp
+        bjw3-pdu-126-65:  # R403S
+          ansible_host: 10.150.126.65
+          protocol: snmp
+        bjw3-pdu-126-68:  # R405M
+          ansible_host: 10.150.126.68
+          protocol: snmp
+        bjw3-pdu-126-69:  # R405S
+          ansible_host: 10.150.126.69
+          protocol: snmp
+        bjw3-pdu-126-74:  # R408M
+          ansible_host: 10.150.126.74
+          protocol: snmp
+        bjw3-pdu-126-75:  # R408S
+          ansible_host: 10.150.126.75
+          protocol: snmp
 
 fanout:
   hosts:
@@ -27,6 +51,18 @@ fanout:
     bjw3-can-7260-leaf-25:
       ansible_host: 10.150.238.15
       ansible_hostv6: 2404:f801:10:16::a96:ee0f
+    bjw3-can-7050-leaf-1:
+      ansible_host: 10.150.238.65
+      ansible_host: 10.150.238.65
+      os: sonic
+    bjw3-can-7050-leaf-2:
+      ansible_host: 10.150.238.67
+      ansible_host: 10.150.238.67
+      os: sonic
+    bjw3-can-7050-leaf-3:
+      ansible_host: 10.150.238.69
+      ansible_host: 10.150.238.69
+      os: sonic
 
 
 sonic:
