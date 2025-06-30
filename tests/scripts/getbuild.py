@@ -165,7 +165,6 @@ def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
     if not pipeline_id:
         # 1 is Azure.sonic-buildimage
         # 2511 is Azure.sonic-buildimage-msft.PR
-        # 2925 is Azure.sonic-buildimage.official_build_vs_with_test
         pipeline_id = 2511 if branch == "202412" else 1
 
     builds_url = (f"https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={pipeline_id}&"
