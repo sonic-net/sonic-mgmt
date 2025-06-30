@@ -182,25 +182,31 @@ The build script will NOT be invoked automatically by default, as most tests do 
 
 ```python
 # In conftest.py
-@pytest.fixture(scope="session", autouse=True)
-def build_grpc_stubs_if_needed(request):
-    """Build gRPC stubs only if tests are marked as requiring them."""
-    # Check if any test in the session has the 'grpc' marker
-    markers = [item.get_closest_marker("grpc") for item in request.session.items]
-    if not any(markers):
-        return  # No tests need gRPC stubs
-    
+def pytest_configure(config):
+    """Register the grpc marker."""
+    config.addinivalue_line(
+        "markers", "grpc: mark test as requiring gRPC stub generation"
+    )
+
+@pytest.fixture(scope="session")
+def grpc_stubs(request):
+    """Build gRPC stubs when requested by tests."""
     script_path = os.path.join(os.path.dirname(__file__), "build_grpc_stubs.sh")
     base_dir = os.path.dirname(__file__)
 
     result = subprocess.run([script_path, base_dir], check=True)
     if result.returncode != 0:
         pytest.fail(f"Failed to build gRPC stubs: {result.stderr}")
+    
+    # Return the path to generated stubs for convenience
+    return os.path.join(base_dir, "common", "grpc_stubs")
 
 # In test files
 @pytest.mark.grpc
-def test_gnmi_functionality():
+def test_gnmi_functionality(grpc_stubs):
     """Test that requires gRPC stubs."""
+    # The grpc_stubs fixture ensures stubs are built before this test runs
+    from tests.common.grpc_stubs.openconfig.gnmi.proto.gnmi import gnmi_pb2
     # Test implementation
 ```
 
@@ -216,11 +222,11 @@ def pytest_addoption(parser):
         help="Build gRPC stubs before running tests"
     )
 
-@pytest.fixture(scope="session", autouse=True)
-def build_grpc_stubs_if_requested(request):
-    """Build gRPC stubs only if explicitly requested."""
+@pytest.fixture(scope="session")
+def grpc_stubs_cli(request):
+    """Build gRPC stubs when --build-grpc-stubs flag is used."""
     if not request.config.getoption("--build-grpc-stubs"):
-        return
+        pytest.skip("gRPC stubs not built (use --build-grpc-stubs to enable)")
     
     script_path = os.path.join(os.path.dirname(__file__), "build_grpc_stubs.sh")
     base_dir = os.path.dirname(__file__)
@@ -228,8 +234,11 @@ def build_grpc_stubs_if_requested(request):
     result = subprocess.run([script_path, base_dir], check=True)
     if result.returncode != 0:
         pytest.fail(f"Failed to build gRPC stubs: {result.stderr}")
+    
+    return os.path.join(base_dir, "common", "grpc_stubs")
 
 # Usage: pytest --build-grpc-stubs tests/gnmi/
+# Then in test files, use the grpc_stubs_cli fixture if needed
 ```
 
 3. **Manual stub building** for development:
