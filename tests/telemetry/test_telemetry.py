@@ -31,7 +31,8 @@ MAX_UC_CNT = 7
 
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True, yang_validate=False)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                  wait_for_bgp=True, yang_validate=False)
     # config reload overrides testing telemetry config, ensure testing config exists
     setup_telemetry_forpyclient(duthost)
 
@@ -199,8 +200,8 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
                 single_queue_entry = f"{iface}|{start}"
                 remaining_queue_entry = f"{iface}|{start + 1}-{end}"
                 profile = data['BUFFER_QUEUE'][bq_entry]['profile']
-                data['BUFFER_QUEUE'][remaining_queue_entry] = { "profile": profile }
-                data['BUFFER_QUEUE'][single_queue_entry] = { "profile": profile }
+                data['BUFFER_QUEUE'][remaining_queue_entry] = {"profile": profile}
+                data['BUFFER_QUEUE'][single_queue_entry] = {"profile": profile}
                 del data['BUFFER_QUEUE'][bq_entry]
                 bq_entry = single_queue_entry
             else:
@@ -216,7 +217,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
             = "true"
         load_new_cfg(duthost, data)
         pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                 dut_ip, interface_to_check, env.gnmi_port), "Unable to get data from COUNTERS_QUEUE_NAME_MAP")
+                                 dut_ip, interface_to_check, env.gnmi_port), "Unable to get map data")
         pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         # Remove buffer queue and reload and get new number of queue counters
@@ -224,7 +225,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         load_new_cfg(duthost, data)
         if not single_key:
             pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                     dut_ip, interface_to_check, env.gnmi_port), "Unable to get data from COUNTERS_QUEUE_NAME_MAP")
+                                     dut_ip, interface_to_check, env.gnmi_port), "Unable to get map data")
         post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         pytest_assert(pre_del_cnt > post_del_cnt,
@@ -233,6 +234,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                         verbose=False)['stdout'])
         load_new_cfg(duthost, data)
+
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
