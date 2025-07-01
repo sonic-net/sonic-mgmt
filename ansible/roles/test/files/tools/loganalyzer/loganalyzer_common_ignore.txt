@@ -352,3 +352,7 @@ r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/33376635
 r, ".* ERR kernel.*audit: rate limit exceeded.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33479668
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
