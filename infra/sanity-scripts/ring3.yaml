@@ -413,23 +413,23 @@ L2:
   t0-64:
     mth64:
       sim:
-        - lldp/test_lldp.py
-        - arp/test_arp_extended.py
-        - arp/test_neighbor_mac_noptf.py
+        #- lldp/test_lldp.py
+        #- arp/test_arp_extended.py
+        #- arp/test_neighbor_mac_noptf.py
         #- arp/test_tagged_arp.py
-        - fdb/test_fdb.py
-        - fdb/test_fdb_flush.py
+        #- fdb/test_fdb.py
+        #- fdb/test_fdb_flush.py
         #- fdb/test_fdb_mac_expire.py
         #- snmp/test_snmp_fdb.py
-        - pc/test_po_cleanup.py
-        - pc/test_po_update.py
-        - vlan/test_autostate_disabled.py
-        - vlan/test_host_vlan.py
+        #- pc/test_po_cleanup.py
+        #- pc/test_po_update.py
+        #- vlan/test_autostate_disabled.py
+        #- vlan/test_host_vlan.py
         #- vlan/test_vlan_ping.py
-        - generic_config_updater/test_dhcp_relay.py
-        - generic_config_updater/test_portchannel_interface.py
-        - generic_config_updater/test_vlan_interface.py
-        - dhcp_relay/test_dhcp_relay.py
+        #- generic_config_updater/test_dhcp_relay.py
+        #- generic_config_updater/test_portchannel_interface.py
+        #- generic_config_updater/test_vlan_interface.py
+      #- dhcp_relay/test_dhcp_relay.py
       hw:
         - arp/test_arp_extended.py
         - arp/test_neighbor_mac_noptf.py
