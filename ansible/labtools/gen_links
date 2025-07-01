@@ -165,6 +165,9 @@ fanout_ports_info = {
         "Cisco-8101-C64": {
             "100000": ["etp{}{}".format(i // 2, chr(ord("a") + i % 2)) for i in range(64)],
             },
+        "Arista-7050CX3-32S-C32": {
+            "100000": ["Ethernet{}/1".format(i + 1) for i in range(32)],
+            },
         }
 
 
@@ -1142,6 +1145,19 @@ class GenLink:
             self.__root_fanout_link_logical.append(root_fanout_link_logical)
         return vlan
 
+    def gen_console_links(self, console_name, console_port):
+        ret = []
+        for dut in self.__duts:
+            ret.append(list_to_dict(console_links_header,
+                                    console_name, console_port.pop(),
+                                    dut.name, "ssh", "sonic_config", "sonicadmin", "9600"))
+        for fanout in self.__fanouts:
+            ret.append(list_to_dict(console_links_header,
+                                    console_name, console_port.pop(),
+                                    fanout.name, "ssh", "sonic_config", "sonicadmin", "9600"))
+        return ret
+
+
     def get_shared_fanout_vlan(self, shared_fanout_name):
         return gen_trunk_vlan(self.__logical_links, shared_fanout_name)
 
@@ -1210,7 +1226,8 @@ class GenLinks:
             csv_file = csv.DictReader(f)
             console_lines = filter(lambda line : line["StartDevice"] == console_name, csv_file)
             for line in console_lines:
-                if line["StartPort"] in console_port:
+                port = line["StartPort"]
+                if port in console_port:
                     console_port.remove(port)
         self.console_name = console_name
         self.console_port = console_port
@@ -1336,13 +1353,8 @@ class GenLinks:
 
     def gen_console_links(self):
         if not self.__console_links:
-            for item in self.__genlinks:
-                self.__console_links.append(list_to_dict(console_links_header,
-                                                         self.console_name, self.console_port.pop(),
-                                                         item.dut_name, "ssh", "", "9600"))
-                self.__console_links.append(list_to_dict(console_links_header,
-                                                         self.console_name, self.console_port.pop(),
-                                                         item.fanout_name, "ssh", "", "9600"))
+            for gen_link in self.__genlinks:
+                self.__console_links.extend(gen_link.gen_console_links(self.console_name, self.console_port))
 
     def print_physical_links(self, alias=True):
         csv_file = csv.DictWriter(sys.stdout, physical_links_header, lineterminator="\n")
