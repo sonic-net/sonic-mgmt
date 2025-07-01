@@ -21,6 +21,9 @@ all:
         vms91-2:
           ansible_host: 10.64.247.150
           ansible_hostv6: 2a01:111:e210:b000::a40:f796
+        vms91-3:
+          ansible_host: 10.64.247.156
+          ansible_hostv6: 2a01:111:e210:b000::a40:f79c
         vms92-1:
           ansible_host: 10.64.247.141
           ansible_hostv6: 2a01:111:e210:b000::a40:f78d
@@ -181,6 +184,10 @@ fanout:
       ansible_host: 10.64.246.161
       ansible_hostv6: 2a01:111:e210:b000::a40:f6a1
       os: sonic
+    str5-sn5640-fan-6:
+      ansible_host: 10.64.246.165
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a5
+      os: sonic
     str5-7060x6-512-fan-7:
       ansible_host: 10.64.246.206
       ansible_hostv6: 2a01:111:e210:b000::a40:f6ce
@@ -339,6 +346,26 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0x2F": "MT2516600J7A"
+    str5-sn5640-6:
+      ansible_host: 10.64.246.164
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a4
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT2516600JFW
+      base_mac: 50:00:E6:01:D8:0C
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT2516600JFW"
+        "0x24": "50:00:E6:01:D8:0C"
+        "0x25": "03/18/2025 17:10:24"
+        "0x26": "16"
+        "0x27": "02.00"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0x2F": "MT2516600JFW"
 
 server:
   hosts:
