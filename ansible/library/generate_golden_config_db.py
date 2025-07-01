@@ -388,7 +388,7 @@ class GenerateGoldenConfigDBModule(object):
         Generate golden_config for FT2 to enable FEC.
         **Only PORT table is updated**.
         """
-        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128-d110u14"]
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
