@@ -42,7 +42,7 @@ IGNORE_REG_LIST = [
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa:F821
 
 
 def get_vlan_info(intf):
