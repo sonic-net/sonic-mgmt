@@ -74,8 +74,17 @@ def constants(setup_interfaces, ip_version):
         pass
 
     connections = setup_interfaces
-    assert connections["upper_tor"]["neighbor_addr"] == connections["lower_tor"]["neighbor_addr"]
-    assert connections["upper_tor"]["neighbor_addr_ipv6"] == connections["lower_tor"]["neighbor_addr_ipv6"]
+    assert connections["upper_tor"]["neighbor_addr"] == connections["lower_tor"]["neighbor_addr"], (
+        "Mismatch in server neighbor IP addresses between upper and lower ToR.\n"
+        "- Upper ToR neighbor_addr: {}\n"
+        "- Lower ToR neighbor_addr: {}"
+    ).format(connections["upper_tor"]["neighbor_addr"], connections["lower_tor"]["neighbor_addr"])
+
+    assert connections["upper_tor"]["neighbor_addr_ipv6"] == connections["lower_tor"]["neighbor_addr_ipv6"], (
+        "Mismatch in server neighbor IPv6 addresses between upper and lower ToR.\n"
+        "- Upper ToR neighbor_addr_ipv6: {}\n"
+        "- Lower ToR neighbor_addr_ipv6: {}"
+    ).format(connections["upper_tor"]["neighbor_addr_ipv6"], connections["lower_tor"]["neighbor_addr_ipv6"])
 
     _constants = _C()
     if ip_version == "ipv4":
@@ -106,8 +115,16 @@ def test_orchagent_slb(
     def verify_bgp_session(duthost, bgp_neighbor):
         """Verify the bgp session to the DUT is established."""
         bgp_facts = duthost.bgp_facts()["ansible_facts"]
-        assert bgp_neighbor.ip in bgp_facts["bgp_neighbors"]
-        assert bgp_facts["bgp_neighbors"][bgp_neighbor.ip]["state"] == "established"
+        assert bgp_neighbor.ip in bgp_facts["bgp_neighbors"], (
+            "BGP neighbor IP '{}' not found in DUT's BGP neighbor list."
+        ).format(bgp_neighbor.ip)
+
+        assert bgp_facts["bgp_neighbors"][bgp_neighbor.ip]["state"] == "established", (
+            "BGP session state is not 'established' for neighbor '{}'. Got: '{}'."
+        ).format(
+            bgp_neighbor.ip,
+            bgp_facts["bgp_neighbors"][bgp_neighbor.ip]["state"]
+        )
 
     def verify_route(duthost, route, existing=True):
         """Verify the route's existence in the DUT."""
@@ -169,10 +186,28 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        pytest_assert(verify_route(upper_tor_host, constants.route, existing=True),
-                      "route is not present on the upper ToR")
-        pytest_assert(verify_route(lower_tor_host, constants.route, existing=True),
-                      "route is not present on the lower ToR")
+        pytest_assert(
+            verify_route(upper_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the upper ToR. "
+                "Expected route: {}. "
+                "Upper ToR host: {}"
+            ).format(
+                constants.route,
+                upper_tor_host
+            )
+        )
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route: {}. "
+                "Lower ToR host: {}. "
+            ).format(
+                constants.route,
+                lower_tor_host,
+            )
+        )
 
         # STEP 3: verify the route by sending some downstream traffic
         verify_traffic(
@@ -190,12 +225,30 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        pytest_assert(wait_until(10, 5, 0, verify_route, upper_tor_host,
-                                 constants.route, existing=False),
-                      "route is not withdrawed from the upper ToR")
-        pytest_assert(wait_until(10, 5, 0, verify_route, lower_tor_host,
-                                 constants.route, existing=False),
-                      "route is not withdrawed from the lower ToR")
+        pytest_assert(
+            wait_until(10, 5, 0, verify_route, upper_tor_host, constants.route, existing=False),
+            (
+                "Route is not withdrawn from the upper ToR. "
+                "Expected route to be withdrawn. "
+                "Upper ToR host: {}. "
+                "Route: {}"
+            ).format(
+                upper_tor_host,
+                constants.route
+            )
+        )
+        pytest_assert(
+            wait_until(10, 5, 0, verify_route, lower_tor_host, constants.route, existing=False),
+            (
+                "Route is not withdrawn from the lower ToR. "
+                "Expected route to be withdrawn. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
 
         # STEP 5: verify the route is removed by verifying that downstream traffic is dropped
         verify_traffic(
@@ -221,11 +274,30 @@ def test_orchagent_slb(
 
         time.sleep(constants.bgp_update_sleep_interval)
 
-        pytest_assert(verify_route(upper_tor_host, constants.route, existing=True),
-                      "route is not present on the upper ToR")
-        pytest_assert(verify_route(lower_tor_host, constants.route, existing=True),
-                      "route is not present on the lower ToR")
-
+        pytest_assert(
+            verify_route(upper_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the upper ToR. "
+                "Expected route to exist. "
+                "Upper ToR host: {}. "
+                "Route: {}"
+            ).format(
+                upper_tor_host,
+                constants.route
+            )
+        )
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route to exist. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
         # STEP 8: verify the route by sending some downstream traffic
         verify_traffic(
             upper_tor_host, connections["upper_tor"], constants.route,
@@ -240,8 +312,18 @@ def test_orchagent_slb(
         upper_tor_bgp_neighbor.stop_session()
 
         verify_bgp_session(lower_tor_host, lower_tor_bgp_neighbor)
-        pytest_assert(verify_route(lower_tor_host, constants.route, existing=True),
-                      "route is not present on the lower ToR")
+        pytest_assert(
+            verify_route(lower_tor_host, constants.route, existing=True),
+            (
+                "Route is not present on the lower ToR. "
+                "Expected route to exist. "
+                "Lower ToR host: {}. "
+                "Route: {}"
+            ).format(
+                lower_tor_host,
+                constants.route
+            )
+        )
 
         lower_tor_bgp_neighbor.stop_session()
 
