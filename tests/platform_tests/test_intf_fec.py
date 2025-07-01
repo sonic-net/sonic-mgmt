@@ -124,7 +124,7 @@ def get_interface_speed(duthost, interface_name):
     return speed
 
 
-def test_verify_fec_stats_counters(duthosts, toggles_num, enum_rand_one_per_hwsku_frontend_hostname):
+def test_verify_fec_stats_counters(duthosts, toggles_num, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     @Summary: Verify the FEC stats counters are valid
     Also, check for any uncorrectable FEC errors
@@ -148,7 +148,7 @@ def test_verify_fec_stats_counters(duthosts, toggles_num, enum_rand_one_per_hwsk
         logging.info(f"current toggle iteration: {i} out of {toggles_num}")
 
         # Toggle all FEC-eligible ports before checking FEC stats
-        port_toggle(duthost, None, ports=interfaces, wait_after_ports_up=10)
+        port_toggle(duthost, tbinfo, ports=interfaces, wait_after_ports_up=10)
 
         logging.info("Get output of 'show interfaces counters fec-stats'")
         intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
