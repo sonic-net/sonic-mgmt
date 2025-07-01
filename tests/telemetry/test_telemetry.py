@@ -189,6 +189,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     """If all queues for that pool are in the same pool ex Ethernet0|0-9
     We will modify to separate the first queue and the remaining such
     that we get a separate entry for Ethernet0|0 and Ethernet0|1-9"""
+    single_key = False
     bq_entry = interface_buffer_queues[0]
     if len(interface_buffer_queues) == 1:
         iface, q_range = bq_entry.split('|')
@@ -204,6 +205,8 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
                 bq_entry = single_queue_entry
             else:
                 pytest.skip("Invalid buffer queue range")
+        else:
+            single_key = True
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
@@ -213,14 +216,15 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
             = "true"
         load_new_cfg(duthost, data)
         pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                 dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
+                                 dut_ip, interface_to_check, env.gnmi_port), "Unable to get data from COUNTERS_QUEUE_NAME_MAP")
         pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         # Remove buffer queue and reload and get new number of queue counters
         del data['BUFFER_QUEUE'][bq_entry]
         load_new_cfg(duthost, data)
-        pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                 dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
+        if not single_key:
+            pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+                                     dut_ip, interface_to_check, env.gnmi_port), "Unable to get data from COUNTERS_QUEUE_NAME_MAP")
         post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         pytest_assert(pre_del_cnt > post_del_cnt,
