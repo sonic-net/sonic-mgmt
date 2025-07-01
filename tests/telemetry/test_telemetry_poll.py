@@ -103,7 +103,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     modify_fake_appdb_table(duthost, True, 2)  # Add second table data
     client_thread.join(30)
@@ -148,7 +148,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     modify_fake_appdb_table(duthost, False, 2)  # Remove all added tables
     client_thread.join(30)
@@ -202,14 +202,14 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     # Add back default route
     duthost.shell("config bgp startup all")
     pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "1"),
                   "ROUTE_TABLE default route missing")
 
-    # Give 60 seconds for client to connect to server and then another 60 for default route to populate after bgp sessions start
+    # Give 60 seconds for client to connect to server and then 60 for default route to populate after bgp session start
     client_thread.join(120)
 
     modify_fake_appdb_table(duthost, False, 1)  # Remove all added tables
