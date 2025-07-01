@@ -8,6 +8,7 @@ from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa F401
+from tests.common.helpers.upgrade_helpers import restore_image                                          # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
@@ -40,7 +41,7 @@ def pytest_generate_tests(metafunc):
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
                                 get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa F811
-                                verify_dut_health, consistency_checker_provider):               # noqa F811
+                                verify_dut_health, consistency_checker_provider, restore_image):               # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
     upgrade_type = request.config.getoption('upgrade_type')
@@ -96,7 +97,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
                                          get_advanced_reboot, multihop_advanceboot_loganalyzer_factory, # noqa F811
                                          verify_dut_health, nbrhosts, fanouthosts, vmhost,              # noqa F811
                                          backup_and_restore_config_db, advanceboot_neighbor_restore,    # noqa F811
-                                         sad_case_type):
+                                         sad_case_type, restore_image):                                 # noqa F811
 
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')

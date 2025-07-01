@@ -31,6 +31,8 @@ all:
           - t1-isolated-d56u2
           - t1-isolated-v6-d448u16
           - t1-isolated-v6-d56u2
+          - t1-isolated-d56u1-lag
+          - t1-isolated-v6-d56u1-lag
           - t0
           - t0-d18u8s4
           - t0-16
@@ -80,6 +82,9 @@ all:
           - mc0
           - mx
           - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dpu-1
       children:
         server_1:

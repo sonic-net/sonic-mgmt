@@ -27,6 +27,7 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
@@ -45,7 +46,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
 
 def is_full_lossy_hwsku(hwsku):
     """
-    Return True if the platform is lossy-only and PFCWD should default to ‘disable’.
+    Return True if the platform is lossy-only and PFCWD should default to 'disable'.
     """
     return hwsku in LOSSY_HWSKU
 
@@ -95,7 +96,7 @@ class GenerateGoldenConfigDBModule(object):
         # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
-            return "{}"
+            return {}
 
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         gold_config_db = {
@@ -430,6 +431,8 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
+            temp_file.write(config)
+        with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
 
