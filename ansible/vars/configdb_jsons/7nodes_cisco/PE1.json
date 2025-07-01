@@ -7,7 +7,7 @@
             "load_balance_mp_relax" : "true",
             "keepalive" : "10",
             "holdtime" : "30",
-            "sid_vpn_per_vrf_export_explicit": "true"
+            "sid_vpn_per_vrf_export_explicit": "fd00:201:201:fff1:1::"
         },
         "default" : {
             "local_asn" : "64600",
