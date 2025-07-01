@@ -51,6 +51,7 @@ BREAKOUTS="$"
 LOADTEST="*"
 TIMEOUT="15m"
 BULK_MODE=true
+DSCP="no-dscp"
 
 # Test ports.
 STP_PORT1="Ethernet1_16"
@@ -93,9 +94,18 @@ do
   -prod)
     TEST_TAGS="${TEST_TAGS},no-ssh"
     shift;;
+  -sag-ping)
+    TEST_TAGS="${TEST_TAGS},sag-ping"
+    shift;;
+  -arp-ping)
+    TEST_TAGS="${TEST_TAGS},arp-ping"
+    shift;;
   -dhcp)
     DHCP="${2}"
     shift; shift;;
+  -dscp)
+    DSCP="dscp"
+    shift;;
   -no-stp)
     STP=false
     shift;;
@@ -243,7 +253,7 @@ if [[ "${LAG}" == false ]]; then
   PYVXR_CHANNELS="*"
 fi
 
-TEST_TAGS="${TEST_TAGS},dhcp-${DHCP}"
+TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP}"
 if [[ "${BREAKOUTS}" == "$" ]]; then
   TEST_TAGS="${TEST_TAGS},breakout"
 else

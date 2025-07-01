@@ -3,9 +3,9 @@ simulation:
     port_file_timeout: 1200
   skip_auto_bringup: false
   slurm_flags:
+    pending_timeout: 60
+    hours: 30
     partition: regression
-    cluster: rch-slurm-m1
-
 
 devices:
   trex1: &host
@@ -74,6 +74,7 @@ devices:
       sudo systemctl restart drake
       sudo systemctl restart lira
       sudo systemctl restart azimuth
+      sudo config platform cisco sdk-debug disable
 
   L1:
     <<: *switch
@@ -83,6 +84,7 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo config platform cisco sdk-debug disable
 
   S0:
     <<: *switch

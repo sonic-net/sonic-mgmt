@@ -7,7 +7,6 @@ simulation:
     pending_timeout: 60
     hours: 30
     partition: regression
-    cluster: rch-slurm-m1
 
 
 devices:
@@ -84,6 +83,7 @@ devices:
       sudo systemctl restart lira
       sudo systemctl restart azimuth
       sudo systemctl disable systemd-networkd
+      sudo config platform cisco sdk-debug disable
 
   L1:
     <<: *switch
@@ -93,6 +93,7 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo config platform cisco sdk-debug disable
 
   L2:
     <<: *switch
@@ -102,6 +103,7 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo config platform cisco sdk-debug disable
 
   S0:
     <<: *switch
