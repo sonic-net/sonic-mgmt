@@ -1226,11 +1226,6 @@ platform_tests/test_intf_fec.py::test_verify_fec_histogram:
     conditions:
     - https://github.com/sonic-net/sonic-mgmt/issues/17951
 
-platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
-  xfail:
-    reason: "test is flaky when adding toggle ports in the test"
-    conditions:
-      -https://redmine.mellanox.com/issues/4494591
 
 platform_tests/test_intf_fec.py::test_verify_fec_histogram:
    xfail:
