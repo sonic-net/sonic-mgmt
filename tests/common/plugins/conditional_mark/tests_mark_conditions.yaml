@@ -483,6 +483,20 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress[discover]:
+  xfail:
+    reason: "Need to skip for discover test cases on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19230"
+
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress[request]:
+  xfail:
+    reason: "Need to skip for request test cases on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19230"
+
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for Cisco backend platform"
