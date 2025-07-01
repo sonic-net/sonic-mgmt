@@ -189,9 +189,9 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     pytest_assert(len(update_responses_match) == 5, "Missing update responses")
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
+                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=0, timeout=120, namespace=namespace)
+                              target="APPL_DB", max_sync_count=-1, update_count=10, timeout=120, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
