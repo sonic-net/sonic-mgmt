@@ -191,7 +191,7 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=10, timeout=60, namespace=namespace)
+                              target="APPL_DB", max_sync_count=-1, update_count=0, timeout=120, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -209,7 +209,8 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "1"),
                   "ROUTE_TABLE default route missing")
 
-    client_thread.join(60)
+    # Give 60 seconds for client to connect to server and then another 60 for default route to populate after bgp sessions start
+    client_thread.join(120)
 
     modify_fake_appdb_table(duthost, False, 1)  # Remove all added tables
 
