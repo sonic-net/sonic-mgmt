@@ -160,8 +160,8 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     lower_tor_mg_facts = lower_tor_host.get_extended_minigraph_facts(tbinfo)
     upper_tor_intf = _find_test_lo_interface(upper_tor_mg_facts)
     lower_tor_intf = _find_test_lo_interface(lower_tor_mg_facts)
-    assert upper_tor_intf
-    assert lower_tor_intf
+    assert upper_tor_intf, ("upper_tor_intf is not True or it's None")
+    assert lower_tor_intf, ("lower_tor_intf is not True or it's None")
     upper_tor_intf_addr = "%s/%s" % (upper_tor_intf["addr"], upper_tor_intf["prefixlen"])
     lower_tor_intf_addr = "%s/%s" % (lower_tor_intf["addr"], lower_tor_intf["prefixlen"])
 
@@ -175,22 +175,40 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     lower_tor_server_ptf_intf_idx = lower_tor_mg_facts["minigraph_port_indices"][test_iface]
     upper_tor_server_ptf_intf = "eth%s" % upper_tor_server_ptf_intf_idx
     lower_tor_server_ptf_intf = "eth%s" % lower_tor_server_ptf_intf_idx
-    assert upper_tor_server_ptf_intf == lower_tor_server_ptf_intf
+    assert upper_tor_server_ptf_intf == lower_tor_server_ptf_intf, (
+        "Mismatch in PTF interface mapping for the test server between upper and lower ToR.\n"
+        "- Upper ToR PTF interface: {}\n"
+        "- Lower ToR PTF interface: {}"
+    ).format(upper_tor_server_ptf_intf, lower_tor_server_ptf_intf)
 
     # find the vlan interface ip, used as next-hop for routes added on ptf
     upper_tor_vlan = _find_ipv4_vlan(upper_tor_mg_facts)
     lower_tor_vlan = _find_ipv4_vlan(lower_tor_mg_facts)
-    assert upper_tor_vlan
-    assert lower_tor_vlan
-    assert upper_tor_vlan["addr"] == lower_tor_vlan["addr"]
+    assert upper_tor_vlan, ("upper_tor_vlan is not True or it's None or empty")
+
+    assert lower_tor_vlan, ("lower_tor_vlan is not True or it's None or empty")
+
+    assert upper_tor_vlan["addr"] == lower_tor_vlan["addr"], (
+        "Mismatch in IPv4 VLAN interface addresses between upper and lower ToR.\n"
+        "- Upper ToR VLAN address: {}\n"
+        "- Lower ToR VLAN address: {}"
+    ).format(upper_tor_vlan["addr"], lower_tor_vlan["addr"])
+
     vlan_intf_addr = upper_tor_vlan["addr"]
     vlan_intf_prefixlen = upper_tor_vlan["prefixlen"]
 
     upper_tor_vlan_ipv6 = _find_ipv6_vlan(upper_tor_mg_facts)
     lower_tor_vlan_ipv6 = _find_ipv6_vlan(lower_tor_mg_facts)
-    assert upper_tor_vlan_ipv6
-    assert lower_tor_vlan_ipv6
-    assert upper_tor_vlan_ipv6["addr"] == lower_tor_vlan_ipv6["addr"]
+    assert upper_tor_vlan_ipv6, ("upper_tor_vlan_ipv6 is not True or it's None or empty")
+
+    assert lower_tor_vlan_ipv6, ("lower_tor_vlan_ipv6 is not True or it's None or empty")
+
+    assert upper_tor_vlan_ipv6["addr"] == lower_tor_vlan_ipv6["addr"], (
+        "Mismatch in IPv6 VLAN interface addresses between upper and lower ToR.\n"
+        "- Upper ToR VLAN IPv6 address: {}\n"
+        "- Lower ToR VLAN IPv6 address: {}"
+    ).format(upper_tor_vlan_ipv6["addr"], lower_tor_vlan_ipv6["addr"])
+
     vlan_intf_prefixlen_ipv6 = upper_tor_vlan_ipv6["prefixlen"]
 
     # construct the server ip with the vlan prefix length
@@ -203,7 +221,11 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     # find ToRs' ASNs
     upper_tor_asn = upper_tor_mg_facts["minigraph_bgp_asn"]
     lower_tor_asn = lower_tor_mg_facts["minigraph_bgp_asn"]
-    assert upper_tor_asn == lower_tor_asn
+    assert upper_tor_asn == lower_tor_asn, (
+        "Mismatch in BGP ASN between upper and lower ToR.\n"
+        "- Upper ToR ASN: {}\n"
+        "- Lower ToR ASN: {}"
+    ).format(upper_tor_asn, lower_tor_asn)
 
     upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
                                              \"constants.deployment_id_asn_map[DEVICE_METADATA[\
