@@ -2698,6 +2698,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
+    conditions:
+      - "is_multi_asic==True"
+
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
