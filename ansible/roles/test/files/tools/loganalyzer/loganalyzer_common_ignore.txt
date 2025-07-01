@@ -372,3 +372,6 @@ r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22348
 r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/23142
+r, ".* ERR ntpd.*: CLOCK: leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): .*"
