@@ -193,7 +193,12 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
-            bgp_facts = dut.bgp_facts(asic_index='all')
+            try:
+                bgp_facts = dut.bgp_facts(asic_index='all')
+            except Exception as e:
+                logger.error("Failed to get BGP status on host %s: %s", dut.hostname, repr(e))
+                check_result['failed'] = True
+                return False
 
             # Conditions to fail BGP check
             #   1. No BGP neighbor.
