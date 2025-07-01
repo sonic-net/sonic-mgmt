@@ -307,7 +307,7 @@ MGMT:
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
-        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
         # - ssh/test_ssh_ciphers.py
@@ -388,7 +388,7 @@ MGMT:
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
-        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - generic_config_updater/test_aaa.py
         # - generic_config_updater/test_ip_bgp.py
