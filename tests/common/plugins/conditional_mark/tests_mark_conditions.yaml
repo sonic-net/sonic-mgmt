@@ -648,6 +648,12 @@ drop_packets:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor/test_bgp_block_loopback1.py:
+  skip:
+    reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
+    conditions:
+      - "asic_type in ['vs']"
+
 dualtor/test_ipinip.py::test_encap_with_mirror_session:
   xfail:
      reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
