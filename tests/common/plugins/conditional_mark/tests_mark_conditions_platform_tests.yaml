@@ -1065,6 +1065,10 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
       - "release in ['202412']"
+  skip:
+    reason: "Skip the test_warm_reboot for smartsiwtch topology."
+    conditions:
+      - "is_smartswitch == True"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
   skip:
@@ -1217,6 +1221,10 @@ platform_tests/test_reboot.py::test_fast_reboot:
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
+  skip:
+    reason: "Skip the test_fast_reboot for smartsiwtch topology."
+    conditions:
+      - "is_smartswitch == True"
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
