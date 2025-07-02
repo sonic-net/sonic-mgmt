@@ -58,33 +58,16 @@ parameters:
     displayName: "Features to be executed"
 
   # Custom skip scripts
+  # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: ""
+    default: "vrf/test_vrf.py,vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py,platform_tests/test_auto_negotiation.py,sflow/test_sflow.py,nat/test_dynamic_nat.py,nat/test_static_nat.py"
     displayName: "Scripts to be excluded"
-    values:
-      - "sub_port_interfaces"
-      - "vrf/test_vrf.py"
-      - "vrf/test_vrf_attr.py"
-      - "mvrf/test_mgmtvrf.py"
-      - "platform_tests/test_auto_negotiation.py"
-      - "sflow/test_sflow.py"
-      - "nat/test_dynamic_nat.py"
-      - "nat/test_static_nat.py"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "sub_port_interfaces,ptftests,acstests,saitests,scripts,k8s,sai_qualify,metadata-scripts"
     displayName: "Features to be excluded"
-    values:
-      - "sub_port_interfaces"
-      - "ptftests"
-      - "acstests"
-      - "saitests"
-      - "scripts"
-      - "k8s"
-      - "sai_qualify"
-      - "metadata-scripts"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
