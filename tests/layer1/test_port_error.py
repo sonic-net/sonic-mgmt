@@ -84,6 +84,11 @@ class TestMACFault(object):
                 is_cmis_supported = float(eeprom_info.get("CMIS Revision", "0")) >= 5.0
             except ValueError:
                 is_cmis_supported = False
+
+            if not is_cmis_supported:
+                logger.info(f"Port {port} skipped: CMIS not supported on this port.")
+                continue
+
             if parsed_presence.get(port_name) == "Present" and \
                     "SFP EEPROM detected" in eeprom_info[port_name] \
                     and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper() \
