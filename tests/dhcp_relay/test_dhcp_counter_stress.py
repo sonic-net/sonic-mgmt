@@ -2,6 +2,7 @@
 import pytest
 import ptf.packet as scapy
 import logging
+import time
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -75,6 +76,8 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             return not output['rc'] and output['stdout'].strip() == "exists"
 
         def _verify_server_packets(pkts, dhcp_type):
+            # Default DB update timer for dhcpmon is 20s, hence wait for it to write DB
+            time.sleep(25)
             actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0]) * num_dhcp_servers
             expected_uplink_counter = {
                 "RX": {},
@@ -92,6 +95,8 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
                                                 {}, {}, 0)
 
         def _verify_client_packets(pkts, dhcp_type):
+            # Default DB update timer for dhcpmon is 20s, hence wait for it to write DB
+            time.sleep(25)
             actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
             expected_uplink_counter = {
                 "RX": {dhcp_type.capitalize(): actual_count},
