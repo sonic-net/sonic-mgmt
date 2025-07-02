@@ -1,4 +1,4 @@
-# SONiC-MGMT code review guidelines- guy shemesh
+# SONiC-MGMT code review guidelines
 
 ## Style guide
 - Avoid usage of hardcoded values, define constants instead.
