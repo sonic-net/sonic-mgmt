@@ -82,7 +82,7 @@ class TestMACFault(object):
         available_optical_interfaces = []
         for port_name, eeprom_info in eeprom_infos.items():
             try:
-                is_cmis_supported = float(eeprom_info.get("CMIS Rev", "0")) >= 5.0
+                is_cmis_supported = float(eeprom_info.get("CMIS Revision", "0")) >= 5.0
             except ValueError:
                 is_cmis_supported = False
             if parsed_presence.get(port_name) == "Present" and \
