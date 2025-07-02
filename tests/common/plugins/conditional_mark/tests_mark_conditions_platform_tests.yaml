@@ -1065,7 +1065,7 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
       - "release in ['202412']"
-      - "is_smartswitch == True"
+      - "is_smartswitch==True"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
   skip:
@@ -1213,7 +1213,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "release in ['202412']"
-      - "is_smartswitch == True"
+      - "is_smartswitch==True"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
