@@ -3210,7 +3210,6 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         return False, None
 
     gearbox_delay = 0
-    
     # Get cable length from config DB
     # Command: redis-cli -n 4 hget "CABLE_LENGTH|AZURE"  'Ethernet0'
     cable_length_keys = duthost.shell(
