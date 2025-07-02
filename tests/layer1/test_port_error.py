@@ -6,7 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
-from tests.platform_tests.sfp.software_control.conftest import check_platform_support
+from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -19,7 +19,7 @@ cmd_sfp_presence = "sudo sfpshow presence"
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
-    def is_supported_platform(self, duthost, tbinfo, check_platform_support):
+    def is_supported_platform(self, duthost, tbinfo):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -27,6 +27,9 @@ class TestMACFault(object):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+
+        if not check_sc_sai_attribute_value(duthost):
+            pytest.skip("SW control feature is not enabled")
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
