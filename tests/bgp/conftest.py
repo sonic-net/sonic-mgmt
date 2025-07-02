@@ -405,7 +405,6 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         if not ipv4_interfaces:
                             ipv4_interfaces.append(intf["attachto"])
                             asic_idx = intf_asic_idx
-                            used_subnets.add(ipaddress.ip_network(intf["subnet"]))
                         else:
                             if intf_asic_idx != asic_idx:
                                 continue
@@ -418,21 +417,21 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 for pt in mg_facts["minigraph_portchannel_interfaces"]:
                     if _is_ipv4_address(pt["addr"]):
                         pt_members = mg_facts["minigraph_portchannels"][pt["attachto"]]["members"]
+                        pc_asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
                         # Only use LAG with 1 member for bgpmon session between PTF,
                         # It's because exabgp on PTF is bind to single interface
                         if len(pt_members) == 1:
                             # If first time, we record the asic index
-                            if not ipv4_lag_interfaces:
+                            if not ipv4_interfaces and not ipv4_lag_interfaces:
+                                asic_idx = pc_asic_idx
                                 ipv4_lag_interfaces.append(pt["attachto"])
-                                asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
-                            # Not first time, only append the portchannel that belongs to the same asic in current list
+                            # Not first time, only append the port-channel that belongs to the same asic in current list
                             else:
-                                asic = duthost.get_asic_index_for_portchannel(pt["attachto"])
-                                if asic != asic_idx:
+                                if pc_asic_idx != asic_idx:
                                     continue
                                 else:
                                     ipv4_lag_interfaces.append(pt["attachto"])
-                        used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+                            used_subnets.add(ipaddress.ip_network(pt["subnet"]))
 
             vlan_sub_interfaces = []
             if is_backend_topo:
@@ -531,7 +530,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2"]):
         setup_func = _setup_interfaces_t1_or_t2
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
@@ -706,6 +705,14 @@ def pytest_addoption(parser):
         type=int,
         default=3,
         help="continuous reboot time number. default is 3"
+    )
+    parser.addoption(
+        "--max_flap_neighbor_number",
+        action="store",
+        dest="max_flap_neighbor_number",
+        type=int,
+        default=None,
+        help="Max flap neighbor number, default is None"
     )
 
 

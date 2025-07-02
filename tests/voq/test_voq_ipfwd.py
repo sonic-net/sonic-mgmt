@@ -15,7 +15,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 
 from .test_voq_nbr import LinkFlap
 

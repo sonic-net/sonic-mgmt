@@ -1,0 +1,19 @@
+---
+- name: gathering testbed facts
+  block:
+  - name: set default testbed file
+    set_fact:
+      testbed_file: testbed.nut.yaml
+    when: testbed_file is not defined
+
+  - name: gathering testbed information
+    nut_test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+    delegate_to: localhost
+
+  - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+    when: inventory_hostname not in testbed_facts['duts']
+
+- name: get connection graph if defined for dut
+  conn_graph_facts:
+    hosts: "{{ testbed_facts['duts'] + testbed_facts['tgs'] }}"
+  delegate_to: localhost
