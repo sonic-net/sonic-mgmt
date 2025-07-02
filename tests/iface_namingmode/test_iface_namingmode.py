@@ -18,6 +18,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
+ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
@@ -651,16 +652,10 @@ class TestShowQueue():
             for intf in setup['default_interfaces']:
                 assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
 
+
 # Tests to be run in t0/m0 topology
-
-
+@pytest.mark.topology('t0', 'm0')
 class TestShowVlan():
-
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, tbinfo):
-        if tbinfo['topo']['type'] not in ['t0', 'm0']:
-            pytest.skip('Unsupported topology')
-
     @pytest.fixture()
     def setup_vlan(self, setup_config_mode):
         """
@@ -732,13 +727,8 @@ class TestShowVlan():
 
 
 # Tests to be run in t1 topology
+@pytest.mark.topology('t1')
 class TestConfigInterface():
-
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, tbinfo):
-        if tbinfo['topo']['type'] not in ['t1']:
-            pytest.skip('Unsupported topology')
-
     def check_speed_change(self, duthost, asic_index, interface, change_speed):
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
@@ -840,8 +830,9 @@ class TestConfigInterface():
             line = show_intf_status['stdout'].strip()
             if regex_int.match(line) and interface == regex_int.match(line).group(1):
                 admin_state = regex_int.match(line).group(7)
+                oper_state = regex_int.match(line).group(6)
 
-            return admin_state == expected_state
+            return admin_state == expected_state and oper_state == expected_state
 
         def _lldp_exists(expected=True):
             show_lldp_neighbor = dutHostGuest.shell(
@@ -864,10 +855,10 @@ class TestConfigInterface():
         if out['rc'] != 0:
             pytest.fail()
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
-                      "Interface {} should be admin up".format(test_intf))
+                      "Interface {} should be admin and oper up".format(test_intf))
 
         # Make sure LLDP neighbor is repopulated
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
+        pytest_assert(wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, _lldp_exists, True),
                       "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
@@ -978,15 +969,15 @@ class TestConfigInterface():
 
         try:
             # Verify speed and link status
-            _verify_speed(target_speed)
             assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+            _verify_speed(target_speed)
         finally:
             # Restore to native speed after test
             _set_speed(native_speed)
 
         # After restoration, verify again
-        _verify_speed(native_speed)
         assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        _verify_speed(native_speed)
         # Revert inconsistent config changes
         config_reload(duthost)
 
@@ -1055,12 +1046,11 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                                  show_int_neighbor[value["namespace"]]) is not None
 
 
+@pytest.mark.topology('t1', 't2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, setup, tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        if tbinfo['topo']['type'] not in ['t2', 't1']:
-            pytest.skip('Unsupported topology')
+    def setup_check_topo(self, setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if duthost.is_multi_asic:
             pytest.skip("CLI not supported")
@@ -1120,13 +1110,11 @@ class TestNeighbors():
                     assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None
 
 
+@pytest.mark.topology('t1', 't2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, setup, tbinfo):
-        if tbinfo['topo']['type'] not in ['t2', 't1']:
-            pytest.skip('Unsupported topology')
-
+    def setup_check_topo(self, setup):
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 

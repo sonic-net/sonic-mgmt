@@ -15,6 +15,7 @@ from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfc_test
 from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -1000,6 +1001,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     for dut in duthosts:
         clear_fabric_counters(dut)
+        if dut.facts.get('asic_type') == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(dut, False)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -1021,5 +1024,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     finally:
         cleanup_config(duthosts, snappi_ports)
+        for dut in duthosts:
+            if dut.facts.get('asic_type') == "cisco-8000":
+                modify_voq_watchdog_cisco_8000(dut, True)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
