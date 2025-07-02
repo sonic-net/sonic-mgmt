@@ -156,6 +156,7 @@
   register: async_jobs
 
 - name: Wait for network tasks to complete
+  become: yes
   async_status:
     jid: "{{ item.ansible_job_id }}"
   register: job_result
