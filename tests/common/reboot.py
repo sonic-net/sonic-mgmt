@@ -365,6 +365,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         raise Exception(f"dut not start: {err}")
 
     if return_after_reconnect:
+        pool.terminate()
         return
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
