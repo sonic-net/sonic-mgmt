@@ -1,5 +1,5 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from snappi_tests.dataplane.files.helper_pr import (
+from snappi_tests.dataplane.files.helper import (
     get_duthost_vlan_details,
     create_snappi_config,
     get_snappi_stats,
