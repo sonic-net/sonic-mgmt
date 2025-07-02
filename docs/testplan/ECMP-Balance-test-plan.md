@@ -58,7 +58,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 
 **Test Function:** `test_udp_packets`
 
-**Objective:** Verify basic ECMP functionality with different traffic patterns
+**Objective:** Verify basic ECMP functionality with different traffic patterns. Also save the test results to output file as the original sample file which will be compared with the output file with Test Case 2.
 
 **Test Steps:**
 
@@ -91,7 +91,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 
 **Test Function:** `test_udp_packets_ecmp`
 
-**Objective:** Verify ECMP hash offset changes affect packet distribution
+**Objective:** Verify ECMP hash offset changes affect packet distribution. In this case, will do comparison with the output file of Test Case 1 after changing ecmp offset, the distribution should be different with Test Case 1.
 
 **Test Steps:**
 
