@@ -18,6 +18,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
+ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
@@ -1166,10 +1167,10 @@ class TestConfigInterface():
 
         # Make sure LLDP neighbor is repopulated
         pytest_assert(
-            wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, _lldp_exists, True),
             (
-                "LLDP neighbor did not appear for interface '{}' within {} seconds after interface startup.\n"
-            ).format(test_intf, PORT_TOGGLE_TIMEOUT)
+                "LLDP neighbor not found for interface '{}' within {} seconds."
+            ).format(test_intf, ESTABLISH_LLDP_NEIGHBOR_TIMEOUT)
         )
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
