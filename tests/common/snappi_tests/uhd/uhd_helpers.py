@@ -38,6 +38,8 @@ class NetworkConfigSettings:
 
         self.IP_L_START = self.ipp('1.1.0.1')
         self.IP_R_START = self.ipp('1.4.0.1')
+        self.IPv6_R_START = self.ipp('2603:100:3E8::104:1')
+        self.IPv6_Range_Increment = self.ipp('0:0:1::40:0')
 
         self.MAC_L_START = self.maca('00:1A:C5:00:00:01')
         self.MAC_R_START = self.maca('00:1B:6E:00:00:01')
