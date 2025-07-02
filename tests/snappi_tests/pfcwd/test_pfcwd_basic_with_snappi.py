@@ -76,11 +76,8 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
 
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
@@ -125,11 +122,8 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -175,11 +169,8 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
         N/A
     """
 
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
 
     _, lossless_prio = enum_dut_lossless_prio_with_completeness_level.split('|')
     lossless_prio = int(lossless_prio)
@@ -226,11 +217,8 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -276,11 +264,8 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     Returns:
         N/A
     """
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
     
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
@@ -369,12 +354,8 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
         N/A
     """
 
-    multidut_port_info = tgen_port_info
-    logger.info('Ports:{}'.format(multidut_port_info))
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, multidut_port_info, snappi_api, setup=True)
-
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info('Ports:{}'.format(snappi_ports))
     
     if (snappi_ports[0]['duthost'].is_multi_asic):
         ports_dict = defaultdict(list)
