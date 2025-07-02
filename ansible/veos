@@ -7971,6 +7971,10 @@ vms_73:
       ansible_host: 172.16.165.53
     VM73289:
       ansible_host: 172.16.165.54
+    VM73290:
+      ansible_host: 172.16.165.55
+    VM73291:
+      ansible_host: 172.16.165.56
 vms_74:
   hosts:
     VM74100:
