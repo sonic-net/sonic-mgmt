@@ -49,18 +49,16 @@ class MemoryMonitor:
         logger.debug("Current values: {}".format(current_values))
 
         for name, cmd, memory_params, memory_check_fn in self.commands:
-            logger.debug("Checking thresholds for command: {}".format(name))
-
             for mem_item, thresholds in memory_params.items():
-                logger.debug("Processing memory item: {}".format(mem_item))
+                logger.info("Checking thresholds for command: {}-{}".format(name, mem_item))
 
                 # Convert thresholds to structured format for consistency
                 logger.debug("Original thresholds: {}".format(thresholds))
                 normalized_thresholds = self._normalize_thresholds(thresholds)
                 logger.debug("Normalized thresholds: {}".format(normalized_thresholds))
 
-                current_value = float(current_values.get(name, {}).get(mem_item, 0))
-                previous_value = float(previous_values.get(name, {}).get(mem_item, 0))
+                current_value = round(float(current_values.get(name, {}).get(mem_item, 0)), 1)
+                previous_value = round(float(previous_values.get(name, {}).get(mem_item, 0)), 1)
 
                 if current_value == 0 or previous_value == 0:
                     logger.warning("Skipping memory check for {}-{} due to zero value".format(name, mem_item))
@@ -102,7 +100,17 @@ class MemoryMonitor:
                     )
 
     def _normalize_thresholds(self, thresholds):
-        """Normalize threshold values to structured format."""
+        """
+        Convert legacy or shorthand threshold formats into a consistent structured format.
+
+        Purpose:
+        - Ensures all threshold values are represented as dictionaries with explicit "type" and "value" fields.
+        - Converts simple numeric values to {"type": "value", "value": ...}
+        - Converts percentage strings (like "10%") to {"type": "percentage", "value": ...}
+        - Leaves already-structured or list values unchanged.
+
+        This normalization allows the rest of the code to process thresholds in a uniform way.
+        """
         normalized = {}
 
         for key, value in thresholds.items():
@@ -127,9 +135,9 @@ class MemoryMonitor:
         """
         Parse threshold value which can be either:
         1. A dict with type and value fields
-        2. A list of dicts for multiple threshold types
-
-        Returns the most restrictive calculated threshold value.
+        2. A list of dicts for multiple threshold types,
+        possibly including a {"type": "comparison", "value": "min"/"max"}
+        Returns the selected calculated threshold value.
         """
         logger.debug("Parsing threshold: {} (type: {}) with base value: {}".format(
                      threshold, type(threshold).__name__, base_value))
@@ -152,7 +160,7 @@ class MemoryMonitor:
                     if percentage < 0 or percentage > 100:
                         logger.warning("Percentage threshold outside normal range (0-100): {}%".format(percentage))
 
-                    calculated = (percentage / 100.0) * base_value
+                    calculated = round((percentage / 100.0) * base_value, 1)
                     logger.debug("Calculated percentage threshold: {}% of {} = {}".format(
                         percentage, base_value, calculated))
                     return calculated
@@ -161,7 +169,7 @@ class MemoryMonitor:
                     return float('inf')
             elif threshold_type == 'value':
                 try:
-                    value = float(threshold_value)
+                    value = round(float(threshold_value), 1)
                     if value < 0:
                         logger.warning("Negative threshold value: {}".format(value))
                     logger.debug("Using absolute value: {}".format(value))
@@ -178,19 +186,27 @@ class MemoryMonitor:
         elif isinstance(threshold, list):
             logger.debug("Processing a list of {} thresholds".format(len(threshold)))
             thresholds = []
-            for i, t in enumerate(threshold):
-                if isinstance(t, dict) and 'type' in t and 'value' in t:
+            comparison = None
+            for t in threshold:
+                if isinstance(t, dict) and t.get("type") == "comparison":
+                    # Accepts "min" or "max"
+                    comparison = t.get("value", None)
+                elif isinstance(t, dict) and 'type' in t and 'value' in t:
                     parsed = self._parse_threshold(t, base_value)
-                    logger.debug("List item {}: parsed value = {}".format(i, parsed))
+                    logger.debug("List item: parsed value = {}".format(parsed))
                     thresholds.append(parsed)
                 else:
                     logger.warning("Skipping invalid threshold list item: {}".format(t))
-
-            # Return the most restrictive (smallest) threshold
-            min_value = min(thresholds) if thresholds else float('inf')
-            logger.debug("Selected minimum threshold from list: {} (from values: {})".format(
-                         min_value, thresholds))
-            return min_value
+            if not thresholds:
+                return float('inf')
+            if comparison == "max":
+                selected = round(max(thresholds), 1)
+            else:
+                # Default to min if no comparison specified
+                selected = round(min(thresholds), 1)
+            logger.info("Selected {} threshold from list: {} (from values: {})".format(
+                         comparison if comparison else "min", selected, thresholds))
+            return selected
 
         # Handle deprecated formats with warning
         elif isinstance(threshold, (int, float, str)):
@@ -201,7 +217,7 @@ class MemoryMonitor:
             if isinstance(threshold, str) and threshold.endswith('%'):
                 try:
                     percentage = float(threshold.rstrip('%'))
-                    calculated = (percentage / 100.0) * base_value
+                    calculated = round((percentage / 100.0) * base_value, 1)
                     logger.debug("Calculated legacy percentage threshold: {}% of {} = {}".format(
                         percentage, base_value, calculated))
                     return calculated
@@ -211,7 +227,7 @@ class MemoryMonitor:
             else:
                 # Simple value
                 try:
-                    value = float(threshold)
+                    value = round(float(threshold), 1)
                     logger.debug("Using legacy absolute threshold: {}".format(value))
                     return value
                 except (ValueError, TypeError) as e:
@@ -227,24 +243,49 @@ class MemoryMonitor:
         logger.info("{}:{}, previous_values: {}".format(name, mem_item, previous_values))
         logger.info("{}:{}, current_values: {}".format(name, mem_item, current_values))
 
-        # Format threshold for display in a more readable format
+        # Enhanced formatting for value and threshold
+        def fmt(val, unit="MB"):
+            if isinstance(val, float) or isinstance(val, int):
+                return f"{val:.1f} {unit}"
+            return str(val)
+
+        # Determine threshold type and format accordingly
+        def format_threshold_and_value(threshold, value):
+            if isinstance(threshold, dict) and 'type' in threshold:
+                if threshold['type'] == 'percentage':
+                    return f"{value:.1f}%", f"{threshold['value']}"
+                elif threshold['type'] == 'value':
+                    return fmt(value), fmt(float(threshold['value']))
+            elif isinstance(threshold, list):
+                # Find the first threshold dict with type
+                for t in threshold:
+                    if isinstance(t, dict) and 'type' in t:
+                        return format_threshold_and_value(t, value)
+                return str(value), str(threshold)
+            else:
+                # fallback
+                return str(value), str(threshold)
+
         threshold_str = self._format_threshold_for_display(threshold)
         logger.debug("Threshold exceeded - measured value: {}, formatted threshold: {}".format(
             value, threshold_str))
 
+        prev_val = previous_values.get(name, {}).get(mem_item, 0)
+        curr_val = current_values.get(name, {}).get(mem_item, 0)
+
+        # Format for increase or high threshold
         if is_increase:
+            val_str, th_str = format_threshold_and_value(threshold, value)
             message = (
-                "[ALARM]: {}:{} memory usage increased by {}, "
-                "exceeds increase threshold {}".format(
-                    name, mem_item, value, threshold_str
-                )
+                "[ALARM]: {}:{} memory usage increased by {}, exceeds increase threshold {} (previous: {}, current: {})"
+                .format(name, mem_item, val_str, th_str, fmt(prev_val), fmt(curr_val))
             )
         else:
+            which = "Current" if is_current else "Previous"
+            val_str, th_str = format_threshold_and_value(threshold, value)
             message = (
-                "[ALARM]: {}:{}, {} memory usage {} exceeds "
-                "high threshold {}".format(
-                    name, mem_item, "Current" if is_current else "Previous", value, threshold_str
-                )
+                "[ALARM]: {}:{}, {} memory usage {} exceeds high threshold {} (previous: {}, current: {})"
+                .format(name, mem_item, which, val_str, th_str, fmt(prev_val), fmt(curr_val))
             )
 
         # Not return failure on Virtual Switch
@@ -385,9 +426,11 @@ def parse_top_output(output, memory_params):
             for mem_item, thresholds in memory_params.items():
                 if mem_item in process_info["COMMAND"]:
                     if mem_item in memory_values:
-                        memory_values[mem_item] += float(int(process_info["RES"]) / 1024)
+                        memory_values[mem_item] = round(
+                            memory_values[mem_item] + float(int(process_info["RES"]) / 1024), 1
+                        )
                     else:
-                        memory_values[mem_item] = float(int(process_info["RES"]) / 1024)
+                        memory_values[mem_item] = round(float(int(process_info["RES"]) / 1024), 1)
 
     logger.debug("Parsed memory values: {}".format(memory_values))
     return memory_values
@@ -414,7 +457,7 @@ def parse_free_output(output, memory_params):
     swap_info = {headers[i]: int(Swap[i]) for i in range(len(Swap))}
 
     for mem_item, _ in memory_params.items():
-        memory_values[mem_item] = mem_info.get(mem_item, 0) + swap_info.get(mem_item, 0)
+        memory_values[mem_item] = round(mem_info.get(mem_item, 0) + swap_info.get(mem_item, 0), 1)
 
     logger.debug("Parsed memory values: {}".format(memory_values))
     return memory_values
@@ -437,7 +480,7 @@ def parse_monit_status_output(output, memory_params):
             if match:
                 used_memory = match.group(1)         # noqa: F841
                 memory_percentage = match.group(2)
-                memory_values['memory_usage'] = float(memory_percentage)
+                memory_values['memory_usage'] = round(float(memory_percentage), 1)
             else:
                 logger.error("Failed to parse memory usage from line: {}".format(line))
         if "swap usage" in line:
@@ -475,7 +518,7 @@ def parse_docker_stats_output(output, memory_params):
                     match = re.search(pattern, line)
                     if match:
                         mem_usage = match.group(2)
-                        memory_values[mem_item] = mem_usage
+                        memory_values[mem_item] = round(float(mem_usage), 1)
                     else:
                         logger.error("Failed to parse memory usage from line: {}".format(line))
                 else:
@@ -511,10 +554,10 @@ def parse_frr_memory_output(output, memory_params):
                     if unit in unit_multipliers:
                         memory_bytes = value * unit_multipliers[unit]
                         # Convert to MB for consistent measurement
-                        memory_values['used'] = memory_bytes / (1024 * 1024)
+                        memory_values['used'] = round(memory_bytes / (1024 * 1024), 1)
                     else:
                         logger.warning("Unknown memory unit: {}, treating as bytes".format(unit))
-                        memory_values['used'] = value / (1024 * 1024)
+                        memory_values['used'] = round(value / (1024 * 1024), 1)
 
                 except (ValueError, TypeError) as e:
                     logger.error("Failed to parse FRR memory value: {}".format(e))
