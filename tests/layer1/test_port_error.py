@@ -32,7 +32,7 @@ class TestMACFault(object):
 
     def is_independent_module_enabled(self, duthost):
         """
-        Fixture to check if the independent module feature is enabled on the Nvidia DUT.
+        Check if the independent module feature is enabled on the Nvidia DUT.
         Returns True if SAI_INDEPENDENT_MODULE_MODE=1 is set in sai.profile, else False.
         """
         platform = duthost.facts["platform"]
