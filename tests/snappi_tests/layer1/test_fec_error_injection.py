@@ -1,11 +1,13 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from snappi_tests.dataplane.files.helper import (
-    setup_snappi_port_configs,
-    get_ti_stats,
-    get_fanout_port_groups,
+from snappi_tests.dataplane.files.helper_pr import (
+    get_duthost_vlan_details,
     create_snappi_config,
+    get_snappi_stats,
+    create_snappi_l1config,
+    get_fanout_port_groups,
+    set_primary_chassis,
     create_traffic_items,
-)
+)     # noqa: F401
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)  # noqa: F405
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)  # noqa: F405
 """
     The following FEC ErrorTypes are the options available for AresOneM in 800G, 400G and 200G speed modes in IxNetwork
     with which the Ports go down when the error is injected or there is packet drop.
-    example: 
+    example:
         For codeWords, laneMarkers, minConsecutiveUncorrectableWithLossOfLink link goes down and there is packet drop
         For maxConsecutiveUncorrectableWithoutLossOfLink link does not go down and there is packet drop
 """
@@ -23,20 +25,22 @@ ErrorTypes = [
     "minConsecutiveUncorrectableWithLossOfLink",
     "maxConsecutiveUncorrectableWithoutLossOfLink",
 ]
-"""
-    If the speed of the fanout port is 400G on a 800G front panel port then the fanout_per_port is 2
-    (because 2 400G fanouts per 800G fron panel port),
-    if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
-"""
+# Example If the speed of the fanout port is 400G on a 800G front panel port then the fanout_per_port is 2
+# (because 2 400G fanouts per 800G fron panel port),
+# if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
 
 
 @pytest.mark.parametrize("fanout_per_port", [2])
 @pytest.mark.parametrize("error_type", ErrorTypes)
+@pytest.mark.parametrize("subnet_type", ["IPv4"])
 def test_fec_error_injection(
     duthosts,
     snappi_api,
     get_snappi_ports,
     fanout_graph_facts_multidut,
+    set_primary_chassis,   # noqa: F811
+    subnet_type,
+    create_snappi_l1config,  # noqa: F811
     fanout_per_port,
     error_type,
 ):
@@ -48,8 +52,7 @@ def test_fec_error_injection(
     Note: Not supported for speed mode 8x100G
     """
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.interface_type = 'vlan'
-    snappi_ports = setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params)
+    snappi_ports = get_duthost_vlan_details(duthosts, get_snappi_ports)
     fanout_port_group_list = get_fanout_port_groups(snappi_ports, fanout_per_port)
     for iteration, fanout_port_group in enumerate(fanout_port_group_list):
         logger.info("|----------------------------------------|")
@@ -66,15 +69,36 @@ def test_fec_error_injection(
             )
         logger.info("|----------------------------------------|\n")
         half_ports = int(len(fanout_port_group) / 2)
-        tx_ports = fanout_port_group[:half_ports]
-        rx_ports = fanout_port_group[half_ports:]
-        snappi_config, tx_names, rx_names = create_snappi_config(
-            snappi_api, tx_ports, rx_ports, is_rdma=False
-        )
-        snappi_config = create_traffic_items(
-            snappi_config, tx_names, rx_names, line_rate=100
-        )
+        Tx_ports = fanout_port_group[:half_ports]
+        Rx_ports = fanout_port_group[half_ports:]
+        logger.info('Tx Ports: {}'.format([port["peer_port"] for port in Tx_ports]))
+        logger.info('Rx Ports: {}'.format([port["peer_port"] for port in Rx_ports]))
+        logger.info("\n")
+        snappi_config = create_snappi_l1config
+        snappi_extra_params.protocol_config = {
+            "Tx": {"network_group": False, "protocol_type": "vlan", "ports": Tx_ports,
+                   "subnet_type": subnet_type, 'is_rdma': False},
+            "Rx": {"network_group": False, "protocol_type": "vlan",
+                   "ports": Rx_ports, "subnet_type": subnet_type, 'is_rdma': False},
+        }
+
+        snappi_config, snappi_obj_handles = create_snappi_config(snappi_config, snappi_extra_params)
+        snappi_extra_params.traffic_flow_config = [
+            {
+                "line_rate": 40,
+                "frame_size": 1024,
+                "is_rdma": False,
+                "flow_name": "Traffic Flow",
+                "tx_names": snappi_obj_handles["Tx"]["ip"],
+                "rx_names": snappi_obj_handles["Rx"]["ip"],
+            },
+        ]
+        snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
         snappi_api.set_config(snappi_config)
+        logger.info("Starting Protocol")
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         ixnet = snappi_api._ixnetwork
         logger.info("Wait for Arp to Resolve ...")
         wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
@@ -82,12 +106,12 @@ def test_fec_error_injection(
         tx_ports = []
         ixnet_ports = ixnet.Vport.find()
         for port in ixnet_ports:
-            port_name = port.Name
-            if "Tx" in port_name:
-                tx_ports.append(port)
-        logger.info(
-            "Setting FEC Error Type to : {} on Snappi ports :-".format(error_type)
-        )
+            for snappi_port in Tx_ports:
+                if str(port.Location) == str(snappi_port["location"]):
+                    tx_ports.append(port)
+            logger.info(
+                "Setting FEC Error Type to : {} on Snappi ports :-".format(error_type)
+            )
         for port in tx_ports:
             port.L1Config.FecErrorInsertion.ErrorType = error_type
             logger.info(port.Name)
@@ -105,8 +129,21 @@ def test_fec_error_injection(
             [port.StartFecErrorInsertion() for port in tx_ports]
             wait(15, "For error insertion to start")
             logger.info(
-                "Dumping Traffic Item statistics :\n {}".format(
-                    tabulate(get_ti_stats(ixnet), headers="keys", tablefmt="psql")
+                tabulate(
+                    get_snappi_stats(
+                        ixnet,
+                        "Traffic Item Statistics",
+                        [
+                            'Tx Frames',
+                            'Rx Frames',
+                            'Frames Delta',
+                            'Loss %',
+                            'Tx Frame Rate',
+                            'Rx Frame Rate'
+                        ]
+                    ),
+                    headers="keys",
+                    tablefmt="psql"
                 )
             )
             for snappi_port in tx_ports:
@@ -142,7 +179,7 @@ def test_fec_error_injection(
                                     port["peer_port"], error_type
                                 )
                             )
-            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["IPv4 Traffic"])[0]
+            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["Traffic Flow"])[0]
             pytest_assert(
                 flow_metrics.frames_tx > 0 and int(flow_metrics.loss) > 0,
                 "FAIL: Rx Port did not drop packets after starting FEC Error Insertion",
@@ -175,11 +212,24 @@ def test_fec_error_injection(
             ixnet.ClearStats()
             wait(10, "For clear stats operation to complete")
             logger.info(
-                "Dumping Traffic Item statistics :\n {}".format(
-                    tabulate(get_ti_stats(ixnet), headers="keys", tablefmt="psql")
+                tabulate(
+                    get_snappi_stats(
+                        ixnet,
+                        "Traffic Item Statistics",
+                        [
+                            'Tx Frames',
+                            'Rx Frames',
+                            'Frames Delta',
+                            'Loss %',
+                            'Tx Frame Rate',
+                            'Rx Frame Rate'
+                        ]
+                    ),
+                    headers="keys",
+                    tablefmt="psql"
                 )
             )
-            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["IPv4 Traffic"])[0]
+            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["Traffic Flow"])[0]
             pytest_assert(
                 int(flow_metrics.frames_rx_rate) > 0 and int(flow_metrics.loss) == 0,
                 "FAIL: Rx Port did not resume receiving packets after stopping FEC Error Insertion",
