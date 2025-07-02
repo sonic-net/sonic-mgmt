@@ -56,6 +56,7 @@
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       vm_names: "{{ VM_hosts }}"
+      vm_name: "{{ vm_name }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
@@ -68,6 +69,25 @@
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
       batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
+    throttle: 100
+    async: 3600
+    poll: 0
+    loop: "{{ VM_hosts|flatten(levels=1) }}"
+    loop_control:
+      loop_var: vm_name
+    register: async_unbind_topology_results
+
+  - name: Wait for unbind tasks to complete
+    become: yes
+    async_status:
+      jid: "{{ async_unbind_topology_result_item.ansible_job_id }}"
+    loop: "{{ async_unbind_topology_results.results }}"
+    loop_control:
+      loop_var: async_unbind_topology_result_item
+    register: async_unbind_topology_poll_results
+    until: async_unbind_topology_poll_results.finished
+    retries: 30
+    delay: 60
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -171,12 +191,30 @@
 
   when: container_type == "IxANVL-CONF-TESTER"
 
-- name: Destroy VMs network
+- name: Destroy VMs network in parallel
   vm_topology:
     cmd: 'destroy'
-    vm_names: "{{ VM_targets }}"
+    vm_names: "{{ vm_name }}"
   become: yes
+  async: 3600
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
   when: vm_type is defined and vm_type=="ceos"
+  register: async_destroy_vm_network_results
+
+- name: Wait for destroy tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ async_destroy_vm_network_result_item.ansible_job_id }}"
+  loop: "{{ async_destroy_vm_network_results.results }}"
+  loop_control:
+    loop_var: async_destroy_vm_network_result_item
+  register: async_destroy_vm_network_poll_results
+  until: async_destroy_vm_network_poll_results.finished
+  retries: 30
+  delay: 60
 
 - name: Destroy DPUs network
   vm_topology:
