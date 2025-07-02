@@ -17,7 +17,7 @@
         "zebra": {
           "memory_increase_threshold": {
             "type": "value",
-            "value": 64
+            "value": 128
           },
           "memory_high_threshold": null
         }
@@ -169,11 +169,12 @@
         "used": {
           "memory_increase_threshold": [
             {"type": "percentage", "value": "50%"},
-            {"type": "value", "value": 32}
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
           ],
           "memory_high_threshold": {
             "type": "value",
-            "value": 128
+            "value": 256
           }
         }
       },
@@ -186,7 +187,8 @@
         "used": {
           "memory_increase_threshold": [
             {"type": "percentage", "value": "50%"},
-            {"type": "value", "value": 16}
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
           ],
           "memory_high_threshold": {
             "type": "value",

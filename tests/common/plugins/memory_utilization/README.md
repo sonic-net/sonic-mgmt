@@ -35,6 +35,30 @@ The memory utilization plugin automatically monitors memory resources and genera
 
 ## Plugin Design
 
+### Memory Utilization Plugin Summary
+
+The memory utilization plugin for SONiC testing automatically monitors memory usage on the Device Under Test (DUT) before and after each test. Its main goals are to ensure that memory usage does not exceed configured thresholds and to detect memory leaks or abnormal increases during test execution.
+
+**Key Features:**
+- **Automatic Monitoring:** Runs for all tests unless explicitly disabled.
+- **Configurable Thresholds:** Uses JSON files to define memory checks, commands, and thresholds (absolute values or percentages).
+- **Multiple Monitors:** Supports system memory, process memory, docker containers, and FRR daemons.
+- **Flexible Scope:** Allows global, HWSKU-specific, and test-specific configuration.
+- **Failure Reporting:** Fails tests with detailed messages if thresholds are exceeded.
+
+**How It Works:**
+1. **Pre-test:** Collects baseline memory usage using configured commands and parsers.
+2. **Post-test:** Collects memory usage again and compares with baseline.
+3. **Validation:** Checks if usage exceeds high thresholds or if increase is above allowed limits.
+4. **Reporting:** Fails the test if any check fails, with clear diagnostics.
+
+**Configuration:**
+- Thresholds can be absolute values, percentages, or both (the strictest applies).
+- Can be disabled globally or per-test.
+- Easily extendable for new memory monitors or custom thresholds.
+
+This plugin helps maintain system stability and quickly identifies memory-related issues during SONiC test runs.
+
 ### Configuration Files
 
 The plugin uses two JSON configuration files:
