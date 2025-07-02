@@ -1495,16 +1495,24 @@ class TestAclWithReboot(TestBasicAcl):
         TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
 
-        route_convergence_delay = 10
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = dut.get_ip_route_summary()
         v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
         v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
         logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
-        if v4_routes_count > HIGH_ROUTES_THRESHOLD or v6_routes_count > HIGH_ROUTES_THRESHOLD:
-            logger.info("Increasing route convergence delay as number of v4 and/or v6 routes is greater than {}"
-                        .format(HIGH_ROUTES_THRESHOLD))
-            route_convergence_delay = 120
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
 
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
@@ -1558,16 +1566,24 @@ class TestAclWithPortToggle(TestBasicAcl):
             return
         TestAclWithPortToggle.dut_port_toggled = True
 
-        route_convergence_delay = 60
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = dut.get_ip_route_summary()
         v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
         v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
         logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
-        if v4_routes_count > HIGH_ROUTES_THRESHOLD or v6_routes_count > HIGH_ROUTES_THRESHOLD:
-            logger.info("Increasing route convergence delay as number of v4 and/or v6 routes is greater than {}"
-                        .format(HIGH_ROUTES_THRESHOLD))
-            route_convergence_delay = 120
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
 
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
