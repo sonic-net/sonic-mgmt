@@ -13,6 +13,8 @@ from scapy.all import Ether
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from ptf import testutils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
+ecmp_utils = Ecmp_Utils()
 
 logger = logging.getLogger(__name__)
 
@@ -476,6 +478,35 @@ def test_modify_inner_src_mac_egress(duthost, ptfadapter, prepare_test_ports, ge
     create_vxlan_tunnel(duthost, vxlan_tunnel_name, loopback_src_ip)
     create_two_vnets(duthost, vxlan_tunnel_name)
     time.sleep(10)
+
+    # === Add VNET route using create_and_apply_config ===
+    dest_ip = inner_src_prefix.split("/")[0]
+    mask = inner_src_prefix.split("/")[1]
+    nhs = ["20.1.1.1", "20.1.1.2", "20.1.1.3", "20.1.1.4"]
+    op = "SET"
+    profile = ""
+
+    ecmp_utils.Constants = {
+        "DEBUG": False,
+        "KEEP_TEMP_FILES": False
+    }
+
+    logger.info(f"Adding VNET route: {dest_ip}/{mask} -> {nhs} with BFD disabled")
+    ecmp_utils.create_and_apply_config(
+        duthost=duthost,
+        vnet=vnet_1,
+        dest=dest_ip,
+        mask=mask,
+        nhs=nhs,
+        op=op,
+        bfd=False,
+        profile=profile
+    )
+
+    # === Confirm route was programmed ===
+    logger.info("Verifying VNET route with 'show vnet route all'")
+    output = duthost.shell("show vnet route all")["stdout"]
+    assert f"{dest_ip}/{mask}" in output and vnet_1 in output, "VNET route not found in 'show vnet route all'"
 
     # Setup ACL table and rule
     setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
