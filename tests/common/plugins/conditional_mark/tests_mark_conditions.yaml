@@ -1260,10 +1260,10 @@ generic_config_updater/test_multiasic_linkcrc.py:
       - "(is_multi_asic is False)"
 
 generic_config_updater/test_pfcwd_interval.py:
-  skip:
-    reason: "This test can only support mellanox platforms"
+  xfail:
+    reason: "This test can only support mellanox and Broadcom TH5 platforms"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox'] and hwsku not in group_vars['broadcom_th5_hwskus']"
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
