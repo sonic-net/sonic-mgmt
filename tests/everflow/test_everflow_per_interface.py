@@ -10,7 +10,7 @@ from scapy.layers.l2 import Dot1Q
 from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver  # noqa: F401
+from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver, skip_ipv6_everflow_tests  # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
@@ -56,8 +56,9 @@ def build_candidate_ports(duthost, tbinfo, ns):
             continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
 
-        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4 and i % 2:
-            candidate_ports.update({dut_port: ptf_idx})
+        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4:
+            if candidate_neigh_name == 'T0' or i % 2:
+                candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
 
