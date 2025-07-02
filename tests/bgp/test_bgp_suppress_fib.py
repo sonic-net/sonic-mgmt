@@ -1052,7 +1052,7 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
             with allure.step("Disable bgp suppress-fib-pending function"):
-                config_bgp_suppress_fib(duthost, False)
+                config_bgp_suppress_fib(duthost, False, validate_result=True)
 
             with allure.step(
                     "Validate traffic is forwarded back to T2 VM and routes in HW table are removed by orchagent"):
