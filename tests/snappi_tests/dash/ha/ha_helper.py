@@ -292,6 +292,66 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
     return dpu_if_ips
 
 
+def analyze_cps_performance(timestamps, values):
+    # Convert values to integers, ignoring empty strings
+    cps_values = [int(x) for x in values if x.isdigit()]
+
+    # Find peak performance
+    peak_cps = max(cps_values)
+    peak_index = values.index(str(peak_cps))
+    peak_time = int(timestamps[peak_index])
+
+    # Calculate stable performance (excluding initial spikes and end zeros)
+    # Using the middle 60% of non-zero values for stable calculation
+    non_zero_values = [int(x) for x in values if x.isdigit() and int(x) > 0]
+    stable_values = non_zero_values[len(non_zero_values) // 5:4 * len(non_zero_values) // 5]
+    stable_performance = sum(stable_values) / len(stable_values)
+
+    # Detect failure phase (looking for significant drops in the middle)
+    failure_detected = False
+    failure_start_time = None
+    failure_cps = None
+
+    # Using 50% drop from stable performance as failure threshold
+    failure_threshold = stable_performance * 0.5
+
+    # Check for failures (excluding last 10% of the test)
+    check_until = int(len(values) * 0.9)
+    for i in range(1, check_until):
+        if values[i].isdigit():
+            current_cps = int(values[i])
+            if current_cps < failure_threshold and current_cps > 0:
+                # Check if prev value was normal
+                if i > 0 and values[i - 1].isdigit() and int(values[i - 1]) > failure_threshold:
+                    failure_detected = True
+                    failure_start_time = int(timestamps[i])
+                    failure_cps = current_cps
+                    break
+
+    results = {
+        "peak_performance": {
+            "cps": peak_cps,
+            "time_ms": peak_time
+        },
+        "stable_performance": {
+            "avg_cps": round(stable_performance, 2)
+        }
+    }
+
+    if failure_detected:
+        results["failure_phase"] = {
+            "detected": True,
+            "time_ms": failure_start_time,
+            "cps_at_failure": failure_cps
+        }
+    else:
+        results["failure_phase"] = {
+            "detected": False
+        }
+
+    return results
+
+
 def run_cps_search(api, initial_cps_value):
 
     MAX_CPS = 5000000
@@ -483,14 +543,60 @@ def run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value):
     all_metrics = collector.get_metrics()
     logger.info(f"Collected metrics for {len(all_metrics)} phases")
 
-    for phase, metrics_list in all_metrics.items():
-        logger.info(f"Phase {phase.value}: {len(metrics_list)} samples collected")
-        for metric in metrics_list:
-            logger.info(f"Sample at {metric['timestamp']}: "
-                        f"Client metrics: {metric['client_metrics']}, "
-                        f"Server metrics: {metric['server_metrics']}")
+    pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+    stats_client_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['client_metrics']),
+                                  re.DOTALL)
+    stats_server_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['server_metrics']),
+                                  re.DOTALL)
 
-    return all_metrics
+    stats_client_result = {}
+    for match in stats_client_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_client_result:
+            stats_client_result[name] = {}
+
+        stats_client_result[name]['timestamp_ids'] = timestamp_id
+        stats_client_result[name]['values'] = values
+
+    stats_server_result = {}
+    for match in stats_server_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_server_result:
+            stats_server_result[name] = {}
+
+        stats_server_result[name]['timestamp_ids'] = timestamp_id
+        stats_server_result[name]['values'] = values
+
+    cps_results = analyze_cps_performance(stats_client_result['Connection Rate']['timestamp_ids'],
+                                          stats_client_result['Connection Rate']['values'])
+
+    logger.info("\nPerformance Analysis:")
+    peak_performance = (f"{cps_results['peak_performance']['cps']} CPS @ "
+                        f"{cps_results['peak_performance']['time_ms']}ms").ljust(30)
+
+    # stable_performance = f"Stable Performance: {cps_results['stable_performance']['avg_cps']} CPS"
+    stable_performance = f"{cps_results['stable_performance']['avg_cps']} CPS".ljust(30)
+
+    if cps_results['failure_phase']['detected']:
+        failure_detected = (
+            f"{cps_results['failure_phase']['cps_at_failure']} CPS @ "
+            f"{cps_results['failure_phase']['time_ms']}ms").ljust(30)
+
+    else:
+        failure_detected = "No mid-test failure detected"
+
+    columns = ['Peak Performance', 'Stable Performance', 'Failure Detected']
+    testRun = [[peak_performance, stable_performance, failure_detected]]
+    table = tabulate(testRun, headers=columns, tablefmt='grid')
+    logger.info(table)
+
+    return
 
 
 def test_saveAs(api, test_filename):
