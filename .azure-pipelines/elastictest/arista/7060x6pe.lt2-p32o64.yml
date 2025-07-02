@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms13-ft2-7060x6-4"
+    default: "vms13-lt2-7060x6-8"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -70,7 +70,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology ft2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202503) --deep_clean --alow_recover"
+    default: "--topology lt2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202503) --deep_clean --alow_recover"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -86,7 +86,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060x6pe.ft2-64.202503.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.lt2-p32o64.202503.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
