@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
 try:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.hlapi.v3arch.asyncio import cmdgen
     has_pysnmp = True
 except Exception:
     has_pysnmp = False

@@ -101,7 +101,7 @@ EXAMPLES = '''
 
 try:
     from pysnmp.proto import rfc1902
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.hlapi.v3arch.asyncio import cmdgen
     from pyasn1.type import univ
     has_pysnmp = True
 except Exception:
