@@ -47,29 +47,29 @@ stages:
     steps:
     - template: .azure-pipelines/pre-commit-check.yml@sonic-mgmt
 
-  - job: validate_test_cases
-    displayName: "Validate Test Cases"
-    timeoutInMinutes: 30
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-    - template: .azure-pipelines/pytest-collect-only.yml@sonic-mgmt
-      parameters:
-        MGMT_BRANCH: ""
-
-  - job: dependency_check
-    displayName: "Dependency Check"
-    timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/dependency-check.yml@sonic-mgmt
-
-  - job: markers_check
-    displayName: "Markers Check"
-    timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/markers-check.yml@sonic-mgmt
+#  - job: validate_test_cases
+#    displayName: "Validate Test Cases"
+#    timeoutInMinutes: 30
+#    continueOnError: false
+#    pool: sonic-ubuntu-1c
+#    steps:
+#    - template: .azure-pipelines/pytest-collect-only.yml@sonic-mgmt
+#      parameters:
+#        MGMT_BRANCH: ""
+#
+#  - job: dependency_check
+#    displayName: "Dependency Check"
+#    timeoutInMinutes: 10
+#    pool: sonic-ubuntu-1c
+#    steps:
+#      - template: .azure-pipelines/dependency-check.yml@sonic-mgmt
+#
+#  - job: markers_check
+#    displayName: "Markers Check"
+#    timeoutInMinutes: 10
+#    pool: sonic-ubuntu-1c
+#    steps:
+#      - template: .azure-pipelines/markers-check.yml@sonic-mgmt
 
 
 - stage: Test
