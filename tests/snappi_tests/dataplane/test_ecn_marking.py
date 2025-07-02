@@ -1,13 +1,26 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
+from snappi_tests.dataplane.files.helper_pr import (
+    get_duthost_vlan_details,
+    create_snappi_config,
+    get_snappi_stats,
+    create_snappi_l1config,
+    get_fanout_port_groups,
+    set_primary_chassis,
+    create_traffic_items,
+)  # noqa: F401
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.parametrize("subnet_type", ["IPv4"])
 def test_ecn_marking(
     duthosts,
     snappi_api,                   # noqa: F811
     get_snappi_ports,             # noqa: F811
+    set_primary_chassis,   # noqa: F811
+    subnet_type,
+    create_snappi_l1config,  # noqa: F811
     fanout_graph_facts_multidut,
 ):
     """
@@ -17,18 +30,30 @@ def test_ecn_marking(
           fanout_per_port is 2
     """
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.interface_type = 'vlan'
-    snappi_ports = setup_snappi_port_configs(duthosts, get_snappi_ports, snappi_extra_params)
+    snappi_ports = get_duthost_vlan_details(duthosts, get_snappi_ports)
+    pytest_assert(len(snappi_ports) >= 3, "Not enough ports for the test, Need at least 3 ports")
     tx_ports = snappi_ports[:2]
     rx_ports = [snappi_ports[2]]
-    config, tx_names, rx_names = create_snappi_config(
-        snappi_api, tx_ports, rx_ports, is_rdma=True
-    )
+    config = create_snappi_l1config
+    snappi_extra_params.protocol_config = {
+        "Tx": {"network_group": False, "protocol_type": "vlan", "ports": tx_ports,
+               "subnet_type": subnet_type, 'is_rdma': True},
+        "Rx": {"network_group": False, "protocol_type": "vlan",
+               "ports": rx_ports, "subnet_type": subnet_type, 'is_rdma': True},
+    }
+    config, snappi_obj_handles = create_snappi_config(config, snappi_extra_params)
     api = snappi_api
-    for tx_name in tx_names:
-        config = create_traffic_items(
-            config, tx_name, rx_names[0], line_rate=55, is_rdma=True
-        )
+    snappi_extra_params.traffic_flow_config = [
+        {
+            "line_rate": 55,
+            "frame_size": 1024,
+            "is_rdma": False,
+            "flow_name": "Traffic Flow",
+            "tx_names": snappi_obj_handles["Tx"]["ip"],
+            "rx_names": snappi_obj_handles["Rx"]["ip"],
+        },
+    ]
+    config = create_traffic_items(config, snappi_extra_params)
     api.set_config(config)
 
     packet_capture_file = "ECN_capture"
@@ -55,7 +80,6 @@ def test_ecn_marking(
         ]
     logger.info("Starting All protocols")
     ixnetwork.StartAllProtocols()
-
     wait(10, "For Protocols To start")
     trafficItem = ixnetwork.Traffic.TrafficItem.find()
     for ti in trafficItem:
@@ -73,9 +97,23 @@ def test_ecn_marking(
     ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.START
     api.set_control_state(ts)
     wait(10, "To send traffic")
+    logger.info("\n")
     logger.info(
-        "Dumping Traffic Item statistics :\n {}".format(
-            tabulate(get_ti_stats(ixnetwork), headers="keys", tablefmt="psql")
+        tabulate(
+            get_snappi_stats(
+                ixnetwork,
+                "Traffic Item Statistics",
+                [
+                    'Tx Frames',
+                    'Rx Frames',
+                    'Frames Delta',
+                    'Loss %',
+                    'Tx Frame Rate',
+                    'Rx Frame Rate'
+                ]
+            ),
+            headers="keys",
+            tablefmt="psql"
         )
     )
     logger.info("Stopping transmit on all flows ...")
@@ -86,7 +124,7 @@ def test_ecn_marking(
     logger.info("Stopping packet capture ...")
     request = api.capture_request()
     request.port_name = packet_capture_ports[0]
-    wait(20, "ecc ")
+    wait(20, "To stop capture")
     cs = api.control_state()
     cs.port.capture.state = cs.port.capture.STOP
     api.set_control_state(cs)
@@ -106,7 +144,7 @@ def test_ecn_marking(
             count += 1
     logger.info("Total packets Captured: {}".format(len(ip_pkts)))
     logger.info("Total packets marked: {}".format(count))
-    logger.info("Percentage of packets marked: {}".format(count/len(ip_pkts)*100))
+    logger.info("Percentage of packets marked: {}".format(count / len(ip_pkts) * 100))
     # Check if the first packet is ECN marked
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
     # Check if the last packet is not ECN marked
