@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/python
+
 # This ansible module is for running multiple commands by /bin/sh on remote device.
 #
 # The ansible builtin module "command" and "shell" can run a single command on the remote device and get its output.

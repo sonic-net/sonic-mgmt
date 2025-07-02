@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/python
+
 from ansible.module_utils.basic import AnsibleModule
 import sys
 import traceback

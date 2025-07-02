@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/python
+
 # This ansible module is for gathering image facts from SONiC device.
 #
 # The "sonic_installer list" command can list the images on SONiC device, including:

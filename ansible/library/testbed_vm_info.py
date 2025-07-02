@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.multi_servers_utils import MultiServersUtils

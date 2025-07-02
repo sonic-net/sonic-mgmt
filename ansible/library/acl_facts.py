@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/python
+
 # This ansible module is for gathering ACL related facts from SONiC device.
 #
 # The "sonic-cfggen" tool is used to output all the running config data from db in JSON format. ACL table information
