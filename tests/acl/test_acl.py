@@ -45,7 +45,6 @@ pytestmark = [
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
-HIGH_ROUTES_THRESHOLD = 10000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
