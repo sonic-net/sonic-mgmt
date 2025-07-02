@@ -21,6 +21,8 @@ import tortuga_common_utils as common_obj
 CONFIGS_FILE = 'vxlan_l2vni_v6_vtep_configs_template.yaml'
 ACL_JSON_FILE = "acl_v4_v6_rules.json"
 ACL_JSON_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) +  '/' + ACL_JSON_FILE
+ACL_JSON_DST_FILE = "acl_v4_v6_rules_dst.json"
+ACL_JSON_DST_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) +  '/' + ACL_JSON_DST_FILE
 
 data = SpyTestDict()
 data_v4 = SpyTestDict()
@@ -54,8 +56,8 @@ data.remote = None
 data.d3t1_ip6_addr = "2001::2"
 data.t1d3_ip6_addr = "2001::1"
 data.t1d3_mac_addr = "00:0a:01:00:11:01"
-data.d4t1_ip6_addr = "2001::4"
-data.t1d4_ip6_addr = "2001::3"
+data.d4t1_ip6_addr = "2001::1"
+data.t1d4_ip6_addr = "2001::2"
 data.t1d4_mac_addr = "00:0a:01:00:12:01"
 data.mask = "24"
 data.counters_threshold = 10
@@ -140,8 +142,27 @@ def setup_and_teardown():
             config_static(node, 'sonic')
             config_static(node, 'bgp')
 
-    # sleep for 40 seconds for BGP to converge
-    st.wait(40)
+    # Wait until BGP sessions are up
+    cmd = "show ip bgp summary"
+    for i in range(0, 2):
+        is_up = True
+        for node, _ in config_list.items():
+            cli_output = st.show(nodes[node], cmd, skip_tmpl=True)
+            parsed_output = st.parse_show(nodes[node], cmd, cli_output, "show_ip_bgp_summary.tmpl")
+            for entry in parsed_output:
+                if not entry['state'].isnumeric():
+                    is_up = False
+                    break
+            else:
+                continue
+            break
+        if is_up:
+            st.log("BGP sessions are up on all nodes.")
+            break
+        else:
+            st.log("BGP session not established on {}. Retrying...".format(node))
+            st.wait(10)
+
     ###Get TGEN Handles ###
     handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip6_addr, "gateway": data.d3t1_ip6_addr, "mac" : data.t1d3_mac_addr },
                                         "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip6_addr, "gateway": data.d4t1_ip6_addr, "mac" : data.t1d4_mac_addr }},
@@ -388,12 +409,12 @@ def test_v6_vtep_acl():
 
     acl_rules_data_string = set_ip_in_json(acl_rules_data_string)
 
-    with open(ACL_JSON_FILE_PATH, "w") as file:
+    with open(ACL_JSON_DST_FILE_PATH, "w") as file:
         file.write(acl_rules_data_string)
 
     st.log("Copy the Json file to Leaf1")
-    utils_obj.copy_files_to_dut(nodes['leaf1'], [ACL_JSON_FILE_PATH], '/home/cisco')
-    st.config(nodes['leaf1'], "config acl update full {}".format(ACL_JSON_FILE))
+    utils_obj.copy_files_to_dut(nodes['leaf1'], [ACL_JSON_DST_FILE_PATH], '/home/cisco')
+    st.config(nodes['leaf1'], "config acl update full {}".format(ACL_JSON_DST_FILE))
     st.config(nodes['leaf1'], "counterpoll acl enable")
 
     st.banner("ACL Table")

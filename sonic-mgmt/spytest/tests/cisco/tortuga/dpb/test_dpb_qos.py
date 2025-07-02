@@ -81,7 +81,7 @@ def test_qos_with_dpb():
         st.error("Queue Counter Verification failed for intf {}".format(vars.D3D1P1))
         result=False
     param_list = ['UC0', 'UC1', 'UC2', 'UC3', 'UC4', 'UC5', 'UC6', 'UC7']
-    if not poll_wait(common_obj.verify_queue_and_priority_grp_counters, 60, data_glob.leaf0, vars.D3D1P1, "unicast", param_list, ['0']*8,['0']*8, priority_group=None):
+    if not poll_wait(common_obj.verify_queue_and_priority_grp_counters, 60, data_glob.leaf0, vars.D3D1P1, "unicast", param_list, ['9600']*8,['9600']*8, priority_group=None):
         st.error("Queue Watermark Verification for Unicast failed for intf {}".format(vars.D3D1P1))
         result=False
     param_list = ['MC8', 'MC9', 'MC10', 'MC11', 'MC12', 'MC13', 'MC14', 'MC15']

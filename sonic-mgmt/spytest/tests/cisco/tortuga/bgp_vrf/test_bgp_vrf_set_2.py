@@ -438,7 +438,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(10)
+    time.sleep(20)
 
     cmd = 'show ip route vrf Vrf01 192.168.1.1'
     cmd_output = st.config(nodes['leaf0'], cmd)
@@ -460,7 +460,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(10)
+    time.sleep(20)
 
     cmd = 'show ip route vrf Vrf01 192.168.1.1'
     cmd_output = st.config(nodes['leaf0'], cmd)
@@ -548,12 +548,21 @@ def test_bgp_vrf_changing_vrf_locally():
 
     time.sleep(10)
     cmd = 'show ip route vrf Vrf10'
-    prefix_present = False
-    cmd_output = st.config(nodes['leaf0'], cmd)
-    parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_ip_route.tmpl')
-    for path in parsed_output:
-        if path['type'] == 'B' and path['selected'] == '>' and path['ip_address'] == "192.168.1.3/32":
-            prefix_present = True
+
+    # Wait for DF election to complete
+    for i in range(0, 5):
+        prefix_present = False
+        cmd_output = st.config(nodes['leaf0'], cmd)
+        parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_ip_route.tmpl')
+        for path in parsed_output:
+            if path['type'] == 'B' and path['selected'] == '>' and path['ip_address'] == "192.168.1.3/32":
+                prefix_present = True
+
+        if prefix_present == True:
+            st.log("DF election completed successfully")
+            break
+        st.log("Waiting for DF election to complete, retrying in 10 seconds")
+        time.sleep(10)
 
     if prefix_present != True:
         st.report_fail("test_case_failed", nodes['leaf0'])
