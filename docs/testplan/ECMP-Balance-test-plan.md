@@ -13,44 +13,14 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 
 ## Test Scope
 
-### In Scope
+### In Current Scope
 
-- UDP packet forwarding with ECMP load balancing
+- Packet forwarding with ECMP load balancing
 - IPv4 and IPv6 traffic patterns
 - Hash tuple variations (source IP, destination IP, source port, destination port)
-- ECMP hash offset configuration changes
+- ECMP hash offset configuration changes impact packet distribution
 - Packet distribution analysis across upstream interfaces
-- Broadcom ASIC platforms with T0/T1 topologies
 
-### Out of Scope
-
-- TCP traffic patterns
-- Non-Broadcom ASIC platforms
-- Other topology types (T2, M0, MX)
-- Performance benchmarking
-- Failover scenarios
-
-## Test Environment
-
-### Prerequisites
-
-- SONiC device with Broadcom ASIC
-- T0 or T1 topology configuration
-- PTF (Packet Test Framework) environment
-- Upstream and downstream port connectivity
-- BCM command line interface access
-
-### Hardware Requirements
-- Supported platforms:
-  - Broadcom
-
-- Supported Arista hardware SKUs for case test_udp_packets_ecmp, updating ECMPHashSet0Offset doesn't change OFFSET_ECMP for 7050cx3, so exclude 7050cx3.
-  - Arista-7060CX-32S-C32
-  - Arista-7060CX-32S-D48C8
-  - Arista-7060CX-32S-Q32
-  - Arista-7260CX3-C64
-  - Arista-7260CX3-D108C10
-  - Arista-7260CX3-D108C8
 
 ## Test Cases
 
@@ -58,7 +28,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 
 **Test Function:** `test_udp_packets`
 
-**Objective:** Verify basic ECMP functionality with different traffic patterns. Also save the test results to output file as the original sample file which will be compared with the output file with Test Case 2.
+**Objective:** Verify basic ECMP functionality with different traffic patterns. Also save the test results to output file as the original sample file which will be compared with the output file in Test Case 2.
 
 **Test Steps:**
 
@@ -69,7 +39,7 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
    - **Pattern 2:** Vary source IPs (20.0.0.2 to 20.0.0.41 for IPv4) with fixed other parameters
    - **Pattern 3:** Vary destination ports (80-119) with fixed other parameters
    - **Pattern 4:** Vary destination IPs (194.50.16.2 to 194.50.16.41 for IPv4) with fixed other parameters
-4. Send 100 packets per variation (40 variations per pattern)
+4. Send 100 packets per variation (80 variations per pattern)
 5. Verify packet forwarding and count matches
 6. Record output interface for each traffic pattern
 7. Save test results to JSON file
@@ -96,32 +66,71 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 **Test Steps:**
 
 1. Check hardware SKU compatibility
-2. Record original ECMPHashSet0Offset value
-3. Set ECMPHashSet0Offset to 0x1c
+2. Record original ECMP hash offset value
+3. Change ECMP hash offset
 4. Execute same four traffic patterns as Test Case 1
 5. Save results with ECMP offset suffix
-6. Compare results with baseline test (without offset)
-7. Restore original ECMPHashSet0Offset value
+6. Compare results with Test Case 1 (without offset)
+7. Restore original ECMP hash offset value
 
 **Expected Results:**
 
 - Traffic distribution changes when hash offset is modified
-- Different interface selection compared to baseline test
+- Different interface selection compared to Test Case 1
 - All packets still forwarded correctly
 
 **Pass Criteria:**
 
-- Results differ from baseline test (different interface mappings)
+- Results differ from Test Case 1 (different interface mappings)
 - No packet loss during hash offset changes
 - Hash offset successfully restored after test
+
+### Test Case 3: Cross-Version Hash Consistency Validation
+
+**Test Function:** `test_cross_version_hash_consistency` (Future Implementation)
+
+**Objective:** Verify ECMP hash algorithm consistency across different SONiC release versions by comparing hash test results between releases to ensure deterministic behavior.
+
+**Test Steps:**
+
+1. Execute Test Case 1 and 2 on current SONiC version
+2. Save detailed hash results with version metadata
+3. Compare current results with baseline results from previous release versions
+4. Validate hash algorithm consistency across versions
+5. Generate compatibility report for hash behavior changes
+
+**Test Data Requirements:**
+
+- Baseline hash results from previous SONiC releases
+- Version-specific metadata (SONiC version, kernel version, ASIC driver version)
+- Standardized test conditions (same hardware, same topology, same test parameters)
+
+**Expected Results:**
+
+- Hash distribution patterns remain consistent across versions
+- Same 5-tuple combinations produce identical path selections
+- No unexpected hash algorithm behavior changes
+- Backward compatibility maintained for existing deployments
+
+**Pass Criteria:**
+
+- Hash results match baseline test
+- No regression in load balancing effectiveness
+- Documentation of any intentional hash algorithm changes
+
+**Implementation Notes:**
+
+- Requires standardized baseline data collection process
+- May need version-specific test adaptations
+- Results should be archived for future version comparisons
 
 ## Test Data and Parameters
 
 ### Traffic Parameters
 
 - **Packet Count per Test:** 100 packets
-- **Test Variations per Pattern:** 40 variations
-- **Total Packets per Test Case:** 16,000 packets (4 patterns × 40 variations × 100 packets)
+- **Test Variations per Pattern:** 80 variations
+- **Total Packets per Test Case:** 64,000 packets (4 patterns × 80 variations × 100 packets x 2 versions (ipv4/ipv6))
 - **Protocol:** UDP (protocol 17)
 - **Packet Size:** Standard UDP packet size
 - **TTL/Hop Limit:** 64
@@ -138,15 +147,8 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
   - Source Port: 100
   - Destination Port: 80
 
-### Hash Configuration
 
-- **Default ECMP Hash Offset:** Original device value
-- **Test ECMP Hash Offset:** 0x1c
-- **Fallback Hash Offset:** 0x1a
-
-## Validation Criteria
-
-### Functional Validation
+### Validation Criteria
 
 1. **Packet Forwarding Accuracy**
    - All sent packets must be received
@@ -163,17 +165,6 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
    - No packet loss during configuration changes
    - Successful restoration of original settings
 
-### Performance Validation
-
-1. **Interface Utilization**
-   - At least one interface shows significant traffic (≥100 packets)
-   - Multiple interfaces utilized for load balancing
-   - Consistent forwarding rates
-
-2. **Hash Effectiveness**
-   - Different 5-tuples result in different paths
-   - Hash algorithm properly distributes traffic
-   - Minimal hash collisions
 
 ## Test Reporting
 
@@ -190,44 +181,26 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 - Hash offset impact measurement
 - Test execution time
 
-### Failure Analysis
 
-- Packet loss detection and reporting
-- Interface utilization analysis
-- Hash distribution effectiveness
-- Configuration restoration verification
-
-## Risk Assessment
-
-### Test Risks
+### Test Limitation
 
 - **Hardware Compatibility:** Limited to specific Arista SKUs
-- **Configuration Changes:** ECMP hash offset modifications may affect other traffic
+- Current supported platforms:
+  - Broadcom
+
+- Current supported Arista hardware SKUs for case test_udp_packets_ecmp, updating ECMPHashSet0Offset doesn't change OFFSET_ECMP for 7050cx3, so exclude 7050CX3.
+  - Arista-7060CX-32S-C32
+  - Arista-7060CX-32S-D48C8
+  - Arista-7060CX-32S-Q32
+  - Arista-7260CX3-C64
+  - Arista-7260CX3-D108C10
+  - Arista-7260CX3-D108C8
+- **Configuration Changes:** Different Asic has different way to update ECMP offset.
+  - For Broadcom, default ECMP Hash Offset Original device value
+  - Test ECMP Hash Offset: 0x1c
+  - Fallback Hash Offset 0x1a
 - **Timing Dependencies:** Packet polling timeouts may cause false failures
-- **Resource Utilization:** High packet counts may impact device performance
 
-### Mitigation Strategies
-
-- SKU compatibility checks before test execution
-- Automatic restoration of original configurations
-- Configurable timeout values for different environments
-- Rate limiting and batch processing for packet generation
-
-## Dependencies
-
-### External Dependencies
-
-- PTF framework availability
-- BCM command line interface access
-- JSON file system permissions
-- Network topology stability
-
-### Internal Dependencies
-
-- SONiC routing table configuration
-- Interface status and connectivity
-- Port statistics collection capability
-- Minigraph facts availability
 
 ## Test Configuration Constants
 
@@ -283,40 +256,13 @@ graph TD
 | test_udp_packets | IPv6 | Varying Dest IPs | Traffic distributed across ECMP paths |
 | test_udp_packets_ecmp | IPv4 | All Patterns | Different distribution vs baseline |
 | test_udp_packets_ecmp | IPv6 | All Patterns | Different distribution vs baseline |
+| test_cross_version_hash_consistency | IPv4 | All Patterns | Consistent distribution across versions |
+| test_cross_version_hash_consistency | IPv6 | All Patterns | Consistent distribution across versions |
 
-## Troubleshooting Guide
-
-### Common Issues
-
-1. **No ECMP paths available**
-   - Check routing table for multiple equal-cost routes
-   - Verify upstream neighbor connectivity
-   - Confirm topology supports ECMP
-
-2. **Hash offset changes not taking effect**
-   - Verify BCM command execution success
-   - Check hardware SKU compatibility
-   - Ensure sufficient privileges for BCM commands
-
-3. **Packet loss during testing**
-   - Increase timeout values
-   - Check interface status and link health
-   - Verify PTF adapter configuration
-
-4. **Inconsistent test results**
-   - Clear port statistics before each test
-   - Ensure stable network conditions
-   - Check for background traffic interference
-
-### Log Analysis
-
-Key log entries to monitor:
-- ECMPHashSet0Offset value changes
-- Packet transmission and reception counts
-- Interface selection patterns
-- Test result file generation
 
 ## Future Enhancements
 
-- Support for additional ASIC vendors
-- TCP traffic pattern testing
+- Enhanced cross-version hash validation automation
+- support TCP traffic pattern
+- Support Non-Broadcom ASIC platforms
+- All topology types (T0, T1, T2, M0, MX)
