@@ -6,6 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.platform_tests.sfp.software_control.conftest import check_platform_support
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -18,7 +19,7 @@ cmd_sfp_presence = "sudo sfpshow presence"
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
-    def is_supported_platform(self, duthost, tbinfo):
+    def is_supported_platform(self, duthost, tbinfo, check_platform_support):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -26,22 +27,6 @@ class TestMACFault(object):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
-
-        if "nvidia" in duthost.facts["platform"].lower() and not self.is_independent_module_enabled(duthost):
-            pytest.skip("Skipping test: Independent module feature is not enabled on the DUT")
-
-    def is_independent_module_enabled(self, duthost):
-        """
-        Check if the independent module feature is enabled on the Nvidia DUT.
-        Returns True if SAI_INDEPENDENT_MODULE_MODE=1 is set in sai.profile, else False.
-        """
-        platform = duthost.facts["platform"]
-        hwsku = duthost.facts["hwsku"]
-        sai_profile_path = f"/usr/share/sonic/device/{platform}/{hwsku}/sai.profile"
-
-        cmd = f"grep '^SAI_INDEPENDENT_MODULE_MODE=1' {sai_profile_path}"
-        result = duthost.shell(cmd, module_ignore_errors=True)
-        return result["rc"] == 0
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
