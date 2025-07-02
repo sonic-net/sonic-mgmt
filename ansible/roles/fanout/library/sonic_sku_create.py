@@ -45,7 +45,7 @@ INTERFACE_KEY = "Ethernet"
 
 # port_config.ini header
 PORTCONFIG_HEADER = ["# name", "lanes", "alias", "index", "speed"]
-platform_4 = ['x86_64-mlnx_lssn2700-r0','x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn3700-r0']
+platform_4 = ['x86_64-mlnx_lssn2700-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn3700-r0']
 platform_8 = ['x86_64-mlnx_msn4700-r0']
 
 bko_dict_4 = {
