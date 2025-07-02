@@ -86,7 +86,7 @@ class TestMACFault(object):
                 is_cmis_supported = False
 
             if not is_cmis_supported:
-                logger.info(f"Port {port} skipped: CMIS not supported on this port.")
+                logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
                 continue
 
             if parsed_presence.get(port_name) == "Present" and \
