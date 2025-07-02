@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 # This ansible module is for gathering VLAN related facts from SONiC device.
 
 from ansible.module_utils.basic import AnsibleModule

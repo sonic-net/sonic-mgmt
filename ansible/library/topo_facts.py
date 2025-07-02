@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import os
 import traceback
 import ipaddress

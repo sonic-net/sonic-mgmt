@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 # This ansible module is for gathering basic facts from DUT of specified testbed.
 #
 # Example output:
