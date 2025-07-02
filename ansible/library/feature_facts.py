@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This ansible module is for gathering feature facts from SONiC device.
 #
