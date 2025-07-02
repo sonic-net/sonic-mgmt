@@ -529,12 +529,29 @@ TUNNEL: #Thushar Gowda
       hw:
         - decap/test_decap.py
 
-PFC: #Alpesh Patel
+PFC: #Alpesh Patel / Sonum Mathur
   t0-64:
     mth64:
       sim:
         - generic_config_updater/test_incremental_qos.py
         - generic_config_updater/test_pfcwd_interval.py
+      hw:
+        # pfcwd tests should take ~1 hour on M64
+        - pfcwd/test_pfc_config.py
+        - pfcwd/test_pfcwd_all_port_storm.py
+        - pfcwd/test_pfcwd_cli.py
+        - pfcwd/test_pfcwd_function.py
+        - pfcwd/test_pfcwd_timer_accuracy.py
+
+  t0:
+    churchill-mono:
+      hw:
+        - pfcwd/test_pfc_config.py
+        - pfcwd/test_pfcwd_all_port_storm.py
+        - pfcwd/test_pfcwd_cli.py
+        - pfcwd/test_pfcwd_function.py
+        - pfcwd/test_pfcwd_timer_accuracy.py
+
   t2:
     sfd:
       hw:
