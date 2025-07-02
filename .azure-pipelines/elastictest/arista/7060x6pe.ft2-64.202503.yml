@@ -62,11 +62,29 @@ parameters:
     type: string
     default: ""
     displayName: "Scripts to be excluded"
+    values:
+      - "sub_port_interfaces"
+      - "vrf/test_vrf.py"
+      - "vrf/test_vrf_attr.py"
+      - "mvrf/test_mgmtvrf.py"
+      - "platform_tests/test_auto_negotiation.py"
+      - "sflow/test_sflow.py"
+      - "nat/test_dynamic_nat.py"
+      - "nat/test_static_nat.py"
 
   - name: FEATURES_EXCLUDE
     type: string
     default: "sub_port_interfaces"
     displayName: "Features to be excluded"
+    values:
+      - "sub_port_interfaces"
+      - "ptftests"
+      - "acstests"
+      - "saitests"
+      - "scripts"
+      - "k8s"
+      - "sai_qualify"
+      - "metadata-scripts"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
