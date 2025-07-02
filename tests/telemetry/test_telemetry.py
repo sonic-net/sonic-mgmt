@@ -186,12 +186,15 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         pytest.skip("Skipping test as there are none interfaces in admin'up' state with buffer queues to check")
 
     interface_buffer_queues = [bq for bq in buffer_queues if any(val in interface_to_check for val in bq.split('|'))]
+    if len(interface_buffer_queues) == 0:
+        pytest.skip("No valid entry for any interface:queue entry")
 
     """If all queues for that pool are in the same pool ex Ethernet0|0-9
     We will modify to separate the first queue and the remaining such
     that we get a separate entry for Ethernet0|0 and Ethernet0|1-9"""
-    single_key = False
+    is_single_queue = False
     bq_entry = interface_buffer_queues[0]
+
     if len(interface_buffer_queues) == 1:
         iface, q_range = bq_entry.split('|')
         if '-' in q_range:  # Grouped queues
@@ -207,7 +210,8 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
             else:
                 pytest.skip("Invalid buffer queue range")
         else:
-            single_key = True
+            # Single queue entry for port such as Ethernet0|0
+            is_single_queue = True
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
@@ -217,15 +221,17 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
             = "true"
         load_new_cfg(duthost, data)
         pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                 dut_ip, interface_to_check, env.gnmi_port), "Unable to get map data")
+                                 dut_ip, interface_to_check, env.gnmi_port),
+                      "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
         pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         # Remove buffer queue and reload and get new number of queue counters
         del data['BUFFER_QUEUE'][bq_entry]
         load_new_cfg(duthost, data)
-        if not single_key:
+        if not is_single_queue:
             pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                     dut_ip, interface_to_check, env.gnmi_port), "Unable to get map data")
+                                     dut_ip, interface_to_check, env.gnmi_port),
+                          "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
         post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
         pytest_assert(pre_del_cnt > post_del_cnt,
