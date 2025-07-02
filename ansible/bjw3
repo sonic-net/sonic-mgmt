@@ -112,13 +112,13 @@ sonic_arista_7050_S128:
       ansible_hostv6: 2404:f801:10:16::a96:ee40
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial: HBG244605RM
-      base_mac: 54:0f:2c:48:ab:6c
+      serial: HBG244605VE
+      base_mac: 54:0f:2c:4c:88:64
       syseeprom_info:
         "0x21": "DCS-7050CX3-32S-SSD"
         "0x22": "ASY0323113B0"
-        "0x23": "HBG244605RM"
-        "0x24": "54:0f:2c:48:ab:6c"
+        "0x23": "HBG244605VE"
+        "0x24": "54:0f:2c:4c:88:64"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
@@ -128,7 +128,7 @@ sonic_arista_7050_S128:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "HBG244605RM"
+        "0x2F": "HBG244605VE"
         "0xFE": "0xdeadbeef"
 
 sonic_arista_7050_C6S104:
@@ -141,13 +141,13 @@ sonic_arista_7050_C6S104:
       ansible_hostv6: 2404:f801:10:16::a96:ee42
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial: HBG244605RM
-      base_mac: 54:0f:2c:48:ab:6c
+      serial: HBG24470JC5
+      base_mac: 54:0f:2c:4e:44:dc
       syseeprom_info:
         "0x21": "DCS-7050CX3-32S-SSD"
         "0x22": "ASY0323113B0"
-        "0x23": "HBG244605RM"
-        "0x24": "54:0f:2c:48:ab:6c"
+        "0x23": "HBG24470JC5"
+        "0x24": "54:0f:2c:4e:44:dc"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
@@ -157,7 +157,7 @@ sonic_arista_7050_C6S104:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "HBG244605RM"
+        "0x2F": "HBG24470JC5"
         "0xFE": "0xdeadbeef"
 
 sonic_arista_7050_C28S16:
@@ -170,13 +170,13 @@ sonic_arista_7050_C28S16:
       ansible_hostv6: 2404:f801:10:16::a96:ee44
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial: HBG244605RM
-      base_mac: 54:0f:2c:48:ab:6c
+      serial: HBG244605QV
+      base_mac: 54:0f:2c:48:0a:8c
       syseeprom_info:
         "0x21": "DCS-7050CX3-32S-SSD"
         "0x22": "ASY0323113B0"
-        "0x23": "HBG244605RM"
-        "0x24": "54:0f:2c:48:ab:6c"
+        "0x23": "HBG244605QV"
+        "0x24": "54:0f:2c:48:0a:8c"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
@@ -186,7 +186,7 @@ sonic_arista_7050_C28S16:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "HBG244605RM"
+        "0x2F": "HBG244605QV"
         "0xFE": "0xdeadbeef"
 
 mgmt:

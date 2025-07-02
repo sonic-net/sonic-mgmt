@@ -227,6 +227,11 @@ all:
         server_bjw2_8:
         server_bjw2_9:
         server_bjw2_10:
+        server_bjw3_1:
+        server_bjw3_2:
+        server_bjw3_3:
+        server_bjw3_4:
+        server_bjw3_5:
         server_tk5_3:
         server_tk5_4:
         server_tk5_5:
