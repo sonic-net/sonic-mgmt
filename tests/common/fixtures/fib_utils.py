@@ -49,7 +49,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
         for asic_cfg_facts in cfg_facts:
             if duthost.facts['switch_type'] == "voq":
                 switch_type = "voq"
-                dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
+                if 'VOQ_INBAND_INTERFACE' in asic_cfg_facts[1]:
+                    dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
             dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL_MEMBER', {}))
     sys_neigh = {}
     if switch_type == "voq":
