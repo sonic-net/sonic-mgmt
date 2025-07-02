@@ -151,3 +151,15 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
+  async: 300
+  poll: 0
+  register: async_jobs
+
+- name: Wait for network tasks to complete
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  delay: 60
+  loop: "{{ async_jobs.results }}"

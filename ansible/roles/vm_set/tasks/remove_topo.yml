@@ -171,12 +171,28 @@
 
   when: container_type == "IxANVL-CONF-TESTER"
 
-- name: Destroy VMs network
+- name: Destroy VMs network in parallel
   vm_topology:
     cmd: 'destroy'
-    vm_names: "{{ VM_targets }}"
+    vm_names: ["{{ item }}"]
   become: yes
+  async: 1800
+  poll: 0
+  loop: "{{ VM_targets }}"
+  loop_control:
+    label: "{{ item }}"
   when: vm_type is defined and vm_type=="ceos"
+  register: async_destroy_jobs
+
+- name: Wait for destroy tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: destroy_results
+  until: destroy_results.finished
+  retries: 30
+  delay: 60
+  loop: "{{ async_destroy_jobs.results }}"
 
 - name: Destroy DPUs network
   vm_topology:
