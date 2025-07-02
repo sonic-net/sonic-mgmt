@@ -27,6 +27,23 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
+        if "nvidia" in duthost.facts["platform"].lower() and not self.is_independent_module_enabled(duthost):
+            pytest.skip("Skipping test: Independent module feature is not enabled on the DUT")
+
+    def is_independent_module_enabled(self, duthost):
+        """
+        Fixture to check if the independent module feature is enabled on the DUT.
+        Returns True if SAI_INDEPENDENT_MODULE_MODE=1 is set in sai.profile, else False.
+        """
+        # You may need to adjust these paths based on your platform
+        platform = duthost.facts["platform"]
+        hwsku = duthost.facts["hwsku"]
+        sai_profile_path = f"/usr/share/sonic/device/{platform}/{hwsku}/sai.profile"
+
+        cmd = f"grep '^SAI_INDEPENDENT_MODULE_MODE=1' {sai_profile_path}"
+        result = duthost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
         output = dut.show_and_parse("show int errors {}".format(interface))
@@ -45,12 +62,14 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
-    # TODO: Reboot the switch before test as a WA of #22205, remove this after the issue is fixed
+
+    #TODO: Reboot the switch before test as a WA of #22205, remove this after the issue is fixed
     @pytest.fixture(scope="class", autouse=True)
-    def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, request):
+    def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname):
         from tests.common.reboot import reboot
         reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
                localhost, safe_reboot=True, check_intf_up_ports=True)
+
 
     @pytest.fixture(scope="class")
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -64,9 +83,14 @@ class TestMACFault(object):
 
         available_optical_interfaces = []
         for port_name, eeprom_info in eeprom_infos.items():
+            try:
+                is_cmis_supported = float(eeprom_info.get("CMIS Rev", "0")) >= 5.0
+            except ValueError:
+                is_cmis_supported = False
             if parsed_presence.get(port_name) == "Present" and \
                     "SFP EEPROM detected" in eeprom_info[port_name] \
-                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper():
+                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper() \
+                    and is_cmis_supported:
                 available_optical_interfaces.append(port_name)
 
         pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
