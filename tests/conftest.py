@@ -1,11 +1,9 @@
-import concurrent.futures
 from functools import lru_cache
 import os
 import json
 import logging
 import getpass
 import random
-from concurrent.futures import as_completed
 import re
 import sys
 
@@ -891,9 +889,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
+    neighbors_to_initialize = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
     elif 'server' in tbinfo:
@@ -909,12 +906,12 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
         for neighbor_name, neighbor in vms.items():
             vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
+            neighbors_to_initialize.append((neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for neighbor_name, vm_name in neighbors_to_initialize:
+            executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 
