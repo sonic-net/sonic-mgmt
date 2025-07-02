@@ -75,7 +75,7 @@ class TestMACFault(object):
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
 
-        eeprom_infos = dut.command("sudo sfputil show eeprom -d")['stdout']
+        eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
         available_optical_interfaces = []
