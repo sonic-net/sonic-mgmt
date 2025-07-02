@@ -2,7 +2,7 @@
 import grpc
 import pytest
 import time
-import collections
+from collections.abc import Iterable
 import logging
 
 from tests.common import utilities
@@ -210,7 +210,7 @@ def nic_simulator_url(nic_simulator_info):
 def toggle_ports(duthosts, intf_name, state):
     """Toggle port from cmd line"""
 
-    if not isinstance(duthosts, collections.Iterable):
+    if not isinstance(duthosts, Iterable):
         duthosts = [duthosts]
 
     toggled_intfs = []
