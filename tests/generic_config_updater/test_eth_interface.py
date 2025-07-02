@@ -3,7 +3,6 @@ import pytest
 import re
 import random
 
-from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
