@@ -206,18 +206,27 @@ def create_front_panel_ports(count, config, cards_dict):
     for i in range(1, count // 2 + 1):
         for nodetype in ['s', 'c']:
             if data_index < l47_ports_length:  # Check against actual list length
-                new_dict = {
-                    "name": f"l47_port_{i}{nodetype}",
-                    "choice": "front_panel_port",
-                    "front_panel_port": {
-                        "front_panel_port": int(cards_dict['l47_ports'][data_index]['FrontPanel']),
-                        "channel": int(cards_dict['l47_ports'][data_index]['Channel']),
-                        "num_channels": num_channels,
-                        "layer_1_profile_name": "{}".format(config.layer1_profile_names[1])
+                if not cards_dict['l47_ports'][data_index]['Channel']:
+                    new_dict = {
+                        "name": f"l47_port_{i}{nodetype}",
+                        "choice": "front_panel_port",
+                        "front_panel_port": {
+                            "front_panel_port": int(cards_dict['l47_ports'][data_index]['FrontPanel']),
+                            "layer_1_profile_name": "{}".format(config.layer1_profile_names[1])
+                        }
                     }
-                }
+                else:
+                    new_dict = {
+                        "name": f"l47_port_{i}{nodetype}",
+                        "choice": "front_panel_port",
+                        "front_panel_port": {
+                            "front_panel_port": int(cards_dict['l47_ports'][data_index]['FrontPanel']),
+                            "channel": int(cards_dict['l47_ports'][data_index]['Channel']),
+                            "num_channels": num_channels,
+                            "layer_1_profile_name": "{}".format(config.layer1_profile_names[1])
+                        }
+                    }
                 fp_list.append(new_dict)
-                print(cards_dict['l47_ports'][data_index])
             data_index += 1
 
     # l47 Front Panel DPU
@@ -232,21 +241,31 @@ def create_front_panel_ports(count, config, cards_dict):
         else:
             dpu_port = int(cards_dict['dpu_ports'][i - 1]['FrontPanel'])
 
-    dpu_port_1 = {"name": "l47_dpuPort_1", "choice": "port_group",
-        "port_group":  # noqa: E128
-        {  # noqa: E128
-            "ports": [
-            {  # noqa: E122
-            "front_panel_port": dpu_port, "layer_1_profile_name": "{}".format(  # noqa: E122
-                config.layer1_profile_names[3]),  # noqa: E122
-            "switchover_port": {"front_panel_port": switchover_port,  # noqa: E122
-                                "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])}  # noqa: E122
+    if switchover_port == 0:
+        for x, dpu in enumerate(cards_dict['dpu_ports']):
+            dpu_port_ = {"name": f"l47_dpuPort_{x + 1}", "choice": "port_group", "front_panel_port": {
+                "front_panel_port": int(cards_dict['dpu_ports'][x]['FrontPanel']),
+                "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])
             }
-            ]
-        }
-    }
+            }
+            fp_list.append(dpu_port_)
+    else:
+        dpu_port_1 = {"name": "l47_dpuPort_1", "choice": "port_group",
+                      "port_group":  # noqa: E128
+                          {  # noqa: E127
+                              "ports": [
+                                  {  # noqa: E122
+                                      "front_panel_port": dpu_port, "layer_1_profile_name": "{}".format(  # noqa: E122
+                                      config.layer1_profile_names[3]),  # noqa: E122
+                                      "switchover_port": {"front_panel_port": switchover_port,  # noqa: E122
+                                                          "layer_1_profile_name": "{}".format(
+                                                              config.layer1_profile_names[3])}
+                                  }
+                              ]
+                          }
+                      }
 
-    fp_list.append(dpu_port_1)
+        fp_list.append(dpu_port_1)
 
     return fp_list
 
