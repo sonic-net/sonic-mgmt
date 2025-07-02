@@ -32,10 +32,9 @@ class TestMACFault(object):
 
     def is_independent_module_enabled(self, duthost):
         """
-        Fixture to check if the independent module feature is enabled on the DUT.
+        Fixture to check if the independent module feature is enabled on the Nvidia DUT.
         Returns True if SAI_INDEPENDENT_MODULE_MODE=1 is set in sai.profile, else False.
         """
-        # You may need to adjust these paths based on your platform
         platform = duthost.facts["platform"]
         hwsku = duthost.facts["hwsku"]
         sai_profile_path = f"/usr/share/sonic/device/{platform}/{hwsku}/sai.profile"
