@@ -3,6 +3,7 @@ import grpc
 import pytest
 import time
 from collections.abc import Iterable
+
 import logging
 
 from tests.common import utilities
@@ -15,6 +16,7 @@ from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
+from collections.abc import Iterable
 
 
 __all__ = [
