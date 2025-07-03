@@ -2,8 +2,6 @@
 import grpc
 import pytest
 import time
-from collections.abc import Iterable
-
 import logging
 
 from tests.common import utilities
