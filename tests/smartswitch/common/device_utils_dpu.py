@@ -43,12 +43,11 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
     return num_modules
 
 
-@pytest.fixture(scope='function', autouse=True)
-def skip_for_non_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname):
+@pytest.fixture(scope='session', autouse=True)
+def skip_for_non_smartswitch(duthost):
     """
     Skip test if not running on a smartswitch testbed
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not duthost.facts.get('is_smartswitch'):
         pytest.skip("Test is supported only on smartswitch testbeds. "
                     "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
