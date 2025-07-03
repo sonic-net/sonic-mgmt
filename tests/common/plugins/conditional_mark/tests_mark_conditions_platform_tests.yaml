@@ -1013,7 +1013,7 @@ platform_tests/mellanox/test_reboot_cause.py:
             / Mellanox platform tests only supported on Mellanox devices"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-nvidia_sn4280-r0']"
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 #######################################
