@@ -5,6 +5,7 @@ import logging
 import re
 import json
 
+from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401

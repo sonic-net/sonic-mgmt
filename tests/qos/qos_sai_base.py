@@ -54,7 +54,7 @@ class QosBase:
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag",
-                          "t1-isolated-d448u16", "t1-isolated-v6-d448u16"]
+                          "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
                            "td3", "th3", "j2c+", "jr2", "th5"]
@@ -395,6 +395,7 @@ class QosSaiBase(QosBase):
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
             platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
+                                                                    "x86_64-nvidia_sn5640-r0",
                                                                     "x86_64-nvidia_sn5400-r0"]
             if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
