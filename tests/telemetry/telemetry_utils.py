@@ -55,8 +55,8 @@ def skip_201911_and_older(duthost):
 
 def check_gnmi_cli_running(duthost, ptfhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    rc = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")["rc"]
-    return rc == "0"
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    return res and res["rc"] == 0
 
 
 def parse_gnmi_output(gnmi_output, match_no, find_data):
