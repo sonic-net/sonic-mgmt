@@ -5,7 +5,8 @@ SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-M
                "ACS-MSN2010", "ACS-SN2201"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
 SPC3_HWSKUS = ["ACS-MSN4700", "Mellanox-SN4700-O28", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600",
-               "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64", "ACS-SN4280", "Mellanox-SN4280-O28"]
+               "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64", "ACS-SN4280", "Mellanox-SN4280-O28",
+               "Mellanox-SN4280-O8C40", "Mellanox-SN4280-C48", "Mellanox-SN4280-O8V40", "Mellanox-SN4280-O8C80"]
 SPC4_HWSKUS = ["ACS-SN5600", "Mellanox-SN5600-V256", "Mellanox-SN5600-C256S1", "Mellanox-SN5600-C224O8",
                'Mellanox-SN5610N-C256S2', 'Mellanox-SN5610N-C224O8']
 SPC5_HWSKUS = ["Mellanox-SN5640-C512S2", "Mellanox-SN5640-C448O16"]
