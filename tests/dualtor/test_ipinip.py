@@ -267,7 +267,13 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     """
     session_name = "dummy_session"
     # Nvidia platforms support only the gre_type 0x8949, which is 35145 in decimal.
-    gre_type = 35145 if "mellanox" == rand_selected_dut.facts['asic_type'] else 1234
+    asic_type = rand_selected_dut.facts['asic_type']
+    if asic_type == "mellanox":
+        gre_type = 35145
+    elif asic_type == "cisco-8000":
+        gre_type = 35006
+    else:
+        gre_type = 1234
     cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 {} 0".format(session_name, gre_type)
     rand_selected_dut.shell(cmd=cmd)
     uplink_port_id = setup_uplink
