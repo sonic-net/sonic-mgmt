@@ -263,13 +263,13 @@ def makeSonicLabConsoleLinks(data, outfile):
     # folding this line inserts unwanted spaces
     csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate"
     console_info_template = OrderedDict({
-        "start_device" : "",
-        "start_port" : "",
-        "end_device" : "",
-        "console_type" : "",
-        "console_menu_type" : "",
-        "proxy" : "",
-        "baud_rate" : "" })
+        "start_device": "",
+        "start_port": "",
+        "end_device": "",
+        "console_type": "",
+        "console_menu_type": "",
+        "proxy": "",
+        "baud_rate": ""})
     try:
         with open(csv_file, "w") as f:
             f.write(csv_columns + "\n")
@@ -278,8 +278,7 @@ def makeSonicLabConsoleLinks(data, outfile):
                 if not console_info:
                     continue
 
-                result = fill_missing_fields(console_info,
-                        console_info_template)
+                result = fill_missing_fields(console_info, console_info_template)
 
                 row = ','.join(list(result.values()))
                 f.write(row + "\n")
@@ -487,7 +486,7 @@ def makeLabSecrets(data, outfile):
                 "ansible").get("sonicadmin_initial_password")})
 
         if "serialconsole" in str(value.get("device_type")).lower():
-           result["console_login"] = value.get("console_login")
+            result["console_login"] = value.get("console_login")
 
     with open(outfile, "w") as toWrite:
         yaml.dump(result, stream=toWrite, default_flow_style=False)
