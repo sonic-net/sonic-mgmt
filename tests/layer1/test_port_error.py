@@ -68,19 +68,17 @@ class TestMACFault(object):
 
         available_optical_interfaces = []
         for port_name, eeprom_info in eeprom_infos.items():
-            try:
-                is_cmis_supported = float(eeprom_info.get("CMIS Revision", "0")) >= 5.0
-            except ValueError:
-                is_cmis_supported = False
-
-            if not is_cmis_supported:
-                logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
-                continue
-
             if parsed_presence.get(port_name) == "Present" and \
                     "SFP EEPROM detected" in eeprom_info[port_name] \
-                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper() \
-                    and is_cmis_supported:
+                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper():
+                try:
+                    is_cmis_supported = float(eeprom_info.get("CMIS Revision", "0")) >= 5.0
+                except ValueError:
+                    is_cmis_supported = False
+
+                if not is_cmis_supported:
+                    logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
+                    continue
                 available_optical_interfaces.append(port_name)
 
         pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
