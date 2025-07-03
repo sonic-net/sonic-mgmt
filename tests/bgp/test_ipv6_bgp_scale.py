@@ -43,7 +43,7 @@ PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
 MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing packets
 STATIC_ROUTES = ['0.0.0.0/0', '::/0']
 WITHDRAW_ROUTE_NUMBER = 1
-global_icmp_type=123
+global_icmp_type = 123
 
 
 def setup_packet_mask_counters(ptf_dataplane, icmp_type):
