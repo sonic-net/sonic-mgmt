@@ -47,3 +47,6 @@ ACL_DST_TAG = "dst_tag"
 ACL_PROTOCOL = "protocol"
 ACL_TAG = "acl_tag"
 ACL_PREFIX_LIST = "prefix_list"
+# For VxLAN source UDP port range
+VXLAN_UDP_BASE_SRC_PORT = 5128
+VXLAN_UDP_SRC_PORT_MASK = 7  # number of least significant bits
