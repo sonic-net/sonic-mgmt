@@ -1,11 +1,11 @@
 """Contains functions used to verify control plane(APP_DB, STATE_DB) values."""
-import collections
 import json
 import logging
 
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ def verify_tor_states(
     Verifies that the expected states for active and standby ToRs are
     reflected in APP_DB and STATE_DB on each device
     """
-    if not isinstance(expected_active_host, collections.Iterable):
+    if not isinstance(expected_active_host, Iterable):
         expected_active_host = [] if expected_active_host is None else [expected_active_host]
     for duthost in expected_active_host:
         db_checker = DBChecker(duthost, 'active', 'healthy',
@@ -282,7 +282,7 @@ def verify_tor_states(
         if not skip_tunnel_route:
             db_checker.verify_tunnel_route(standalone_tunnel_route)
 
-    if not isinstance(expected_standby_host, collections.Iterable):
+    if not isinstance(expected_standby_host, Iterable):
         expected_standby_host = [] if expected_standby_host is None else [expected_standby_host]
     for duthost in expected_standby_host:
         db_checker = DBChecker(duthost, 'standby', expected_standby_health,
