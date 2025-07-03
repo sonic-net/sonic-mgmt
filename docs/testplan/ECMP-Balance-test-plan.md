@@ -13,13 +13,21 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 
 ## Test Scope
 
-### In Current Scope
+### Current Scope
 
-- Packet forwarding with ECMP load balancing
+- UDP packet forwarding with ECMP load balancing
 - IPv4 and IPv6 traffic patterns
 - Hash tuple variations (source IP, destination IP, source port, destination port)
 - ECMP hash offset configuration changes impact packet distribution
 - Packet distribution analysis across upstream interfaces
+
+### Future Scope
+
+- TCP traffic patterns
+- IPinIP encapsulated packets
+- VxLAN encapsulated packets
+- Support for Non-Broadcom ASIC platforms
+- All topology types (T0, T1, T2, M0, MX)
 
 
 ## Test Cases
@@ -124,16 +132,50 @@ This test plan validates ECMP (Equal-Cost Multi-Path) load balancing functionali
 - May need version-specific test adaptations
 - Results should be archived for future version comparisons
 
+### Test Case 4: IPinIP Encapsulated Traffic ECMP Validation (Future Implementation)
+
+**Test Function:** `test_ipinip_ecmp` (Future Implementation)
+
+**Objective:** Verify ECMP load balancing functionality for IPinIP encapsulated packets, ensuring proper hash calculation on both outer and inner packet headers.
+
+**Scope:**
+- IPv4-in-IPv4 encapsulation
+- IPv6-in-IPv6 encapsulation
+- IPv4-in-IPv6 and IPv6-in-IPv4 mixed encapsulation
+- Hash tuple variations on both outer and inner headers
+
+**Key Validation Points:**
+- Hash calculation considers both outer and inner packet fields
+- Load balancing distribution remains effective with encapsulation
+
+### Test Case 5: VxLAN Encapsulated Traffic ECMP Validation (Future Implementation)
+
+**Test Function:** `test_vxlan_ecmp` (Future Implementation)
+
+**Objective:** Verify ECMP load balancing functionality for VxLAN encapsulated packets, validating hash computation across VXLAN headers and inner Ethernet frames.
+
+**Scope:**
+- VxLAN header hash contribution (VNI, UDP source port)
+- Inner Ethernet frame hash calculation
+- VTEP-to-VTEP traffic distribution
+- Multi-tenant traffic isolation and load balancing
+
+**Key Validation Points:**
+- VxLAN UDP source port entropy for load balancing
+- Inner packet header contribution to hash calculation
+- Consistent path selection for flows within same VNI
+
 ## Test Data and Parameters
 
 ### Traffic Parameters
 
 - **Packet Count per Test:** 100 packets
-- **Test Variations per Pattern:** 80 variations
-- **Total Packets per Test Case:** 64,000 packets (4 patterns × 80 variations × 100 packets x 2 versions (ipv4/ipv6))
+- **Test Variations per Pattern:** 240 variations
+- **Total Packets per Test Case:** 192,000 packets (4 patterns × 240 variations × 100 packets x 2 versions (ipv4/ipv6))
 - **Protocol:** UDP (protocol 17)
 - **Packet Size:** Standard UDP packet size
 - **TTL/Hop Limit:** 64
+- **Future Packet Types:** IPinIP encapsulated packets, VxLAN encapsulated packets
 
 ### Network Parameters
 
@@ -258,11 +300,17 @@ graph TD
 | test_udp_packets_ecmp | IPv6 | All Patterns | Different distribution vs baseline |
 | test_cross_version_hash_consistency | IPv4 | All Patterns | Consistent distribution across versions |
 | test_cross_version_hash_consistency | IPv6 | All Patterns | Consistent distribution across versions |
+| test_ipinip_ecmp | IPv4-in-IPv4 | All Patterns | Traffic distributed across ECMP paths |
+| test_ipinip_ecmp | IPv6-in-IPv6 | All Patterns | Traffic distributed across ECMP paths |
+| test_vxlan_ecmp | VxLAN IPv4 | All Patterns | Traffic distributed across ECMP paths |
+| test_vxlan_ecmp | VxLAN IPv6 | All Patterns | Traffic distributed across ECMP paths |
 
 
 ## Future Enhancements
 
 - Enhanced cross-version hash validation automation
-- support TCP traffic pattern
-- Support Non-Broadcom ASIC platforms
+- Support TCP traffic pattern testing
+- Support for IPinIP encapsulated packet ECMP load balancing
+- Support for VxLAN encapsulated packet ECMP load balancing
+- Support for Non-Broadcom ASIC platforms
 - All topology types (T0, T1, T2, M0, MX)
