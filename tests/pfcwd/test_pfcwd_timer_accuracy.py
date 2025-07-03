@@ -3,10 +3,10 @@ import pytest
 import time
 import re
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -68,7 +68,7 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
 
 
 @pytest.fixture(scope='module', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa: F811
                               enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, stop_pfcwd):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
@@ -191,7 +191,7 @@ class TestPfcwdAllTimer(object):
         test_ports_info = setup_info['test_ports']
         queues = [self.storm_handle.pfc_queue_idx]
 
-        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
+        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info, pkt_count=500):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)

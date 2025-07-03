@@ -33,6 +33,12 @@ def pytest_addoption(parser):
         default=100,
         help="Set custom restart rounds",
     )
+    parser.addoption(
+        "--max_packets_per_sec",
+        action="store",
+        type=int,
+        help="Set maximum packets per second for stress test",
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -129,6 +135,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
         dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
+        dhcp_relay_data['portchannels'] = mg_facts['minigraph_portchannels']
 
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
@@ -158,3 +165,10 @@ def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
         yield DUAL_TOR_MODE, duthost
     else:
         yield SINGLE_TOR_MODE, duthost
+
+
+@pytest.fixture(scope="function")
+def clean_processes_after_stress_test(ptfhost):
+    yield
+    ptfhost.shell("kill -9 $(ps aux | grep  dhcp_relay_stress_test | grep -v 'grep' | awk '{print $2}')",
+                  module_ignore_errors=True)
