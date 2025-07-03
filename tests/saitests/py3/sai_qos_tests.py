@@ -2684,7 +2684,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(
                         self, src_port_id, pkt2,
                         (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                         hysteresis) // cell_occupancy + margin - 2
+                         hysteresis) // cell_occupancy - margin - 2
                     )
                 else:
                     fill_egress_plus_one(
@@ -2727,7 +2727,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(
                         self, src_port_id, dst_port_3_id,
                         pkt3, int(self.test_params['pg']), asic_type)
-                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out)
+                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out + margin * 2)
                 else:
                     fill_egress_plus_one(
                         self, src_port_id,
