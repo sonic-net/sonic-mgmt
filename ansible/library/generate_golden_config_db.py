@@ -169,12 +169,15 @@ class GenerateGoldenConfigDBModule(object):
 
         return out
 
+    def get_namespace_list(self):
+        return json.loads(self.get_multiasic_feature_config()).keys()
+
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
                                                      state="enabled", feature_data=None):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
-            # need dump running config FEATURE + selected feature
-            gold_config_db = json.loads(self.get_multiasic_feature_config())
+            if not full_config:
+                gold_config_db = {ns: {} for ns in self.get_namespace_list()}
         else:
             # need existing config + selected feature
             gold_config_db = full_config
