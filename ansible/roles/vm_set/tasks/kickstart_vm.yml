@@ -151,8 +151,8 @@
       commands: show version
       wait_for: result[0] contains IOS-XR
     vars:
-      - ansible_connection: 'network_cli'
-      - ansible_network_os: 'iosxr'
+      ansible_connection: 'network_cli'
+      ansible_network_os: 'iosxr'
     register: version
     delegate_to: "{{ cisco_vmhost }}"
     ignore_errors: yes
@@ -169,8 +169,8 @@
         commands: show version
         wait_for: result[0] contains IOS-XR
       vars:
-        - ansible_connection: 'network_cli'
-        - ansible_network_os: 'iosxr'
+        ansible_connection: 'network_cli'
+        ansible_network_os: 'iosxr'
       register: respin_version
       delegate_to: "{{ cisco_vmhost }}"
       ignore_errors: yes
