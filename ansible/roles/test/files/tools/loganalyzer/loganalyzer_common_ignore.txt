@@ -317,7 +317,7 @@ r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 r, ".* ERR chronyd\[\d*\]: nss_tacplus: .*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
-r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
+r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
