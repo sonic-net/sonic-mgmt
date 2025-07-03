@@ -138,12 +138,21 @@ ROUTING: #Sridhar Santhanam
         #- bgp/test_bgp_speaker.py
         - bgp/test_bgp_update_timer.py
         - bgp/test_ipv6_nlri_over_ipv4.py
+        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        - route/test_default_route.py::test_default_route_set_src
+        - route/test_route_flap.py
+        - route/test_default_route.py::test_default_route_with_bgp_flap
   t2-min:
     sfd:
       sim:
         - bgp/test_4-byte_asn_community.py
         - bgp/test_bgp_update_timer.py
         - bgp/test_ipv6_nlri_over_ipv4.py
+        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        - route/test_default_route.py::test_default_route_set_src
+        - route/test_route_flap.py
   t1:
     lightning,superbolt:
       sim:
@@ -155,16 +164,16 @@ ROUTING: #Sridhar Santhanam
         #- bgp/test_bgp_speaker.py
         - bgp/test_bgp_update_timer.py
         - bgp/test_ipv6_nlri_over_ipv4.py
-  
-FWD: #Rajendra Thirumurthi
-  t0-64:
-    mth64:
-      sim:
         - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
         - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
         - route/test_default_route.py::test_default_route_set_src
         - route/test_route_flap.py
         - route/test_default_route.py::test_default_route_with_bgp_flap
+  
+FWD: #Rajendra Thirumurthi
+  t0-64:
+    mth64:
+      sim:
         - crm/test_crm.py::test_crm_neighbor
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
@@ -172,20 +181,11 @@ FWD: #Rajendra Thirumurthi
   t2-min:
     sfd:
       sim:
-        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
-        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
-        - route/test_default_route.py::test_default_route_set_src
-        - route/test_route_flap.py
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
   t1:
     lightning,superbolt:
       sim:
-        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
-        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
-        - route/test_default_route.py::test_default_route_set_src
-        - route/test_route_flap.py
-        - route/test_default_route.py::test_default_route_with_bgp_flap
         #- crm/test_crm.py::test_crm_neighbor
         #- everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
         #- everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
