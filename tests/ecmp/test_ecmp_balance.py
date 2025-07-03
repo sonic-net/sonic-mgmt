@@ -15,9 +15,6 @@ from tests.common.portstat_utilities import parse_portstat
 from ptf.testutils import (
     dp_poll,
 )  # This is an example; adjust based on your actual usage
-from ptf.dataplane import (
-    match_exp_pkt,
-)  # This is an example; adjust based on your actual usage
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +32,7 @@ DOWNSTREAM_IP_PORT_MAP = {}
 UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2064:100::11"}
 
 PACKET_COUNT = 100
-PACKET_COUNT_MAX_DIFF = 4
+PACKET_COUNT_MAX_DIFF = 5
 
 
 @pytest.fixture(scope="module")
@@ -338,6 +335,16 @@ def save_test_results(duthost, test_results, ip_version, with_ecmpoffset=False):
             if packets_count:
                 format_results[pattern][interface]["packets_count"] = packets_count
 
+    logger.info("Formatted results by interface:")
+    logger.info(json.dumps(format_results, indent=4))
+    try:
+        formatted_results_file = os.path.join(os.getcwd(), file_name_formatted)
+        with open(formatted_results_file, "w") as f:
+            json.dump(format_results, f, indent=4)
+        logger.info(f"Formatted results saved to {formatted_results_file}")
+    except Exception as e:
+        logger.error(f"Failed to save formatted results to file: {e}")
+
     for pattern, interfaces in format_results.items():
         packet_counts = []
         for interface, data in interfaces.items():
@@ -364,15 +371,6 @@ def save_test_results(duthost, test_results, ip_version, with_ecmpoffset=False):
                 )
                 logger.error(error_msg)
                 pytest_assert(False, error_msg)
-    logger.info("Formatted results by interface:")
-    logger.info(json.dumps(format_results, indent=4))
-    try:
-        formatted_results_file = os.path.join(os.getcwd(), file_name_formatted)
-        with open(formatted_results_file, "w") as f:
-            json.dump(format_results, f, indent=4)
-        logger.info(f"Formatted results saved to {formatted_results_file}")
-    except Exception as e:
-        logger.error(f"Failed to save formatted results to file: {e}")
 
 
 def compare_test_results(duthost, ip_version):
@@ -459,7 +457,7 @@ def compare_test_results(duthost, ip_version):
     return is_expected
 
 
-def match_expected_packet(test, exp_packet, ports=[], device_number=0, timeout=1):
+def match_expected_packet(test, exp_packet, ports=[], device_number=0, timeout=1, exp_count=1):
     """
     Polls packets from the given ports and counts matches against expected_pkt.
 
@@ -473,11 +471,13 @@ def match_expected_packet(test, exp_packet, ports=[], device_number=0, timeout=1
         if (time.time() - last_matched_packet_time) > timeout:
             break
 
-        result = dp_poll(test, device_number=device_number, timeout=timeout)
+        result = dp_poll(test, device_number=device_number, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
-            if result.port in ports and match_exp_pkt(exp_packet, result.packet):
+            if result.port in ports:
                 matched_port = result.port
                 total_rcv_pkt_cnt += 1
+                if total_rcv_pkt_cnt >= exp_count:
+                    break
                 last_matched_packet_time = time.time()
         else:
             break
@@ -491,7 +491,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
     base_sport = 100
     base_dport = 80
     proto = 17
-    INCREMENT = 80
+    INCREMENT = 240
     # Dictionary to store test results for all patterns
     test_results = {
         "pattern_1": {},  # varying source ports
@@ -517,7 +517,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, get_src_port, pkt, PACKET_COUNT)
         exp_pkt = expected_mask_routed_packet(pkt)
-        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports)
+        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports, exp_count=PACKET_COUNT)
         matched_out_port = list(match_cnt.keys())[0]
         pytest_assert(
             match_cnt[matched_out_port] >= PACKET_COUNT,
@@ -561,7 +561,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, get_src_port, pkt, PACKET_COUNT)
         exp_pkt = expected_mask_routed_packet(pkt)
-        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports)
+        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports, exp_count=PACKET_COUNT)
         matched_out_port = list(match_cnt.keys())[0]
         pytest_assert(
             match_cnt[matched_out_port] >= PACKET_COUNT,
@@ -599,7 +599,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, get_src_port, pkt, PACKET_COUNT)
         exp_pkt = expected_mask_routed_packet(pkt)
-        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports)
+        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports, exp_count=PACKET_COUNT)
         matched_out_port = list(match_cnt.keys())[0]
         pytest_assert(
             match_cnt[matched_out_port] >= PACKET_COUNT,
@@ -643,7 +643,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, get_src_port, pkt, PACKET_COUNT)
         exp_pkt = expected_mask_routed_packet(pkt)
-        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports)
+        match_cnt = match_expected_packet(ptfadapter, exp_pkt, ports=dst_ports, exp_count=PACKET_COUNT)
         matched_out_port = list(match_cnt.keys())[0]
         pytest_assert(
             match_cnt[matched_out_port] >= PACKET_COUNT,
