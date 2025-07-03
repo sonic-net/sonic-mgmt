@@ -153,14 +153,17 @@
     loop_var: vm_name
   async: 300
   poll: 0
-  register: async_jobs
+  register: async_create_ceos_network_results
 
 - name: Wait for network tasks to complete
   become: yes
   async_status:
-    jid: "{{ item.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 30
-  delay: 60
-  loop: "{{ async_jobs.results }}"
+    jid: "{{ async_create_ceos_network_result_item.ansible_job_id }}"
+  loop: "{{ async_create_ceos_network_results.results }}"
+  loop_control:
+    loop_var: async_create_ceos_network_result_item
+  register: async_create_ceos_network_poll_results
+  until: async_create_ceos_network_poll_results.finished
+  retries: 20
+  delay: 30
+

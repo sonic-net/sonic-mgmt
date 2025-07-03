@@ -174,25 +174,27 @@
 - name: Destroy VMs network in parallel
   vm_topology:
     cmd: 'destroy'
-    vm_names: ["{{ item }}"]
+    vm_names: "{{ vm_name }}"
   become: yes
-  async: 1800
+  async: 300
   poll: 0
-  loop: "{{ VM_targets }}"
+  loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
-    label: "{{ item }}"
+    loop_var: vm_name
   when: vm_type is defined and vm_type=="ceos"
-  register: async_destroy_jobs
+  register: async_destroy_vm_network_results
 
 - name: Wait for destroy tasks to complete
   become: yes
   async_status:
-    jid: "{{ item.ansible_job_id }}"
-  register: destroy_results
-  until: destroy_results.finished
-  retries: 30
-  delay: 60
-  loop: "{{ async_destroy_jobs.results }}"
+    jid: "{{ async_destroy_vm_network_result_item.ansible_job_id }}"
+  loop: "{{ async_destroy_vm_network_results.results }}"
+  loop_control:
+    loop_var: async_destroy_vm_network_result_item
+  register: async_destroy_vm_network_poll_results
+  until: async_destroy_vm_network_poll_results.finished
+  retries: 20
+  delay: 30
 
 - name: Destroy DPUs network
   vm_topology:
