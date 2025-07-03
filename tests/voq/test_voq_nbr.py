@@ -1135,7 +1135,7 @@ class TestNeighborLinkFlap(LinkFlap):
                 sonic_ping(asic, neighbor)
 
             pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, neighbors, "REACHABLE"),
-                          "STATE for neighbor {} did not change to reachable".format(neighbor))
+                          "STATE for neighbors {} did not change to reachable".format(neighbors))
 
             for neighbor in neighbors:
                 check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
