@@ -188,7 +188,12 @@ def exec_routes(
 
     # Calculate timeout as a function of the number of routes
     # Allow at least 1 second even when there is a limited number of routes
-    route_timeout = max(len(prefixes) / 250, 1)
+    asic_type = duthost.facts["asic_type"]
+    if asic_type == "vs":
+        # In vs, route entries need more time to be installed
+        route_timeout = max(len(prefixes) / 160, 1)
+    else:
+        route_timeout = max(len(prefixes) / 250, 1)
 
     # Calculate expected number of route and record start time
     if op == "SET":
