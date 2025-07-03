@@ -537,7 +537,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
     vms_len = len(vms)
     current_routes_offset = 0
     last_suffix = 0
-    for index, (vm_name, vm) in enumerate(vms.items()):
+    for index, vm_name in enumerate(sorted(vms.keys())):
+        vm = vms[vm_name]
         router_type = "leaf"
         if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
@@ -671,7 +672,8 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         tor_number = len([k for k, v in vms_config.items() if 'tor' in v['properties']])
         lov6_address_pattern = ipv6_address_pattern.split("/")[0] + "/128"
         current_routes_offset = last_suffix
-        for index, (k, v) in enumerate(vms_config.items()):
+        for index, k in enumerate(sorted(vms_config.keys())):
+            v = vms_config[k]
             if dpus and k in dpus:
                 continue
             vm_offset = vms[k]['vm_offset']
