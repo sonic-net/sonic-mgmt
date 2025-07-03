@@ -1,8 +1,0 @@
-#######################################
-#####            Device           #####
-#######################################
-smartswitch/common/device_utils_dpu:
-  skip:
-    reason: "Test is supported only on smartswitch testbeds"
-    conditions:
-      - "is_smartswitch==True"
