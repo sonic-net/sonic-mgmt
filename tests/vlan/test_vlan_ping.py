@@ -145,6 +145,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         if len(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid]) >= 2:
             for addr in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid]:
                 if addr.find(':') == -1:
+                    if 'secondary' in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid][addr]:
+                        continue
                     ip4 = addr
                 else:
                     ip6 = addr
