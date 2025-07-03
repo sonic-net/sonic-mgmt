@@ -105,13 +105,14 @@ def test_pcie_link(duthosts, dpuhosts,
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
-    pytest_assert(output_pcie_info[-1] ==
-                  'PCIe Device Checking All Test ----------->>> PASSED',
-                  "PCIe Link test failed'{}'".format(duthost.hostname))
-
-    for index in range(len(dpu_on_list)):
-        duthost.shell("sudo config chassis modules \
-                       startup %s" % (dpu_on_list[index]))
+    try:
+        pytest_assert(output_pcie_info[-1] ==
+                      'PCIe Device Checking All Test ----------->>> PASSED',
+                      "PCIe Link test failed'{}'".format(duthost.hostname))
+    finally:
+        for index in range(len(dpu_on_list)):
+            duthost.shell("sudo config chassis modules \
+                           startup %s" % (dpu_on_list[index]))
 
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
@@ -123,7 +124,7 @@ def test_pcie_link(duthosts, dpuhosts,
                   "PCIe Link test failed'{}'".format(duthost.hostname))
 
 
-def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_restart_pmon(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `DPU status and pcie Link after restart pmon`
@@ -131,19 +132,14 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ip_address_list = []
 
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
+
     logging.info("Checking pmon status")
     pmon_status = check_pmon_status(duthost)
     pytest_assert(pmon_status == 1, "PMON status is Not UP")
-
-    for index in range(num_dpu_modules):
-        dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "on", dpu_name)
-        if rc:
-            ip_address_list.append(
-                          module.get_midplane_ip(platform_api_conn, index))
-
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
     logging.info("Restarting pmon....")
     duthost.shell("systemctl restart pmon")
@@ -154,6 +150,8 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Checking pmon status")
     pmon_status = check_pmon_status(duthost)
     pytest_assert(pmon_status == 1, "PMON status is Not UP")
+
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -170,9 +168,14 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+    try:
+        for index in range(len(dpu_on_list)):
+            check_dpu_health_status(duthost, dpu_on_list[index],
+                                    'Offline', 'down')
+    finally:
+        for index in range(len(dpu_on_list)):
+            duthost.shell("sudo config chassis modules \
+                           startup %s" % (dpu_on_list[index]))
 
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
