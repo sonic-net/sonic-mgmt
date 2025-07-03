@@ -59,7 +59,7 @@ def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dp
 
 
 @pytest.fixture(autouse=True, scope="module")
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts):
+def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts, set_vxlan_udp_sport_range):
     if skip_config:
         return
     dpuhost = dpuhosts[dpu_index]
