@@ -94,26 +94,12 @@ class GenerateGoldenConfigDBModule(object):
                 return -1
         return 0
 
-    def generate_frr_config_mode_golden_config_db(self):
+    def generate_frr_config_mode_golden_config_db(self,config):
         frr_version = self.get_frr_version()
         if frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0:
-            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-            if rc != 0:
-                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-
-            # Generate config table from init_cfg.ini
-            ori_config_db = json.loads(out)
-
-            golden_config_db = {}
-            if "DEVICE_METADATA" in ori_config_db:
-                golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
-                if ("localhost" in golden_config_db["DEVICE_METADATA"] and
-                   "docker_routing_config_mode" in golden_config_db["DEVICE_METADATA"]["localhost"]):
-                    golden_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
-
-            return json.dumps(golden_config_db, indent=4)
-        else:
-            return json.dumps({})
+            return True
+        else
+            return False
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -667,7 +653,11 @@ class GenerateGoldenConfigDBModule(object):
         config = self.update_dns_config(config)
 
         # update router_config_mode
-        config = self.generate_frr_config_mode_golden_config_db(config)
+        if self.generate_frr_config_mode_golden_config_db() is True:
+            metadata = config.get("DEVICE_METADATA",{}).get("localhost",{})
+            if metadata.get("docker_routing_config_mode") != "unified":
+                config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
+               
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
