@@ -104,7 +104,7 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
     topo: "{{ topology }}"
-  async: 300
+  async: 3600
   poll: 0
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
@@ -120,8 +120,8 @@
     loop_var: async_create_vm_network_result_item
   register: async_create_vm_network_poll_results
   until: async_create_vm_network_poll_results.finished
-  retries: 20
-  delay: 30
+  retries: 30
+  delay: 60
 
 - name: Create net base containers
   become: yes
@@ -169,7 +169,7 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  async: 300
+  async: 3600
   poll: 0
   register: async_create_ceos_network_results
 
@@ -182,6 +182,6 @@
     loop_var: async_create_ceos_network_result_item
   register: async_create_ceos_network_poll_results
   until: async_create_ceos_network_poll_results.finished
-  retries: 20
-  delay: 30
+  retries: 30
+  delay: 60
 
