@@ -421,7 +421,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.sysDescr,),
         cmdgen.ContextData(),
         lookupMib=False,
@@ -440,7 +440,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.sysObjectId,),
         cmdgen.MibVariable(p.sysUpTime,),
@@ -472,7 +472,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.ifIndex,),
         cmdgen.MibVariable(p.ifDescr,),
@@ -557,7 +557,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.ifInDiscards,),
         cmdgen.MibVariable(p.ifOutDiscards,),
@@ -606,7 +606,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.entPhysDescr,),
         cmdgen.MibVariable(p.entPhysContainedIn, ),
@@ -674,7 +674,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.entPhySensorType,),
         cmdgen.MibVariable(p.entPhySensorScale,),
@@ -731,7 +731,7 @@ def main():
         errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
             cmdgen.MibVariable(p.ChStackUnitCpuUtil5sec,),
             lookupMib=False, lexicographicMode=False
@@ -751,7 +751,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldpLocChassisIdSubtype,),
         cmdgen.MibVariable(p.lldpLocChassisId,),
@@ -779,7 +779,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
         cmdgen.MibVariable(p.lldpLocPortId,),
@@ -808,7 +808,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldpLocManAddrLen,),
         cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
@@ -837,7 +837,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldpRemChassisIdSubtype,),
         cmdgen.MibVariable(p.lldpRemChassisId,),
@@ -890,7 +890,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
         cmdgen.MibVariable(p.lldpRemManAddrIfId,),
@@ -920,7 +920,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.cpfcIfRequests,),
         cmdgen.MibVariable(p.cpfcIfIndications,),
@@ -954,7 +954,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.csqIfQosGroupStats,),
         lookupMib=False,
@@ -977,7 +977,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.cefcFRUPowerOperStatus,),
         lookupMib=False,
@@ -997,7 +997,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.ipCidrRouteEntry,),
         cmdgen.MibVariable(p.ipCidrRouteStatus,),
@@ -1023,7 +1023,7 @@ def main():
         errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
             cmdgen.MibVariable(p.sysTotalMemory,),
             cmdgen.MibVariable(p.sysTotalFreeMemory,),
@@ -1059,7 +1059,7 @@ def main():
             errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
                 cmdgen.SnmpEngine(),
                 snmp_auth,
-                UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+                await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
                 cmdgen.ContextData(),
                 cmdgen.MibVariable(p.sysTotalSwap,),
                 cmdgen.MibVariable(p.sysTotalFreeSwap,),
@@ -1082,7 +1082,7 @@ def main():
         errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
             cmdgen.MibVariable(p.dot1qTpFdbEntry,),
             lookupMib=False,

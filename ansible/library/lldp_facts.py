@@ -204,7 +204,7 @@ def main():
     error_indication, error_status, error_index, var_binds = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((host, 161)),
+        await UdpTransportTarget.create((host, 161)),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.if_descr,)
     )
@@ -217,7 +217,7 @@ def main():
     error_indication, error_status, error_index, var_table = cmdgen.nextCmd(
         cmdgen.SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget((host, 161)),
+        await UdpTransportTarget.create((host, 161)),
         cmdgen.ContextData(),
         cmdgen.MibVariable(p.lldp_rem_port_id,),
         cmdgen.MibVariable(p.lldp_rem_port_desc,),

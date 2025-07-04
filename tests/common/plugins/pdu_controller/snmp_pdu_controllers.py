@@ -128,7 +128,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             cmdgen.ContextData(),
             ObjectType(ObjectIdentity(query_oid))
         )
@@ -199,7 +199,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, _, _ = cmdgen.setCmd(
                 cmdgen.SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget((self.controller, 161)),
+                await UdpTransportTarget.create((self.controller, 161)),
                 cmdgen.ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
@@ -230,7 +230,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, _, _ = cmdgen.setCmd(
                 cmdgen.SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget((self.controller, 161)),
+                await UdpTransportTarget.create((self.controller, 161)),
                 cmdgen.ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
@@ -254,7 +254,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             cmdgen.ContextData(),
             cmdgen.MibVariable(query_id)
         )
@@ -278,7 +278,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
             cmdgen.SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             cmdgen.ContextData(),
             cmdgen.MibVariable(query_id)
         )
