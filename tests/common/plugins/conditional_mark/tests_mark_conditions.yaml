@@ -965,6 +965,166 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_both_subnets[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dest_subnet[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dst_ipv6_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_fuzzy_subnets[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_invalid_tcp_rule[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_range_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_range_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_next_header_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_source_subnet[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_flags_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_response_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mirroring[erspan_ipv6-cli-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed/unsupported platforms or
@@ -1064,6 +1224,22 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
 
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
@@ -1077,6 +1253,54 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Test is not ready for dualtor and not stable on Non-T2 platform."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
+  skip:
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
+    conditions_logical_operator: and
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-arista_7260cx3_64']"
 
 #######################################
 #####            fdb              #####
