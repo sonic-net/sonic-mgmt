@@ -37,6 +37,10 @@ parameters:
     type: string
     default: ""
 
+  - name: SETUP_CONTAINER_PARAMS
+    type: string
+    default: ""
+
   - name: SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY
     type: string
     default: "True"
@@ -271,6 +275,7 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
       --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
