@@ -4323,6 +4323,7 @@
   dut:
   - str5-7060x6-512-7
   inv_name: str5
+  auto_recover: 'True'
   comment: yanmo
 
 - conf-name: vms13-lt2-7060x6-8
