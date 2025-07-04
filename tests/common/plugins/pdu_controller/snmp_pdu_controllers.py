@@ -9,8 +9,7 @@ import jinja2
 from .controller_base import PduControllerBase
 
 from pysnmp.proto import rfc1902
-from pysnmp.hlapi.v3arch.asyncio import cmdgen
-from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
+from pysnmp.hlapi.v3arch.asyncio import cmdgen, UdpTransportTarget, get_cmd, next_cmd, SnmpEngine, ContextData, set_cmd
 from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
 
 logger = logging.getLogger(__name__)
@@ -119,17 +118,17 @@ class snmpPduController(PduControllerBase):
         self.port_oid_dict[port_oid] = {'label': label}
         self.port_label_dict[label] = {'port_oid': port_oid}
 
-    def _probe_lane(self, lane_id, snmp_auth):
+    async def _probe_lane(self, lane_id, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
         query_oid = '.' + pdu_port_base
         if self.has_lanes:
             query_oid = query_oid + '.' + str(lane_id)
 
-        errorIndication, errorStatus, errorIndex, varTable = cmdgen.nextCmd(
-            cmdgen.SnmpEngine(),
+        errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
+            SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
-            cmdgen.ContextData(),
+            UdpTransportTarget.create((self.controller, 161)),
+            ContextData(),
             ObjectType(ObjectIdentity(query_oid))
         )
 
@@ -178,7 +177,7 @@ class snmpPduController(PduControllerBase):
         self._get_pdu_ports()
         logger.info("Initialized " + self.__class__.__name__)
 
-    def turn_on_outlet(self, outlet):
+    async def turn_on_outlet(self, outlet):
         """
         @summary: Use SNMP to turn on power to PDU of DUT specified by outlet
 
@@ -196,11 +195,11 @@ class snmpPduController(PduControllerBase):
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = cmdgen.setCmd(
-                cmdgen.SnmpEngine(),
+        errorIndication, errorStatus, _, _ = await set_cmd(
+                SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget((self.controller, 161)),
-                cmdgen.ContextData(),
+                UdpTransportTarget.create((self.controller, 161)),
+                ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
 
@@ -209,7 +208,7 @@ class snmpPduController(PduControllerBase):
             return False
         return True
 
-    def turn_off_outlet(self, outlet):
+    async def turn_off_outlet(self, outlet):
         """
         @summary: Use SNMP to turn off power to PDU outlet of DUT specified by outlet
 
@@ -227,11 +226,11 @@ class snmpPduController(PduControllerBase):
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = cmdgen.setCmd(
-                cmdgen.SnmpEngine(),
+        errorIndication, errorStatus, _, _ = await set_cmd(
+                SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget((self.controller, 161)),
-                cmdgen.ContextData(),
+                UdpTransportTarget.create((self.controller, 161)),
+                ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
         if errorIndication or errorStatus != 0:
@@ -239,7 +238,7 @@ class snmpPduController(PduControllerBase):
             return False
         return True
 
-    def _get_one_outlet_power(self, snmp_auth, port_id, status):
+    async def _get_one_outlet_power(self, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
             return
 
@@ -251,12 +250,12 @@ class snmpPduController(PduControllerBase):
         query_id = '.' + self.PORT_POWER_BASE_OID + port_id
         if self.pduType == "Raritan":
             query_id = query_id + ".5"  # 5 = watts for Raritan PDU
-        errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
-            cmdgen.SnmpEngine(),
+        errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+            SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
-            cmdgen.ContextData(),
-            cmdgen.MibVariable(query_id)
+            UdpTransportTarget.create((self.controller, 161)),
+            ContextData(),
+            ObjectType(ObjectIdentity(query_id))
         )
         if errorIndication:
             logger.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
@@ -273,14 +272,14 @@ class snmpPduController(PduControllerBase):
                     status['output_watts'] = current_val
                 return
 
-    def _get_one_outlet_status(self, snmp_auth, port_id):
+    async def _get_one_outlet_status(self, snmp_auth, port_id):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
-        errorIndication, errorStatus, errorIndex, varBinds = cmdgen.getCmd(
-            cmdgen.SnmpEngine(),
+        errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+            SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget((self.controller, 161)),
-            cmdgen.ContextData(),
-            cmdgen.MibVariable(query_id)
+            UdpTransportTarget.create((self.controller, 161)),
+            ContextData(),
+            ObjectType(ObjectIdentity(query_id))
         )
         if errorIndication:
             logger.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
