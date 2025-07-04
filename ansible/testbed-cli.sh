@@ -678,10 +678,9 @@ function generate_config
 
   read_nut_file $testbed_name
 
-  #devices=$duts
-  devices=""
+  devices=$duts
   if [ ! -z "$l1s" ]; then
-    devices="$l1s"
+    devices="$devices,$l1s"
   fi
   echo "Devices to generate config for: $devices"
   echo ""
