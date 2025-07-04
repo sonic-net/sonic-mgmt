@@ -306,7 +306,7 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
-r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
+r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
