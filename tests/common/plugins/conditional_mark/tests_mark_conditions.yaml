@@ -263,12 +263,6 @@ bgp/test_traffic_shift_sup.py:
 #######################################
 #####            cacl             #####
 #######################################
-cacl/test_cacl_application.py:
-  skip:
-    reason: "skip test_cacl_application in PR test temporarily"
-    conditions:
-      - "asic_type in ['vs']"
-
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
