@@ -6,7 +6,6 @@ from ansible.module_utils.basic import AnsibleModule
 try:
     from pysnmp.hlapi.v3arch.asyncio import cmdgen
     from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
-    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     has_pysnmp = True
 except Exception:
     has_pysnmp = False

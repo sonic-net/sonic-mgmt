@@ -103,7 +103,6 @@ try:
     from pysnmp.proto import rfc1902
     from pysnmp.hlapi.v3arch.asyncio import cmdgen
     from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
-    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     from pyasn1.type import univ
     has_pysnmp = True
 except Exception:
