@@ -6,6 +6,7 @@ from ansible.module_utils.basic import AnsibleModule
 try:
     from pysnmp.hlapi.v3arch.asyncio import cmdgen
     from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
+    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     has_pysnmp = True
 except Exception:
     has_pysnmp = False
@@ -206,7 +207,7 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((host, 161)),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.if_descr,)
+        ObjectType(ObjectIdentity(p.if_descr,))
     )
 
     if error_indication:
@@ -219,11 +220,11 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((host, 161)),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldp_rem_port_id,),
-        cmdgen.MibVariable(p.lldp_rem_port_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_name,),
-        cmdgen.MibVariable(p.lldp_rem_chassis_id,),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_id,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_name,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_chassis_id,)),
     )
 
     if error_indication:

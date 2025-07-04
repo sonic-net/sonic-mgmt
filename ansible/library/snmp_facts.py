@@ -103,6 +103,7 @@ try:
     from pysnmp.proto import rfc1902
     from pysnmp.hlapi.v3arch.asyncio import cmdgen
     from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
+    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     from pyasn1.type import univ
     has_pysnmp = True
 except Exception:
@@ -422,7 +423,7 @@ def main():
         cmdgen.SnmpEngine(),
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
-        cmdgen.MibVariable(p.sysDescr,),
+        ObjectType(ObjectIdentity(p.sysDescr,)),
         cmdgen.ContextData(),
         lookupMib=False,
     )
@@ -442,11 +443,11 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.sysObjectId,),
-        cmdgen.MibVariable(p.sysUpTime,),
-        cmdgen.MibVariable(p.sysContact,),
-        cmdgen.MibVariable(p.sysName,),
-        cmdgen.MibVariable(p.sysLocation,),
+        ObjectType(ObjectIdentity(p.sysObjectId,)),
+        ObjectType(ObjectIdentity(p.sysUpTime,)),
+        ObjectType(ObjectIdentity(p.sysContact,)),
+        ObjectType(ObjectIdentity(p.sysName,)),
+        ObjectType(ObjectIdentity(p.sysLocation,)),
         lookupMib=False, lexicographicMode=False
     )
 
@@ -474,19 +475,19 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.ifIndex,),
-        cmdgen.MibVariable(p.ifDescr,),
-        cmdgen.MibVariable(p.ifType,),
-        cmdgen.MibVariable(p.ifMtu,),
-        cmdgen.MibVariable(p.ifSpeed,),
-        cmdgen.MibVariable(p.ifPhysAddress,),
-        cmdgen.MibVariable(p.ifAdminStatus,),
-        cmdgen.MibVariable(p.ifOperStatus,),
-        cmdgen.MibVariable(p.ifHighSpeed,),
-        cmdgen.MibVariable(p.ipAdEntAddr,),
-        cmdgen.MibVariable(p.ipAdEntIfIndex,),
-        cmdgen.MibVariable(p.ipAdEntNetMask,),
-        cmdgen.MibVariable(p.ifAlias,),
+        ObjectType(ObjectIdentity(p.ifIndex,)),
+        ObjectType(ObjectIdentity(p.ifDescr,)),
+        ObjectType(ObjectIdentity(p.ifType,)),
+        ObjectType(ObjectIdentity(p.ifMtu,)),
+        ObjectType(ObjectIdentity(p.ifSpeed,)),
+        ObjectType(ObjectIdentity(p.ifPhysAddress,)),
+        ObjectType(ObjectIdentity(p.ifAdminStatus,)),
+        ObjectType(ObjectIdentity(p.ifOperStatus,)),
+        ObjectType(ObjectIdentity(p.ifHighSpeed,)),
+        ObjectType(ObjectIdentity(p.ipAdEntAddr,)),
+        ObjectType(ObjectIdentity(p.ipAdEntIfIndex,)),
+        ObjectType(ObjectIdentity(p.ipAdEntNetMask,)),
+        ObjectType(ObjectIdentity(p.ifAlias,)),
         lookupMib=False, lexicographicMode=False
     )
 
@@ -559,14 +560,14 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.ifInDiscards,),
-        cmdgen.MibVariable(p.ifOutDiscards,),
-        cmdgen.MibVariable(p.ifInErrors,),
-        cmdgen.MibVariable(p.ifOutErrors,),
-        cmdgen.MibVariable(p.ifHCInOctets,),
-        cmdgen.MibVariable(p.ifHCOutOctets,),
-        cmdgen.MibVariable(p.ifInUcastPkts,),
-        cmdgen.MibVariable(p.ifOutUcastPkts,),
+        ObjectType(ObjectIdentity(p.ifInDiscards,)),
+        ObjectType(ObjectIdentity(p.ifOutDiscards,)),
+        ObjectType(ObjectIdentity(p.ifInErrors,)),
+        ObjectType(ObjectIdentity(p.ifOutErrors,)),
+        ObjectType(ObjectIdentity(p.ifHCInOctets,)),
+        ObjectType(ObjectIdentity(p.ifHCOutOctets,)),
+        ObjectType(ObjectIdentity(p.ifInUcastPkts,)),
+        ObjectType(ObjectIdentity(p.ifOutUcastPkts,)),
         lookupMib=False, lexicographicMode=False
     )
 
@@ -608,18 +609,18 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.entPhysDescr,),
-        cmdgen.MibVariable(p.entPhysContainedIn, ),
-        cmdgen.MibVariable(p.entPhysClass,),
-        cmdgen.MibVariable(p.entPhyParentRelPos, ),
-        cmdgen.MibVariable(p.entPhysName,),
-        cmdgen.MibVariable(p.entPhysHwVer,),
-        cmdgen.MibVariable(p.entPhysFwVer,),
-        cmdgen.MibVariable(p.entPhysSwVer,),
-        cmdgen.MibVariable(p.entPhysSerialNum,),
-        cmdgen.MibVariable(p.entPhysMfgName,),
-        cmdgen.MibVariable(p.entPhysModelName,),
-        cmdgen.MibVariable(p.entPhysIsFRU, ),
+        ObjectType(ObjectIdentity(p.entPhysDescr,)),
+        ObjectType(ObjectIdentity(p.entPhysContainedIn, )),
+        ObjectType(ObjectIdentity(p.entPhysClass,)),
+        ObjectType(ObjectIdentity(p.entPhyParentRelPos, )),
+        ObjectType(ObjectIdentity(p.entPhysName,)),
+        ObjectType(ObjectIdentity(p.entPhysHwVer,)),
+        ObjectType(ObjectIdentity(p.entPhysFwVer,)),
+        ObjectType(ObjectIdentity(p.entPhysSwVer,)),
+        ObjectType(ObjectIdentity(p.entPhysSerialNum,)),
+        ObjectType(ObjectIdentity(p.entPhysMfgName,)),
+        ObjectType(ObjectIdentity(p.entPhysModelName,)),
+        ObjectType(ObjectIdentity(p.entPhysIsFRU, )),
         lookupMib=False,
     )
 
@@ -676,11 +677,11 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.entPhySensorType,),
-        cmdgen.MibVariable(p.entPhySensorScale,),
-        cmdgen.MibVariable(p.entPhySensorPrecision,),
-        cmdgen.MibVariable(p.entPhySensorValue,),
-        cmdgen.MibVariable(p.entPhySensorOperStatus,),
+        ObjectType(ObjectIdentity(p.entPhySensorType,)),
+        ObjectType(ObjectIdentity(p.entPhySensorScale,)),
+        ObjectType(ObjectIdentity(p.entPhySensorPrecision,)),
+        ObjectType(ObjectIdentity(p.entPhySensorValue,)),
+        ObjectType(ObjectIdentity(p.entPhySensorOperStatus,)),
         lookupMib=False,
     )
 
@@ -733,7 +734,7 @@ def main():
             snmp_auth,
             UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
-            cmdgen.MibVariable(p.ChStackUnitCpuUtil5sec,),
+            ObjectType(ObjectIdentity(p.ChStackUnitCpuUtil5sec,)),
             lookupMib=False, lexicographicMode=False
         )
 
@@ -753,10 +754,10 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldpLocChassisIdSubtype,),
-        cmdgen.MibVariable(p.lldpLocChassisId,),
-        cmdgen.MibVariable(p.lldpLocSysName,),
-        cmdgen.MibVariable(p.lldpLocSysDesc,),
+        ObjectType(ObjectIdentity(p.lldpLocChassisIdSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpLocChassisId,)),
+        ObjectType(ObjectIdentity(p.lldpLocSysName,)),
+        ObjectType(ObjectIdentity(p.lldpLocSysDesc,)),
         lookupMib=False,
     )
 
@@ -781,9 +782,9 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
-        cmdgen.MibVariable(p.lldpLocPortId,),
-        cmdgen.MibVariable(p.lldpLocPortDesc,),
+        ObjectType(ObjectIdentity(p.lldpLocPortIdSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpLocPortId,)),
+        ObjectType(ObjectIdentity(p.lldpLocPortDesc,)),
         lookupMib=False,
     )
 
@@ -810,10 +811,10 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldpLocManAddrLen,),
-        cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
-        cmdgen.MibVariable(p.lldpLocManAddrIfId,),
-        cmdgen.MibVariable(p.lldpLocManAddrOID,),
+        ObjectType(ObjectIdentity(p.lldpLocManAddrLen,)),
+        ObjectType(ObjectIdentity(p.lldpLocManAddrIfSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpLocManAddrIfId,)),
+        ObjectType(ObjectIdentity(p.lldpLocManAddrOID,)),
         lookupMib=False,
     )
 
@@ -839,15 +840,15 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldpRemChassisIdSubtype,),
-        cmdgen.MibVariable(p.lldpRemChassisId,),
-        cmdgen.MibVariable(p.lldpRemPortIdSubtype,),
-        cmdgen.MibVariable(p.lldpRemPortId,),
-        cmdgen.MibVariable(p.lldpRemPortDesc,),
-        cmdgen.MibVariable(p.lldpRemSysName,),
-        cmdgen.MibVariable(p.lldpRemSysDesc,),
-        cmdgen.MibVariable(p.lldpRemSysCapSupported,),
-        cmdgen.MibVariable(p.lldpRemSysCapEnabled,),
+        ObjectType(ObjectIdentity(p.lldpRemChassisIdSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpRemChassisId,)),
+        ObjectType(ObjectIdentity(p.lldpRemPortIdSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpRemPortId,)),
+        ObjectType(ObjectIdentity(p.lldpRemPortDesc,)),
+        ObjectType(ObjectIdentity(p.lldpRemSysName,)),
+        ObjectType(ObjectIdentity(p.lldpRemSysDesc,)),
+        ObjectType(ObjectIdentity(p.lldpRemSysCapSupported,)),
+        ObjectType(ObjectIdentity(p.lldpRemSysCapEnabled,)),
         lookupMib=False,
     )
 
@@ -892,9 +893,9 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
-        cmdgen.MibVariable(p.lldpRemManAddrIfId,),
-        cmdgen.MibVariable(p.lldpRemManAddrOID,),
+        ObjectType(ObjectIdentity(p.lldpRemManAddrIfSubtype,)),
+        ObjectType(ObjectIdentity(p.lldpRemManAddrIfId,)),
+        ObjectType(ObjectIdentity(p.lldpRemManAddrOID,)),
         lookupMib=False,
     )
 
@@ -922,10 +923,10 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.cpfcIfRequests,),
-        cmdgen.MibVariable(p.cpfcIfIndications,),
-        cmdgen.MibVariable(p.requestsPerPriority,),
-        cmdgen.MibVariable(p.indicationsPerPriority,),
+        ObjectType(ObjectIdentity(p.cpfcIfRequests,)),
+        ObjectType(ObjectIdentity(p.cpfcIfIndications,)),
+        ObjectType(ObjectIdentity(p.requestsPerPriority,)),
+        ObjectType(ObjectIdentity(p.indicationsPerPriority,)),
         lookupMib=False,
     )
 
@@ -956,7 +957,7 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.csqIfQosGroupStats,),
+        ObjectType(ObjectIdentity(p.csqIfQosGroupStats,)),
         lookupMib=False,
     )
 
@@ -979,7 +980,7 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.cefcFRUPowerOperStatus,),
+        ObjectType(ObjectIdentity(p.cefcFRUPowerOperStatus,)),
         lookupMib=False,
     )
 
@@ -999,8 +1000,8 @@ def main():
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.ContextData(),
-        cmdgen.MibVariable(p.ipCidrRouteEntry,),
-        cmdgen.MibVariable(p.ipCidrRouteStatus,),
+        ObjectType(ObjectIdentity(p.ipCidrRouteEntry,)),
+        ObjectType(ObjectIdentity(p.ipCidrRouteStatus,)),
         lookupMib=False,
     )
 
@@ -1025,11 +1026,11 @@ def main():
             snmp_auth,
             UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
-            cmdgen.MibVariable(p.sysTotalMemory,),
-            cmdgen.MibVariable(p.sysTotalFreeMemory,),
-            cmdgen.MibVariable(p.sysTotalSharedMemory,),
-            cmdgen.MibVariable(p.sysTotalBuffMemory,),
-            cmdgen.MibVariable(p.sysCachedMemory,),
+            ObjectType(ObjectIdentity(p.sysTotalMemory,)),
+            ObjectType(ObjectIdentity(p.sysTotalFreeMemory,)),
+            ObjectType(ObjectIdentity(p.sysTotalSharedMemory,)),
+            ObjectType(ObjectIdentity(p.sysTotalBuffMemory,)),
+            ObjectType(ObjectIdentity(p.sysCachedMemory,)),
             lookupMib=False, lexicographicMode=False
         )
 
@@ -1061,8 +1062,8 @@ def main():
                 snmp_auth,
                 UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
                 cmdgen.ContextData(),
-                cmdgen.MibVariable(p.sysTotalSwap,),
-                cmdgen.MibVariable(p.sysTotalFreeSwap,),
+                ObjectType(ObjectIdentity(p.sysTotalSwap,)),
+                ObjectType(ObjectIdentity(p.sysTotalFreeSwap,)),
                 lookupMib=False, lexicographicMode=False
             )
 
@@ -1084,7 +1085,7 @@ def main():
             snmp_auth,
             UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             cmdgen.ContextData(),
-            cmdgen.MibVariable(p.dot1qTpFdbEntry,),
+            ObjectType(ObjectIdentity(p.dot1qTpFdbEntry,)),
             lookupMib=False,
         )
 
