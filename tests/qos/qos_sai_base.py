@@ -960,7 +960,7 @@ class QosSaiBase(QosBase):
             self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
             lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps,  # noqa: F811
             is_supported_per_dir, lossy_queue_traffic_direction
-        ):
+    ):
         """
             Build DUT host config pertaining to QoS SAI tests
 
