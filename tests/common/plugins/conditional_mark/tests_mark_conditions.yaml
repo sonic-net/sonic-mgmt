@@ -985,10 +985,10 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
 #####           hash              #####
 #######################################
 hash/test_generic_hash.py:
-  skip:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
