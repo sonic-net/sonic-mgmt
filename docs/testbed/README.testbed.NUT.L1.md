@@ -59,7 +59,7 @@ Let's say all the DUTs and traffic generators are added under an inventory calle
 
 First we need to add the L1 switches into the device list, which is in the `sonic_*_devices.csv` file, just like all the other devices.
 
-- The L1 switches should have type set to `L1Sonic`.
+- The L1 switches should have type set to `FanoutL1Sonic`.
 - Please log into the L1 switch and make sure the HWSKU name is matched.
 
 The following example represents a simple yet typical device list for 2 testbeds sharing a traffic generator and an OCS:
@@ -69,7 +69,7 @@ Hostname,ManagementIp,HwSku,Type,Protocol
 tg-1,10.0.0.200/24,IXIA-tester,DevIxiaChassis,
 switch-t0-1,10.0.0.100/24,HWSKU-TO-TEST,DevSonic,
 switch-t0-2,10.0.0.101/24,HWSKU-TO-TEST,DevSonic,
-ocs-1,10.0.0.200/24,OCS-HWSKU,L1Sonic,
+ocs-1,10.0.0.200/24,OCS-HWSKU,FanoutL1Sonic,
 ```
 
 ### 2.2. Link definition
