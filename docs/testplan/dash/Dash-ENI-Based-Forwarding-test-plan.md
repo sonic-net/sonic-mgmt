@@ -47,11 +47,11 @@ Until HaMgrd is available, we can only write configuration to the DASH_ENI_FORWA
 DASH_ENI_FORWARD_TABLE schema: https://github.com/r12f/SONiC/blob/user/r12f/ha2/doc/smart-switch/high-availability/smart-switch-ha-detailed-design.md#2321-dash_eni_forward_table
 
 Common tests configuration:
-- Test will be based on the basic PL link configuration.
+- Test will be based on the basic private link configuration.
 - Need apply the configuration for DPU_TABLE, VIP_TABLE, VXLAN_TUNNEL, VNET in config_db according to the dash PL config.
 
 Common tests cleanup:
-- Remove the basic PL link configuration.
+- Remove the basic private link configuration.
 - Remove the configuration for DPU_TABLE, VIP_TABLE, VXLAN_TUNNEL, VNET in config_db.
 
 We need apply the config for DPU_TABLE, VIP_TABLE, VXLAN_TUNNEL and VNET into NPU config_db.
@@ -90,7 +90,7 @@ Example:
 ```
 
 In a full functional HA testbed, the hamgrd should generate the entry in DASH_ENI_FORWARD_TABLE based on the above configuration. And this will be covered in the HA test.
-In this test, we are not going to deploy and test the full HA fuctionality, so we still need to apply the DASH_ENI_FORWARD_TABLE via swssconfig to the appl_db.
+In this test, we are not going to deploy and test the full HA fuctionality, so we still need to apply the DASH_ENI_FORWARD_TABLE via swssconfig to the APPL_DB.
 Example:
 ```
 [
@@ -106,11 +106,11 @@ Example:
     }
 ]
 ```
-The outbound_vni is optional, it indicates the outbound VNI used by this ENI if it's different from the one in VNET. Each ENI can have its own VNI, such as ExpressRoute Gateway Bypass case. If not assigned, this the vni in the VNET.
+The outbound_vni is optional, it indicates the outbound VNI used by this ENI if it's different from the one in VNET. Each ENI can have its own VNI, such as ExpressRoute Gateway Bypass case. If it's not assigned, this is the vni in the VNET.
 This field will be paramterized in the test by a pytest fixture, for the testcase uses this fixture, the outbound_vni will be tested both explicitly and implicitly. By default, we don't configure this field.
 This fixture will be used only in test case #1(test_privatelink_basic_transform migrate to ENI based fowarding) to save test run time.
 
-The outbound_eni_mac_lookup is used to decide whether we lookup the src mac or dst mac for ENI. Currenly the feature using this is not available yet. This validation for this field is not in the scope of this test plan. It can be removed from the config.
+The outbound_eni_mac_lookup is used to decide whether we lookup the src mac or dst mac for ENI. Currenly the feature using this is not available yet. The validation for this field is not in the scope of this test plan. It can be removed from the config.
 
 
 ## Test
