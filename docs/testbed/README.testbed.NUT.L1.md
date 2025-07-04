@@ -4,13 +4,14 @@
 2. [2. Testbed definition](#2-testbed-definition)
    1. [2.1. Device definition](#21-device-definition)
    2. [2.2. Link definition](#22-link-definition)
-   3. [2.3. Testbed YAML definition](#23-testbed-yaml-definition)
+   3. [2.3. Inventory definition](#23-inventory-definition)
+   4. [2.4. Testbed YAML definition](#24-testbed-yaml-definition)
 3. [3. L1 switch config generation](#3-l1-switch-config-generation)
-   1. [Build L1 link graph](#build-l1-link-graph)
-   2. [Create json patch for L1 switch config](#create-json-patch-for-l1-switch-config)
-      1. [L1 switch ports](#l1-switch-ports)
-      2. [L1 switch cross connects](#l1-switch-cross-connects)
-   3. [Apply config](#apply-config)
+   1. [3.1. Build L1 link graph](#31-build-l1-link-graph)
+   2. [3.2. Create json patch for L1 switch config](#32-create-json-patch-for-l1-switch-config)
+      1. [3.2.1. L1 switch ports](#321-l1-switch-ports)
+      2. [3.2.2. L1 switch cross connects](#322-l1-switch-cross-connects)
+   3. [3.3. Apply config](#33-apply-config)
 4. [4. Testbed CLI and Run Test CLI](#4-testbed-cli-and-run-test-cli)
 
 ## 1. Overview
@@ -98,7 +99,24 @@ switch-t0-1,ocs-1,2
 switch-t0-2,ocs-1,3
 ```
 
-### 2.3. Testbed YAML definition
+### 2.3. Inventory definition
+
+In the inventory file, we need to add the L1 switches into the `l1_switch` group, so that they can use the correct secrets. Here is an example of how the inventory file looks like:
+
+```yaml
+all:
+  children:
+    l1_switch:
+
+l1_switch:
+  hosts:
+    ocs-1:
+      ansible_host: 10.0.0.200
+```
+
+The secrets for the L1 switches are defined in `ansible/group_vars/l1_switch/secrets.yml` file.
+
+### 2.4. Testbed YAML definition
 
 In `testbed.nut.yml`, we need to add more fields enabling the L1 switches being configuration by testbed CLI:
 
@@ -120,7 +138,7 @@ Once these things are done, we can use the testbed CLI to configure the L1 switc
 
 With the devices and links configurations above, we will go through the following steps to generate the L1 switch configuration.
 
-### Build L1 link graph
+### 3.1. Build L1 link graph
 
 First of all, we will build the link graph for all L1 switches as below.
 
@@ -151,11 +169,11 @@ We will also fetch the config on the L1 switch and get all the existing cross co
 }
 ```
 
-### Create json patch for L1 switch config
+### 3.2. Create json patch for L1 switch config
 
 With the information above, we can now create a JSON patch for both L1 switch ports and cross connects.
 
-#### L1 switch ports
+#### 3.2.1. L1 switch ports
 
 The following json patch will be created for clean up the old port states. In here, `17A` and `17B` was previously being used, and now being cleaned up, because `1A` and `1B` will be connected to the new ports:
 
@@ -189,7 +207,7 @@ Here is the end result of L1 switch port configuration:
   }
 ```
 
-#### L1 switch cross connects
+#### 3.2.2. L1 switch cross connects
 
 Similar to L1 switch ports, we generate the JSON patch for the cross connects too. The following json patch will be created for clean up the old cross connects. In here, `1A-17B` and `17A-1B` were previously being used, and now being cleaned up, because `1A-2B` and `2A-1B` will be connected to the new ports:
 
@@ -219,7 +237,7 @@ And here is the end result of L1 switch cross connect configuration:
   }
 ```
 
-### Apply config
+### 3.3. Apply config
 
 With the JSON patch created, we can now copy them to the device and apply it to the existing configurations. A `config reload` will be executed to get the new configuration applied.
 
