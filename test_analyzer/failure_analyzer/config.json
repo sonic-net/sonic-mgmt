@@ -163,7 +163,7 @@
                 {
                     "id": "t1",
                     "name": "T1",
-                    "testbed_topology": ["t1-lag", "t1-backend", "t1-64-lag", "t1-56-lag", "t1-32-lag", "t1", "tgen-t1-64-4", "t1-64-itpac", "t1-28-lag", "t1-be-64-lag", "t1-backend-64-lag", "t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d28u1"],
+                    "testbed_topology": ["t1-lag", "t1-backend", "t1-64-lag", "t1-56-lag", "t1-32-lag", "t1", "tgen-t1-64-4", "t1-64-itpac", "t1-28-lag", "t1-be-64-lag", "t1-backend-64-lag", "t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d28u1", "t1-isolated-d56u1-lag"],
                     "threshold": 51,
                     "included": true
                 },

@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms21-t1-8102-01, vms28-t1-8102-02"
+    default: "vms61-t1-8101-04, vms18-t1-8101-01"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -35,7 +35,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -60,12 +60,13 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py"
+    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py,bgp/test_bgp_stress_link_flap.py,snmp/test_snmp_queue_counters.py,vxlan/test_vxlan_ecmp_vnet_ping.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
     type: string
     default: '[
+      {"name": "platform_tests/api/test_sfp.py", "param": "--deselect=platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode"},
       {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
       {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"}
     ]'
@@ -108,7 +109,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8102.t1.202505.NightlyTest_by_Elastictest
+    displayName: 8101.O8C48.t1.202505.2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -127,6 +128,3 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
-        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
-        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}

@@ -4241,7 +4241,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.133/17
 
-- conf-name: testbed-bjw2-can-t0-8101c1-5
+- conf-name: testbed-bjw2-can-t0-8101c1c1-5
   group-name: bjw2-2-c
   topo: t0-64
   ptf_image_name: docker-ptf
@@ -4279,17 +4279,25 @@
   group-name: vms94-1
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
-  ptf: vms94-1
-  ptf_ip: 10.64.247.148/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
-  server: server_94
-  vm_base: VM94000
+  servers:
+    server_94:
+      ptf: vms94-1-a
+      ptf_ip: 10.64.247.148/23
+      ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
+      vm_base: VM94000
+      dut_interfaces: 0-256
+    server_96:
+      ptf: vms94-1-b
+      ptf_ip: 10.64.247.153/23
+      ptf_ipv6: 2a01:111:e210:b000::a40:f799/64
+      vm_base: VM96000
+      dut_interfaces: 257-513
   dut:
   - str5-sn5640-1
   inv_name: str5
   comment: wendachu
 
-- conf-name: vms95-t0-7060x6-5
+- conf-name: vms95-t0-7060x6-512-5
   group-name: vms95-1
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
@@ -4315,6 +4323,7 @@
   dut:
   - str5-7060x6-512-7
   inv_name: str5
+  auto_recover: 'True'
   comment: yanmo
 
 - conf-name: vms13-lt2-7060x6-8
