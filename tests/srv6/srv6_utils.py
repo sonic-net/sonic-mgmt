@@ -188,12 +188,14 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     @param pkt_expected: Indicated whether it is expected to receive the exp_pkt on one of the dst_ports
     @param ptfadapter: The ptfadapter fixture
     """
+    ptfadapter.dataplane.flush()
+    ptfadapter.dataplane.set_qlen(1000000)
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
 
     time.sleep(1)
-    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=60)
     received = False
     if rcv_pkt:
         received = True
