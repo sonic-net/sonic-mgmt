@@ -26,6 +26,7 @@ class TestbedInfo(object):
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
                                   'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
+    NUT_TOPOLOGY_FILEPATH = "../../ansible/vars/nut_topos"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -131,7 +132,6 @@ class TestbedInfo(object):
     def _read_nut_testbed_topo_from_yaml(self, tb_info):
         for tb in tb_info:
             tb["conf-name"] = tb["name"]
-            tb["topo"] = "nut"
             tb["ptf_ip"] = tb["tg_api_server"].split(':')[0]
             self.testbed_topo[tb["conf-name"]] = tb
 
@@ -382,7 +382,12 @@ class TestbedInfo(object):
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
 
-            if topo != "nut":
+            if topo.startswith("nut-"):
+                topo_dir = os.path.join(os.path.dirname(__file__), self.NUT_TOPOLOGY_FILEPATH)
+                topo_file = os.path.join(topo_dir, "{}.yml".format(topo))
+                with open(topo_file, 'r') as fh:
+                    tb['topo']['properties'] = yaml.safe_load(fh)
+            else:
                 topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
                 with open(topo_file, 'r') as fh:

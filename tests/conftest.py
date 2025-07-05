@@ -780,7 +780,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
-    if 'nut' in tbinfo['topo']['name']:
+    if tbinfo['topo']['name'].startswith("nut-"):
         return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
@@ -935,7 +935,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
 
-    if tbinfo['topo']['name'] == 'nut':
+    if tbinfo['topo']['name'].startswith('nut-'):
         # Nut topology has no fanout
         return fanout_hosts
 
