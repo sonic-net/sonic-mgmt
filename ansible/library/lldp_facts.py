@@ -4,7 +4,9 @@ import json
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
 try:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.hlapi.v3arch.asyncio import cmdgen
+    from pysnmp.hlapi.v3arch.asyncio import UdpTransportTarget
+    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     has_pysnmp = True
 except Exception:
     has_pysnmp = False
@@ -151,8 +153,6 @@ def main():
     if not has_pysnmp:
         module.fail_json(msg='Missing required pysnmp module (check docs)')
 
-    cmd_gen = cmdgen.CommandGenerator()
-
     # Verify that we receive a community when using snmp v2
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
         if not m_args['community']:
@@ -202,10 +202,12 @@ def main():
 
     host = m_args['host']
 
-    error_indication, error_status, error_index, var_binds = cmd_gen.nextCmd(
+    error_indication, error_status, error_index, var_binds = cmdgen.nextCmd(
+        cmdgen.SnmpEngine(),
         snmp_auth,
-        cmdgen.UdpTransportTarget((host, 161)),
-        cmdgen.MibVariable(p.if_descr,)
+        UdpTransportTarget.create((host, 161)),
+        cmdgen.ContextData(),
+        ObjectType(ObjectIdentity(p.if_descr,))
     )
 
     if error_indication:
@@ -213,14 +215,16 @@ def main():
 
     (if_table, inverse_if_table) = get_iftable(var_binds)
 
-    error_indication, error_status, error_index, var_table = cmd_gen.nextCmd(
+    error_indication, error_status, error_index, var_table = cmdgen.nextCmd(
+        cmdgen.SnmpEngine(),
         snmp_auth,
-        cmdgen.UdpTransportTarget((host, 161)),
-        cmdgen.MibVariable(p.lldp_rem_port_id,),
-        cmdgen.MibVariable(p.lldp_rem_port_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_name,),
-        cmdgen.MibVariable(p.lldp_rem_chassis_id,),
+        UdpTransportTarget.create((host, 161)),
+        cmdgen.ContextData(),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_id,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_name,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_chassis_id,)),
     )
 
     if error_indication:
