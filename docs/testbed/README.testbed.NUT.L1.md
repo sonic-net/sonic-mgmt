@@ -256,9 +256,9 @@ And here is an example output of testbed CLI when L1 switches are configured:
 $ ./testbed-cli.sh -t testbed.nut.yaml deploy-cfg some-testbed inv password-file.txt -e config_duts=false;
 
 Deploying config to testbed 'some-testbed'
-Reading NUT testbed file 'testbed.nut.yaml' for testbed 'nut-sn5640-stress-1'
+Reading NUT testbed file 'testbed.nut.yaml' for testbed 'some-testbed'
 
-Testbed found: nut-sn5640-stress-1
+Testbed found: some-testbed
 - Inventory: inv
 - Test Tags: snappi-capacity
 - DUTs: switch-t0-1,switch-t0-2
