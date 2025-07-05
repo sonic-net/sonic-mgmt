@@ -83,11 +83,13 @@ def assignPorts(api, ports_list):
 
 
 def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
-    if nodetype in "client":
-        ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
-                           + int(nw_config.IP_STEP_ENI) * (vpc - 1))
-    if nodetype in "server":
-        ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+
+    if service_type == 'vnet2vnet':
+        if nodetype in "client":
+            ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
+                               + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype in "server":
+            ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
     else:
         # service_type == 'privatelink'
         if nodetype in "dut_client":
@@ -143,14 +145,15 @@ def create_ip_list(nw_config, service_type):
 
     ip_list = []
 
-    ENI_COUNT = 1  # Change when scale up
+    ENI_START = nw_config.ENI_START
+    ENI_COUNT = nw_config.ENI_COUNT
 
-    for eni in range(nw_config.ENI_START, ENI_COUNT + 1):
+    for eni in range(ENI_START, ENI_COUNT + 1):
         ip_dict_temp = {}
 
         if service_type == 'privatelink':
             dut_ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="dut_client")
-            dut_vlan_client = build_node_vlan(eni - 1, nw_config, service_type, nodetype="dut_client")
+            dut_vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="dut_client")
 
         ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="client")
         mac_client = build_node_macs(0, eni, nw_config, service_type, nodetype="client")
@@ -499,7 +502,7 @@ def patch_communityList2(api):
         'firstCount': 10,
         'gatewayAddress': '::0',
         'gatewayIncrement': '::0',
-        'secondCount': 60,
+        'secondCount': 64,
         'secondIncrementBy': '::2'
     }
 
@@ -737,13 +740,12 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
     logger.info("HTTP server completed")
 
     # Traffic Profile
-    ENI_COUNT = 1  # Change when scale up
     logger.info("Configuring Traffic Profile settings")
     (tp1,) = config.trafficprofile.trafficprofile()
     # traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
     tp1.app = [http_client.name, http_server.name]
     tp1.objective_type = ["connection_per_sec", "simulated_user"]
-    tp1.objective_value = [6000000, ENI_COUNT*250000]
+    tp1.objective_value = [6000000, nw_config.ENI_COUNT*250000]
     (obj_type,) = tp1.objectives.objective()
     obj_type.connection_per_sec.enable_controlled_user_adjustment = True
     obj_type.connection_per_sec.sustain_time = 14
@@ -760,7 +762,7 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
     # segment2.start = 0
     segment2.duration = 1000
     segment2.rate = 10
-    segment2.target = ENI_COUNT*250000
+    segment2.target = nw_config.ENI_COUNT*250000
     # tp1.timeline = [segment1.name, segment2.name]
     # tp1.timeline = ['Timeline5']
     logger.info("Traffic profile completed")
@@ -816,7 +818,7 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
     # Here adjust Double Increment and vlanRange unique number
     logger.info("Configuring rangeList settings for client and server")
     test_rangeList_time = time.time()
-    # set_rangeList(api)
+    set_rangeList(api, service_type)
     test_rangeList_finish_time = time.time()
     logger.info("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
 
