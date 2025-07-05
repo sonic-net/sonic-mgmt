@@ -245,7 +245,17 @@ def recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
     if method["adaptive"]:
         adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
     elif method["reload"]:
-        config_reload(dut, config_source='running_golden_config',
+        # Fall back to config_db if running_golden_config not exists,
+        # For example: golden config is generated after first sanity check
+        # if the recover happens on the pre-sanity of pretest
+        # no running golden config exists
+        running_golden_config_file_check = dut.shell("[ -f /etc/sonic/running_golden_config.json ]",
+                                                     module_ignore_errors=True)
+        if running_golden_config_file_check.get('rc') == 0:
+            config_source = 'running_golden_config'
+        else:
+            config_source = 'config_db'
+        config_reload(dut, config_source=config_source,
                       safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     elif method["reboot"]:
         reboot_dut(dut, localhost, method["cmd"])
