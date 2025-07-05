@@ -1,16 +1,7 @@
 
-def skip_loganalyzer_bug_handler(duthost, request):
+def bug_handler_wrapper(analyzers, duthosts, la_results):
     """
-    return True if the bug handler will be skipped.
-    User could implement their own logic here.
-    """
-    return True
-
-
-def log_analyzer_bug_handler(duthost, request):
-    """
-    If the not skip bug handler after the loganalyzer, run this function to handle the err msg detected in the
-    loganalyzer.
+    Further processing of loganalyzer results.
     User could implement their own logic here.
     """
     pass
