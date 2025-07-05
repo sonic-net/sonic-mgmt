@@ -471,5 +471,8 @@ We can directly use the `pytest` module to run the tests against the NUT testbed
 
 ```bash
 # Under tests directory, run:
+./run_tests.sh -f ../ansible/testbed.nut.yaml -i <inventory-file> -n nut-testbed-1 -d all -m individual -a False -u -l debug -e "--skip_sanity --disable_loganalyzer" -c <test case>
+
+# Or directly use pytest
 python3 -m pytest --inventory <inventory-file> --host-pattern all --testbed nut-testbed-1 --testbed_file ../ansible/testbed.nut.yaml --show-capture=stdout --log-cli-level info <test_file>
 ```
