@@ -15,4 +15,8 @@ dut_templates:
     asn_step: 0
     p2p_v4: "10.0.0.0/16"
     p2p_v6: "fc0a::/64"
-tg_template: { type: "BackEndToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+tg_template:
+  type: "BackEndToRRouter"
+  asn_base: 60001
+  p2p_v4: "10.0.0.0/16"
+  p2p_v6: "fc0a::/64"

@@ -1,5 +1,5 @@
 dut_templates:
-  - name: "-t0-"
+  - name: ".*-t0-.*"
     type: "ToRRouter"
     loopback_v4: "10.1.0.0/24"
     loopback_v6: "2064:100:0:0::/64"
@@ -7,7 +7,7 @@ dut_templates:
     asn_step: 1
     p2p_v4: "10.0.0.0/16"
     p2p_v6: "fc0a::/64"
-  - name: "-t1-"
+  - name: ".*-t1-.*"
     type: "LeafRouter"
     loopback_v4: "10.1.1.0/24"
     loopback_v6: "2064:100:0:1::/64"
@@ -15,4 +15,8 @@ dut_templates:
     asn_step: 0
     p2p_v4: "10.0.0.0/16"
     p2p_v6: "fc0a::/64"
-tg_template: { type: "ToRRouter", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+tg_template:
+  type: "ToRRouter"
+  asn_base: 60001
+  p2p_v4: "10.0.0.0/16"
+  p2p_v6: "fc0a::/64"
