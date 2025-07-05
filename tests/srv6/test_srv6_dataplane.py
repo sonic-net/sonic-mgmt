@@ -366,6 +366,7 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
 
+    pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after config reload
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
@@ -395,6 +396,7 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after BGP restart"
 
+    pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after BGP restart
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
@@ -425,6 +427,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after reboot"
 
+    pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after reboot
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
