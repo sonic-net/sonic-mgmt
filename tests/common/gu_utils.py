@@ -15,7 +15,10 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT_MAP = {'armhf-nokia_ixs7215_52x-r0': 1200}
+GCUTIMEOUT_MAP = {
+    'armhf-nokia_ixs7215_52x-r0': 1200,
+    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
