@@ -99,18 +99,20 @@ For each combination of test parameters, the following steps are executed:
 
 For each combination of test parameters, the following steps are executed:
 
-1. Select the first 2x `tx_port_count` TG ports as TX ports, and the last `tx_port_count` TG ports as RX ports.
+1. Select the first 2x `tx_port_count` TG ports as TX ports:
    - When `max` is selected for `tx_port_count`, use the first 2/3 of the available TG ports as TX ports, and the last 1/3 as RX ports.
-2. Configure two traffic flows on each TX port:
+   - Besides `max`, 1, 2, 4 and 8 ports will be supported as `tx_port_count`.
+2. Select the next `tx_port_count` available traffic generator port as the RX port.
+3. Configure two traffic flows on each TX port:
    - **Flow-Good**: good-FCS frames at 50% line rate.
    - **Flow-Bad**: bad-FCS frames at 50% line rate.
    - Each pair of TX ports should send traffic to the same RX port (e.g., TX1 & TX2 → RX1, TX3 & TX4 → RX2) with interleaved transmission.
-3. Clear all switch counters.
-4. Start both traffic flows concurrently on all ports for `test_duration`.
-5. Stop traffic and retrieve stats from the traffic generator and DUT.
-6. Report the following stats using metrics interface:
+4. Clear all switch counters.
+5. Start both traffic flows concurrently on all ports for `test_duration`.
+6. Stop traffic and retrieve stats from the traffic generator and DUT.
+7. Report the following stats using metrics interface:
    - Traffic rate of Flow-Good and Flow-Bad on all RX ports.
-7. Validate the results and fail the test if the following conditions are met:
+8. Validate the results and fail the test if the following conditions are met:
    - Any RX port received any bad-FCS frames (Flow-Bad).
    - DUT ingress RX error counter delta matches total bad-FCS TX frame count across all ports.
 
