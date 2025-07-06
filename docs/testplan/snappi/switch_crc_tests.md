@@ -9,8 +9,9 @@
       1. [4.2.1. 1-to-1 parallel links](#421-1-to-1-parallel-links)
       2. [4.2.2. Mixed-traffic on a single port](#422-mixed-traffic-on-a-single-port)
 5. [5. Metrics to collect](#5-metrics-to-collect)
-   1. [5.1. Metrics labels](#51-metrics-labels)
-   2. [5.2. Metrics](#52-metrics)
+   1. [5.1. Common metrics labels](#51-common-metrics-labels)
+   2. [5.2. Traffic generator metrics](#52-traffic-generator-metrics)
+   3. [5.3. DUT metrics](#53-dut-metrics)
 
 ## 1. Test Objective
 
@@ -42,7 +43,7 @@ graph TD
 
 The CRC error handling tests are parameterized to allow flexible testing across different scenarios. The following parameters can be adjusted:
 
-| Parameter           | Description                           | Example Values                   |
+| Parameter           | Description                           | Valid Values                     |
 |---------------------|---------------------------------------|----------------------------------|
 | `crc_error_type`    | FCS corruption mode                   | `zero`, `random`                 |
 | `tx_port_count`     | Number of concurrent ingress TG ports | `1`, `4`, `8`, `max`             |
@@ -56,9 +57,10 @@ The CRC error handling tests are parameterized to allow flexible testing across 
 
 For each combination of test parameters, the following steps are executed:
 
-1. Select the last available traffic generator port as the RX port.
-2. Select the first `tx_port_count` traffic generator ports as TX ports.
-   - When `max` is selected for `tx_port_count`, use all the rest available TG ports as TX ports, except the last port.
+1. Select the first `tx_port_count` traffic generator ports as TX ports.
+   - When `max` is selected for `tx_port_count`, use all the available TG ports as TX ports, except the last port.
+   - Besides `max`, 1, 3 and 7 ports will be supported as `tx_port_count`.
+2. Select the next available traffic generator port as the RX port.
 3. Configurate the traffic stream on traffic generator with the following parameters:
    - **CRC error type**: `crc_error_type` (e.g., `zero`, `random`).
    - **Packet size**: `packet_size`.
@@ -76,17 +78,20 @@ For each combination of test parameters, the following steps are executed:
 
 For each combination of test parameters, the following steps are executed:
 
-1. Select first 2x `tx_port_count` TG ports as TX ports, and the last `tx_port_count` TG ports as RX ports.
+1. Select first 2x `tx_port_count` TG ports as TX ports:
    - When `max` is selected for `tx_port_count`, use the first 2/3 of the available TG ports as TX ports, and the last 1/3 as RX ports.
-2. Configure two traffic flows on the TX ports interleaved (first port index is 0):
+   - Besides `max`, 1, 2, 4 and 8 ports will be supported as `tx_port_count`.
+2. Select the next `tx_port_count` available traffic generator port as the RX port.
+3. Configure two traffic flows on the TX ports interleaved (first port index is 0):
    - **Flow-Bad**: On all even ports, bad-CRC frames at 100% line rate.
    - **Flow-Good**: On all odd ports, good-CRC frames at 100% line rate.
    - Each pair of TX ports should send traffic to the same RX port (e.g., TX1 & TX2 → RX1, TX3 & TX4 → RX2).
-3. Start all traffic flows concurrently at **100% line rate** for `test_duration`.
-4. Stop traffic and retrieve stats from the traffic generator and DUT.
-5. Report the following stats using metrics interface:
+4. Clear all switch counters.
+5. Start all traffic flows concurrently at **100% line rate** for `test_duration`.
+6. Stop traffic and retrieve stats from the traffic generator and DUT.
+7. Report the following stats using metrics interface:
    - Traffic rate of Flow-Good and Flow-Bad on all RX ports.
-6. Validate the results and fail the test if the following conditions are met:
+8. Validate the results and fail the test if the following conditions are met:
    - Any RX port received any bad-CRC frames.
    - DUT ingress RX error counter delta matches total bad-CRC TX frame count across all ports.
 
@@ -100,36 +105,62 @@ For each combination of test parameters, the following steps are executed:
    - **Flow-Good**: good-CRC frames at 50% line rate.
    - **Flow-Bad**: bad-CRC frames at 50% line rate.
    - Each pair of TX ports should send traffic to the same RX port (e.g., TX1 & TX2 → RX1, TX3 & TX4 → RX2) with interleaved transmission.
-3. Start both traffic flows concurrently on all ports for `test_duration`.
-4. Stop traffic and retrieve stats from the traffic generator and DUT.
-5. Report the following stats using metrics interface:
+3. Clear all switch counters.
+4. Start both traffic flows concurrently on all ports for `test_duration`.
+5. Stop traffic and retrieve stats from the traffic generator and DUT.
+6. Report the following stats using metrics interface:
    - Traffic rate of Flow-Good and Flow-Bad on all RX ports.
-6. Validate the results and fail the test if the following conditions are met:
+7. Validate the results and fail the test if the following conditions are met:
    - Any RX port received any bad-CRC frames (Flow-Bad).
    - DUT ingress RX error counter delta matches total bad-CRC TX frame count across all ports.
 
 ## 5. Metrics to collect
 
-### 5.1. Metrics labels
+### 5.1. Common metrics labels
 
 All metrics collected during the tests will include the following labels to provide context and facilitate filtering:
 
-| Label Name                                  | Label                           | Description                          | Example          |
-|---------------------------------------------|---------------------------------|--------------------------------------|------------------|
-| `METRIC_NAME_TG_IP_VERSION`                 | `tg.ip_version`                 | IP version                           | 4, 6             |
-| `METRIC_NAME_TG_CRC_ERROR_TYPE`             | `tg.crc_error_type`             | CRC error type                       | `zero`, `random` |
-| `METRIC_NAME_TG_FRAME_BYTES`                | `tg.frame_bytes`                | Ethernet frame length in bytes       | 1518             |
-| `METRIC_NAME_TG_TX_PORT_COUNT`              | `tg.tx_port_count`              | Number of TX ports after calculation | 1, 4, 200        |
-| `METRIC_NAME_TEST_PARAMS_TX_PORT_COUNT`     | `test.params.tx_port_count`     | Number of TX ports                   | 1, 4, max        |
-| `METRIC_NAME_TEST_PARAMS_TEST_DURATION_SEC` | `test.params.test_duration_sec` | Traffic transmission time in seconds | 60               |
+| Label Name                                  | Label                         | Description                          | Example          |
+|---------------------------------------------|-------------------------------|--------------------------------------|------------------|
+| `METRIC_NAME_TG_IP_VERSION`                 | tg.ip_version                 | IP version                           | 4, 6             |
+| `METRIC_NAME_TG_CRC_ERROR_TYPE`             | tg.crc_error_type             | CRC error type                       | `zero`, `random` |
+| `METRIC_NAME_TG_FRAME_BYTES`                | tg.frame_bytes                | Ethernet frame length in bytes       | 1518             |
+| `METRIC_NAME_TG_TX_PORT_COUNT`              | tg.tx_port_count              | Number of TX ports after calculation | 1, 4, 200        |
+| `METRIC_NAME_TEST_PARAMS_TX_PORT_COUNT`     | test.params.tx_port_count     | Number of TX ports                   | 1, 4, max        |
+| `METRIC_NAME_TEST_PARAMS_TEST_DURATION_SEC` | test.params.test_duration_sec | Traffic transmission time in seconds | 60               |
 
-### 5.2. Metrics
+### 5.2. Traffic generator metrics
 
 The following metrics will be collected during test execution to validate CRC error handling and measure performance:
 
-| Metric Name                   | Metric Name in DB | Description                              | Example Value |
-|-------------------------------|-------------------|------------------------------------------|---------------|
-| `METRIC_NAME_TG_TX_GOOD_UTIL` | `tg.tx.good.util` | Total TX utilization of good-CRC traffic | 95.33         |
-| `METRIC_NAME_TG_RX_GOOD_UTIL` | `tg.rx.good.util` | Total RX utilization of good-CRC traffic | 62.53         |
-| `METRIC_NAME_TG_TX_BAD_UTIL`  | `tg.tx.bad.util`  | Total TX utilization of bad-CRC traffic  | 95.33         |
-| `METRIC_NAME_TG_RX_BAD_UTIL`  | `tg.rx.bad.util`  | Total RX utilization of bad-CRC traffic  | 0.00          |
+| Metric Name                   | Metric Name in DB | Description                              | Example |
+|-------------------------------|-------------------|------------------------------------------|---------|
+| `METRIC_NAME_TG_TX_GOOD_UTIL` | tg.tx.good.util   | Total TX utilization of good-CRC traffic | 95.33   |
+| `METRIC_NAME_TG_RX_GOOD_UTIL` | tg.rx.good.util   | Total RX utilization of good-CRC traffic | 62.53   |
+| `METRIC_NAME_TG_TX_BAD_UTIL`  | tg.tx.bad.util    | Total TX utilization of bad-CRC traffic  | 95.33   |
+| `METRIC_NAME_TG_RX_BAD_UTIL`  | tg.rx.bad.util    | Total RX utilization of bad-CRC traffic  | 0.00    |
+
+### 5.3. DUT metrics
+
+| Metric Name                   | Metric Name in DB | Example        |
+|-------------------------------|-------------------|----------------|
+| `METRIC_NAME_PORT_STATE`      | port.state        | OPER_STATUS.UP |
+| `METRIC_NAME_PORT_RX_BPS`     | port.rx.bps       | 26.38          |
+| `METRIC_NAME_PORT_RX_UTIL`    | port.rx.util      | 0.00           |
+| `METRIC_NAME_PORT_RX_OK`      | port.rx.ok        | 5190           |
+| `METRIC_NAME_PORT_RX_ERR`     | port.rx.err       | 0              |
+| `METRIC_NAME_PORT_RX_DROP`    | port.rx.drop      | 248            |
+| `METRIC_NAME_PORT_RX_OVERRUN` | port.rx.overrun   | 0              |
+| `METRIC_NAME_PORT_TX_BPS`     | port.tx.bps       | 9.76           |
+| `METRIC_NAME_PORT_TX_UTIL`    | port.tx.util      | 0.00           |
+| `METRIC_NAME_PORT_TX_OK`      | port.tx.ok        | 4896           |
+| `METRIC_NAME_PORT_TX_ERR`     | port.tx.err       | 0              |
+| `METRIC_NAME_PORT_TX_DROP`    | port.tx.drop      | 10             |
+| `METRIC_NAME_PORT_TX_OVERRUN` | port.tx.overrun   | 0              |
+
+Besides the common metrics labels, the following metrics labels will also be collected from the DUT to provide context and facilitate filtering:
+
+| Label Name                    | Label Name in DB | Example   |
+|-------------------------------|------------------|-----------|
+| `METRIC_LABEL_DEVICE_ID`      | device.id        | switch-A  |
+| `METRIC_LABEL_DEVICE_PORT_ID` | device.port.id   | Ethernet8 |
