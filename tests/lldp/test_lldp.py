@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1'),
     pytest.mark.device_type('vs')
 ]
 
@@ -180,3 +180,4 @@ def test_lldp_neighbor_post_orchagent_reboot(duthosts, enum_rand_one_per_hwsku_f
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
+    duthost.shell("sudo config feature autorestart swss enabled")

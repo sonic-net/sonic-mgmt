@@ -3,16 +3,16 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
-from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat # noqa E501
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
+from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat  # noqa: E501
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 from tests.common import config_reload
@@ -363,7 +363,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         logger.info("Verify if PFC storm is detected on port {}".format(port))
         pytest_assert(
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"), # noqa E501
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
             "PFC storm state did not change as expected"
         )
 
@@ -382,7 +382,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
         pytest_assert(
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"), # noqa E501
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"),  # noqa: E501
             "PFC storm state did not change as expected"
         )
 
@@ -425,7 +425,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("tx_drop_count {} -> {}".format(tx_drop_count_init, tx_drop_count_check))
                 pytest_assert(
                     ((tx_drop_count_check - tx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
-                    "PFC storm Tx ok count not correct"
+                    "PFC storm Tx drop count not correct"
                 )
             elif self.tx_action == "forward":
                 tx_ok_count_init = int(pfcwd_stat_init[0]['tx_ok_count'])
@@ -465,16 +465,18 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] or is_tunnel_qos_remap_enabled(duthost):
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
+                or is_tunnel_qos_remap_enabled(duthost):
             self.rx_action = "forward"
         else:
             self.rx_action = action
         self.tx_action = action
 
-    def test_pfcwd_show_stat(self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts, ptfhost, # noqa F811
+    def test_pfcwd_show_stat(self, request, setup_pfc_test,
+                             setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
-                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
+                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):  # noqa: F811
         """
         PFCwd CLI show pfcwd stats test
 

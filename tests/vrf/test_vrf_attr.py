@@ -1,18 +1,18 @@
 import pytest
 
 from test_vrf import g_vars
-from test_vrf import setup_vrf              # noqa F401
-from test_vrf import dut_facts             # noqa F401
+from test_vrf import setup_vrf              # noqa: F401
+from test_vrf import dut_facts             # noqa: F401
 from test_vrf import gen_vrf_neigh_file
-from test_vrf import partial_ptf_runner     # noqa F401
-from test_vrf import ptf_test_port_map      # noqa F401
-from test_vrf import mg_facts      # noqa F401
-from test_vrf import vlan_mac      # noqa F401
+from test_vrf import partial_ptf_runner     # noqa: F401
+from test_vrf import ptf_test_port_map      # noqa: F401
+from test_vrf import mg_facts      # noqa: F401
+from test_vrf import vlan_mac      # noqa: F401
 from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 
 
 pytestmark = [
@@ -26,7 +26,7 @@ class TestVrfAttrSrcMac():
     new_vrf1_router_mac = '00:12:34:56:78:9a'
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_vrf_attr_src_mac(self, duthosts, rand_one_dut_hostname, ptfhost, dut_facts):  # noqa F811
+    def setup_vrf_attr_src_mac(self, duthosts, rand_one_dut_hostname, ptfhost, dut_facts):  # noqa: F811
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         extra_vars = {'router_mac': self.new_vrf1_router_mac}
@@ -58,7 +58,7 @@ class TestVrfAttrSrcMac():
             "redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
 
-    def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa F811
+    def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa: F811
         # send packets with default router_mac
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -82,7 +82,7 @@ class TestVrfAttrSrcMac():
                    log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log",
                    is_python3=True)
 
-    def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa F811
+    def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa: F811
         # verify router_mac of Vrf2 keep to be default router_mac
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -111,7 +111,7 @@ class TestVrfAttrTTL():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ttl_1(self, partial_ptf_runner):   # noqa F811
+    def test_vrf1_drop_pkts_with_ttl_1(self, partial_ptf_runner):   # noqa: F811
         # verify packets in Vrf1 with ttl=1 should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -121,7 +121,7 @@ class TestVrfAttrTTL():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf1_fwd_pkts_with_ttl_2(self, partial_ptf_runner):    # noqa F811
+    def test_vrf1_fwd_pkts_with_ttl_2(self, partial_ptf_runner):    # noqa: F811
         # verify packets in Vrf1 with ttl=2 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -130,7 +130,7 @@ class TestVrfAttrTTL():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf2_fwd_pkts_with_ttl_1(self, partial_ptf_runner):    # noqa F811
+    def test_vrf2_fwd_pkts_with_ttl_1(self, partial_ptf_runner):    # noqa: F811
         # verify packets in Vrf2 with ttl=1 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -160,7 +160,7 @@ class TestVrfAttrIpAction():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):      # noqa F811
+    def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):      # noqa: F811
         # verify packets in Vrf1 with ip_options should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -172,7 +172,7 @@ class TestVrfAttrIpAction():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):    # noqa F811
+    def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):    # noqa: F811
         # verify packets in Vrf1 without ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -183,7 +183,7 @@ class TestVrfAttrIpAction():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):       # noqa F811
+    def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):       # noqa: F811
         # verify packets in Vrf2 with ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -215,7 +215,7 @@ class TestVrfAttrIpState():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_v4(self, partial_ptf_runner):        # noqa F811
+    def test_vrf1_drop_v4(self, partial_ptf_runner):        # noqa: F811
         # verify ipv4 L3 traffic is dropped in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -226,7 +226,7 @@ class TestVrfAttrIpState():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf1_forward_v6(self, partial_ptf_runner):     # noqa F811
+    def test_vrf1_forward_v6(self, partial_ptf_runner):     # noqa: F811
         # verify ipv6 L3 traffic is forwarded in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -236,7 +236,7 @@ class TestVrfAttrIpState():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_vrf2_forward_v4(self, partial_ptf_runner):     # noqa F811
+    def test_vrf2_forward_v4(self, partial_ptf_runner):     # noqa: F811
         # verify ipv4 L3 traffic is forwarded in vrf2
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -246,7 +246,7 @@ class TestVrfAttrIpState():
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
-    def test_vrf2_drop_v6(self, partial_ptf_runner):        # noqa F811
+    def test_vrf2_drop_v6(self, partial_ptf_runner):        # noqa: F811
         # verify ipv6 L3 traffic is dropped in vrf2
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
