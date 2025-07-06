@@ -354,9 +354,9 @@ def analyze_cps_performance(timestamps, values):
 
 def run_cps_search(api, initial_cps_value):
 
-    MAX_CPS = 5000000
+    MAX_CPS = 12000000
     MIN_CPS = 0
-    threshold = 100000
+    threshold = 1000000
     test_iteration = 1
     test_value = initial_cps_value
     activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
@@ -374,9 +374,7 @@ def run_cps_search(api, initial_cps_value):
         activityList_json = {
             'constraintType': 'ConnectionRateConstraint',
             'constraintValue': test_value,
-            'enableConstraint': True,
-            'userObjectiveType': 'simulatedUsers',
-            'userObjectiveValue': 64500
+            'enableConstraint': False,
         }
         logger.info("Updating CPS objective value settings...")
         try:
@@ -486,9 +484,7 @@ def run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value):
         activityList_json = {
             'constraintType': 'ConnectionRateConstraint',
             'constraintValue': initial_cps_value,
-            'enableConstraint': True,
-            'userObjectiveType': 'simulatedUsers',
-            'userObjectiveValue': 64500
+            'enableConstraint': False,
         }
         api.ixload_configure("patch", "ixload/test/activeTest/communityList/0/activityList/0", activityList_json)
 

@@ -328,41 +328,21 @@ def set_timelineCustom(api, initial_cps_value):
 
     activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"  # noqa: F841
     timelineObjectives_url = "ixload/test/activeTest/communityList/0/activityList/0/timeline"
-    # url_activityList = "{}/{}".format(base_url, activityList_url)
-    # url_timeline = "{}/{}".format(base_url, timelineObjectives_url)
 
-    """
-    activityList_json = {
-        'constraintType': 'ConnectionRateConstraint',
-        'constraintValue': 6000000,
-        'enableConstraint': True,
-        'userObjectiveType': 'simulatedUsers',
-        'userObjectiveValue': ENI_COUNT*250000
-    }
-    """
     activityList_json = {  # noqa: F841
         'constraintType': 'ConnectionRateConstraint',
         'constraintValue': initial_cps_value,
-        'enableConstraint': True,
-        'userObjectiveType': 'simulatedUsers',
-        'userObjectiveValue': 64500
+        'enableConstraint': False,
     }
 
     timeline_json = {
         'rampUpValue': 1000000,
         'sustainTime': 300
     }
-    # response = requests.patch(url_activityList, json=activityList_json)
-    """
+
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", activityList_url, activityList_json)
-    except Exception as e:
-        # Handle any exception
-        logger.info(f"An error occurred: {e}")
-    """
-    try:
-        # Code that may raise an exception
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
     except Exception as e:
         # Handle any exception
@@ -541,6 +521,25 @@ def test_saveAs(api, test_filename):
 
     return
 """
+
+
+def set_userIPMappings(api):
+
+    url = "ixload/test/activeTest/communityList/0/activityList/0"
+
+    param_userIpMapping = {
+        'userIpMapping': '1:ALL-PER-CONNECTION',
+    }
+
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("patch", url, param_userIpMapping)  # noqa: F841
+    except Exception as e:
+        # Handle any exception
+        print(f"An error occurred: {e}")
+        return None
+
+    return
 
 
 def main(ports_list, connection_dict, nw_config, service_type, test_type, initial_cps_value):
@@ -789,6 +788,11 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
 
     time_custom_finish = time.time()
     logger.info("Custom settings completed: {}".format(time_custom_finish - time_custom_time))
+
+    # Edit userIpMapping
+    logger.info("Configuring userIpMapping settings")
+    set_userIPMappings(api)
+    logger.info("userIpMapping completed")
 
     # Create DUTLIST
     if service_type == 'privatelink':
