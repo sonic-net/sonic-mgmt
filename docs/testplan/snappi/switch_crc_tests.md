@@ -1,137 +1,135 @@
 # Snappi-based CRC Error Handling Test
 
-1. [1. Test Objective](#1-test-objective)  
-2. [2. Test Setup](#2-test-setup)  
-   1. [2.1. Test port and traffic setup](#21-test-port-and-traffic-setup)  
-   2. [2.2. DUT configuration](#22-dut-configuration)  
-   3. [2.3. Metrics monitoring](#23-metrics-monitoring)  
-3. [3. Test parameters](#3-test-parameters)  
-4. [4. Test Steps](#4-test-steps)  
-   1. [4.1. Category 1: Line-rate CRC-error drop](#41-category-1-line-rate-crc-error-drop)  
-   2. [4.2. Category 2: CRC-error isolation from good traffic](#42-category-2-crc-error-isolation-from-good-traffic)  
-      1. [4.2.1. Many-to-1 in-cast](#421-many-to-1-in-cast)  
-      2. [4.2.2. 1-to-1 parallel links](#422-1-to-1-parallel-links)  
-      3. [4.2.3. Mixed-traffic on a single port](#423-mixed-traffic-on-a-single-port)  
-5. [5. Metrics to collect](#5-metrics-to-collect)  
-   1. [5.1. Interface Metrics](#51-interface-metrics)  
-   2. [5.2. Traffic Generator Metrics](#52-traffic-generator-metrics)  
+1. [1. Test Objective](#1-test-objective)
+2. [2. Testbed Topology](#2-testbed-topology)
+3. [3. Test parameters](#3-test-parameters)
+4. [4. Test Cases](#4-test-cases)
+   1. [4.1. Test Case 1: Line-rate CRC-error traffic test](#41-test-case-1-line-rate-crc-error-traffic-test)
+   2. [4.2. Test Case 2: CRC-error isolation test](#42-test-case-2-crc-error-isolation-test)
+      1. [4.2.1. 1-to-1 parallel links](#421-1-to-1-parallel-links)
+      2. [4.2.2. Mixed-traffic on a single port](#422-mixed-traffic-on-a-single-port)
+5. [5. Metrics to collect](#5-metrics-to-collect)
+   1. [5.1. Metrics labels](#51-metrics-labels)
+   2. [5.2. Metrics](#52-metrics)
 
 ## 1. Test Objective
 
-Validate that a SONiC switch:
+This test aims to validate that a SONiC switch:
 
-- Drops **100%** of Ethernet frames with CRC errors on ingress at line rate.  
-- Forwards **100%** of valid frames unaffected, even when CRC-errored frames arrive simultaneously.
+- Drops **100%** of Ethernet frames with CRC errors on ingress at line rate.
+- Assesses the impact of traffic with CRC error. Valid frames should be unaffected by the presence of CRC errors on the same or different ports.
 
-## 2. Test Setup
+## 2. Testbed Topology
 
-Reuses the existing Snappi-based pytest framework in the sonic-mgmt repo.
+This tests expects the testbed to be built using the `nut-single-dut` topology, following the [Multi-device multi-tier testbed HLD](../../testbed/README.testbed.NUT.md), which allows us to test the CRC error in a flexible way.
 
-### 2.1. Test port and traffic setup
-
-- **Traffic Generator (TG):** Snappi-capable (e.g. IXIA/Keysight).  
-- **DUT ports:** One-to-one mapping to TG ports, identical speed.  
-- **Flows:**  
-  - **Good-CRC**: default FCS.  
-  - **Bad-CRC**: FCS set to `0x00000000` or a random incorrect value.  
-
-### 2.2. DUT configuration
-
-- Place all test ports in a single L2 VLAN (untagged) or assign IPs/routes for IPv4/IPv6 as needed.  
-- Ensure interfaces are up and forwarding is enabled.  
-- Verify connectivity: `show vlan brief` or `show ip route`.
-
-### 2.3. Metrics monitoring
-
-- A background thread polls DUT interface counters (`show interface counters` or telemetry) periodically during traffic.
+```mermaid
+graph TD
+    subgraph "Device Under Test"
+        P1[Port 1]
+        P2[Port 2]
+        P3[Port 3]
+        PN[Port N]
+    end
+    TG[Traffic Generator]
+    TG <-->|Traffic| P1
+    TG <-->|Traffic| P2
+    TG <-->|Traffic| P3
+    TG <-->|Traffic| PN
+```
 
 ## 3. Test parameters
 
-| Parameter        | Description                                         | Example Values                |
-|——————|——————————————————|-——————————|
-| `packet_size`    | Ethernet frame length                               | 64, 128, 512, 1518 bytes      |
-| `crc_error_type` | FCS corruption mode                                 | `zero`, `random`             |
-| `tx_port_count`  | Number of concurrent ingress TG ports               | 1, 2, 4                       |
-| `ip_version`     | L2 only, IPv4, or IPv6                              | `L2`, `IPv4`, `IPv6`          |
-| `test_duration`  | Traffic transmission time                           | 60 seconds                    |
+The CRC error handling tests are parameterized to allow flexible testing across different scenarios. The following parameters can be adjusted:
 
-## 4. Test Steps
+| Parameter           | Description                           | Example Values                   |
+|---------------------|---------------------------------------|----------------------------------|
+| `crc_error_type`    | FCS corruption mode                   | `zero`, `random`                 |
+| `tx_port_count`     | Number of concurrent ingress TG ports | `1`, `4`, `8`, `max`             |
+| `packet_size`       | Ethernet frame length (bytes)         | 128, 256, 1024, 1518, 4096, 8192 |
+| `ip_version`        | IPv4, or IPv6                         | `IPv4`, `IPv6`                   |
+| `test_duration_sec` | Traffic transmission time (Seconds)   | 60                               |
 
-### 4.1. Category 1: Line-rate CRC-error drop
+## 4. Test Cases
 
-1. Parameterize test for each combination of `packet_size` and `crc_error_type`.  
-2. Build a Snappi flow on one TG port: ingress → egress, FCS corrupted.  
-3. Start the metrics-monitoring thread.  
-4. Transmit at **100% line rate** for `test_duration`.  
-5. Stop traffic; join monitoring thread.  
-6. Retrieve stats:  
-   - TG Rx on egress port should be **0 frames**.  
-   - DUT ingress CRC-error counter Δ must equal the Tx frame count.  
-7. **Validation:** Pass if all bad-CRC frames are dropped (egress Rx = 0).
+### 4.1. Test Case 1: Line-rate CRC-error traffic test
 
-### 4.2. Category 2: CRC-error isolation from good traffic
+For each combination of test parameters, the following steps are executed:
 
-#### 4.2.1. Many-to-1 in-cast
+1. Select the last available traffic generator port as the RX port.
+2. Select the first `tx_port_count` traffic generator ports as TX ports.
+   - When `max` is selected for `tx_port_count`, use all the rest available TG ports as TX ports, except the last port.
+3. Configurate the traffic stream on traffic generator with the following parameters:
+   - **CRC error type**: `crc_error_type` (e.g., `zero`, `random`).
+   - **Packet size**: `packet_size`.
+   - **IP version**: `ip_version`.
+   - **Line rate**: 100% of the port speed.
+4. Start traffic stream at **100% line rate** for `test_duration`.
+5. Stop traffic and Retrieve stats from the traffic generator and DUT.
+6. Validate the results, and pass the test if the following conditions are met:
+   - Traffic generator RX port should receive **0 frames**.
+   - DUT ingress RX error counter must equal the Tx frame count.
 
-1. Configure `tx_port_count` TG ingress ports sending to one TG egress port.  
-2. Assign flows:  
-   - Ports 1…M send **bad-CRC** at line rate.  
-   - Remaining ports send **good-CRC** at ≤ (line rate ÷ M) to avoid congestion.  
-3. Start monitoring thread.  
-4. Start all flows concurrently.  
-5. Stop traffic; join monitoring thread.  
-6. Retrieve stats:  
-   - Egress Rx = sum of good-CRC Tx frames.  
-   - Bad-CRC Rx = 0.  
-   - DUT ingress CRC-error Δ matches bad-CRC Tx.  
-7. **Validation:** Good-CRC traffic sees 0% loss; bad-CRC traffic is fully dropped.
+### 4.2. Test Case 2: CRC-error isolation test
 
-#### 4.2.2. 1-to-1 parallel links
+#### 4.2.1. 1-to-1 parallel links
 
-1. Map two TG→DUT port pairs: Pair A (bad-CRC), Pair B (good-CRC).  
-2. Configure flows:  
-   - Pair A: **only bad-CRC** at line rate.  
-   - Pair B: **only good-CRC** at line rate.  
-3. Start monitoring thread.  
-4. Start both flows simultaneously.  
-5. Stop traffic; join monitoring thread.  
-6. Retrieve stats:  
-   - Pair B egress Rx = Tx (no loss).  
-   - Pair A egress Rx = 0.  
-   - DUT CRC-error Δ on Pair A ingress = Tx_A.  
-7. **Validation:** Bad-CRC drops are isolated; good-CRC throughput unaffected.
+For each combination of test parameters, the following steps are executed:
 
-#### 4.2.3. Mixed-traffic on a single port
+1. Select first 2x `tx_port_count` TG ports as TX ports, and the last `tx_port_count` TG ports as RX ports.
+   - When `max` is selected for `tx_port_count`, use the first 2/3 of the available TG ports as TX ports, and the last 1/3 as RX ports.
+2. Configure two traffic flows on the TX ports interleaved (first port index is 0):
+   - **Flow-Bad**: On all even ports, bad-CRC frames at 100% line rate.
+   - **Flow-Good**: On all odd ports, good-CRC frames at 100% line rate.
+   - Each pair of TX ports should send traffic to the same RX port (e.g., TX1 & TX2 → RX1, TX3 & TX4 → RX2).
+3. Start all traffic flows concurrently at **100% line rate** for `test_duration`.
+4. Stop traffic and retrieve stats from the traffic generator and DUT.
+5. Report the following stats using metrics interface:
+   - Traffic rate of Flow-Good and Flow-Bad on all RX ports.
+6. Validate the results and fail the test if the following conditions are met:
+   - Any RX port received any bad-CRC frames.
+   - DUT ingress RX error counter delta matches total bad-CRC TX frame count across all ports.
 
-1. Build two Snappi flows on one TG→DUT port:  
-   - **Flow-G**: good-CRC at 50% line rate.  
-   - **Flow-B**: bad-CRC at 50% line rate.  
-2. Start monitoring thread.  
-3. Start both flows interleaved.  
-4. Stop traffic; join monitoring thread.  
-5. Retrieve stats:  
-   - Egress Rx_G = Tx_G.  
-   - Egress Rx_B = 0.  
-   - DUT ingress CRC-error Δ = Tx_B.  
-6. **Validation:** Good and bad frames co-exist without head-of-line blocking; good-CRC sees 0% loss.
+#### 4.2.2. Mixed-traffic on a single port
+
+For each combination of test parameters, the following steps are executed:
+
+1. Select the first 2x `tx_port_count` TG ports as TX ports, and the last `tx_port_count` TG ports as RX ports.
+   - When `max` is selected for `tx_port_count`, use the first 2/3 of the available TG ports as TX ports, and the last 1/3 as RX ports.
+2. Configure two traffic flows on each TX port:
+   - **Flow-Good**: good-CRC frames at 50% line rate.
+   - **Flow-Bad**: bad-CRC frames at 50% line rate.
+   - Each pair of TX ports should send traffic to the same RX port (e.g., TX1 & TX2 → RX1, TX3 & TX4 → RX2) with interleaved transmission.
+3. Start both traffic flows concurrently on all ports for `test_duration`.
+4. Stop traffic and retrieve stats from the traffic generator and DUT.
+5. Report the following stats using metrics interface:
+   - Traffic rate of Flow-Good and Flow-Bad on all RX ports.
+6. Validate the results and fail the test if the following conditions are met:
+   - Any RX port received any bad-CRC frames (Flow-Bad).
+   - DUT ingress RX error counter delta matches total bad-CRC TX frame count across all ports.
 
 ## 5. Metrics to collect
 
-### 5.1. Interface Metrics
+### 5.1. Metrics labels
 
-| Label                   | DB Key               | Notes                               |
-|-————————|-———————|-————————————|
-| `METRIC_LABEL_PORT_ID`  | device.port.id       | e.g. Ethernet4                      |
-| `port.rx.crc_errors`    | port.rx.crc_errors   | Number of bad-CRC frames detected   |
-| `port.rx.drop`          | port.rx.drop         | Should match CRC error count       |
-| `port.tx.ok`            | port.tx.ok           | Number of good frames sent         |
-| `port.tx.drop`          | port.tx.drop         | 0 for good-CRC flows               |
+All metrics collected during the tests will include the following labels to provide context and facilitate filtering:
 
-### 5.2. Traffic Generator Metrics
+| Label Name                                  | Label                           | Description                          | Example          |
+|---------------------------------------------|---------------------------------|--------------------------------------|------------------|
+| `METRIC_NAME_TG_IP_VERSION`                 | `tg.ip_version`                 | IP version                           | 4, 6             |
+| `METRIC_NAME_TG_CRC_ERROR_TYPE`             | `tg.crc_error_type`             | CRC error type                       | `zero`, `random` |
+| `METRIC_NAME_TG_FRAME_BYTES`                | `tg.frame_bytes`                | Ethernet frame length in bytes       | 1518             |
+| `METRIC_NAME_TG_TX_PORT_COUNT`              | `tg.tx_port_count`              | Number of TX ports after calculation | 1, 4, 200        |
+| `METRIC_NAME_TEST_PARAMS_TX_PORT_COUNT`     | `test.params.tx_port_count`     | Number of TX ports                   | 1, 4, max        |
+| `METRIC_NAME_TEST_PARAMS_TEST_DURATION_SEC` | `test.params.test_duration_sec` | Traffic transmission time in seconds | 60               |
 
-| Flow Name         | Metric            | Expectation                           |
-|-——————|-——————|—————————————|
-| `bad_flow_<p>`    | flow.tx.frames    | > 0 (line rate)                       |
-|                   | flow.rx.frames    | 0                                     |
-| `good_flow_<p>`   | flow.tx.frames    | > 0                                   |
-|                   | flow.rx.frames    | = flow.tx.frames (no loss)            |
+### 5.2. Metrics
+
+The following metrics will be collected during test execution to validate CRC error handling and measure performance:
+
+| Metric Name                   | Metric Name in DB | Description                              | Example Value |
+|-------------------------------|-------------------|------------------------------------------|---------------|
+| `METRIC_NAME_TG_TX_GOOD_UTIL` | `tg.tx.good.util` | Total TX utilization of good-CRC traffic | 95.33         |
+| `METRIC_NAME_TG_RX_GOOD_UTIL` | `tg.rx.good.util` | Total RX utilization of good-CRC traffic | 62.53         |
+| `METRIC_NAME_TG_TX_BAD_UTIL`  | `tg.tx.bad.util`  | Total TX utilization of bad-CRC traffic  | 95.33         |
+| `METRIC_NAME_TG_RX_BAD_UTIL`  | `tg.rx.bad.util`  | Total RX utilization of bad-CRC traffic  | 0.00          |
