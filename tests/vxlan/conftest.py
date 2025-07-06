@@ -20,7 +20,7 @@ from tests.vxlan.vnet_constants import (
     NUM_INTF_PER_VNET_KEY,
     TEMPLATE_DIR
 )
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa: F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -309,7 +309,7 @@ def vnet_test_params(duthost, request):
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo, backup_and_restore_config_db_on_duts):        # noqa F811
+def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo, backup_and_restore_config_db_on_duts):        # noqa: F811
     """
     Fixture to get minigraph facts
     Args:

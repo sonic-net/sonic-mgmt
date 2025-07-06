@@ -1,7 +1,7 @@
 import pytest
 import random
 import logging
-from tests.common.helpers.assertions import pytest_require    # noqa F401
+from tests.common.helpers.assertions import pytest_require    # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -10,7 +10,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
     tgen_port_info  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,\
-    lossless_prio_list, lossy_prio_list     # noqa F401
+    lossless_prio_list, lossy_prio_list     # noqa: F401
 from tests.snappi_tests.pfcwd.files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, is_snappi_multidut, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa: F401
 from tests.common.reboot import reboot                              # noqa: F401
 from tests.common.utilities import wait_until                       # noqa: F401
 from tests.common.config_reload import config_reload
@@ -58,7 +58,7 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                                           duthosts,
                                           lossless_prio_list,    # noqa: F811
                                           tbinfo,                # noqa: F811
-                                          prio_dscp_map,         # noqa F811
+                                          prio_dscp_map,         # noqa: F811
                                           setup_ports_and_dut,   # noqa: F811
                                           trigger_pfcwd,         # noqa: F811
                                           ):
@@ -97,13 +97,13 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
-                                         conn_graph_facts,          # noqa F811
-                                         fanout_graph_facts_multidut,        # noqa F811
+def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa: F811
+                                         conn_graph_facts,          # noqa: F811
+                                         fanout_graph_facts_multidut,        # noqa: F811
                                          duthosts,
                                          lossless_prio_list,    # noqa: F811
                                          tbinfo,      # noqa: F811
-                                         prio_dscp_map,             # noqa F811
+                                         prio_dscp_map,             # noqa: F811
                                          setup_ports_and_dut,       # noqa: F811
                                          trigger_pfcwd):
     """
@@ -140,14 +140,14 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # noqa F811
-                                                 conn_graph_facts,          # noqa F811
-                                                 fanout_graph_facts_multidut,        # noqa F811
+def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # noqa: F811
+                                                 conn_graph_facts,          # noqa: F811
+                                                 fanout_graph_facts_multidut,        # noqa: F811
                                                  localhost,
                                                  duthosts,
                                                  enum_dut_lossless_prio_with_completeness_level,   # noqa: F811
                                                  get_snappi_ports,   # noqa: F811
-                                                 prio_dscp_map,             # noqa F811
+                                                 prio_dscp_map,             # noqa: F811
                                                  setup_ports_and_dut,    # noqa: F811
                                                  reboot_duts,               # noqa: F811
                                                  trigger_pfcwd):
@@ -188,13 +188,13 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # noqa F811
-                                                conn_graph_facts,           # noqa F811
-                                                fanout_graph_facts_multidut,         # noqa F811
+def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # noqa: F811
+                                                conn_graph_facts,           # noqa: F811
+                                                fanout_graph_facts_multidut,         # noqa: F811
                                                 localhost,
-                                                lossless_prio_list,         # noqa F811
+                                                lossless_prio_list,         # noqa: F811
                                                 tbinfo,      # noqa: F811
-                                                prio_dscp_map,              # noqa F811
+                                                prio_dscp_map,              # noqa: F811
                                                 setup_ports_and_dut,        # noqa: F811
                                                 reboot_duts,                # noqa: F811
                                                 trigger_pfcwd):
@@ -234,9 +234,9 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,               # noqa F811
-                                                          conn_graph_facts,         # noqa F811
-                                                          fanout_graph_facts_multidut,       # noqa F811
+def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,               # noqa: F811
+                                                          conn_graph_facts,         # noqa: F811
+                                                          fanout_graph_facts_multidut,       # noqa: F811
                                                           duthosts,
                                                           lossless_prio_list,   # noqa: F811
                                                           tbinfo,      # noqa: F811
@@ -320,13 +320,13 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,                # noqa F811
-                                                         conn_graph_facts,          # noqa F811
-                                                         fanout_graph_facts_multidut,        # noqa F811
+def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,                # noqa: F811
+                                                         conn_graph_facts,          # noqa: F811
+                                                         fanout_graph_facts_multidut,        # noqa: F811
                                                          duthosts,
                                                          lossless_prio_list,    # noqa: F811
                                                          tbinfo,      # noqa: F811
-                                                         prio_dscp_map,             # noqa F811
+                                                         prio_dscp_map,             # noqa: F811
                                                          restart_service,
                                                          setup_ports_and_dut,       # noqa: F811
                                                          trigger_pfcwd,

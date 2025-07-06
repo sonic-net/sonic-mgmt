@@ -57,7 +57,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
@@ -87,6 +87,8 @@ cache = FactsCache()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -275,6 +277,12 @@ def pytest_addoption(parser):
     #   Stress test options         #
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
+
+    #################################
+    #   Container upgrade test options         #
+    #################################
+    parser.addoption("--container_test", action="store", default="",
+                     help="This flag indicates that the test is being run by the container test.")
 
 
 def pytest_configure(config):
@@ -2591,7 +2599,7 @@ def collect_db_dump(request, duthosts):
         collect_db_dump_on_duts(request, duthosts)
 
 
-def restore_config_db_and_config_reload(duts_data, duthosts):
+def restore_config_db_and_config_reload(duts_data, duthosts, request):
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
         logger.info("dut reload called on {}".format(duthost.hostname))
@@ -2607,11 +2615,13 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
                 duthost.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
                 os.remove(asic_cfg_file)
 
+    wait_for_bgp = False if request.config.getoption("skip_sanity") else True
+
     # Second execute config reload on all duthosts
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
-                            check_intf_up_ports=True, wait_for_bgp=True)
+                            check_intf_up_ports=True, wait_for_bgp=wait_for_bgp)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2919,7 +2929,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts)
+                restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 
@@ -3333,6 +3343,14 @@ def setup_connection(request, setup_gnmi_server):
                                                         client_key_path=client_key)
         yield gnmi_connection
         channel.close()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_golden_config_db(duthost):
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH_ORI):
+        duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH_ORI, GOLDEN_CONFIG_DB_PATH))
+        logger.info("[restore_golden_config_db] Restored {}".format(GOLDEN_CONFIG_DB_PATH))
+    yield
 
 
 @pytest.fixture(scope="session")

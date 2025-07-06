@@ -69,7 +69,7 @@ The total number of routes is controlled by below parameters:
 **Routes advertised by each C0:**
 
 - Loopback IP of C0, count: `1`
-  
+
 ## M0/MC0
 
 ### Design
@@ -138,3 +138,28 @@ Routes announced by M0 can be broken down to 5 sets:
      count: (mx_number - 1) * mx_subnet_number.
    - Upstream routes of M0 connected to DUT,
      count: (colo_number * m0_number - 1) * (mx_number * mx_subnet_number + m0_subnet_number).
+
+## isolated-T1
+
+### Design
+
+For isolated T1, we have 3 sets routes that we are going to advertise, below picture shows how routes are advertised:
+- 1st set routes are advertise by upstream VMs (T2 devices) -- green lines
+- 2st set routes are other T1s' routes adeertised by downstream VMs (T0 devices) -- blue lines
+- 3st set routes are T0s' loopback and vlan routes advertised by downstream VMs (T0 devices) -- yellow lines
+
+![](./img/announce_routes_isolated_t1.png)
+
+### Details:
+Some definitions:
+|definition|description|
+|:----|:----|
+|tor_subnet_number|number of subnet in a T0|
+|leaf_number|number of other T1s|
+|tor_number|number of downstream T0s|
+
+- Routes annoucned by per T2 device, total number: 1
+  - 1 Loopback route
+- Routes advertised by per T0 devices, total number: (1 + tor_subnet_number) * tor_number + leaf_number
+  - 1 Loopback route and `tor_subnet_number` subnet routes (Each sets of these routes in DUT has only one different nexthop to each T0)
+  - `leaf_number` Loopback routes of other T1s (These routes sets has `tor_number` nexthops in DUT)

@@ -40,6 +40,7 @@ declare EXISTING_CONTAINER_NAME=""
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
 
+ENV_VARS=""
 CONTAINER_NAME=""
 IMAGE_ID=""
 LINK_DIR=""
@@ -103,6 +104,7 @@ function show_help_and_exit() {
     echo "  -n <container_name>  set the name of the Docker container"
     echo
     echo "Other options:"
+    echo "  -e <VAR=value>      set environment variable inside the container (can be used multiple times)"
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
     echo "                         1. The local image named \"docker-sonic-mgmt\""
@@ -362,7 +364,7 @@ function start_local_container() {
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
-        eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
+        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"
@@ -440,10 +442,13 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxh" opt; do
+while getopts "e:n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
+            ;;
+        e )
+            ENV_VARS+=" -e ${OPTARG}"
             ;;
         i )
             IMAGE_ID="${OPTARG}"
