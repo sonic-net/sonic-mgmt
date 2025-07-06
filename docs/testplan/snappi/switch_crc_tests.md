@@ -46,7 +46,7 @@ The CRC error handling tests are parameterized to allow flexible testing across 
 | Parameter           | Description                           | Valid Values                     |
 |---------------------|---------------------------------------|----------------------------------|
 | `crc_error_type`    | FCS corruption mode                   | `zero`, `random`                 |
-| `tx_port_count`     | Number of concurrent ingress TG ports | `1`, `4`, `8`, `max`             |
+| `tx_port_count`     | Number of concurrent ingress TG ports | see test case for details        |
 | `packet_size`       | Ethernet frame length (bytes)         | 128, 256, 1024, 1518, 4096, 8192 |
 | `ip_version`        | IPv4, or IPv6                         | `IPv4`, `IPv6`                   |
 | `test_duration_sec` | Traffic transmission time (Seconds)   | 60                               |
