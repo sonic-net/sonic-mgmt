@@ -53,9 +53,10 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
-def check_gnmi_cli_running(ptfhost):
-    program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
-    return len(program_list) > 0
+def check_gnmi_cli_running(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    return res and res["rc"] == 0
 
 
 def parse_gnmi_output(gnmi_output, match_no, find_data):
