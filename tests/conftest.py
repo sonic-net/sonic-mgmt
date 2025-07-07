@@ -2599,7 +2599,7 @@ def collect_db_dump(request, duthosts):
         collect_db_dump_on_duts(request, duthosts)
 
 
-def restore_config_db_and_config_reload(duts_data, duthosts):
+def restore_config_db_and_config_reload(duts_data, duthosts, request):
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
         logger.info("dut reload called on {}".format(duthost.hostname))
@@ -2615,11 +2615,13 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
                 duthost.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
                 os.remove(asic_cfg_file)
 
+    wait_for_bgp = False if request.config.getoption("skip_sanity") else True
+
     # Second execute config reload on all duthosts
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
-                            check_intf_up_ports=True, wait_for_bgp=True)
+                            check_intf_up_ports=True, wait_for_bgp=wait_for_bgp)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2927,7 +2929,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts)
+                restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import itertools
 import math
@@ -537,7 +537,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
     vms_len = len(vms)
     current_routes_offset = 0
     last_suffix = 0
-    for index, (vm_name, vm) in enumerate(vms.items()):
+    for index, vm_name in enumerate(sorted(vms.keys())):
+        vm = vms[vm_name]
         router_type = "leaf"
         if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
@@ -671,7 +672,8 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         tor_number = len([k for k, v in vms_config.items() if 'tor' in v['properties']])
         lov6_address_pattern = ipv6_address_pattern.split("/")[0] + "/128"
         current_routes_offset = last_suffix
-        for index, (k, v) in enumerate(vms_config.items()):
+        for index, k in enumerate(sorted(vms_config.keys())):
+            v = vms_config[k]
             if dpus and k in dpus:
                 continue
             vm_offset = vms[k]['vm_offset']
@@ -1589,7 +1591,7 @@ def main():
                 topo['configuration'].pop(vm_name)
 
     is_storage_backend = "backend" in topo_name
-    tor_default_route = "t1-isolated-d128" in topo_name
+    tor_default_route = topo_name in ["t1-isolated-d128", "t1-isolated-d32"]
 
     topo_type = get_topo_type(topo_name)
 
