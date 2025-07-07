@@ -32,47 +32,42 @@ def setup_SmartSwitchHaTrafficTest(duthost, ptfhost, ptfadapter, vmhost, tbinfo)
 
 
 @pytest.fixture(scope="module")
-def setup_namespaces_with_routes(ptfhost, duthost):
+def setup_namespaces_with_routes(ptfhost, duthosts):
     """
-    Set up PTF namespaces (ns1, ns2), assign interfaces (eth0, eth2), IPs,
-    add static routes on both PTF and DUT, and clean up after module.
+    Set up 4 PTF namespaces (ns1, ns2, ns3, ns4), assign interfaces from both DUTs,
+    configure IPs, static routes on PTF & DUTs, and clean up after the module.
+
+    Each DUT port goes into a unique namespace for full isolation.
     """
-    ns1 = "ns1"
-    ns2 = "ns2"
-    eth0 = "eth0"
-    eth2 = "eth2"
 
-    ip_eth0 = "172.16.1.1/24"
-    ip_eth2 = "172.16.2.1/24"
+    # Namespace and interface mapping
+    ns_ifaces = [
+        {"namespace": "ns1", "iface": "eth3", "ip": "172.16.1.1/24", "dut": duthosts[0], "next_hop": "172.16.1.254"},
+        {"namespace": "ns2", "iface": "eth4", "ip": "172.16.2.1/24", "dut": duthosts[0], "next_hop": "172.16.2.254"},
+        {"namespace": "ns3", "iface": "eth22", "ip": "172.16.3.1/24", "dut": duthosts[1], "next_hop": "172.16.3.254"},
+        {"namespace": "ns4", "iface": "eth23", "ip": "172.16.4.1/24", "dut": duthosts[1], "next_hop": "172.16.4.254"},
+    ]
 
-    route_on_ptf_ns1 = {
-        "network": "192.168.2.0/24",
-        "next_hop": "172.16.1.254"
-    }
+    # Step 1: Setup namespaces and assign PTF interfaces
+    for ns in ns_ifaces:
+        add_port_to_namespace(ptfhost, ns["namespace"], ns["iface"], ns["ip"])
 
-    route_on_ptf_ns2 = {
-        "network": "192.168.1.0/24",
-        "next_hop": "172.16.2.254"
-    }
+    # Step 2: Add static routes in each namespace to reach DUT-side networks
+    for ns in ns_ifaces:
+        # Example route: 192.168.X.0/24 → DUT next hop
+        add_static_route_to_ptf(
+            ptfhost,
+            "192.168.{}.0/24".format(ns["namespace"][-1]),
+            ns["next_hop"],
+            name_of_namespace=ns["namespace"]
+        )
 
-    route_on_dut = {
-        "network": "192.168.0.0/16",
-        "next_hop": "172.16.1.1"
-    }
-
-    # Step 1–2: Setup namespaces and assign ports
-    add_port_to_namespace(ptfhost, ns1, eth0, ip_eth0)
-    add_port_to_namespace(ptfhost, ns2, eth2, ip_eth2)
-
-    # Step 3: Add static routes on PTF (in namespaces)
-    add_static_route_to_ptf(ptfhost, route_on_ptf_ns1["network"], route_on_ptf_ns1["next_hop"], name_of_namespace=ns1)
-    add_static_route_to_ptf(ptfhost, route_on_ptf_ns2["network"], route_on_ptf_ns2["next_hop"], name_of_namespace=ns2)
-
-    # Step 4: Add route to DUT
-    add_static_route_to_dut(duthost, route_on_dut["network"], route_on_dut["next_hop"])
+    # Step 3: Add static routes on DUTs to reach all 192.168.0.0/16 networks via PTF interfaces
+    for ns in ns_ifaces:
+        add_static_route_to_dut(ns["dut"], "192.168.0.0/16", ns["ip"].split('/')[0])  # Use IP w/o mask
 
     yield
 
     # Cleanup
-    remove_namespace(ptfhost, ns1, eth0, ip_eth0)
-    remove_namespace(ptfhost, ns2, eth2, ip_eth2)
+    for ns in ns_ifaces:
+        remove_namespace(ptfhost, ns["namespace"], ns["iface"], ns["ip"])
