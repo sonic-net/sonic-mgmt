@@ -625,7 +625,7 @@ def macsec_duthost(duthosts, tbinfo):
         for duthost in duthosts:
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
-            break
+                break
     else:
         return duthosts[0]
     return macsec_dut
