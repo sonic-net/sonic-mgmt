@@ -12,11 +12,10 @@ This test aims to assess the data-plane performance of the SRv6 forwarding funct
 
 ## Test Setup
 
-The test is designed to be run in a network under test that at least has two tiers.
-
 ### Network Topology Setup
 
-- There are at least two Tier-0 switches each of which is connected to a Traffic Generator via full duplex links.
+- The test is designed to be run in a network under test that at least has two tiers.
+- There should be at least two Tier-0 switches each of which is connected to a Traffic Generator via full duplex links.
 - The switches should have as many parallel links as possible between each other and the traffic generators in order to maximize the bandwidth utilization of the switches.
 
 ### Network Configuration
@@ -105,44 +104,6 @@ The `show queue watermark unicast` or  `show queue watermark multicast` is used 
 | User Interface Metric Name          | Metric Name in DB     | Example Value |
 |-------------------------------------|-----------------------|---------------|
 | `METRIC_NAME_QUEUE_WATERMARK_BYTES` | queue.watermark.bytes | 7620          |
-
-### PSU Metrics
-
-The `show platform psu` command is used on the switch to retrieve PSU metrics. The following labels are expected to be provided:
-
-| User Interface Label             | Label Key in DB   | Example Value   |
-|----------------------------------|-------------------|-----------------|
-| `METRIC_LABEL_DEVICE_ID`         | device.id         | switch-A        |
-| `METRIC_LABEL_DEVICE_PSU_ID`     | device.psu.id     | PSU 1           |
-| `METRIC_LABEL_DEVICE_PSU_MODEL`  | device.psu.model  | PWR-ABCD        |
-| `METRIC_LABEL_DEVICE_PSU_SERIAL` | device.psu.serial | 1Z011010112349Q |
-| `METRIC_LABEL_DEVICE_PSU_HW_REV` | device.psu.hw_rev | 02.00           |
-
-| User Interface Metric Name | Metric Name in DB | Example Value   |
-|----------------------------|-------------------|-----------------|
-| `METRIC_NAME_PSU_VOLTAGE`  | psu.voltage       | 12.09           |
-| `METRIC_NAME_PSU_CURRENT`  | psu.current       | 18.38           |
-| `METRIC_NAME_PSU_POWER`    | psu.power         | 222.00          |
-| `METRIC_NAME_PSU_STATUS`   | psu.status        | PSU_STATUS.OK   |
-| `METRIC_NAME_PSU_LED`      | psu.led           | LED_STATE.GREEN |
-
-### Sensor Temperature Metrics
-
-The `show platform temperature` command is used on the switch to retrieve sensor temperatuer metrics. Among the outputs, the "CPU temp sensor" and "Switch Card temp sensor" are of particular interest. The following labels are expected to be provided:
-
-| User Interface Label            | Label Key in DB  | Example Value   |
-|---------------------------------|------------------|-----------------|
-| `METRIC_LABEL_DEVICE_ID`        | device.id        | switch-A        |
-| `METRIC_LABEL_DEVICE_SENSOR_ID` | device.sensor.id | Cpu temp sensor |
-
-| User Interface Metric Name             | Metric Name in DB        | Example Value       |
-|----------------------------------------|--------------------------|---------------------|
-| `METRIC_NAME_TEMPERATURE_READING`      | temperature.reading      | 29.5                |
-| `METRIC_NAME_TEMPERATURE_HIGH_TH`      | temperature.high_th      | 95                  |
-| `METRIC_NAME_TEMPERATURE_LOW_TH`       | temperature.low_th       | 0                   |
-| `METRIC_NAME_TEMPERATURE_CRIT_HIGH_TH` | temperature.crit_high_th | 115                 |
-| `METRIC_NAME_TEMPERATURE_CRIT_LOW_TH`  | temperature.crit_low_th  | -5                  |
-| `METRIC_NAME_TEMPERATURE_WARNING`      | temperature.warning      | WARNING_STATUS.TRUE |
 
 ### SRv6 MY_SID Metrics
 
