@@ -65,6 +65,30 @@ class KustoConnector(object):
             let SummaryWhileList = dynamic({configuration['summary_white_list']});
         '''.strip()
 
+        self.query_common_condition = f'''
+            | where PipeStatus == 'FINISHED'
+            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
+            | where TestbedName != ''
+            | where not(TestbedName has_any(ExcludeTestbedList))
+            | where not(HardwareSku has_any(ExcludeHwSkuList))
+            | where not(TopologyType has_any(ExcludeTopoList))
+            | where not(AsicType has_any(ExcludeAsicList))
+            | where not(BranchName has_any(ExcludeBranchList))
+            | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
+            | where TestBranch !contains "/"
+            | extend BranchVersion = substring(BranchName, 0, 6)
+            | where (
+                    BranchName in ('master', 'internal') and TestBranch == 'internal'
+                ) or (
+                    BranchName !in ('master', 'internal') and (
+                        TestBranch == strcat('internal-', BranchVersion) or
+                        TestBranch == strcat('internal-', BranchVersion, '-chassis') or
+                        TestBranch == strcat('internal-', BranchVersion, '-dev')
+                    )
+                ) or isempty(TestBranch)
+            | where ModulePath != ""
+        '''.strip()
+
         logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
@@ -208,50 +232,15 @@ class KustoConnector(object):
         """
         query_str = self.query_head + f'''
         TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-        | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
+        '''
+        query_str += self.query_common_condition + f'''
         | where Summary in (SummaryWhileList)
-        | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where Result in (ResultFilterList)
-            | where Summary in (SummaryWhileList)
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by OSVersion, ModulePath, opTestCase, Result)
-                                                           on $left.OSVersion == $right.OSVersion,
-                                                            $left.ModulePath == $right.ModulePath,
-                                                            $left.opTestCase == $right.opTestCase,
-                                                            $left.Result == $right.Result
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-        | where TestBranch !contains "/"
-        // Extract the version from the branch name, get the first 6 digits
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                BranchName in ('master', 'internal') and TestBranch == 'internal'
-            ) or (
-                BranchName !in ('master', 'internal') and (
-                    TestBranch == strcat('internal-', BranchVersion) or
-                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-dev')
-                )
-            ) or
-                isempty(TestBranch)
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType, Summary, BuildId, PipeStatus
-        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount, HardwareSku, Asic, AsicType, Topology, TopologyType
-        | where ReproCount >= {configuration['threshold']['repro_count_limit']}
-        | sort by ReproCount, ModulePath
+        | project UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType, Summary, BuildId, PipeStatus
+        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType
+        | sort by ModulePath
         '''.strip()
-        logger.info("Query common summary failure cases:{}".format(query_str))
+        logger.info("Query common summary failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
     def query_flaky_failure(self):
@@ -261,57 +250,17 @@ class KustoConnector(object):
         query_str = self.query_head + f'''
         let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-        | where ModulePath != ""
-        | where TestBranch !contains "/"
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                        BranchName in ('master', 'internal') and TestBranch == 'internal'
-                    ) or (
-                        BranchName !in ('master', 'internal') and (
-                            TestBranch == strcat('internal-', BranchVersion) or
-                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                            TestBranch == strcat('internal-', BranchVersion, '-dev')
-                        )
-                    ) or
-                        isempty(TestBranch)
-        | where PipeStatus in ("FINISHED")
+        '''
+        query_str += self.query_common_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
         | project BuildId
         | distinct BuildId;
         let dataClean = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-        | where ModulePath != ""
-        | where TestBranch !contains "/"
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                        BranchName in ('master', 'internal') and TestBranch == 'internal'
-                    ) or (
-                        BranchName !in ('master', 'internal') and (
-                            TestBranch == strcat('internal-', BranchVersion) or
-                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                            TestBranch == strcat('internal-', BranchVersion, '-dev')
-                        )
-                    ) or
-                        isempty(TestBranch)
-        | where TestbedName != ''
-        | where ModulePath !contains "test_posttest" and ModulePath !contains "test_pretest"
+        '''
+        query_str += self.query_common_condition + f'''
         | where BuildId in (buildsWithRetry)
-        | extend TestNameWithTb = strcat(ModulePath, '-', TestCase)
         | extend AttemptInt = toint(Attempt);
         let flakySummary = dataClean
         | summarize
@@ -344,188 +293,160 @@ class KustoConnector(object):
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.strip()
-        logger.info("Query flaky failed cases:{}".format(query_str))
+        logger.info("Query flaky failed cases:\n{}".format(query_str))
         return self.query(query_str)
 
-    def query_failed_testcase(self):
+    def query_consistent_failure(self):
         """
-        Query failed test cases for the past 7 days, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
+        Query consistent failure cases in past 7 days - cases that fail on all retry attempts.
         """
         query_str = self.query_head + f'''
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
+        let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
+        '''
+        query_str += self.query_common_condition + f'''
+        | summarize maxAttempt = max(toint(Attempt)) by BuildId
+        | where maxAttempt >= 1
+        | project BuildId
+        | distinct BuildId;
+        let dataClean = TestReportUnionData
+        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+        '''
+        query_str += self.query_common_condition + f'''
+        | where BuildId in (buildsWithRetry)
+        | extend AttemptInt = toint(Attempt);
+        let consistentFailures = dataClean
+        | summarize
+            totalAttempts = count(),
+            failedAttempts = countif(Result in (ResultFilterList)),
+            minAttempt = min(AttemptInt),
+            maxAttempt = max(AttemptInt)
+          by BuildId, FullCaseName
+        | where totalAttempts == failedAttempts;
+        consistentFailures
+        | join kind=innerunique (
+            dataClean
+        ) on BuildId, FullCaseName
         | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
-        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
-        | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where Result in (ResultFilterList)
-            | where Summary !contains "test setup failure"
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by OSVersion, ModulePath, opTestCase, Result)
-                                                        on $left.OSVersion == $right.OSVersion,
-                                                            $left.ModulePath == $right.ModulePath,
-                                                            $left.opTestCase == $right.opTestCase,
-                                                            $left.Result == $right.Result
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-        | where TestBranch !contains "/"
-        // Extract the version from the branch name, get the first 6 digits
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                BranchName in ('master', 'internal') and TestBranch == 'internal'
-            ) or (
-                BranchName !in ('master', 'internal') and (
-                    TestBranch == strcat('internal-', BranchVersion) or
-                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-dev')
-                )
-            ) or
-                isempty(TestBranch)
-        | where ReproCount >= {configuration['threshold']['repro_count_limit']}
-        | where ModulePath != ""
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-        | sort by ReproCount, ModulePath, opTestCase, Result
-        '''.strip()
-        logger.info("Query failed cases:{}".format(query_str))
+        | where Summary !in (SummaryWhileList)
+        | where AttemptInt == maxAttempt
+        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, minAttempt, maxAttempt
+        | sort by UploadTimestamp desc
+         '''.strip()
+        logger.info("Query consistent failed cases:\n{}".format(query_str))
         return self.query(query_str)
 
-    def query_failed_testcase_release(self, release_branch):
-
+    def query_legacy_failure(self):
         query_str = self.query_head + f'''
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
+        let buildsWithoutRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has {release_branch}
-        | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in {release_branch}
-        | where Summary !in (SummaryWhileList)
-        | where ModulePath != ""
-        | where TestBranch !contains "/"
-        // Extract the version from the branch name, get the first 6 digits
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                BranchName in ('master', 'internal') and TestBranch == 'internal'
-            ) or (
-                BranchName !in ('master', 'internal') and (
-                    TestBranch == strcat('internal-', BranchVersion) or
-                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-dev')
-                )
-            ) or
-                isempty(TestBranch)
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
-        | sort by ModulePath, opTestCase, Result
-        '''.strip()
-        logger.info("Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
-        return self.query(query_str)
-
-    def query_failed_testcase_cross_branch(self):
-        query_str = self.query_head + f'''
+        '''
+        query_str += self.query_common_condition + f'''
+        | summarize maxAttempt = max(toint(Attempt)) by BuildId
+        | where maxAttempt == 0 or isnull(maxAttempt)
+        | project BuildId
+        | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
+        | distinct BuildId;
         TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
+        '''
+        query_str += self.query_common_condition + f'''
+        | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
+        | where BuildId in (buildsWithoutRetry)
         | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-        | where ModulePath != ""
         | where Summary !in (SummaryWhileList)
-        | where TestBranch !contains "/"
-        | extend BranchVersion = substring(BranchName, 0, 6)
-        | where (
-                BranchName in ('master', 'internal') and TestBranch == 'internal'
-            ) or (
-                BranchName !in ('master', 'internal') and (
-                    TestBranch == strcat('internal-', BranchVersion) or
-                    TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                    TestBranch == strcat('internal-', BranchVersion, '-dev')
-                )
-            ) or
-                isempty(TestBranch)
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
+        | extend AttemptInt = toint(Attempt)
+        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
         | sort by UploadTimestamp desc
         '''.strip()
         logger.info(
-            "Query 7 days's failed cases cross branches:{}".format(query_str))
+            "Query 7 days's failed cases cross branches:\n{}".format(query_str))
         return self.query(query_str)
 
-    def query_history_results(self, testcase_name, module_path, is_module_path=False, filter_common_summary=False):
+    def query_history_results(self, testcase_name, module_path, is_module_path=False, is_common=False, is_legacy=False, is_consistent=False, is_flaky=False):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
-        project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
-        """
-        common_query_head = f'''
-                TestReportUnionData
-                | where PipeStatus == 'FINISHED'
-                | where TestbedName != ''
-                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-                | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
-                | where not(TestbedName has_any(ExcludeTestbedList))
-                | where not (HardwareSku has_any(ExcludeHwSkuList))
-                | where not(TopologyType has_any(ExcludeTopoList))
-                | where not(AsicType has_any(ExcludeAsicList))
-                | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern'''
-
-        if filter_common_summary:
-            common_query_head += '''
-                | where Summary !in (SummaryWhileList)'''
-
-        commom_query_tail = '''| where TestBranch !contains "/"
-                // Extract the version from the branch name, get the first 6 digits
-                | extend BranchVersion = substring(BranchName, 0, 6)
-                | where (
-                        BranchName in ('master', 'internal') and TestBranch == 'internal'
-                    ) or (
-                        BranchName !in ('master', 'internal') and (
-                            TestBranch == strcat('internal-', BranchVersion) or
-                            TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                            TestBranch == strcat('internal-', BranchVersion, '-dev')
-                        )
-                    ) or
-                        isempty(TestBranch)
+        project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus        """
+        common_query_tail = '''
+                | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
                 | order by UploadTimestamp desc
-                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus'''
-
-        if is_module_path:
+                '''.strip()
+        if is_common:
+            common_query_head = f'''
+                TestReportUnionData
+                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                '''.strip()
+            common_query_head += self.query_common_condition
             query_str = self.query_head + f'''
                 {common_query_head}
                 | where ModulePath == "{module_path}"
-                {commom_query_tail}
+                {common_query_tail}
                 '''.strip()
-        else:
-            query_str = self.query_head + f'''
-                {common_query_head}
+            logger.info("Query common history results:\n{}".format(query_str))
+            return self.query(query_str)
+        elif is_legacy:
+            legacy_query_str = self.query_head + f'''
+                let buildsWithoutRetry = TestReportUnionData
+                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                '''
+            legacy_query_str += self.query_common_condition + f'''
+                | summarize maxAttempt = max(toint(Attempt)) by BuildId
+                | where maxAttempt == 0 or isnull(maxAttempt)
+                | project BuildId
+                | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
+                | distinct BuildId;
+                TestReportUnionData
+                | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                '''
+            legacy_query_str += self.query_common_condition + f'''
+                | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
+                | where BuildId in (buildsWithoutRetry)
+                | where Summary !in (SummaryWhileList)
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
-                {commom_query_tail}
                 '''.strip()
+            legacy_query_str += common_query_tail
+            logger.info("Query legacy history results:\n{}".format(legacy_query_str))
+            return self.query(legacy_query_str)
+        elif is_consistent or is_flaky:
+            # for consistent type, only search 7 days results to do data statistic
+            consistent_query_str = self.query_head + f'''
+                let buildsWithRetry = TestReportUnionData
+                | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                '''
+            consistent_query_str += self.query_common_condition + f'''
+                | summarize maxAttempt = max(toint(Attempt)) by BuildId
+                | where maxAttempt >= 1
+                | project BuildId
+                | distinct BuildId;
+                TestReportUnionData
+                | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
+                '''
+            consistent_query_str += self.query_common_condition + f'''
+                | where BuildId in (buildsWithRetry)
+                | extend AttemptInt = toint(Attempt)
+                | where Summary !in (SummaryWhileList)
+                | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
+                | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
+                | order by UploadTimestamp desc
+                '''.strip()
+            logger.info("Query consistent history results:\n{}".format(consistent_query_str))
+            return self.query(consistent_query_str)
+        else:
+            logger.warning("No valid query type specified. Please check the flags.")
+            return None
 
-        logger.info("Query hisotry results:{}".format(query_str))
+    def query_all_upload_records_with_trigger_icm(self):
+        """
+        Query all upload records where TriggerIcM is true.
+        This is more efficient than querying one by one for each active ICM.
+        """
+        query_str = '''
+            TestcaseAnalysis
+            | where TriggerIcM == 'true'
+            | project UploadTimestamp, ModulePath, TestCase, Branch, Subject, FailureSummary
+            | sort by UploadTimestamp desc
+            '''
         return self.query(query_str)
 
     def query_previsou_upload_record(self, title):
