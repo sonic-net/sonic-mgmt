@@ -1862,6 +1862,8 @@ Totals               6450                 6449
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+        elif "Marvell Technology" in output:
+            asic = "marvell-teralynx"
 
         logger.info("asic: {}".format(asic))
 
