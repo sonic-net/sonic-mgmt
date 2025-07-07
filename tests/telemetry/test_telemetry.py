@@ -345,7 +345,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
     cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                     new_state)
     cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
