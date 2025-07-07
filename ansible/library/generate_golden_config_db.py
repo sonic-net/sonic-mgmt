@@ -383,6 +383,31 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def generate_default_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        return json.dumps(golden_config_db, indent=4)
+    
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+        if "orch_northbond_route_zmq_enabled" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = {}
+        ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -423,7 +448,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
         else:
-            config = "{}"
+            config = self.generate_default_golden_config_db()
 
         # update dns config
         config = self.update_dns_config(config)
@@ -449,8 +474,8 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         # enable orch_northbond_route_zmq_enabled feature
-        golden_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-            
+        config = self.update_zmq_config(config)
+
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
