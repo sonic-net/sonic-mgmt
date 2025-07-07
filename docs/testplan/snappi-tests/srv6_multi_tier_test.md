@@ -2,7 +2,9 @@
 
 - [Test Objective](#test-objective)
 - [Test Setup](#test-setup)
+- [Test Parameters](#test-parameters)
 - [Test Steps](#test-steps)
+- [Metrics to Collect](#metrics-to-collect)
 
 ## Test Objective
 
