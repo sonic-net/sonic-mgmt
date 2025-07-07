@@ -362,8 +362,6 @@ class GenerateGoldenConfigDBModule(object):
         if "VLAN_SUB_INTERFACE" not in ori_config_db:
             ori_config_db["VLAN_SUB_INTERFACE"] = {}
 
-        if "PORTCHANNEL_INTERFACE" in ori_config_db:
-            ori_config_db["PORTCHANNEL_INTERFACE"] = {}
         portchannel_configs = self.get_portchannle_config(self.vm_configuration)
 
         for device_name, base_interface, vlan, ip_subnet in portchannel_configs:
@@ -385,7 +383,6 @@ class GenerateGoldenConfigDBModule(object):
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
             "VRF": copy.deepcopy(ori_config_db["VRF"]),
             "VLAN_SUB_INTERFACE": copy.deepcopy(ori_config_db["VLAN_SUB_INTERFACE"]),
-            "PORTCHANNEL_INTERFACE": copy.deepcopy(ori_config_db["PORTCHANNEL_INTERFACE"]),
             "BGP_NEIGHBOR": copy.deepcopy(ori_config_db["BGP_NEIGHBOR"]),
         }
 
