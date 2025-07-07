@@ -35,16 +35,22 @@ ADO_DATABASE = 'AzureDevOps'
 PARENT_ID1 = "13410203"
 PARENT_ID2 = "16726166"
 
-ALL_FAILURES_CSV = 'logs/failures_df.csv'
 ALL_RESUTLS_CSV = 'logs/week_results_df.csv'
-FAILURES_AFTER_ANALYSIS_CSV = 'logs/failures_df_post.csv'
 MIDDLE_FAILURES_CSV = 'logs/middle_failures_df.csv'
-FAILURES_AFTER_AGGREGATION_CSV = 'logs/aggregated_df_post.csv'
-FAILURES_AFTER_AGGREGATION_DEDUP_CSV = 'logs/aggregated_dedup_df_post.csv'
+LEGACY_CSV = 'logs/legacy_df.csv'
+LEGACY_AFTER_ANALYSIS_CSV = 'logs/legacy_analyzed_df.csv'
+LEGACY_AFTER_AGGREGATION_CSV = 'logs/legacy_aggregated_df.csv'
+LEGACY_AFTER_DEDUPLICATION_CSV = 'logs/legacy_deduplicated_df.csv'
 FLAKY_CSV = 'logs/flaky_df.csv'
-FLAKY_AFTER_ANALYSIS_CSV = 'logs/flaky_df_post.csv'
-FLAKY_AFTER_AGGREGATION_CSV = 'logs/flaky_aggregated_df_post.csv'
-FLAKY_AFTER_DEDUPLICATION_CSV = 'logs/flaky_deduplicated_df_post.csv'
+FLAKY_AFTER_ANALYSIS_CSV = 'logs/flaky_analyzed_df.csv'
+FLAKY_AFTER_AGGREGATION_CSV = 'logs/flaky_aggregated_df.csv'
+FLAKY_AFTER_DEDUPLICATION_ICM_CSV = 'logs/flaky_deduplicated_icm_df.csv'
+FLAKY_AFTER_DEDUPLICATION_CSV = 'logs/flaky_deduplicated_df.csv'
+CONSISTENT_CSV = 'logs/consistent_df.csv'
+CONSISTENT_AFTER_ANALYSIS_CSV = 'logs/consistent_analyzed_df.csv'
+CONSISTENT_AFTER_AGGREGATION_CSV = 'logs/consistent_aggregated_df.csv'
+CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV = 'logs/consistent_deduplicated_icm_df.csv'
+CONSISTENT_AFTER_DEDUPLICATION_CSV = 'logs/consistent_deduplicated_df.csv'
 
 def config_logging():
     """Configure log to rotating file

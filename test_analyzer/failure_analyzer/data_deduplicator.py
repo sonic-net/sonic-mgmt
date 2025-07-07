@@ -1,4 +1,4 @@
-from config import configuration, logger, ICM_PREFIX, MIDDLE_FAILURES_CSV
+from config import configuration, logger, ICM_PREFIX, MIDDLE_FAILURES_CSV, LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV, FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_CSV, CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV, CONSISTENT_AFTER_DEDUPLICATION_CSV
 import pytz
 from datetime import datetime, timedelta
 import json
@@ -457,44 +457,66 @@ class DataDeduplicator:
         # TODO:
         pass
 
-    def set_failure_summary(self, kusto_data_list, week_failed_testcases_df):
+    def is_in_weekly_failure(self, case_branch, kusto_data, week_failed_testcases_df, condition={}):
         if week_failed_testcases_df is None:
             logger.info("week_failed_testcases_df is None")
-            return kusto_data_list
+            return kusto_data, False
 
         week_failed_testcases_df_copy = week_failed_testcases_df.copy()  # Create a copy of the DataFrame
         for topology_config in configuration["icm_decision_config"]["topology"]["types"]:
             week_failed_testcases_df_copy['Topology'] = week_failed_testcases_df_copy['Topology'].replace(
                 topology_config["testbed_topology"], topology_config["id"])
 
+        # Add conditional filters if they exist
+        asic = condition.get('asic')
+        topology = condition.get('topology')
+        hwsku = condition.get('hwsku')
+        osversion = condition.get('osversion')
+        logger.info("{}: asic={}, topology={}, hwsku={}, osversion={}".format(case_branch, asic, topology, hwsku, osversion))
+
+        query_conditions = [
+            f"ModulePath == '{kusto_data['module_path']}'",
+            f"opTestCase == '{kusto_data['testcase']}'",
+            f"BranchName == '{kusto_data['branch']}'"
+        ]
+        if asic:
+            query_conditions.append(f"AsicType.str.lower() == '{asic.lower()}'")
+        if topology:
+            query_conditions.append(f"Topology.str.lower() == '{topology.lower()}'")
+        if hwsku:
+            query_conditions.append(f"HardwareSku.str.lower() == '{hwsku.lower()}'")
+        if osversion:
+            query_conditions.append(f"OSVersion.str.lower() == '{osversion.lower()}'")
+
+        query_string = " & ".join(query_conditions)
+        logger.debug(f"query_string={query_string}")
+        # Apply the combined filters to get the filtered DataFrame
+        failed_results_df = week_failed_testcases_df_copy.query(query_string)
+
+        logger.debug("{} failed_results_df=\n{}".format(case_branch, failed_results_df[['TestCase', 'Summary']]))
+        if len(failed_results_df) == 0:
+            logger.error(f"{case_branch}: with asic:{asic} topology:{topology} hwsku:{hwsku} osversion:{osversion}, No failed results found in 7 days results, don't trigger IcM.")
+            return failed_results_df, False
+        return failed_results_df, True
+
+    def set_failure_summary(self, kusto_data_list, week_failed_testcases_df):
+        if week_failed_testcases_df is None:
+            logger.info("week_failed_testcases_df is None")
+            return kusto_data_list
         for kusto_data in kusto_data_list:
+            condition = {}
             case_branch = kusto_data['module_path'] + '.' + kusto_data['testcase'] + "#" + kusto_data['branch']
-            # Add conditional filters if they exist
+            condition['asic'] = kusto_data['failure_level_info'].get('asic')
+            condition['topology'] = kusto_data['failure_level_info'].get('topology')
+            condition['hwsku'] = kusto_data['failure_level_info'].get('hwsku')
+            condition['osversion'] = kusto_data['failure_level_info'].get('osversion')
+            logger.debug(f"{case_branch}: with condition={condition} Setting failure summary...")
+            failed_results_df, _ = self.is_in_weekly_failure(case_branch, kusto_data, week_failed_testcases_df, condition)
+            case_branch = kusto_data['module_path'] + '.' + kusto_data['testcase'] + "#" + kusto_data['branch']
             asic = kusto_data['failure_level_info'].get('asic')
             topology = kusto_data['failure_level_info'].get('topology')
             hwsku = kusto_data['failure_level_info'].get('hwsku')
             osversion = kusto_data['failure_level_info'].get('osversion')
-            logger.info("{}: asic={}, topology={}, hwsku={}, osversion={}".format(case_branch, asic, topology, hwsku, osversion))
-
-            query_conditions = [
-                f"ModulePath == '{kusto_data['module_path']}'",
-                f"opTestCase == '{kusto_data['testcase']}'",
-                f"BranchName == '{kusto_data['branch']}'"
-            ]
-            if asic:
-                query_conditions.append(f"AsicType.str.lower() == '{asic.lower()}'")
-            if topology:
-                query_conditions.append(f"Topology.str.lower() == '{topology.lower()}'")
-            if hwsku:
-                query_conditions.append(f"HardwareSku.str.lower() == '{hwsku.lower()}'")
-            if osversion:
-                query_conditions.append(f"OSVersion.str.lower() == '{osversion.lower()}'")
-
-            query_string = " & ".join(query_conditions)
-            # Apply the combined filters to get the filtered DataFrame
-            failed_results_df = week_failed_testcases_df_copy.query(query_string)
-
-            logger.debug("{} failed_results_df=\n{}".format(case_branch, failed_results_df[['TestCase', 'Summary']]))
             if len(failed_results_df) > 0:
                 is_aggregated = self.is_same_cluster(failed_results_df, summary_col='Summary', eps=configuration["threshold"]["eps"], min_samples=1)
                 if is_aggregated:
@@ -505,11 +527,12 @@ class DataDeduplicator:
                     logger.info("{}:{} {} {} {} Doesn't have similar summary, so it can't be aggregated".format(case_branch, asic, topology, hwsku, osversion))
             else:
                 kusto_data['failure_summary'] = ''
-                logger.info("{}: No failed results found".format(case_branch))
+                kusto_data['trigger_icm'] = False
+                logger.error("{}: No failed results found in 7 days results, don't trigger IcM. Ignore it.".format(case_branch))
         no_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' not in icm)
         has_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' in icm)
-        logger.info("{}:{} {} {} {} Number of cases without failure_summary:{}".format(case_branch, asic, topology, hwsku, osversion, no_summary_count))
-        logger.info("{}:{} {} {} {} Number of cases with failure_summary:{}".format(case_branch, asic, topology, hwsku, osversion, has_summary_count))
+        logger.info("{}:Number of cases without failure_summary:{}".format(case_branch, no_summary_count))
+        logger.info("{}:Number of cases with failure_summary:{}".format(case_branch, has_summary_count))
         return kusto_data_list
 
     def deduplicate_summary_with_active_icm(self, aggregated_df, active_icm_df):
@@ -861,95 +884,161 @@ class DataDeduplicator:
         # If there are non-noise points, check if they're all the same cluster
         return len(set(non_noise_clusters)) == 1
 
-    def deduplicate_dataframe_clusters(self, general_df, flaky_df):
+    def deduplicate_dataframe_clusters(self, reference_df, target_df):
         """
-        Compare general and flaky aggregated dataframes and remove duplicated cluster entries from flaky_df.
+        Compare two aggregated dataframes and remove duplicated cluster entries from target_df.
         Only removes duplicates when they are from the same branch.
 
         Args:
-            general_df: DataFrame containing general failure test cases
-            flaky_df: DataFrame containing flaky failure test cases
+            reference_df: DataFrame containing reference test cases to compare against
+            target_df: DataFrame containing target test cases to be deduplicated
 
         Returns:
-            deduplicated_flaky_df: DataFrame with flaky cases that don't belong to the same clusters as general cases
+            deduplicated_target_df: DataFrame with target cases that don't belong to the same clusters as reference cases
         """
-        if general_df.empty or flaky_df.empty:
-            logger.info("Either general_df or flaky_df is empty, returning original flaky_df")
-            return flaky_df
+        if reference_df.empty or target_df.empty:
+            logger.info("Either reference_df or target_df is empty, returning original target_df")
+            return target_df
 
         # Convert branch values to strings in both dataframes
-        general_df['branch'] = general_df['branch'].astype(str)
-        flaky_df['branch'] = flaky_df['branch'].astype(str)
+        reference_df['branch'] = reference_df['branch'].astype(str)
+        target_df['branch'] = target_df['branch'].astype(str)
 
         # Process each branch separately
         all_indices_to_drop = []
 
-        for branch in flaky_df['branch'].unique():
+        for branch in target_df['branch'].unique():
             logger.info(f"\nProcessing branch: {branch}")
 
             # Get dataframes for current branch
-            branch_general_df = general_df[general_df['branch'] == branch]
-            branch_flaky_df = flaky_df[flaky_df['branch'] == branch]
+            branch_reference_df = reference_df[reference_df['branch'] == branch]
+            branch_target_df = target_df[target_df['branch'] == branch]
 
-            if branch_general_df.empty or branch_flaky_df.empty:
+            if branch_reference_df.empty or branch_target_df.empty:
                 logger.info(f"No data to compare for branch {branch}")
                 continue
 
             # Extract failure summaries for current branch
-            general_summaries = branch_general_df['failure_summary'].dropna().tolist()
-            flaky_summaries = branch_flaky_df['failure_summary'].dropna().tolist()
+            reference_summaries = branch_reference_df['failure_summary'].dropna().tolist()
+            target_summaries = branch_target_df['failure_summary'].dropna().tolist()
 
-            if not general_summaries or not flaky_summaries:
+            if not reference_summaries or not target_summaries:
                 logger.info(f"No valid failure summaries found in branch {branch}")
                 continue
 
-            logger.info(f"Processing {len(general_summaries)} general summaries and {len(flaky_summaries)} flaky summaries for branch {branch}")
+            logger.info(f"Processing {len(reference_summaries)} reference summaries and {len(target_summaries)} target summaries for branch {branch}")
 
             # Preprocess all summaries
-            general_summaries_processed = [self.__preprocess_summary(s) for s in general_summaries]
-            flaky_summaries_processed = [self.__preprocess_summary(s) for s in flaky_summaries]
+            reference_summaries_processed = [self.__preprocess_summary(s) for s in reference_summaries]
+            target_summaries_processed = [self.__preprocess_summary(s) for s in target_summaries]
 
-            # Create a mapping from index to processed summary for flaky_df
-            flaky_summary_mapping = {}
-            for idx, summary in zip(branch_flaky_df.index[branch_flaky_df['failure_summary'].notna()], flaky_summaries_processed):
-                flaky_summary_mapping[idx] = summary
+            # Create a mapping from index to processed summary for target_df
+            target_summary_mapping = {}
+            for idx, summary in zip(branch_target_df.index[branch_target_df['failure_summary'].notna()], target_summaries_processed):
+                target_summary_mapping[idx] = summary
 
             # Combine all summaries for clustering
-            all_summaries_processed = general_summaries_processed + flaky_summaries_processed
+            all_summaries_processed = reference_summaries_processed + target_summaries_processed
 
             # Perform clustering on all summaries
             eps = configuration["threshold"]["eps"]
             clusters = self.cluster_summaries(all_summaries_processed, eps=eps, min_samples=1)
 
-            # Identify clusters containing general failures
-            general_clusters = set(clusters[:len(general_summaries_processed)])
+            # Identify clusters containing reference failures
+            reference_clusters = set(clusters[:len(reference_summaries_processed)])
 
-            # Map each flaky summary to its cluster
-            flaky_clusters = clusters[len(general_summaries_processed):]
+            # Map each target summary to its cluster
+            target_clusters = clusters[len(reference_summaries_processed):]
 
-            # Create a mapping from flaky summary index to its cluster
-            flaky_cluster_mapping = {}
-            for i, summary_idx in enumerate(branch_flaky_df.index[branch_flaky_df['failure_summary'].notna()]):
-                if i < len(flaky_clusters):
-                    flaky_cluster_mapping[summary_idx] = flaky_clusters[i]
+            # Create a mapping from target summary index to its cluster
+            target_cluster_mapping = {}
+            for i, summary_idx in enumerate(branch_target_df.index[branch_target_df['failure_summary'].notna()]):
+                if i < len(target_clusters):
+                    target_cluster_mapping[summary_idx] = target_clusters[i]
 
-            # Identify indices of flaky rows to drop (those that belong to general clusters)
+            # Identify indices of target rows to drop (those that belong to reference clusters)
             branch_indices_to_drop = []
-            for idx, cluster in flaky_cluster_mapping.items():
-                if cluster in general_clusters:
+            for idx, cluster in target_cluster_mapping.items():
+                if cluster in reference_clusters:
                     branch_indices_to_drop.append(idx)
-                    logger.debug(f"Found duplicate cluster for subject: {branch_flaky_df.loc[idx, 'subject']}")
+                    logger.debug(f"Found duplicate cluster for subject: {branch_target_df.loc[idx, 'subject']}")
                     logger.debug(f"Branch: {branch}")
                     logger.debug(f"Cluster ID: {cluster}")
-                    logger.debug(f"Summary: {branch_flaky_df.loc[idx, 'failure_summary'][:80]}")
+                    logger.debug(f"Summary: {branch_target_df.loc[idx, 'failure_summary']}")
 
             all_indices_to_drop.extend(branch_indices_to_drop)
-            logger.info(f"Branch {branch}: Removed {len(branch_indices_to_drop)} flaky entries with clusters matching general cases")
+            logger.info(f"Branch {branch}: Removed {len(branch_indices_to_drop)} target entries with clusters matching reference cases")
 
-        # Create a copy of flaky_df without the duplicate clusters
-        deduplicated_flaky_df = flaky_df.drop(all_indices_to_drop)
+        # Create a copy of target_df without the duplicate clusters
+        deduplicated_target_df = target_df.drop(all_indices_to_drop)
 
-        logger.info(f"\nTotal removed: {len(all_indices_to_drop)} flaky entries with clusters matching general cases")
-        logger.info(f"Total kept: {len(deduplicated_flaky_df)} unique flaky entries")
+        logger.info(f"\nTotal removed: {len(all_indices_to_drop)} target entries with clusters matching reference cases")
+        logger.info(f"Total kept: {len(deduplicated_target_df)} unique target entries")
 
-        return deduplicated_flaky_df
+        return deduplicated_target_df
+
+    def filter_out_icm_list(self, failure_type, original_icm_table, aggregated_dedup_df):
+        if len(aggregated_dedup_df) == 0:
+            logger.error(f"No aggregated {failure_type} failure cases found, please check the data.")
+            subject_to_summary = {}
+        else:
+            # Create a mapping from subject to failure_summary
+            subject_to_summary = dict(zip(aggregated_dedup_df['subject'], aggregated_dedup_df['failure_summary']))
+
+        # Update original_icm_table items with the aggregated failure_summary
+        aggregated_icm_list = []
+        for item in original_icm_table:
+            if item['subject'] in subject_to_summary:
+                if item['failure_summary'] == '' or not item['failure_summary']:
+                    logger.debug(f"{failure_type}: {item['subject']} summary is empty, will use the one in the aggregated_dedup_df")
+                    item['failure_summary'] = subject_to_summary[item['subject']]
+                elif item['failure_summary'] != subject_to_summary[item['subject']]:
+                    logger.debug(f"{failure_type}: {item['subject']} summary is not same as the one in the aggregated_dedup_df")
+                    logger.debug(f"  - {item['failure_summary']}: {subject_to_summary[item['subject']]}")
+                    item['failure_summary'] = subject_to_summary[item['subject']]
+                aggregated_icm_list.append(item)
+        return aggregated_icm_list
+
+    def process_aggregated_failures(self, failure_type, original_icm_table, failure_duplicated_icm_table, analyzer, analysis_csv, aggregated_csv, dedup_csv):
+        """
+        Common function to process aggregated failure dataframes and create ICM lists.
+
+        Args:
+            failure_type (str): Type of failure ("legacy", "consistent", "flaky")
+            original_icm_table (list): Original ICM table before aggregation
+            failure_duplicated_icm_table (list): List to append duplicated ICM entries to
+            analyzer: DataAnalyzer instance
+
+        Returns:
+            tuple: (aggregated_icm_list, subject_to_summary_dict)
+        """
+        logger.info(f"=================Start aggregation for {failure_type} failures=================")
+        prepared_df = self.prepare_data_for_clustering(original_icm_table)
+        prepared_df.to_csv(analysis_csv, index=False)
+        if failure_type == "legacy":
+            logger.info("Processing legacy failures")
+            aggregated_df = self.find_similar_summaries_and_count(prepared_df, analyzer.week_legacy_testcases_df)
+        elif failure_type == "consistent":
+            logger.info("Processing consistent failures")
+            aggregated_df = self.find_similar_summaries_and_count(prepared_df, analyzer.week_consistent_testcases_df)
+        elif failure_type == "flaky":
+            logger.info("Processing flaky failures")
+            aggregated_df = self.find_similar_summaries_and_count(prepared_df, analyzer.week_flaky_testcases_df)
+        aggregated_df.to_csv(aggregated_csv, index=False)
+        logger.debug("The count of {} failures before aggregation: {} after:{}".format(failure_type, len(prepared_df), len(aggregated_df)))
+        logger.info(f"=================Deduplicating {failure_type} aggregated df against active IcM=================")
+        aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(aggregated_df, analyzer.active_icm_df)
+        aggregated_dedup_df.to_csv(dedup_csv, index=False)
+        logger.debug(f"Found {len(aggregated_dedup_df)} real {failure_type} failures after deduplication")
+        logger.debug(f"Found {len(duplicated_df)} {failure_type} failures after deduplication with active IcM")
+
+        # Convert duplicated_df to list format and add to failure_duplicated_icm_table
+        if not duplicated_df.empty:
+            duplicated_list = self.filter_out_icm_list(failure_type, original_icm_table, duplicated_df)
+            failure_duplicated_icm_table.extend(duplicated_list)
+            logger.info(f"Added {len(duplicated_list)} active ICM duplicated {failure_type} entries to failure_duplicated_icm_table")
+
+        aggregated_icm_list = self.filter_out_icm_list(failure_type, original_icm_table, aggregated_dedup_df)
+        logger.info(f"Found {len(aggregated_icm_list)} aggregated {failure_type} IcMs after deduplication, before aggregation: {len(original_icm_table)}")
+        logger.info(f"=================End aggregation for {failure_type} failures=================")
+        return aggregated_icm_list, aggregated_dedup_df
