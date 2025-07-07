@@ -448,6 +448,9 @@ class GenerateGoldenConfigDBModule(object):
                 }
             })
 
+        # enable orch_northbond_route_zmq_enabled feature
+        golden_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+            
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
