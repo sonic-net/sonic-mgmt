@@ -1166,12 +1166,8 @@ class TestConfigInterface():
         )
 
         # Make sure LLDP neighbor is repopulated
-        pytest_assert(
-            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, _lldp_exists, True),
-            (
-                "LLDP neighbor not found for interface '{}' within {} seconds."
-            ).format(test_intf, ESTABLISH_LLDP_NEIGHBOR_TIMEOUT)
-        )
+        pytest_assert(wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, _lldp_exists, True),
+                      "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
                                     duthosts, enum_rand_one_per_hwsku_frontend_hostname):
