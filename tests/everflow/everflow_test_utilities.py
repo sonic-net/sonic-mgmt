@@ -355,18 +355,6 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", autouse=True)
-    def skip_on_dualtor(self, tbinfo):
-        """
-        Skip dualtor topo for now
-        """
-        if 'dualtor' in tbinfo['topo']['name']:
-            pytest.skip("Dualtor testbed is not supported yet")
-        
-        self.is_t0 = False
-        if 't0' in tbinfo['topo']['name']:
-            self.is_t0 = True
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
@@ -602,7 +590,11 @@ class BaseEverflowTest(object):
                                       expect_recv=True,
                                       valid_across_namespace=True):
         if not src_port:
-            src_port = self._get_random_src_port(setup)
+            src_port_name, src_port = self._get_random_src_port(setup)
+            if setup.get('dualtor', False) and src_port_name in setup['server_ports']:
+                # If the src port is VLAN port, we need to update the dst_mac in testing packet to VLAN MAC
+                mirror_packet = mirror_packet.copy()
+                mirror_packet.dst = setup.get('vlan_mac')
 
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
@@ -763,7 +755,8 @@ class BaseEverflowTest(object):
         return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
-        return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
+        random_port_name = random.choice(setup["port_index_map"].keys())
+        return random_port_name, setup["port_index_map"][random_port_name]
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
