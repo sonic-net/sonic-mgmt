@@ -73,8 +73,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -116,7 +116,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_diff_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': False,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -208,8 +208,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -252,7 +252,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_uni_dist_full'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': False,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -346,8 +346,8 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -390,7 +390,7 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_equal_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': False,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -485,8 +485,8 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -529,7 +529,7 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_non_cngstn_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': False,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
