@@ -752,7 +752,7 @@
             become: true
             service: name=ntp state=restarted enabled=true
         when: chrony_service.status.LoadState == "not-found"
-      
+
       - name: Remove specific PortChannel IPs from running CONFIG_DB
         become: true
         shell: |
