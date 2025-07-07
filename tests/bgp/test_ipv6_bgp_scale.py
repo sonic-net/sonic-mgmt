@@ -42,18 +42,16 @@ MAX_CONVERGENCE_WAIT_TIME = 300  # seconds
 PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
 MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing packets
 STATIC_ROUTES = ['0.0.0.0/0', '::/0']
-ICMP_TYPE = 123
 WITHDRAW_ROUTE_NUMBER = 1
+global_icmp_type = 123
 
 
-@pytest.fixture(scope="module")
-def setup_packet_mask_counters(ptfadapter):
+def setup_packet_mask_counters(ptf_dataplane, icmp_type):
     """
     Create a mask counters for packet sending
     """
-    ptf_dp = ptfadapter.dataplane
     exp_pkt = simple_icmpv6_packet(
-        icmp_type=ICMP_TYPE
+        icmp_type=icmp_type
     )
     masked_exp_pkt = Mask(exp_pkt)
     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, 'src')
@@ -62,9 +60,9 @@ def setup_packet_mask_counters(ptfadapter):
     masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "dst")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "cksum")
-    ptf_dp.create_mask_counters(masked_exp_pkt)
+    ptf_dataplane.create_mask_counters(masked_exp_pkt)
 
-    yield masked_exp_pkt
+    return masked_exp_pkt
 
 
 @pytest.fixture(scope="function")
@@ -152,7 +150,7 @@ def generate_packets(prefixes, dut_mac, src_mac):
             eth_dst=dut_mac,
             eth_src=src_mac,
             ipv6_dst=addr,
-            icmp_type=ICMP_TYPE
+            icmp_type=global_icmp_type
         )
         pkts.append(bytes(pkt))
 
@@ -328,7 +326,6 @@ def test_sessions_flapping(
     ptfadapter,
     bgp_peers_info,
     flapping_port_count,
-    setup_packet_mask_counters,
     announce_bgp_routes_teardown
 ):
     '''
@@ -343,8 +340,10 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
     '''
+    global global_icmp_type
+    global_icmp_type += 1
     pdp = ptfadapter.dataplane
-    exp_mask = setup_packet_mask_counters
+    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     bgp_neighbors = [hostname for hostname in bgp_peers_info.keys()]
 
     random.shuffle(bgp_neighbors)
@@ -404,7 +403,6 @@ def test_nexthop_group_member_scale(
     localhost,
     tbinfo,
     bgp_peers_info,
-    setup_packet_mask_counters,
     announce_bgp_routes_teardown,
     request
 ):
@@ -424,11 +422,10 @@ def test_nexthop_group_member_scale(
     '''
     servers_dut_interfaces = announce_bgp_routes_teardown
     topo_name = tbinfo['topo']['name']
-    if 't1' in topo_name:
-        pytest.skip("Skip test on T1 topology because every route only have one nexthop")
-
+    global global_icmp_type
+    global_icmp_type += 1
     pdp = ptfadapter.dataplane
-    exp_mask = setup_packet_mask_counters
+    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
     injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
@@ -492,6 +489,13 @@ def test_nexthop_group_member_scale(
         pytest.fail("BGP routes are not stable in long time")
 
     # ------------announce routes and test ------------ #
+    global_icmp_type += 1
+    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
+    pkts = generate_packets(
+        neighbor_ecmp_routes[injection_bgp_neighbor],
+        duthost.facts['router_mac'],
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+    )
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -516,7 +520,6 @@ def test_device_unisolation(
     duthost,
     ptfadapter,
     bgp_peers_info,
-    setup_packet_mask_counters,
     announce_bgp_routes_teardown,
     tbinfo
 ):
@@ -533,8 +536,10 @@ def test_device_unisolation(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
     '''
+    global global_icmp_type
+    global_icmp_type += 1
     pdp = ptfadapter.dataplane
-    exp_mask = setup_packet_mask_counters
+    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
 
     bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
 
