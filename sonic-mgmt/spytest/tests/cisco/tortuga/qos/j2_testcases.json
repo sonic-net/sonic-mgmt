@@ -21,6 +21,10 @@
                         "size": "0",
                         "dynamic_th": "0"
                     },
+                    "egress_lossy_profile_sp": {
+                        "size": "0",
+                        "dynamic_th": "-2"
+                    },
                     "egress_lossless_profile": {
                         "size": "0",
                         "dynamic_th": "7"
@@ -100,6 +104,10 @@
                     "egress_lossy_profile": {
                         "size": "0",
                         "dynamic_th": "1"
+                    },
+                    "egress_lossy_profile_sp": {
+                        "size": "0",
+                        "dynamic_th": "-2"
                     },
                     "egress_lossless_profile": {
                         "size": "0",
