@@ -75,6 +75,13 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "Skipped as not supported on Mellanox HWSKUS: [Mellanox-SN5600-C256S1, Mellanox-SN5600-C224O8, Mellanox-SN5640-C512S2, Mellanox-SN5640-C448O16]"
+    conditions:
+      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -99,12 +106,6 @@ bfd/test_bfd.py::test_bfd_echo_mode:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14087"
       - "asic_type in ['vs']"
-
-bfd/test_bfd.py::test_bfd_multihop[ipv6]:
-  xfail:
-    reason: "Test is skipped on Nvidia platforms due to https://github.com/sonic-net/sonic-mgmt/issues/17743"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17743 and asic_type in ['mellanox', 'nvidia']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
