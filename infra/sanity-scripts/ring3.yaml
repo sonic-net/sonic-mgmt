@@ -438,7 +438,7 @@ L2:
         # - pc/test_lag_member.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
-        - snmp/test_snmp_fdb.py
+        # - snmp/test_snmp_fdb.py
         # - vlan/test_autostate_disabled.py
         - vlan/test_host_vlan.py
         # - vlan/test_vlan.py
