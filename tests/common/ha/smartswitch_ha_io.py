@@ -13,18 +13,18 @@ import ptf.testutils as testutils
 from operator import itemgetter
 from itertools import groupby
 
-from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.utilities import wait_until, convert_scapy_packet_to_bytes
 from natsort import natsorted
 from collections import defaultdict
 
 TCP_DST_PORT = 5000
-SOCKET_RECV_BUFFER_SIZE = 10 * 1024 * 1024
-PTFRUNNER_QLEN = 1000
 TEMPLATES_DIR = "templates/"
 SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
 DUAL_TOR_SNIFFER_CONF_TEMPL = "smartswitch_ha_sniffer.conf.j2"
-DUAL_TOR_SNIFFER_CONF = "ha_tor_sniffer.conf"
+DUAL_TOR_SNIFFER_CONF = "ha_sniffer.conf"
+
+SENDER_NAMESPACE = "ns1"
+SNIFFER_NAMESPACE = "ns2"
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,9 @@ logger = logging.getLogger(__name__)
 class SmartSwitchHaTrafficTest:
     """Class to conduct IO over ports in `active-standby` mode."""
 
-    def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, vmhost, tbinfo,
-                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby,
-                 random_dst=None, namespace="ns1"):
-        self.duthost = activehost
+    def __init__(self, targethost, ptfhost, ptfadapter, tbinfo,
+                 io_ready, send_interval=0.01, namespace=SNIFFER_NAMESPACE):
+        self.duthost = targethost
         self.ptfadapter = ptfadapter
         self.ptfhost = ptfhost
         self.tbinfo = tbinfo
@@ -47,7 +46,7 @@ class SmartSwitchHaTrafficTest:
         self.dataplane.flush()
         self.test_results = dict()
         self.stop_early = False
-        self.ptf_sniffer = "/root/ha_tor_sniffer.py"
+        self.ptf_sniffer = "/root/ha_sniffer.py"
         self.namespace = namespace
         self.tcp_sport = 1234
 
@@ -81,16 +80,16 @@ class SmartSwitchHaTrafficTest:
             content=templ.render(ptf_sniffer=self.ptf_sniffer, ptf_sniffer_args=ptf_sniffer_args, netns=self.namespace),
             dest=os.path.join(SUPERVISOR_CONFIG_DIR, DUAL_TOR_SNIFFER_CONF)
         )
-        self.ptfhost.copy(src='scripts/ha_tor_sniffer.py', dest=self.ptf_sniffer)
+        self.ptfhost.copy(src='scripts/ha_sniffer.py', dest=self.ptf_sniffer)
         self.ptfhost.shell("supervisorctl update")
 
     def start_ptf_sniffer(self):
         """Start the ptf sniffer."""
-        self.ptfhost.shell("supervisorctl start ha_tor_sniffer")
+        self.ptfhost.shell("supervisorctl start ha_sniffer")
 
     def stop_ptf_sniffer(self):
         """Stop the ptf sniffer."""
-        self.ptfhost.shell("supervisorctl stop ha_tor_sniffer", module_ignore_errors=True)
+        self.ptfhost.shell("supervisorctl stop ha_sniffer", module_ignore_errors=True)
 
     def force_stop_ptf_sniffer(self):
         """Force stop the ptf sniffer by sending SIGTERM."""
@@ -136,10 +135,10 @@ class SmartSwitchHaTrafficTest:
     def _get_ptf_sniffer_status(self):
         """Get the ptf sniffer status."""
         # the output should be like
-        # $ supervisorctl status ha_tor_sniffer
-        # ha_tor_sniffer                 EXITED    Oct 29 01:11 PM
+        # $ supervisorctl status ha_sniffer
+        # ha_sniffer                 EXITED    Oct 29 01:11 PM
         stdout_text = self.ptfhost.command(
-            "supervisorctl status ha_tor_sniffer", module_ignore_errors=True
+            "supervisorctl status ha_sniffer", module_ignore_errors=True
         )["stdout"]
         if "no such process" in stdout_text:
             return None

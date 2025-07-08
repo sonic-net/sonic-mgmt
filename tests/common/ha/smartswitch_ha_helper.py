@@ -1,5 +1,32 @@
+import logging
 import pytest
 from common.plugins.ptfadapter import PtfTestAdapter
+
+
+@pytest.fixture(scope="session")
+def npu_zero(duthosts):
+    """
+    Returns the first NPU in the testbed.
+    """
+    if not duthosts:
+        raise ValueError("No DUT hosts provided")
+
+    dut = duthosts[0]
+    logging.info("Using {} as the 1st NPU".format(dut.hostname))
+    return dut
+
+
+@pytest.fixture(scope="session")
+def npu_one(duthosts):
+    """
+    Returns the second NPU in the testbed.
+    """
+    if len(duthosts) < 2:
+        raise ValueError("Not enough DUT hosts provided")
+
+    dut = duthosts[1]
+    logging.info("Using {} as the 2nd NPU".format(dut.hostname))
+    return dut
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
