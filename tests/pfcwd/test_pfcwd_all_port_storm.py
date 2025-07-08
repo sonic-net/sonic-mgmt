@@ -174,7 +174,7 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-def resolve_arp(duthost, ptfhost, test_ports_info):
+def resolve_arp(duthost, ptfhost, test_ports_info, vlan, ip_version):
     """
     Populate ARP info for the DUT vlan port
 
@@ -186,8 +186,12 @@ def resolve_arp(duthost, ptfhost, test_ports_info):
         if port_info['test_port_type'] == 'vlan':
             neighbor_ip = port_info['test_neighbor_addr']
             ptf_port = f"eth{port_info['test_port_id']}"
-            ptfhost.command(f"ifconfig {ptf_port} {neighbor_ip}")
-            duthost.command(f"docker exec -i swss arping {neighbor_ip} -c 5")
+            if ip_version == "IPv4":
+                ptfhost.command(f"ifconfig {ptf_port} {neighbor_ip}")
+                duthost.command(f"docker exec -i swss arping {neighbor_ip} -c 5")
+            else:
+                ptfhost.command(f"ip -6 addr add {neighbor_ip}/{vlan['prefix']} dev {ptf_port}")
+                duthost.command(f"docker exec -i swss ping -6 -c 5 {neighbor_ip}")
             break
 
 
@@ -251,7 +255,8 @@ class TestPfcwdAllPortStorm(object):
                 test_port = device_conn[intf]['peerport']
                 if test_port in setup_pfc_test['test_ports']:
                     selected_test_ports.append(test_port)
-        resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'])
+        resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
+                    setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
         with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports'],
                                      pkt_count=500):
             self.run_test(duthost,
