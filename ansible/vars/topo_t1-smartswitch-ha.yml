@@ -61,6 +61,14 @@ topology:
         - "0.11@22"
         - "1.11@23"
       vm_offset: 11
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+      ipv6:
+        - FC00:1:0:32::/128
+        - FC00:1:0:33::/128
 
 
 configuration_properties:
