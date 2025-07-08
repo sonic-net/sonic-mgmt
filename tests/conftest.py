@@ -3189,9 +3189,14 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     return test_ports
 
 
+@pytest.fixture(scope="module", params=['IPv6', 'IPv4'])
+def ip_version(request):
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo, ip_version,     # noqa F811
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -3230,9 +3235,10 @@ def setup_pfc_test(
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
         # gather all vlan specific info
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
+        ip_index = 0 if ip_version == "IPv4" else 1
+        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
+        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
+        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
@@ -3241,7 +3247,14 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
+    if ip_version == "IPv4":
+        ip_version_num = 4
+    elif ip_version == "IPv6":
+        ip_version_num = 6
+    else:
+        pytest.fail(f"Invalid IP version: {input}", pytrace=True)
+
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
 
     # In T1 topology update test ports by removing inactive ports
@@ -3257,7 +3270,8 @@ def setup_pfc_test(
                   'selected_test_ports': selected_ports,
                   'pfc_timers': set_pfc_timers(),
                   'neighbors': neighbors,
-                  'eth0_ip': dut_eth0_ip
+                  'eth0_ip': dut_eth0_ip,
+                  'ip_version': ip_version
                   }
 
     if mg_facts['minigraph_vlans']:
