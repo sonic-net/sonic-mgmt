@@ -67,11 +67,10 @@ def config_snappi_l47(request, duthosts, tbinfo):
     """
     snappi_l47_params = {}
 
-    service_type = tbinfo['service_type']
     l47_version = tbinfo['l47_version']
     chassis_ip = tbinfo['chassis_ip']
     gw_ip = tbinfo['l47_gateway']
-    test_filename = "dash_cps_pl"
+    test_filename = "dash_cps"
     initial_cps_obj = 1000000
 
     test_type_dict = {
@@ -93,8 +92,8 @@ def config_snappi_l47(request, duthosts, tbinfo):
 
     nw_config = NetworkConfigSettings()
 
-    api, config, initial_cps_value = main(ports_list, connection_dict, nw_config, service_type,
-                                          test_type_dict['all'], test_type_dict['initial_cps_obj'])
+    api, config, initial_cps_value = main(ports_list, connection_dict, nw_config,
+                                          test_type_dict['cps'], test_type_dict['initial_cps_obj'])
 
     snappi_l47_params['test_type_dict'] = test_type_dict
     snappi_l47_params['connection_dict'] = connection_dict
@@ -103,6 +102,5 @@ def config_snappi_l47(request, duthosts, tbinfo):
     snappi_l47_params['config'] = config
     snappi_l47_params['initial_cps_value'] = initial_cps_value
     snappi_l47_params['nw_config'] = nw_config
-    snappi_l47_params['service_type'] = service_type
 
     return snappi_l47_params
