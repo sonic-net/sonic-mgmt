@@ -58,14 +58,6 @@ class DataDeduplicator:
             if limit is not None:
                 logger.info(f"limit the number of {branch} cases to {limit}")
 
-        failure_new_icm_table = []
-        for data in original_failure_dict:
-            if data['type'] == 'general':
-                failure_new_icm_table = common_summary_new_icm_table + data['table']
-                data['table'] = failure_new_icm_table
-                logger.info("There are {} general failure cases".format(len(failure_new_icm_table)))
-                break
-
         for data in original_failure_dict:
             icm_table = data['table']
             failure_type = data['type']

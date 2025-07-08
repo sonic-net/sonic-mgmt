@@ -63,7 +63,7 @@ class KustoConnector(object):
             let ExcludeTopoList = dynamic({configuration['topo']['excluded_topo']});
             let ExcludeAsicList = dynamic({configuration['asic']['excluded_asic']});
             let SummaryWhileList = dynamic({configuration['summary_white_list']});
-        '''.strip()
+        '''.rstrip()
 
         self.query_common_condition = f'''
             | where PipeStatus == 'FINISHED'
@@ -87,7 +87,7 @@ class KustoConnector(object):
                     )
                 ) or isempty(TestBranch)
             | where ModulePath != ""
-        '''.strip()
+        '''.rstrip()
 
         logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
 
@@ -221,7 +221,7 @@ class KustoConnector(object):
             | distinct ModulePath,BranchName,ReproCount, Result,Summary
             | where ReproCount >= {configuration['threshold']['repro_count_limit_summary']}
             | sort by ReproCount, ModulePath
-            '''.strip()
+            '''.rstrip()
 
         logger.info("Query common summary cases:{}".format(query_str))
         return self.query(query_str)
@@ -233,13 +233,13 @@ class KustoConnector(object):
         query_str = self.query_head + f'''
         TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | where Summary in (SummaryWhileList)
         | project UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType
         | sort by ModulePath
-        '''.strip()
+        '''.rstrip()
         logger.info("Query common summary failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
@@ -250,7 +250,7 @@ class KustoConnector(object):
         query_str = self.query_head + f'''
         let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
@@ -258,7 +258,7 @@ class KustoConnector(object):
         | distinct BuildId;
         let dataClean = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
@@ -292,7 +292,7 @@ class KustoConnector(object):
         | where FailedType == "loganalyzer"
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
-        '''.strip()
+        '''.rstrip()
         logger.info("Query flaky failed cases:\n{}".format(query_str))
         return self.query(query_str)
 
@@ -303,7 +303,7 @@ class KustoConnector(object):
         query_str = self.query_head + f'''
         let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
@@ -311,7 +311,7 @@ class KustoConnector(object):
         | distinct BuildId;
         let dataClean = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
@@ -332,7 +332,7 @@ class KustoConnector(object):
         | where AttemptInt == maxAttempt
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, minAttempt, maxAttempt
         | sort by UploadTimestamp desc
-         '''.strip()
+         '''.rstrip()
         logger.info("Query consistent failed cases:\n{}".format(query_str))
         return self.query(query_str)
 
@@ -340,7 +340,7 @@ class KustoConnector(object):
         query_str = self.query_head + f'''
         let buildsWithoutRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt == 0 or isnull(maxAttempt)
@@ -349,7 +349,7 @@ class KustoConnector(object):
         | distinct BuildId;
         TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''
+        '''.rstrip()
         query_str += self.query_common_condition + f'''
         | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
         | where BuildId in (buildsWithoutRetry)
@@ -358,9 +358,8 @@ class KustoConnector(object):
         | extend AttemptInt = toint(Attempt)
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
         | sort by UploadTimestamp desc
-        '''.strip()
-        logger.info(
-            "Query 7 days's failed cases cross branches:\n{}".format(query_str))
+        '''.rstrip()
+        logger.info("Query 7 days's legacy failed cases:\n{}".format(query_str))
         return self.query(query_str)
 
     def query_history_results(self, testcase_name, module_path, is_module_path=False, is_common=False, is_legacy=False, is_consistent=False, is_flaky=False):
@@ -371,25 +370,23 @@ class KustoConnector(object):
         common_query_tail = '''
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
                 | order by UploadTimestamp desc
-                '''.strip()
+                '''.rstrip()
         if is_common:
             common_query_head = f'''
                 TestReportUnionData
                 | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                '''.strip()
+                '''.rstrip()
             common_query_head += self.query_common_condition
-            query_str = self.query_head + f'''
-                {common_query_head}
+            query_str = self.query_head + common_query_head + f'''
                 | where ModulePath == "{module_path}"
-                {common_query_tail}
-                '''.strip()
+                '''.rstrip() + common_query_tail
             logger.info("Query common history results:\n{}".format(query_str))
             return self.query(query_str)
         elif is_legacy:
             legacy_query_str = self.query_head + f'''
                 let buildsWithoutRetry = TestReportUnionData
                 | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                '''
+                '''.rstrip()
             legacy_query_str += self.query_common_condition + f'''
                 | summarize maxAttempt = max(toint(Attempt)) by BuildId
                 | where maxAttempt == 0 or isnull(maxAttempt)
@@ -398,13 +395,13 @@ class KustoConnector(object):
                 | distinct BuildId;
                 TestReportUnionData
                 | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                '''
+                '''.rstrip()
             legacy_query_str += self.query_common_condition + f'''
                 | extend BuildId = case(BuildId has':', split(BuildId, ':')[0], BuildId)
                 | where BuildId in (buildsWithoutRetry)
                 | where Summary !in (SummaryWhileList)
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
-                '''.strip()
+                '''.rstrip()
             legacy_query_str += common_query_tail
             logger.info("Query legacy history results:\n{}".format(legacy_query_str))
             return self.query(legacy_query_str)
@@ -413,7 +410,7 @@ class KustoConnector(object):
             consistent_query_str = self.query_head + f'''
                 let buildsWithRetry = TestReportUnionData
                 | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                '''
+                '''.rstrip()
             consistent_query_str += self.query_common_condition + f'''
                 | summarize maxAttempt = max(toint(Attempt)) by BuildId
                 | where maxAttempt >= 1
@@ -421,7 +418,7 @@ class KustoConnector(object):
                 | distinct BuildId;
                 TestReportUnionData
                 | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-                '''
+                '''.rstrip()
             consistent_query_str += self.query_common_condition + f'''
                 | where BuildId in (buildsWithRetry)
                 | extend AttemptInt = toint(Attempt)
@@ -429,7 +426,7 @@ class KustoConnector(object):
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
                 | order by UploadTimestamp desc
-                '''.strip()
+                '''.rstrip()
             logger.info("Query consistent history results:\n{}".format(consistent_query_str))
             return self.query(consistent_query_str)
         else:

@@ -7,7 +7,8 @@ import pytz
 from kusto_connector import KustoConnector
 from data_deduplicator import DataDeduplicator
 from data_analyzer import DataAnalyzer
-from config import configuration, logger, LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV, \
+from config import configuration, logger, \
+    LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV, LEGACY_AFTER_DEDUPLICATION_ICM_CSV, \
     FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_ICM_CSV, FLAKY_AFTER_DEDUPLICATION_CSV, \
     CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV, CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV, CONSISTENT_AFTER_DEDUPLICATION_CSV
 import pandas as pd
@@ -69,7 +70,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     aggregated_legacy_new_icm_list, legacy_aggregated_df = deduper.process_aggregated_failures(
         "legacy", legacy_new_icm_table, legacy_duplicated_icm_table, analyzer,
-        LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV
+        LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_ICM_CSV
     )
 
     log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list, legacy_duplicated_icm_table, True, True)
@@ -83,14 +84,14 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     )
     log_failure_cases("After aggregation, consistent failure cases", aggregated_consistent_new_icm_list, consistent_duplicated_icm_table, True, True)
 
-    logger.info("=================Deduplicating consistent aggregated df against legacy aggregated df=================")
-    consistent_deduplicated_vs_legacy_df = deduper.deduplicate_dataframe_clusters(legacy_aggregated_df, consistent_aggregated_df)
-    consistent_deduplicated_vs_legacy_df.to_csv(CONSISTENT_AFTER_DEDUPLICATION_CSV, index=False)
-    logger.info(f"After deduplication with legacy df, kept {len(consistent_deduplicated_vs_legacy_df)} unique consistent entries, before is {len(consistent_aggregated_df)}")
+    logger.info("=================Deduplicating legacy aggregated df against consistent aggregated df=================")
+    legacy_deduplicated_vs_consistent_df = deduper.deduplicate_dataframe_clusters(consistent_aggregated_df, legacy_aggregated_df)
+    legacy_deduplicated_vs_consistent_df.to_csv(LEGACY_AFTER_DEDUPLICATION_CSV, index=False)
+    logger.info(f"After deduplication with consistent df, kept {len(legacy_deduplicated_vs_consistent_df)} unique legacy failure cases, before is {len(legacy_aggregated_df)}")
 
-    aggregated_consistent_new_icm_list = deduper.filter_out_icm_list("consistent", consistent_new_icm_table, consistent_deduplicated_vs_legacy_df)
+    aggregated_legacy_new_icm_list = deduper.filter_out_icm_list("legacy", legacy_new_icm_table, legacy_deduplicated_vs_consistent_df)
 
-    log_failure_cases("After aggregation, consistent failure cases", aggregated_consistent_new_icm_list, consistent_duplicated_icm_table, True, True)
+    log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list, legacy_duplicated_icm_table, True, True)
 
     flaky_new_icm_table, flaky_duplicated_icm_table = analyzer.run_flaky_failure()
 
@@ -101,11 +102,11 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_ICM_CSV
     )
 
-    # Deduplicate flaky_aggregated_df against legacy_aggregated_df and consistent failures
-    logger.info("=================Deduplicating flaky aggregated df against legacy and consistent aggregated dfs=================")
+    # Deduplicate flaky_aggregated_df against consistent_aggregated_df and legacy failures
+    logger.info("=================Deduplicating flaky aggregated df against consistent and legacy aggregated dfs=================")
     # Combine legacy and consistent dataframes to use as reference for flaky deduplication
-    combined_reference_df = pd.concat([legacy_aggregated_df, consistent_deduplicated_vs_legacy_df], ignore_index=True)
-    logger.info(f"Combined dataframe has {len(legacy_aggregated_df)} legacy + {len(consistent_deduplicated_vs_legacy_df)} consistent = {len(combined_reference_df)} total entries")
+    combined_reference_df = pd.concat([consistent_aggregated_df, legacy_deduplicated_vs_consistent_df], ignore_index=True)
+    logger.info(f"Combined dataframe has {len(consistent_aggregated_df)} consistent + {len(legacy_deduplicated_vs_consistent_df)} legacy = {len(combined_reference_df)} total entries")
 
     flaky_deduplicated_df = deduper.deduplicate_dataframe_clusters(combined_reference_df, flaky_aggregated_df)
     flaky_deduplicated_df.to_csv(FLAKY_AFTER_DEDUPLICATION_CSV, index=False)
@@ -116,6 +117,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     log_failure_cases("After aggregation, flaky failure cases", aggregated_flaky_new_icm_list, flaky_duplicated_icm_table, True, True)
 
     origin_data = [
+        {"table": common_summary_new_icm_table, "type": "common"},
         {"table": aggregated_legacy_new_icm_list, "type": "legacy"},
         {"table": aggregated_consistent_new_icm_list, "type": "consistent"},
         {"table": aggregated_flaky_new_icm_list, "type": "flaky"},
