@@ -461,7 +461,7 @@ def patch_destination_actionList(api):
     return
 
 
-def patch_communityList2(api):
+def patch_communityList2(api, nw_config):
 
     url = "ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList"
     objectIDs = get_objectIDs(api, url)
@@ -477,12 +477,16 @@ def patch_communityList2(api):
         'doubleIncrement': True,
     }
 
+    # secondCount is based on # VNET mapping per ENI 64K requirement.  Adjust scale to set.
+    scale = 0.01
+    first_count = nw_config.ACL_TABLE_COUNT * 2
+    second_count = int((64000 * scale)/first_count)
     param_doubleIncrement2 = {
         'firstIncrementBy': '::002:0',
-        'firstCount': 10,
+        'firstCount': first_count,
         'gatewayAddress': '::0',
         'gatewayIncrement': '::0',
-        'secondCount': 64,
+        'secondCount': second_count,
         'secondIncrementBy': '::2'
     }
 
@@ -805,7 +809,7 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
         patch_destination_actionList(api)
 
         # Patch Network 2 IPv6
-        patch_communityList2(api)
+        patch_communityList2(api, nw_config)
 
     logger.info("Configuring custom port settings")
     time_assignPort_time = time.time()
