@@ -251,7 +251,6 @@ class VMTopology(object):
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
-        self._is_multi_duts = True if len(self.duts_name) > 1 else False
 
         if ptf_exists:
             self.pid = VMTopology.get_pid(PTF_NAME_TEMPLATE % vm_set_name)
@@ -306,6 +305,7 @@ class VMTopology(object):
             for k, v in self.topo['OVS_LINKs'].items():
                 self.OVS_LINKs[k] = v
 
+        self._is_multi_duts = True if len(self.duts_name) > 1 else False
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
