@@ -900,3 +900,19 @@ def tunnel_counters_supported(node):
 
     st.log("Running on non-gr2, tunnel counters are supported")
     return True
+
+def check_bullseye(node):
+    #VERSION_CODENAME=bullseye
+    cmd = "grep VERSION_CODENAME /etc/os-release | awk -F'=' '{print $2}'"
+
+    try:
+        os_release = st.show(node, cmd, skip_tmpl=True, skip_error_check=True, remove_prompt=True).strip()
+    except Exception as e:
+        st.log("Unable to check os-release, treat it as non-bullseye release")
+        return False
+
+    if os_release == 'bullseye':
+        st.log("Running on bullseye release")
+        return True
+
+    return False

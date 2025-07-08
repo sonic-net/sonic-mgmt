@@ -60,6 +60,8 @@ def setup_teardown_l3vni():
 
     global updated_config_file
     updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
+    if vxlan_obj.check_bullseye(nodes['leaf0']):
+        vxlan_obj.find_and_replace(updated_config_file, "neighbor TRANSIT bfd", "neighbor TRANSIT bfd disable-strict-mode")
 
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
