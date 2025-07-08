@@ -5,15 +5,14 @@ import pytest
 
 
 logger = logging.getLogger(__name__)
-ENI_COUNTER_POLL_INTERVAL = 1000 # 1 second
-ENI_COUNTER_READY_MAX_TIME = 10 # 10 seconds
+ENI_COUNTER_POLL_INTERVAL = 1000  # 1 second
+ENI_COUNTER_READY_MAX_TIME = 10  # 10 seconds
+
 
 def get_eni_counter_status(dpuhost):
     cmd_get_eni_counter_status = "sonic-db-cli FLEX_COUNTER_DB HGETALL FLEX_COUNTER_GROUP_TABLE:ENI_STAT_COUNTER"
 
-    eni_counter_status = \
-    dpuhost.shell(cmd_get_eni_counter_status)['stdout']
-    eni_counter_status = ast.literal_eval(eni_counter_status)
+    eni_counter_status = ast.literal_eval(dpuhost.shell(cmd_get_eni_counter_status)['stdout'])
     logger.info(f"counter eni name map:{eni_counter_status} ")
     return eni_counter_status
 

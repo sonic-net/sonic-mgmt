@@ -154,7 +154,6 @@ def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
     )
     l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
 
-
     if outer_encap == 'vxlan':
         outer_packet = testutils.simple_vxlan_packet(
             eth_src=config[LOCAL_PTF_MAC],

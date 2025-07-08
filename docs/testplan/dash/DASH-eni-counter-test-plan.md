@@ -19,7 +19,7 @@ By sending dash private link packet make the relevant counter change, and then c
 - https://github.com/sonic-net/sonic-swss/pull/3266
 
 ### Scope
-The test is targeting a running SONIC system with a dash private link configuration. The purpose of the test is verify the following eni counters can be get correclty from the low layer.  
+The test is targeting a running SONIC system with a dash private link configuration. The purpose of the test is verify the following eni counters can be get correclty from the low layer.
    - SAI_ENI_STAT_OUTBOUND_RX_PACKETS
    - SAI_ENI_STAT_OUTBOUND_RX_BYTES
    - SAI_ENI_STAT_RX_PACKETS
