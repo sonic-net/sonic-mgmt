@@ -1477,6 +1477,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_packet_trimming_config.py:
+  skip:
+    reason: "KVM do not support the feature"
+    conditions:
+      - "asic_type in ['vs']"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms"
@@ -2045,6 +2051,15 @@ override_config_table/test_override_config_table.py:
     reason: "Skip on multi-asic platforms as test provided golden config format is not compatible with multi-asics."
     conditions:
       - "is_multi_asic==True"
+
+#######################################
+######       packet_trimming       #####
+########################################
+packet_trimming/test_packet_trimming.py:
+  skip:
+    reason: "KVM do not support the feature"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####           pc               #####
