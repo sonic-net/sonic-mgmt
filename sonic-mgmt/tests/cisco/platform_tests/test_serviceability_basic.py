@@ -35,7 +35,8 @@ npu_cli_dict_general = {
         "script": [f"-s {SCRIPT_FILE} -t 60"],
         "acl" : ["summary"],
         "udf-hash" : " ",
-        "bfd" : ["summary"]
+        "bfd" : ["summary"],
+        "ars": ["info","flows"]
 }
 
 npu_cli_dict_t2 = {
@@ -170,8 +171,8 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
         else:
             asic = ''
         for opt in npu_cli_dict[cli]:
-            result = duthost.shell("sudo show platform npu {} {} {}".
-                    format(cli, opt, get_asic_str(duthost, asic)), module_ignore_errors=True)
+            cmd = "sudo show platform npu {} {} {} {}".format(cli, opt, "-s 0" if cli =="ars" else "", get_asic_str(duthost, asic))
+            result = duthost.shell(cmd, module_ignore_errors=True)
             logging.info(result["stdout"])
             traceback_found = "Traceback" in result["stdout"]
 
