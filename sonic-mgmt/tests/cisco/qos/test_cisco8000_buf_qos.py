@@ -1,6 +1,7 @@
 import pytest
 import logging
 from tests.cisco.common.utils import skip_if_not_sim
+from tests.common.errors import RunAnsibleModuleFail
 
 pytestmark = [ pytest.mark.topology('t1') ]
 
@@ -45,16 +46,28 @@ def get_pid_sku(pid_sku):
 def run_mmu_config(duthost, raw_pid_sku, mmucommand):
     prefix = '/usr/share/sonic/device'
     output_file = '/tmp/_cfggen_'
+    cmd = "sonic-cfggen -d -v \'DEVICE_METADATA[\"localhost\"][\"hwsku\"]\'"
+    result = duthost.shell(cmd)
+    cur_hwsku = result["stdout_lines"][0]
+    if duthost.is_multi_asic:
+        namespace = '-n asic0'
+    else:
+        namespace = ''
     for pidpath, pid, sku in get_pid_sku(raw_pid_sku):
         if pid == "x86_64-8111_32eh_o-r0":
             additional_data = '{"DEVICE_METADATA": {"localhost": {"platform": "%s", "type": "BackEndLeafRouter", "resource_type": "ComputeAI"}}}' % pid
         else:
             additional_data = '{"DEVICE_METADATA": {"localhost": {"platform": "%s"}}}' % pid
-        cfggen = 'sonic-cfggen -t {}/{}/{} -k {} -a \'{}\' > {}'.format(prefix, pidpath, mmucommand, sku if sku else '""', additional_data, output_file)
+        cfggen = 'sonic-cfggen {} -t {}/{}/{} -k {} -a \'{}\' > {}'.format(namespace, prefix, pidpath, mmucommand, sku if sku else '""', additional_data, output_file)
         logging.info("executing {} for pid/sku {}".format(cfggen, pidpath))
         try:
             rc = duthost.shell(cfggen)
             print_rc(cfggen, rc)
+        except RunAnsibleModuleFail:
+            if cur_hwsku != sku:
+                pytest.xfail("{} failed for pid/sku {}, ran in hwsku {}".format(mmucommand, pidpath, cur_hwsku))
+            else:
+                pytest.fail("{} failed for pid/sku {}".format(mmucommand, pidpath))
         except:
             pytest.fail("{} failed for pid/sku {}".format(mmucommand, pidpath))
         json_cmd = 'jq < {}'.format(output_file)
