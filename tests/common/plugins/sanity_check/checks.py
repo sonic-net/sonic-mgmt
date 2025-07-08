@@ -185,7 +185,12 @@ def check_bgp(duthosts, tbinfo):
         def _restart_bgp(dut):
             # Restart BGP service
             try:
-                dut.command("systemctl restart bgp.service")
+                if dut.is_multi_asic:
+                    with SafeThreadPoolExecutor(max_workers=8) as executor:
+                        for asic in range(dut.num_asics()):
+                            executor.submit(dut.command, f"systemctl restart bgp@{asic}.service")
+                else:
+                    dut.command("systemctl restart bgp.service")
             except RunAnsibleModuleFail as e:
                 logger.error("Failed to restart BGP service on %s: %s" % (dut.hostname, str(e)))
                 return False
