@@ -66,18 +66,17 @@ class IpRangeModule(object):
         prefix = IPNetwork(prefix)
         exclude_ips.append(prefix.broadcast)
         exclude_ips.append(prefix.network)
-        available_ips = list(prefix)
-
-        if len(available_ips) - len(exclude_ips) < num:
-            self.module.fail_json(msg="Don't have enough available ips in prefix, num=%d, prefix=%s, exclude_ips=%s." %
-                                  (num, prefix, exclude_ips))
         generated_ips = []
-        for available_ip in available_ips:
-            if available_ip not in exclude_ips:
-                generated_ips.append(str(available_ip) +
+        for ip in prefix:
+            if ip not in exclude_ips:
+                generated_ips.append(str(ip) +
                                      '/' + str(prefix.prefixlen))
             if len(generated_ips) == num:
                 break
+        else:
+            self.module.fail_json(msg="Don't have enough available ips in prefix, num=%d, prefix=%s, exclude_ips=%s." %
+                                  (num, prefix, exclude_ips))
+
         self.facts['generated_ips'] = generated_ips
         return
 
