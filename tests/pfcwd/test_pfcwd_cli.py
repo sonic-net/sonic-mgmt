@@ -64,7 +64,7 @@ class SetupPfcwdFunc(object):
             self.port_id_to_type_map[v['test_port_id']] = v['test_port_type']
 
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, init=False, detect=True):
+    def setup_test_params(self, port, vlan, init=False, detect=True, ip_version="IPv4"):
         """
         Sets up test parameters associated with a DUT port
 
@@ -76,7 +76,7 @@ class SetupPfcwdFunc(object):
         logger.info("--- Setting up test params for port {} ---".format(port))
         self.parse_test_port_info()
         self.setup_port_params(port, init=init, detect=detect)
-        self.resolve_arp(vlan, self.is_dualtor)
+        self.resolve_arp(vlan, self.is_dualtor, ip_version)
         self.storm_setup(init=init, detect=detect)
 
     def setup_port_params(self, port, init=False, detect=True):
@@ -122,7 +122,7 @@ class SetupPfcwdFunc(object):
         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
-    def resolve_arp(self, vlan, is_dualtor=False):
+    def resolve_arp(self, vlan, is_dualtor=False, ip_version="IPv4"):
         """
         Populate ARP info for the DUT vlan port
 
@@ -138,13 +138,17 @@ class SetupPfcwdFunc(object):
             self.ptf.command("ip -6 neigh flush all")
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
-            self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
-            self.ptf.command("ping {} -c 10".format(vlan['addr']))
-
-            if is_dualtor:
-                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']), module_ignore_errors=True)  # noqa: E501
+            if ip_version == "IPv4":
+                self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
+                self.ptf.command("ping {} -c 10".format(vlan['addr']))
+                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']),
+                                 module_ignore_errors=is_dualtor)  # noqa: E501
             else:
-                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
+                self.ptf.command("ip -6 addr add {}/{} dev {}".format(self.pfc_wd['test_neighbor_addr'],
+                                                                      vlan['prefix'], ptf_port))
+                self.ptf.command("ping {} -6 -c 10".format(vlan['addr']))
+                self.dut.command("docker exec -i swss ping -6 -c 5 {}".format(self.pfc_wd['test_neighbor_addr']),
+                                 module_ignore_errors=is_dualtor)
 
     def storm_setup(self, init=False, detect=True):
         """
@@ -196,7 +200,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor, ip_version='IPv4'):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -222,6 +226,7 @@ class SendVerifyTraffic():
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
             self.vlan_mac = router_mac
+        self.ip_version = ip_version
 
     def get_lag_pkt_scale_factor(self):
         """
@@ -255,7 +260,8 @@ class SendVerifyTraffic():
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
-                      'wd_action': action if verify else "dontcare"}
+                      'wd_action': action if verify else "dontcare",
+                      'ip_version': self.ip_version}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
         if self.pfc_wd_test_port_vlan_id is not None:
@@ -286,7 +292,8 @@ class SendVerifyTraffic():
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_id_to_type_map[self.pfc_wd_test_port_id],
-                      'wd_action': action if verify else "dontcare"}
+                      'wd_action': action if verify else "dontcare",
+                      'ip_version': self.ip_version}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
         if self.pfc_wd_test_port_vlan_id is not None:
@@ -491,6 +498,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -520,13 +528,14 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.__shutdown_lag_members(duthost, port)
 
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
-        self.setup_test_params(port, setup_info['vlan'], init=True)
+        self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
             self.ptf,
             duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
             duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
             self.pfc_wd,
-            self.is_dualtor)
+            self.is_dualtor,
+            ip_version)
 
         pfc_wd_restore_time_large = request.config.getoption("--restore-time")
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
