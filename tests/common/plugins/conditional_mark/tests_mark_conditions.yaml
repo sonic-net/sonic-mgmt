@@ -81,7 +81,6 @@ bfd:
     conditions:
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
 
-
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
