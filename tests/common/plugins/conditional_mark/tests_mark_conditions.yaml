@@ -1224,6 +1224,30 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
 
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_fwd_recircle_port_queue_check:
+    skip:
+      reason: "Test not supported on non broadcom-dnx and non voq platforms"
+      conditions_logical_operator: "OR"
+      conditions:
+        - "(asic_subtype not in ['broadcom-dnx'])"
+        - "('voq' not in switch_type)"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   skip:
     reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
@@ -1253,6 +1277,14 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Test is not ready for dualtor and not stable on Non-T2 platform."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   skip:
