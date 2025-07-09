@@ -1433,7 +1433,6 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
-      - "'t2' in topo_name"
   xfail:
     reason: "Tests is skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/19492"
     conditions:
