@@ -978,8 +978,6 @@ class TestConfigInterface():
         # After restoration, verify again
         assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
         _verify_speed(native_speed)
-        # Revert inconsistent config changes
-        config_reload(duthost)
 
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
