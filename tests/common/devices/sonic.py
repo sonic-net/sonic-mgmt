@@ -424,42 +424,6 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
-    def is_smartswitch(self):
-        """Check if the current node is a SmartSwitch
-
-        Returns:
-            True if the current node is a SmartSwitch, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "SmartSwitch" and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] != "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
-    def is_dpu(self):
-        """Check if the current node is a DPU
-
-        Returns:
-            True if the current node is a DPU, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] == "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 
