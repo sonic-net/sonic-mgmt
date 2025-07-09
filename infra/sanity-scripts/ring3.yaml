@@ -309,6 +309,11 @@ MGMT:
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
         # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
@@ -319,11 +324,6 @@ MGMT:
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
         # - restapi/test_restapi_vxlan_ecmp.py
-        # - console/test_console_availability.py
-        # - console/test_console_driver.py
-        # - console/test_console_loopback.py
-        # - console/test_console_reversessh.py
-        # - console/test_console_udevrule.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
 
@@ -390,6 +390,11 @@ MGMT:
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
         # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - generic_config_updater/test_aaa.py
@@ -403,11 +408,6 @@ MGMT:
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
         # - restapi/test_restapi_vxlan_ecmp.py
-        # - console/test_console_availability.py
-        # - console/test_console_driver.py
-        # - console/test_console_loopback.py
-        # - console/test_console_reversessh.py
-        # - console/test_console_udevrule.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
 
