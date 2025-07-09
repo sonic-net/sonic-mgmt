@@ -400,8 +400,8 @@ async def async_main(module):
         SnmpEngine(),
         snmp_auth,
         UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
-        ObjectType(ObjectIdentity(p.sysDescr,)),
         ContextData(),
+        ObjectType(ObjectIdentity(p.sysDescr,)),
         lookupMib=False,
     )
 
