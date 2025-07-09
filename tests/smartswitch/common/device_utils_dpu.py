@@ -43,9 +43,20 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
     return num_modules
 
 
+@pytest.fixture(scope='session', autouse=True)
+def skip_for_non_smartswitch(duthost):
+    """
+    Skip test if not running on a smartswitch testbed
+    """
+    if not duthost.facts.get('is_smartswitch'):
+        pytest.skip("Test is supported only on smartswitch testbeds. "
+                    "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):  # noqa F811
+                                    platform_api_conn, num_dpu_modules,  # noqa F811
+                                    skip_for_non_smartswitch):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -56,9 +67,6 @@ def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if "DPUS" not in duthost.facts:
-        pytest.skip("Test is not supported for this testbed")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules) # noqa F811
 
