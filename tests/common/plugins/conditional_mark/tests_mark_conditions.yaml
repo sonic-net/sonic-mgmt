@@ -1434,7 +1434,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
   xfail:
-    reason: "Tests is skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/19492"
+    reason: "Test is skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/19492"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19492 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-nvidia_sn5610n-r0']"
 
