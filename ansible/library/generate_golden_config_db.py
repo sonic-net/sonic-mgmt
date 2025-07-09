@@ -58,8 +58,8 @@ class GenerateGoldenConfigDBModule(object):
                                     port_index_map=dict(require=False, type='dict', default=None),
                                     macsec_profile=dict(require=False, type='str', default=None),
                                     num_asics=dict(require=False, type='int', default=1),
-                                    hwsku=dict(require=False, type='str', default=None)),
-                                    vm_configuration=dict(require=False, type='dict', default={}),
+                                    hwsku=dict(require=False, type='str', default=None),
+                                    vm_configuration=dict(require=False, type='dict', default={})),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
