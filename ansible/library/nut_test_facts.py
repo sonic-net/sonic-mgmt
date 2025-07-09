@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 from typing import Any
 from ansible.module_utils.basic import AnsibleModule
 import traceback
@@ -27,28 +28,32 @@ EXAMPLES = '''
 
         - name: testbed-nut-1
           test_tags: [ snappi-capacity ]
+          topo: nut-2tiers
           duts:
             - switch-t0-1
             - ...
-          dut_templates:
-            - name: ".*-t0-.*"
-              type: "ToRRouter"
-              loopback_v4: "100.1.0.0/24"
-              loopback_v6: "2064:100:0:0::/64"
-              asn_base: 64001
-              p2p_v4: "10.0.0.0/16"
-              p2p_v6: "fc0a::/64"
-              extra_meta:
-                cloudtype: "Public"
-                ...
-            - ....
           tgs:
             - tg-1
             - ...
-          tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
           inv_name: lab
           auto_recover: 'True'
           comment: "Testbed for NUT with multi-tier topology"
+
+    NUT topo file example:
+
+        dut_templates:
+          - name: ".*-t0-.*"
+            type: "ToRRouter"
+            loopback_v4: "100.1.0.0/24"
+            loopback_v6: "2064:100:0:0::/64"
+            asn_base: 64001
+            p2p_v4: "10.0.0.0/16"
+            p2p_v6: "fc0a::/64"
+            extra_meta:
+              cloudtype: "Public"
+              ...
+          - ....
+        tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
 
     To use it:
     - name: gather all predefined testbed topology information
@@ -64,24 +69,29 @@ RETURN = '''
             "testbed-nut-1": {
                 "name": "testbed-nut-1",
                 "test_tags": [ "snappi-capacity" ],
+                "topo": {
+                    "name": "nut-2tiers",
+                    "type": "nut",
+                    "properties": {
+                        "dut_templates": [{
+                            "name": ".*-t0-.*"
+                            "type": "ToRRouter"
+                            "loopback_v4": "100.1.0.0/24"
+                            "loopback_v6": "2064:100:0:0::/64"
+                            "asn_base": 64001
+                            "p2p_v4": "10.0.0.0/16"
+                            "p2p_v6": "fc0a::/64",
+                        }, ...],
+                        "tg_template": {
+                            "type": "Server",
+                            "asn_base": 60001,
+                            "p2p_v4": "10.0.0.0/16",
+                            "p2p_v6": "fc0a::/64"
+                        }
+                    }
+                },
                 "duts": [ "switch-t0-1", ... ],
-                "dut_templates": [{
-                    "name": ".*-t0-.*"
-                    "type": "ToRRouter"
-                    "loopback_v4": "100.1.0.0/24"
-                    "loopback_v6": "2064:100:0:0::/64"
-                    "asn_base": 64001
-                    "p2p_v4": "10.0.0.0/16"
-                    "p2p_v6": "fc0a::/64",
-                    "extra_meta": { "cloudtype": "Public", ... }
-                }, ...]
                 "tgs": [ "tg-1", ... ],
-                "tg_template": {
-                    "type": "Server",
-                    "asn_base": 60001,
-                    "p2p_v4": "10.0.0.0/16",
-                    "p2p_v6": "fc0a::/64"
-                }
             }
             ....
         }
@@ -89,6 +99,7 @@ RETURN = '''
 
 # Default testbed file name
 NUT_TESTBED_FILE = '../ansible/testbed.nut.yaml'
+NUT_TOPO_DIR = '../ansible/vars/nut_topos/'
 
 
 class ParseTestbedInfo():
@@ -112,6 +123,19 @@ class ParseTestbedInfo():
             return self.testbeds
 
 
+def load_topo_info(testbed: dict):
+    """Load topology info for the testbed."""
+    topo_name = testbed.get("topo", None)
+    if not topo_name:
+        raise ValueError(f"Testbed '{testbed['name']}' does not have a valid topology defined.")
+
+    # Load DUT templates
+    with open(os.path.join(NUT_TOPO_DIR, topo_name + '.yml')) as f:
+        topo_data = yaml.safe_load(f)
+        topo = {"name": topo_name, "type": "nut", "properties": topo_data}
+        testbed["topo"] = topo
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -132,6 +156,7 @@ def main():
 
         # Get the specific testbed info
         testbed = testbeds.get_testbed_info(testbed_name)
+        load_topo_info(testbed)
 
         module.exit_json(ansible_facts={'testbed_facts': testbed})
     except (IOError, OSError):

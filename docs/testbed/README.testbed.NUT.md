@@ -3,8 +3,10 @@
 1. [1. Overview](#1-overview)
 2. [2. Testbed CLI: `deploy-cfg`](#2-testbed-cli-deploy-cfg)
 3. [3. Testbed definition](#3-testbed-definition)
-   1. [3.1. Device and link definition](#31-device-and-link-definition)
-   2. [3.2. Testbed YAML definition](#32-testbed-yaml-definition)
+   1. [3.1. Device definition](#31-device-definition)
+   2. [3.2. Link definition](#32-link-definition)
+   3. [3.3. Testbed YAML definition](#33-testbed-yaml-definition)
+   4. [3.4. Topology definition](#34-topology-definition)
 4. [4. NUT config deployment: `deploy-cfg`](#4-nut-config-deployment-deploy-cfg)
    1. [4.1. Initial config generation](#41-initial-config-generation)
    2. [4.2. Generate device metadata](#42-generate-device-metadata)
@@ -74,7 +76,7 @@ This command will skip the minigraph generator and directly generates the requir
 
 ## 3. Testbed definition
 
-### 3.1. Device and link definition
+### 3.1. Device definition
 
 Just like how regular SONiC testbed is defined, The devices and links between all devices in the NUT need to be defined in the `sonic_*_devices.csv` and `sonic_*_links.csv` file.
 
@@ -86,6 +88,16 @@ tg-1,10.0.0.200/24,IXIA-tester,DevIxiaChassis,
 switch-t0-1,10.0.0.123/24,HWSKU-TO-TEST,DevSonic,
 ```
 
+If you have multiple traffic generator, you might need to define one of them as primary, which looks like below:
+
+```csv
+Hostname,ManagementIp,HwSku,Type,Protocol
+tg-1,10.0.0.200/24,IXIA-tester,DevIxiaChassis_Primary,
+tg-2,10.0.0.201/24,IXIA-tester,DevIxiaChassis,
+```
+
+### 3.2. Link definition
+
 The following example represent a 100G link from the traffic generator port 1 to the first port of a T0 switch:
 
 ```csv
@@ -94,29 +106,59 @@ switch-t0-1,Ethernet0,tg-1,Port1.1,100000,,Access,
 switch-t1-1,Ethernet0,switch-t0-1,Ethernet256,100000,,Access,
 ```
 
-### 3.2. Testbed YAML definition
+### 3.3. Testbed YAML definition
 
 The current testbed yaml definition is not designed to support NUT, so we will create a new testbed YAML definition `testbed.nut.yml` that is compatible with the NUT. The following example shows how to define a testbed for NUT with multiple tiers:
 
 ```yaml
-- conf-name: testbed-nut-1
-  dut:
+- name: testbed-nut-1
+  comment: "Testbed for NUT with multi-tier topology"
+  inv_name: lab
+  topo: nut-2tiers
+  duts:
     - switch-t0-1
     - switch-t0-2
     - switch-t0-3
     - switch-t1-1
     - switch-t1-2
-    - switch-t2-1
-  dut_template:
-    - { name: ".*-t0-.*", type: "ToRRouter", loopback_v4: "100.1.0.0/24", loopback_v6: "2064:100:0:0::/64", asn_base: 64001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-    - { name: ".*-t1-.*", type: "LeafRouter", loopback_v4: "100.1.1.0/24", loopback_v6: "2064:100:0:1::/64", asn_base: 65001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-    - { name: ".*-t2-.*", type: "SpineRouter", loopback_v4: "100.1.2.0/24", loopback_v6: "2064:100:0:2::/64", asn_base: 63001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-  tg:
+  tgs:
     - tg-1
-  tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
-  inv_name: lab
+  tg_api_server: 10.2.0.1:443
   auto_recover: 'True'
-  comment: "Testbed for NUT with multi-tier topology"
+```
+
+### 3.4. Topology definition
+
+The testbed has a reference to the topology using `topo` field. The topology definitions for NUT testbeds are defined under the `ansible/vars/nut_topos` directory. The file name is the topology name and *MUST* start with "nut-". In the testbed above, the topo name is `nut-2tiers`, which refers to `ansible/vars/nut_topos/nut-2tiers.yml`.
+
+The following example shows how a 2-tier topology looks like:
+
+- The `dut_templates` section defines the common parameters for T0 and T1 switches, including the IP pools for allocating loopback IPs, BGP ASN ranges, and P2P IPs.
+- The `tg_template` section defines the common parameters for the traffic generator, such as the ASN range and P2P IPs.
+
+```yaml
+dut_templates:
+  - name: ".*-t0-.*"
+    type: "ToRRouter"
+    loopback_v4: "10.1.0.0/24"
+    loopback_v6: "2064:100:0:0::/64"
+    asn_base: 64001
+    asn_step: 1
+    p2p_v4: "10.0.0.0/16"
+    p2p_v6: "fc0a::/64"
+  - name: ".*-t1-.*"
+    type: "LeafRouter"
+    loopback_v4: "10.1.1.0/24"
+    loopback_v6: "2064:100:0:1::/64"
+    asn_base: 65001
+    asn_step: 0
+    p2p_v4: "10.0.0.0/16"
+    p2p_v6: "fc0a::/64"
+tg_template:
+  type: "ToRRouter"
+  asn_base: 60001
+  p2p_v4: "10.0.0.0/16"
+  p2p_v6: "fc0a::/64"
 ```
 
 ## 4. NUT config deployment: `deploy-cfg`
