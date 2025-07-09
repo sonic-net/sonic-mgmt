@@ -1088,6 +1088,7 @@ async def async_main(module):
 
     module.exit_json(ansible_facts=results)
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1113,6 +1114,7 @@ def main():
         supports_check_mode=False)
 
     asyncio.run(async_main(module))
+
 
 if __name__ == '__main__':
     main()
