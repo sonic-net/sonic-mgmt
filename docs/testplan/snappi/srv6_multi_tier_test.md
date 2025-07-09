@@ -24,7 +24,7 @@ The switches should have SRv6 and route configurations as follows:
 - Each switch should have a sufficient number of SRv6 SIDs(uN) configured so that its neighbors in a different tier can control which link to send a packet when doing SRv6 forwarding.
 - Assuming that every switch at Tier-0 has 16 uplinks and 16 downlinks in the NUT, then every switch should have at least 16 SRv6 SIDs. If using locator block fcbb:bbbb::, the SIDs can be configured as follows:
     - For T0 device indexed by i, the SRv6 SIDs can be configured as follows: fcbb:bbbb:hex(i)01::/48 ~ fcbb:bbbb:hex(i)10::/48
-    - If there are M T0 devices, the SRv6 SIDs of the T1 device can be configured as follows: fcbb:bbbb:hex(16M + 1)01::/48 ~ fcbb:bbbb:hex(16M + 1)10::/48
+    - If there are M T0 devices, the SRv6 SIDs of the T1 device can be configured as follows: fcbb:bbbb:hex(M + 1)01::/48 ~ fcbb:bbbb:hex(M + 1)10::/48
     - The traffic generator corresponding to i-th T0 device can have SRv6 SIDs as follows: fcbb:bbbb:hex(i)11::/48 ~ fcbb:bbbb:hex(i)20::/48
 - Each switch should have a static route entry configured for each SRv6 SID that its neighbors have. For the example above, every T0 device should have 32 static routes (16 upward + 16 downward). The T1 device should have 16 x M static routes.
 
