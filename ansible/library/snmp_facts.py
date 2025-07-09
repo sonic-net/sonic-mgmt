@@ -399,7 +399,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.sysDescr,)),
         lookupMib=False,
@@ -418,7 +418,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.sysObjectId,)),
         ObjectType(ObjectIdentity(p.sysUpTime,)),
@@ -450,7 +450,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.ifIndex,)),
         ObjectType(ObjectIdentity(p.ifDescr,)),
@@ -535,7 +535,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.ifInDiscards,)),
         ObjectType(ObjectIdentity(p.ifOutDiscards,)),
@@ -584,7 +584,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.entPhysDescr,)),
         ObjectType(ObjectIdentity(p.entPhysContainedIn, )),
@@ -652,7 +652,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.entPhySensorType,)),
         ObjectType(ObjectIdentity(p.entPhySensorScale,)),
@@ -709,7 +709,7 @@ async def async_main(module):
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             ContextData(),
             ObjectType(ObjectIdentity(p.ChStackUnitCpuUtil5sec,)),
             lookupMib=False, lexicographicMode=False
@@ -729,7 +729,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldpLocChassisIdSubtype,)),
         ObjectType(ObjectIdentity(p.lldpLocChassisId,)),
@@ -757,7 +757,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldpLocPortIdSubtype,)),
         ObjectType(ObjectIdentity(p.lldpLocPortId,)),
@@ -786,7 +786,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldpLocManAddrLen,)),
         ObjectType(ObjectIdentity(p.lldpLocManAddrIfSubtype,)),
@@ -815,7 +815,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldpRemChassisIdSubtype,)),
         ObjectType(ObjectIdentity(p.lldpRemChassisId,)),
@@ -868,7 +868,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldpRemManAddrIfSubtype,)),
         ObjectType(ObjectIdentity(p.lldpRemManAddrIfId,)),
@@ -898,7 +898,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.cpfcIfRequests,)),
         ObjectType(ObjectIdentity(p.cpfcIfIndications,)),
@@ -932,7 +932,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.csqIfQosGroupStats,)),
         lookupMib=False,
@@ -955,7 +955,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.cefcFRUPowerOperStatus,)),
         lookupMib=False,
@@ -975,7 +975,7 @@ async def async_main(module):
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+        await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
         ContextData(),
         ObjectType(ObjectIdentity(p.ipCidrRouteEntry,)),
         ObjectType(ObjectIdentity(p.ipCidrRouteStatus,)),
@@ -1001,7 +1001,7 @@ async def async_main(module):
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             ContextData(),
             ObjectType(ObjectIdentity(p.sysTotalMemory,)),
             ObjectType(ObjectIdentity(p.sysTotalFreeMemory,)),
@@ -1037,7 +1037,7 @@ async def async_main(module):
             errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(      # noqa: F405
                 SnmpEngine(),       # noqa: F405
                 snmp_auth,
-                UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),    # noqa: F405
+                await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),    # noqa: F405
                 ContextData(),      # noqa: F405
                 ObjectType(ObjectIdentity(p.sysTotalSwap,)),
                 ObjectType(ObjectIdentity(p.sysTotalFreeSwap,)),
@@ -1060,7 +1060,7 @@ async def async_main(module):
         errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
+            await UdpTransportTarget.create((m_args['host'], 161), timeout=m_args['timeout']),
             ContextData(),
             ObjectType(ObjectIdentity(p.dot1qTpFdbEntry,)),
             lookupMib=False,
