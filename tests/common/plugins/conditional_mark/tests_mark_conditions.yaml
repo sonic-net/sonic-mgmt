@@ -1805,6 +1805,12 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_inte
     conditions:
       - "'Arista-7060X6' in hwsku"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed_40G_100G:
+  skip:
+    reason: "This testcase will do config reload and casue other testcases failed"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/19467"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
