@@ -98,8 +98,6 @@ FWD:
         - ip/test_ip_packet.py
         - ipfwd/test_nhop_group.py
         - ipfwd/test_dir_bcast.py
-        - acl/test_stress_acl.py
-        - stress/test_stress_routes.py
   t2-min:
     sfd:
       sim:
