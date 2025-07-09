@@ -1790,7 +1790,7 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "topo_type in ['m0', 'mx', 'm1']"
 
 pfcwd/test_pfcwd_cli.py:
-   skip:
+   xfail:
      reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/18496"
      conditions:
         - "https://github.com/sonic-net/sonic-mgmt/issues/18496"
