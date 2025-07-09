@@ -13,6 +13,10 @@
   - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
     when: inventory_hostname not in testbed_facts['duts']
 
+- name: output testbed facts
+  debug:
+    var: testbed_facts
+
 - name: get connection graph if defined for dut
   conn_graph_facts:
     hosts: "{{ testbed_facts['duts'] + testbed_facts['tgs'] }}"
