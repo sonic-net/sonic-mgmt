@@ -12,17 +12,28 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.portstat_utilities import parse_portstat
-from ptf.testutils import (
-    dp_poll,
-)  # This is an example; adjust based on your actual usage
+from ptf.testutils import dp_poll
 
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("broadcom"),
-    pytest.mark.topology("t0", "t1"),
+    pytest.mark.topology("any")
 ]
+
+
+def check_platform_and_topology(duthosts, tbinfo):
+    """Check if test can run on current platform and topology."""
+    # Check if all DUTs have Broadcom ASIC
+    for duthost in duthosts:
+        asic_type = duthost.facts["asic_type"]
+        if asic_type != "broadcom":
+            pytest.skip("Test can only run on Broadcom ASIC for now, current ASIC: {}".format(asic_type))
+
+    # Check if topology is t0 or t1
+    topology = tbinfo.get("topo", {}).get("name", "")
+    if not any(topo in topology for topo in ["t0", "t1"]):
+        pytest.skip("Test can only run on t0 or t1 topology for now, current topology: {}".format(topology))
 
 
 DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
@@ -48,6 +59,9 @@ def setup(duthosts, rand_selected_dut, tbinfo):
         A Dictionary with required test information.
 
     """
+
+    # Check platform and topology requirements
+    check_platform_and_topology(duthosts, tbinfo)
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
