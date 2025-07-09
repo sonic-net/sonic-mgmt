@@ -1511,6 +1511,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_packet_trimming_config.py:
+  skip:
+    reason: "KVM do not support the feature"
+    conditions:
+      - "asic_type in ['vs']"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms"
@@ -2124,6 +2130,15 @@ override_config_table/test_override_config_table.py:
       - "is_multi_asic==True"
 
 #######################################
+######       packet_trimming       #####
+########################################
+packet_trimming/test_packet_trimming.py:
+  skip:
+    reason: "KVM do not support the feature"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -2241,7 +2256,18 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "release in ['202412']"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
-pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
+pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
+   skip:
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Currently async_storm test is not supported on VS platform / Warm reboot is not required for 202412"
+     conditions_logical_operator: or
+     conditions:
+        - "'t2' in topo_name"
+        - "'standalone' in topo_name"
+        - "topo_type in ['m0', 'mx', 'm1']"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
+        - "release in ['202412']"
+
+pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
    skip:
      reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Currently async_storm test is not supported on VS platform / Warm reboot is not required for 202412"
      conditions_logical_operator: or
@@ -2340,9 +2366,15 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M* topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx', 'm1']"
+
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
+  skip:
+    reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping"
+    conditions:
+      - "'dualtor' in topo_name and asic_type in ['mellanox']"
 
 qos/test_qos_masic.py:
   skip:
