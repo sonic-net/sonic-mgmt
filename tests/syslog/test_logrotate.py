@@ -97,7 +97,8 @@ def get_syslog_file_count(duthost):
     :return: file number value
     """
     logger.info('Check rotated syslog file number')
-    num = duthost.shell('sudo ls -l /var/log | grep -Ec "syslog\\.[0-9]{1,4}[\\.gz]{0,1}"')['stdout']
+    num = duthost.shell('sudo ls -l /var/log | grep -Ec "syslog\\.[0-9]{1,4}[\\.gz]{0,1}"',
+                        module_ignore_errors=True)['stdout']
     logger.debug('There are {} rotated syslog files'.format(num))
     return int(num)
 
