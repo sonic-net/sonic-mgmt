@@ -162,7 +162,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65012
+      asn: 65300
       peers:
         65100:
           - 10.0.0.98
@@ -204,7 +204,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65013
+      asn: 65300
       peers:
         65100:
           - 10.0.0.100
@@ -252,7 +252,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65014
+      asn: 65300
       peers:
         65100:
           - 10.0.0.104
@@ -272,7 +272,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65015
+      asn: 65300
       peers:
         65100:
           - 10.0.0.108
@@ -292,7 +292,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65016
+      asn: 65300
       peers:
         65100:
           - 10.0.0.112
@@ -354,7 +354,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65018
+      asn: 65300
       peers:
         65100:
           - 10.0.0.118
@@ -396,7 +396,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65019
+      asn: 65300
       peers:
         65100:
           - 10.0.0.120
@@ -438,7 +438,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65020
+      asn: 65300
       peers:
         65100:
           - 10.0.0.122
@@ -480,7 +480,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65021
+      asn: 65300
       peers:
         65100:
           - 10.0.0.124
@@ -528,7 +528,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65200
+      asn: 65300
       peers:
         65100:
           - 10.0.0.32
@@ -548,7 +548,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65200
+      asn: 65300
       peers:
         65100:
           - 10.0.0.30
@@ -568,7 +568,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65200
+      asn: 65300
       peers:
         65100:
           - 10.0.0.32
@@ -588,7 +588,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65200
+      asn: 65300
       peers:
         65100:
           - 10.0.0.36
@@ -630,7 +630,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65022
+      asn: 65300
       peers:
         65100:
           - 10.0.0.126
@@ -670,7 +670,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65200
+      asn: 65300
       peers:
         65100:
           - 10.0.0.24
