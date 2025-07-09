@@ -437,9 +437,9 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms64-t1-4700-1
+- conf-name: vms64-t0-4700-1
   group-name: vms64-1
-  topo: t1-56-lag
+  topo: t0-56-o8v48
   ptf_image_name: docker-ptf
   ptf: vms64-1
   ptf_ip: 10.64.247.64/23

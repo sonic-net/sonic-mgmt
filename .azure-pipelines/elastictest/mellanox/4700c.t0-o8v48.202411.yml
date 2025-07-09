@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms64-t1-4700-1"
+    default: "vms64-t0-4700-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -71,7 +71,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202411)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_MLNX_202411)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -101,7 +101,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 4700c.t1-lag.202411.NightlyTest_by_Elastictest
+    displayName: 4700c.t0-O8V48.202411.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
