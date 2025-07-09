@@ -4,7 +4,6 @@ import re
 import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.config_reload import config_reload
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
