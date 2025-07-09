@@ -221,9 +221,6 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    if duthost.is_smartswitch():
-        pytest.skip("Smart Switch devices does not support fast reboot")
-
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST, duthosts=duthosts)
 
@@ -238,9 +235,6 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting warm reboot")
-
-    if duthost.is_smartswitch():
-        pytest.skip("Smart Switch devices does not support warm reboot")
 
     asic_type = duthost.facts["asic_type"]
 
