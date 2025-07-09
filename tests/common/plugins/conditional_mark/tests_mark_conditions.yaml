@@ -2212,6 +2212,12 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx', 'm1']"
 
+pfcwd/test_pfcwd_cli.py:
+   xfail:
+     reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/18496"
+     conditions:
+        - "https://github.com/sonic-net/sonic-mgmt/issues/18496"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
     reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
