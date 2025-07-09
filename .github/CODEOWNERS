@@ -57,7 +57,7 @@ tests/dualtor @lolyu @wsycqyz
 tests/dualtor_io @lolyu @wsycqyz
 tests/dualtor_mgmt @lolyu @wsycqyz
 tests/lldp @ZhaohuiS
-tests/pfcwd @lipxu @neethajohn
+tests/pfcwd @lipxu
 tests/platform_tests    @prgeor
 tests/platform_tests/mellanox @keboliu @Junchao-Mellanox
 tests/platform_tests/fwutil @prgeor @alexrallen
@@ -65,11 +65,11 @@ tests/platform_tests/files @prgeor @Junchao-Mellanox
 tests/platform_tests/test_auto_negotiation.py @prgeor @Junchao-Mellanox
 tests/platform_tests/thermal_control_test_helper.py @prgeor @Junchao-Mellanox
 tests/qos @XuChen-MSFT @wsycqyz
-tests/qos/test_buffer.py @neethajohn @stephenxs
-tests/qos/test_buffer_traditional.py @neethajohn @stephenxs
-tests/qos/files/dynamic_buffer_param.json @neethajohn @stephenxs
+tests/qos/test_buffer.py @stephenxs
+tests/qos/test_buffer_traditional.py @stephenxs
+tests/qos/files/dynamic_buffer_param.json @stephenxs
 tests/qos/files/mellanox @stephenxs @keboliu
-tests/qos/args @neethajohn @stephenxs
+tests/qos/args @stephenxs
 tests/show_techsupport @yxieca @noaOrMlnx
 tests/system_health @prgeor @Junchao-Mellanox
 
