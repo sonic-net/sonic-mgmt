@@ -58,6 +58,13 @@ def main():
             else:
                 results['asic_index_list'] = [ns.replace('asic', '') for ns in multi_asic.get_namespace_list()]
 
+        results['is_smartswitch'] = False
+        if hasattr(device_info, 'is_smartswitch'):
+            results['is_smartswitch'] = device_info.is_smartswitch()
+        results['is_dpu'] = False
+        if hasattr(device_info, 'is_dpu'):
+            results['is_dpu'] = device_info.is_dpu()
+
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
             if 'build_version' in results:
