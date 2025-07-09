@@ -1,7 +1,7 @@
 steps:
 
 - script: |
-    sudo apt-get update
+    sudo apt-get -o DPkg::Lock::Timeout=180 update
     sudo apt-get install \
       ca-certificates \
       curl \
