@@ -220,20 +220,26 @@ class TestPfcwdAllPortStorm(object):
         storm_hndle = storm_test_setup_restore
         logger.info("--- Testing if PFC storm is detected on all ports ---")
 
+        selected_test_ports = []
+        def populate_selected_test_ports(fanout_intfs, device_conn):
+            if duthost.facts['asic_type'] == 'vs':
+                return None
+
+            for intf in fanout_intfs:
+                test_port = device_conn[intf]['peerport']
+                if test_port in setup_pfc_test['test_ports']:
+                    selected_test_ports.append(test_port)
+
         # get all the tested ports
         queues = []
         for peer in storm_hndle.peer_params.keys():
             fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
             device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+
+            populate_selected_test_ports(fanout_intfs, device_conn)
             queues.append(storm_hndle.storm_handle[peer].pfc_queue_idx)
         queues = list(set(queues))
-        selected_test_ports = []
 
-        if duthost.facts['asic_type'] != 'vs':
-            for intf in fanout_intfs:
-                test_port = device_conn[intf]['peerport']
-                if test_port in setup_pfc_test['test_ports']:
-                    selected_test_ports.append(test_port)
 
         with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
             self.run_test(duthost,
