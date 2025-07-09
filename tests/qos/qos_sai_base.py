@@ -1021,7 +1021,7 @@ class QosSaiBase(QosBase):
             key: value
             for key, value in src_mgFacts["minigraph_ports"].items()
             if key not in excluded_ports
-        } 
+        }
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):

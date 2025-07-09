@@ -27,7 +27,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
+print("hello")
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
