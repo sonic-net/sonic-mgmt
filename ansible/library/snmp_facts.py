@@ -478,7 +478,9 @@ async def async_main(module):
     ipv4_networks = Tree()
 
     for varBinds in varTable:
-        for oid, val in varBinds:
+        for varBind in varBinds:
+            oid = varBind[0]
+            val = varBind[1]
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if 'No more variables left in this MIB View' in current_val:
