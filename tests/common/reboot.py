@@ -343,7 +343,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
     time.sleep(wait_conlsole_connection)
     # Perform reboot
-    if duthost.is_smartswitch():
+    if duthost.get_facts().get("is_smartswitch"):
         reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
