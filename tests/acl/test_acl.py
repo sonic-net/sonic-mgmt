@@ -333,6 +333,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
+    upstream_service_ports = defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
     upstream_port_id_to_router_mac_map = {}
@@ -365,6 +366,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                     upstream_ports[neighbor['namespace']].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                    if neigh_type == "PT0":
+                        upstream_service_ports[neighbor['namespace']].append(interface)
                 count += 1
         else:
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
@@ -409,7 +412,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     acl_table_ports = defaultdict(list)
 
     if (topo in ["t0", "mx", "m0_vlan", "m0_l3"]
-            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag")
+            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag", "t1-48-lag")
             or 't1-isolated' in tbinfo["topo"]["name"]):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -422,11 +425,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
-        and not re.match(r"t0-.*s\d+", tbinfo["topo"]["name"])
     ):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
@@ -437,6 +439,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         acl_table_ports = t2_info['acl_table_ports']
     else:
         for namespace, port in list(upstream_ports.items()):
+            acl_table_ports[namespace] += port
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += port
+
+    if re.match(r"t0-.*s\d+", tbinfo["topo"]["name"]):
+        for namespace, port in list(upstream_service_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
