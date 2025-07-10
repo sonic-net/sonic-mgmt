@@ -439,7 +439,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
    - **Selection criteria:**
      - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
      - Include the two most recent firmware versions in addition to the gold version
-     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary
+     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary. If there are fewer than 3 firmware versions available for a transceiver, the entire test will fail.
 5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
 6. **Validate firmware binary integrity** using MD5 checksums after copying.
 
