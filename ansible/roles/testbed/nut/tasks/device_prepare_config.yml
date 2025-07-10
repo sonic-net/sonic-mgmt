@@ -6,7 +6,7 @@
     remote_src: false
 
 - name: preserve key configurations from existing config_db.json using jq
-  shell: "jq '{ {{ tables_to_keep | join(',') }} }' /etc/sonic/config_db.json > /tmp/config_db_keep.json"
+  shell: "jq '{ {{ tables_to_keep | join(',') }} }' /etc/sonic/config_db.json | sed 's/\\bnull\\b/{}/' > /tmp/config_db_keep.json"
   vars:
     tables_to_keep:
       - DEVICE_METADATA
@@ -18,6 +18,8 @@
       - PASSW_HARDENING
       - AUTO_TECHSUPPORT
       - AUTO_TECHSUPPORT_FEATURE
+      - OCS_PORT
+      - OCS_CROSS_CONNECT
 
 - name: generate new clean config_db.json
   shell: "sonic-cfggen -H -k {{ device_info[inventory_hostname].HwSku }} --json /tmp/config_db_keep.json --print-data > /tmp/config_db_clean.json"
