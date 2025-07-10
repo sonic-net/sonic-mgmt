@@ -1,0 +1,51 @@
+---
+- name: output l1 switch links
+  debug:
+    var: device_from_l1_links[inventory_hostname]
+
+- name: output l1 cross connects
+  debug:
+    var: device_l1_cross_connects[inventory_hostname]
+
+- name: create l1 port list
+  set_fact:
+    l1_port_list: >-
+      {{
+        device_from_l1_links[inventory_hostname] | dict2items | map(attribute='key') | list
+      }}
+
+# This would output all cross connects in the format below:
+#
+#   3A-5B
+#   5A-3B
+#
+- name: get current cross connects using required ports
+  shell: >-
+    if grep -q ".OCS_CROSS_CONNECT" /etc/sonic/config_db.json; then
+      jq '.OCS_CROSS_CONNECT | keys' /etc/sonic/config_db.json |
+        grep -E '{{ l1_port_list | map('regex_replace', '^(.*)$', '\\b\1A-|-\1A\\b|\\b\1B-|-\1B\\b') | join("|") }}' | sed 's/[ ",]//g'
+    fi
+  register: cross_connect_keys
+
+- name: parse cross connect keys into a dict
+  set_fact:
+    device_l1_existing_cross_connects: >-
+      {{
+        cross_connect_keys.stdout_lines | map('split', '-') | list | items2dict(key_name=0, value_name=1)
+      }}
+
+- name: output filtered cross connects
+  debug:
+    var: device_l1_existing_cross_connects
+
+- name: generate config patch for L1 switches on local machine
+  when: "device_from_l1_links[inventory_hostname] is defined and device_from_l1_links[inventory_hostname] | length > 0"
+  template:
+    src: templates/config_patch/l1/all.json.j2
+    dest: "{{ playbook_dir }}/../tests/metadata/config_patch.{{ inventory_hostname }}.json"
+  delegate_to: localhost
+  vars:
+    info: "{{ device_info[inventory_hostname] }}"
+    l1_links: "{{ device_from_l1_links[inventory_hostname] }}"
+    l1_cross_connects: "{{ device_l1_cross_connects[inventory_hostname] }}"
+    l1_existing_cross_connects: "{{ device_l1_existing_cross_connects }}"
