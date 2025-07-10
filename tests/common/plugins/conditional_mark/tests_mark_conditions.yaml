@@ -1224,6 +1224,30 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
 
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_fwd_recircle_port_queue_check:
+    skip:
+      reason: "Test not supported on non broadcom-dnx and non voq platforms"
+      conditions_logical_operator: "OR"
+      conditions:
+        - "(asic_subtype not in ['broadcom-dnx'])"
+        - "('voq' not in switch_type)"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   skip:
     reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3"
@@ -1253,6 +1277,14 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Test is not ready for dualtor and not stable on Non-T2 platform."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
+  skip:
+    reason: "Test not supported on non broadcom-dnx and non voq platforms"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "('voq' not in switch_type)"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   skip:
@@ -1496,6 +1528,8 @@ generic_config_updater/test_pfcwd_status.py:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
+      - "hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C224O8',
+                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
@@ -1527,9 +1561,11 @@ gnmi/test_gnoi_killprocess.py:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology"
+    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
 #####           hash              #####
@@ -2024,6 +2060,18 @@ mvrf/test_mgmtvrf.py:
       - "asic_type in ['vs']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
 #####           nat               #####
@@ -2655,6 +2703,18 @@ sflow/test_sflow.py:
     conditions:
       - "asic_type in ['vs']"
 
+sflow/test_sflow.py::TestReboot::testFastreboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+sflow/test_sflow.py::TestReboot::testWarmreboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
 #######################################
 #####      show_techsupport       #####
 #######################################
@@ -3112,6 +3172,18 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     conditions:
       - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
+
+vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 vrf/test_vrf_attr.py:
   skip:
