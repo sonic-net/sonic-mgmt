@@ -19248,7 +19248,7 @@ vms_96:
 
 vms_bjw3_1:
   hosts:
-    VM19011:
+    VM19011:  # First VM of testbed-bjw3-can-7050-9 M1-128
       ansible_host: 172.16.213.11
     VM19012:
       ansible_host: 172.16.213.12
@@ -19502,100 +19502,12 @@ vms_bjw3_1:
       ansible_host: 172.16.213.136
     VM19137:
       ansible_host: 172.16.213.137
-    VM19138:
+    VM19138:   # Last VM of testbed-bjw3-can-7050-9 M1-128
       ansible_host: 172.16.213.138
-    VM19139:
-      ansible_host: 172.16.213.139
-    VM19140:
-      ansible_host: 172.16.213.140
-    VM19141:
-      ansible_host: 172.16.213.141
-    VM19142:
-      ansible_host: 172.16.213.142
-    VM19143:
-      ansible_host: 172.16.213.143
-    VM19144:
-      ansible_host: 172.16.213.144
-    VM19145:
-      ansible_host: 172.16.213.145
-    VM19146:
-      ansible_host: 172.16.213.146
-    VM19147:
-      ansible_host: 172.16.213.147
-    VM19148:
-      ansible_host: 172.16.213.148
-    VM19149:
-      ansible_host: 172.16.213.149
-    VM19150:
-      ansible_host: 172.16.213.150
-    VM19151:
-      ansible_host: 172.16.213.151
-    VM19152:
-      ansible_host: 172.16.213.152
-    VM19153:
-      ansible_host: 172.16.213.153
-    VM19154:
-      ansible_host: 172.16.213.154
-    VM19155:
-      ansible_host: 172.16.213.155
-    VM19156:
-      ansible_host: 172.16.213.156
-    VM19157:
-      ansible_host: 172.16.213.157
-    VM19158:
-      ansible_host: 172.16.213.158
-    VM19159:
-      ansible_host: 172.16.213.159
-    VM19160:
-      ansible_host: 172.16.213.160
-    VM19161:
-      ansible_host: 172.16.213.161
-    VM19162:
-      ansible_host: 172.16.213.162
-    VM19163:
-      ansible_host: 172.16.213.163
-    VM19164:
-      ansible_host: 172.16.213.164
-    VM19165:
-      ansible_host: 172.16.213.165
-    VM19166:
-      ansible_host: 172.16.213.166
-    VM19167:
-      ansible_host: 172.16.213.167
-    VM19168:
-      ansible_host: 172.16.213.168
-    VM19169:
-      ansible_host: 172.16.213.169
-    VM19170:
-      ansible_host: 172.16.213.170
-    VM19171:
-      ansible_host: 172.16.213.171
-    VM19172:
-      ansible_host: 172.16.213.172
-    VM19173:
-      ansible_host: 172.16.213.173
-    VM19174:
-      ansible_host: 172.16.213.174
-    VM19175:
-      ansible_host: 172.16.213.175
-    VM19176:
-      ansible_host: 172.16.213.176
-    VM19177:
-      ansible_host: 172.16.213.177
-    VM19178:
-      ansible_host: 172.16.213.178
-    VM19179:
-      ansible_host: 172.16.213.179
-    VM19180:
-      ansible_host: 172.16.213.180
-    VM19181:
-      ansible_host: 172.16.213.181
-    VM19182:
-      ansible_host: 172.16.213.182
 
 vms_bjw3_2:
   hosts:
-    VM22011:
+    VM22011:   # First VM of testbed-bjw3-can-7050-10 M1-128
       ansible_host: 172.16.214.11
     VM22012:
       ansible_host: 172.16.214.12
@@ -19811,11 +19723,305 @@ vms_bjw3_2:
       ansible_host: 172.16.214.117
     VM22118:
       ansible_host: 172.16.214.118
+    VM22119:
+      ansible_host: 172.16.214.119
+    VM22120:
+      ansible_host: 172.16.214.120
+    VM22121:
+      ansible_host: 172.16.214.121
+    VM22122:
+      ansible_host: 172.16.214.122
+    VM22123:
+      ansible_host: 172.16.214.123
+    VM22124:
+      ansible_host: 172.16.214.124
+    VM22125:
+      ansible_host: 172.16.214.125
+    VM22126:
+      ansible_host: 172.16.214.126
+    VM22127:
+      ansible_host: 172.16.214.127
+    VM22128:
+      ansible_host: 172.16.214.128
+    VM22129:
+      ansible_host: 172.16.214.129
+    VM22130:
+      ansible_host: 172.16.214.130
+    VM22131:
+      ansible_host: 172.16.214.131
+    VM22132:
+      ansible_host: 172.16.214.132
+    VM22133:
+      ansible_host: 172.16.214.133
+    VM22134:
+      ansible_host: 172.16.214.134
+    VM22135:
+      ansible_host: 172.16.214.135
+    VM22136:
+      ansible_host: 172.16.214.136
+    VM22137:
+      ansible_host: 172.16.214.137
+    VM22138:   # Last VM of testbed-bjw3-can-7050-10 M1-128
+      ansible_host: 172.16.214.138
 
 vms_bjw3_3:
   hosts:
-    VM23011:
+    VM23011:   # First VM of testbed-bjw3-can-7050-11 M1-128
       ansible_host: 172.16.215.11
+    VM23012:
+      ansible_host: 172.16.215.12
+    VM23013:
+      ansible_host: 172.16.215.13
+    VM23014:
+      ansible_host: 172.16.215.14
+    VM23015:
+      ansible_host: 172.16.215.15
+    VM23016:
+      ansible_host: 172.16.215.16
+    VM23017:
+      ansible_host: 172.16.215.17
+    VM23018:
+      ansible_host: 172.16.215.18
+    VM23019:
+      ansible_host: 172.16.215.19
+    VM23020:
+      ansible_host: 172.16.215.20
+    VM23021:
+      ansible_host: 172.16.215.21
+    VM23022:
+      ansible_host: 172.16.215.22
+    VM23023:
+      ansible_host: 172.16.215.23
+    VM23024:
+      ansible_host: 172.16.215.24
+    VM23025:
+      ansible_host: 172.16.215.25
+    VM23026:
+      ansible_host: 172.16.215.26
+    VM23027:
+      ansible_host: 172.16.215.27
+    VM23028:
+      ansible_host: 172.16.215.28
+    VM23029:
+      ansible_host: 172.16.215.29
+    VM23030:
+      ansible_host: 172.16.215.30
+    VM23031:
+      ansible_host: 172.16.215.31
+    VM23032:
+      ansible_host: 172.16.215.32
+    VM23033:
+      ansible_host: 172.16.215.33
+    VM23034:
+      ansible_host: 172.16.215.34
+    VM23035:
+      ansible_host: 172.16.215.35
+    VM23036:
+      ansible_host: 172.16.215.36
+    VM23037:
+      ansible_host: 172.16.215.37
+    VM23038:
+      ansible_host: 172.16.215.38
+    VM23039:
+      ansible_host: 172.16.215.39
+    VM23040:
+      ansible_host: 172.16.215.40
+    VM23041:
+      ansible_host: 172.16.215.41
+    VM23042:
+      ansible_host: 172.16.215.42
+    VM23043:
+      ansible_host: 172.16.215.43
+    VM23044:
+      ansible_host: 172.16.215.44
+    VM23045:
+      ansible_host: 172.16.215.45
+    VM23046:
+      ansible_host: 172.16.215.46
+    VM23047:
+      ansible_host: 172.16.215.47
+    VM23048:
+      ansible_host: 172.16.215.48
+    VM23049:
+      ansible_host: 172.16.215.49
+    VM23050:
+      ansible_host: 172.16.215.50
+    VM23051:
+      ansible_host: 172.16.215.51
+    VM23052:
+      ansible_host: 172.16.215.52
+    VM23053:
+      ansible_host: 172.16.215.53
+    VM23054:
+      ansible_host: 172.16.215.54
+    VM23055:
+      ansible_host: 172.16.215.55
+    VM23056:
+      ansible_host: 172.16.215.56
+    VM23057:
+      ansible_host: 172.16.215.57
+    VM23058:
+      ansible_host: 172.16.215.58
+    VM23059:
+      ansible_host: 172.16.215.59
+    VM23060:
+      ansible_host: 172.16.215.60
+    VM23061:
+      ansible_host: 172.16.215.61
+    VM23062:
+      ansible_host: 172.16.215.62
+    VM23063:
+      ansible_host: 172.16.215.63
+    VM23064:
+      ansible_host: 172.16.215.64
+    VM23065:
+      ansible_host: 172.16.215.65
+    VM23066:
+      ansible_host: 172.16.215.66
+    VM23067:
+      ansible_host: 172.16.215.67
+    VM23068:
+      ansible_host: 172.16.215.68
+    VM23069:
+      ansible_host: 172.16.215.69
+    VM23070:
+      ansible_host: 172.16.215.70
+    VM23071:
+      ansible_host: 172.16.215.71
+    VM23072:
+      ansible_host: 172.16.215.72
+    VM23073:
+      ansible_host: 172.16.215.73
+    VM23074:
+      ansible_host: 172.16.215.74
+    VM23075:
+      ansible_host: 172.16.215.75
+    VM23076:
+      ansible_host: 172.16.215.76
+    VM23077:
+      ansible_host: 172.16.215.77
+    VM23078:
+      ansible_host: 172.16.215.78
+    VM23079:
+      ansible_host: 172.16.215.79
+    VM23080:
+      ansible_host: 172.16.215.80
+    VM23081:
+      ansible_host: 172.16.215.81
+    VM23082:
+      ansible_host: 172.16.215.82
+    VM23083:
+      ansible_host: 172.16.215.83
+    VM23084:
+      ansible_host: 172.16.215.84
+    VM23085:
+      ansible_host: 172.16.215.85
+    VM23086:
+      ansible_host: 172.16.215.86
+    VM23087:
+      ansible_host: 172.16.215.87
+    VM23088:
+      ansible_host: 172.16.215.88
+    VM23089:
+      ansible_host: 172.16.215.89
+    VM23090:
+      ansible_host: 172.16.215.90
+    VM23091:
+      ansible_host: 172.16.215.91
+    VM23092:
+      ansible_host: 172.16.215.92
+    VM23093:
+      ansible_host: 172.16.215.93
+    VM23094:
+      ansible_host: 172.16.215.94
+    VM23095:
+      ansible_host: 172.16.215.95
+    VM23096:
+      ansible_host: 172.16.215.96
+    VM23097:
+      ansible_host: 172.16.215.97
+    VM23098:
+      ansible_host: 172.16.215.98
+    VM23099:
+      ansible_host: 172.16.215.99
+    VM23100:
+      ansible_host: 172.16.215.100
+    VM23101:
+      ansible_host: 172.16.215.101
+    VM23102:
+      ansible_host: 172.16.215.102
+    VM23103:
+      ansible_host: 172.16.215.103
+    VM23104:
+      ansible_host: 172.16.215.104
+    VM23105:
+      ansible_host: 172.16.215.105
+    VM23106:
+      ansible_host: 172.16.215.106
+    VM23107:
+      ansible_host: 172.16.215.107
+    VM23108:
+      ansible_host: 172.16.215.108
+    VM23109:
+      ansible_host: 172.16.215.109
+    VM23110:
+      ansible_host: 172.16.215.110
+    VM23111:
+      ansible_host: 172.16.215.111
+    VM23112:
+      ansible_host: 172.16.215.112
+    VM23113:
+      ansible_host: 172.16.215.113
+    VM23114:
+      ansible_host: 172.16.215.114
+    VM23115:
+      ansible_host: 172.16.215.115
+    VM23116:
+      ansible_host: 172.16.215.116
+    VM23117:
+      ansible_host: 172.16.215.117
+    VM23118:
+      ansible_host: 172.16.215.118
+    VM23119:
+      ansible_host: 172.16.215.119
+    VM23120:
+      ansible_host: 172.16.215.120
+    VM23121:
+      ansible_host: 172.16.215.121
+    VM23122:
+      ansible_host: 172.16.215.122
+    VM23123:
+      ansible_host: 172.16.215.123
+    VM23124:
+      ansible_host: 172.16.215.124
+    VM23125:
+      ansible_host: 172.16.215.125
+    VM23126:
+      ansible_host: 172.16.215.126
+    VM23127:
+      ansible_host: 172.16.215.127
+    VM23128:
+      ansible_host: 172.16.215.128
+    VM23129:
+      ansible_host: 172.16.215.129
+    VM23130:
+      ansible_host: 172.16.215.130
+    VM23131:
+      ansible_host: 172.16.215.131
+    VM23132:
+      ansible_host: 172.16.215.132
+    VM23133:
+      ansible_host: 172.16.215.133
+    VM23134:
+      ansible_host: 172.16.215.134
+    VM23135:
+      ansible_host: 172.16.215.135
+    VM23136:
+      ansible_host: 172.16.215.136
+    VM23137:
+      ansible_host: 172.16.215.137
+    VM23138:   # Last VM of testbed-bjw3-can-7050-11 M1-128
+      ansible_host: 172.16.215.138
 
 vms_bjw3_4:
   hosts:
