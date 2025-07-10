@@ -1,0 +1,11 @@
+{%- for port_a, port_b in l1_existing_cross_connects.items() %}
+{ "op": "remove", "path": "/OCS_CROSS_CONNECT/{{ port_a }}-{{ port_b }}" },
+{% endfor %}
+{%- for port_a, port_b in l1_cross_connects.items() %}
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_a }}A-{{ port_b }}B", "value": {} },
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_a }}A-{{ port_b }}B/a_side", "value": "{{ port_a }}A" },
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_a }}A-{{ port_b }}B/b_side", "value": "{{ port_b }}B" },
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_b }}A-{{ port_a }}B", "value": {} },
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_b }}A-{{ port_a }}B/a_side", "value": "{{ port_b }}A" },
+{ "op": "add", "path": "/OCS_CROSS_CONNECT/{{ port_b }}A-{{ port_a }}B/b_side", "value": "{{ port_a }}B" },
+{% endfor %}

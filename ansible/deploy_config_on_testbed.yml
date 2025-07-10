@@ -1,4 +1,4 @@
-- hosts: sonic
+- hosts: all
   gather_facts: no
   serial: "100%"
   roles:
