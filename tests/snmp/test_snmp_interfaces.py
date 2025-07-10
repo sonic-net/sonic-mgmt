@@ -168,8 +168,7 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
-    snmp_ifnames = [v['name']
-                    for k, v in list(snmp_facts['snmp_interfaces'].items())]
+    snmp_ifnames = [v['name'] for k, v in list(snmp_facts['snmp_interfaces'].items())]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
     for asic in duthost.asics:
