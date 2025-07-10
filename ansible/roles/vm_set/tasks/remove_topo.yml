@@ -174,7 +174,7 @@
 - name: Destroy VMs network in parallel
   vm_topology:
     cmd: 'destroy'
-    vm_names: "{{ VM_targets }}"
+    vm_names: "{{ vm_name }}"
   become: yes
   async: 3600
   poll: 0
