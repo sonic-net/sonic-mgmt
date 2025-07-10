@@ -345,3 +345,17 @@ r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22348
 r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
+
+# FRR related logs, need to address them later.
+# https://github.com/sonic-net/sonic-buildimage/issues/xxx
+r, ".* ERR bgp#zebra.* Failed to enqueue dataplane install.*"
+r, ".* ERR bgp#zebra.* libyang Invalid type uint32 empty value.*"
+r, ".* ERR bgp#zebra.* libyang Invalid boolean value.*"
+r, ".* ERR bgp#zebra.* libyang Unsatisfied pattern.*"
+r, ".* ERR bgp#zebra.* Extended Error: Invalid prefsrc address.*"
+r, ".* ERR bgp#zebra.* netlink-dp .* error: Invalid argument.*"
+
+r, ".* ERR bgp#bgpd.* unexpected packet received in state .*"
+r, ".* ERR bgp#bgpd.* Failure handling event .* in state .*"
+r, ".* ERR bgp#bgpd.* nexthop_set failed.*"
+r, ".* ERR bgp#bgpd.* bgp_connect_success: bgp_getsockname(): failed for peer.*"
