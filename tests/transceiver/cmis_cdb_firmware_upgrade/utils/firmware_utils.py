@@ -123,7 +123,8 @@ def get_latest_two_firmware_metadata_for_all_transceivers(
     @return: Dictionary of transceiver types with (normalized vendor name, part number) as keys,
              and a list of the most recent firmware metadata as values.
     @raises: pytest.skip if no transceiver details or firmware versions found
-    @raises: pytest.fail if gold firmware is requested but transceiver_common_attributes not provided
+    @raises: pytest.fail if gold firmware is requested but transceiver_common_attributes not provided or
+                if not enough firmware versions are available for a transceiver type.
     """
     if not get_dev_transceiver_details:
         pytest.skip("No transceiver details available, skipping test.")
@@ -177,12 +178,11 @@ def get_latest_two_firmware_metadata_for_all_transceivers(
         # Select the required number of latest firmware versions
         num_available = len(sorted_firmware)
         if num_available < NUM_LATEST_FIRMWARE_VERSIONS:
-            logger.warning(
+            pytest.fail(
                 f"Only {num_available} firmware versions available for transceiver "
                 f"type {transceiver_key}, but {NUM_LATEST_FIRMWARE_VERSIONS} required. "
                 f"Available versions: {[fw.get('version') for fw in sorted_firmware]}"
             )
-            selected_firmware = sorted_firmware
         else:
             selected_firmware = sorted_firmware[:NUM_LATEST_FIRMWARE_VERSIONS]
 
@@ -205,6 +205,11 @@ def get_latest_two_firmware_metadata_for_all_transceivers(
                         seen_versions.add(version)
                         unique_firmware.append(firmware)
                 selected_firmware = unique_firmware
+                if len(selected_firmware) < NUM_LATEST_FIRMWARE_VERSIONS + 1:
+                    pytest.fail(
+                        f"Not enough unique firmware versions found for transceiver type {transceiver_key}. "
+                        f"Expected at least {NUM_LATEST_FIRMWARE_VERSIONS + 1}, found {len(selected_firmware)}."
+                    )
             else:
                 logger.error(f"No gold firmware metadata found for transceiver type {transceiver_key}")
 
@@ -237,16 +242,18 @@ def get_dut_firmware_base_url(duthost, firmware_base_url_dict):
     pytest.fail(f"No firmware base URL found for DUT {duthost.hostname} in the firmware base URL dictionary.")
 
 
-def prepare_firmware_base_directory_on_dut(duthost, base_path):
+def prepare_firmware_base_directory_on_dut(duthost, firmware_base_path):
     """
     Prepares the firmware directory on the DUT by cleaning and recreating it.
 
     @param duthost: DUT host object for running commands
-    @param base_path: Base path to prepare on the DUT
+    @param firmware_base_path: Base path to prepare on the DUT
     """
-    logger.info(f"Creating base directory for firmware on DUT: {base_path}")
-    duthost.command(f"rm -rf {base_path}/*")
-    duthost.command(f"mkdir -p {base_path}")
+    if not firmware_base_path:
+        pytest.fail("Base path for firmware directory cannot be empty.")
+    logger.info(f"Creating base directory for firmware on DUT: {firmware_base_path}")
+    duthost.command(f"rm -rf {firmware_base_path}/*")
+    duthost.command(f"mkdir -p {firmware_base_path}")
 
 
 def download_firmware_binary(duthost, src_url, dest_path):
@@ -322,6 +329,8 @@ def cleanup_firmware_files(duthost, firmware_base_path):
     @param firmware_base_path: Base path on DUT where firmware directory is located
     """
     try:
+        if not firmware_base_path:
+            pytest.fail("Firmware base path cannot be empty.")
         logger.info(f"Removing firmware directory {firmware_base_path} and all its contents")
         duthost.shell(f"rm -rf {firmware_base_path}", module_ignore_errors=True)
         logger.info(f"Firmware directory {firmware_base_path} removed successfully")

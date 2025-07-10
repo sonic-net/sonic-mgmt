@@ -178,7 +178,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `cmis_rev`: CMIS revision string in the format `X.Y`.
     - `vdm_supported`, `cdb_backgroundmode_supported`, `dual_bank_supported`: Boolean values indicating support for VDM, CDB background mode, and dual bank firmware, respectively.
 
-3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries so that firmware upgrade can be tested. Following should be the format of the file
+3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
     ```csv
     normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
@@ -273,8 +273,18 @@ The following tests aim to validate various functionalities of the transceiver u
 
 ###### 1.4.1.1 Firmware Binary Naming Guidelines
 
-CMIS CDB firmware binaries **must** not have not have spaces or special characters (except the below special characters) in their filenames.
-The valid special characters are `-` and `_`.
+CMIS CDB firmware binaries must follow strict naming conventions to ensure compatibility across different filesystems and automation tools.
+
+**Filename Requirements:**
+
+1. **Character Restrictions:**
+   - **Must not** contain spaces or special characters except hyphens (`-`), dots (`.`), and underscores (`_`)
+   - Must be valid filenames for Windows, Linux, and macOS filesystems
+   - Avoid reserved characters: `< > : " | ? * \ /`
+   - Ensure that the filename does not start or end with special characters
+
+2. **File Extension:**
+   - Use `.bin` extension
 
 ###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
 
@@ -356,8 +366,8 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 /tmp/cmis_cdb_firmware/
 ├── <NORMALIZED_VENDOR_NAME>/
 │   └── <NORMALIZED_VENDOR_PART_NUMBER>/
-│       ├── <NORMALIZED_VENDOR_NAME>_<NORMALIZED_VENDOR_PART_NUMBER>_<VERSION_1>.bin
-│       └── <NORMALIZED_VENDOR_NAME>_<NORMALIZED_VENDOR_PART_NUMBER>_<VERSION_2>.bin
+│       ├── FIRMWARE_BINARY_1.bin
+│       └── FIRMWARE_BINARY_2.bin
 └── ...
 ```
 
@@ -395,9 +405,11 @@ The `cmis_cdb_firmware_base_url.csv` file contains the mapping between inventory
 
 ```csv
 inv_name,fw_base_url
-lab,http://firmware-server.example.com/cmis_cdb_firmware/
-production,https://secure-firmware.example.com/cmis_cdb_firmware/
+lab,http://firmware-server.example.com/cmis_cdb_firmware
+production,https://secure-firmware.example.com/cmis_cdb_firmware
 ```
+
+> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name and part number.
 
 **Download URL Format:**
 Firmware binaries are accessed using the following URL pattern:
@@ -426,9 +438,8 @@ To ensure only the necessary firmware binaries are present for each transceiver:
    - Sort available firmware versions in descending order (most recent first)
    - **Selection criteria:**
      - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
-     - Include the two most recent firmware versions
-     - If the gold firmware version is not among the two most recent versions, include it as a third binary
-     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present
+     - Include the two most recent firmware versions in addition to the gold version
+     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary
 5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
 6. **Validate firmware binary integrity** using MD5 checksums after copying.
 
