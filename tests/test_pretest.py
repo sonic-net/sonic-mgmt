@@ -219,8 +219,12 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     """
     Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
     """
-    pytest_require(("tgen" in (request.config.getoption("--topology") or "")),
+    is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"]
+
+    pytest_require(is_ixia_testbed,
                    "Skip snappi metadata generation for non-tgen testbed")
+
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
