@@ -5,7 +5,6 @@ The classes must implement the PduControllerBase interface defined in controller
 """
 import logging
 import jinja2
-import asyncio
 
 from .controller_base import PduControllerBase
 

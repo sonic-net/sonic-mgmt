@@ -266,7 +266,6 @@ async def async_main(module):
     module.exit_json(ansible_facts=results)
 
 
-
 def main():
     module = AnsibleModule(
         argument_spec=dict(
