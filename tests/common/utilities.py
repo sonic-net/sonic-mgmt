@@ -48,7 +48,7 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
 
 def check_skip_release(duthost, release_list):
@@ -1461,3 +1461,23 @@ def get_vlan_from_port(duthost, member_port):
         if vlan_name is not None:
             break
     return vlan_name
+
+
+def configure_packet_aging(duthost, disabled=True):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout.
+        This function can enable or disable packet aging feature.
+
+        Args:
+            duthost: DUT host object
+            disabled: True to disable packet aging, False to enable packet aging
+    """
+    logger.info("Starting configure packet aging")
+    asic = duthost.get_asic_name()
+    if 'spc' in asic:
+        action = "disable" if disabled else "enable"
+        logger.info(f"{action.capitalize()} Mellanox packet aging")
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command(f"docker exec syncd python /packets_aging.py {action}")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
