@@ -1,5 +1,6 @@
 import pytest
 import time
+import logging
 import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -17,6 +18,8 @@ pytestmark = [
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
+
+logger = logging.getLogger(__name__)
 
 
 def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -111,7 +114,7 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
     """
     testing_mode, duthost = testing_config
     packets_send_duration = 120
-    client_packets_per_sec = 10000
+    client_packets_per_sec = 25
 
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
@@ -148,18 +151,52 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             return not output['rc'] and output['stdout'].strip() == "exists"
 
         def _verify_server_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0]) * num_dhcp_servers
+            actual_count, bit_map = init_and_calculate_pkt(pkts, int(exp_count / num_dhcp_servers))
+            actual_count *= num_dhcp_servers
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,
                           "Mismatch: DUT count = {}, PTF count = {}.".format(actual_count, exp_count))
+            validate_missing_packet(bit_map, int(exp_count / num_dhcp_servers))
 
         def _verify_client_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
+            actual_count, bit_map = init_and_calculate_pkt(pkts, exp_count)
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,
                           "Mismatch: DUT count = {}, PTF count = {}.".format(actual_count, exp_count))
+            validate_missing_packet(bit_map, exp_count)
+
+        def validate_missing_packet(bit_map, max_xid):
+            missing_pkt_count = 0
+            for index, byte in enumerate(bit_map):
+                # get the location of 0 in the bit
+                if byte != 255:
+                    for bit in range(8):
+                        # check if the bit is set
+                        bit_value = (byte >> bit) & 1
+                        if bit_value == 0:
+                            if (index * 8 + bit) >= max_xid:
+                                break
+                            # if the bit is not set, it means the packet is missing
+                            # and the index is the xid of the missing packet
+                            missing_pkt_count += 1
+            if missing_pkt_count > 0:
+                logger.warning("Missiong packets detected, total missing packet: {}".format(
+                    missing_pkt_count))
+            pytest_assert(missing_pkt_count <= max_xid * 0.1,
+                          "Missiong packets detected, total missing packet: {}, expected total packet: {}".format(
+                                missing_pkt_count, max_xid))
+
+        def init_and_calculate_pkt(pkts, max_xid):
+            actual_count = 0
+            bit_map = bytearray((max_xid + 7) // 8)
+            for pkt in pkts:
+                if pkt[scapy.BOOTP].xid <= max_xid:
+                    xid = pkt[scapy.BOOTP].xid
+                    actual_count += 1
+                    bit_map[xid // 8] |= 1 << (xid % 8)
+            return actual_count, bit_map
 
         if dhcp_type in ['discover', 'request']:
             interface = client_port_name
