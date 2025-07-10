@@ -1561,9 +1561,11 @@ gnmi/test_gnoi_killprocess.py:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology"
+    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
 #####           hash              #####
@@ -2058,6 +2060,18 @@ mvrf/test_mgmtvrf.py:
       - "asic_type in ['vs']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
 #####           nat               #####
@@ -2689,6 +2703,18 @@ sflow/test_sflow.py:
     conditions:
       - "asic_type in ['vs']"
 
+sflow/test_sflow.py::TestReboot::testFastreboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+sflow/test_sflow.py::TestReboot::testWarmreboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
 #######################################
 #####      show_techsupport       #####
 #######################################
@@ -3146,6 +3172,18 @@ vrf/test_vrf.py::TestVrfAclRedirect:
     conditions:
       - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
+
+vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
+  skip:
+    reason: "Dualtor topology doesn't support advanced-reboot"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 vrf/test_vrf_attr.py:
   skip:
