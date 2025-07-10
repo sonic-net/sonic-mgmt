@@ -10,6 +10,7 @@ all:
       vars:
         topologies:
           - t1
+          - t1-vpp
           - t1-lag
           - t1-lag-vpp
           - t1-28-lag
