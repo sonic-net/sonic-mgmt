@@ -39,6 +39,10 @@ def skip_if_packet_trimming_not_supported(duthost):
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")
 
+    # For Nvidia SPC1/2/3 platforms, skip the test
+    elif any(platform_id in platform.lower() for platform_id in ["sn2", "sn3", "sn4"]):
+        pytest.skip(f"Packet trimming is not supported on {platform}")
+
     # For Nvidia SPC4 platforms, check if the "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT" exists in sai.profile
     elif "sn5600" in platform:
         hwsku = duthost.facts["hwsku"]
