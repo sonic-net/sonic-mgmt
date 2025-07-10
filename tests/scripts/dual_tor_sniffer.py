@@ -12,7 +12,7 @@ class L2ListenAllSocket(scapyall.conf.L2listen):
         # HACK: Set the socket bind to NOOP, so the packet sockets created
         # will not bind to any interface and it will listen on all interfaces
         # by default.
-        socket.bind = lambda _: None
+        socket.socket.bind = lambda *_: None
         super(L2ListenAllSocket, self).__init__(*args, **kwargs)
 
 
