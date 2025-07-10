@@ -23,3 +23,15 @@ def setup_SmartSwitchHaTrafficTest(duthost, ptfhost, ptfadapter, vmhost, tbinfo)
     ha_io = SmartSwitchHaTrafficTest(activehost, standbyhost, ptfhost,
                                      ptfadapter, vmhost, tbinfo, io_ready, namespace="ns1")
     return ha_io
+
+
+@pytest.fixture(scope="module")
+def setup_namespaces_with_routes(ptfhost, duthosts):
+    # TODO: Implement the fixture to set up namespaces with routes
+    pass
+
+
+@pytest.fixture(scope="module")
+def setup_ha_config():
+    # TODO: Implement the fixture to set up HA configuration
+    pass
