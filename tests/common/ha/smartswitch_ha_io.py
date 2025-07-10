@@ -20,8 +20,8 @@ from collections import defaultdict
 TCP_DST_PORT = 5000
 TEMPLATES_DIR = "templates/"
 SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
-DUAL_TOR_SNIFFER_CONF_TEMPL = "smartswitch_ha_sniffer.conf.j2"
-DUAL_TOR_SNIFFER_CONF = "ha_sniffer.conf"
+SSW_HA_SNIFFER_CONF_TEMPL = "smartswitch_ha_sniffer.conf.j2"
+SSW_HA_SNIFFER_CONF = "ha_sniffer.conf"
 
 SENDER_NAMESPACE = "ns1"
 SNIFFER_NAMESPACE = "ns2"
@@ -75,10 +75,10 @@ class SmartSwitchHaTrafficTest:
             self.capture_log,
             self.sniff_timeout,
         )
-        templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, DUAL_TOR_SNIFFER_CONF_TEMPL)).read())
+        templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, SSW_HA_SNIFFER_CONF_TEMPL)).read())
         self.ptfhost.copy(
             content=templ.render(ptf_sniffer=self.ptf_sniffer, ptf_sniffer_args=ptf_sniffer_args, netns=self.namespace),
-            dest=os.path.join(SUPERVISOR_CONFIG_DIR, DUAL_TOR_SNIFFER_CONF)
+            dest=os.path.join(SUPERVISOR_CONFIG_DIR, SSW_HA_SNIFFER_CONF)
         )
         self.ptfhost.copy(src='scripts/ha_sniffer.py', dest=self.ptf_sniffer)
         self.ptfhost.shell("supervisorctl update")
