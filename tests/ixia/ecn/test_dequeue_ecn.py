@@ -1,10 +1,10 @@
 import pytest
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                     # noqa F401
-from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list                    # noqa F401
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                     # noqa: F401
+from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list                    # noqa: F401
 
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import get_markings_dut, setup_markings_dut
@@ -13,10 +13,10 @@ from tests.ixia.ptf_utils import get_sai_attributes
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-def test_dequeue_ecn(request, ixia_api, ixia_testbed_config, conn_graph_facts,                  # noqa F811
-                     fanout_graph_facts, duthosts, ptfhost, localhost,                          # noqa F811
+def test_dequeue_ecn(request, ixia_api, ixia_testbed_config, conn_graph_facts,                  # noqa: F811
+                     fanout_graph_facts, duthosts, ptfhost, localhost,                          # noqa: F811
                      rand_one_dut_hostname, rand_one_dut_portname_oper_up,
-                     rand_one_dut_lossless_prio, prio_dscp_map):                                # noqa F811
+                     rand_one_dut_lossless_prio, prio_dscp_map):                                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress
 
