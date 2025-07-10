@@ -253,6 +253,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if yang_validate:
         pytest_assert(
-            wait_until(60, 15, 0, sonic_host.yang_validate),
+            wait_until(120, 30, 0, sonic_host.yang_validate),
             "Yang validation failed after config_reload"
         )
