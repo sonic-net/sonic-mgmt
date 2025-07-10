@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import json
+import asyncio
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
 try:
@@ -130,23 +131,7 @@ def get_iftable(snmp_data):
     return (if_table, inverse_if_table)
 
 
-async def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            host=dict(required=True),
-            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
-            community=dict(required=False, default=False),
-            username=dict(required=False),
-            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
-            integrity=dict(required=False, choices=['md5', 'sha']),
-            privacy=dict(required=False, choices=['des', 'aes']),
-            authkey=dict(required=False),
-            privkey=dict(required=False),
-            removeplaceholder=dict(required=False)),
-        required_together=(['username', 'level', 'integrity', 'authkey'], [
-                           'privacy', 'privkey'],),
-        supports_check_mode=False)
-
+async def async_main(module):
     m_args = module.params
 
     if not has_pysnmp:
@@ -204,7 +189,7 @@ async def main():
     error_indication, error_status, error_index, var_binds = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((host, 161)),
+        await UdpTransportTarget.create((host, 161)),
         ContextData(),
         ObjectType(ObjectIdentity(p.if_descr,))
     )
@@ -217,7 +202,7 @@ async def main():
     error_indication, error_status, error_index, var_table = await next_cmd(
         SnmpEngine(),
         snmp_auth,
-        UdpTransportTarget.create((host, 161)),
+        await UdpTransportTarget.create((host, 161)),
         ContextData(),
         ObjectType(ObjectIdentity(p.lldp_rem_port_id,)),
         ObjectType(ObjectIdentity(p.lldp_rem_port_desc,)),
@@ -281,4 +266,26 @@ async def main():
     module.exit_json(ansible_facts=results)
 
 
-main()
+
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            host=dict(required=True),
+            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
+            community=dict(required=False, default=False),
+            username=dict(required=False),
+            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
+            integrity=dict(required=False, choices=['md5', 'sha']),
+            privacy=dict(required=False, choices=['des', 'aes']),
+            authkey=dict(required=False),
+            privkey=dict(required=False),
+            removeplaceholder=dict(required=False)),
+        required_together=(['username', 'level', 'integrity', 'authkey'], [
+            'privacy', 'privkey'],),
+        supports_check_mode=False)
+
+    asyncio.run(async_main(module))
+
+
+if __name__ == '__main__':
+    main()

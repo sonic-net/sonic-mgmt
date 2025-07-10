@@ -5,6 +5,7 @@ The classes must implement the PduControllerBase interface defined in controller
 """
 import logging
 import jinja2
+import asyncio
 
 from .controller_base import PduControllerBase
 
@@ -127,7 +128,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             ContextData(),
             ObjectType(ObjectIdentity(query_oid))
         )
@@ -136,13 +137,13 @@ class snmpPduController(PduControllerBase):
             logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
         else:
             for varBinds in varTable:
-                for oid, val in varBinds:
-                    oid = oid.getOid() if hasattr(oid, 'getoid') else oid
-                    current_oid = str(oid)
-                    port_oid = current_oid.replace(pdu_port_base, '')
-                    label = val.prettyPrint().lower()
-                    logger.info("Found port {} with label {}".format(port_oid, label))
-                    self._build_outlet_maps(port_oid, label)
+                oid, val = varBinds
+                oid = oid.getOid() if hasattr(oid, 'getoid') else oid
+                current_oid = str(oid)
+                port_oid = current_oid.replace(pdu_port_base, '')
+                label = val.prettyPrint().lower()
+                logger.info("Found port {} with label {}".format(port_oid, label))
+                self._build_outlet_maps(port_oid, label)
 
     def _get_pdu_ports(self):
         """
@@ -198,7 +199,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, _, _ = await set_cmd(
                 SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget.create((self.controller, 161)),
+                await UdpTransportTarget.create((self.controller, 161)),
                 ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
@@ -229,7 +230,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, _, _ = await set_cmd(
                 SnmpEngine(),
                 cmdgen.CommunityData(self.snmp_rwcommunity),
-                UdpTransportTarget.create((self.controller, 161)),
+                await UdpTransportTarget.create((self.controller, 161)),
                 ContextData(),
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
@@ -253,7 +254,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             ContextData(),
             ObjectType(ObjectIdentity(query_id))
         )
@@ -277,7 +278,7 @@ class snmpPduController(PduControllerBase):
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             SnmpEngine(),
             snmp_auth,
-            UdpTransportTarget.create((self.controller, 161)),
+            await UdpTransportTarget.create((self.controller, 161)),
             ContextData(),
             ObjectType(ObjectIdentity(query_id))
         )
