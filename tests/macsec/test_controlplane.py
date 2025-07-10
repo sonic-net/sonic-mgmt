@@ -100,7 +100,7 @@ class TestControlPlane():
         # Replace existing profile with new profile
         new_profile_name = profile_name+"_NEW"
         setup_macsec_configuration(duthost, ctrl_link, new_profile_name, default_priority,
-            cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
+                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
 
         def check_mka_new_session():
             _, _, new_dut_ingress_sc_table, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
@@ -117,6 +117,6 @@ class TestControlPlane():
         finally:
             # Revert back to original configuration
             setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
-                cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
+                                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
             # Clean up new macsec profile
             delete_macsec_profile(duthost, port_name, new_profile_name)
