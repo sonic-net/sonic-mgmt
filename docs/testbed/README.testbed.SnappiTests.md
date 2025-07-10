@@ -20,7 +20,7 @@ Each DUT front-panel port is cabled 1-to-1 to a traffic-generator port of equal 
 | `dut1`      | Ethernet1 | `tgen1`   | P1      | 100 000          |         | Access    |
 | `dut1`      | Ethernet2 | `tgen1`   | P2      | 100 000          |         | Access    |
 
-The CSV file that carries this information is called **`sonic_tgen_links.csv`** and must reside next to the Ansible playbooks (`/ansible` directory) so that `conn_graph_facts.py` can feed the tests.
+The CSV file that carries this information is called **`sonic_tgen_links.csv`** and must reside next to the Ansible playbooks (`/ansible` directory) so that `conn_graph_facts.py` can feed the tests. This is similar in format to [sonic_snappi-sonic_links.csv](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/files/sonic_snappi-sonic_links.csv).
 
 #### Topology Rules
 * Snappi tests treat every DUT front-panel port listed in `sonic_tgen_links.csv` as *test-traffic* capable; they do **not** distinguish between traditional “uplink” and “down-link” roles.
