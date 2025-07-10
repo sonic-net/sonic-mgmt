@@ -87,7 +87,8 @@ def verify_port_snmp(facts, snmp_facts):
     """
     missed = {}
     snmp_port_map = {snmp_facts['snmp_interfaces'][idx]
-                     ['name']: idx for idx in snmp_facts['snmp_interfaces']}
+                     ['name']: idx for idx in snmp_facts['snmp_interfaces']
+                     if 'name' in snmp_facts['snmp_interfaces'][idx]}
 
     for port_name in facts:
         idx = snmp_port_map[port_name]
@@ -111,7 +112,8 @@ def verify_port_ifindex(snmp_facts, results):
     """
     unique = []
     snmp_port_map = {snmp_facts['snmp_interfaces'][idx]
-                     ['name']: idx for idx in snmp_facts['snmp_interfaces']}
+                     ['name']: idx for idx in snmp_facts['snmp_interfaces']
+                     if 'name' in snmp_facts['snmp_interfaces'][idx]}
     for port_name in results:
         idx = snmp_port_map[port_name]
         port_snmp = snmp_facts['snmp_interfaces'][idx]
@@ -133,7 +135,8 @@ def verify_snmp_speed(facts, snmp_facts, results):
     """
     speed, high_speed = "speed", "ifHighSpeed"
     snmp_port_map = {snmp_facts['snmp_interfaces'][idx]
-                     ['name']: idx for idx in snmp_facts['snmp_interfaces']}
+                     ['name']: idx for idx in snmp_facts['snmp_interfaces']
+                     if 'name' in snmp_facts['snmp_interfaces'][idx]}
     for port_name in results:
         idx = snmp_port_map[port_name]
         port_snmp = snmp_facts['snmp_interfaces'][idx]
@@ -168,7 +171,7 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
-    snmp_ifnames = [v['name'] for k, v in list(snmp_facts['snmp_interfaces'].items())]
+    snmp_ifnames = [v['name'] for k, v in list(snmp_facts['snmp_interfaces'].items()) if 'name' in v]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
     for asic in duthost.asics:
@@ -199,7 +202,7 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
         host=duthost.hostname, source="persistent")['ansible_facts']
 
     snmp_ifnames = [v['name']
-                    for k, v in list(snmp_facts['snmp_interfaces'].items())]
+                    for k, v in list(snmp_facts['snmp_interfaces'].items()) if 'name' in v]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
     # Verify management port in snmp interface list
