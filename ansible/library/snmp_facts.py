@@ -478,61 +478,59 @@ async def async_main(module):
     ipv4_networks = Tree()
 
     for varBinds in varTable:
-        for varBind in varBinds:
-            oid = varBind[0]
-            val = varBind[1]
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if 'No more variables left in this MIB View' in current_val:
-                continue
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if 'No more variables left in this MIB View' in current_val:
+            continue
 
-            if v.ifIndex in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
-                interface_indexes.append(ifIndex)
-            if v.ifDescr in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['name'] = current_val
-            if v.ifType in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['type'] = current_val
-            if v.ifMtu in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['mtu'] = current_val
-            if v.ifSpeed in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['speed'] = current_val
-            if v.ifPhysAddress in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(
-                    current_val)
-            if v.ifAdminStatus in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(
-                    int(current_val))
-            if v.ifOperStatus in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(
-                    int(current_val))
-            if v.ifHighSpeed in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
-            if v.ipAdEntAddr in current_oid:
-                curIPList = current_oid.rsplit('.', 4)[-4:]
-                curIP = ".".join(curIPList)
-                ipv4_networks[curIP]['address'] = current_val
-                all_ipv4_addresses.append(current_val)
-            if v.ipAdEntIfIndex in current_oid:
-                curIPList = current_oid.rsplit('.', 4)[-4:]
-                curIP = ".".join(curIPList)
-                ipv4_networks[curIP]['interface'] = current_val
-            if v.ipAdEntNetMask in current_oid:
-                curIPList = current_oid.rsplit('.', 4)[-4:]
-                curIP = ".".join(curIPList)
-                ipv4_networks[curIP]['netmask'] = current_val
-            if v.ifAlias in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['description'] = current_val
+        if v.ifIndex in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
+            interface_indexes.append(ifIndex)
+        if v.ifDescr in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['name'] = current_val
+        if v.ifType in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['type'] = current_val
+        if v.ifMtu in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['mtu'] = current_val
+        if v.ifSpeed in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['speed'] = current_val
+        if v.ifPhysAddress in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(
+                current_val)
+        if v.ifAdminStatus in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(
+                int(current_val))
+        if v.ifOperStatus in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(
+                int(current_val))
+        if v.ifHighSpeed in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
+        if v.ipAdEntAddr in current_oid:
+            curIPList = current_oid.rsplit('.', 4)[-4:]
+            curIP = ".".join(curIPList)
+            ipv4_networks[curIP]['address'] = current_val
+            all_ipv4_addresses.append(current_val)
+        if v.ipAdEntIfIndex in current_oid:
+            curIPList = current_oid.rsplit('.', 4)[-4:]
+            curIP = ".".join(curIPList)
+            ipv4_networks[curIP]['interface'] = current_val
+        if v.ipAdEntNetMask in current_oid:
+            curIPList = current_oid.rsplit('.', 4)[-4:]
+            curIP = ".".join(curIPList)
+            ipv4_networks[curIP]['netmask'] = current_val
+        if v.ifAlias in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['description'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -555,33 +553,33 @@ async def async_main(module):
                          ' querying interface counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.ifInDiscards in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifInDiscards'] = current_val
-            if v.ifOutDiscards in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifOutDiscards'] = current_val
-            if v.ifInErrors in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifInErrors'] = current_val
-            if v.ifOutErrors in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifOutErrors'] = current_val
-            if v.ifHCInOctets in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifHCInOctets'] = current_val
-            if v.ifHCOutOctets in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifHCOutOctets'] = current_val
-            if v.ifInUcastPkts in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifInUcastPkts'] = current_val
-            if v.ifOutUcastPkts in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['ifOutUcastPkts'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.ifInDiscards in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifInDiscards'] = current_val
+        if v.ifOutDiscards in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifOutDiscards'] = current_val
+        if v.ifInErrors in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifInErrors'] = current_val
+        if v.ifOutErrors in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifOutErrors'] = current_val
+        if v.ifHCInOctets in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifHCInOctets'] = current_val
+        if v.ifHCOutOctets in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifHCOutOctets'] = current_val
+        if v.ifInUcastPkts in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifInUcastPkts'] = current_val
+        if v.ifOutUcastPkts in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['ifOutUcastPkts'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -607,49 +605,49 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying physical table')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.entPhysDescr in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
-            if v.entPhysContainedIn in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(
-                    current_val)
-            if v.entPhysClass in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(
-                    current_val)
-            if v.entPhyParentRelPos in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(
-                    current_val)
-            if v.entPhysName in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
-            if v.entPhysHwVer in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysHwVer'] = current_val
-            if v.entPhysFwVer in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysFwVer'] = current_val
-            if v.entPhysSwVer in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
-            if v.entPhysSerialNum in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysSerialNum'] = current_val
-            if v.entPhysMfgName in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
-            if v.entPhysModelName in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
-            if v.entPhysIsFRU in current_oid:
-                entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(
-                    current_val)
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.entPhysDescr in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
+        if v.entPhysContainedIn in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(
+                current_val)
+        if v.entPhysClass in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(
+                current_val)
+        if v.entPhyParentRelPos in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(
+                current_val)
+        if v.entPhysName in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
+        if v.entPhysHwVer in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysHwVer'] = current_val
+        if v.entPhysFwVer in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysFwVer'] = current_val
+        if v.entPhysSwVer in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
+        if v.entPhysSerialNum in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysSerialNum'] = current_val
+        if v.entPhysMfgName in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
+        if v.entPhysModelName in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
+        if v.entPhysIsFRU in current_oid:
+            entity_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(
+                current_val)
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -668,25 +666,25 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying physical table')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.entPhySensorType in current_oid:
-                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
-            if v.entPhySensorScale in current_oid:
-                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(
-                    current_val)
-            if v.entPhySensorPrecision in current_oid:
-                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
-            if v.entPhySensorValue in current_oid:
-                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
-            if v.entPhySensorOperStatus in current_oid:
-                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.entPhySensorType in current_oid:
+            sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
+        if v.entPhySensorScale in current_oid:
+            sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(
+                current_val)
+        if v.entPhySensorPrecision in current_oid:
+            sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
+        if v.entPhySensorValue in current_oid:
+            sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
+        if v.entPhySensorOperStatus in current_oid:
+            sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
 
     interface_to_ipv4 = {}
     for ipv4_network in ipv4_networks:
@@ -772,18 +770,18 @@ async def async_main(module):
                          ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpLocPortIdSubtype in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
-            if v.lldpLocPortId in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
-            if v.lldpLocPortDesc in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.lldpLocPortIdSubtype in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
+        if v.lldpLocPortId in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
+        if v.lldpLocPortDesc in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -802,17 +800,17 @@ async def async_main(module):
                          ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpLocManAddrLen in current_oid:
-                results['snmp_lldp']['lldpLocManAddrLen'] = current_val
-            if v.lldpLocManAddrIfSubtype in current_oid:
-                results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
-            if v.lldpLocManAddrIfId in current_oid:
-                results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
-            if v.lldpLocManAddrOID in current_oid:
-                results['snmp_lldp']['lldpLocManAddrOID'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.lldpLocManAddrLen in current_oid:
+            results['snmp_lldp']['lldpLocManAddrLen'] = current_val
+        if v.lldpLocManAddrIfSubtype in current_oid:
+            results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
+        if v.lldpLocManAddrIfId in current_oid:
+            results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
+        if v.lldpLocManAddrOID in current_oid:
+            results['snmp_lldp']['lldpLocManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -836,36 +834,36 @@ async def async_main(module):
                          ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpRemChassisIdSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
-            if v.lldpRemChassisId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
-            if v.lldpRemPortIdSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
-            if v.lldpRemPortId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
-            if v.lldpRemPortDesc in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
-            if v.lldpRemSysName in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
-            if v.lldpRemSysDesc in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
-            if v.lldpRemSysCapSupported in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
-            if v.lldpRemSysCapEnabled in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.lldpRemChassisIdSubtype in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
+        if v.lldpRemChassisId in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
+        if v.lldpRemPortIdSubtype in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
+        if v.lldpRemPortId in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
+        if v.lldpRemPortDesc in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
+        if v.lldpRemSysName in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
+        if v.lldpRemSysDesc in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
+        if v.lldpRemSysCapSupported in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
+        if v.lldpRemSysCapEnabled in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -883,18 +881,18 @@ async def async_main(module):
                          ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.lldpRemManAddrIfSubtype in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
-            if v.lldpRemManAddrIfId in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
-            if v.lldpRemManAddrOID in current_oid:
-                ifIndex = int(current_oid.split('.')[12])
-                results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.lldpRemManAddrIfSubtype in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
+        if v.lldpRemManAddrIfId in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
+        if v.lldpRemManAddrOID in current_oid:
+            ifIndex = int(current_oid.split('.')[12])
+            results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
     # Cisco 8800 has lots of interfacts, add timeout to tolerate the latency
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
@@ -913,23 +911,23 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying PFC counters')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.cpfcIfRequests in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
-            if v.cpfcIfIndications in current_oid:
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
-            if v.requestsPerPriority in current_oid:
-                ifIndex = int(current_oid.split('.')[-2])
-                prio = int(current_oid.split('.')[-1])
-                results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
-            if v.indicationsPerPriority in current_oid:
-                ifIndex = int(current_oid.split('.')[-2])
-                prio = int(current_oid.split('.')[-1])
-                results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.cpfcIfRequests in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
+        if v.cpfcIfIndications in current_oid:
+            ifIndex = int(current_oid.rsplit('.', 1)[-1])
+            results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
+        if v.requestsPerPriority in current_oid:
+            ifIndex = int(current_oid.split('.')[-2])
+            prio = int(current_oid.split('.')[-1])
+            results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
+        if v.indicationsPerPriority in current_oid:
+            ifIndex = int(current_oid.split('.')[-2])
+            prio = int(current_oid.split('.')[-1])
+            results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -944,15 +942,15 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying QoS stats')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.csqIfQosGroupStats in current_oid:
-                ifIndex = int(current_oid.split('.')[-4])
-                ifDirection = int(current_oid.split('.')[-3])
-                queueId = int(current_oid.split('.')[-2])
-                counterId = int(current_oid.split('.')[-1])
-                results['snmp_interfaces'][ifIndex]['queues'][ifDirection][queueId][counterId] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.csqIfQosGroupStats in current_oid:
+            ifIndex = int(current_oid.split('.')[-4])
+            ifDirection = int(current_oid.split('.')[-3])
+            queueId = int(current_oid.split('.')[-2])
+            counterId = int(current_oid.split('.')[-1])
+            results['snmp_interfaces'][ifIndex]['queues'][ifDirection][queueId][counterId] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -967,12 +965,12 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying FRU')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.cefcFRUPowerOperStatus in current_oid:
-                psuIndex = int(current_oid.split('.')[-1])
-                results['snmp_psu'][psuIndex]['operstatus'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.cefcFRUPowerOperStatus in current_oid:
+            psuIndex = int(current_oid.split('.')[-1])
+            results['snmp_psu'][psuIndex]['operstatus'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = await next_cmd(
         SnmpEngine(),
@@ -988,16 +986,16 @@ async def async_main(module):
         module.fail_json(msg=str(errorIndication) + ' querying CidrRouteTable')
 
     for varBinds in varTable:
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if v.ipCidrRouteEntry in current_oid:
-                # extract next hop ip from oid
-                next_hop = current_oid.split(v.ipCidrRouteEntry + ".")[1]
-                results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
-            if v.ipCidrRouteStatus in current_oid:
-                next_hop = current_oid.split(v.ipCidrRouteStatus + ".")[1]
-                results['snmp_cidr_route'][next_hop]['status'] = current_val
+        oid, val = varBinds
+        current_oid = oid.prettyPrint()
+        current_val = val.prettyPrint()
+        if v.ipCidrRouteEntry in current_oid:
+            # extract next hop ip from oid
+            next_hop = current_oid.split(v.ipCidrRouteEntry + ".")[1]
+            results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
+        if v.ipCidrRouteStatus in current_oid:
+            next_hop = current_oid.split(v.ipCidrRouteStatus + ".")[1]
+            results['snmp_cidr_route'][next_hop]['status'] = current_val
 
     if not m_args['is_eos']:
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
@@ -1072,21 +1070,21 @@ async def async_main(module):
             module.fail_json(msg=str(errorIndication) + ' querying FdbTable')
 
         for varBinds in varTable:
-            for oid, val in varBinds:
-                current_oid = oid.prettyPrint()
-                current_val = val.prettyPrint()
-                if v.dot1qTpFdbEntry in current_oid:
-                    # extract fdb info from oid
-                    items = current_oid.split(
-                        v.dot1qTpFdbEntry + ".")[1].split(".")
-                    # VLAN + MAC(6)
-                    if len(items) != 7:
-                        continue
-                    mac_str = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(
-                        int(items[1]), int(items[2]), int(items[3]), int(items[4]), int(items[5]), int(items[6]))
-                    # key must be string
-                    key = items[0] + '.' + mac_str
-                    results['snmp_fdb'][key] = current_val
+            oid, val = varBinds
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.dot1qTpFdbEntry in current_oid:
+                # extract fdb info from oid
+                items = current_oid.split(
+                    v.dot1qTpFdbEntry + ".")[1].split(".")
+                # VLAN + MAC(6)
+                if len(items) != 7:
+                    continue
+                mac_str = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(
+                    int(items[1]), int(items[2]), int(items[3]), int(items[4]), int(items[5]), int(items[6]))
+                # key must be string
+                key = items[0] + '.' + mac_str
+                results['snmp_fdb'][key] = current_val
 
     module.exit_json(ansible_facts=results)
 
