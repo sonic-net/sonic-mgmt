@@ -126,7 +126,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                   prio_dscp_map=prio_dscp_map,
                   no_of_lossy_streams=no_of_lossy_streams,
                   no_of_lossless_streams=no_of_lossless_streams
-            )
+                  )
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
