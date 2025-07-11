@@ -1,0 +1,55 @@
+---
+- name: init telemetry keys
+  set_fact:
+    server_key_t: ""
+    server_cer_t: ""
+    dsmsroot_key_t: ""
+    dsmsroot_cer_t: ""
+    dir_path_t: ""
+    subject_server: ""
+    subject_client: ""
+
+- name: read server key
+  set_fact:
+    server_key_t: "{{ telemetry_certs['server_key'] }}"
+  when: telemetry_certs['server_key'] is defined
+
+- name: read server cer
+  set_fact:
+    server_cer_t: "{{ telemetry_certs['server_cer'] }}"
+  when: telemetry_certs['server_cer'] is defined
+
+- name: read dsmsroot key
+  set_fact:
+    dsmsroot_key_t: "{{ telemetry_certs['dsmsroot_key'] }}"
+  when: telemetry_certs['dsmsroot_key'] is defined
+
+- name: read dsmsroot cer
+  set_fact:
+    dsmsroot_cer_t: "{{ telemetry_certs['dsmsroot_cer'] }}"
+  when: telemetry_certs['dsmsroot_cer'] is defined
+
+- name: read directory path
+  set_fact:
+    dir_path_t: "{{ telemetry_certs['dir_path'] }}"
+  when: telemetry_certs['dir_path'] is defined
+
+- name: read server subject
+  set_fact:
+    subject_server: "{{ telemetry_certs['subject_server'] }}"
+  when: telemetry_certs['subject_server'] is defined
+
+- name: read client subject
+  set_fact:
+    subject_client: "{{ telemetry_certs['subject_client'] }}"
+  when: telemetry_certs['subject_client'] is defined
+
+- include_tasks: deploy_certs.yml
+  vars:
+    dir_path: "{{ dir_path_t }}"
+    server_crt: "{{ server_cer_t }}"
+    server_key: "{{ server_key_t }}"
+    dsmsroot_cer: "{{ dsmsroot_cer_t }}"
+    dsmsroot_key: "{{ dsmsroot_key_t }}"
+    cert_subject: "{{ subject_server }}"
+    root_subject: "{{ subject_client }}"
