@@ -37,11 +37,11 @@ MULTIDUT_PORT_INFO = {
         {
             'multi-dut-multi-asic-to-short-link': {
                 'rx_ports': [
-                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"}
+                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"},
                 ],
                 'tx_ports': [
                     {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"}
                 ]
             }
         },
