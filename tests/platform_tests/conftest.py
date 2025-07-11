@@ -3,6 +3,8 @@ import pytest
 import os
 import logging
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.helpers.software_control import check_sc_sai_attribute_value, get_ports_supporting_sc, \
+    sc_ms_sku, sc_supported
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
@@ -200,6 +202,24 @@ def dpu_npu_port_list(duthosts):
                     dpu_npu_port_list[dut.hostname].append(port_key.split("|")[-1])
     logging.info(f"dpu npu port list: {dpu_npu_port_list}")
     return dpu_npu_port_list
+
+
+@pytest.fixture(scope="module")
+def is_sw_control_feature_enabled(duthost):
+    return sc_supported(duthost) and sc_ms_sku(duthost) and check_sc_sai_attribute_value(duthost)
+
+
+@pytest.fixture(scope="module")
+def get_sw_control_ports(duthost, is_sw_control_feature_enabled, conn_graph_facts):
+    if is_sw_control_feature_enabled:
+        sw_ports = get_ports_supporting_sc(duthost)
+        return sw_ports
+
+
+@pytest.fixture(scope="module")
+def skip_if_sw_control_feature_enabled(is_sw_control_feature_enabled):
+    if is_sw_control_feature_enabled:
+        pytest.skip("Do not supported if FW control feature enabled")
 
 
 @pytest.fixture(scope="module")

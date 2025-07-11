@@ -10,6 +10,7 @@ import json
 from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
+import functools
 
 
 def parse_intf_status(lines):
@@ -310,3 +311,30 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
+
+
+@functools.lru_cache(maxsize=1)
+def get_interfaces_info(duthost):
+    asics_name_list = [f' -n {asic.namespace}' for asic in duthost.frontend_asics] if duthost.is_multi_asic else ['']
+    interfaces_info = {}
+    for asic in asics_name_list:
+        cmd = f"sonic-cfggen{asic} -d --print-data"
+        db_output = json.loads(duthost.command(cmd)["stdout"])
+        interfaces_info.update(db_output["PORT"])
+    return interfaces_info
+
+
+def get_physical_index_to_interfaces_map(duthost, only_ports_index_up=False):
+    """
+    @summary: Get mapping of physical port indices to their corresponding Ethernet ports.
+    @return: A dictionary where key is the physical index and value is a list of Ethernet ports
+             Example: {1: ["Ethernet0", "Ethernet1"], 2: ["Ethernet3"]}
+    """
+    physical_index_to_interfaces_map = {}
+    interfaces_info = get_interfaces_info(duthost)
+    for interface, info in interfaces_info.items():
+        physical_index = info["index"]
+        if only_ports_index_up and info.get("admin_status", "down") != "up":
+            continue
+        physical_index_to_interfaces_map.setdefault(physical_index, []).append(interface)
+    return physical_index_to_interfaces_map
