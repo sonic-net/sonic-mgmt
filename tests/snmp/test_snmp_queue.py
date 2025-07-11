@@ -67,7 +67,8 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                                 wait=True)['ansible_facts']
 
     snmp_ifnames = [alias_port_name_map[v['name']]
-                    for k, v in list(snmp_facts['snmp_interfaces'].items()) if v['name'] in alias_port_name_map]
+                    for k, v in list(snmp_facts['snmp_interfaces'].items()) if 'name' in v and
+                    v['name'] in alias_port_name_map]
 
     for intf in q_interfaces:
         assert intf in snmp_ifnames, "Port {} with QUEUE config is not present in snmp interfaces".format(intf)

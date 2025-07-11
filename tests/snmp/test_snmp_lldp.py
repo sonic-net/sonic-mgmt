@@ -59,7 +59,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
 
     # Check if lldpLocPortTable is present for all ports
     for k, v in list(snmp_facts['snmp_interfaces'].items()):
-        if "Ethernet" in v['name'] or "eth" in v['name']:
+        if 'name' in v and ("Ethernet" in v['name'] or "eth" in v['name']):
             for oid in ['lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
                 assert oid in v
                 assert "No Such Object currently exists" not in v[oid]
