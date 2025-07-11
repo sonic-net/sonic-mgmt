@@ -312,7 +312,7 @@ configuration:
       - common
       - leaf
     bgp:
-      asn: 65017
+      asn: 65300
       peers:
         65100:
           - 10.0.0.116
@@ -531,18 +531,18 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.32
-          - fc00::41
+          - 10.0.0.126
+          - fc00::a1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.18/32
-        ipv6: 2064:100::18/128
+        ipv4: 100.1.0.66/32
+        ipv6: 2064:100::4a/128
       Ethernet1:
-        ipv4: 10.0.0.33/31
-        ipv6: fc00::42/126
+        ipv4: 10.0.0.127/31
+        ipv6: fc00::a2/126
     bp_interface:
-      ipv4: 10.10.246.18/24
-      ipv6: fc0a::22/64
+      ipv4: 10.10.246.124/24
+      ipv6: fc0a::8a/64
   ARISTA20LT2:
     properties:
       - common
@@ -551,18 +551,18 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.30
-          - fc00::3d
+          - 10.0.0.128
+          - fc00::a5
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.17/32
-        ipv6: 2064:100::17/128
+        ipv4: 100.1.0.67/32
+        ipv6: 2064:100::4b/128
       Ethernet1:
-        ipv4: 10.0.0.31/31
-        ipv6: fc00::3e/126
+        ipv4: 10.0.0.129/31
+        ipv6: fc00::a6/126
     bp_interface:
-      ipv4: 10.10.246.17/24
-      ipv6: fc0a::20/64
+      ipv4: 10.10.246.125/24
+      ipv6: fc0a::8c/64
   ARISTA21LT2:
     properties:
       - common
@@ -571,18 +571,18 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.32
-          - fc00::41
+          - 10.0.0.130
+          - fc00::ad
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.18/32
-        ipv6: 2064:100::18/128
+        ipv4: 100.1.0.68/32
+        ipv6: 2064:100::4c/128
       Ethernet1:
-        ipv4: 10.0.0.33/31
-        ipv6: fc00::42/126
+        ipv4: 10.0.0.131/31
+        ipv6: fc00::ae/126
     bp_interface:
-      ipv4: 10.10.246.18/24
-      ipv6: fc0a::22/64
+      ipv4: 10.10.246.126/24
+      ipv6: fc0a::8e/64
   ARISTA22LT2:
     properties:
       - common
@@ -591,18 +591,18 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.36
-          - fc00::49
+          - 10.0.0.132
+          - fc00::b1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.20/32
-        ipv6: 2064:100::20/128
+        ipv4: 100.1.0.69/32
+        ipv6: 2064:100::4d/128
       Ethernet1:
-        ipv4: 10.0.0.37/31
-        ipv6: fc00::4A/126
+        ipv4: 10.0.0.133/31
+        ipv6: fc00::b2/126
     bp_interface:
-      ipv4: 10.10.246.20/24
-      ipv6: fc0a::26/64
+      ipv4: 10.10.246.127/24
+      ipv6: fc0a::9a/64
   ARISTA23T3:
     properties:
       - common
@@ -633,18 +633,18 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.126
+          - 10.0.0.134
           - fc00::101
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.66/32
-        ipv6: 2064:100::3e/128
+        ipv4: 100.1.0.70/32
+        ipv6: 2064:100::4e/128
       Ethernet1:
-        ipv4: 10.0.0.127/31
+        ipv4: 10.0.0.135/31
         ipv6: fc00::102/126
     bp_interface:
-      ipv4: 10.10.246.124/24
-      ipv6: fc0a::80/64
+      ipv4: 10.10.246.128/24
+      ipv6: fc0a::9c/64
   ARISTA25T3:
     properties:
       - common
@@ -660,6 +660,8 @@ configuration:
         ipv4: 100.1.0.16/32
         ipv6: 2064:100::16/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 10.0.0.29/31
         ipv6: fc00::3a/126
     bp_interface:
@@ -673,17 +675,15 @@ configuration:
       asn: 65300
       peers:
         65100:
-          - 10.0.0.24
+          - 10.0.0.136
           - fc00::31
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.14/32
-        ipv6: 2064:100::14/128
+        ipv4: 100.1.0.71/32
+        ipv6: 2064:100::4f/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.0.25/31
+        ipv4: 10.0.0.137/31
         ipv6: fc00::32/126
     bp_interface:
-      ipv4: 10.10.246.14/24
-      ipv6: fc0a::1a/64
+      ipv4: 10.10.246.129/24
+      ipv6: fc0a::9e/64
