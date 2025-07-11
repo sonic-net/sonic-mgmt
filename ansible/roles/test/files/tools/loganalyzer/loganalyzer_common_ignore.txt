@@ -370,3 +370,4 @@ r, ".* ERR bgp#bgpd.* unexpected packet received in state .*"
 r, ".* ERR bgp#bgpd.* Failure handling event .* in state .*"
 r, ".* ERR bgp#bgpd.* nexthop_set failed.*"
 r, ".* ERR bgp#bgpd.* bgp_connect_success: bgp_getsockname(): failed for peer.*"
+
