@@ -1912,7 +1912,7 @@ sonic_mlnx_4700:
       ansible_host: 10.3.146.207
       ansible_hostv6: 2a01:111:e210:3000::a03:92cf
       mgmt_subnet_mask_length: 24
-      hwsku: Mellanox-SN4700-O8C48
+      hwsku: Mellanox-SN4700-O8V48
       model: MSN4700-WS2FO
       serial: MT2102X08020
       base_mac: 1C:34:DA:2D:E8:00

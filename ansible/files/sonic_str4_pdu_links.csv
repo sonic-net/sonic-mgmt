@@ -5,12 +5,8 @@ pdu-98,18,str4-7060x6-64pe-2,PSU1
 pdu-99,18,str4-7060x6-64pe-2,PSU2
 pdu-101,22,str4-7060x6-64pe-fan-2,PSU1
 pdu-102,24,str4-7060x6-64pe-fan-2,PSU2
-pdu-96,47,str4-7060x6-64pe-th5p-1,PSU1
-pdu-97,43,str4-7060x6-64pe-th5p-1,PSU2
 pdu-96,48,str4-7060x6-64pe-fan-3,PSU1
 pdu-97,48,str4-7060x6-64pe-fan-3,PSU2
-pdu-115,47,str4-7060x6-64pe-th5p-fan-1,PSU1
-pdu-116,47,str4-7060x6-64pe-th5p-fan-1,PSU2
 pdu-119,24,str4-7060x6-64pe-fan-13,PSU1
 pdu-120,23,str4-7060x6-64pe-fan-13,PSU2
 pdu-119,46,str4-7060x6-64pe-fan-4,PSU1

@@ -16,8 +16,41 @@ all:
       hosts:
         # Starting from 10.150.239.1
         # Please order the followng ptf hosts by IP address
+        bjw3-1-1:
+          ansible_host: 10.150.239.1
+          ansible_hostv6: 2404:f801:10:16::a96:ef01
+        bjw3-3-1:
+          ansible_host: 10.150.239.2
+          ansible_hostv6: 2404:f801:10:16::a96:ef02
+        bjw3-2-1:
+          ansible_host: 10.150.239.3
+          ansible_hostv6: 2404:f801:10:16::a96:ef03
     pdu:
       hosts:
+        bjw3-pdu-126-62:  # R402M
+          ansible_host: 10.150.126.62
+          protocol: snmp
+        bjw3-pdu-126-63:  # R402S
+          ansible_host: 10.150.126.63
+          protocol: snmp
+        bjw3-pdu-126-64:  # R403M
+          ansible_host: 10.150.126.64
+          protocol: snmp
+        bjw3-pdu-126-65:  # R403S
+          ansible_host: 10.150.126.65
+          protocol: snmp
+        bjw3-pdu-126-68:  # R405M
+          ansible_host: 10.150.126.68
+          protocol: snmp
+        bjw3-pdu-126-69:  # R405S
+          ansible_host: 10.150.126.69
+          protocol: snmp
+        bjw3-pdu-126-74:  # R408M
+          ansible_host: 10.150.126.74
+          protocol: snmp
+        bjw3-pdu-126-75:  # R408S
+          ansible_host: 10.150.126.75
+          protocol: snmp
 
 fanout:
   hosts:
@@ -27,6 +60,18 @@ fanout:
     bjw3-can-7260-leaf-25:
       ansible_host: 10.150.238.15
       ansible_hostv6: 2404:f801:10:16::a96:ee0f
+    bjw3-can-7050-leaf-1:
+      ansible_host: 10.150.238.65
+      ansible_hostv6: 2404:f801:10:16::a96:ee41
+      os: sonic
+    bjw3-can-7050-leaf-2:
+      ansible_host: 10.150.238.67
+      ansible_hostv6: 2404:f801:10:16::a96:ee43
+      os: sonic
+    bjw3-can-7050-leaf-3:
+      ansible_host: 10.150.238.69
+      ansible_hostv6: 2404:f801:10:16::a96:ee45
+      os: sonic
 
 
 sonic:
@@ -34,6 +79,9 @@ sonic:
     mgmt_subnet_mask_length: 23
     mgmt_subnet_v6_mask_length: 64
   children:
+    sonic_arista_7050_S128:
+    sonic_arista_7050_C6S104:
+    sonic_arista_7050_C28S16:
 
 
 server:
@@ -53,6 +101,94 @@ server:
     bjw3-can-serv-5:
       ansible_host: 10.150.238.20
       ansible_hostv6: 2404:f801:10:16::a96:ee14
+
+sonic_arista_7050_S128:
+  vars:
+    hwsku: Arista-7050CX3-32S-S128
+    iface_speed: 10000
+  hosts:
+    bjw3-can-7050-9:
+      ansible_host: 10.150.238.64
+      ansible_hostv6: 2404:f801:10:16::a96:ee40
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial: HBG244605VE
+      base_mac: 54:0f:2c:4c:88:64
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG244605VE"
+        "0x24": "54:0f:2c:4c:88:64"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG244605VE"
+        "0xFE": "0xdeadbeef"
+    bjw3-can-7050-10:
+      ansible_host: 10.150.238.66
+      ansible_hostv6: 2404:f801:10:16::a96:ee42
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial: HBG24470JC5
+      base_mac: 54:0f:2c:4e:44:dc
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG24470JC5"
+        "0x24": "54:0f:2c:4e:44:dc"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG24470JC5"
+        "0xFE": "0xdeadbeef"
+    bjw3-can-7050-11:
+      ansible_host: 10.150.238.68
+      ansible_hostv6: 2404:f801:10:16::a96:ee44
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32S-SSD
+      serial: HBG244605QV
+      base_mac: 54:0f:2c:48:0a:8c
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323113B0"
+        "0x23": "HBG244605QV"
+        "0x24": "54:0f:2c:48:0a:8c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "HBG244605QV"
+        "0xFE": "0xdeadbeef"
+
+sonic_arista_7050_C6S104:
+  vars:
+    hwsku: Arista-7050CX3-32S-C6S104
+    iface_speed: 10000
+  hosts:
+
+
+sonic_arista_7050_C28S16:
+  vars:
+    hwsku: Arista-7050CX3-32S-C28S16
+    iface_speed: 10000
+  hosts:
 
 
 mgmt:

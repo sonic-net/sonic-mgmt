@@ -21,13 +21,19 @@ all:
         vms91-2:
           ansible_host: 10.64.247.150
           ansible_hostv6: 2a01:111:e210:b000::a40:f796
+        vms91-3:
+          ansible_host: 10.64.247.156
+          ansible_hostv6: 2a01:111:e210:b000::a40:f79c
         vms92-1:
           ansible_host: 10.64.247.141
           ansible_hostv6: 2a01:111:e210:b000::a40:f78d
         vms92-2:
           ansible_host: 10.64.247.152
           ansible_hostv6: 2a01:111:e210:b000::a40:f798
-        vms94-1:
+        vms93-1:
+          ansible_host: 10.64.246.207/23
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6cf
+        vms94-1-a:
           ansible_host: 10.64.247.148
           ansible_hostv6: 2a01:111:e210:b000::a40:f794
         vms94-1-b:
@@ -175,8 +181,16 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f78a
       os: sonic
     str5-sn5640-fan-4:
-      ansible_host: 10.64.246.161
-      ansible_hostv6: 2a01:111:e210:b000::a40:f6a1
+      ansible_host: 10.64.246.169
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6a9
+      os: sonic
+    str5-sn5640-fan-6:
+      ansible_host: 10.64.246.165
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a5
+      os: sonic
+    str5-7060x6-512-fan-7:
+      ansible_host: 10.64.246.206
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6ce
       os: sonic
 
 sonic:
@@ -253,7 +267,7 @@ sonic_arista_7060x6_512:
       ansible_host: 10.64.247.146
       ansible_hostv6: 2a01:111:e210:b000::a40:f792
       mgmt_subnet_mask_length: 23
-      hwsku: Arista-7060X6-64PE-B-C512S2
+      hwsku: Arista-7060X6-64PE-B-O128
       model: DCS-7060X6-64PE-B
       serial: HBG25160FH8
       base_mac: d8:06:f3:3c:8e:cc
@@ -269,6 +283,26 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "HBG25160FH8"
+    str5-7060x6-512-7:
+      ansible_host: 10.64.246.205
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6cd
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-64PE-B-C448O16
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160FHW
+      base_mac: d8:06:f3:3b:ff:f7
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY089940107"
+        "0x23": "HBG25160FHW"
+        "0x24": "d8:06:f3:3b:ff:f7"
+        "0x25": "2025/03/08 09:42:12"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe_b"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160FHW"
 
 sonic_nvidia_sn5640:
   hosts:
@@ -312,6 +346,26 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0x2F": "MT2516600J7A"
+    str5-sn5640-6:
+      ansible_host: 10.64.246.164
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a4
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT2516600JFW
+      base_mac: 50:00:E6:01:D8:0C
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT2516600JFW"
+        "0x24": "50:00:E6:01:D8:0C"
+        "0x25": "03/18/2025 17:10:24"
+        "0x26": "16"
+        "0x27": "02.00"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0x2F": "MT2516600JFW"
 
 server:
   hosts:

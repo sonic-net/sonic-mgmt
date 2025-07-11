@@ -491,10 +491,10 @@ str-7060-cx32-1,Ethernet16,str-7260cx3-fan-06,Ethernet5/1,50000,3014,Access,off
 str-7060-cx32-1,Ethernet18,str-7260cx3-fan-06,Ethernet5/3,50000,3015,Access,off
 str-7060-cx32-1,Ethernet20,str-7260cx3-fan-06,Ethernet6/1,50000,3016,Access,off
 str-7060-cx32-1,Ethernet22,str-7260cx3-fan-06,Ethernet6/3,50000,3017,Access,off
-str-7060-cx32-1,Ethernet24,str-7260cx3-fan-06,Ethernet7/1,100000,3018,Access,on
-str-7060-cx32-1,Ethernet28,str-7260cx3-fan-06,Ethernet8/1,100000,3019,Access,on
-str-7060-cx32-1,Ethernet32,str-7260cx3-fan-06,Ethernet9/1,100000,3020,Access,on
-str-7060-cx32-1,Ethernet36,str-7260cx3-fan-06,Ethernet10/1,100000,3021,Access,on
+str-7060-cx32-1,Ethernet24,str-7260cx3-fan-06,Ethernet7/1,100000,3018,Access,off
+str-7060-cx32-1,Ethernet28,str-7260cx3-fan-06,Ethernet8/1,100000,3019,Access,off
+str-7060-cx32-1,Ethernet32,str-7260cx3-fan-06,Ethernet9/1,100000,3020,Access,off
+str-7060-cx32-1,Ethernet36,str-7260cx3-fan-06,Ethernet10/1,100000,3021,Access,off
 str-7060-cx32-1,Ethernet40,str-7260cx3-fan-06,Ethernet11/1,50000,3022,Access,off
 str-7060-cx32-1,Ethernet42,str-7260cx3-fan-06,Ethernet11/3,50000,3023,Access,off
 str-7060-cx32-1,Ethernet44,str-7260cx3-fan-06,Ethernet12/1,50000,3024,Access,off
