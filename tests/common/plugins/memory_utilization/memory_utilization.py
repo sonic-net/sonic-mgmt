@@ -72,7 +72,7 @@ class MemoryMonitor:
                 if high_threshold_raw is not None:
                     logger.debug("Raw high threshold for {}:{}: {}".format(name, mem_item, high_threshold_raw))
                     high_threshold = self._parse_threshold(high_threshold_raw, previous_value)
-                    logger.debug("Calculated high threshold for {}:{}: {}".format(name, mem_item, high_threshold))
+                    logger.info("Calculated high threshold for {}:{}: {}".format(name, mem_item, high_threshold))
 
                     if previous_value > high_threshold:
                         self._handle_memory_threshold_exceeded(
@@ -345,7 +345,7 @@ class MemoryMonitor:
 
     def parse_and_register_commands(self, hwsku=None):
         """Initialize the MemoryMonitor by reading commands from JSON files and registering them."""
-        logger.debug("Loading memory monitoring commands for hwsku: {}".format(hwsku))
+        logger.info("Loading memory monitoring commands for hwsku: {}".format(hwsku))
 
         parameter_dict = {}
         with open(MEMORY_UTILIZATION_COMMON_JSON_FILE, 'r') as file:
@@ -388,12 +388,27 @@ class MemoryMonitor:
                                 command = item["cmd"]
                                 memory_params = item["memory_params"]
                                 memory_check_fn = item["memory_check"]
-                                parameter_dict[name] = {
-                                    'name': name,
-                                    'cmd': command,
-                                    'memory_params': memory_params,
-                                    'memory_check_fn': memory_check_fn
-                                }
+
+                                # Check if this command already exists (from common config)
+                                if name in parameter_dict:
+                                    logger.info("Merging hwsku-specific config for command: {}".format(name))
+                                    # Merge memory_params instead of overwriting
+                                    existing_params = parameter_dict[name]['memory_params']
+                                    for mem_item, thresholds in memory_params.items():
+                                        logger.debug("Overriding memory params for {}:{}".format(name, mem_item))
+                                        existing_params[mem_item] = thresholds
+                                    # Update cmd and memory_check_fn if needed
+                                    parameter_dict[name]['cmd'] = command
+                                    parameter_dict[name]['memory_check_fn'] = memory_check_fn
+                                else:
+                                    # New command specific to this hwsku
+                                    logger.info("Adding new hwsku-specific command: {}".format(name))
+                                    parameter_dict[name] = {
+                                        'name': name,
+                                        'cmd': command,
+                                        'memory_params': memory_params,
+                                        'memory_check_fn': memory_check_fn
+                                    }
 
         for param in parameter_dict.values():
             # Normalize thresholds in memory_params to ensure consistent behavior
