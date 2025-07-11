@@ -58,7 +58,6 @@ def get_t2_info(duthosts, tbinfo):
 
     return upstream_ports
 
-
 @pytest.fixture(scope="module")
 def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
     ns_ifaces = []
@@ -69,6 +68,7 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
     dut2_ports = t2_ports[duthosts[1].hostname]
     ns1_ports = dut1_ports[0], dut2_ports[0]
     ns2_ports = dut1_ports[1], dut2_ports[1]
+
 
     for idx, port_idx in enumerate(ns1_ports, start=1):
         iface_name = f"eth{port_idx}"
@@ -91,21 +91,31 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
         })
 
     # Setup namespaces and static routes
+    visited_namespaces = set()
+
     for ns in ns_ifaces:
         add_port_to_namespace(ptfhost, ns["namespace"], ns["iface"], ns["ip"])
-        add_static_route_to_ptf(
-            ptfhost,
-            f"192.168.{ns['namespace'][-1]}.0/24",
-            ns["next_hop"],
-            name_of_namespace=ns["namespace"]
-        )
+
+        # Add static route to PTF only once per namespace
+        if ns["namespace"] not in visited_namespaces:
+            add_static_route_to_ptf(
+                ptfhost,
+                f"192.168.{ns['namespace'][-1]}.0/24",
+                ns["next_hop"],
+                name_of_namespace=ns["namespace"]
+            )
+            visited_namespaces.add(ns["namespace"])
+
         # Add static route on DUT
         add_static_route_to_dut(
-            duthosts[ns["dut"]], "192.168.0.0/16", ns["ip"].split('/')[0]
+            ns["dut"], "192.168.0.0/16", ns["ip"].split('/')[0]
         )
 
-    yield
 
-    # Cleanup
+    yield
+    visited_namespaces = set()
     for ns in ns_ifaces:
-        remove_namespace(ptfhost, ns["namespace"], ns["iface"], ns["ip"])
+        if ns["namespace"] not in visited_namespaces:
+            remove_namespace(ptfhost, ns["namespace"])
+            visited_namespaces.add(ns["namespace"])
+
