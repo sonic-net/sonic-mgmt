@@ -127,6 +127,7 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
         ip_ttl=63,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
+        udp_sport=VXLAN_UDP_BASE_SRC_PORT,
         vxlan_vni=int(pl.VM_VNI) if floating_nic else int(pl.VNET1_VNI),
         inner_frame=exp_inner_packet
     )
@@ -134,7 +135,8 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
     masked_exp_packet = Mask(exp_vxlan_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
-    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    # 34 is the sport offset, 2 is the length of UDP sport field
+    masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
 
     return gre_packet, masked_exp_packet

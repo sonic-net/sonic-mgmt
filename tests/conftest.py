@@ -278,6 +278,12 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
 
+    #################################
+    #   Container upgrade test options         #
+    #################################
+    parser.addoption("--container_test", action="store", default="",
+                     help="This flag indicates that the test is being run by the container test.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -619,7 +625,7 @@ def macsec_duthost(duthosts, tbinfo):
         for duthost in duthosts:
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
-            break
+                break
     else:
         return duthosts[0]
     return macsec_dut
@@ -2593,7 +2599,7 @@ def collect_db_dump(request, duthosts):
         collect_db_dump_on_duts(request, duthosts)
 
 
-def restore_config_db_and_config_reload(duts_data, duthosts):
+def restore_config_db_and_config_reload(duts_data, duthosts, request):
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
         logger.info("dut reload called on {}".format(duthost.hostname))
@@ -2609,11 +2615,13 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
                 duthost.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
                 os.remove(asic_cfg_file)
 
+    wait_for_bgp = False if request.config.getoption("skip_sanity") else True
+
     # Second execute config reload on all duthosts
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
-                            check_intf_up_ports=True, wait_for_bgp=True)
+                            check_intf_up_ports=True, wait_for_bgp=wait_for_bgp)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2921,7 +2929,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts)
+                restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 
@@ -3181,9 +3189,14 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     return test_ports
 
 
+@pytest.fixture(scope="module", params=['IPv6', 'IPv4'])
+def ip_version(request):
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo, ip_version,     # noqa F811
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -3222,9 +3235,10 @@ def setup_pfc_test(
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
         # gather all vlan specific info
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
+        ip_index = 0 if ip_version == "IPv4" else 1
+        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
+        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
+        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
@@ -3233,7 +3247,14 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts)
+    if ip_version == "IPv4":
+        ip_version_num = 4
+    elif ip_version == "IPv6":
+        ip_version_num = 6
+    else:
+        pytest.fail(f"Invalid IP version: {input}", pytrace=True)
+
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
 
     # In T1 topology update test ports by removing inactive ports
@@ -3249,7 +3270,8 @@ def setup_pfc_test(
                   'selected_test_ports': selected_ports,
                   'pfc_timers': set_pfc_timers(),
                   'neighbors': neighbors,
-                  'eth0_ip': dut_eth0_ip
+                  'eth0_ip': dut_eth0_ip,
+                  'ip_version': ip_version
                   }
 
     if mg_facts['minigraph_vlans']:

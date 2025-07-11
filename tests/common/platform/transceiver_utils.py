@@ -88,17 +88,29 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     else:
         expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
 
+    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_INFO|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
+    docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
+
+    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    port_xcvr_info = dut.command(docker_cmd, _uses_shell=True)
+    port_xcvr_info_dict = {}
+    for line in port_xcvr_info["stdout_lines"]:
+        key, value = line.split(":", 1)
+        intf_name = key.split('|')[1].strip()
+        port_xcvr_info_dict[intf_name] = value.strip()
+
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname]:
-            cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf
-            docker_cmd = asichost.get_docker_cmd(cmd, "database")
-            port_xcvr_info = dut.command(docker_cmd)
+            port_xcvr_info_value = port_xcvr_info_dict[intf]
             for field in expected_fields:
-                assert port_xcvr_info["stdout"].find(field) >= 0, \
-                    "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info["stdout"], intf)
+                assert port_xcvr_info_value.find(field) >= 0, \
+                    "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info_value, intf)
 
 
-def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                       lport_to_first_subport_mapping):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_DOM_SENSOR redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -112,10 +124,13 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            assert intf in parsed_xcvr_dom_sensor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
+            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor,\
+                "TRANSCEIVER_DOM_SENSOR of subport %s of %s port is not found in DB" \
+                % (lport_to_first_subport_mapping[intf], intf)
 
 
-def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                         lport_to_first_subport_mapping):
     """
     @summary: Check the detailed TRANSCEIVER_DOM_SENSOR content of all the specified interfaces.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -125,18 +140,33 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     asichost = dut.asic_instance(asic_index)
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
+
+    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_DOM_SENSOR|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
+    docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
+
+    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    port_xcvr_dom_sensor = dut.command(docker_cmd, _uses_shell=True)
+
+    port_xcvr_dom_dict = {}
+    for line in port_xcvr_dom_sensor["stdout_lines"]:
+        key, value = line.split(":", 1)
+        intf_name = key.split('|')[1].strip()
+        port_xcvr_dom_dict[intf_name] = value.strip()
+
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
-            docker_cmd = asichost.get_docker_cmd(cmd, "database")
-            port_xcvr_dom_sensor = dut.command(docker_cmd)
+            first_subport = lport_to_first_subport_mapping[intf]
+            port_xcvr_dom_value = port_xcvr_dom_dict[first_subport]
             for field in expected_fields:
-                assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
+                assert port_xcvr_dom_value.find(field) >= 0, \
                     "Expected field %s is not found in %s while checking %s" % (
-                    field, port_xcvr_dom_sensor["stdout"], intf)
+                    field, port_xcvr_dom_value, intf)
 
 
-def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                             lport_to_first_subport_mapping):
     """
     @summary: Check transceiver information of all the specified interfaces in redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -144,8 +174,10 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_l
     """
     check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list)
-    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
-    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
+    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                       lport_to_first_subport_mapping)
+    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                         lport_to_first_subport_mapping)
 
 
 def get_sfp_eeprom_map_per_port(eeprom_infos):
