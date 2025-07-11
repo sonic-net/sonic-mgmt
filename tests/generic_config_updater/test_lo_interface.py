@@ -10,7 +10,6 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import create_path, check_show_ip_intf, check_vrf_route_for_intf
-from tests.bgp.bgp_helpers import restart_bgp_session
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "LOOPBACK_INTERFACE": {
@@ -78,7 +77,11 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
 
         # Loopback interface removal will impact default route. Restart bgp to recover routes.
-        restart_bgp_session(duthost)
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                duthost.shell("sudo systemctl restart bgp@{}".format(asic_index))
+        else:
+            duthost.shell("sudo systemctl restart bgp")
         if not wait_until(240, 10, 0, duthost.check_default_route):
             logger.warning(
                 "Default routes not recovered after restart bgp, restoring with `config_reload`"
