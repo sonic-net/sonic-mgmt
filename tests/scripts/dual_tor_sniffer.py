@@ -1,7 +1,19 @@
 import argparse
 import logging
+import socket
 
 import scapy.all as scapyall
+
+
+class L2ListenAllSocket(scapyall.conf.L2listen):
+    """Read packets at layer2 using Linux PF_PACKET sockets on all ports."""
+
+    def __init__(self, *args, **kwargs):
+        # HACK: Set the socket bind to NOOP, so the packet sockets created
+        # will not bind to any interface and it will listen on all interfaces
+        # by default.
+        socket.bind = lambda _: None
+        super(L2ListenAllSocket, self).__init__(*args, **kwargs)
 
 
 class Sniffer(object):
@@ -15,6 +27,7 @@ class Sniffer(object):
         logging.debug("scapy sniffer started: filter={}, timeout={}".format(
             self.filter, self.timeout))
         scapyall.sniff(
+            L2socket=L2ListenAllSocket,
             filter=self.filter,
             prn=self.process_pkt,
             timeout=self.timeout)
@@ -25,7 +38,7 @@ class Sniffer(object):
 
     def save_pcap(self, pcap_path):
         if not self.packets:
-            logging.warn("No packets were captured")
+            logging.warning("No packets were captured")
 
         scapyall.wrpcap(pcap_path, self.packets)
         logging.debug("Pcap file dumped to {}".format(pcap_path))

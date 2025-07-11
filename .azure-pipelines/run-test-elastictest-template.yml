@@ -28,13 +28,24 @@ parameters:
 
   - name: LOCK_WAIT_TIMEOUT_SECONDS
     type: string
-    default: ""
+    default: "0"
 
   - name: NUM_ASIC
-    type: number
     default: 1
 
   - name: TEST_SET
+    type: string
+    default: ""
+
+  - name: SETUP_CONTAINER_PARAMS
+    type: string
+    default: ""
+
+  - name: SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY
+    type: string
+    default: "True"
+
+  - name: ADD_TOPO_PARAMS
     type: string
     default: ""
 
@@ -56,7 +67,7 @@ parameters:
 
   - name: PTF_IMAGE_TAG
     type: string
-    default: ""
+    default: "latest"
 
   - name: IMAGE_URL
     type: string
@@ -155,7 +166,7 @@ parameters:
 
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 480
+    default: 0
 
   - name: KVM_IMAGE_BRANCH
     type: string
@@ -181,7 +192,7 @@ steps:
           set -ex
 
           # If public build image repo, download pr test scripts from public sonic-mgmt repo
-          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" ]]; then
+          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" || "$(BUILD.REPOSITORY.NAME)" = "Azure/sonic-buildimage-msft" ]]; then
             curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
@@ -190,12 +201,18 @@ steps:
           fi
         displayName: "Download Pr Script"
   - ${{ else }}:
-      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
-          - script: |
-              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
-              set -ex
+        - script: |
+            # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+            set -ex
+            CURRENT_BRANCH=${{ parameters.MGMT_BRANCH }}
+            echo "Current branch: $CURRENT_BRANCH"
+            if [[ "$CURRENT_BRANCH" != "master" ]]; then
+              echo "Current mgmt branch is not master, need to download test_plan.py"
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download Test Plan Script"
+            else
+              echo "Current mgmt branch is master, no need to download test_plan.py"
+            fi
+          displayName: "Download Test Plan Script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
@@ -250,6 +267,9 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
+      --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
+      --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
       --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \

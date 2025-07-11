@@ -138,6 +138,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 1
     bgp:
       asn: 64001
       peers:
@@ -152,12 +153,13 @@ configuration:
         ipv4: 10.0.0.1/31
         ipv6: fc00::2/126
     bp_interface:
-      ipv4: 10.10.246.2/24
+      ipv4: 10.10.246.2/22
       ipv6: fc0a::2/64
   ARISTA09T0:
     properties:
     - common
     - tor
+    tornum: 2
     bgp:
       asn: 64002
       peers:
@@ -172,12 +174,13 @@ configuration:
         ipv4: 10.0.0.17/31
         ipv6: fc00::22/126
     bp_interface:
-      ipv4: 10.10.246.10/24
+      ipv4: 10.10.246.10/22
       ipv6: fc0a::a/64
   ARISTA17T0:
     properties:
     - common
     - tor
+    tornum: 3
     bgp:
       asn: 64003
       peers:
@@ -192,12 +195,13 @@ configuration:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
     bp_interface:
-      ipv4: 10.10.246.18/24
+      ipv4: 10.10.246.18/22
       ipv6: fc0a::12/64
   ARISTA25T0:
     properties:
     - common
     - tor
+    tornum: 4
     bgp:
       asn: 64004
       peers:
@@ -212,12 +216,13 @@ configuration:
         ipv4: 10.0.0.49/31
         ipv6: fc00::62/126
     bp_interface:
-      ipv4: 10.10.246.26/24
+      ipv4: 10.10.246.26/22
       ipv6: fc0a::1a/64
   ARISTA33T0:
     properties:
     - common
     - tor
+    tornum: 5
     bgp:
       asn: 64005
       peers:
@@ -232,12 +237,13 @@ configuration:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
     bp_interface:
-      ipv4: 10.10.246.34/24
+      ipv4: 10.10.246.34/22
       ipv6: fc0a::22/64
   ARISTA41T0:
     properties:
     - common
     - tor
+    tornum: 6
     bgp:
       asn: 64006
       peers:
@@ -252,14 +258,14 @@ configuration:
         ipv4: 10.0.0.81/31
         ipv6: fc00::a2/126
     bp_interface:
-      ipv4: 10.10.246.42/24
+      ipv4: 10.10.246.42/22
       ipv6: fc0a::2a/64
   ARISTA01T2:
     properties:
     - common
     - spine
     bgp:
-      asn: 65200
+      asn: 65201
       peers:
         65100:
           - 10.0.0.96
@@ -272,12 +278,13 @@ configuration:
         ipv4: 10.0.0.97/31
         ipv6: fc00::c2/126
     bp_interface:
-      ipv4: 10.10.246.50/24
+      ipv4: 10.10.246.50/22
       ipv6: fc0a::32/64
   ARISTA49T0:
     properties:
     - common
     - tor
+    tornum: 7
     bgp:
       asn: 64007
       peers:
@@ -292,12 +299,13 @@ configuration:
         ipv4: 10.0.0.101/31
         ipv6: fc00::ca/126
     bp_interface:
-      ipv4: 10.10.246.52/24
+      ipv4: 10.10.246.52/22
       ipv6: fc0a::34/64
   ARISTA57T0:
     properties:
     - common
     - tor
+    tornum: 8
     bgp:
       asn: 64008
       peers:
@@ -312,12 +320,13 @@ configuration:
         ipv4: 10.0.0.121/31
         ipv6: fc00::f2/126
     bp_interface:
-      ipv4: 10.10.246.62/24
+      ipv4: 10.10.246.62/22
       ipv6: fc0a::3e/64
   ARISTA65T0:
     properties:
     - common
     - tor
+    tornum: 9
     bgp:
       asn: 64009
       peers:
@@ -332,12 +341,13 @@ configuration:
         ipv4: 10.0.0.137/31
         ipv6: fc00::112/126
     bp_interface:
-      ipv4: 10.10.246.70/24
+      ipv4: 10.10.246.70/22
       ipv6: fc0a::46/64
   ARISTA73T0:
     properties:
     - common
     - tor
+    tornum: 10
     bgp:
       asn: 64010
       peers:
@@ -352,12 +362,13 @@ configuration:
         ipv4: 10.0.0.153/31
         ipv6: fc00::132/126
     bp_interface:
-      ipv4: 10.10.246.78/24
+      ipv4: 10.10.246.78/22
       ipv6: fc0a::4e/64
   ARISTA81T0:
     properties:
     - common
     - tor
+    tornum: 11
     bgp:
       asn: 64011
       peers:
@@ -372,12 +383,13 @@ configuration:
         ipv4: 10.0.0.169/31
         ipv6: fc00::152/126
     bp_interface:
-      ipv4: 10.10.246.86/24
+      ipv4: 10.10.246.86/22
       ipv6: fc0a::56/64
   ARISTA89T0:
     properties:
     - common
     - tor
+    tornum: 12
     bgp:
       asn: 64012
       peers:
@@ -392,12 +404,13 @@ configuration:
         ipv4: 10.0.0.185/31
         ipv6: fc00::172/126
     bp_interface:
-      ipv4: 10.10.246.94/24
+      ipv4: 10.10.246.94/22
       ipv6: fc0a::5e/64
   ARISTA97T0:
     properties:
     - common
     - tor
+    tornum: 13
     bgp:
       asn: 64013
       peers:
@@ -412,12 +425,13 @@ configuration:
         ipv4: 10.0.0.201/31
         ipv6: fc00::192/126
     bp_interface:
-      ipv4: 10.10.246.102/24
+      ipv4: 10.10.246.102/22
       ipv6: fc0a::66/64
   ARISTA105T0:
     properties:
     - common
     - tor
+    tornum: 14
     bgp:
       asn: 64014
       peers:
@@ -432,12 +446,13 @@ configuration:
         ipv4: 10.0.0.217/31
         ipv6: fc00::1b2/126
     bp_interface:
-      ipv4: 10.10.246.110/24
+      ipv4: 10.10.246.110/22
       ipv6: fc0a::6e/64
   ARISTA113T0:
     properties:
     - common
     - tor
+    tornum: 15
     bgp:
       asn: 64015
       peers:
@@ -452,12 +467,13 @@ configuration:
         ipv4: 10.0.0.233/31
         ipv6: fc00::1d2/126
     bp_interface:
-      ipv4: 10.10.246.118/24
+      ipv4: 10.10.246.118/22
       ipv6: fc0a::76/64
   ARISTA121T0:
     properties:
     - common
     - tor
+    tornum: 16
     bgp:
       asn: 64016
       peers:
@@ -472,12 +488,13 @@ configuration:
         ipv4: 10.0.0.249/31
         ipv6: fc00::1f2/126
     bp_interface:
-      ipv4: 10.10.246.126/24
+      ipv4: 10.10.246.126/22
       ipv6: fc0a::7e/64
   ARISTA129T0:
     properties:
     - common
     - tor
+    tornum: 17
     bgp:
       asn: 64017
       peers:
@@ -492,12 +509,13 @@ configuration:
         ipv4: 10.0.1.9/31
         ipv6: fc00::212/126
     bp_interface:
-      ipv4: 10.10.246.134/24
+      ipv4: 10.10.246.134/22
       ipv6: fc0a::86/64
   ARISTA137T0:
     properties:
     - common
     - tor
+    tornum: 18
     bgp:
       asn: 64018
       peers:
@@ -512,12 +530,13 @@ configuration:
         ipv4: 10.0.1.25/31
         ipv6: fc00::232/126
     bp_interface:
-      ipv4: 10.10.246.142/24
+      ipv4: 10.10.246.142/22
       ipv6: fc0a::8e/64
   ARISTA145T0:
     properties:
     - common
     - tor
+    tornum: 19
     bgp:
       asn: 64019
       peers:
@@ -532,12 +551,13 @@ configuration:
         ipv4: 10.0.1.41/31
         ipv6: fc00::252/126
     bp_interface:
-      ipv4: 10.10.246.150/24
+      ipv4: 10.10.246.150/22
       ipv6: fc0a::96/64
   ARISTA153T0:
     properties:
     - common
     - tor
+    tornum: 20
     bgp:
       asn: 64020
       peers:
@@ -552,12 +572,13 @@ configuration:
         ipv4: 10.0.1.57/31
         ipv6: fc00::272/126
     bp_interface:
-      ipv4: 10.10.246.158/24
+      ipv4: 10.10.246.158/22
       ipv6: fc0a::9e/64
   ARISTA161T0:
     properties:
     - common
     - tor
+    tornum: 21
     bgp:
       asn: 64021
       peers:
@@ -572,12 +593,13 @@ configuration:
         ipv4: 10.0.1.77/31
         ipv6: fc00::29a/126
     bp_interface:
-      ipv4: 10.10.246.168/24
+      ipv4: 10.10.246.168/22
       ipv6: fc0a::a8/64
   ARISTA169T0:
     properties:
     - common
     - tor
+    tornum: 22
     bgp:
       asn: 64022
       peers:
@@ -592,12 +614,13 @@ configuration:
         ipv4: 10.0.1.97/31
         ipv6: fc00::2c2/126
     bp_interface:
-      ipv4: 10.10.246.178/24
+      ipv4: 10.10.246.178/22
       ipv6: fc0a::b2/64
   ARISTA177T0:
     properties:
     - common
     - tor
+    tornum: 23
     bgp:
       asn: 64023
       peers:
@@ -612,12 +635,13 @@ configuration:
         ipv4: 10.0.1.113/31
         ipv6: fc00::2e2/126
     bp_interface:
-      ipv4: 10.10.246.186/24
+      ipv4: 10.10.246.186/22
       ipv6: fc0a::ba/64
   ARISTA185T0:
     properties:
     - common
     - tor
+    tornum: 24
     bgp:
       asn: 64024
       peers:
@@ -632,12 +656,13 @@ configuration:
         ipv4: 10.0.1.129/31
         ipv6: fc00::302/126
     bp_interface:
-      ipv4: 10.10.246.194/24
+      ipv4: 10.10.246.194/22
       ipv6: fc0a::c2/64
   ARISTA193T0:
     properties:
     - common
     - tor
+    tornum: 25
     bgp:
       asn: 64025
       peers:
@@ -652,12 +677,13 @@ configuration:
         ipv4: 10.0.1.145/31
         ipv6: fc00::322/126
     bp_interface:
-      ipv4: 10.10.246.202/24
+      ipv4: 10.10.246.202/22
       ipv6: fc0a::ca/64
   ARISTA201T0:
     properties:
     - common
     - tor
+    tornum: 26
     bgp:
       asn: 64026
       peers:
@@ -672,12 +698,13 @@ configuration:
         ipv4: 10.0.1.161/31
         ipv6: fc00::342/126
     bp_interface:
-      ipv4: 10.10.246.210/24
+      ipv4: 10.10.246.210/22
       ipv6: fc0a::d2/64
   ARISTA209T0:
     properties:
     - common
     - tor
+    tornum: 27
     bgp:
       asn: 64027
       peers:
@@ -692,12 +719,13 @@ configuration:
         ipv4: 10.0.1.177/31
         ipv6: fc00::362/126
     bp_interface:
-      ipv4: 10.10.246.218/24
+      ipv4: 10.10.246.218/22
       ipv6: fc0a::da/64
   ARISTA217T0:
     properties:
     - common
     - tor
+    tornum: 28
     bgp:
       asn: 64028
       peers:
@@ -712,5 +740,5 @@ configuration:
         ipv4: 10.0.1.193/31
         ipv6: fc00::382/126
     bp_interface:
-      ipv4: 10.10.246.226/24
+      ipv4: 10.10.246.226/22
       ipv6: fc0a::e2/64

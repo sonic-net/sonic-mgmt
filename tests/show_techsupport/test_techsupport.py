@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -75,6 +75,7 @@ def setup_acl_rules(duthost, acl_setup):
     }
     logger.info('Extra variables for ACL table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
 
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE), dest=dut_conf_file_path)
 
@@ -82,21 +83,13 @@ def setup_acl_rules(duthost, acl_setup):
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
 
 
-def check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Check dut is dpu or not. True when dut is dpu, else False
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    return config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
-
-
 @pytest.fixture(scope='module')
 def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     When dut is dpu, skip the case
     """
-    if check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.get_facts().get('is_dpu'):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
@@ -153,6 +146,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
         with loganalyzer:
             setup_acl_rules(duthost, acl_setup)
+            wait_until(300, 20, 0, check_msg_in_syslog, duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
     except LogAnalyzerError as err:
         # cleanup config DB in case of log analysis error
         teardown_acl(duthost, acl_setup)
@@ -212,7 +206,7 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
-    elif asic_type in ["cisco-8000"]:
+    elif asic_type in ["cisco-8000", "marvell-teralynx"]:
         SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
@@ -410,6 +404,7 @@ def validate_dump_file_content(duthost, dump_folder_path):
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
                                      "Test expects not less than 50 files. Available files: {}".format(etc)
     assert len(log), "Folder 'log' in dump archive is empty. Expected not empty folder"
+    assert "interface.xcvrs.eeprom.raw" in dump, "EEPROM hexdump no exist in the dump"
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
@@ -511,8 +506,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0',
-                                         'x86_64-arista_720dt_48s']:
+        if duthost.topo_type in ["mx", "m0", "m1"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
@@ -527,7 +521,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 }
             )
     # Remove /proc/dma for armh
-    elif duthost.facts["asic_type"] == "marvell":
+    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
@@ -626,7 +620,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     :param duthosts: DUT host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    if not duthost.get_facts().get('is_dpu'):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
     since = str(randint(1, 5)) + " minute ago"

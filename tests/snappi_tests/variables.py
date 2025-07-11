@@ -142,7 +142,16 @@ ipv6 = []
 peer_ipv6 = []
 # START ---------------------   T2 BGP Case -------------------
 '''
-    PRE-REQUISITE : The DUT ports must be Administratively Up and configured as Routed ports before starting the test
+    PRE-REQUISITE :
+    DUT Configs:
+        For the T2 DUT configuration, use the following topo file:
+            For multi-asic:  topo_tgen_t2_2lc_masic_route_conv.yml (or define one if topology is different)
+            For single-asic: topo_tgen_t2_2lc_route_conv.yml (or define one if topology is different)
+        For the T1 DUT configuration: Please ensure to configure the DUT using the initial_setup() fixture
+            in the tests/snappi_tests/multidut/bgp/conftest.py
+        For Fanout(if Applicable): Please ensure to configure the DUT using the initial_setup() fixture in the
+            tests/snappi_tests/multidut/bgp/conftest.py
+
 '''
 # *********** Common variables for Performance and Outbound ****************
 T2_SNAPPI_AS_NUM = 65400
@@ -201,6 +210,25 @@ t1_ports = {
      },
      'HW_PLATFORM2': {
      }
+}
+
+t1_dut_info = {
+    'HW_PLATFORM1': {
+        'dut_ip': '10.64.246.10',
+    },
+    'HW_PLATFORM2': {
+        'dut_ip': '10.64.246.10',
+    }
+}
+
+t1_snappi_ports = {
+    'HW_PLATFORM1': [
+        {'ip': '10.1.1.1', 'port_id': '11.3', 'peer_port': 'Ethernet24', 'peer_device': 'sonic-t1',
+         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.3', 'api_server_ip': '10.2.2.2'},
+        {'ip': '10.1.1.1', 'port_id': '11.4', 'peer_port': 'Ethernet28', 'peer_device': 'sonic-t1',
+         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.4', 'api_server_ip': '10.2.2.2'},
+    ],
+    'HW_PLATFORM2': []
 }
 
 # asic_value is None if it's non-chassis based or single line card

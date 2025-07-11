@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
 import re
@@ -99,8 +99,10 @@ class SonicPortAliasMap():
         return None
 
     def get_portmap(self, asic_id=None, include_internal=False,
-                    hostname=None, switchid=None, slotid=None):
+                    hostname=None, switchid=None, slotid=None, card_type=None):
         aliases = []
+        front_panel_aliases = []
+        inband_aliases = []
         portmap = {}
         aliasmap = {}
         portspeed = {}
@@ -109,7 +111,8 @@ class SonicPortAliasMap():
         front_panel_asic_ifnames = {}
         front_panel_asic_id = {}
         # All asic names
-        asic_if_names = []
+        asic_if_names = {}
+        asic_if_ids = {}
         sysports = []
         port_coreid_index = -1
         port_core_portid_index = -1
@@ -171,22 +174,27 @@ class SonicPortAliasMap():
                     else:
                         alias = name
                     add_port = False
+
+                    if role == "Ext":
+                        front_panel_aliases.append(alias)
+                    if role == "Inb":
+                        inband_aliases.append(alias)
+
                     if role in {"Ext"} or (role in ["Int", "Inb", "Rec"] and include_internal):
                         add_port = True
                         aliases.append(
                             (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
                         portmap[name] = alias
                         aliasmap[alias] = name
-                        if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
+
+                        if (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
-                            # we only want following ASIC info in minigraph for multi-asic
                             if asic_id is not None:
-                                front_panel_asic_ifnames[alias] = asicifname
-                                front_panel_asic_id[alias] = "ASIC" + \
-                                    str(asic_id)
-                    if (asic_name_index != -1) and (len(mapping) > asic_name_index):
-                        asicifname = mapping[asic_name_index]
-                        asic_if_names.append(asicifname)
+                                asic_if_names[alias] = asicifname
+                                asic_if_ids[alias] = "ASIC" + str(asic_id)
+                                if role == "Ext":
+                                    front_panel_asic_ifnames[alias] = asicifname
+                                    front_panel_asic_id[alias] = "ASIC" + str(asic_id)
                     if (speed_index != -1) and (len(mapping) > speed_index):
                         speed = mapping[speed_index]
                         sysport['speed'] = speed
@@ -201,13 +209,16 @@ class SonicPortAliasMap():
                     if (num_voq_index != -1) and (len(mapping) > num_voq_index):
                         voq = mapping[num_voq_index]
                         sysport['num_voq'] = voq
-                        sysport['name'] = name
-                        sysport['hostname'] = hostname
-                        sysport['asic_name'] = asic_name
-                        sysport['switchid'] = switchid
                         sysports.append(sysport)
                     if port_index != -1 and len(mapping) > port_index:
                         indexmap[mapping[port_index]] = name
+
+        # Special handling for the Cpu port
+        if include_internal and card_type == "linecard":
+            aliases.append(("Cpu0/{}".format(asic_id if asic_id is not None else 0), -1))
+        if asic_id is not None and card_type == "linecard":
+            asic_if_names["Cpu0/{}".format(asic_id)] = "Cpu0"
+            asic_if_ids["Cpu0/{}".format(asic_id)] = "ASIC" + str(asic_id)
         if len(sysports) > 0:
             sysport = {}
             sysport['name'] = 'Cpu0'
@@ -220,8 +231,9 @@ class SonicPortAliasMap():
             sysport['hostname'] = hostname
             sysports.insert(0, sysport)
 
-        return (aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, front_panel_asic_id, asic_if_names,
-                sysports, indexmap)
+        return (aliases, front_panel_aliases, inband_aliases, portmap, aliasmap, portspeed,
+                front_panel_asic_ifnames, front_panel_asic_id,
+                asic_if_names, asic_if_ids, sysports, indexmap)
 
 
 def main():
@@ -233,33 +245,46 @@ def main():
             card_type=dict(type='str', required=False),
             hostname=dict(type='str', required=False),
             switchids=dict(type='list', required=False),
-            slotid=dict(type='str', required=False)
+            slotid=dict(type='str', required=False),
+            sort_by_index=dict(type='bool', required=False, default=True)
         ),
         supports_check_mode=True
     )
     m_args = module.params
     try:
-        aliases = []
-        portmap = {}
-        aliasmap = {}
-        portspeed = {}
-        sysports = []
-        indexmap = {}
-        # Map of ASIC interface names to front panel interfaces
-        front_panel_asic_ifnames = {}
-        front_panel_asic_ifs_asic_id = {}
-        # { asic_name: [ asic interfaces] }
-        asic_if_names = {}
+        aliases = []  # list of port aliases
+        front_panel_aliases = []  # list of (front panel port aliases, port indexes)
+        portmap = {}  # name to alias map
+        aliasmap = {}  # alias to name map
+        portspeed = {}  # alias to speed map
+        sysports = []  # list of system ports
+        indexmap = {}  # index to port name map
+        front_panel_asic_ifnames = {}  # Map of interface aliases to interface names for front panel ports
+        front_panel_asic_ifs_asic_id = {}  # Map of interface aliases to asic ids for front panel ports
+        asic_if_names = {}   # Map of interface aliases to interface names for front panel ports
+        asic_if_asic_ids = {}  # Map of interface aliases to asic ids
+        # Chassis related info
+        midplane_port_alias = []  # list of (midplane port aliases, port indexes)
+        inband_port_alias = []  # list of (inband port aliases, port indexes)
 
         if 'card_type' in m_args and m_args['card_type'] == 'supervisor':
+            midplane_port_alias.append(("Midplane", 0))
+            if 'include_internal' in m_args and m_args['include_internal'] is True:
+                aliases.append(("Midplane", -1))
+
             module.exit_json(ansible_facts={'port_alias': aliases,
+                                            'front_panel_port_alias': front_panel_aliases,
+                                            'midplane_port_alias': midplane_port_alias,
+                                            'inband_port_alias': inband_port_alias,
                                             'port_name_map': portmap,
                                             'port_alias_map': aliasmap,
                                             'port_speed': portspeed,
                                             'front_panel_asic_ifnames': [],
                                             'front_panel_asic_ids': [],
-                                            'asic_if_names': asic_if_names,
-                                            'sysports': sysports})
+                                            'asic_if_names': [],
+                                            'asic_if_asic_ids': [],
+                                            'sysports': sysports,
+                                            'port_index_map': indexmap})
             return
         allmap = SonicPortAliasMap(m_args['hwsku'])
         switchids = None
@@ -294,16 +319,32 @@ def main():
         hostname = ""
         if 'hostname' in m_args:
             hostname = m_args['hostname']
+        card_type = None
+        if 'card_type' in m_args:
+            card_type = m_args['card_type']
+
+        if card_type == 'linecard':
+            midplane_port_alias.append(("Midplane", 0))  # midplane port is always the first port (after the mgmt port)
+            if include_internal:
+                aliases.append(("Midplane", -1))
+
+        front_panel_aliases_set = set()
+        inband_port_alias_set = set()
         for asic_id in range(num_asic):
             if switchids and asic_id is not None:
                 switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, front_panel_asic_ids,
-             asicifnames_asic, sysport_asic, index_name) = allmap.get_portmap(
-                asic_id, include_internal, hostname, switchid, slotid)
+            (aliases_asic, front_panel_aliases_asic, inband_port_alias_asic, portmap_asic, aliasmap_asic,
+             portspeed_asic, front_panel_asic, front_panel_asic_ids,
+             asicifnames_asic, asicifids_asic, sysport_asic, indexmap_asic) = allmap.get_portmap(
+                asic_id, include_internal, hostname, switchid, slotid, card_type)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
+            if front_panel_aliases_asic is not None:
+                front_panel_aliases_set.update(front_panel_aliases_asic)
+            if inband_port_alias_asic is not None:
+                inband_port_alias_set.update(inband_port_alias_asic)
             if portmap_asic is not None:
                 portmap.update(portmap_asic)
             if aliasmap_asic is not None:
@@ -315,32 +356,52 @@ def main():
             if front_panel_asic_ids is not None:
                 front_panel_asic_ifs_asic_id.update(front_panel_asic_ids)
             if asicifnames_asic is not None:
-                asic = 'ASIC' + str(asic_id)
-                asic_if_names[asic] = asicifnames_asic
+                asic_if_names.update(asicifnames_asic)
+            if asicifids_asic is not None:
+                asic_if_asic_ids.update(asicifids_asic)
             if sysport_asic is not None:
                 sysports.extend(sysport_asic)
-            if index_name is not None:
-                indexmap.update(index_name)
+            if indexmap_asic is not None:
+                indexmap.update(indexmap_asic)
 
         # Sort the Interface Name needed in multi-asic
-        aliases.sort(key=lambda x: int(x[1]))
+        if m_args['sort_by_index']:
+            # Use the optional argument to enable opt out of sorting by index
+            aliases.sort(key=lambda x: int(x[1]))
+
         # Get ASIC interface names list based on sorted aliases
         front_panel_asic_ifnames_list = []
         front_panel_asic_ifs_asic_id_list = []
+        asic_ifnames_list = []
+        asic_ifs_asic_id_list = []
         for k in aliases:
             if k[0] in front_panel_asic_ifnames:
                 front_panel_asic_ifnames_list.append(
                     front_panel_asic_ifnames[k[0]])
                 front_panel_asic_ifs_asic_id_list.append(
                     front_panel_asic_ifs_asic_id[k[0]])
+            if k[0] in asic_if_names:
+                asic_ifnames_list.append(asic_if_names[k[0]])
+                asic_ifs_asic_id_list.append(asic_if_asic_ids[k[0]])
+
+        # Get front panel and inband interface alias list based on sorted aliases
+        for i, k in enumerate(aliases):
+            if k[0] in front_panel_aliases_set:
+                front_panel_aliases.append((k[0], i))
+            if k[0] in inband_port_alias_set:
+                inband_port_alias.append((k[0], i))
 
         module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
+                                        'front_panel_port_alias': front_panel_aliases,
+                                        'midplane_port_alias': midplane_port_alias,
+                                        'inband_port_alias': inband_port_alias,
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
                                         'front_panel_asic_ifs_asic_id': front_panel_asic_ifs_asic_id_list,
-                                        'asic_if_names': asic_if_names,
+                                        'asic_if_names': asic_ifnames_list,
+                                        'asic_if_asic_ids': asic_ifs_asic_id_list,
                                         'sysports': sysports,
                                         'port_index_map': indexmap})
 
@@ -349,7 +410,7 @@ def main():
         module.fail_json(msg=fail_msg)
     except Exception as e:
         fail_msg = "failed to find the correct port config for " + \
-            m_args['hwsku'] + str(e)
+            m_args['hwsku'] + "\n" + str(e)
         module.fail_json(msg=fail_msg)
 
 

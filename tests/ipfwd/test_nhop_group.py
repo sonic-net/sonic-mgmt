@@ -22,7 +22,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 logger = logging.getLogger(__name__)
@@ -327,7 +327,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
 
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
-    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
                               module_ignore_errors=True)["stdout"]
     if route in asic_info:
         logger.info(f"Matched ASIC route: {asic_info}")
@@ -805,9 +805,11 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
                                               "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
+                                              "th5": th_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
-                                              "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
+                                              "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
+                                              "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -906,7 +908,14 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
             if is_vs_device(duthost) is False:
                 fanout.no_shutdown(fanout_port)
-        time.sleep(20)
+        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+        # We observe flakiness failure on chassis devices
+        # Suspect it's because the route is not programmed into hardware
+        # Add external sleep to make sure route is in hardware
+        if duthost.get_facts().get("modular_chassis"):
+            time.sleep(180)
+        else:
+            time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
