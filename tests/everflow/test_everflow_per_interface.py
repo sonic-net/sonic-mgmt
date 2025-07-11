@@ -189,8 +189,8 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
         )
 
     dec_ttl = 0
-
-    if 't2' in setup['topo']:
+    # Only need to decrement TTL for chassis T2
+    if setup['topo'].startswith('t2'):
         dec_ttl = 1
     elif duthost.is_multi_asic:
         dec_ttl = 2
