@@ -1,4 +1,6 @@
 import pytest
+from collections import defaultdict
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
 from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
 from common.ha.smartswitch_ha_helper import (
@@ -11,8 +13,8 @@ from common.ha.smartswitch_ha_helper import (
 
 @pytest.fixture(scope="module")
 def copy_files(ptfhost):
-    ptfhost.copy(src="/data/tests/ha/tcp_server.py", dest='/root')
-    ptfhost.copy(src="/data/tests/ha/tcp_client.py", dest='/root')
+    ptfhost.copy(src="/data/tests/common/ha/tcp_server.py", dest='/root')
+    ptfhost.copy(src="/data/tests/common/ha/tcp_client.py", dest='/root')
 
 
 @pytest.fixture(scope='module')
@@ -21,9 +23,9 @@ def tcp_adapter(ptfadapter):
 
 
 @pytest.fixture(scope="module")
-def setup_SmartSwitchHaTrafficTest(duthost, ptfhost, ptfadapter, vmhost, tbinfo):
-    activehost = duthost
-    standbyhost = duthost
+def setup_SmartSwitchHaTrafficTest(duthosts, ptfhost, ptfadapter, vmhost, tbinfo):
+    activehost = duthosts[0]
+    standbyhost = duthosts[1]
     io_ready = None
 
     ha_io = SmartSwitchHaTrafficTest(activehost, standbyhost, ptfhost,
@@ -31,67 +33,61 @@ def setup_SmartSwitchHaTrafficTest(duthost, ptfhost, ptfadapter, vmhost, tbinfo)
     return ha_io
 
 
-def get_all_ptf_port_indices_from_mg_facts(mg_asic_facts):
-    """
-    Retrieve all PTF port indices from minigraph ASIC facts.
+@pytest.fixture(scope="module")
+def get_t2_info(duthosts, tbinfo):
+    # Get the list of upstream ports for each DUT
+    upstream_ports = {}
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        upstream_port_ids = defaultdict(list)
 
-    Args:
-        mg_asic_facts (list): List of (asic_index, asic_facts_dict) tuples.
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') \
+                  else DEFAULT_NAMESPACE
+            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+                continue
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
 
-    Returns:
-        dict: {ptf_port_index: port_name}
-    """
-    all_port_indices = {}
+            for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if "T2" in neighbor["name"]:
+                    upstream_port_ids[duthost.hostname].append(port_id)
 
-    for asic_index, asic_facts in mg_asic_facts:
-        ptf_indices = asic_facts.get('minigraph_ptf_indices', {})
-        for port_name, port_index in ptf_indices.items():
-            all_port_indices[port_index] = port_name
+        upstream_ports.update(upstream_port_ids)
 
-    return all_port_indices
-
-
-def get_all_ptf_ports_from_all_duts(duts_minigraph_facts):
-    combined_ports = {}
-    for dut_hostname, mg_asic_facts_list in duts_minigraph_facts.items():
-        dut_ports = get_all_ptf_port_indices_from_mg_facts(mg_asic_facts_list)
-        for ptf_idx, port_name in dut_ports.items():
-            combined_ports[ptf_idx] = (dut_hostname, port_name)  # Include DUT
-    return combined_ports
+    return upstream_ports
 
 
 @pytest.fixture(scope="module")
-def setup_namespaces_with_routes(ptfhost, duthosts, duts_minigraph_facts):
+def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
     ns_ifaces = []
 
-    # Get all PTF ports from all DUTs combined
-    all_ports = get_all_ptf_ports_from_all_duts(duts_minigraph_facts)
-    sorted_port_indices = sorted(all_ports.keys())
-
+    t2_ports = get_t2_info
     # Example split ports arbitrarily for namespace assignment
-    ns1_ports = sorted_port_indices[:2]
-    ns2_ports = sorted_port_indices[-2:]
+    dut1_ports = t2_ports[duthosts[0].hostname]
+    dut2_ports = t2_ports[duthosts[1].hostname]
+    ns1_ports = dut1_ports[0], dut2_ports[0]
+    ns2_ports = dut1_ports[1], dut2_ports[1]
 
     for idx, port_idx in enumerate(ns1_ports, start=1):
         iface_name = f"eth{port_idx}"
-        dut_name, _ = all_ports[port_idx]  # Unpack DUT name from all_ports
         ns_ifaces.append({
             "namespace": "ns1",
             "iface": iface_name,
-            "ip": f"172.16.1.{idx}/24",
-            "next_hop": "172.16.1.254",
-            "dut": dut_name  # Add DUT for static route
+            "ip": f"172.16.2.{idx}/24",
+            "next_hop": "172.16.2.254",
+            "dut": duthosts[0]  # Add DUT for static route
         })
 
     for idx, port_idx in enumerate(ns2_ports, start=1):
         iface_name = f"eth{port_idx}"
-        dut_name, _ = all_ports[port_idx]
         ns_ifaces.append({
             "namespace": "ns2",
             "iface": iface_name,
-            "ip": f"172.16.2.{idx}/24",
-            "next_hop": "172.16.2.254",
-            "dut": dut_name  # Add DUT
+            "ip": f"172.16.1.{idx}/24",
+            "next_hop": "172.16.1.254",
+            "dut": duthosts[1]  # Add DUT
         })
 
     # Setup namespaces and static routes
