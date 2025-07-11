@@ -22,6 +22,7 @@
       - [3.1 Unicast MAC Test (`test_dhcp_relay_unicast_mac`)](#31-unicast-mac-test-test_dhcp_relay_unicast_mac)
       - [3.2 Random Source Port Test (`test_dhcp_relay_random_sport`)](#32-random-source-port-test-test_dhcp_relay_random_sport)
       - [3.3 Counter Validation Test (`test_dhcp_relay_counter`)](#33-counter-validation-test-test_dhcp_relay_counter)
+      - [3.4 max-hop-count Test (`test_dhcp_relay_max_hop_count`)](#34-max-hop-count-test-test_dhcp_relay_max_hop_count)
     - [4. Option 82 and Agent Mode Tests](#4-option-82-and-agent-mode-tests)
       - [4.1 Option 82 Sub-options Test (`test_dhcp_relay_option82_suboptions`)](#41-option-82-sub-options-test-test_dhcp_relay_option82_suboptions)
       - [4.2 Agent Mode Test (`test_dhcp_relay_agent_mode`)](#42-agent-mode-test-test_dhcp_relay_agent_mode)
@@ -64,6 +65,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 ### Topology Requirements
 
   Supported Topologies: T0, dual-tor
+  Unsupported Topologies/setups: Tests for EVPN, MC-LAG, SAG and Unnumbered Interfaces are pending due to lack of existing infrastructure. They will be added in future updates.
 
 ## Test Matrix
 
@@ -169,6 +171,15 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
   3. Validate counter values for each message type
   4. Check RX/TX counters on all interfaces
 - **Expected Results**: Accurate counter reporting for all DHCP messages
+
+#### 3.4 max-hop-count Test (`test_dhcp_relay_max_hop_count`)
+- **Objective**: Validate max-hop-count functionality in DHCPv4 relay
+- **Relay Agents**: SONiC only
+- **Test Steps**:
+  1. Configure max-hop-count in DHCPv4 relay settings
+  2. Execute PTF test with varying hop counts
+  3. Verify that packets are dropped or forwarded based on hop count
+- **Expected Results**: Incoming packets with hop count exceeding configured limit are dropped, while valid packets are processed correctly.
 
 ### 4. Option 82 and Agent Mode Tests
 
