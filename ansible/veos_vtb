@@ -33,6 +33,7 @@ all:
           - t0-116
           - t0-118
           - t0-backend
+          - t0-88-o8c80
           - dualtor
           - dualtor-56
           - dualtor-120
