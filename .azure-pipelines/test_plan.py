@@ -11,17 +11,17 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import copy
 import json
 import os
-import sys
 import subprocess
-import copy
+import sys
 import time
 from datetime import datetime, timezone
+from enum import Enum
 
 import requests
 import yaml
-from enum import Enum
 
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
@@ -207,7 +207,8 @@ class TestPlanManager(object):
     def get_token(self):
 
         # 1. Run az login with re-try
-        az_login_cmd = f"az login --identity --username {self.managed_identity_id}"
+        print("az login --identity --client-id")
+        az_login_cmd = f"az login --identity --client-id {self.managed_identity_id}"
         az_login_attempts = 0
         while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
             try:
@@ -269,6 +270,21 @@ class TestPlanManager(object):
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
         build_reason = kwargs.get("build_reason", "PullRequest")
+        lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", 0)
+        # If not set lock tb timeout, set to 2 hours for pr test plans by default
+        if lock_wait_timeout_seconds == 0 and test_plan_type == "PR":
+            lock_wait_timeout_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN_LOCK_TB", 7200))
+        # if not set test plan timeout, set to 6 hours for pr test plans by default
+        max_execute_seconds = kwargs.get("max_execute_seconds", 0)
+        if max_execute_seconds == 0 and test_plan_type == "PR":
+            max_execute_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN", 21600))
+
+        # Check and add GitHub api proxy env to setup-container params
+        setup_container_params = kwargs.get("setup_container_params", "")
+        github_api_proxy = os.getenv("SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL", None)
+        if github_api_proxy:
+            setup_container_params = (f"{setup_container_params} "
+                                      f"-e SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL={github_api_proxy}")
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -326,9 +342,12 @@ class TestPlanManager(object):
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
                 "asic_num": kwargs["num_asic"],
-                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
+                "lock_wait_timeout_seconds": lock_wait_timeout_seconds,
             },
             "test_option": {
+                "setup_container_params": setup_container_params,
+                "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
+                "add_topo_params": kwargs.get("add_topo_params", ""),
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
@@ -358,7 +377,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": max_execute_seconds,
             },
             "type": test_plan_type,
             "trigger": {
@@ -378,7 +397,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=20)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception(f"HTTP execute failure, url: {tp_url}, raw_resp: {raw_resp}, exception: {str(exception)}")
@@ -593,8 +612,8 @@ if __name__ == "__main__":
         type=int,
         dest="lock_wait_timeout_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max lock testbed wait seconds. None or the values <= 0 means endless."
     )
@@ -607,6 +626,37 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Test set."
+    )
+    parser_create.add_argument(
+        "--setup-container-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="setup_container_params",
+        default="",
+        required=False,
+        help="Setup sonic-mgmt container params"
+    )
+    parser_create.add_argument(
+        "--skip-remove-add-topo-for-nightly",
+        type=ast.literal_eval,
+        dest="skip_remove_add_topo_for_nightly",
+        nargs='?',
+        const=True,
+        default=True,
+        required=False,
+        choices=[True, False],
+        help="Whether skip remove-topo and add-topo for nightly test."
+    )
+    parser_create.add_argument(
+        "--add-topo-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="add_topo_params",
+        default="",
+        required=False,
+        help="Add topology extra params"
     )
     parser_create.add_argument(
         "--deploy-mg-extra-params",
@@ -912,8 +962,8 @@ if __name__ == "__main__":
         type=int,
         dest="max_execute_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max execute seconds of the test plan."
     )
@@ -1051,6 +1101,9 @@ if __name__ == "__main__":
                 tp.create(
                     args.topology,
                     test_plan_name=test_plan_name,
+                    skip_remove_add_topo_for_nightly=args.skip_remove_add_topo_for_nightly,
+                    setup_container_params=args.setup_container_params,
+                    add_topo_params=args.add_topo_params,
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,

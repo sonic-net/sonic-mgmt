@@ -27,15 +27,15 @@ import json
 import re
 from tabulate import tabulate
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa: F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
-from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa F401
-from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
+    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
+from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa: F401
+from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
@@ -43,7 +43,7 @@ from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
-    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
+    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa: F401
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 
@@ -197,8 +197,13 @@ class TestQosSai(QosSaiBase):
         'Force10-S6100',
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-C28S4',
         'Arista-7050CX3-32S-D48C8'
     ]
+
+    @pytest.fixture(scope="class", autouse=True)
+    def setup(self, disable_voq_watchdog_class_scope):
+        return
 
     @pytest.fixture(scope='function')
     def change_port_speed(
@@ -476,7 +481,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
-        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,              # noqa F811
+        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,              # noqa: F811
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile, localhost
     ):
         """
@@ -843,8 +848,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiHeadroomPoolSize(
-        self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa F811
+        self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa: F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
@@ -895,10 +900,16 @@ class TestQosSai(QosSaiBase):
             # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
             # present
             src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
-            if len(src_ports) < 5:
-                pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:5]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            if len(duthosts) == 1:
+                if len(src_ports) < 3:
+                    pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:3]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            else:
+                if len(src_ports) < 5:
+                    pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[1:5]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
 
             if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
                 # Src and dst are the same asics, leave one for dst port and the rest for src ports
@@ -1426,7 +1437,7 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
         tc_to_dscp_count, change_lag_lacp_timer
     ):
         """
@@ -1447,7 +1458,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        duthost = get_src_dst_asic_and_duts['src_dut']    # noqa F841
+        duthost = get_src_dst_asic_and_duts['src_dut']    # noqa: F841
         if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is applied")
@@ -1479,7 +1490,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams,
-                                            dutConfig, direction, dut_qos_maps):        # noqa F811
+                                            dutConfig, direction, dut_qos_maps):        # noqa: F811
         # NOTE: cisco t2 8800 will skip this test since because of the topology
         """
             Test QoS SAI DSCP to queue mapping.
@@ -2002,8 +2013,10 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa F811
-            change_lag_lacp_timer, dutQosConfig):
+        self, get_src_dst_asic_and_duts, duthost,
+        request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
+        change_lag_lacp_timer, dutQosConfig
+    ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
@@ -2025,7 +2038,7 @@ class TestQosSai(QosSaiBase):
         skip_test_on_no_lossless_pg(portSpeedCableLength)
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
-                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox"]):
+                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox", "marvell-teralynx"]):
             disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
@@ -2059,7 +2072,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa F811
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa: F811
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -2129,7 +2142,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost,
-                                           dutTestParams, dutConfig, direction, dut_qos_maps):      # noqa F811
+                                           dutTestParams, dutConfig, direction, dut_qos_maps):      # noqa: F811
         # NOTE: cisco 8800 will skip this test for both upstream and downstream
         """
             Test QoS SAI DSCP to PG mapping ptf test.
@@ -2252,7 +2265,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, resetWatermark, _skip_watermark_multi_DUT,
-        skip_pacific_dst_asic, dut_qos_maps    # noqa F811
+        skip_pacific_dst_asic, dut_qos_maps    # noqa: F811
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -2426,7 +2439,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiFullMeshTrafficSanity(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, dut_qos_maps, # noqa F811
+            get_src_dst_asic_and_duts, dut_qos_maps,  # noqa: F811
             set_static_route_ptf64
     ):
         # NOTE: this test will skip for t2 cisco 8800 since it requires ptf64 topo

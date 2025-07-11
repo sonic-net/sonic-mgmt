@@ -33,7 +33,8 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 from netaddr import valid_ipv6
 
@@ -48,7 +49,7 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
 
 def check_skip_release(duthost, release_list):
@@ -933,6 +934,19 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
+def get_all_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL upstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["ma", "mb"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
 def get_downstream_neigh_type(topo_type, is_upper=True):
     """
     @summary: Get neighbor type by topo type
@@ -945,6 +959,19 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_all_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL downstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["m0", "c0"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
@@ -1485,6 +1512,26 @@ def get_vlan_from_port(duthost, member_port):
         if vlan_name is not None:
             break
     return vlan_name
+
+
+def configure_packet_aging(duthost, disabled=True):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout.
+        This function can enable or disable packet aging feature.
+
+        Args:
+            duthost: DUT host object
+            disabled: True to disable packet aging, False to enable packet aging
+    """
+    logger.info("Starting configure packet aging")
+    asic = duthost.get_asic_name()
+    if 'spc' in asic:
+        action = "disable" if disabled else "enable"
+        logger.info(f"{action.capitalize()} Mellanox packet aging")
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command(f"docker exec syncd python /packets_aging.py {action}")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def cleanup_prev_images(duthost):
