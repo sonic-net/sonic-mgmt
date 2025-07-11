@@ -1066,7 +1066,8 @@ class VMTopology(object):
             VMTopology.cmd("brctl delif %s %s" % (br_name, port1))
         if port2 in if_to_br:
             VMTopology.cmd("brctl delif %s %s" % (br_name, port2))
-        VMTopology.cmd('brctl delbr %s' % br_name)
+        if br_name in VMTopology.cmd("ip link show %s" % br_name):
+            VMTopology.cmd('brctl delbr %s' % br_name)
 
     def bind_vm_link(self, br_name, port1, port2):
         if VMTopology.intf_not_exists(br_name):
@@ -1112,7 +1113,8 @@ class VMTopology(object):
 
         if VMTopology.intf_exists(self.bp_bridge):
             VMTopology.iface_down(self.bp_bridge)
-            VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
+            if self.bp_bridge in VMTopology.cmd("ip link show %s" % self.bp_bridge):
+                VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
 
     def bind_vs_chassis_ports(self, duts_midplane_ports, duts_inband_ports):
         # We have a KVM based virtaul chassis, create two ovs bridges, bind the midplane and inband ports
