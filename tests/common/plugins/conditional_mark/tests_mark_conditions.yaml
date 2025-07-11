@@ -421,15 +421,15 @@ db_migrator/test_migrate_dns.py::test_migrate_dns_03:
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
-    reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases"
+    reason: "Not supported on broadcom after 201911 release, cisco-8000 all releases"
     conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000'])"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000'])"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
   skip:
-    reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases and marvell-prestera asics"
+    reason: "Not supported on broadcom after 201911 release, cisco-8000 all releases and marvell-prestera asics"
     conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell'])"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell'])"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
@@ -441,11 +441,10 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox dualtor setups for github issue #9646. Skip on 7260CX3 T1 topo in 202305 release"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release"
     conditions_logical_operator: or
     conditions:
-      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9646 and 'dualtor' in topo_name and asic_type in ['mellanox']"
+      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
