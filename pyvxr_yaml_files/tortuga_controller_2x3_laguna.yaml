@@ -111,6 +111,7 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo config platform cisco sdk-debug disable
 
   S1:
     <<: *switch
@@ -120,6 +121,7 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo config platform cisco sdk-debug disable
 
 connections:
   hubs:
