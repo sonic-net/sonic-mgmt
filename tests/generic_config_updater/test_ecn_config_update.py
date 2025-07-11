@@ -56,9 +56,7 @@ def get_asic_db_values(duthost, fields, cli_namespace_prefix):
         A dictionary where keys are WRED profile OIDs in ASIC DB and values are the field-value pairs
         for the fields in configdb_field.
     """
-    wred_objects = duthost.shell('sonic-db-cli {} ASIC_DB keys *WRED*'
-                                 .format(cli_namespace_prefix))["stdout"]
-    wred_objects = wred_objects.split("\n")
+    wred_objects = get_wred_objects(duthost, cli_namespace_prefix)
     asic_db_values = {}
     for wred_object in wred_objects:
         oid = wred_object[wred_object.rfind(':') + 1:]
@@ -74,7 +72,7 @@ def get_asic_db_values(duthost, fields, cli_namespace_prefix):
     return asic_db_values
 
 
-def get_wred_objects(duthost):
+def get_wred_objects(duthost, cli_namespace_prefix):
     """
     Args:
         duthost: DUT host object
@@ -82,7 +80,7 @@ def get_wred_objects(duthost):
     Returns:
         A list of WRED profile objects in ASIC DB.
     """
-    wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+    wred_objects = duthost.shell('sonic-db-cli {} ASIC_DB keys *WRED*'.format(cli_namespace_prefix))["stdout"]
     wred_objects = wred_objects.split("\n")
     return wred_objects
 
