@@ -1,4 +1,5 @@
 import pytest
+import re
 from common.plugins.ptfadapter import PtfTestAdapter
 
 
