@@ -405,22 +405,22 @@ sonic_nvidia_sn5600_stress:
 
 sonic_nvidia_sn5640_stress:
   hosts:
-    str-sn5640-stress-01:
+    str-sn5640-stress-t0-1:
       ansible_host: 10.64.246.113
       hwsku: Mellanox-SN5640-C512S2
-    str-sn5640-stress-02:
+    str-sn5640-stress-t0-2:
       ansible_host: 10.64.246.115
       hwsku: Mellanox-SN5640-C512S2
-    str-sn5640-stress-03:
+    str-sn5640-stress-t0-3:
       ansible_host: 10.64.246.86
       hwsku: Mellanox-SN5640-C512S2
-    str-sn5640-stress-04:
+    str-sn5640-stress-t0-4:
       ansible_host: 10.64.246.87
       hwsku: Mellanox-SN5640-C512S2
-    str-sn5640-stress-11:
+    str-sn5640-stress-t1-1:
       ansible_host: 10.64.246.88
       hwsku: Mellanox-SN5640-C448O16
-    str-sn5640-stress-12:
+    str-sn5640-stress-t1-2:
       ansible_host: 10.64.246.89
       hwsku: Mellanox-SN5640-C448O16
     str-sn5640-snake-1:
