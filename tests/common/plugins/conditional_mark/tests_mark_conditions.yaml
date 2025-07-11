@@ -2155,6 +2155,12 @@ pc/test_po_voq.py:
     conditions:
       - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
+pc/test_retry_count.py::test_retry_count:
+  xfail:
+    reason: "Test set up is failing. Need owner to fix it."
+    conditions:
+        - "https://github.com/sonic-net/sonic-mgmt/issues/19400"
+
 #######################################
 #####           pfc               #####
 #######################################
