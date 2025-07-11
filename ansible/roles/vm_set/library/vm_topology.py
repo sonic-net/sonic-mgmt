@@ -625,19 +625,19 @@ class VMTopology(object):
         VMTopology.iface_up(int_if, netns=self.netns)
 
     def ip_exists(self, pid, mgmt_ip_addr, int_if):
-        output = VMTopology.cmd("nsenter -t %s -n ip addr show dev %s" % (pid, int_if))
+        output = VMTopology.cmd("nsenter -t %s -n ip addr show dev %s" % (pid, int_if), ignore_errors=True)
         return mgmt_ip_addr in output
 
     def ip_exists_v6(self, pid, mgmt_ipv6_addr, int_if):
-        output = VMTopology.cmd("nsenter -t %s -n ip -6 addr show dev %s" % (pid, int_if))
+        output = VMTopology.cmd("nsenter -t %s -n ip -6 addr show dev %s" % (pid, int_if), ignore_errors=True)
         return mgmt_ipv6_addr in output
 
     def route_exists(self, pid, mgmt_gw):
-        output = VMTopology.cmd("nsenter -t %s -n ip route show default" % (pid))
+        output = VMTopology.cmd("nsenter -t %s -n ip route show default" % (pid), ignore_errors=True)
         return mgmt_gw in output
 
     def route_exists_v6(self, pid, mgmt_gw_v6):
-        output = VMTopology.cmd("nsenter -t %s -n ip -6 route show default" % (pid))
+        output = VMTopology.cmd("nsenter -t %s -n ip -6 route show default" % (pid), ignore_errors=True)
         return mgmt_gw_v6 in output
 
     def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None,
@@ -914,16 +914,12 @@ class VMTopology(object):
             self.unbind_ovs_port(interconnection_bridge, vlan2_iface)
             self.destroy_ovs_bridge(interconnection_bridge)
 
-    def port_exists(self, iface, br_name):
-        output = VMTopology.cmd("ovs-vsctl list-ports %s" % (br_name))
-        return iface in output
-
     def bind_devices_interconnect_ports(self, br_name, vlan1_iface, vlan2_iface):
         ports = VMTopology.get_ovs_br_ports(br_name)
-        if vlan1_iface not in ports and not self.port_exists(vlan1_iface, br_name):
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan1_iface))
-        if vlan2_iface not in ports and not self.port_exists(vlan2_iface, br_name):
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan2_iface))
+        if vlan1_iface not in ports:
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vlan1_iface))
+        if vlan2_iface not in ports:
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vlan2_iface))
         bindings = VMTopology.get_ovs_port_bindings(br_name)
         vlan1_iface_id = bindings[vlan1_iface]
         vlan2_iface_id = bindings[vlan2_iface]
@@ -1066,7 +1062,8 @@ class VMTopology(object):
             VMTopology.cmd("brctl delif %s %s" % (br_name, port1))
         if port2 in if_to_br:
             VMTopology.cmd("brctl delif %s %s" % (br_name, port2))
-        VMTopology.cmd('brctl delbr %s' % br_name)
+        if br_name in VMTopology.cmd("ip link show %s" % br_name):
+            VMTopology.cmd('brctl delbr %s' % br_name)
 
     def bind_vm_link(self, br_name, port1, port2):
         if VMTopology.intf_not_exists(br_name):
@@ -1076,11 +1073,11 @@ class VMTopology(object):
         # Remove port from ovs bridge
         br = VMTopology.get_ovs_bridge_by_port(port1)
         if br is not None:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port1))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, port1))
 
         br = VMTopology.get_ovs_bridge_by_port(port2)
         if br is not None:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port2))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, port2))
 
         m_to_ifs, _ = VMTopology.brctl_show()
         if port1 not in m_to_ifs[br_name]:
@@ -1112,7 +1109,8 @@ class VMTopology(object):
 
         if VMTopology.intf_exists(self.bp_bridge):
             VMTopology.iface_down(self.bp_bridge)
-            VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
+            if self.bp_bridge in VMTopology.cmd("ip link show %s" % self.bp_bridge):
+                VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
 
     def bind_vs_chassis_ports(self, duts_midplane_ports, duts_inband_ports):
         # We have a KVM based virtaul chassis, create two ovs bridges, bind the midplane and inband ports
@@ -1144,11 +1142,11 @@ class VMTopology(object):
         br_ports = VMTopology.get_ovs_br_ports(br_name)
         for port in dut_ports:
             br = VMTopology.get_ovs_bridge_by_port(port)
-            if br is not None and br != br_name and self.port_exists(port, br):
-                VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br, port))
+            if br is not None and br != br_name:
+                VMTopology.cmd('ovs-vsctl --if-exists del-port {} {}'.format(br, port))
 
-            if port not in br_ports and not self.port_exists(port, br_name):
-                VMTopology.cmd('ovs-vsctl add-port {} {}'.format(br_name, port))
+            if port not in br_ports:
+                VMTopology.cmd('ovs-vsctl --may-exist add-port {} {}'.format(br_name, port))
 
     def unbind_vs_dut_ports(self, br_name, dut_name, dut_ports):
         """unbind all ports except the vm port from an ovs bridge"""
@@ -1156,7 +1154,7 @@ class VMTopology(object):
             br_ports = VMTopology.get_ovs_br_ports(br_name)
             for port in dut_ports:
                 if port in br_ports:
-                    VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br_name, port))
+                    VMTopology.cmd('ovs-vsctl --if-exists del-port {} {}'.format(br_name, port))
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False, **kwargs):
         """
@@ -1170,26 +1168,26 @@ class VMTopology(object):
         """
         br = VMTopology.get_ovs_bridge_by_port(injected_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, injected_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, injected_iface))
 
         br = VMTopology.get_ovs_bridge_by_port(dut_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, dut_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, dut_iface))
 
         br = VMTopology.get_ovs_bridge_by_port(vm_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, vm_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, vm_iface))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
-        if injected_iface not in ports and not self.port_exists(injected_iface, br_name):
-            VMTopology.cmd('ovs-vsctl add-port %s %s' %
+        if injected_iface not in ports:
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' %
                            (br_name, injected_iface))
 
-        if dut_iface not in ports and not self.port_exists(dut_iface, br_name):
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, dut_iface))
+        if dut_iface not in ports:
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, dut_iface))
 
-        if vm_iface not in ports and not self.port_exists(vm_iface, br_name):
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vm_iface))
+        if vm_iface not in ports:
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vm_iface))
 
         bindings = VMTopology.get_ovs_port_bindings(br_name, [dut_iface])
         dut_iface_id = bindings[dut_iface]
@@ -1314,7 +1312,7 @@ class VMTopology(object):
 
             for port in ports:
                 if port != vm_port:
-                    bind_helper('ovs-vsctl del-port %s %s' % (br_name, port))
+                    bind_helper('ovs-vsctl --if-exists del-port %s %s' % (br_name, port))
 
             if is_batch_mode and all_cmds:
                 processes = kwargs.get("processes")
@@ -1327,7 +1325,7 @@ class VMTopology(object):
             ports = VMTopology.get_ovs_br_ports(br_name)
 
             if port in ports:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
+                VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br_name, port))
 
     def create_dualtor_cable(self, host_ifindex, host_if, upper_if, lower_if, active_if_index=0, nic_if=None):
         """
@@ -1357,15 +1355,15 @@ class VMTopology(object):
         for intf in [host_if, upper_if, lower_if]:
             br = VMTopology.get_ovs_bridge_by_port(intf)
             if br is not None and br != br_name:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, intf))
+                VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, intf))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
         ports_to_be_attached = [host_if, upper_if, lower_if]
         if nic_if is not None:
             ports_to_be_attached.append(nic_if)
         for intf in ports_to_be_attached:
-            if intf not in ports and not self.port_exists(intf, br_name):
-                VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, intf))
+            if intf not in ports:
+                VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, intf))
 
         bridge_ports = [upper_if, lower_if]
         if nic_if is not None:
