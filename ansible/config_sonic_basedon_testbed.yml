@@ -638,6 +638,14 @@
           hwsku: "{{ hwsku }}"
         become: true
 
+      - name: Generate golden_config_db.json for filterleaf
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
+          vm_configuration: "{{ configuration }}"
+        become: true
+        when: topo == "t1-filterleaf-lag"
+
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
               dest=/tmp/profile.json
@@ -744,6 +752,17 @@
             become: true
             service: name=ntp state=restarted enabled=true
         when: chrony_service.status.LoadState == "not-found"
+
+      - name: Remove specific PortChannel IPs from running CONFIG_DB
+        become: true
+        shell: |
+          for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
+            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+              echo "Removing $pc $ip"
+              config interface ip remove $pc $ip || true
+            done
+          done
+        when: topo == "t1-filterleaf-lag"
 
       - name: Sync DUT system time with NTP server with chrony
         block:

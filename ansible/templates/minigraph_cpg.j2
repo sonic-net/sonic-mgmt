@@ -2,9 +2,10 @@
 {% if card_type is not defined or card_type != 'supervisor' %}
     <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     <PeeringSessions>
+{% set skip_vms = ['ARISTA01T0', 'ARISTA02T0', 'ARISTA03T0', 'ARISTA04T0'] %}
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
-{% if (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
+{% if vm not in skip_vms and vm_topo_config['topo_type'] != "t1-filterleaf-lag" and (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
 {% for intf_index in range(vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int]|length) %}
       <BGPSession>
         <MacSec>false</MacSec>
