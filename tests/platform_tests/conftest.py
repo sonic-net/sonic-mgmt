@@ -227,3 +227,11 @@ def cmis_cable_ports_and_ver(duthosts):
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
+
+
+@pytest.fixture(scope="module")
+def toggles_num(request):
+    """
+    Retrieve the value of the --toggles_num command line option for the test session.
+    """
+    return request.config.getoption("--toggles_num")
