@@ -5,6 +5,7 @@ from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.pc.test_lag_2 import config_and_delete_multip_process
 import logging
 logger = logging.getLogger(__name__)
 
@@ -102,13 +103,15 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     for portchannel_member in portchannel_members:
         asic.config_portchannel_member(portchannel, portchannel_member, "add")
 
-
-def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, testcase):
     """Test to verify when a LAG is added/deleted via CLI, it is synced across all DBs
 
     All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic = _get_random_asic_with_pc(duthost)
     prev_lag_id_list = voq_lag.get_lag_ids_from_chassis_db(duthosts)
@@ -140,14 +143,18 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         if voq_lag.is_lag_in_app_db(asic):
             logging.info("Deleting temporary LAG {}".format(voq_lag.TMP_PC))
             asic.config_portchannel(voq_lag.TMP_PC, "del")
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
 
-
-def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown, testcase):
     """Test to verify when LAG members are added/deleted via CLI, it is synced across all DBs
 
     All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic, portchannel_ip, portchannel_members = setup_teardown
     tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
@@ -182,14 +189,18 @@ def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     finally:
         logging.info("Adding LAG member {} back to {}".format(del_pc_member, voq_lag.TMP_PC))
         asic.config_portchannel_member(voq_lag.TMP_PC, del_pc_member, "add")
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
 
-
-def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown, testcase):
     """Test to verify when a LAG goes down on an ASIC via CLI, it is synced across all DBs
 
     All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic, portchannel_ip, portchannel_members = setup_teardown
     tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
@@ -224,17 +235,21 @@ def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_h
         duthost.shell("config interface {} startup {}".format(asic.cli_ns_option, voq_lag.TMP_PC))
         pytest_assert(wait_until(30, 5, 0, lambda: duthost.check_intf_link_state(voq_lag.TMP_PC)),
                       "{} is not enabled".format(voq_lag.TMP_PC))
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
 
-
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
 @pytest.mark.parametrize("flap_method", ["local", "remote"])
 def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                   setup_teardown, fanouthosts, flap_method):
+                                   setup_teardown, fanouthosts, flap_method, testcase):
     """
     Test to verify when a LAG member goes down on an ASIC, it is synced across all DBs
 
     All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic, portchannel_ip, portchannel_members = setup_teardown
     tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
@@ -287,3 +302,5 @@ def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
         pytest_assert(wait_until(30, 5, 0, lambda: duthost.check_intf_link_state(down_pc_member)),
                       "{} is not enabled".format(down_pc_member))
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)

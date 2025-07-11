@@ -1,8 +1,10 @@
 import pytest
 import logging
+import time
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.pc.test_lag_2 import config_and_delete_multip_process
 
 pytestmark = [
     pytest.mark.disable_route_check,
@@ -43,13 +45,16 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
                         module_ignore_errors=True)["stdout_lines"][0]
     return res == '0'
 
-
-def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo, testcase):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
     handle  SIGTERM gracefully
     """
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     logging.info("Disable swss/teamd Feature in all asics")
     # Following will call "sudo systemctl stop swss@0", same for swss@1 ..
     duthost.stop_service("swss")
@@ -58,15 +63,21 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
         if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, asic_id):
             fail_msg = "PortChannel interface still exists in kernel"
             pytest.fail(fail_msg)
+
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
+
     # Restore config services
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
-
-def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, testcase):
     """
     test port channel are cleaned up correctly after config reload, with system under stress.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     host_facts = duthost.setup()['ansible_facts']
 
     # Get the cpu information.
@@ -85,8 +96,11 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     # Add start marker to the DUT syslog
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
     loganalyzer.expect_regex = []
-    for pc in port_channel_intfs:
-        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
+    if testcase == "multi_process":
+        for pc in port_channel_intfs:
+            loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
+    else :
+        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format("teamd-unified"))
 
     try:
         # Make CPU high
@@ -95,9 +109,13 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
 
         with loganalyzer:
             logging.info("Reloading config..")
+            if testcase == "multi_process":
+                config_and_delete_multip_process(duthost, False)
             config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
 
         duthost.shell("killall yes")
     except Exception:
         duthost.shell("killall yes")
+        if testcase == "multi_process":
+            config_and_delete_multip_process(duthost, False)
         raise
