@@ -57,7 +57,7 @@ BATCH_PACKET_COUNT = 10000
 ECN = 2   # ECN Capable Transport(0), ECT(0)
 
 # Buffer configuration constants
-TRIM_QUEUE_PROFILE = "egress_lossless_profile"
+TRIM_QUEUE_PROFILE = "egress_lossy_profile"
 DYNAMIC_TH = "3"
 TRIMMING_CAPABILITY = "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT=257"
 
