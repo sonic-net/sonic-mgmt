@@ -117,9 +117,6 @@ def announce_bgp_routes_teardown(localhost, tbinfo, ptfhosts):
                                   for value in tbinfo['servers'].values()}
     yield servers_dut_interfaces
     for ptfhost in ptfhosts:
-        ptfhost.shell("supervisorctl restart exabgpv6:*")
-        # Wait exabgp to be ready
-        time.sleep(30)
         ptf_ip = ptfhost.mgmt_ip
         announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
 
