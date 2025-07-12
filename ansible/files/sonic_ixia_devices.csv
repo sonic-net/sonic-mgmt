@@ -1,6 +1,8 @@
 Hostname,ManagementIp,HwSku,Type,Protocol
 str-acs-serv-100,10.64.246.200/23,TestServ,Server,,
 str-acs-serv-101,10.64.246.201/23,TestServ,Server,,
+str-acs-serv-102,10.64.246.202/23,TestServ,Server,,
+str-acs-serv-103,10.64.246.203/23,TestServ,Server,,
 msr-ixia-4,10.3.145.39/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-5,10.3.145.38/32,IXIA-tester,DevIxiaChassis,
 STR-8102-C19-U24,10.3.146.252/24,Cisco-8102-C64,DevSonic,
