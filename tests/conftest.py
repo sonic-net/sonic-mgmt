@@ -35,7 +35,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, NAMESPACE_PREFIX,
+    ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
@@ -251,6 +252,11 @@ def pytest_addoption(parser):
                      help="File to store the state of the parallel run")
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
+
+    #################################
+    #   Stress test options         #
+    #################################
+    parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
 
 
 def pytest_configure(config):
@@ -2145,7 +2151,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     yield rtn_dict
 
 
-@ pytest.fixture(scope='class')
+@pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
@@ -2802,6 +2808,47 @@ def gnxi_path(ptfhost):
     return gnxipath
 
 
+@pytest.fixture(scope="module")
+def selected_asic_index(request):
+    asic_index = DEFAULT_ASIC_ID
+    if "enum_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_asic_index")
+    elif "enum_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_frontend_asic_index")
+    elif "enum_backend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_backend_asic_index")
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_asic_index")
+    elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
+    logger.info(f"Selected asic_index {asic_index}")
+    return asic_index
+
+
+@pytest.fixture(scope="module")
+def ip_netns_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for linux commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'sudo ip netns exec {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
+@pytest.fixture(scope="module")
+def cli_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for CLI commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'-n {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -2847,6 +2894,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
+
+
+def pytest_collection_modifyitems(config, items):
+    # Skip all stress_tests if --run-stress-test is not set
+    if not config.getoption("--run-stress-tests"):
+        skip_stress_tests = pytest.mark.skip(reason="Stress tests run only if --run-stress-tests is passed")
+        for item in items:
+            if "stress_test" in item.keywords:
+                item.add_marker(skip_stress_tests)
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
