@@ -15,6 +15,7 @@ pdu-110,35,str-sn5640-stress-t1-1,PSU1
 pdu-111,41,str-sn5640-stress-t1-1,PSU2
 pdu-109,36,str-sn5640-stress-t1-2,PSU1
 pdu-110,36,str-sn5640-stress-t1-2,PSU2
+pdu-189,40,str-7060x6-512-stress-t0-0,PSU1
 pdu-113,15,msr-ixia-metronome-timing-0,PSU2
 pdu-112,5,msr-ixia-aresone-800ge-1,PSU1
 pdu-113,5,msr-ixia-aresone-800ge-1,PSU2
