@@ -34,8 +34,11 @@ def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_l47):
     if ha_test_case == 'cps':
         api = run_cps_search(api, initial_cps_value)
     elif ha_test_case == 'plannedswitchover':
-
         api = run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value)
+    elif ha_test_case == 'dpuloss':
+        api = run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value)
+    else:
+        return
 
     logger.info("Test case {} Ending".format(ha_test_case))
 
@@ -114,7 +117,6 @@ class MetricsResult:
 
 
 def collect_metrics_threaded(api, client_req, server_req=None) -> MetricsResult:
-    """Collect metrics using threads"""
     result = ContinuousMetricsCollector()
     result_queue = Queue()
 
@@ -203,6 +205,45 @@ def ha_switchTraffic(duthost, dut_if_ips, traffic_direction='dpu2'):
     logger.info(f"HA traffic moved from {new_standby} to {new_active}")
 
     duthost.shell(ha_switch_config)
+
+    return
+
+
+def power_off_dpu(duthost, dpu_id):
+
+    # For taking down links
+    # sudo config interface shutdown Ethernet-BP0
+    # sudo config interface startup Ethernet-BP0
+
+    # For powering down DPU
+    # sudo config chassis module shutdown <DPU id>
+    # sudo config chassis module startup <DPU id>
+    try:
+        # duthost.shell(f"sudo config interface shutdown {dpu_id}")
+        logger.info(f"Powering off DPU{dpu_id}")
+        duthost.shell(f"sudo config chassis module shutdown DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error powering off dpu{dpu_id}: {e}")
+
+    return
+
+
+def power_on_dpu(duthost, dpu_id):
+
+    # For taking down links
+    # sudo config interface shutdown Ethernet-BP0
+    # sudo config interface startup Ethernet-BP0
+
+    # For powering down DPU
+    # sudo config chassis module shutdown <DPU id>
+    # sudo config chassis module startup <DPU id>
+
+    try:
+        # duthost.shell(f"sudo config interface shutdown {dpu_id}")
+        logger.info(f"Powering on DPU{dpu_id}")
+        duthost.shell(f"sudo config chassis module startup DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error powering on dpu{dpu_id}: {e}")
 
     return
 
@@ -595,7 +636,131 @@ def run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value):
     return
 
 
-def test_saveAs(api, test_filename):
+def run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value):
+
+    dpu_active_id = tbinfo['dpu_active_id']
+    dpu_standby_id = tbinfo['dpu_standby_id']  # noqa: F841
+
+    collector = ContinuousMetricsCollector(collection_interval=1)
+    clientStat_req = api.metrics_request()
+    serverStat_req = api.metrics_request()
+
+    try:
+        # Configure and start traffic
+        logger.info("Configuring traffic parameters...")
+        activityList_json = {
+            'constraintType': 'ConnectionRateConstraint',
+            'constraintValue': initial_cps_value,
+            'enableConstraint': False,
+        }
+        api.ixload_configure("patch", "ixload/test/activeTest/communityList/0/activityList/0", activityList_json)
+
+        # Start traffic
+        logger.info("Starting traffic...")
+        cs = api.control_state()
+        cs.app.state = 'start'
+        api.set_control_state(cs)
+
+        # Give traffic time to start
+        logger.info("Waiting for traffic to initialize...")
+        time.sleep(10)
+
+        # Start metrics collection
+        logger.info("Starting metrics collection...")
+        collector.start_collection(api, clientStat_req, serverStat_req)
+
+        # Initial collection period
+        logger.info("Collecting initial metrics...")
+        time.sleep(30)
+
+        # First switchover
+        logger.info("Executing first switchover...")
+        collector.set_phase(TestPhase.DURING_FIRST_SWITCH)
+        power_off_dpu(duthost, dpu_active_id)
+        time.sleep(1)
+        ha_switchTraffic(duthost, dpu_if_ips, 'dpu2')
+        collector.set_phase(TestPhase.AFTER_FIRST_SWITCH)
+
+        # Stabilization period
+        logger.info("Waiting for stabilization...")
+        time.sleep(60)
+
+        # Final collection period
+        logger.info("Collecting final metrics...")
+        time.sleep(30)
+
+    finally:
+        # Stop collection and cleanup
+        logger.info("Stopping metrics collection...")
+        collector.stop_collection()
+
+        ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
+        power_on_dpu(duthost, dpu_active_id)
+        logger.info("Stopping traffic...")
+        cs.app.state = 'stop'
+        api.set_control_state(cs)
+
+    # Get and process metrics
+    all_metrics = collector.get_metrics()
+    logger.info(f"Collected metrics for {len(all_metrics)} phases")
+
+    pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+    stats_client_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_FIRST_SWITCH][0]['client_metrics']),
+                                  re.DOTALL)
+    stats_server_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_FIRST_SWITCH][0]['server_metrics']),
+                                  re.DOTALL)
+
+    stats_client_result = {}
+    for match in stats_client_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_client_result:
+            stats_client_result[name] = {}
+
+        stats_client_result[name]['timestamp_ids'] = timestamp_id
+        stats_client_result[name]['values'] = values
+
+    stats_server_result = {}
+    for match in stats_server_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_server_result:
+            stats_server_result[name] = {}
+
+        stats_server_result[name]['timestamp_ids'] = timestamp_id
+        stats_server_result[name]['values'] = values
+
+    cps_results = analyze_cps_performance(stats_client_result['Connection Rate']['timestamp_ids'],
+                                          stats_client_result['Connection Rate']['values'])
+
+    logger.info("\nPerformance Analysis:")
+    peak_performance = (f"{cps_results['peak_performance']['cps']} CPS @ "
+                        f"{cps_results['peak_performance']['time_ms']}ms").ljust(30)
+
+    # stable_performance = f"Stable Performance: {cps_results['stable_performance']['avg_cps']} CPS"
+    stable_performance = f"{cps_results['stable_performance']['avg_cps']} CPS".ljust(30)
+
+    if cps_results['failure_phase']['detected']:
+        failure_detected = (
+            f"{cps_results['failure_phase']['cps_at_failure']} CPS @ "
+            f"{cps_results['failure_phase']['time_ms']}ms").ljust(30)
+
+    else:
+        failure_detected = "No mid-test failure detected"
+
+    columns = ['Peak Performance', 'Stable Performance', 'Failure Detected']
+    testRun = [[peak_performance, stable_performance, failure_detected]]
+    table = tabulate(testRun, headers=columns, tablefmt='grid')
+    logger.info(table)
+
+    return
+
+
+def save_test(api, test_filename):
 
     saveAs_operation = 'ixload/test/operations/saveAs'
     # url = "{}/{}".format(base_url, saveAs_operation)

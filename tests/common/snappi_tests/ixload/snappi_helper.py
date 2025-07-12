@@ -146,7 +146,8 @@ def create_ip_list(nw_config, service_type):
     ip_list = []
 
     ENI_START = nw_config.ENI_START
-    ENI_COUNT = nw_config.ENI_COUNT
+    # ENI_COUNT = nw_config.ENI_COUNT
+    ENI_COUNT = 1
 
     for eni in range(ENI_START, ENI_COUNT + 1):
         ip_dict_temp = {}
@@ -239,6 +240,7 @@ def set_rangeList(api, service_type):
     server_objectIDs = get_objectIDs(api, serverList_url)
 
     # Adjust client side
+    """
     dict1 = {'doubleIncrement': True}
     dict2 = {
         'firstCount': '10',
@@ -246,14 +248,16 @@ def set_rangeList(api, service_type):
         'secondCount': '25000',
         'secondIncrementBy': '0.0.0.2'
     }
+    """
     vlan_dict = {'uniqueCount': 1}
 
     for i, cid in enumerate(client_objectIDs):
         try:
             # Code that may raise an exception
             if service_type != 'privatelink':
-                res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
-                res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
+                # res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
+                # res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
+                pass
             res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)  # noqa: F841
         except Exception as e:
             # Handle any exception
@@ -336,14 +340,14 @@ def set_timelineCustom(api, initial_cps_value):
     }
 
     timeline_json = {
-        'rampUpValue': 1000000,
+        'rampUpValue': 1000,
         'sustainTime': 300
     }
 
     try:
         # Code that may raise an exception
-        res = api.ixload_configure("patch", activityList_url, activityList_json)
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
+        res = api.ixload_configure("patch", activityList_url, activityList_json)   # noqa: F841
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
@@ -748,7 +752,13 @@ def main(ports_list, connection_dict, nw_config, service_type, test_type, initia
     # traffic_profile = config.TrafficProfiles.TrafficProfile(name = "traffic_profile_1")
     tp1.app = [http_client.name, http_server.name]
     tp1.objective_type = ["connection_per_sec", "simulated_user"]
-    tp1.objective_value = [6000000, nw_config.ENI_COUNT*250000]
+
+    if len(ports_list['Traffic1@Network1']) == 1:
+        connection_rate = 4500000
+    else:
+        connection_rate = int(4500000 * len(ports_list['Traffic1@Network1']))
+
+    tp1.objective_value = [connection_rate, nw_config.ENI_COUNT*250000]
     (obj_type,) = tp1.objectives.objective()
     obj_type.connection_per_sec.enable_controlled_user_adjustment = True
     obj_type.connection_per_sec.sustain_time = 14
