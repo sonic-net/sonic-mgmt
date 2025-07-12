@@ -1,10 +1,12 @@
 #!/usr/bin/python
 
 import json
+import asyncio
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
 try:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.hlapi.v3arch.asyncio import cmdgen, UdpTransportTarget, next_cmd, SnmpEngine, ContextData
+    from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
     has_pysnmp = True
 except Exception:
     has_pysnmp = False
@@ -129,29 +131,11 @@ def get_iftable(snmp_data):
     return (if_table, inverse_if_table)
 
 
-def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            host=dict(required=True),
-            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
-            community=dict(required=False, default=False),
-            username=dict(required=False),
-            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
-            integrity=dict(required=False, choices=['md5', 'sha']),
-            privacy=dict(required=False, choices=['des', 'aes']),
-            authkey=dict(required=False),
-            privkey=dict(required=False),
-            removeplaceholder=dict(required=False)),
-        required_together=(['username', 'level', 'integrity', 'authkey'], [
-                           'privacy', 'privkey'],),
-        supports_check_mode=False)
-
+async def async_main(module):
     m_args = module.params
 
     if not has_pysnmp:
         module.fail_json(msg='Missing required pysnmp module (check docs)')
-
-    cmd_gen = cmdgen.CommandGenerator()
 
     # Verify that we receive a community when using snmp v2
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
@@ -202,10 +186,12 @@ def main():
 
     host = m_args['host']
 
-    error_indication, error_status, error_index, var_binds = cmd_gen.nextCmd(
+    error_indication, error_status, error_index, var_binds = await next_cmd(
+        SnmpEngine(),
         snmp_auth,
-        cmdgen.UdpTransportTarget((host, 161)),
-        cmdgen.MibVariable(p.if_descr,)
+        await UdpTransportTarget.create((host, 161)),
+        ContextData(),
+        ObjectType(ObjectIdentity(p.if_descr,))
     )
 
     if error_indication:
@@ -213,14 +199,16 @@ def main():
 
     (if_table, inverse_if_table) = get_iftable(var_binds)
 
-    error_indication, error_status, error_index, var_table = cmd_gen.nextCmd(
+    error_indication, error_status, error_index, var_table = await next_cmd(
+        SnmpEngine(),
         snmp_auth,
-        cmdgen.UdpTransportTarget((host, 161)),
-        cmdgen.MibVariable(p.lldp_rem_port_id,),
-        cmdgen.MibVariable(p.lldp_rem_port_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_desc,),
-        cmdgen.MibVariable(p.lldp_rem_sys_name,),
-        cmdgen.MibVariable(p.lldp_rem_chassis_id,),
+        await UdpTransportTarget.create((host, 161)),
+        ContextData(),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_id,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_port_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_desc,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_sys_name,)),
+        ObjectType(ObjectIdentity(p.lldp_rem_chassis_id,)),
     )
 
     if error_indication:
@@ -278,4 +266,25 @@ def main():
     module.exit_json(ansible_facts=results)
 
 
-main()
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            host=dict(required=True),
+            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
+            community=dict(required=False, default=False),
+            username=dict(required=False),
+            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
+            integrity=dict(required=False, choices=['md5', 'sha']),
+            privacy=dict(required=False, choices=['des', 'aes']),
+            authkey=dict(required=False),
+            privkey=dict(required=False),
+            removeplaceholder=dict(required=False)),
+        required_together=(['username', 'level', 'integrity', 'authkey'], [
+            'privacy', 'privkey'],),
+        supports_check_mode=False)
+
+    asyncio.run(async_main(module))
+
+
+if __name__ == '__main__':
+    main()
