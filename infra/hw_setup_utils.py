@@ -8,6 +8,7 @@ import requests
 import logging
 import paramiko
 import yaml
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
 
@@ -164,6 +165,7 @@ allure_directory = allure_config['allure']['local-report-dir']
 UNSET_PROXY = "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy"
 MAX_RETRIES = 10
 MAX_RETRIES_TIMEOUT = 20
+RUN_TESTS_PREFIX = f"cd /data/tests && {UNSET_PROXY} && nohup"
 
 #dictionaries of testbeds
 
@@ -997,7 +999,7 @@ def flushChannel(thread):
             break
     log.debug("flush complete")
 
-def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites, test_name, skip_folders, skip_tests, remote_file=None):
+def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suites, test_name, skip_folders, skip_tests, remote_file=None):
     testcase_start = datetime.now()
     testcase_start_time = testcase_start.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
@@ -1009,7 +1011,7 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
     skip_tests_string = testbed_info_dict['skip_tests']+" "+skip_tests.replace(",", " ") if 'skip_tests' in testbed_info_dict else skip_tests.replace(",", " ")
     skip_folders_list = testbed_info_dict['skip_folder']+" "+skip_folders.replace(",", " ") if 'skip_folder' in testbed_info_dict else skip_folders.replace(",", " ")
     log.debug(f'skip_folders_list: {skip_folders_list}')
-    docker_promt = testbed_info_dict['docker_prompt']
+    docker_prompt = testbed_info_dict['docker_prompt']
     allure_id = create_allure_id(build_id, image_id, testbed)
 
     if test_suites.startswith("file:"):
@@ -1019,35 +1021,35 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
         # else:
         #     tests = testbed_info_dict["add_folders"].split(" ")
         log.debug("Test list: %s" % tests)
-        log.debug(docker_promt)
+        log.debug(docker_prompt)
         for test in tests:
             if test.find("#")==0:
                 log.info(f"Test commented {test}")
             else:
                 folder = f"sanity_script_tests_{image_id}_{build_id}"
-                run_cmd = f"./run_tests.sh -n {t1} -d {t2} -e -rapP -e --alluredir={allure_directory} -u -e -s -c {test} -p /run_logs/{folder} &"
+                log_file_base = test.replace("/", "_").replace(".py", "")
+                log_file = f"run_test_{log_file_base}_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
+                run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -e -rapP -e --alluredir={allure_directory} -u -e -s -c {test} -p /run_logs/{folder} > {log_file} 2>&1 &"
                 log.info(f'To check logs of the tests, go to vxr@SONiC:/run_logs/{folder}')
-                thread.sendline(run_cmd)
-                exp_str = "generated xml file: /data/tests/logs"
-                x = thread.expect([DUT_FAILURE_ERROR, exp_str])
-                if x == 0:
+                stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)
+                log.debug(f"{run_cmd} output:\n{stdout}")
+                # Check for known failure patterns in stdout/stderr
+                combined_output = stdout + stderr
+
+                if DUT_FAILURE_ERROR in combined_output:
                     log.error("DUT is not in a stable condition.")
                     return -1
-                else:
-                    time.sleep(20)
-                    log.debug(thread.before)
-                    log.debug(docker_promt)
-                    thread.expect(docker_promt)
-                    thread.sendline()
-                    thread.sendline()
-                    thread.expect(docker_promt)
+                if status_code != 0:
+                    log.error(f"run_tests.sh failed with exit code {status_code}")
+                    return -1
+                time.sleep(20)
         return None
     else:
         folder = f'{image_id}_jenkins_nightly_logs_{build_id}_{test_suites}'  
         dut_flag = "" if "skip_dut_flag" in testbed_info_dict else f" -d {t2} "
         if test_suites == "All":
             extra_params = testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else ""
-            run_cmd = f"./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p /run_logs/{folder} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" &"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p /run_logs/{folder} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" > run_all_tests_{datetime.now().strftime('%Y%m%d%H%M%S')}.log 2>&1 &"
         else:
             extra_params = "-O -e --disable_loganalyzer -e --qos_swap_syncd=False" if test_suites=="qos" else ""
             extra_params = extra_params+" "+testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else extra_params
@@ -1061,11 +1063,13 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
             formatted_time = now.strftime("%Y%m%d%H%M%S")
             test_name_output = test_name.replace("/","_").replace(".py","")
             folder = folder.replace("/","_").replace(".py","")
-            run_cmd = f"./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p /run_logs/{folder} |& tee run_test_{test_name_output}_{formatted_time}.log"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p /run_logs/{folder} > run_test_{test_name_output}_{formatted_time}.log 2>&1 &"
     
     log.debug(f'To check logs of the tests, go to ucs:/run_logs/{folder}')
-    thread.sendline(run_cmd)
-
+    stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)
+    log.debug(f"{run_cmd} output:\n{stdout}")
+    time.sleep(30)
+    combined_output = stdout + stderr
     if test_suites == "All":
         exp_str = f'generated xml file: /run_logs/{folder}/wan/traffic_test/'
     else:
@@ -1074,23 +1078,16 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, thread, test_suites
     rc = pollingRuns(testbed_info_dict, test_suites)
     if rc!=0:
         log.error("pollingRuns failed")
-        thread.close()
         return -1
-
-    x = thread.expect([DUT_FAILURE_ERROR, SANITY_SCRIPT_ERROR, exp_str, docker_promt])
-    # log.debug(thread.before)
-    time.sleep(60)
-    # log.debug(thread.after)
-    if x == 0 or x==1:
-        log.error("Sanity scripts failed due to an error. Please rerun after fixing issues.")
+    if DUT_FAILURE_ERROR in combined_output:
+        log.error("DUT is not in a stable condition.")
         return -1
-    elif x==2 or x==3:
+    elif SANITY_SCRIPT_ERROR in combined_output:
+        log.error("Sanity scripts failed due to an error. Please rerun after fixing issues")
+        return -1
+    elif exp_str in combined_output or docker_prompt in combined_output:
+        log.info(f"Sanity run completed: matched expected string '{exp_str}'")
         time.sleep(60)
-        thread.sendline()
-        thread.expect(docker_promt)
-        log.debug(f"Run completed for {test_suites}!")
-    elif x==3:
-        log.debug(f"Run completed for {test_suites}!")
     else:
         log.debug("No expect string match found!")
     time.sleep(60)

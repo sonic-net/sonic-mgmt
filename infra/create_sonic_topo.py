@@ -30,7 +30,7 @@ import subprocess
 import sys
 import re
 import urllib.parse
-
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
 from jinja2 import Environment, FileSystemLoader
 from run_scripts_remote import run_scripts_remote, upload_log_files, SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 
@@ -120,47 +120,6 @@ def connect_with_retries(
     # if we reach here, all attempts failed
     logging.info("All connection attempts failed; raising exception.")
     raise last_exc
-
-def _run_cmd_in_ssh(ssh, cmd, timeout=180):
-    """
-    Run a command in remote host
-    """
-
-    if isinstance(cmd, str):
-        cmd_str = cmd
-    elif isinstance(cmd, list):
-        cmd_str = ';'.join(cmd)
-    else:
-        raise ValueError(f"command passed is neither list or str, cannot create command string. cmd: {cmd}, type: {type(cmd)}")
-
-    # run command inside the container
-    stdin, stdout, stderr = ssh.exec_command(cmd_str, timeout=timeout)
-
-    # to prevent buffer blockage
-    cmd_output = stdout.read().decode()
-    cmd_error = stderr.read().decode()
-
-    # get the exit status
-    exit_status = stdout.channel.recv_exit_status()
-
-    logging.info(f"Output for command '{cmd_str}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
-    return cmd_output, cmd_error, exit_status
-
-def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
-    """
-    Run a command in container
-    """
-
-    if isinstance(cmd, str):
-        cmd_str = cmd
-    elif isinstance(cmd, list):
-        cmd_str = ';'.join(cmd)
-    else:
-        raise ValueError(f"command passed is neither list or str, cannot create command string. cmd: {cmd}, type: {type(cmd)}")
-
-    # run command inside the container
-    docker_exec_cmd = f'docker exec {container_name} sh -c "{cmd_str}"'
-    return _run_cmd_in_ssh(ssh, docker_exec_cmd, timeout)
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']

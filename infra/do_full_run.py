@@ -10,7 +10,8 @@ import json
 import paramiko
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
-    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME
+    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
 
 # Parse config file
 allure_config = {}
@@ -117,7 +118,7 @@ def run_test(args):
     local_ucs = testbed_info_dict['ucs_host_name']
 
     ucs_ssh = testbed_info_dict["ucs_username"]+"@"+testbed_info_dict['ucs_host_name']
-
+    container_name = getSonicMgmtContainterName(stream, testbed)
     docker_exec_cmd = getDockerExecCommand(stream, testbed)
 
     if testfile:
@@ -175,36 +176,29 @@ def run_test(args):
             time.sleep(100)
         return exit_code
         
-    p2 = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
-    p2.sendline("docker ps -a")
-    p2.expect(local_ucs)
-    p2.sendline(docker_exec_cmd)
-    p2.expect(docker_prompt)
-    time.sleep(5)
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(
+        hostname=testbed_info_dict['ucs_host'],
+        username=testbed_info_dict['ucs_username'],
+        password=testbed_info_dict['ucs_password']
+    )
+    stdout, stderr, status_code= _run_cmd_in_ssh(client, "docker ps -a")
+    log.debug(f"'docker ps -a' output:\n{stdout}")
     log.debug(rerun)
     if rerun == False or rerun == "false":
-        p2.sendline(f"cd {allure_directory}")
-        p2.expect(docker_prompt)
-        p2.sendline("rm -rf *")
-        p2.expect(docker_prompt)
-    p2.sendline("cd /data/tests")
-    p2.expect(docker_prompt)
-    p2.sendline(UNSET_PROXY)
-    p2.expect(docker_prompt)
+        stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, f"cd {allure_directory} && rm -rf *")
 
     if testfile and test_tag:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(testbed_info_dict['ucs_host_name'], username=testbed_info_dict['ucs_username'], password=testbed_info_dict['ucs_password'])
         sftp = client.open_sftp()
         remote_file_path = f"/home/sonic/ring3-time-{build_id}.txt"
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, p2, test_suite, test_suite, skip_folders, skip_tests, remote_file)
+                exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suite, test_suite, skip_folders, skip_tests, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
-                    p2.close()
+                    client.close()
                     return exit_code
         # Output contents of the file
         log.debug(f"Output contents of the file - {remote_file_path}")
@@ -213,24 +207,23 @@ def run_test(args):
             log.debug(content)
         
         sftp.close()
-        client.close()
 
     elif test_suites_arg and "," in test_suites_arg:
         test_suites_array = test_suites_arg.split(",")
         for test_suite in test_suites_array:
-            exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, p2, test_suite, test_suite, skip_folders, skip_tests)
+            exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suite, test_suite, skip_folders, skip_tests)
             if exit_code!=0:
                 time.sleep(30)
-                p2.close()
+                client.close()
                 return exit_code
     elif test_suites_arg:
-        exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, p2, test_suites_arg, test_suites_arg, skip_folders, skip_tests)
+        exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suites_arg, test_suites_arg, skip_folders, skip_tests)
     else:
-        log.error(f"No tests fund! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
+        log.error(f"No tests found! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
         return -1
     log.debug("Timeout for 2 minutes to let the run finish")
     time.sleep(120)
-    p2.close()
+    client.close()
     return exit_code
 
 def collect_results(args):
