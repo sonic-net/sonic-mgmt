@@ -421,7 +421,8 @@ class EosHost(AnsibleHostBase):
                     'show interface {} hardware'.format(interface_name)]
         for command in commands:
             output = self.eos_command(commands=[command])
-            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+            # Ignore case as EOS 4.23 has format of "Speed/Duplex" whereas 4.25 is "Speed/duplex"
+            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0], flags=re.IGNORECASE)
             if found_txt is not None:
                 break
 
