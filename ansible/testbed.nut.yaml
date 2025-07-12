@@ -2,31 +2,18 @@
 - name: nut-testbed-1
   comment: "Example testbed for NUT with multi-tier topology"
   inv_name: lab
+  topo: nut-2tiers
   test_tags: []
   duts:
     - switch-t0-01
     - switch-t0-02
     - switch-t1-01
     - switch-t1-02
-  dut_templates:
-    - name: ".*-t0-.*"
-      type: "BackEndToRRouter"
-      loopback_v4: "10.1.0.0/24"
-      loopback_v6: "2064:100:0:0::/64"
-      asn_base: 64001
-      asn_step: 1
-      p2p_v4: "10.0.0.0/16"
-      p2p_v6: "fc0a::/64"
-    - name: ".*-t1-.*"
-      type: "BackEndLeafRouter"
-      loopback_v4: "10.1.1.0/24"
-      loopback_v6: "2064:100:0:1::/64"
-      asn_base: 65001
-      asn_step: 0
-      p2p_v4: "10.0.0.0/16"
-      p2p_v6: "fc0a::/64"
   tgs:
     - tgen-1
     - tgen-2
-  tg_template: { type: "Server", asn_base: 60001, p2p_v4: "10.0.0.0/16", p2p_v6: "fc0a::/64" }
+  tg_api_server: 10.2.0.1:443
+  l1s:
+    - ocs-01
+    - ocs-02
   auto_recover: 'True'
