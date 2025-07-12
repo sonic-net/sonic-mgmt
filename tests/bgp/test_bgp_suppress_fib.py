@@ -373,22 +373,20 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     """
     Install or withdraw ipv4 or ipv6 route by exabgp
     """
-    route_data = []
     url = "http://{}:{}".format(ptfip, port)
     for route in route_list:
-        route_data.append(route)
-    command = "{} attribute next-hop self nlri {}".format(operation, ' '.join(route_data))
-    data = {"command": command}
-    logger.info("url: {}".format(url))
-    logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
-    assert r.status_code == 200, (
-        "HTTP request to ExaBGP API failed with status code {}. URL: {}. Data: {}"
-    ).format(
-        r.status_code,
-        url,
-        data
-    )
+        command = "{} route {} next-hop self".format(operation, route)
+        data = {"command": command}
+        logger.info("url: {}".format(url))
+        logger.info("command: {}".format(data))
+        r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
+        assert r.status_code == 200, (
+            "HTTP request to ExaBGP API failed with status code {}. URL: {}. Data: {}"
+        ).format(
+            r.status_code,
+            url,
+            data
+        )
 
 
 def announce_route(ptfip, route_list, port, action=ANNOUNCE):
