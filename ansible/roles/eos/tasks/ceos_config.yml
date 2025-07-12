@@ -18,6 +18,17 @@
 - name: Set EOS backplane port name
   set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int - 1}}"
 
+- name: check contents of ceos mount dir
+  become: yes
+  command: ls -la /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+  register: ceos_dir_contents
+  ignore_errors: yes
+  delegate_to: "{{ VM_host[0] }}"
+
+- debug:
+    var: ceos_dir_contents.stdout_lines
+
+
 - name: cleanup previous ceos mount dir
   become: yes
   command: rm -rf /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
