@@ -658,7 +658,8 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
     if last_suffix % 256 != 0:
         last_suffix += (256 - last_suffix % 256)
 
-    for k, v in vms_config.items():
+    for k in sorted(vms_config.keys()):
+        v = vms_config(k)
         curr_no_default_route = no_default_route
         if topo_name in BGP_SCALE_T1S and 'spine' in v['properties']:
             curr_no_default_route = True
