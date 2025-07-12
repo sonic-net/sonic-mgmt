@@ -889,7 +889,7 @@ platform_tests/broadcom/test_ser.py:
   xfail:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
-      - "release in ['202412'] and 'Arista-7060X6' in hwsku"
+      - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
 #######################################
 #####  cli/test_show_platform.py  #####
