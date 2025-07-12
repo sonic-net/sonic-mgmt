@@ -983,16 +983,30 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
-        src_mgFacts['minigraph_ptf_indices'] = {
+        # Run "show ip int" on DUT using sonic-mgmt CLI
+        show_ip_int_output = duthosts[0].shell("show ip interface")["stdout"]
+
+        # Build a set of Ethernet ports to exclude (with 18.x.202.0/31 IPs)
+        excluded_ports = set()
+        for line in show_ip_int_output.strip().splitlines():
+            # Match lines starting with "Ethernet" and IP in 18.x.202.0/31
+            match = re.match(r"^(Ethernet\d+)\s+\S+\s+(18\.\d+\.202\.0/31)", line.strip())
+            if match:
+                excluded_ports.add(match.group(1))
+
+        # Filter minigraph_ptf_indices to exclude dynamic ports
+        src_mgFacts["minigraph_ptf_indices"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
-            if not key.startswith("Ethernet-BP")
-            }
-        src_mgFacts['minigraph_ports'] = {
+            for key, value in src_mgFacts["minigraph_ptf_indices"].items()
+            if key not in excluded_ports
+        }
+
+        # Filter minigraph_ports to exclude dynamic ports
+        src_mgFacts["minigraph_ports"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ports'].items()
-            if not key.startswith("Ethernet-BP")
-            }
+            for key, value in src_mgFacts["minigraph_ports"].items()
+            if key not in excluded_ports
+        }
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):

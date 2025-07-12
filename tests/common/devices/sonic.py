@@ -27,7 +27,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
@@ -2377,6 +2376,23 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
+    def get_backplane_ports(self):
+        show_ip_int_output = self.shell("show ip interface")["stdout"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for line in show_ip_int_output.strip().splitlines():
+            line = line.strip()
+            if not line or line.startswith("Interface") or line.startswith("---"):
+                continue
+            fields = line.split()
+            if len(fields) < 3:
+                continue
+            iface = fields[0]
+            ip_addr = fields[1]
+            if iface.startswith("Ethernet") and ip_addr.startswith("18.") and ".202.0/31" in ip_addr:
+                excluded_ports.add(iface)
+        return excluded_ports
+
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -2388,8 +2404,9 @@ Totals               6450                 6449
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
+        excluded_ports = self.get_backplane_ports()
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
+            if ((k.startswith("Ethernet") and (k not in excluded_ports) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
                self.is_backend_portchannel(k, mg_facts))):
                 # Ping for some time to get ARP Re-learnt.
