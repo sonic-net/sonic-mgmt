@@ -2405,20 +2405,16 @@ Totals               6450                 6449
         return True if "Ethernet-BP" in port else False
 
     def get_backplane_ports(self):
-        show_ip_int_output = self.shell("show ip interface")["stdout"]
+        # get current interface data from config_db.json
+        config_db_data = self.shell("cat /etc/sonic/config_db.json")['stdout']
+        config_db_json = json.loads(config_db_data)
+        config_db_ports = config_db_json["PORT"]
         # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
         excluded_ports = set()
-        for line in show_ip_int_output.strip().splitlines():
-            line = line.strip()
-            if not line or line.startswith("Interface") or line.startswith("---"):
-                continue
-            fields = line.split()
-            if len(fields) < 3:
-                continue
-            iface = fields[0]
-            ip_addr = fields[1]
-            if iface.startswith("Ethernet") and ip_addr.startswith("18.") and ".202.0/31" in ip_addr:
-                excluded_ports.add(iface)
+        for port, val in config_db_ports.items():
+            if "role" in val:
+                excluded_ports.add(port)
+        
         return excluded_ports
 
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
