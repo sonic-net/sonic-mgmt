@@ -356,3 +356,7 @@ r, ".* ERR kernel.*audit: rate limit exceeded.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/33479668
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
+
+# Ignore Packet Trim Feature related errors
+r, ".* ERR .*packet trim Enum Capability values get for .*"
+r, ".* ERR .*Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities"
