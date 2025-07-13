@@ -2404,6 +2404,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
+    def get_backplane_ports(self):
+        # get current interface data from config_db.json
+        config_facts = self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
+        config_db_ports = config_facts["PORT"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for port, val in config_db_ports.items():
+            if "role" in val:
+                excluded_ports.add(port)
+        return excluded_ports
+
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
