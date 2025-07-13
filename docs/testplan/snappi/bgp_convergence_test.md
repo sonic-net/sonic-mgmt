@@ -9,7 +9,11 @@
 4. [4. Test Cases](#4-test-cases)
    1. [4.1. Pretest Setup](#41-pretest-setup)
    2. [4.2. Test Case 1: Single Port Shutdown](#42-test-case-1-single-port-shutdown)
+      1. [4.2.1. Test Case 1a: T0 Port Shutdown](#421-test-case-1a-t0-port-shutdown)
+      2. [4.2.2. Test Case 1b: Route Withdrawal](#422-test-case-1b-route-withdrawal)
    3. [4.3. Test Case 2: Single Port Startup](#43-test-case-2-single-port-startup)
+      1. [4.3.1. Test Case 2a: T0 Port Startup](#431-test-case-2a-t0-port-startup)
+      2. [4.3.2. Test Case 2b: Route Injection](#432-test-case-2b-route-injection)
    4. [4.4. Test Case 3: Device Unisolation](#44-test-case-3-device-unisolation)
       1. [4.4.1. Parameters](#441-parameters)
       2. [4.4.2. Supported Isolation Events](#442-supported-isolation-events)
@@ -114,26 +118,55 @@ The following setup steps are common to all test cases:
 
 ### 4.2. Test Case 1: Single Port Shutdown
 
-This test case evaluates BGP convergence behavior when a single port is administratively shut down.
+This test case evaluates BGP convergence behavior when a single port or route is removed from the network.
+
+#### 4.2.1. Test Case 1a: T0 Port Shutdown
+
+This test case tests physical port shutdown on a T0 switch connected to RX ports.
 
 1. Execute pretest setup (Section 4.1).
 2. Start baseline traffic flow and verify steady state with all ports operational.
-3. Select target port for shutdown:
-   1. When `nut-2tier` topology being used, prefer to select a port on a T1 switch. If no T1 switch is available, select a port on a T0 switch.
-   2. When `nut-single-dut` topology being used, select a port on the single DUT.
-4. Trigger single port link down event on the selected active port.
+3. Select target T0 port connected to RX ports for shutdown.
+4. Trigger administrative shutdown on the selected T0 port.
+5. Monitor and measure data plane downtime (time until traffic recovery) and route convergence time.
+6. Verify final state and collect metrics.
+
+#### 4.2.2. Test Case 1b: Route Withdrawal
+
+This test case tests BGP route withdrawal from one RX port.
+
+1. Execute pretest setup (Section 4.1).
+2. Start baseline traffic flow and verify steady state with all ports operational.
+3. Select one RX port for route withdrawal.
+4. Withdraw BGP routes from the selected RX port while keeping the physical port up.
 5. Monitor and measure data plane downtime (time until traffic recovery) and route convergence time.
 6. Verify final state and collect metrics.
 
 ### 4.3. Test Case 2: Single Port Startup
 
-This test case evaluates BGP convergence behavior when a previously shut down port is brought back up.
+This test case evaluates BGP convergence behavior when a previously shut down port or withdrawn route is restored.
 
-**Prerequisites:** This test case requires a port to be in shutdown state (e.g., from Test Case 1 or manually configured).
+#### 4.3.1. Test Case 2a: T0 Port Startup
 
-1. Execute pretest setup (Section 4.1) with one port in shutdown state.
-2. Start baseline traffic flow and verify steady state with traffic flowing through alternate paths while target port remains down.
-3. Bring the target port back up (remove administrative shutdown).
+This test case tests bringing up a previously shut down T0 port connected to RX ports.
+
+**Prerequisites:** This test case requires a T0 port to be in shutdown state (e.g., from Test Case 1a or manually configured).
+
+1. Execute pretest setup (Section 4.1) with one T0 port connected to RX in shutdown state.
+2. Start baseline traffic flow and verify steady state with traffic flowing through alternate paths while target T0 port remains down.
+3. Bring the target T0 port back up (remove administrative shutdown).
+4. Monitor and measure data plane downtime (time until traffic recovery) and route convergence time.
+5. Verify final state matches expected routing behavior and collect metrics.
+
+#### 4.3.2. Test Case 2b: Route Injection
+
+This test case tests BGP route injection (advertisement) from one RX port.
+
+**Prerequisites:** This test case requires baseline traffic to be established without routes from the target RX port.
+
+1. Execute pretest setup (Section 4.1) with one RX port not advertising routes.
+2. Start baseline traffic flow and verify steady state with traffic flowing through existing paths.
+3. Inject (advertise) BGP routes from the selected RX port while keeping the physical port up.
 4. Monitor and measure data plane downtime (time until traffic recovery) and route convergence time.
 5. Verify final state matches expected routing behavior and collect metrics.
 
@@ -181,7 +214,7 @@ All metrics include the following common labels based on test parameters:
 
 | User Interface Label                     | Label Key in DB           | Example Value        |
 |------------------------------------------|---------------------------|----------------------|
-| `METRIC_LABEL_TEST_CASE_TYPE`            | test.case_type            | single_port_shutdown |
+| `METRIC_LABEL_TEST_PARAMS.EVENT_TYPE`    | test.params.event_type    | t0_port_shutdown |
 | `METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE`   | test.params.route_scale   | 100000               |
 | `METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH` | test.params.prefix_length | 24                   |
 | `METRIC_LABEL_TG_TRAFFIC_RATE`           | tg.traffic_rate           | 100                  |
