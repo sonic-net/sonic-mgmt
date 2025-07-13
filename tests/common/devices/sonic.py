@@ -2386,7 +2386,7 @@ Totals               6450                 6449
         for port, val in config_db_ports.items():
             if "role" in val:
                 excluded_ports.add(port)
-        
+
         return excluded_ports
 
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
