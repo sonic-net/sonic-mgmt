@@ -43,7 +43,6 @@ HWSKU_INTF_NUMBERS_DICT = {
     "Mellanox-SN2700": 16,
     "ACS-MSN4600C": 16,
     "Mellanox-SN2700": 16,
-    "Mellanox-SN3800-D112C8": 16,
     "Force10-S6000": 16
 }
 # To save time when debugging: if True, wouldn't run config_reload() in dut_teardown() and wouldn't recover acl table
