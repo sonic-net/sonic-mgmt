@@ -132,18 +132,10 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
     localhost.shell(local_command)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def create_gnmi_certs(duthost, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-
-    # Check if GNMI is enabled on the device
-    pyrequire(
-        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
-        "Test was not supported on devices which do not support GNMI!")
-
     # Create Root key
     local_command = "openssl genrsa -out gnmiCA.key 2048"
     localhost.shell(local_command)
@@ -224,16 +216,40 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     ptfhost.copy(src='gnmiclient.key', dest='/root/')
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
 
-    yield
-    # Delete all created certs
+
+def delete_gnmi_certs(localhost):
+    '''
+    Delete GNMI client certificates
+    '''
     local_command = "rm \
                         extfile.cnf \
                         gnmiCA.* \
                         gnmiserver.* \
                         gnmiclient.*"
     localhost.shell(local_command)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    '''
+    Setup GNMI server with client certificates
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if GNMI is enabled on the device
+    pyrequire(
+        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
+        "Test was not supported on devices which do not support GNMI!")
+
+    create_gnmi_certs(duthost, localhost, ptfhost)
+
+    create_checkpoint(duthost, SETUP_ENV_CP)
+    apply_cert_config(duthost)
+
+    yield
+    
+    delete_gnmi_certs(localhost)
 
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
