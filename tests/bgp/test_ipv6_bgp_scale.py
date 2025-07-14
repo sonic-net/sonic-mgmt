@@ -6,6 +6,8 @@ import datetime
 import pytest
 import logging
 import json
+import gzip
+import base64
 import ipaddress
 import random
 import time
@@ -18,7 +20,7 @@ from ptf.mask import Mask
 
 pytestmark = [
     pytest.mark.topology(
-        't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510',
+        't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510', 't0-isolated-d2u510s2',
         't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2',
         't1-isolated-d254u2', 't1-isolated-d510u2s2'
     )
@@ -128,7 +130,7 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
         ptf_ip=ptf_ip,
         action=ACTION_ANNOUNCE,
         path="../ansible/",
-        log_path="logs",
+        log_path="/tmp",
         dut_interfaces=dut_interfaces,
         upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else 0,
         downstream_neighbor_groups=tbinfo['downstream_neighbor_groups'] if 'downstream_neighbor_groups' in tbinfo else 0
@@ -165,7 +167,7 @@ def change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change,
         action=action,
         peers_routes_to_change=peers_routes_to_change,
         path="../ansible/",
-        log_path="logs",
+        log_path="/tmp",
         dut_interfaces=dut_interfaces
     )
 
@@ -185,23 +187,46 @@ def remove_nexthops_in_routes(routes, nexthops):
 
 
 def compare_routes(running_routes, expected_routes):
+    logger.info(f"compare_routes called at {datetime.datetime.now()}")
     is_same = True
     diff_cnt = 0
-    if len(expected_routes) != len(running_routes):
-        is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
-                    len(expected_routes), len(running_routes))
-        return is_same
+    missing_prefixes = []
+    nh_diff_prefixes = []
+
+    expected_set = set(expected_routes.keys())
+    running_set = set(running_routes.keys())
+    missing = expected_set - running_set
+    extra = running_set - expected_set
+
+    # Count missing_prefixes and nh_diff_prefixes
     for prefix, attr in expected_routes.items():
         if prefix not in running_routes:
             is_same = False
             diff_cnt += 1
+            missing_prefixes.append(prefix)
             continue
         except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
         running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
         if except_nhs != running_nhs:
             is_same = False
             diff_cnt += 1
+            nh_diff_prefixes.append((prefix, except_nhs, running_nhs))
+
+    if len(expected_routes) != len(running_routes):
+        is_same = False
+        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
+                    len(expected_routes), len(running_routes))
+        if missing:
+            logger.info("Missing prefixes in running_routes: %s", list(missing))
+        if extra:
+            logger.info("Extra prefixes in running_routes: %s", list(extra))
+
+    if missing_prefixes:
+        logger.info("Prefixes missing in running_routes: %s", missing_prefixes)
+    if nh_diff_prefixes:
+        for prefix, expected, running in nh_diff_prefixes:
+            logger.info("Prefix %s nexthops not match, expected: %s, running: %s", prefix, expected, running)
+
     logger.info("%d of %d routes are different", diff_cnt, len(expected_routes))
     return is_same
 
@@ -216,13 +241,13 @@ def caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
     missing_pkt_cnt = tx_total - rx_total
     if missing_pkt_cnt < 0:
         logger.warning("There are packets noise on ptf dataplane")
-    pps = tx_total / (end_time - start_time).total_seconds()
+    pps = tx_total / (end_time - start_time)
     downtime = missing_pkt_cnt / pps if pps > 0 else 10000000
     logger.info(
         "traffic thread duration: %s seconds,\n rx_counters: %s,\n tx_counters: %s,\n" +
         "Total packets received: %d,\n Total packets sent: %d,\n Missing packets: %d\n" +
         "Estimated pps %s, downtime is %s",
-        (end_time - start_time).total_seconds(),
+        (end_time - start_time),
         ptf_dp.mask_rx_cnt[masked_exp_pkt],
         ptf_dp.mask_tx_cnt[masked_exp_pkt],
         rx_total,
@@ -280,14 +305,20 @@ def send_packets(
 
 def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, timeout=MAX_CONVERGENCE_WAIT_TIME):
     is_first_run = True
-    while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
+    logger.info("before get_all_bgp_ipv6_routes: %s", datetime.datetime.now())
+    current_routes = get_all_bgp_ipv6_routes(duthost)
+    logger.info("after get_all_bgp_ipv6_routes: %s", datetime.datetime.now())
+    while not compare_routes(current_routes, expected_routes):
         if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout) and not is_first_run:
-            logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-            logging.info("Expected routes: %s", expected_routes)
-            logging.error("BGP routes are not stable in long time")
+            logging.error(
+                "BGP routes are not stable in long time, waited: %s, expected(max): %s",
+                (datetime.datetime.now() - start_time),
+                datetime.timedelta(seconds=timeout)
+            )
             return False
         is_first_run = False
-    logger.info("Routes are stable after : %s", datetime.datetime.now() - start_time)
+    duration = (datetime.datetime.now() - start_time).total_seconds()
+    logger.info("Routes are stable after : %.3f seconds", duration)
     return True
 
 
@@ -320,6 +351,45 @@ def remove_routes_with_nexthops(candidate_routes, nexthop_to_remove, result_rout
             result_routes[prefix] = value
 
 
+def check_bgp_routes_converged(duthost, expected_routes, shutdown_ports, timeout=MAX_CONVERGENCE_WAIT_TIME, interval=1,
+                               log_path="/tmp", compressed=False, action='no_action'):
+    logger.info("Start to check bgp routes converged")
+    logger.info("Before check_bgp_routes_converged time: %s", datetime.datetime.now())
+    expected_routes_json = json.dumps(expected_routes, separators=(',', ':'))
+    result = duthost.check_bgp_ipv6_routes_converged(
+        expected_routes=expected_routes_json,
+        shutdown_ports=shutdown_ports,
+        timeout=timeout,
+        interval=interval,
+        log_path=log_path,
+        compressed=compressed,
+        action=action
+    )
+    logger.info("After check_bgp_routes_converged time: %s", datetime.datetime.now())
+
+    start_time = result.get("start_time")
+    end_time = result.get("end_time")
+
+    if result.get("converged"):
+        logger.info(f"BGP converged in {end_time - start_time} seconds")
+        ret = {
+            "converged": result.get("converged"),
+            "start_time": start_time,
+            "end_time": end_time
+        }
+        return ret
+    else:
+        pytest.fail(f"BGP routes are not stable in {timeout} seconds")
+
+
+def compress_expected_routes(expected_routes):
+    json_str = json.dumps(expected_routes)
+    compressed = gzip.compress(json_str.encode('utf-8'))
+    b64_str = base64.b64encode(compressed).decode('utf-8')
+    return b64_str
+
+
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20])
 def test_sessions_flapping(
     duthost,
@@ -355,6 +425,7 @@ def test_sessions_flapping(
                 flapping_port_count, flapping_ports, unflapping_ports)
     injection_bgp_neighbor = random.choice(unflapping_neighbors)
     injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
+    logger.info("Injection BGP neighbor: %s. Injection dut port: %s", injection_bgp_neighbor, injection_dut_port)
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
@@ -369,28 +440,27 @@ def test_sessions_flapping(
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
     expected_routes = deepcopy(startup_routes)
     remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
+    compressed_expected_routes = compress_expected_routes(expected_routes)
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
     traffic_thread.start()
-    start_time = datetime.datetime.now()
-    duthost.shutdown_multiple(flapping_ports)
-    ports_shut_time = datetime.datetime.now()
 
     try:
-        recovered = wait_for_ipv6_bgp_routes_recovery(
+        result = check_bgp_routes_converged(
             duthost,
-            expected_routes,
-            ports_shut_time,
-            MAX_CONVERGENCE_WAIT_TIME
+            compressed_expected_routes,
+            flapping_ports,
+            MAX_CONVERGENCE_WAIT_TIME,
+            compressed=True,
+            action='shutdown'
         )
         terminated.set()
         traffic_thread.join()
-        end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_ONE_PORT_FLAPPING)
-        if not recovered:
+        validate_rx_tx_counters(pdp, result.get("end_time"), result.get("start_time"), exp_mask, MAX_DOWNTIME_ONE_PORT_FLAPPING)
+        if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
         duthost.no_shutdown_multiple(flapping_ports)
@@ -457,6 +527,7 @@ def test_nexthop_group_member_scale(
             withdraw_number += 1
             if withdraw_number == WITHDRAW_ROUTE_NUMBER:
                 break
+    logger.info("peers_routes_to_change: %s", peers_routes_to_change)
     pytest_assert(max_flap_neighbor_number and len(peers_routes_to_change) == max_flap_neighbor_number or
                   len(peers_routes_to_change) == len(neighbor_ecmp_routes),
                   "Flap neighbor count is not enough: {}".format(len(peers_routes_to_change)))
@@ -466,7 +537,6 @@ def test_nexthop_group_member_scale(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
-    start_time = datetime.datetime.now()
     traffic_thread.start()
     expected_routes = deepcopy(startup_routes)
     for peer, routes in peers_routes_to_change.items():
@@ -479,13 +549,19 @@ def test_nexthop_group_member_scale(
         ptf_ip = ptfhost.mgmt_ip
         change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_WITHDRAW,
                                servers_dut_interfaces.get(ptf_ip, ''))
-    withdraw_time = datetime.datetime.now()
-    recovered = wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, withdraw_time, MAX_CONVERGENCE_WAIT_TIME)
+    compressed_expected_routes = compress_expected_routes(expected_routes)
+    result = check_bgp_routes_converged(
+        duthost,
+        compressed_expected_routes,
+        [],
+        MAX_CONVERGENCE_WAIT_TIME,
+        compressed=True,
+        action='no_action'
+    )
     terminated.set()
     traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
-    if not recovered:
+    validate_rx_tx_counters(pdp, result.get("end_time"), result.get("start_time"), exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
 
     # ------------announce routes and test ------------ #
@@ -501,18 +577,23 @@ def test_nexthop_group_member_scale(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
-    start_time = datetime.datetime.now()
     traffic_thread.start()
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
-    announce_time = datetime.datetime.now()
-    recovered = wait_for_ipv6_bgp_routes_recovery(duthost, startup_routes, announce_time, MAX_CONVERGENCE_WAIT_TIME)
+    compressed_startup_routes = compress_expected_routes(startup_routes)
+    result = check_bgp_routes_converged(
+        duthost,
+        compressed_startup_routes,
+        [],
+        MAX_CONVERGENCE_WAIT_TIME,
+        compressed=True,
+        action='no_action'
+    )
     terminated.set()
     traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
-    if not recovered:
+    validate_rx_tx_counters(pdp, result.get("end_time"), result.get("start_time"), exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
 
 
@@ -560,15 +641,16 @@ def test_device_unisolation(
     expected_routes = deepcopy(startup_routes)
     remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
     try:
-        duthost.shutdown_multiple(bgp_ports)
-        ports_shut_time = datetime.datetime.now()
-        recovered = wait_for_ipv6_bgp_routes_recovery(
+        compressed_expected_routes = compress_expected_routes(expected_routes)
+        result = check_bgp_routes_converged(
             duthost,
-            expected_routes,
-            ports_shut_time,
-            MAX_CONVERGENCE_WAIT_TIME
+            compressed_expected_routes,
+            bgp_ports,
+            MAX_CONVERGENCE_WAIT_TIME,
+            compressed=True,
+            action='shutdown'
         )
-        if not recovered:
+        if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     except Exception:
         duthost.no_shutdown_multiple(bgp_ports)
@@ -578,19 +660,18 @@ def test_device_unisolation(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
     )
     flush_counters(pdp, exp_mask)
-    start_time = datetime.datetime.now()
     traffic_thread.start()
-    duthost.no_shutdown_multiple(bgp_ports)
-    ports_startup_time = datetime.datetime.now()
-    recovered = wait_for_ipv6_bgp_routes_recovery(
+    compressed_expected_routes = compress_expected_routes(startup_routes)
+    result = check_bgp_routes_converged(
         duthost,
-        startup_routes,
-        ports_startup_time,
-        MAX_CONVERGENCE_WAIT_TIME
+        compressed_expected_routes,
+        bgp_ports,
+        MAX_CONVERGENCE_WAIT_TIME,
+        compressed=True,
+        action='startup'
     )
     terminated.set()
     traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_UNISOLATION)
-    if not recovered:
+    validate_rx_tx_counters(pdp, result.get("end_time"), result.get("start_time"), exp_mask, MAX_DOWNTIME_UNISOLATION)
+    if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
