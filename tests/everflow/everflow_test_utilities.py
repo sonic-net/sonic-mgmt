@@ -98,11 +98,12 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
                 upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
-
-            elif DOWNSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
-                downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
-                downstream_ports_namespace.add(neigh['namespace'])
-                downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
+            else:
+                for item in DOWNSTREAM_NEIGHBOR_MAP[topo_type].replace(" ", "").split(','):
+                    if item in neigh["name"].lower():
+                        downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
+                        downstream_ports_namespace.add(neigh['namespace'])
+                        downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
     # For FT2, we just copy the upstream ports to downstream ports
     if "ft2" in topo:
         downstream_ports_namespace = upstream_ports_namespace.copy()
