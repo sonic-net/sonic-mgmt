@@ -181,7 +181,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
 
     # Setup test.sh and execute
     duthost.shell_cmds(cmds=[
-        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file > /tmp/test.sh",
+        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file' > /tmp/test.sh",
         "echo 'sleep 60' >> /tmp/test.sh",
         "echo 'sudo rm -f /tmp/huge_dummy_file' >> /tmp/test.sh",
         "chmod u+x /tmp/test.sh",
