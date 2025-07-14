@@ -444,8 +444,8 @@ class LabGraph(object):
                 l1_end_device = to_l1_links[end_device][end_port]["peerdevice"]
                 if l1_start_device != l1_end_device:
                     logging.debug("Found L1 connected port pairs not using the same L1 device: "
-                                  f"{start_device}:{start_port} <-> {end_device}:{end_port} "
-                                  f"on L1 devices {l1_start_device} and {l1_end_device}")
+                        "{}:{} <-> {}:{} on L1 devices {} and {}".format(
+                        start_device, start_port, end_device, end_port, l1_start_device, l1_end_device))
                     continue
 
                 logging.debug("Found L1 cross connect: {}:{} <-> {}:{} on L1 device {}".format(
