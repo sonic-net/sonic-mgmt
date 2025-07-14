@@ -170,18 +170,20 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     # Create a shell script to do the operations like fallocate and remove file,
     # because when space is full, duthost.command() is not work
 
-    # i. First, get how much space total has in /tmp mounted partition, the output of "df /tmp" was like below:
+    # Get available space in /tmp mounted partition, the output of "df /tmp" was like below:
     #   Filesystem     1K-blocks    Used Available Use% Mounted on
     #   root-overlay    14874056 6429908   8427764  44% /
     df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
-    total_space = df_rst[1]
+    available_kb = int(df_rst[3])
+    allocate_kb = int(available_kb * 0.95)
     used_before_test = int(df_rst[4].rstrip('%'))
+    logger.info(f"Preparing to allocate ~{allocate_kb} KB (95% of available) to simulate disk exhaustion")
 
-    # ii. Second create sh and execute
+    # Setup test.sh and execute
     duthost.shell_cmds(cmds=[
-        "echo 'fallocate -l {}K /tmp/huge_dummy_file' > /tmp/test.sh".format(total_space),
+        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file' > /tmp/test.sh",
         "echo 'sleep 60' >> /tmp/test.sh",
-        "echo 'sudo rm /tmp/huge_dummy_file' >> /tmp/test.sh",
+        "echo 'sudo rm -f /tmp/huge_dummy_file' >> /tmp/test.sh",
         "chmod u+x /tmp/test.sh",
         "nohup /tmp/test.sh >/dev/null 2>&1 &"
     ], continue_on_fail=False, module_ignore_errors=True)
@@ -210,7 +212,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
         time.sleep(60)
 
         # Delete test.sh
-        duthost.shell("sudo rm /tmp/test.sh")
+        duthost.shell("sudo rm -f /tmp/test.sh")
         # Confirm disk space was released
         df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
         used_after_test = int(df_rst[4].rstrip('%'))
