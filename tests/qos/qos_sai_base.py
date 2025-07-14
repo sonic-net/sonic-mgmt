@@ -230,7 +230,7 @@ class QosSaiBase(QosBase):
             table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
         db = "0"
         port_profile_res = dut_asic.run_redis_cmd(
-            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]
+            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}: {port}", "profile_list"]
         )[0]
         port_profile_list = port_profile_res.split(",")
 
@@ -258,7 +258,7 @@ class QosSaiBase(QosBase):
 
             pg_q_alpha = calculate_alpha(pg_q_buffer_profile['dynamic_th'])
             port_alpha = calculate_alpha(port_dynamic_th)
-            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'
+            pool = f'BUFFER_POOL_TABLE: {pg_q_buffer_profile["pool"]}'
             buffer_size = int(
                 dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -282,7 +282,7 @@ class QosSaiBase(QosBase):
             pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
             pg_q_buffer_profile["port_alpha"] = port_alpha
             pg_q_buffer_profile["pool_size"] = buffer_size
-            logger.info(f'pg_q_buffer_profile:{pg_q_buffer_profile}')
+            logger.info(f'pg_q_buffer_profile: {pg_q_buffer_profile}')
         else:
             raise Exception("Not found port dynamic th")
 
@@ -1423,7 +1423,7 @@ class QosSaiBase(QosBase):
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports  # noqa: F811
     ):
         """
-            Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
+            Stop services and dockers(lldp, bgpd, etc.) on DUT host prior to test start
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -1460,6 +1460,27 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
+        def updateFeatureState(host, feature="", state=""):  # noqa: F811
+            """
+                Helper function to update feature state
+
+                Args:
+                    host (AnsibleHost): Ansible host that is running the feature
+                    feature (str): feature name
+                    state (str): state to set the feature running on the host
+
+                Returns:
+                    None
+            """
+            host.command(
+                "sudo config feature state {feature} {state}".format(
+                    feature=feature,
+                    state=state,
+                ),
+                module_ignore_errors=True
+            )
+            logger.info("Changed feature {} state to {}".format(feature, state))
+
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
         is_dualtor_active_standby = is_dualtor and active_standby_ports
         """ Stop mux container for dual ToR Active-Standby """
@@ -1481,20 +1502,16 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
-            upper_tor_host.shell('sudo config feature state mux disabled')
-            lower_tor_host.shell('sudo config feature state mux disabled')
+            updateFeatureState(upper_tor_host, "mux", "disabled")
+            updateFeatureState(lower_tor_host, "mux", "disabled")
 
         src_services = [
-            {"docker": src_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
-            {"docker": src_asic.get_docker_name("lldp"), "service": "lldpd"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
         dst_services = []
         if src_asic != dst_asic:
             dst_services = [
-                {"docker": dst_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
-                {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
                 {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
             ]
@@ -1505,6 +1522,8 @@ class QosSaiBase(QosBase):
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
+        updateFeatureState(src_dut, "lldp", "disabled")
+
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for service in src_services:
                 executor.submit(updateDockerService, src_dut, action="stop", **service)
@@ -1512,6 +1531,7 @@ class QosSaiBase(QosBase):
         src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
+            updateFeatureState(dst_dut, "lldp", "disabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="stop", **service)
@@ -1520,12 +1540,14 @@ class QosSaiBase(QosBase):
 
         yield
 
+        updateFeatureState(src_dut, "lldp", "enabled")
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for service in src_services:
                 executor.submit(updateDockerService, src_dut, action="start", **service)
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
+            updateFeatureState(dst_asic, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
@@ -1542,8 +1564,8 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
 
-            lower_tor_host.shell('sudo config feature state mux enabled')
-            upper_tor_host.shell('sudo config feature state mux enabled')
+            updateFeatureState(upper_tor_host, "mux", "enabled")
+            updateFeatureState(lower_tor_host, "mux", "enabled")
             logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
@@ -2201,7 +2223,7 @@ class QosSaiBase(QosBase):
         if is_lossy_queue_only:
             egress_lossy_profile['lossy_dscp'] = queue_to_dscp_map[queues]
             egress_lossy_profile['lossy_queue'] = queues
-        logger.info(f"queues:{queues}, egressLossyProfile: {egress_lossy_profile}")
+        logger.info(f"queues: {queues}, egressLossyProfile: {egress_lossy_profile}")
 
         yield egress_lossy_profile
 
