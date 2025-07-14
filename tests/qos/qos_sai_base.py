@@ -557,7 +557,7 @@ class QosSaiBase(QosBase):
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
-    def __assignTestPortIps(self, mgFacts, topo, lower_tor_host):
+    def __assignTestPortIps(self, mgFacts, topo, lower_tor_host):  # noqa: F811
         """
             Assign IPs to test ports of DUT host
 
@@ -601,7 +601,7 @@ class QosSaiBase(QosBase):
             for i in range(len(testVlanMembers)):
                 portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
                 peer_addr = config_facts['MUX_CABLE'][testVlanMembers[i]]['server_ipv4'].split('/')[0] \
-                            if 'dualtor' in topo else testVlanIp + portIndex + 1
+                    if 'dualtor' in topo else testVlanIp + portIndex + 1
                 portIpMap = {'peer_addr': str(peer_addr)}
                 if vlan_id is not None:
                     portIpMap['vlan_id'] = vlan_id
@@ -2382,7 +2382,6 @@ class QosSaiBase(QosBase):
 
             lower_tor_host.shell(f"sudo iptables -D OUTPUT -p tcp --dport {port} -j DROP")
             lower_tor_host.shell(f"sudo iptables -D INPUT -p tcp --sport {port} -j DROP")
-
 
     @pytest.fixture(scope='class')
     def dualtor_ports_for_duts(request, get_src_dst_asic_and_duts):
