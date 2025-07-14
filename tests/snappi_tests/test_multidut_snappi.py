@@ -12,7 +12,6 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.port import select_ports
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.snappi_tests.files.helper import setup_ports_and_dut                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
