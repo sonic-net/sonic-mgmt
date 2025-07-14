@@ -3,8 +3,8 @@ import logging
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, add_gnmi_client_common_name
-from tests.gnmi.conftest import create_gnmi_certs, delete_gnmi_certs
+from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
+                                            create_gnmi_certs, delete_gnmi_certs
 from tests.common.gu_utils import create_checkpoint, rollback
 
 

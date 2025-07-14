@@ -1,7 +1,8 @@
 import pytest
 import logging
 
-from tests.gnmi.helper import gnmi_capabilities, add_gnmi_client_common_name, del_gnmi_client_common_name
+from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
+                                            del_gnmi_client_common_name
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
@@ -61,3 +62,4 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
         "'Unauthenticated' error message not found in GNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
+
