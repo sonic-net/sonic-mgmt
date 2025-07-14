@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from tests.gnmi.helper import gnmi_capabilities, add_gnmi_client_common_name, del_gnmi_client_common_name, dump_gnmi_log
+from tests.gnmi.helper import gnmi_capabilities, add_gnmi_client_common_name, del_gnmi_client_common_name
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
@@ -28,10 +28,9 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-
 def test_gnmi_authorize_passed_with_valid_cname(duthosts,
-                                                  rand_one_dut_hostname,
-                                                  localhost):
+                                                rand_one_dut_hostname,
+                                                localhost):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
