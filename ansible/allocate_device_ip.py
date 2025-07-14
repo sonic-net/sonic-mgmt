@@ -191,9 +191,8 @@ def check_ip_available(ip: str, ping: bool) -> bool:
         return True
 
 
-def find_unused_ips(csv_ips, inventory_ips, ip_range, ping, count):
+def find_unused_ips(all_used_ips, ip_range, ping, count):
     range_ips = ipaddress.ip_network(ip_range)
-    all_used_ips = csv_ips + inventory_ips
     used_ips = set(ipaddress.ip_address(ip) for ip in all_used_ips)
 
     unused_ips = []
@@ -234,8 +233,8 @@ def main(ping, file_pattern, ip_range, count):
     csv_ips = read_ips_from_csv(file_pattern)
     inventory_ips = read_ips_from_inventory_files()
     testbed_ips = read_ips_from_testbed_files()
-    all_inventory_ips = inventory_ips + testbed_ips
-    unused_ips = find_unused_ips(csv_ips, all_inventory_ips, ip_range, ping, count)
+    all_used_ips = csv_ips + inventory_ips + testbed_ips
+    unused_ips = find_unused_ips(all_used_ips, ip_range, ping, count)
 
     print("Avaiable IPs:")
     for ip in unused_ips:
