@@ -9,11 +9,11 @@ from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
-                                            create_gnmi_certs, delete_gnmi_certs
+                                            create_gnmi_certs, delete_gnmi_certs, create_ext_conf
 from tests.common.helpers.ntp_helper import setup_ntp_context
 
 

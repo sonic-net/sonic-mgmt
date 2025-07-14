@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     TELEMETRY_MODE = 0
