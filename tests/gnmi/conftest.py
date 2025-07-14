@@ -248,7 +248,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     apply_cert_config(duthost)
 
     yield
-    
+
     delete_gnmi_certs(localhost)
 
     # Rollback configuration
