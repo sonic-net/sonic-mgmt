@@ -125,7 +125,11 @@ def check_interfaces(duthosts, tbinfo):
         check_result = {"failed": True, "check_item": "interfaces", "host": dut.hostname}
 
         # Determine if we should use IPv6 interface checking
-        use_ipv6 = "-v6-" in tbinfo["topo"]["name"] if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"] else False
+        use_ipv6 = (
+            "-v6-" in tbinfo["topo"]["name"]
+            if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+            else False
+        )
 
         for asic in dut.asics:
             ip_interfaces = []
