@@ -25,8 +25,9 @@ class TestFaultHandling():
     def test_link_flap(self, duthost, ctrl_links, wait_mka_establish):
         # Only pick one link for link flap test
         assert ctrl_links, (
-            "No control links found. Expected at least one control link, but got {}. "
-        ).format(len(ctrl_links))
+            "No control links found. Expected at least one control link, but got {}.\n"
+            "Actual ctrl_links: {}"
+        ).format(len(ctrl_links), ctrl_links)
 
         port_name, nbr = list(ctrl_links.items())[0]
         nbr_eth_port = get_eth_ifname(
@@ -91,8 +92,7 @@ class TestFaultHandling():
             return True
         assert wait_until(30, 5, 2, check_new_mka_session), (
             "New MKA session not established within expected time. "
-            "Result of check_new_mka_session: {}".format(check_new_mka_session())
-        )
+            "Result of check_new_mka_session")
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -178,8 +178,7 @@ class TestFaultHandling():
         # To check whether the MKA establishment happened within 90 seconds
         assert not wait_until(90, 1, 12, check_mka_establishment), (
             "MKA establishment failed. Expected MKA to not establish within expected time, but it did. "
-            "Result of check_mka_establishment: {}"
-        ).format(check_mka_establishment())
+        )
 
         # Teardown
         disable_macsec_port(duthost, port_name)
