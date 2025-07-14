@@ -70,8 +70,8 @@ def walk_yaml_structure(data, ips=None):
     return ips
 
 
-def read_ips_from_yaml_inventory(file_path):
-    """Read IP addresses from YAML inventory file."""
+def read_ips_from_yaml_file(file_path):
+    """Read IP addresses from YAML file."""
     ips = []
 
     try:
@@ -110,8 +110,28 @@ def read_ips_from_ini_inventory(file_path):
     return ips
 
 
+def read_ips_from_testbed_files():
+    """Read IP addresses from testbed YAML files."""
+    ips = []
+    ansible_dir = os.path.dirname(__file__)
+    testbed_files = ['testbed.yaml', 'testbed.nut.yaml']
+
+    for testbed_file in testbed_files:
+        testbed_path = os.path.join(ansible_dir, testbed_file)
+
+        if os.path.exists(testbed_path):
+            try:
+                ips.extend(read_ips_from_yaml_file(testbed_path))
+            except Exception as e:
+                print(f"Warning: Failed to process testbed file {testbed_path}: {e}")
+        else:
+            print(f"Warning: Testbed file {testbed_path} not found")
+
+    return ips
+
+
 def read_ips_from_inventory_files():
-    """Read inventory file names from graph_groups.yml and extract IPs from those files, plus testbed files."""
+    """Read inventory file names from graph_groups.yml and extract IPs from those files."""
     ips = []
     ansible_dir = os.path.dirname(__file__)
 
@@ -134,7 +154,7 @@ def read_ips_from_inventory_files():
 
                     if first_line.startswith('---') or first_line.startswith('all:'):
                         # YAML format
-                        ips.extend(read_ips_from_yaml_inventory(inventory_path))
+                        ips.extend(read_ips_from_yaml_file(inventory_path))
                     else:
                         # INI format
                         ips.extend(read_ips_from_ini_inventory(inventory_path))
@@ -146,20 +166,6 @@ def read_ips_from_inventory_files():
 
     except Exception as e:
         print(f"Warning: Failed to read graph_groups.yml: {e}")
-
-    # Also process testbed YAML files
-    testbed_files = ['testbed.yaml', 'testbed.nut.yaml']
-
-    for testbed_file in testbed_files:
-        testbed_path = os.path.join(ansible_dir, testbed_file)
-
-        if os.path.exists(testbed_path):
-            try:
-                ips.extend(read_ips_from_yaml_inventory(testbed_path))
-            except Exception as e:
-                print(f"Warning: Failed to process testbed file {testbed_path}: {e}")
-        else:
-            print(f"Warning: Testbed file {testbed_path} not found")
 
     return ips
 
@@ -227,7 +233,9 @@ def main(ping, file_pattern, ip_range, count):
     """
     csv_ips = read_ips_from_csv(file_pattern)
     inventory_ips = read_ips_from_inventory_files()
-    unused_ips = find_unused_ips(csv_ips, inventory_ips, ip_range, ping, count)
+    testbed_ips = read_ips_from_testbed_files()
+    all_inventory_ips = inventory_ips + testbed_ips
+    unused_ips = find_unused_ips(csv_ips, all_inventory_ips, ip_range, ping, count)
 
     print("Avaiable IPs:")
     for ip in unused_ips:
