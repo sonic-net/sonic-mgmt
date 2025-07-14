@@ -57,16 +57,21 @@ def srv6_crm_total_sids(rand_selected_dut):
     rand_selected_dut.command(f"crm config polling interval {original_crm_polling_interval}")
 
 
-def get_random_uplink_port(upstream_links, intf_infos):  # noqa F811
+def get_random_uplink_port(duthost, upstream_links, intf_infos):  # noqa F811
     '''
     Get a random uplink port that is used by the ipv6 interface info
     '''
     upstream_ports = set(upstream_links.keys())
+    random_port = random.choice(list(upstream_ports))
+    portchannels = duthost.show_and_parse('show int portchannel', start_line_index=2)
+    for pc in portchannels:
+        if random_port in pc['ports']:
+            random_port = pc['team dev']
+            break
+
+    logger.info(f"Selected uplink port: {random_port}")
     intf_neighbor_map = {intf_info['interface']: intf_info['neighbor ip'] for intf_info in intf_infos}
-    common_ports = upstream_ports.intersection(intf_neighbor_map.keys())
-    if common_ports:
-        random_port = random.choice(list(common_ports))
-        return random_port, intf_neighbor_map[random_port]
+    return random_port, intf_neighbor_map[random_port]
 
 
 @pytest.fixture(scope="class", params=MySIDs.TUNNEL_MODE)
@@ -76,7 +81,8 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
     '''
     with allure.step('Create static route for SRv6'):
         ipv6_intf_info = rand_selected_dut.show_and_parse('show ipv6 interface')
-        ifname, nexthop = get_random_uplink_port(upstream_links, ipv6_intf_info)
+        ifname, nexthop = get_random_uplink_port(rand_selected_dut, upstream_links, ipv6_intf_info)
+        logger.info(f"Selected uplink interface and nexthop: {ifname}, nexthop: {nexthop}")
         rand_selected_dut.command(f"sonic-db-cli CONFIG_DB HSET STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
                                   f"nexthop {nexthop} ifname {ifname}")
 
