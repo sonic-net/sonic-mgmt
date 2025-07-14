@@ -102,6 +102,9 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -116,7 +119,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_diff_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': False,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -237,6 +240,9 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -252,7 +258,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_uni_dist_full'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': False,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -375,6 +381,9 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -390,7 +399,7 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_equal_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': False,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -514,6 +523,9 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -529,7 +541,7 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                 'test_type': '/tmp/Two_Ingress_Single_Egress_non_cngstn_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': False,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
