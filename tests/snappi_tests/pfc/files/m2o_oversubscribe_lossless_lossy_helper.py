@@ -103,6 +103,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
         disable_packet_aging(duthost)
 
     no_of_lossy_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
+    no_of_lossless_streams = 2 if egress_duthost.facts.get('asic_type', '') == "cisco-8000" else 1
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -123,7 +124,9 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map,
-                  no_of_lossy_streams=no_of_lossy_streams)
+                  no_of_lossy_streams=no_of_lossy_streams,
+                  no_of_lossless_streams=no_of_lossless_streams
+                  )
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
@@ -183,7 +186,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_pkt_size,
                   prio_dscp_map,
-                  no_of_lossy_streams):
+                  no_of_lossy_streams,
+                  no_of_lossless_streams=1):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -219,7 +223,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map,
-                     no_of_streams=1)
+                     no_of_streams=no_of_lossless_streams)
 
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
