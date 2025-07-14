@@ -277,12 +277,11 @@ class GenerateGoldenConfigDBModule(object):
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            if "base" in hwsku_config and "step" in hwsku_config:
-                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
-            else:
-                port_key = hwsku_config["port_key"].format(i)
+            port_index = hwsku_config["base"] + i * hwsku_config["step"] \
+                if "base" in hwsku_config and "step" in hwsku_config else i
+            port_key = hwsku_config["port_key"].format(port_index)
             if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(i, i)
+                interface_key = hwsku_config["interface_key"].format(port_index, i)
             dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
