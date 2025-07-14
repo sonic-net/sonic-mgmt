@@ -352,28 +352,22 @@ def __gen_data_flow(testbed_config,
         else:
             eth.pfc_queue.value = flow_prio[0]
     else:
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[1]
-        else:
+        # Ingress#1 uses flow_prio[0] and ingress#2 uses flow_prio[1] queues.
+        if 'Flow 1 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
+        elif 'Flow 2 -> 0' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
 
+    # Dynamically assigning lossy priorities to background flows
     if 'Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
-        ]
-        ipv4.priority.dscp.phb.values = [
-            60, 61, 62, 63, 24, 25, 27, 21, 23, 29,
-            0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
-            56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
+    # Dynamically assigning lossless priorities to test flows
     elif 'Test Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.DEFAULT,
