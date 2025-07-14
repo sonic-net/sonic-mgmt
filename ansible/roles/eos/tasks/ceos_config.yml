@@ -33,6 +33,7 @@
   become: yes
   command: rm -rf /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
   delegate_to: "{{ VM_host[0] }}"
+  ignore_errors: yes
 
 - name: create directory for ceos config
   become: yes
