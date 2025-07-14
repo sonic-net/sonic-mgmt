@@ -509,5 +509,13 @@ l1_switch:
       ansible_host: 10.64.246.185
     str-ocs-dlx64-acs-11:
       ansible_host: 10.64.246.186
+    str-ocs-dlx64-acs-12:
+      ansible_host: 10.64.246.53
+    str-ocs-dlx64-acs-13:
+      ansible_host: 10.64.246.76
+    str-ocs-dlx64-acs-14:
+      ansible_host: 10.64.246.81
+    str-ocs-dlx64-acs-15:
+      ansible_host: 10.64.246.85
   vars:
     mgmt_subnet_mask_length: 23
