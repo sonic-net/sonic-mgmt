@@ -3,8 +3,8 @@ import logging
 import pytest
 import json
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, \
-                                            add_gnmi_client_common_name, del_gnmi_client_common_name
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name
+from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
 
@@ -14,30 +14,6 @@ GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
-
-
-def dump_gnmi_log(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI log: " + res['stdout'])
-    return res['stdout']
-
-
-def dump_system_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI process: " + res['stdout'])
-    dut_command = "docker exec %s date" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("System time: " + res['stdout'] + res['stderr'])
-
-
-def verify_tcp_port(localhost, ip, port):
-    command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
-    res = localhost.shell(command, module_ignore_errors=True)
-    logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
 def apply_cert_config(duthost):

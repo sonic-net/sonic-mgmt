@@ -62,4 +62,3 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
         "'Unauthenticated' error message not found in GNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
-

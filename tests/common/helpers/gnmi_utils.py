@@ -1,6 +1,8 @@
 from functools import lru_cache
 import pytest
+import logging
 
+logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
@@ -69,6 +71,7 @@ class GNMIEnvironment(object):
 def gnmi_container(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     return env.gnmi_container
+
 
 def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
     command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
@@ -267,6 +270,30 @@ def delete_gnmi_certs(localhost):
                         gnmiserver.* \
                         gnmiclient.*"
     localhost.shell(local_command)
+
+
+def dump_gnmi_log(duthost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+    res = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI log: " + res['stdout'])
+    return res['stdout']
+
+
+def dump_system_status(duthost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
+    res = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI process: " + res['stdout'])
+    dut_command = "docker exec %s date" % (env.gnmi_container)
+    res = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("System time: " + res['stdout'] + res['stderr'])
+
+
+def verify_tcp_port(localhost, ip, port):
+    command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
+    res = localhost.shell(command, module_ignore_errors=True)
+    logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
 def gnmi_capabilities(duthost, localhost):
