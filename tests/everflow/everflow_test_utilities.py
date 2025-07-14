@@ -595,7 +595,7 @@ def load_acl_rules_config(table_name, rules_file):
 
 def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                            tx_ports, direction, queue, asic_ns, recircle_port,
-                                           expect_recv=True, valid_across_namespace=True):
+                                           erspan_ip_ver, expect_recv=True, valid_across_namespace=True):
     tx_port_ids = self._get_tx_port_id_list(tx_ports)
     default_ip = self.DEFAULT_DST_IP
     router_mac = setup[direction]["ingress_router_mac"]
@@ -617,6 +617,7 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
                 dest_ports=tx_port_ids,
                 expect_recv=expect_recv,
                 valid_across_namespace=valid_across_namespace,
+                erspan_ip_ver=erspan_ip_ver
             )
 
         # Assert the specific asic recircle port's queue
@@ -731,28 +732,54 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
+                            erspan_ip_ver=4, queue_num=None):
+        commands_list = list()
         if config_method == CONFIG_MODE_CLI:
             if erspan_ip_ver == 4:
                 command = f"config mirror_session add {session_info['session_name']} \
                             {session_info['session_src_ip']} {session_info['session_dst_ip']} \
                             {session_info['session_dscp']} {session_info['session_ttl']} \
                             {session_info['session_gre']}"
+                if queue_num:
+                    command += f" {queue_num}"
                 if policer:
                     command += f" --policer {policer}"
+                commands_list.append(command)
             else:
-                # Adding IPv6 ERSPAN sessions from the CLI is currently not supported.
-                command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
-                            'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
-                            'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
-                            'ttl' '{session_info['session_ttl']}'"
-                if policer:
-                    command += f" 'policer' {policer}"
+                for asic_index in duthost.get_frontend_asic_ids():
+                    if asic_index is not None:
+                        # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
+                        command = f"sonic-db-cli -n asic{asic_index} CONFIG_DB HSET " \
+                                  f"'MIRROR_SESSION|{session_info['session_name']}' " \
+                                  f"'dscp' '{session_info['session_dscp']}' " \
+                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
+                                  f"'gre_type' '{session_info['session_gre']}' " \
+                                  f"'type' '{session_info['session_type']}' " \
+                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
+                        if queue_num:
+                            command += f" 'queue' {queue_num}"
+                        if policer:
+                            command += f" 'policer' {policer}"
+                    else:
+                        # Adding IPv6 ERSPAN sessions, from the CLI is currently not supported.
+                        command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' " \
+                                  f"'dscp' '{session_info['session_dscp']}' " \
+                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
+                                  f"'gre_type' '{session_info['session_gre']}' " \
+                                  f"'type' '{session_info['session_type']}' " \
+                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
+                        if queue_num:
+                            command += f" 'queue' {queue_num}"
+                        if policer:
+                            command += f" 'policer' {policer}"
+                    commands_list.append(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        for command in commands_list:
+            duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
@@ -1278,6 +1305,7 @@ class BaseEverflowTest(object):
         session_dst_ipv6 = "2222::2:2:2:2"
         session_dscp = "8"
         session_ttl = "4"
+        session_type = "ERSPAN"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -1306,6 +1334,7 @@ class BaseEverflowTest(object):
             "session_dscp": session_dscp,
             "session_ttl": session_ttl,
             "session_gre": session_gre,
+            "session_type": session_type,
             "session_prefixes": session_prefixes,
             "session_prefixes_ipv6": session_prefixes_ipv6
         }
