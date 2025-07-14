@@ -64,16 +64,9 @@ class KustoConnector(object):
             let ExcludeAsicList = dynamic({configuration['asic']['excluded_asic']});
             let SummaryWhileList = dynamic({configuration['summary_white_list']});
         '''.rstrip()
-
-        self.query_common_condition = f'''
+        self.query_valid_condition = f'''
             | where PipeStatus == 'FINISHED'
             | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where TestbedName != ''
-            | where not(TestbedName has_any(ExcludeTestbedList))
-            | where not(HardwareSku has_any(ExcludeHwSkuList))
-            | where not(TopologyType has_any(ExcludeTopoList))
-            | where not(AsicType has_any(ExcludeAsicList))
-            | where not(BranchName has_any(ExcludeBranchList))
             | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
             | where TestBranch !contains "/"
             | extend BranchVersion = substring(BranchName, 0, 6)
@@ -86,7 +79,14 @@ class KustoConnector(object):
                         TestBranch == strcat('internal-', BranchVersion, '-dev')
                     )
                 ) or isempty(TestBranch)
-            | where ModulePath != ""
+        '''.rstrip()
+        self.query_common_condition = self.query_valid_condition + f'''
+            | where TestbedName != ''
+            | where not(TestbedName has_any(ExcludeTestbedList))
+            | where not(HardwareSku has_any(ExcludeHwSkuList))
+            | where not(TopologyType has_any(ExcludeTopoList))
+            | where not(AsicType has_any(ExcludeAsicList))
+            | where not(BranchName has_any(ExcludeBranchList))
         '''.rstrip()
 
         logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
@@ -251,15 +251,12 @@ class KustoConnector(object):
         let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
         '''.rstrip()
-        query_str += self.query_common_condition + f'''
+        query_str += self.query_valid_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
         | project BuildId
         | distinct BuildId;
         let dataClean = TestReportUnionData
-        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''.rstrip()
-        query_str += self.query_common_condition + f'''
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
         let flakySummary = dataClean
@@ -273,6 +270,8 @@ class KustoConnector(object):
             dataClean
         ) on BuildId, FullCaseName
         | where Result in (ResultFilterList)
+        '''.rstrip()
+        query_str += self.query_common_condition + f'''
         | extend FailedType = case(Summary contains "Pre-test sanity check failed","pre sanity check failed",
                                     Summary contains "Recovery of sanity check failed","recovery sanity check failed",
                                     Summary contains "stage_pre_test sanity check after recovery failed","stage_pre_test sanity check failed after recovery",
@@ -304,15 +303,12 @@ class KustoConnector(object):
         let buildsWithRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
         '''.rstrip()
-        query_str += self.query_common_condition + f'''
+        query_str += self.query_valid_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
         | project BuildId
         | distinct BuildId;
         let dataClean = TestReportUnionData
-        | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-        '''.rstrip()
-        query_str += self.query_common_condition + f'''
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
         let consistentFailures = dataClean
@@ -329,6 +325,8 @@ class KustoConnector(object):
         ) on BuildId, FullCaseName
         | where Result in (ResultFilterList)
         | where Summary !in (SummaryWhileList)
+        '''.rstrip()
+        query_str += self.query_common_condition + f'''
         | where AttemptInt == maxAttempt
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, minAttempt, maxAttempt
         | sort by UploadTimestamp desc
@@ -341,7 +339,7 @@ class KustoConnector(object):
         let buildsWithoutRetry = TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
         '''.rstrip()
-        query_str += self.query_common_condition + f'''
+        query_str += self.query_valid_condition + f'''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt == 0 or isnull(maxAttempt)
         | project BuildId
@@ -387,7 +385,7 @@ class KustoConnector(object):
                 let buildsWithoutRetry = TestReportUnionData
                 | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
                 '''.rstrip()
-            legacy_query_str += self.query_common_condition + f'''
+            legacy_query_str += self.query_valid_condition + f'''
                 | summarize maxAttempt = max(toint(Attempt)) by BuildId
                 | where maxAttempt == 0 or isnull(maxAttempt)
                 | project BuildId
@@ -411,7 +409,7 @@ class KustoConnector(object):
                 let buildsWithRetry = TestReportUnionData
                 | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
                 '''.rstrip()
-            consistent_query_str += self.query_common_condition + f'''
+            consistent_query_str += self.query_valid_condition + f'''
                 | summarize maxAttempt = max(toint(Attempt)) by BuildId
                 | where maxAttempt >= 1
                 | project BuildId
