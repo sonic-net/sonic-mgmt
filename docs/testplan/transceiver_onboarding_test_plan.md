@@ -98,27 +98,27 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_common_attributes.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the common attributes of the transceiver based on vendor part number. Following should be the format of the file
+1. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver connected to every port of each DUT. Following should be the format of the file
 
     ```csv
-    vendor_pn,active_firmware,inactive_firmware,cmis_rev,vendor_name,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
-    <vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<vendor_name_1>,<True or False>,<True or False>,<True or False>
-    <vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<vendor_name_2>,<True or False>,<True or False>,<True or False>
-    # Add more vendor part numbers as needed
-    ```
-
-2. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver and the corresponding DUT. Following should be the format of the file
-
-    ```csv
-    dut_name,physical_port,vendor_pn,vendor_sn,vendor_date,vendor_oui,vendor_rev
-    dut_name_1,port_1,vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
-    dut_name_1,port_2,vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
+    dut_name,physical_port,vendor_pn,normalized_vendor_pn,vendor_sn,vendor_date,vendor_oui,vendor_rev
+    dut_name_1,port_1,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
+    dut_name_1,port_2,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
     # Add more DUTs as needed
     ```
 
+    - `dut_name`: The name of the DUT.
+    - `physical_port`: The physical port number on the DUT where the transceiver is connected (e.g., 1, 2, etc.).
+    - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
+    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    - `vendor_sn`: The vendor serial number.
+    - `vendor_date`: The vendor date code.
+    - `vendor_oui`: The vendor OUI.
+    - `vendor_rev`: The vendor revision number.
+
     Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
-    The vendor_part_number from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.  
-    If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.  
+    The `normalized_vendor_pn` from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.
+    > Note: If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.
 
     Example of an dictionary created by parsing the above files
 
@@ -131,10 +131,12 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_rev": "revision_number",
                 "vendor_sn": "serial_number",
                 "vendor_pn": "vendor_part_number",
+                "normalized_vendor_pn": "normalized_vendor_part_number",
                 "active_firmware": "active_firmware_version",
                 "inactive_firmware": "inactive_firmware_version",
                 "cmis_rev": "cmis_revision",
                 "vendor_name": "vendor_name",
+                "normalized_vendor_name": "normalized_vendor_name",
                 'vdm_supported': True,
                 'cdb_backgroundmode_supported': True,
                 'dual_bank_supported': True
@@ -145,10 +147,12 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_rev": "revision_number",
                 "vendor_sn": "serial_number",
                 "vendor_pn": "vendor_part_number",
+                "normalized_vendor_pn": "normalized_vendor_part_number",
                 "active_firmware": "active_firmware_version",
                 "inactive_firmware": "inactive_firmware_version",
                 "cmis_rev": "cmis_revision",
                 "vendor_name": "vendor_name",
+                "normalized_vendor_name": "normalized_vendor_name",
                 'vdm_supported': True,
                 'cdb_backgroundmode_supported': True,
                 'dual_bank_supported': True
@@ -157,19 +161,61 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     }
     ```
 
-3. For all CMIS transceivers, a `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 3 firmware binaries so that firmware upgrade can be tested. Following should be the format of the file
+2. A file named `transceiver_common_attributes.csv` (located in the `ansible/files/transceiver_inventory` directory) must be present to define the common attributes for each transceiver, keyed by normalized vendor part number. The file should use the following format:
 
     ```csv
-    vendor_name,vendor_pn,firmware_version,firmware_binary,md5sum
-    <vendor_name_1>,<vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
-    <vendor_name_1>,<vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
-    <vendor_name_1>,<vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
+    normalized_vendor_name,normalized_vendor_pn,active_firmware,inactive_firmware,cmis_rev,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
+    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<True or False>,<True or False>,<True or False>
+    <normalized_vendor_name_2>,<normalized_vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<True or False>,<True or False>,<True or False>
+    # Add more entries as needed
+    ```
+
+    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    <br>The normalization rules ensure that the vendor name is consistent and compatible with directory structures used in firmware management and upgrade tests.
+    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    <br>This ensures the inventory does not need to list every possible cable length and standardizes the format for compatibility with directory structures used in firmware management and upgrade tests. See the detailed normalization rules in the referenced section for full details.
+    - `active_firmware` and `inactive_firmware`: Firmware version strings in the format `X.Y.Z` (e.g., `1.2.3`). The `active_firmware` version represents the gold firmware version.
+    - `cmis_rev`: CMIS revision string in the format `X.Y`.
+    - `vdm_supported`, `cdb_backgroundmode_supported`, `dual_bank_supported`: Boolean values indicating support for VDM, CDB background mode, and dual bank firmware, respectively.
+
+3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+
+    ```csv
+    normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
+    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
+    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
+    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
     # Add more vendor part numbers as needed
     ```
 
-    The location of the firmware binary is still under discussion and hence, this section is kept as a placeholder.
+    For each firmware binary, the following metadata should be included:
 
-4. A file (`sonic_{inventory}_links.csv`) containing the connections of the ports should be present. This file is used to create the topology of the testbed which is required for minigraph generation.
+    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    - `fw_version`: The version of the firmware.
+    - `fw_binary_name`: The filename of the firmware binary.
+    - `md5sum`: The MD5 checksum of the firmware binary.
+
+4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver_inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+
+    ```csv
+    inv_name,fw_base_url
+    <inventory_file_name>,<base_url>
+    ```
+
+    - `inv_name`: The name of the inventory file that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file). The `inv_name` allows DUTs to be grouped based on their inventory file, enabling the test framework to fetch the correct base URL for firmware downloads.
+    - `fw_base_url`: The base URL from which the CMIS CDB firmware binaries can be downloaded. This URL should point to the directory where the firmware binaries are stored. e.g., `http://1.2.3.4/cmis_cdb_firmware/`.
+
+    Example of the file:
+
+    ```csv
+    inv_name,fw_base_url
+    lab,http://1.2.3.4/cmis_cdb_firmware/
+    ```
+
+5. A file (`sonic_{inv_name}_links.csv`) containing the connections of the ports should be present. This file is used to create the topology of the testbed which is required for minigraph generation.
+
+    - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
 
 #### 1.1 Link related tests
 
@@ -221,14 +267,199 @@ The following tests aim to validate various functionalities of the transceiver u
 | Verify transceiver error-status | Validate CLI relying on redis-db | Ensure the relevant port is in an "OK" state |
 | Verify transceiver error-status with hardware verification | Validate CLI relying on transceiver hardware | Ensure the relevant port is in an "OK" state |
 
-#### 1.4 Firmware Related Tests
+#### 1.4 CMIS CDB Firmware Upgrade Testing
 
-**Pre-requisite**
+##### 1.4.1 CMIS CDB Firmware Binary Management
 
-1. DOM polling must be disabled to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
-2. On some platforms, `thermalctld` or a similar user process that performs I2C transactions with the module may need to be stopped.
-3. Two gold firmware versions (A and B) are required so that the system can switch between them multiple times (assuming both versions support the CDB protocol).
-4. The module must support dual banks.
+###### 1.4.1.1 Firmware Binary Naming Guidelines
+
+CMIS CDB firmware binaries must follow strict naming conventions to ensure compatibility across different filesystems and automation tools.
+
+**Filename Requirements:**
+
+1. **Character Restrictions:**
+   - **Must not** contain spaces or special characters except hyphens (`-`), dots (`.`), and underscores (`_`)
+   - Must be valid filenames for Windows, Linux, and macOS filesystems
+   - Avoid reserved characters: `< > : " | ? * \ /`
+   - Ensure that the filename does not start or end with special characters
+
+2. **File Extension:**
+   - Use `.bin` extension
+
+###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
+
+To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
+
+> **Important Note:** These normalization rules are designed for test framework consumption and firmware binary storage organization. They are **not** applied to the actual transceiver EEPROM data, which remains unchanged.
+
+**Core Normalization Rules:**
+
+1. **Character Replacement:**
+   - Preserve hyphens (`-`) and underscores (`_`) as they are filesystem-safe
+   - Replace all other non-alphanumeric characters (spaces, `/`, `.`, `&`, `#`, `@`, `%`, `+`, etc.) with underscores (`_`)
+   - Handle consecutive special characters by replacing sequences with a single underscore
+
+2. **Cable Length Normalization:**
+   - **Purpose:** Standardize part numbers that differ only by cable length to enable firmware sharing across length variants
+   - **Replacement Format:** `GENERIC_N_END<UNIT>` where `N` = number of digits in the original length
+   - **Preservation:** Non-unit suffixes after length are preserved (e.g., `10YY` → `GENERIC_2_ENDYY`)
+
+   **Cable Length Examples:**
+
+   | Original Part Number         | Normalized Part Number                  | Explanation |
+   |-----------------------------|-----------------------------------------|-------------|
+   | QSFP-100G-AOC-15M           | QSFP-100G-AOC-GENERIC_2_ENDM            | 15 has 2 digits, M unit preserved |
+   | QSFP-100G-AOC-10YY          | QSFP-100G-AOC-GENERIC_2_ENDYY           | 10 has 2 digits, YY suffix preserved |
+   | QSFP-100G-AOC-100           | QSFP-100G-AOC-GENERIC_3_END             | 100 has 3 digits, no unit |
+   | QSFP-100G-AOC-3M            | QSFP-100G-AOC-GENERIC_1_ENDM            | 3 has 1 digit, M unit preserved |
+   | SFP-1000M                   | SFP-GENERIC_4_ENDM                      | 1000 has 4 digits, M unit preserved |
+
+3. **Cleanup and Formatting:**
+   - Remove leading and trailing underscores
+   - Replace multiple consecutive underscores with a single underscore
+   - Convert the entire result to uppercase for consistency
+
+4. **Usage:**
+   - Use normalized names for directory structures and firmware binary organization
+   - Enable firmware inventory management across cable length variants
+   - Ensure cross-platform filesystem compatibility
+
+**Vendor Name Examples:**
+
+| Original Vendor Name    | Normalized Vendor Name | Explanation |
+|------------------------|------------------------|-------------|
+| ACME Corp.             | ACME_CORP              | Space and dot replaced with underscore |
+| Example & Co           | EXAMPLE_CO             | Ampersand and space replaced |
+| Vendor/Inc             | VENDOR_INC             | Slash replaced with underscore |
+| Multi___Underscore     | MULTI_UNDERSCORE       | Multiple underscores consolidated |
+
+Sample script to normalize vendor name and part number (script assumes that the length is already replaced with `GENERIC_N_END`):
+
+```python
+import re
+def normalize_vendor_field(field: str) -> str:
+    """
+    Normalize vendor name or part number according to the rules:
+    - Except for '-' and '_', all non-alphanumeric characters are replaced with '_'
+    - Replace any sequence of '_' with a single '_'
+    - Remove leading/trailing underscores
+    - Convert the result to uppercase
+    - Hyphens are preserved
+    """
+    # Replace all non-alphanumeric except '-' and '_' with '_'
+    field = re.sub(r"[^\w\-]", "_", field)
+    # Replace multiple consecutive '_' with single '_'
+    field = re.sub(r"_+", "_", field)
+    # Remove leading/trailing underscores
+    field = field.strip("_")
+    # Convert to uppercase
+    return field.upper()
+```
+
+###### 1.4.1.3 Firmware Binary Storage on SONiC Device
+
+The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
+
+**Directory Structure Requirements:**
+
+```
+/tmp/cmis_cdb_firmware/
+├── <NORMALIZED_VENDOR_NAME>/
+│   └── <NORMALIZED_VENDOR_PART_NUMBER>/
+│       ├── FIRMWARE_BINARY_1.bin
+│       └── FIRMWARE_BINARY_2.bin
+└── ...
+```
+
+**Requirements:**
+
+- All directory and file names **must be uppercase** and follow the normalization rules defined in section 1.4.1.2
+- Use the `GENERIC_N_END` placeholder for cable lengths as described in the normalization rules
+
+**Example Directory Structure:**
+
+```
+/tmp/cmis_cdb_firmware/
+├── ACMECORP/
+│   └── QSFP-100G-AOC-GENERIC_2_ENDM/
+│       ├── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
+│       └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
+├── EXAMPLE_INC/
+│   └── QSFP_200G_LR4/
+│       └── EXAMPLE_INC_QSFP_200G_LR4_2.0.1.bin
+└── ...
+```
+
+###### 1.4.1.4 Firmware Binary Storage on Remote Server
+
+The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
+
+**Server Organization:**
+
+- Directory structure should mirror the SONiC device structure described above
+- Server must be accessible via HTTP/HTTPS protocols
+- Base URL configuration is defined in `cmis_cdb_firmware_base_url.csv`
+
+**Base URL Configuration:**
+The `cmis_cdb_firmware_base_url.csv` file contains the mapping between inventory files and their corresponding firmware download URLs:
+
+```csv
+inv_name,fw_base_url
+lab,http://firmware-server.example.com/cmis_cdb_firmware
+production,https://secure-firmware.example.com/cmis_cdb_firmware
+```
+
+> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name and part number.
+
+**Download URL Format:**
+Firmware binaries are accessed using the following URL pattern:
+```
+<fw_base_url>/<NORMALIZED_VENDOR_NAME>/<NORMALIZED_VENDOR_PART_NUMBER>/<FIRMWARE_BINARY_NAME>
+```
+
+**Example:**
+```
+http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
+```
+
+##### 1.4.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
+
+This section describes the automated process for copying firmware binaries to the DUT, ensuring only the required firmware versions are present for testing.
+
+**Firmware Selection Algorithm:**
+
+To ensure only the necessary firmware binaries are present for each transceiver:
+
+1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
+2. **Parse `transceiver_dut_info.csv`** to identify the transceivers present on each DUT.
+3. **Parse `transceiver_common_attributes.csv`** to get the gold firmware version for each transceiver type.
+4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
+   - Parse firmware versions using semantic versioning (X.Y.Z format)
+   - Sort available firmware versions in descending order (most recent first)
+   - **Selection criteria:**
+     - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
+     - Include the two most recent firmware versions in addition to the gold version
+     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary. If there are fewer than 3 firmware versions available for a transceiver, the entire test will fail.
+5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
+6. **Validate firmware binary integrity** using MD5 checksums after copying.
+
+**Cleanup:**
+
+- The firmware binary folder on the DUT (`/tmp/cmis_cdb_firmware/`) will be deleted after the test module run is complete to ensure a clean state for subsequent tests
+- Cleanup includes removing both the directory structure and any temporary files created during the process
+
+##### 1.4.3 CMIS CDB Firmware Upgrade Tests
+
+**Prerequisites:**
+
+1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
+2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped during firmware operations.
+3. **Firmware requirements:**
+   - At least two firmware versions must be available for each transceiver type to enable upgrade testing
+   - The gold firmware version (specified in `transceiver_common_attributes.csv`) must be available
+   - All firmware versions must support the CDB protocol for proper testing
+4. **Module capabilities:** The module must support dual banks for firmware upgrade operations.
+5. **Network connectivity:** The DUT must have network access to the firmware server specified in `cmis_cdb_firmware_base_url.csv` for downloading firmware binaries.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
@@ -238,7 +469,7 @@ The following tests aim to validate various functionalities of the transceiver u
 |4 | Firmware download abort | 1. Start the firmware download and abort at approximately 10%, 40%, 70%, 90%, and 95%<br>2. Use CTRL+C or kill the download process<br>3. OR reset the optics using sfputil reset<br>4. OR remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 |5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
-|7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #3 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
+|7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
 
 #### 1.5 Remote Reseat related tests
 
@@ -275,7 +506,7 @@ All the below steps should be executed in a sequential manner.
 
 ##### 1.6.3 VDM specific tests
 
-**Pre-requisite**
+**Prerequisites:**
 
 1. DOM polling must be disabled to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
 2. Python APIs must be available to read the VDM data from the transceiver. The relevant APIs can be found at [sfp_optoe_base.py](https://github.com/sonic-net/sonic-platform-common/blob/cb5564c20ac74694f2391759f9235eee428a97d0/sonic_platform_base/sonic_xcvr/sfp_optoe_base.py#L58-L134)
