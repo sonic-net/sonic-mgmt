@@ -1306,9 +1306,9 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
