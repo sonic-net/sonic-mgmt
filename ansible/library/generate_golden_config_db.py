@@ -13,6 +13,7 @@ import os
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -31,15 +32,6 @@ TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
 
 logger = logging.getLogger(__name__)
-smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O": {
-         "dpu_num": {},
-         "port_key": "Ethernet{}",
-         "interface_key": "Ethernet{}|18.{}.202.0/31",
-         "base": 224,
-         "step": 8
-        }
-    }
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -200,6 +192,34 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(gold_config_db, indent=4)
 
+    def apply_hwsku_config_to_golden_db(self, hwsku, ori_config_db, hwsku_config, smartswitch_hwsku_config):
+        """
+        Apply the HWSKU specific configuration to the golden config DB.
+
+        Args:
+            hwsku (str): Hardware SKU name
+            ori_config_db (dict): Original config DB to modify
+            hwsku_config (dict): Per-HWSKU configuration data
+            smartswitch_hwsku_config (dict): Full HWSKU configuration mapping
+        """
+        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+            if "interface_key" in hwsku_config:
+                interface_key = hwsku_config["interface_key"].format(hwsku_config["base"] + i * hwsku_config["step"], i)
+
+            if port_key in ori_config_db["PORT"]:
+                ori_config_db["PORT"][port_key]["admin_status"] = "down"
+                ori_config_db["PORT"][port_key]["role"] = "Dpc"
+                if "interface_key" in hwsku_config:
+                    ori_config_db["INTERFACE"][port_key] = {}
+                    ori_config_db["INTERFACE"][interface_key] = {}
+
+            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "down"}
+        return ori_config_db
+
     def generate_smartswitch_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -237,22 +257,11 @@ class GenerateGoldenConfigDBModule(object):
         hwsku_config = smartswitch_hwsku_config[hwsku]
         dpu_num = len(ori_config_db["CHASSIS_MODULE"].keys())
         smartswitch_hwsku_config[hwsku]['dpu_num'] = int(format(dpu_num))
-        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            if "base" in hwsku_config and "step" in hwsku_config:
-                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
-            else:
-                port_key = hwsku_config["port_key"].format(i)
-            if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(hwsku_config["base"] + i * hwsku_config["step"], i)
-
-            if port_key in ori_config_db["PORT"]:
-                ori_config_db["PORT"][port_key]["admin_status"] = "down"
-                ori_config_db["PORT"][port_key]["role"] = "Dpc"
-                if "interface_key" in hwsku_config:
-                    ori_config_db["INTERFACE"][port_key] = {}
-                    ori_config_db["INTERFACE"][interface_key] = {}
-
-            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "down"}
+        ori_config_db = self.apply_hwsku_config_to_golden_db(
+                                                            hwsku,
+                                                            ori_config_db,
+                                                            hwsku_config,
+                                                            smartswitch_hwsku_config)
 
         gold_config_db = {
             "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
@@ -268,7 +277,7 @@ class GenerateGoldenConfigDBModule(object):
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
-        elif self.topo_name in ["t1-28-lag", "t0-28"]:
+        elif self.topo_name in ["t1-28-lag", "t1-48-lag", "t0-28"]:
             config = self.generate_smartswitch_golden_config_db()
         else:
             config = "{}"
