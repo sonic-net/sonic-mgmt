@@ -318,9 +318,9 @@ MGMT:
         # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
-        # - ssh/test_ssh_ciphers.py
-        # - ssh/test_ssh_limit.py
-        # - ssh/test_ssh_default_password.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
@@ -402,9 +402,9 @@ MGMT:
         # - generic_config_updater/test_ip_bgp.py
         # - generic_config_updater/test_ntp.py
         # - memory_checker/test_memory_checker.py
-        # - ssh/test_ssh_ciphers.py
-        # - ssh/test_ssh_limit.py
-        # - ssh/test_ssh_default_password.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         # - restapi/test_restapi.py
