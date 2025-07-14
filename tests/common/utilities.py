@@ -544,6 +544,14 @@ def is_ipv4_address(ip_address):
     except ipaddress.AddressValueError:
         return False
 
+def is_ipv6_address(ip_address):
+    """Check if ip address is ipv6."""
+    ip_address = ip_address.encode().decode()
+    try:
+        ipaddress.IPv6Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False
 
 def get_mgmt_ipv6(duthost):
     config_facts = duthost.get_running_config_facts()
