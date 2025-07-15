@@ -1,9 +1,10 @@
 import pytest   # noqa: F401
 
 from common.ha.smartswitch_ha_dataplane_utils import send_traffic_with_action   # noqa: F401
+from common.ha.smartswitch_ha_helper import npu_zero, npu_one                   # noqa: F401
 
 
-def test_steady_state_active(npu_zero, npu_one, send_traffic_with_actiongit):
+def test_steady_state_active(npu_zero, npu_one, send_traffic_with_action):      # noqa: F811
     """
     Verify normal operation in healthy state. Traffic lands on active DUT.
     """
