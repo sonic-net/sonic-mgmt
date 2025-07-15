@@ -377,7 +377,7 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     url = "http://{}:{}".format(ptfip, port)
     for route in route_list:
         route_data.append(route)
-    command = "{} attribute next-hop self nlri {}".format(operation, ' '.join(route_data))
+    command = "{} attributes next-hop self nlri {}".format(operation, ' '.join(route_data))
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
