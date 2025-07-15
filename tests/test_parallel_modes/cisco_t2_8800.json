@@ -38,5 +38,6 @@
     "snmp/test_snmp_memory.py": "FULL_PARALLEL",
     "snmp/test_snmp_queue.py": "RP_FIRST",
     "test_features.py": "FULL_PARALLEL",
-    "test_interfaces.py": "FULL_PARALLEL"
+    "test_interfaces.py": "FULL_PARALLEL",
+    "test_nbr_health.py": "FULL_PARALLEL"
 }

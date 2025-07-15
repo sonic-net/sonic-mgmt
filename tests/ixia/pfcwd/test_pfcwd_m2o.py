@@ -1,11 +1,11 @@
 import pytest
 
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa: F401
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
-    lossless_prio_list, lossy_prio_list                                                     # noqa F401
+    lossless_prio_list, lossy_prio_list                                                     # noqa: F401
 
 from .files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 from .files.helper import skip_pfcwd_test
@@ -14,10 +14,10 @@ pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_many_to_one(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,     # noqa F811
+def test_pfcwd_many_to_one(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,     # noqa: F811
                            duthosts, rand_one_dut_hostname, setup_cgm_alpha_cisco,
                            rand_one_dut_portname_oper_up, rand_one_dut_lossless_prio,
-                           lossy_prio_list, prio_dscp_map, trigger_pfcwd):                          # noqa F811
+                           lossy_prio_list, prio_dscp_map, trigger_pfcwd):                          # noqa: F811
 
     """
     Run PFC watchdog test under many to one traffic pattern

@@ -142,7 +142,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -166,6 +166,8 @@ function read_yaml
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
   inv_name=${line_arr[12]}
   servers=${line_arr[15]}
+  upstream_neighbor_groups=${line_arr[16]}
+  downstream_neighbor_groups=${line_arr[17]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
 }
@@ -181,6 +183,54 @@ function read_file
   then
     read_yaml ${testbed_name}
   fi
+}
+
+function read_nut_file
+{
+  echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['name']))")
+  echo ""
+
+  IFS=$'+' read -r -a tb_lines <<< $content
+  linecount=${#tb_lines[@]}
+
+  if [ $linecount == 0 ]
+  then
+    echo "Couldn't find testbed name '$1'"
+    exit
+  elif [ $linecount -gt 1 ]
+  then
+    echo "Find more than one testbed name in $tbfile"
+    exit
+  else
+    echo "Testbed found: $1"
+  fi
+
+  tb_line=${tb_lines[0]}
+  line_arr=($1)
+  for attr in inv_name test_tags duts l1s;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    line_arr=("${line_arr[@]}" "$value")
+  done
+
+  inv_name=${line_arr[1]}
+  echo "- Inventory: $inv_name"
+
+  test_tags=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[2]}\")))")
+  echo "- Test Tags: $test_tags"
+
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[3]}\")))")
+  echo "- DUTs: $duts"
+
+  l1s=${line_arr[4]}
+  if [ ! -z "$l1s" ]; then
+    l1s=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[4]}\")))")
+  fi
+  echo "- L1s: $l1s"
+
+  echo ""
 }
 
 function start_vms
@@ -319,6 +369,7 @@ function add_topo
           -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
           -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
           -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
+          -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
           $ansible_options $@
 
     if [ $i -eq 0 ]; then
@@ -329,6 +380,10 @@ function add_topo
 
     if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
       ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options $@
+    fi
+
+    if [[ $topo == *"t2"* ]]; then
+      ansible-playbook -i ${inv_name} testbed_config_vchassis.yml -l "$duts" -e topo="$topo"
     fi
 
     # Delete the obsoleted arp entry for the PTF IP
@@ -436,6 +491,7 @@ function renumber_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
+      -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
@@ -485,6 +541,7 @@ function refresh_dut
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e force_stop_sonic_vm="yes" \
+        -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
         $ansible_options $@
 
   echo Done
@@ -579,6 +636,56 @@ function test_minigraph
   read_file $testbed_name
 
   ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+
+  echo Done
+}
+
+function deploy_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying config to testbed '$testbed_name'"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+function generate_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Generate config for testbed '$testbed_name' for testing"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
 
   echo Done
 }
@@ -810,6 +917,24 @@ function deploy_topo_with_cache
   echo "Done!"
 }
 
+function config_vs_chassis
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Configuring testbed '$testbed_name' as a virtual chassis"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e topo="$topo"
+
+  echo Done
+}
+
 vmfile=veos
 tbfile=testbed.yaml
 vm_type=ceos
@@ -888,6 +1013,10 @@ case "${subcmd}" in
                ;;
   test-mg)     test_minigraph $@
                ;;
+  deploy-cfg)  deploy_config $@
+               ;;
+  gen-cfg)     generate_config $@
+               ;;
   config-y-cable) config_y_cable $@
                ;;
   set-l2) set_l2_mode $@
@@ -904,6 +1033,8 @@ case "${subcmd}" in
   install-image) install_image $@
                ;;
   collect-show-tech) collect_show_tech $@
+               ;;
+  config-vs-chassis) config_vs_chassis $@
                ;;
   *)           usage
                ;;

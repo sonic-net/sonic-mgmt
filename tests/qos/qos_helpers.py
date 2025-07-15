@@ -1,7 +1,12 @@
 from netaddr import IPNetwork
-from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa F401
+from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa: F401
 import re
 import os
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
@@ -197,7 +202,7 @@ def get_vlan_subnet(host_ans, vlan):
     return vlan_subnet
 
 
-def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):      # noqa F811
+def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):      # noqa: F811
     """
     @Summary: Set up the testbed
     @param leaf_fanouts: Leaf fanout switches
@@ -232,3 +237,25 @@ def get_max_priority(testbed_type):
         return 8
     else:
         return 64
+
+
+def dutBufferConfig(duthost, dut_asic=None):
+    bufferConfig = {}
+    try:
+        ns_spec = ""
+        if dut_asic is not None:
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
+        bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
+        bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
+            'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
+    except Exception as err:
+        logger.info(err)
+    return bufferConfig

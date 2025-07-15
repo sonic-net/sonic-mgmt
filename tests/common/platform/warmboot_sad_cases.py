@@ -59,7 +59,7 @@ def get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_t
                 # (1 each)
                 NeighLagMemberDown(duthost, nbrhosts, fanouthosts, DatetimeSelector(3),
                                    PhyPropsPortSelector(duthost, lagMemberCnt)),
-            ] if tbinfo['topo']['name'] in ['t0-64', 't0-116', 't0-64-32'] else []),
+            ] if tbinfo['topo']['name'] in ['t0-64', 't0-116', 't0-118', 't0-64-32'] else []),
 
         "sad_bgp": [
                 'neigh_bgp_down:2',     # Shutdown single BGP session on 2 remote devices (VMs) before reboot DUT
@@ -81,7 +81,7 @@ def get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_t
                 # (1 each)
                 NeighLagMemberDown(duthost, nbrhosts, fanouthosts, DatetimeSelector(3),
                                    PhyPropsPortSelector(duthost, lagMemberCnt)),
-            ] if tbinfo['topo']['name'] in ['t0-64', 't0-116', 't0-64-32'] else []),
+            ] if tbinfo['topo']['name'] in ['t0-64', 't0-116', 't0-118', 't0-64-32'] else []),
 
         "sad_lag": [
                 'dut_lag_down:2',               # Shutdown 2 LAG sessions on DUT brefore rebooting it

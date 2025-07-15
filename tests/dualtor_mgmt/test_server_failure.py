@@ -4,19 +4,20 @@ import random
 
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, \
                                                        simulator_flap_counter, simulator_server_down, \
-                                                       toggle_all_simulator_ports                       # noqa F401
+                                                       toggle_all_simulator_ports                       # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status                                    # noqa: F401
-from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                    # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                                          # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                                          # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_fanouthosts, fanout_lower_tor_port_control    # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_fanouthosts, fanout_upper_tor_port_control    # noqa F401
-from tests.common.dualtor.nic_simulator_control import simulator_server_down_active_active              # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                          # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                          # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_fanouthosts, fanout_lower_tor_port_control    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_fanouthosts, fanout_upper_tor_port_control    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import show_muxcable_status  # noqa: F401, F811
+from tests.common.dualtor.nic_simulator_control import simulator_server_down_active_active              # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                                      # noqa: F401
 from tests.common.utilities import wait_until
@@ -33,10 +34,10 @@ pytestmark = [
 
 
 @pytest.mark.enable_active_active
-def test_server_down(cable_type, duthosts, tbinfo, active_active_ports, active_standby_ports,               # noqa F811
-                     simulator_flap_counter, simulator_server_down, toggle_simulator_port_to_upper_tor,     # noqa F811
-                     loganalyzer, validate_active_active_dualtor_setup, upper_tor_host, lower_tor_host,     # noqa F811
-                     simulator_server_down_active_active):                                                  # noqa F811
+def test_server_down(cable_type, duthosts, tbinfo, active_active_ports, active_standby_ports,               # noqa: F811
+                     simulator_flap_counter, simulator_server_down, toggle_simulator_port_to_upper_tor,     # noqa: F811
+                     loganalyzer, validate_active_active_dualtor_setup, upper_tor_host, lower_tor_host,     # noqa: F811
+                     simulator_server_down_active_active):                                                  # noqa: F811
     """
     Verify that mux cable is not toggled excessively.
     """
@@ -111,6 +112,11 @@ def test_server_reboot(request, cable_type, tbinfo,                             
     """
     Test verifies that TOR health returns back to healthy status after a server reboot.
     """
+    def _check_consistency(duthost):
+        ret = show_muxcable_status(duthost)
+        return all((status.get("hwstatus") == "consistent" and
+                    status.get("health") == "healthy") for status in ret.values())
+
     if cable_type == CableType.active_standby:
         interface_name = random.choice(active_standby_ports)
         # Set upper_tor as active
@@ -145,8 +151,10 @@ def test_server_reboot(request, cable_type, tbinfo,                             
         start_icmp_responder()
         # The ToRs must then reconcile to a consistent state
         # Upper ToR switches to standby and Lower to active.
-        verify_tor_states(expected_active_host=lower_tor_host,
-                          expected_standby_host=upper_tor_host, cable_type=cable_type)
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: _check_consistency(upper_tor_host) and _check_consistency(lower_tor_host)),
+            "fail to reconcile to a consistent state"
+        )
     elif cable_type == CableType.active_active:
         interface_name = random.choice(active_active_ports)
 

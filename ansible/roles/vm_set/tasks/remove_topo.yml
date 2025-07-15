@@ -12,6 +12,11 @@
     container_type: "IxANVL-CONF-TESTER"
   when: ptf_imagename is defined and ptf_imagename == "docker-ptf-anvl"
 
+- name: set batch_mode for lt2 topo
+  set_fact:
+    batch_mode: True
+  when: "'lt2' in topo"
+
 - block:
 
   - name: Stop mux simulator
@@ -54,10 +59,14 @@
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
@@ -72,6 +81,7 @@
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
       is_dpu: true
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
@@ -138,9 +148,12 @@
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Remove duts ports
@@ -158,12 +171,30 @@
 
   when: container_type == "IxANVL-CONF-TESTER"
 
-- name: Destroy VMs network
+- name: Destroy VMs network in parallel
   vm_topology:
     cmd: 'destroy'
-    vm_names: "{{ VM_targets }}"
+    vm_names: "{{ vm_name }}"
   become: yes
+  async: 3600
+  poll: 0
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
   when: vm_type is defined and vm_type=="ceos"
+  register: async_destroy_vm_network_results
+
+- name: Wait for destroy tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ async_destroy_vm_network_result_item.ansible_job_id }}"
+  loop: "{{ async_destroy_vm_network_results.results }}"
+  loop_control:
+    loop_var: async_destroy_vm_network_result_item
+  register: async_destroy_vm_network_poll_results
+  until: async_destroy_vm_network_poll_results.finished
+  retries: 30
+  delay: 60
 
 - name: Destroy DPUs network
   vm_topology:

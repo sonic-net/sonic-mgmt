@@ -10,14 +10,15 @@ import pytest
 from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
-from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa F401
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa: F401
+from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa: F401
+from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -425,7 +426,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                       current_pool_size + old_pg_num * old_pg_size - new_pg_num * new_pg_size
                           + (old_pg_num * old_pg_xoff - new_pg_num * new_pg_xoff) * over_subscribe_ratio
     """
-    def _fetch_size_difference_for_8lane_ports(duthost, conn_graph_facts):      # noqa F811
+    def _fetch_size_difference_for_8lane_ports(duthost, conn_graph_facts):      # noqa: F811
         """Calculate the difference in buffer pool size caused by 8-lane ports on Mellanox platform
 
         Args:
@@ -950,7 +951,7 @@ def pg_to_test(request):
     return request.param
 
 
-def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,      # noqa F811
+def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,      # noqa: F811
                             port_to_test, speed_to_test, mtu_to_test, cable_len_to_test,
                             skip_traditional_model, skip_lossy_buffer_only):
     """The testcase for changing the speed and cable length of a port
@@ -1291,7 +1292,7 @@ def _parse_buffer_profile_params(param, cmd, name):
     return cli_str, new_size, xoff
 
 
-def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,     # noqa F811
+def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,     # noqa: F811
                            skip_traditional_model, skip_lossy_buffer_only):
     """Test case for headroom override
 
@@ -1480,8 +1481,8 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
-def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,    # noqa F811
-                                        update_cable_len_for_all_ports, skip_traditional_model, skip_lossy_buffer_only):    # noqa F811
+def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,    # noqa: F811
+                                        update_cable_len_for_all_ports, skip_traditional_model, skip_lossy_buffer_only):    # noqa: F811
     """Test case for shared headroom pool configuration
 
     Test case to verify the variant commands of shared headroom pool configuration and
@@ -1657,7 +1658,7 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
                          shp_size_before_shp, None)
 
 
-def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa F811
+def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa: F811
                      skip_traditional_model, skip_lossy_buffer_only):
     """Test case for non default dynamic th
 
@@ -1835,7 +1836,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
                          original_shp_size, None)
 
 
-def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,      # noqa F811
+def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,      # noqa: F811
                          skip_traditional_model, skip_lossy_buffer_only):
     """The test case for admin down ports
 
@@ -2201,7 +2202,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                          original_shp_size, None)
 
 
-def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,      # noqa F811
+def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test,      # noqa: F811
                        skip_traditional_model, skip_lossy_buffer_only):
     """The test case for auto negotiation enabled ports
 
@@ -2372,7 +2373,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("disable_shp", [True, False])
-def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, disable_shp,      # noqa F811
+def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, disable_shp,      # noqa: F811
                             skip_traditional_model, skip_lossy_buffer_only):
     """The test case is to verify If the accumulative headroom(shared headroom) of a port exceeds the maximum threshold,
     the relevant configuration should not be applied successfully, and there will are the corresponding error logs.
@@ -2647,7 +2648,7 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
-def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, skip_traditional_model):      # noqa F811
+def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, skip_traditional_model):      # noqa: F811
     """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
      - Whether the buffer model is traditional after executing config load_minigraph
@@ -2672,7 +2673,7 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, sk
         _recovery_to_dynamic_buffer_model(duthost)
 
 
-def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports,      # noqa F811
+def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports,      # noqa: F811
                            skip_lossy_buffer_only):
     """The testcase to verify whether buffer template has been correctly rendered and applied
 
@@ -2937,6 +2938,13 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     configdb_ports = [x.split('|')[1] for x in duthost.shell(
         'redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
+    # no lossless traffic on DPU NPU ports, so skip them for the test
+    dpu_npu_port_list = get_dpu_npu_ports_from_hwsku(duthost)
+    configdb_ports = list(set(configdb_ports) - set(dpu_npu_port_list))
+
+    configdb_ports = [port for port in configdb_ports if duthost.shell(
+        f'redis-cli -n 4 hget "PORT|{port}" "admin_status"')['stdout'] == 'up']
+    logging.info(f"test ports is {configdb_ports}")
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()

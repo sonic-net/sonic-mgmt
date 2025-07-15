@@ -3,7 +3,7 @@ import os
 
 # Get list of python processes
 output = subprocess.check_output(["ps", "-ef"])
-output = output.split("\n")
+output = output.decode("utf-8").split("\n")
 
 # Find process that is running the http server and kill it
 for line in output:

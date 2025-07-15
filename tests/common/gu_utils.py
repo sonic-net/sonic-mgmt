@@ -15,7 +15,10 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 600
+GCUTIMEOUT_MAP = {
+    'armhf-nokia_ixs7215_52x-r0': 1200,
+    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -117,7 +120,9 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+    patch_content = json.dumps(json_data, indent=4)
+    duthost.copy(content=patch_content, dest=dest_file)
+    logger.debug("Patch Content: {}".format(patch_content))
 
     cmds = 'config apply-patch {}'.format(dest_file)
 
@@ -125,7 +130,8 @@ def apply_patch(duthost, json_data, dest_file):
     start_time = time.time()
     output = duthost.shell(cmds, module_ignore_errors=True)
     elapsed_time = time.time() - start_time
-    if elapsed_time > GCUTIMEOUT:
+    gcu_timeout = get_gcu_timeout(duthost)
+    if elapsed_time > gcu_timeout:
         logger.error("Command took too long: {} seconds".format(elapsed_time))
         raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
 
@@ -447,11 +453,12 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     if "master" in os_version or "internal" in os_version:
         return True
     try:
-        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        version_required = gcu_conf["tables"][table][
+            "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
-        # os_version is in format "20220531.04", version_required is in format "20220500"
-        return os_version[0:8] >= version_required[0:8]
+        # os_version can be in any of 202411.1, 20241100.1 formats and version_required is in format "20220500"
+        return os_version.split('.')[0].ljust(8, '0') >= version_required[0:8]
     except KeyError:
         return False
     except IndexError:
@@ -502,15 +509,25 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
-        pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+        def check_table():
+            output = dut.show_and_parse(cmds)
+            if len(output) == 0:
+                return False
 
-        first_line = output[0]
-        pytest_assert(set(first_line.values()) == set(expected_first_line_content))
-        table_bindings = [first_line["binding"]]
-        for i in range(len(output)):
-            table_bindings.append(output[i]["binding"])
-        pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
+            first_line = output[0]
+            first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
+            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
+                          "First line content does not match. Difference: {}".format(first_line_diff))
+
+            table_bindings = [first_line["binding"]]
+            for i in range(len(output)):
+                table_bindings.append(output[i]["binding"])
+            table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
+            pytest_assert(set(table_bindings) == set(expected_bindings),
+                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            return True
+
+        wait_until(30, 5, 0, check_table)
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
@@ -557,6 +574,56 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
 
 
+def save_backup_test_config(duthost, file_postfix="bkp"):
+    """Save test env before a test case starts.
+    Back up the existing config_db.json file(s).
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for the backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Backup {} to {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Backup {} to {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("cp {} {}".format(asic_config_db, asic_config_db_backup))
+
+
+def restore_backup_test_config(duthost, file_postfix="bkp", config_reload=True):
+    """Restore test env after a test case finishes.
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for restoring the saved backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Restore {} with {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Restore {} with {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("mv {} {}".format(asic_config_db_backup, asic_config_db))
+
+    if config_reload:
+        config_reload(duthost)
+
+
 def get_bgp_speaker_runningconfig(duthost):
     """ Get bgp speaker config that contains src_address and ip_range
 
@@ -576,3 +643,7 @@ def get_bgp_speaker_runningconfig(duthost):
     bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
     bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
     return bgp_speaker_config
+
+
+def get_gcu_timeout(duthost):
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)

@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import imp
 import os
 import recover_server
 import sys
@@ -10,7 +9,7 @@ import collections
 import datetime
 import time
 import tempfile
-
+from devutil.conn_graph_helper import load_source
 # Add tests path to syspath
 sys.path.append('../')
 
@@ -69,7 +68,7 @@ class Job(object):
 
 def parse_testbed(testbedfile, servers):
     """Return a dictionary containing mapping from server name to nightly testbeds that need restart-ptf."""
-    testbed = imp.load_source('testbed', os.path.join(
+    testbed = load_source('testbed', os.path.join(
         SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     all_testbeds = testbed.TestbedInfo(testbedfile).testbed_topo
     nightly_dir = os.path.join(SONIC_MGMT_DIR, ".azure-pipelines", "nightly")
@@ -117,7 +116,7 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, dry_run=False):
                 break
             time.sleep(5)
 
-    utilities = imp.load_source('utilities', os.path.join(
+    utilities = load_source('utilities', os.path.join(
         SONIC_MGMT_DIR, 'tests/common/utilities.py'))
 
     curr_date = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')

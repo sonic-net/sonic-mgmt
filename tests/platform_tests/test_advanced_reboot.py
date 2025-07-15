@@ -2,17 +2,25 @@ import pytest
 import logging
 import random
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa F401
-from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot      # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa: F401
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa: F401
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa: F401
+from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot      # noqa: F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from tests.common.platform.device_utils import advanceboot_loganalyzer, verify_dut_health, advanceboot_neighbor_restore       # noqa F401
+from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: F401
+from tests.common.platform.device_utils import verify_dut_health  # noqa: F401
+from tests.common.platform.device_utils import advanceboot_neighbor_restore  # noqa: F401
 
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service    # noqa F401
+
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip, show_muxcable_status
-from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux_status, validate_check_result  # noqa F401
+from tests.common.dualtor.mux_simulator_control import (
+    get_mux_status,
+    check_mux_status,
+    validate_check_result  # noqa: F401
+)
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
 
@@ -67,7 +75,7 @@ def pytest_generate_tests(metafunc):
     for input_case in input_sad_cases.split(","):
         input_case = input_case.strip()
         if input_case.lower() not in SAD_CASE_LIST:
-            logging.warn(
+            logging.warning(
                 "Unknown SAD case ({}) - skipping it.".format(input_case))
             continue
         input_sad_list.append(input_case.lower())
@@ -77,8 +85,8 @@ def pytest_generate_tests(metafunc):
 
 
 # Tetcases to verify normal reboot procedure ###
-def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           # noqa F811
-                     advanceboot_loganalyzer,   # noqa F811
+def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           # noqa: F811
+                     advanceboot_loganalyzer, consistency_checker_provider,     # noqa: F811
                      capture_interface_counters):
     '''
     Fast reboot test case is run using advanced reboot test fixture
@@ -87,13 +95,14 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           
     @param get_advanced_reboot: advanced reboot test fixture
     '''
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot',
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                         consistency_checker_provider=consistency_checker_provider)
     advancedReboot.runRebootTestcase()
 
 
 def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request,
-                                       get_advanced_reboot, verify_dut_health,      # noqa F811
-                                       advanceboot_loganalyzer,  # noqa F811
+                                       get_advanced_reboot, verify_dut_health,      # noqa: F811
+                                       advanceboot_loganalyzer,  # noqa: F811
                                        capture_interface_counters):
     '''
     Fast reboot test from other vendor case is run using advanced reboot test fixture
@@ -103,18 +112,19 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
     '''
     duthost = duthosts[rand_one_dut_hostname]
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot', other_vendor_nos=True,
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                         consistency_checker_provider=consistency_checker_provider)
     # Before rebooting, we will flush all unnecessary databases, to mimic reboot from other vendor.
     flush_dbs(duthost)
     advancedReboot.runRebootTestcase()
 
 
 @pytest.mark.device_type('vs')
-def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health,           # noqa F811
-                     duthosts, advanceboot_loganalyzer,     # noqa F811
+def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health,           # noqa: F811
+                     duthosts, advanceboot_loganalyzer, consistency_checker_provider,           # noqa: F811
                      capture_interface_counters,
-                     toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,     # noqa F811
-                     toggle_simulator_port_to_upper_tor):                                       # noqa F811
+                     toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,     # noqa: F811
+                     toggle_simulator_port_to_upper_tor):                                       # noqa: F811
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
@@ -135,13 +145,13 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
             toggle_simulator_port_to_upper_tor(itfs)
 
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer    # noqa F811
-                                         )
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer,    # noqa: F811
+                                         consistency_checker_provider=consistency_checker_provider)
     advancedReboot.runRebootTestcase()
 
 
-def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,          # noqa F811
-                              advanceboot_loganalyzer,  # noqa F811
+def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,          # noqa: F811
+                              advanceboot_loganalyzer, consistency_checker_provider,    # noqa: F811
                               capture_interface_counters):
     '''
     Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
@@ -157,16 +167,17 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,  
     generated during warm reboot will cause META checker failure resulting to Orchagent crash.
     '''
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True,
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                         consistency_checker_provider=consistency_checker_provider)
     advancedReboot.runRebootTestcase()
 
 
 # Tetcases to verify reboot procedure with SAD cases ###
 @pytest.mark.device_type('vs')
 def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
-                         get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,           # noqa F811
-                         backup_and_restore_config_db, advanceboot_neighbor_restore,                # noqa F811
-                         sad_case_type):
+                         get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,           # noqa: F811
+                         consistency_checker_provider, backup_and_restore_config_db,                # noqa: F811
+                         advanceboot_neighbor_restore, sad_case_type):                              # noqa: F811
     '''
     Warm reboot with sad path
     @param get_advanced_reboot: Fixture located in advanced_reboot.py
@@ -178,7 +189,8 @@ def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts,
     '''
     duthost = duthosts[rand_one_dut_hostname]
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                         consistency_checker_provider=consistency_checker_provider)
 
     sad_preboot_list, sad_inboot_list = get_sad_case_list(
         duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
@@ -189,8 +201,8 @@ def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts,
 
 
 # Testcases to verify abruptly failed reboot procedure ###
-def test_cancelled_fast_reboot(request, add_fail_step_to_reboot,            # noqa F811
-                               verify_dut_health, get_advanced_reboot):     # noqa F811
+def test_cancelled_fast_reboot(request, add_fail_step_to_reboot,            # noqa: F811
+                               verify_dut_health, get_advanced_reboot):     # noqa: F811
     '''
     Negative fast reboot test case to verify DUT is left in stable state
     when fast reboot procedure abruptly ends.
@@ -204,8 +216,8 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot,            # no
     advancedReboot.runRebootTestcase()
 
 
-def test_cancelled_warm_reboot(request, add_fail_step_to_reboot,            # noqa F811
-                               verify_dut_health, get_advanced_reboot):     # noqa F811
+def test_cancelled_warm_reboot(request, add_fail_step_to_reboot,            # noqa: F811
+                               verify_dut_health, get_advanced_reboot):     # noqa: F811
     '''
     Negative warm reboot test case to verify DUT is left in stable state
     when warm reboot procedure abruptly ends.

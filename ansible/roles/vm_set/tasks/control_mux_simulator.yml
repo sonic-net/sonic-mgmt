@@ -17,27 +17,48 @@
       werkzeug_version: "1.0.1"
       python_command: "python"
 
-  - name: Use newer Flask version for pip3
+  - name: Use newer Flask and Werkzeug version for pip3
     set_fact:
       flask_version: "2.3.3"
-      python_command: "python3"
-    when: pip_executable == "pip3"
-
-  - name: Use newer Werkzeug version for pip3
-    set_fact:
       werkzeug_version: "2.3.7"
       python_command: "python3"
     when: pip_executable == "pip3"
 
-  - name: Install flask
-    pip: name=flask version={{ flask_version }} state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
+  - name: Run python3 in a virtualenv
+    set_fact:
+      python_command: "/tmp/sonic-mgmt-virtualenv/bin/python3"
+    when: host_distribution_version.stdout >= "24.04"
 
-  - name: Install werkzeug
-    pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
+  - name: Install Flask and Werkzeug
+    block:
+    - name: Install blinker
+      pip: name=blinker executable={{ pip_executable }} extra_args="--ignore-installed"
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install flask
+      pip: name=flask version={{ flask_version }} executable={{ pip_executable }}
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install werkzeug
+      pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+    when: host_distribution_version.stdout < "24.04"
+
+  - name: Install Flask and Werkzeug
+    block:
+    - name: Install flask
+      pip: name=flask version={{ flask_version }} state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install werkzeug
+      pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+    when: host_distribution_version.stdout >= "24.04"
 
   - name: Copy the mux simulator to test server
     copy:

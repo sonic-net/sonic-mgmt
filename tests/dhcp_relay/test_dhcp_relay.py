@@ -4,6 +4,7 @@ import time
 import logging
 import re
 
+from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -14,16 +15,21 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server, restart_dhcp_service
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 't0-2vlans'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
 ]
+
+SUPPORTED_DHCPV4_TYPE = [
+    "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
+]
+SUPPORTED_DIR = ["TX", "RX"]
+
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
@@ -107,7 +113,6 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -133,7 +138,7 @@ def start_dhcp_monitor_debug_counter(duthost):
             program_pid_list.append(program_pid)
 
     for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("sudo kill {} || true".format(program_pid), module_ignore_errors=True)
+        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
         # Get the exit code of 'kill' command
         exit_code = kill_cmd_result["rc"]
         if exit_code != 0:
@@ -182,7 +187,7 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
             after_count = get_acl_count_by_mark(rand_unselected_dut, item["mark"])
-            pytest_assert(after_count == item["count"] + 2, "Drop count of {} {} is unexpected, pre: {}, after: {}"
+            pytest_assert(after_count == item["count"] + 3, "Drop count of {} {} is unexpected, pre: {}, after: {}"
                           .format(client_interface_name, item["mark"], item["count"], after_count))
 
 
@@ -196,9 +201,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
-
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
@@ -208,6 +210,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
                     start_dhcp_monitor_debug_counter(standby_duthost)
+                    init_dhcpcom_relay_counters(standby_duthost)
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -217,6 +220,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
                 start_dhcp_monitor_debug_counter(duthost)
+                init_dhcpcom_relay_counters(duthost)
                 if testing_mode == DUAL_TOR_MODE:
                     expected_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
@@ -256,12 +260,31 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "testing_mode": testing_mode,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
+                dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+                dhcy_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
+                    dhcy_relay_request_times = 1
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
+                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                expected_downlink_counter = {
+                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
+                    "TX": {"Ack": 1, "Offer": 1}
+                }
+                expected_uplink_counter = {
+                    "RX": {"Ack": 1, "Offer": 1},
+                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                }
+                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
+                                                expected_uplink_counter,
+                                                expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -285,9 +308,6 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
     """
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
-
     skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
@@ -297,6 +317,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
                     start_dhcp_monitor_debug_counter(standby_duthost)
+                    init_dhcpcom_relay_counters(standby_duthost)
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -306,6 +327,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
                 start_dhcp_monitor_debug_counter(duthost)
+                init_dhcpcom_relay_counters(duthost)
                 if testing_mode == DUAL_TOR_MODE:
                     expected_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
@@ -346,12 +368,31 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                                "testing_mode": testing_mode,
                                "enable_source_port_ip_in_relay": True,
                                "kvm_support": True},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.src_ip.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
             if not skip_dhcpmon:
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
+                dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+                dhcy_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
+                    dhcy_relay_request_times = 1
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
+                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                expected_downlink_counter = {
+                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
+                    "TX": {"Ack": 1, "Offer": 1}
+                }
+                expected_uplink_counter = {
+                    "RX": {"Ack": 1, "Offer": 1},
+                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                }
+                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
+                                                expected_uplink_counter,
+                                                expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -375,14 +416,14 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
@@ -408,7 +449,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.link_flap.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
@@ -422,7 +465,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} down'.format(iface))
+            duthost.shell('config interface shutdown {}'.format(iface))
 
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
@@ -439,7 +482,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('ifconfig {} up'.format(iface))
+            duthost.shell('config interface startup {}'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
@@ -465,7 +508,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.uplinks_down.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -501,7 +546,9 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.unicast_mac.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -536,7 +583,9 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode,
                            "kvm_support": True},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file=("/tmp/dhcp_relay_test.DHCPTest.random_sport.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
 
 
 def get_dhcp_relay_counter(duthost, ifname, type, dir):
@@ -575,9 +624,6 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                             setup_standby_ports_on_rand_unselected_tor,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost = testing_config
-
-    skip_release(duthost, ["201811", "201911", "202012"])
-
     # based on message types we currently support in ptftest/py3/dhcp_relay_test.py
     dhcp_message_types = ["Discover", "Offer", "Request", "Ack"]
     for dhcp_relay in dut_dhcp_relay_data:

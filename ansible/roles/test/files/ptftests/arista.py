@@ -7,7 +7,7 @@ import paramiko
 import pickle
 import ast
 import six
-import _strptime  # noqa F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
+import _strptime  # noqa: F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
 from collections import defaultdict
@@ -401,8 +401,8 @@ class Arista(host_device.HostDevice):
         is_gr_ipv6_enabled = False
         restart_time = None
         for line in output.split('\n'):
-            if '     Restart-time is' in line:
-                restart_time = int(line.replace('       Restart-time is ', ''))
+            if 'Restart-time is' in line:
+                restart_time = int(re.search(r'\d+', line).group())
                 continue
 
             if 'is enabled, Forwarding State is' in line:
@@ -535,10 +535,10 @@ class Arista(host_device.HostDevice):
             D = Distributing (aggregating outgoing frames),
             d = default neighbor state
             Status  |         | Partner                                    Actor                                 Last             State Machines
-        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier         # noqa E501
-        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------         # noqa E501
+        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier         # noqa: E501
+        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------         # noqa: E501
         Port Channel Port-Channel1:
-        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3         # noqa E501
+        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3         # noqa: E501
 
         The above output is JSON formatted by EOS,
         and below is example (with irrelevant fileds removed for simplify example)

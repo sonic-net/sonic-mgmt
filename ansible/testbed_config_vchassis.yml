@@ -1,0 +1,88 @@
+- hosts: sonic
+  gather_facts: False
+  tasks:
+  - name: Check if the testbed is a virtual platform
+    set_fact:
+      is_vs_chassis: true
+    when: hostvars[inventory_hostname].type is defined and hostvars[inventory_hostname]['type'] == 'kvm'
+
+  - name: Skip if not a virtual platform
+    meta: end_play
+    when: is_vs_chassis is not defined or is_vs_chassis == false
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - debug: msg="base_topo = {{ base_topo }}"
+
+  - name: Check that base topo is "t2"
+    fail: msg="This playbook is only for T2 topologies"
+    when: base_topo != "t2"
+
+  - name: Config VS chassis block
+    block:
+      - name: Load topo variables
+        include_vars: "vars/topo_{{ topo }}.yml"
+
+      - name: Include server vars
+        include_vars: "host_vars/STR-ACS-VSERV-01.yml"
+
+      - debug: msg="s/^exit 0/sudo ip address add {{ hostvars[inventory_hostname].ansible_host }}\/{{ mgmt_prefixlen }} dev eth0\nsudo ip route add 0.0.0.0\/0 via {{ mgmt_gw }} table default\nexit 0/"
+
+      - name: Add mgmt address config commands to "/etc/rc.local"
+        shell: sed -i "s/^exit 0/sudo hostname {{ inventory_hostname }}\n\
+              sudo ip address add {{ hostvars[inventory_hostname].ansible_host }}\/{{ mgmt_prefixlen }} dev eth0\n\
+              sudo ip route add 0.0.0.0\/0 via {{ mgmt_gw }} table default\nexit 0/" "/etc/rc.local"
+        become: true
+
+      - name: Set facts
+        set_fact:
+          hwsku: "{{ hostvars[inventory_hostname].hwsku }}"
+          num_asic: "{{ hostvars[inventory_hostname]['num_asics'] | default(1) }}"
+          card_type: "{{ hostvars[inventory_hostname].card_type | default('linecard') }}"
+          macsec_enabled: "{{ hostvars[inventory_hostname].macsec_enabled | default(false) }}"
+          slot_num: "{{ hostvars[inventory_hostname].slot_num }}"
+
+      - name: Create vs_chassis_metadata.json
+        template: src=templates/vs_chassis_metadata.json.j2
+                  dest=/etc/sonic/vs_chassis_metadata.json
+        become: true
+
+      - name: Copy setup_vs_chassis.sh to DUT
+        copy:
+          src: setup_vs_chassis.sh
+          dest: /usr/bin/setup_vs_chassis.sh
+        become: true
+
+      - name: Set routeCheck timeout to 600 seconds in monit
+        become: true
+        lineinfile:
+          path: /etc/monit/conf.d/sonic-host
+          regexp: '^check program routeCheck with path "/usr/local/bin/route_check.py"'
+          line: "check program routeCheck with path \"/usr/local/bin/route_check.py\" timeout 600 seconds"
+
+      - name: Execute setup_vs_chassis.sh to configure the DUT as a chassis device
+        shell: bash /usr/bin/setup_vs_chassis.sh
+        become: true
+
+      - name: reboot DUTs
+        command: reboot
+        # async: 600
+        # poll: 0
+        become: true
+
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
