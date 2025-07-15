@@ -187,21 +187,43 @@ def remove_nexthops_in_routes(routes, nexthops):
 def compare_routes(running_routes, expected_routes):
     is_same = True
     diff_cnt = 0
-    if len(expected_routes) != len(running_routes):
-        is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
-                    len(expected_routes), len(running_routes))
-        return is_same
+    missing_prefixes = []
+    nh_diff_prefixes = []
+
+    expected_set = set(expected_routes.keys())
+    running_set = set(running_routes.keys())
+    missing = expected_set - running_set
+    extra = running_set - expected_set
+
+    # Count missing_prefixes and nh_diff_prefixes
     for prefix, attr in expected_routes.items():
         if prefix not in running_routes:
             is_same = False
             diff_cnt += 1
+            missing_prefixes.append(prefix)
             continue
         except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
         running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
         if except_nhs != running_nhs:
             is_same = False
             diff_cnt += 1
+            nh_diff_prefixes.append((prefix, except_nhs, running_nhs))
+
+    if len(expected_routes) != len(running_routes):
+        is_same = False
+        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
+                    len(expected_routes), len(running_routes))
+        if missing:
+            logger.info("Missing prefixes in running_routes: %s", list(missing))
+        if extra:
+            logger.info("Extra prefixes in running_routes: %s", list(extra))
+
+    if missing_prefixes:
+        logger.info("Prefixes missing in running_routes: %s", missing_prefixes)
+    if nh_diff_prefixes:
+        for prefix, expected, running in nh_diff_prefixes:
+            logger.info("Prefix %s nexthops not match, expected: %s, running: %s", prefix, expected, running)
+
     logger.info("%d of %d routes are different", diff_cnt, len(expected_routes))
     return is_same
 
@@ -282,8 +304,6 @@ def wait_for_ipv6_bgp_routes_recovery(duthost, expected_routes, start_time, time
     is_first_run = True
     while not compare_routes(get_all_bgp_ipv6_routes(duthost), expected_routes):
         if datetime.datetime.now() - start_time > datetime.timedelta(seconds=timeout) and not is_first_run:
-            logging.info("Actual routes: %s", get_all_bgp_ipv6_routes(duthost))
-            logging.info("Expected routes: %s", expected_routes)
             logging.error("BGP routes are not stable in long time")
             return False
         is_first_run = False
