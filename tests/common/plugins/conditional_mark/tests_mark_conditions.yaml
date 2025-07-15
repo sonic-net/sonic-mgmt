@@ -3941,11 +3941,12 @@ qos/test_buffer.py::test_buffer_model_test:
 
 qos/test_buffer_traditional.py:
   skip:
-    reason: "Buffer traditional test is only supported 201911 branch / M* topo does not support qos"
+    reason: "Buffer traditional test is supported on Mellanox and Broadcom platforms only / M* topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "release not in ['201911']"
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "asic_type not in ['mellanox', 'broadcom']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+
 
 qos/test_ecn_config.py:
   skip:
