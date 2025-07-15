@@ -88,9 +88,9 @@ def get_most_recent_metric_df(sonic_kusto_client, hw_sku_name):
     | where HwSKU == "{}"
     | summarize MaxTimestamp = max(MetricTimestamp)
     | join kind=inner ( 
-        TempSonicDailyMetric 
+        {}
     ) on $left.MaxTimestamp == $right.MetricTimestamp
-    """.format(METRIC_TABLE, hw_sku_name)
+    """.format(METRIC_TABLE, hw_sku_name, METRIC_TABLE)
 
     op_name = "Most Recent Metric Query"
     query_result = execute_kusto_query_with_retry(sonic_kusto_client, SONIC_TEST_DATA_DB, query, op_name)
