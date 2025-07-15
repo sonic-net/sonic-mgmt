@@ -403,9 +403,15 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"] = {}
         if "localhost" not in ori_config_db["DEVICE_METADATA"]:
             ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-        if "orch_northbond_route_zmq_enabled" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = {}
-        ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_dash_zmq_enabled" in out: 
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_dash_zmq_enabled"] = "true"
+
+        if "orch_northbond_route_zmq_enabled" in out: 
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
         return json.dumps(ori_config_db, indent=4)
 
     def generate_lt2_ft2_golden_config_db(self):
