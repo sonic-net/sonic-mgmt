@@ -226,30 +226,39 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         "neighbor {} state is still established".format(neighbor)
     )
 
-    if test_type == "bgp_docker":
-        duthost.shell("docker restart bgp")
-    elif test_type == "swss_docker":
-        duthost.shell("docker restart swss")
-    elif test_type == "reboot":
-        reboot(duthost, localhost, reboot_type="warm", wait_warmboot_finalizer=True, warmboot_finalizer_timeout=360)
+    try:
+        if test_type == "bgp_docker":
+            duthost.shell("docker restart bgp")
+        elif test_type == "swss_docker":
+            duthost.shell("docker restart swss")
+        elif test_type == "reboot":
+            # Use warm reboot for t0, cold reboot for others
+            topo_name = tbinfo["topo"]["name"]
+            logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
+            if topo_name.startswith("t0"):
+                reboot_type = "warm"
+            else:
+                reboot_type = "cold"
+            reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
+                   warmboot_finalizer_timeout=360)
 
-    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+        pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
+                      "Not all critical services are fully started")
+    finally:
+        if failure_type == "interface":
+            for port in local_interfaces:
+                fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+                if fanout and fanout_port:
+                    logger.info("no shutdown interface fanout {} port {}".format(fanout, fanout_port))
+                    fanout.no_shutdown(fanout_port)
+                    time.sleep(1)
 
-    if failure_type == "interface":
-        for port in local_interfaces:
-            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-            if fanout and fanout_port:
-                logger.info("no shutdown interface fanout {} port {}".format(fanout, fanout_port))
-                fanout.no_shutdown(fanout_port)
+        elif failure_type == "neighbor":
+            for port in local_interfaces:
+                neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
+                logger.info("no shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
+                nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
                 time.sleep(1)
-
-    elif failure_type == "neighbor":
-        for port in local_interfaces:
-            neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
-            logger.info("no shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
-            nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
-            time.sleep(1)
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
