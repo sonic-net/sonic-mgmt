@@ -1,6 +1,9 @@
 """ This module provides few pytest-ansible fixtures overridden """
 import pytest
-from pytest_ansible.host_manager import get_host_manager
+try:
+    from pytest_ansible.host_manager import get_host_manager
+except ImportError:
+    from pytest_ansible.host_manager.utils import get_host_manager
 
 
 # Here we override ansible_adhoc fixture from pytest-ansible plugin to overcome
