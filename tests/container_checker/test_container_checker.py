@@ -249,6 +249,11 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     pytest_assert(wait_until(300, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(wait_until(360, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
+
 
 def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     """Tests the feature of container checker.
@@ -289,3 +294,8 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
 
     pytest_assert(wait_until(300, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(wait_until(360, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
