@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient, DataFormat
+from azure.kusto.data.exceptions import KustoServiceError, KustoClientError
 from azure.kusto.data.helpers import dataframe_from_result_table
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
 
@@ -16,14 +17,44 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-AZPHYNET_CLUSTER = "https://azphynet.kusto.windows.net" # os.getenv("AZPHYNET_KUSTO_CLUSTER_URL")
-SONIC_INGEST_CLUSTER = "https://ingest-sonicrepodatadev.westus.kusto.windows.net" # os.getenv("KUSTO_CLUSTER_INGEST_URL")
+AZPHYNET_CLUSTER = os.getenv("AZPHYNET_KUSTO_CLUSTER_URL")
+SONIC_INGEST_CLUSTER = os.getenv("KUSTO_CLUSTER_INGEST_URL")
 SONIC_CLUSTER = SONIC_INGEST_CLUSTER.replace("ingest-", "")
+ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", None)
 SONIC_TEST_DATA_DB = "SonicTestData"
 ICM_DB = "IcMDataWarehouse"
-METRIC_TABLE = "TempSonicDailyMetric"
-ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", None)
-METRIC_ROLE = "SonicAutomationPipeline"
+METRIC_TABLE = "SonicDailyMetric"
+METRIC_ROLE = "SonicDailyMetricSyncPipeline"
+
+MAX_RETRIES = 3
+RETRY_DELAY = 120
+
+
+def execute_kusto_query_with_retry(kusto_client, database, query, operation_name):
+    """Execute Kusto query with retry logic. Raises exception if all retries fail."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            query_result = kusto_client.execute_query(database, query)
+            return query_result
+        except (KustoServiceError, KustoClientError) as ke:
+            logger.warning("Kusto query error on attempt {}/{} for {}: {}".format(
+                attempt + 1,
+                MAX_RETRIES,
+                operation_name,
+                ke,
+            ))
+
+            if attempt == MAX_RETRIES - 1:
+                logger.error("Kusto query failed after {} attempts for {}. "
+                             "Manual investigation required.".format(MAX_RETRIES, operation_name))
+                raise
+
+            time.sleep(RETRY_DELAY * (attempt + 1))
+        except Exception as e:
+            logger.error("Unexpected error during {}: {}".format(operation_name, e))
+            raise
+
+    return None # Should not reach here if retries are implemented correctly
 
 
 def get_device_incidents_df(azphynet_kusto_client, device_names, start_datetime):
@@ -37,7 +68,9 @@ def get_device_incidents_df(azphynet_kusto_client, device_names, start_datetime)
     | where CreateDate > datetime({})
     | project IncidentId, Severity, Status, CreateDate, OccurringDeviceName
     """.format(device_names, start_datetime)
-    query_result = azphynet_kusto_client.execute_query(ICM_DB, query)
+
+    op_name = "Device Incidents Query"
+    query_result = execute_kusto_query_with_retry(azphynet_kusto_client, ICM_DB, query, op_name)
     result_data = query_result.primary_results[0]
     incidents_df = dataframe_from_result_table(result_data)
 
@@ -58,7 +91,9 @@ def get_most_recent_metric_df(sonic_kusto_client, hw_sku_name):
         TempSonicDailyMetric 
     ) on $left.MaxTimestamp == $right.MetricTimestamp
     """.format(METRIC_TABLE, hw_sku_name)
-    query_result = sonic_kusto_client.execute_query(SONIC_TEST_DATA_DB, query)
+
+    op_name = "Most Recent Metric Query"
+    query_result = execute_kusto_query_with_retry(sonic_kusto_client, SONIC_TEST_DATA_DB, query, op_name)
     result_data = query_result.primary_results[0]
     metric_df = dataframe_from_result_table(result_data)
 
@@ -90,7 +125,26 @@ def get_prev_metric_data(sonic_kusto_client, hw_sku_name):
 
 
 def get_device_data_from_hw_sku_strategy(azphynet_kusto_client, hw_sku_strategy):
-    return hw_sku_strategy.get_all_units_df(azphynet_kusto_client)
+    for attempt in range(MAX_RETRIES):
+        try:
+            return hw_sku_strategy.get_all_units_df(azphynet_kusto_client)
+        except (KustoServiceError, KustoClientError) as ke:
+            logger.warning("Kusto query error on attempt {}/{} for Device Data Query: {}".format(
+                attempt + 1,
+                MAX_RETRIES,
+                ke,
+            ))
+
+            if attempt == MAX_RETRIES - 1:
+                logger.error("Kusto query failed after {} attempts for Device Data Query. ".format(MAX_RETRIES))
+                raise
+
+            time.sleep(RETRY_DELAY * (attempt + 1))
+        except Exception as e:
+            logger.error("Unexpected error during Device Data Query: {}".format(e))
+            raise
+
+    return pd.DataFrame()  # Should not reach here if retries are implemented correctly
 
 
 def process_os_version_data(os_version, metric_timestamp, sonic_modules_df, vendor_devices_df, incidents_df,
@@ -129,15 +183,18 @@ def process_os_version_data(os_version, metric_timestamp, sonic_modules_df, vend
             incidents_df["OccurringDeviceName"].str.casefold().isin(vendor_device_names)
         ]
 
-    os_version_data["TotalIncidentCountSincePrevious"] = filtered_incidents_df.shape[0]
-    os_version_data["NonSev2CountSincePrevious"] = filtered_incidents_df[
-        filtered_incidents_df["Severity"] != 2
-    ].shape[0]
-
+    os_version_data["TotalIncidentCountSincePrevious"] = len(filtered_incidents_df)
     severities = [2, 25, 3, 4]
-    for sev in severities:
-        sev_col = "Sev{}CountSincePrevious".format(sev)
-        os_version_data[sev_col] = filtered_incidents_df[filtered_incidents_df["Severity"] == sev].shape[0]
+    if not filtered_incidents_df.empty:
+        os_version_data["NonSev2CountSincePrevious"] = len(filtered_incidents_df[filtered_incidents_df["Severity"] != 2])
+        for sev in severities:
+            sev_col = "Sev{}CountSincePrevious".format(sev)
+            os_version_data[sev_col] = len(filtered_incidents_df[filtered_incidents_df["Severity"] == sev])
+    else:
+        os_version_data["NonSev2CountSincePrevious"] = 0
+        for sev in severities:
+            sev_col = "Sev{}CountSincePrevious".format(sev)
+            os_version_data[sev_col] = 0
 
     return os_version_data
 
@@ -188,7 +245,6 @@ def create_daily_metric_df(azphynet_kusto_client, sonic_kusto_client, hw_sku_nam
 
 
 def ingest_metric_data(sonic_ingest_client, df_to_ingest):
-    logger.info("Starting ingestion of {} records".format(len(df_to_ingest)))
     if df_to_ingest.empty:
         logger.warning("DataFrame is empty. No data to ingest")
         return
@@ -199,13 +255,10 @@ def ingest_metric_data(sonic_ingest_client, df_to_ingest):
         data_format=DataFormat.CSV
     )
 
+    logger.info("Starting ingestion of {} records".format(len(df_to_ingest)))
+    df_to_ingest["IngestionTimestamp"] = datetime.now(timezone.utc)
     try:
-        df_to_ingest["IngestionTimestamp"] = datetime.now(timezone.utc)
-        sonic_ingest_client.ingest_from_dataframe(
-            df_to_ingest,
-            ingestion_properties=ingestion_props,
-        )
-
+        sonic_ingest_client.ingest_from_dataframe(df_to_ingest, ingestion_properties=ingestion_props)
         logger.info("Data ingestion completed successfully")
     except Exception as e:
         logger.error("Failed to ingest data to {}.{}: {}".format(SONIC_TEST_DATA_DB, METRIC_TABLE, e))
@@ -243,6 +296,8 @@ def main():
             combined_metric_df = pd.concat(all_metric_dfs, ignore_index=True)
             sonic_ingest_client = create_ingest_client(SONIC_INGEST_CLUSTER, ACCESS_TOKEN)
             ingest_metric_data(sonic_ingest_client, combined_metric_df)
+        else:
+            logger.warning("No data to ingest. All metric DataFrames are empty.")
     except Exception as e:
         logger.error("An error occurred in sonic daily metric sync pipeline: {}".format(e))
         sys.exit(1)
