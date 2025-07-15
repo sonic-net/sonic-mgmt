@@ -233,40 +233,47 @@ class DataDeduplicator:
         # Initialize the cluster column
         df['cluster'] = None
 
-        # Process each branch separately for clustering
-        for branch, branch_df in df.groupby('branch'):
+        # Create branch group column for clustering
+        df['branch_group'] = df['branch'].apply(self.get_branch_group)
+
+        # Process each branch group separately for clustering
+        for branch_group, branch_group_df in df.groupby('branch_group'):
             # Skip empty summaries
-            to_cluster = branch_df[~branch_df['processed_summary'].isna() & (branch_df['processed_summary'] != '')]
+            to_cluster = branch_group_df[~branch_group_df['processed_summary'].isna() & (branch_group_df['processed_summary'] != '')]
 
             if to_cluster.empty:
-                logger.error(f"Branch {branch}: No summaries to cluster")
+                logger.error(f"Branch group {branch_group}: No summaries to cluster")
                 continue
+
+            # Log the actual branches being processed in this group
+            actual_branches = set(branch_group_df['branch'].unique())
+            logger.info(f"Processing branch group '{branch_group}' containing branches: {actual_branches}")
 
             # Preprocess the summaries and save to processed_summary column
             # This preserves the original failure_summary
-            branch_df['processed_summary'] = branch_df['processed_summary'].apply(self.__preprocess_summary)
+            branch_group_df['processed_summary'] = branch_group_df['processed_summary'].apply(self.__preprocess_summary)
 
-            # logger.info summaries before clustering for debugging
-            logger.info(f"\nSummaries for branch {branch}:")
-            for i, (idx, row) in enumerate(branch_df.iterrows()):
+            # Log summaries before clustering for debugging
+            logger.info(f"\nSummaries for branch group {branch_group}:")
+            for i, (idx, row) in enumerate(branch_group_df.iterrows()):
                 logger.info(f"{i}: Subject '{row['subject']}': {row['processed_summary'][:100]}...")
 
             # Get the cluster assignments with a stricter eps value based on processed summaries
             eps = configuration["threshold"]["eps"]
-            clusters = self.cluster_summaries(branch_df['processed_summary'], eps=eps, min_samples=1)
+            clusters = self.cluster_summaries(branch_group_df['processed_summary'], eps=eps, min_samples=1)
 
             # Update the processed_summary column in the main dataframe
-            for i, idx in enumerate(branch_df.index):
-                df.loc[idx, 'processed_summary'] = branch_df['processed_summary'].iloc[i]
+            for i, idx in enumerate(branch_group_df.index):
+                df.loc[idx, 'processed_summary'] = branch_group_df['processed_summary'].iloc[i]
 
-            # logger.info clustering results for debugging
-            logger.info(f"\nClustering results for branch {branch}:")
-            for i, (idx, row) in enumerate(branch_df.iterrows()):
+            # Log clustering results for debugging
+            logger.info(f"\nClustering results for branch group {branch_group}:")
+            for i, (idx, row) in enumerate(branch_group_df.iterrows()):
                 logger.info(f"Subject '{row['subject']}': Summary {i} -> Cluster {clusters[i]}")
 
-            # Assign cluster labels
-            for i, idx in enumerate(branch_df.index):
-                df.loc[idx, 'cluster'] = f"{branch}_{clusters[i]}"
+            # Assign cluster labels (include branch group in cluster name for uniqueness)
+            for i, idx in enumerate(branch_group_df.index):
+                df.loc[idx, 'cluster'] = f"{branch_group}_{clusters[i]}"
 
         # Count entries in each cluster
         df['count'] = df.groupby('cluster')['cluster'].transform('count')
@@ -390,6 +397,13 @@ class DataDeduplicator:
         # Return the final dataframe with representative rows
         return pd.DataFrame(representative_rows)
 
+    def get_branch_group(self, branch):
+        """Group master and internal branches together, keep others separate"""
+        if branch.lower() in ['master', 'internal']:
+            return 'master_internal'
+        else:
+            return branch
+
     def is_matched_active_icm(self, case_branch, target_summary, icm_branch, active_icm_df):
         """
         Check if the target_summary matches any summary in active_icm_df using clustering.
@@ -400,11 +414,18 @@ class DataDeduplicator:
 
         valid_active_icm_df = active_icm_df[active_icm_df['SourceCreateDate'] >= valid_date]
 
-        # Filter active_icm_df to only include rows with the same branch as the target_summary
-        same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'] == icm_branch]
+        # Get the branch group for the target ICM branch
+        target_branch_group = self.get_branch_group(icm_branch)
+
+        # Filter active_icm_df to only include rows with the same branch group as the target_summary
+        # For master/internal, this will match both branches; for others, only exact matches
+        if target_branch_group == 'master_internal':
+            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
+        else:
+            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'] == icm_branch]
 
         if same_branch_df.empty:
-            logger.info("{}: No active IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
+            logger.info("{}: No active IcM found for branch group {} (branch: {}) in valid date scope".format(case_branch, target_branch_group, icm_branch))
             return False, None
 
         # Prepare data for clustering
@@ -433,13 +454,13 @@ class DataDeduplicator:
 
             logger.debug("{}: Found {} matches in the same cluster".format(case_branch, len(matched_rows)))
             for index, row in matched_rows.iterrows():
-                logger.debug("{}: Matched Row: Branch={}, CreatedDate={}\n Title={}\n Summary={}".format(
-                    case_branch, icm_branch, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
+                logger.debug("{}: Matched Row: Branch={}, BranchGroup={}, CreatedDate={}\n Title={}\n Summary={}".format(
+                    case_branch, row['Branch'], target_branch_group, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
 
             # Return the first matched row
             return True, matched_rows.iloc[0]
         else:
-            logger.info("{}: No matched IcM found for branch {} in valid date scope".format(case_branch, icm_branch))
+            logger.info("{}: No matched IcM found for branch group {} (branch: {}) in valid date scope".format(case_branch, target_branch_group, icm_branch))
             return False, None
 
     def is_same_with_active_icm_by_gpt(self, target_summary, active_icm_df):
@@ -558,28 +579,41 @@ class DataDeduplicator:
             logger.info("No recent active ICMs with valid summaries found")
             return aggregated_df, pd.DataFrame()
 
-        # Group by branch to process each branch separately
+        # Group by branch group to process each branch group separately
         deduplicated_rows = []
         duplicated_rows = []
 
-        for branch, branch_aggregated_df in aggregated_df.groupby('branch'):
-            logger.info(f"Processing branch: {branch}")
+        # Create branch groups for aggregated_df
+        aggregated_df_copy = aggregated_df.copy()
+        aggregated_df_copy['branch_group'] = aggregated_df_copy['branch'].apply(self.get_branch_group)
 
-            # Filter recent active ICMs for the same branch
-            branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'] == branch]
+        for branch_group, branch_group_aggregated_df in aggregated_df_copy.groupby('branch_group'):
+            logger.info(f"Processing branch group: {branch_group}")
+
+            # Filter recent active ICMs for the same branch group
+            if branch_group == 'master_internal':
+                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
+            else:
+                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'] == branch_group]
 
             if branch_active_icm_df.empty:
-                logger.info(f"No recent active ICMs found for branch {branch}")
-                deduplicated_rows.extend(branch_aggregated_df.to_dict('records'))
+                logger.info(f"No recent active ICMs found for branch group {branch_group}")
+                deduplicated_rows.extend(branch_group_aggregated_df.to_dict('records'))
                 continue
 
+            # Log the actual branches being compared in this group
+            aggregated_branches = set(branch_group_aggregated_df['branch'].unique())
+            active_icm_branches = set(branch_active_icm_df['Branch'].unique())
+            logger.info(f"Aggregated branches in group: {aggregated_branches}")
+            logger.info(f"Active ICM branches in group: {active_icm_branches}")
+
             # Extract summaries for clustering
-            aggregated_summaries = branch_aggregated_df['failure_summary'].dropna().tolist()
+            aggregated_summaries = branch_group_aggregated_df['failure_summary'].dropna().tolist()
             active_icm_summaries = branch_active_icm_df['FailureSummary'].tolist()
 
             if not aggregated_summaries or not active_icm_summaries:
-                logger.info(f"No valid summaries found for branch {branch}")
-                deduplicated_rows.extend(branch_aggregated_df.to_dict('records'))
+                logger.info(f"No valid summaries found for branch group {branch_group}")
+                deduplicated_rows.extend(branch_group_aggregated_df.to_dict('records'))
                 continue
 
             # Preprocess summaries
@@ -600,11 +634,11 @@ class DataDeduplicator:
             aggregated_clusters = clusters[:len(aggregated_summaries_processed)]
 
             # Create mapping from aggregated summary index to cluster
-            valid_aggregated_indices = branch_aggregated_df.index[branch_aggregated_df['failure_summary'].notna()].tolist()
+            valid_aggregated_indices = branch_group_aggregated_df.index[branch_group_aggregated_df['failure_summary'].notna()].tolist()
 
             removed_count = 0
             for i, (orig_idx, cluster) in enumerate(zip(valid_aggregated_indices, aggregated_clusters)):
-                row_dict = branch_aggregated_df.loc[orig_idx].to_dict()
+                row_dict = branch_group_aggregated_df.loc[orig_idx].to_dict()
 
                 if cluster not in active_icm_clusters:
                     # Keep this row as it doesn't match any active ICM cluster
@@ -626,14 +660,16 @@ class DataDeduplicator:
                         logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster}")
                         logger.info(f"  Matched active ICM title: '{matched_active_icm.get('Title', 'N/A')}'")
                         logger.info(f"  Matched active ICM summary: '{matched_active_icm.get('FailureSummary', 'N/A')}'")
+                        logger.info(f"  Duplicated row summary: '{row_dict.get('failure_summary', 'N/A')}'")
+
                     else:
                         logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster} (no specific match found)")
 
             # Add rows with empty failure_summary (they can't be duplicates)
-            empty_summary_rows = branch_aggregated_df[branch_aggregated_df['failure_summary'].isna() | (branch_aggregated_df['failure_summary'] == '')]
+            empty_summary_rows = branch_group_aggregated_df[branch_group_aggregated_df['failure_summary'].isna() | (branch_group_aggregated_df['failure_summary'] == '')]
             deduplicated_rows.extend(empty_summary_rows.to_dict('records'))
 
-            logger.info(f"Branch {branch}: Found {removed_count} entries that match active ICM clusters")
+            logger.info(f"Branch group {branch_group}: Found {removed_count} entries that match active ICM clusters")
 
         # Create new DataFrames from deduplicated and duplicated rows
         if deduplicated_rows:
@@ -879,7 +915,8 @@ class DataDeduplicator:
     def deduplicate_dataframe_clusters(self, reference_df, target_df):
         """
         Compare two aggregated dataframes and remove duplicated cluster entries from target_df.
-        Only removes duplicates when they are from the same branch.
+        Only removes duplicates when they are from the same branch group.
+        Special handling: "master" and "internal" branches are treated as the same group.
 
         Args:
             reference_df: DataFrame containing reference test cases to compare against
@@ -896,29 +933,41 @@ class DataDeduplicator:
         reference_df['branch'] = reference_df['branch'].astype(str)
         target_df['branch'] = target_df['branch'].astype(str)
 
-        # Process each branch separately
+        # Create branch group columns
+        reference_df_copy = reference_df.copy()
+        target_df_copy = target_df.copy()
+        reference_df_copy['branch_group'] = reference_df_copy['branch'].apply(self.get_branch_group)
+        target_df_copy['branch_group'] = target_df_copy['branch'].apply(self.get_branch_group)
+
+        # Process each branch group separately
         all_indices_to_drop = []
 
-        for branch in target_df['branch'].unique():
-            logger.info(f"\nProcessing branch: {branch}")
+        for branch_group in target_df_copy['branch_group'].unique():
+            logger.info(f"\nProcessing branch group: {branch_group}")
 
-            # Get dataframes for current branch
-            branch_reference_df = reference_df[reference_df['branch'] == branch]
-            branch_target_df = target_df[target_df['branch'] == branch]
+            # Get dataframes for current branch group
+            branch_reference_df = reference_df_copy[reference_df_copy['branch_group'] == branch_group]
+            branch_target_df = target_df_copy[target_df_copy['branch_group'] == branch_group]
 
             if branch_reference_df.empty or branch_target_df.empty:
-                logger.info(f"No data to compare for branch {branch}")
+                logger.info(f"No data to compare for branch group {branch_group}")
                 continue
 
-            # Extract failure summaries for current branch
+            # Log the actual branches being compared in this group
+            ref_branches = set(branch_reference_df['branch'].unique())
+            target_branches = set(branch_target_df['branch'].unique())
+            logger.info(f"Reference branches in group: {ref_branches}")
+            logger.info(f"Target branches in group: {target_branches}")
+
+            # Extract failure summaries for current branch group
             reference_summaries = branch_reference_df['failure_summary'].dropna().tolist()
             target_summaries = branch_target_df['failure_summary'].dropna().tolist()
 
             if not reference_summaries or not target_summaries:
-                logger.info(f"No valid failure summaries found in branch {branch}")
+                logger.info(f"No valid failure summaries found in branch group {branch_group}")
                 continue
 
-            logger.info(f"Processing {len(reference_summaries)} reference summaries and {len(target_summaries)} target summaries for branch {branch}")
+            logger.info(f"Processing {len(reference_summaries)} reference summaries and {len(target_summaries)} target summaries for branch group {branch_group}")
 
             # Preprocess all summaries
             reference_summaries_processed = [self.__preprocess_summary(s) for s in reference_summaries]
@@ -953,13 +1002,15 @@ class DataDeduplicator:
             for idx, cluster in target_cluster_mapping.items():
                 if cluster in reference_clusters:
                     branch_indices_to_drop.append(idx)
-                    logger.debug(f"Found duplicate cluster for subject: {branch_target_df.loc[idx, 'subject']}")
-                    logger.debug(f"Branch: {branch}")
+                    target_row = target_df.loc[idx]
+                    logger.debug(f"Found duplicate cluster for subject: {target_row['subject']}")
+                    logger.debug(f"Target branch: {target_row['branch']}")
+                    logger.debug(f"Branch group: {branch_group}")
                     logger.debug(f"Cluster ID: {cluster}")
-                    logger.debug(f"Summary: {branch_target_df.loc[idx, 'failure_summary']}")
+                    logger.debug(f"Summary: {target_row['failure_summary']}")
 
             all_indices_to_drop.extend(branch_indices_to_drop)
-            logger.info(f"Branch {branch}: Removed {len(branch_indices_to_drop)} target entries with clusters matching reference cases")
+            logger.info(f"Branch group {branch_group}: Removed {len(branch_indices_to_drop)} target entries with clusters matching reference cases")
 
         # Create a copy of target_df without the duplicate clusters
         deduplicated_target_df = target_df.drop(all_indices_to_drop)
@@ -1022,7 +1073,7 @@ class DataDeduplicator:
         aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(aggregated_df, analyzer.active_icm_df)
         aggregated_dedup_df.to_csv(dedup_csv, index=False)
         logger.debug(f"Found {len(aggregated_dedup_df)} real {failure_type} failures after deduplication")
-        logger.debug(f"Found {len(duplicated_df)} {failure_type} failures after deduplication with active IcM")
+        logger.debug(f"Found {len(duplicated_df)} duplicated {failure_type} failures after deduplication with active IcM")
 
         # Convert duplicated_df to list format and add to failure_duplicated_icm_table
         if not duplicated_df.empty:
