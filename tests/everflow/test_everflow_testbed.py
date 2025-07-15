@@ -88,7 +88,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3", "j2c+", "jr2"]
 
     @staticmethod
-    def _is_ipv6_topology(tbinfo):
+    def _is_ipv6_only_topology(tbinfo):
         """Helper function to determine if this is an IPv6 topology."""
         return (
             "-v6-" in tbinfo["topo"]["name"]
@@ -97,11 +97,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     @pytest.fixture(autouse=True)
-    def skip_ipv4_on_ipv6_topo(self, tbinfo, erspan_ip_ver):        # noqa F811
-        """Skip IPv4 tests if running on IPv6 topology."""
-        # Only skip if it's an IPv6 topology AND we're running IPv4 tests
-        if self._is_ipv6_topology(tbinfo) and erspan_ip_ver == 4:
-            pytest.skip("Skipping IPv4 test on IPv6 topology")
+    def skip_ipv4_on_ipv6_only_topo(self, tbinfo, erspan_ip_ver):        # noqa F811
+        """Skip IPv4 tests if running on IPv6 only topology."""
+        # Only skip if it's an IPv6 only topology AND we're running IPv4 tests
+        if self._is_ipv6_only_topology(tbinfo) and erspan_ip_ver == 4:
+            pytest.skip("Skipping IPv4 test on IPv6 only topology")
 
     @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request, erspan_ip_ver):        # noqa F811
@@ -122,8 +122,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         yield request.param
 
-        # Skip cleanup only when IPv4 tests run on IPv6 topologies (which shouldn't happen due to skip logic)
-        if self._is_ipv6_topology(tbinfo) and erspan_ip_ver == 4:
+        # Skip cleanup only when IPv4 tests run on IPv6 only topologies (which shouldn't happen due to skip logic)
+        if self._is_ipv6_only_topology(tbinfo) and erspan_ip_ver == 4:
             return
 
         session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
