@@ -413,6 +413,7 @@
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_carib_only_HW.yaml",
                     "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
                     "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
@@ -445,7 +446,6 @@
             "sonic_mgmt_container_202405c": "tortuga_cicd2",
             "sonic_test_dir": "/home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/run_logs",
             "installer_mode": "sonic",
-            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga",
             "skip_tests": "",
             "skip_folder":"",
             "git_update_flag": "false",
@@ -471,6 +471,7 @@
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_siren_only_HW.yaml",
                     "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
                     "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
@@ -500,6 +501,30 @@
             "ucs_ssh_prompt": "sonic@tu2", 
             "docker_prompt":"root@tu2",
             "dut_ssh_prompt": "cisco@10.29.158.160",
+            "sonic_mgmt_container_202305": "tortuga_cicd2",
+            "installer_mode": "sonic",
+            "hw_type":"siren",
+            "git_update_flag": "false",
+            "run_type_check": "spytest",
+            "logs_folder":"/data/run_logs/",
+            "allure_flag": "false",
+            "sonic_installer_commands":[
+                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer list",
+                "sudo sonic-installer set-next-boot",
+                "sudo rm /etc/sonic/config_db.json",
+                "sudo reboot"
+            ]
+        },
+        "b2b-tu-2-siren3": {
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30", 
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123", 
+            "dut_ssh": ["10.29.158.162"],
+            "ucs_ssh_prompt": "sonic@tu2", 
+            "docker_prompt":"root@tu2",
+            "dut_ssh_prompt": "cisco@10.29.158.162",
             "sonic_mgmt_container_202305": "tortuga_cicd2",
             "installer_mode": "sonic",
             "hw_type":"siren",
@@ -1164,7 +1189,6 @@
             "sonic_mgmt_container_202305": "tortuga_sol3_cicd",
             "sonic_test_dir": "/var/www/html/run_logs/sol3_cicd",
             "installer_mode": "sonic",
-            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga_solution",
             "skip_tests": "",
             "skip_folder":"",
             "git_update_flag": "true",
@@ -1189,6 +1213,7 @@
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/sol3_testbed.yaml",
                     "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
                     "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
@@ -1212,7 +1237,6 @@
             "sonic_mgmt_container_202305": "tortuga_sol3_cicd",
             "sonic_test_dir": "/var/www/html/run_logs/sol3_cicd",
             "installer_mode": "sonic",
-            "forwarding_test_list":"/data/sonic-mgmt/spytest/reporting/suites/tortuga_solution",
             "skip_tests": "",
             "skip_folder":"",
             "git_update_flag": "true",
@@ -1237,6 +1261,7 @@
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/sol3_testbed.yaml",
                     "forwarding": "/data/spytest_tb_files/sol3_testbed.yaml",
+                    "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
                     "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
@@ -1427,6 +1452,9 @@
         "b2b-tu-2-siren2":  [
             "cisco.202405c.2.tortuga.siren.no-agents"
         ],
+        "b2b-tu-2-siren3":  [
+            "cisco.202405c.2.tortuga.siren.no-agents"
+        ],
         "b2b-tu-2-siren-optics":  [
             "cisco.202305.1.tortuga.siren.no-agents",
             "cisco.202305.1.tortuga.siren.no-agents.v4",
@@ -1487,6 +1515,7 @@
         "b2b-tu-2-carib2":"tu2-carib-siren",
         "b2b-tu-2-siren":"tu2-carib-siren",
         "b2b-tu-2-siren2":"tu2-carib-siren",
+        "b2b-tu-2-siren3":"tu2-carib-siren",
         "b2b-tu-2-siren-optics": "tu2-carib-siren",
         "b2b-tu-2-carib-optics": "tu2-carib-siren",
         "b2b-m3-2-m64": "ucs_m3_2",

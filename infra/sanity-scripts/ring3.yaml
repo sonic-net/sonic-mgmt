@@ -554,7 +554,13 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_cli.py
         - pfcwd/test_pfcwd_function.py
         - pfcwd/test_pfcwd_timer_accuracy.py
-
+  t1-64-lag:
+    mth64:
+      hw:
+        - qos/test_pfc_counters.py
+        - qos/test_ecn_config.py
+        - qos/test_qos_dscp_mapping.py
+        - qos/test_qos_sai.py
   t2:
     sfd:
       hw:
