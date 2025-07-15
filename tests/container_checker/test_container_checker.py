@@ -246,6 +246,9 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
 
+    pytest_assert(wait_until(300, 10, 30, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
+
 
 def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     """Tests the feature of container checker.
@@ -283,3 +286,6 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     time.sleep(sleep_time)
     analysis = loganalyzer.analyze(marker, fail=False)
     pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))
+
+    pytest_assert(wait_until(300, 10, 30, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
