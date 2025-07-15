@@ -303,8 +303,8 @@
     },
     {
         "feature": "dash",
-        "owner": "Ze Gan",
-        "email": "zegan@microsoft.com",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -312,8 +312,8 @@
                     "dash.test_dash_vnet",
                     "dash.crm.test_dash_crm"
                 ],
-                "owner": "Ze Gan",
-                "email": "zegan@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             }
         ]
     },
