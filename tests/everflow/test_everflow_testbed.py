@@ -90,6 +90,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
     @staticmethod
     def _is_ipv6_only_topology(tbinfo):
         """Helper function to determine if this is an IPv6 topology."""
+        # will be changed to use is_ipv6_only_topology from tests.common.utilities
+        # once PR #19639 is merged
         return (
             "-v6-" in tbinfo["topo"]["name"]
             if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
@@ -99,6 +101,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
     @pytest.fixture(autouse=True)
     def skip_ipv4_on_ipv6_only_topo(self, tbinfo, erspan_ip_ver):        # noqa F811
         """Skip IPv4 tests if running on IPv6 only topology."""
+        # will be changed to use is_ipv6_only_topology from tests.common.utilities
+        # once PR #19639 is merged
         # Only skip if it's an IPv6 only topology AND we're running IPv4 tests
         if self._is_ipv6_only_topology(tbinfo) and erspan_ip_ver == 4:
             pytest.skip("Skipping IPv4 test on IPv6 only topology")
@@ -109,6 +113,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         This fixture parametrize  dest_port_type and can perform action based
         on that. As of now cleanup is being done here.
         """
+        # will be changed to use is_ipv6_only_topology from tests.common.utilities
+        # once PR #19639 is merged
+        if self._is_ipv6_topology(tbinfo) and erspan_ip_ver == 4:
+            # return
+            pytest.skip("Skipping IPv4 test on IPv6 topology")
+
         remote_dut = setup_info[request.param]['remote_dut']
 
         ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
@@ -121,10 +131,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             pytest.skip("Skipping DOWN_STREAM test on FT2 topology.")
 
         yield request.param
-
-        # Skip cleanup only when IPv4 tests run on IPv6 only topologies (which shouldn't happen due to skip logic)
-        if self._is_ipv6_only_topology(tbinfo) and erspan_ip_ver == 4:
-            return
 
         session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
             else setup_mirror_session["session_prefixes_ipv6"]
