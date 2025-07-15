@@ -87,6 +87,20 @@ class EverflowIPv4Tests(BaseEverflowTest):
     DEFAULT_DST_IP = "30.0.0.1"
     MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3", "j2c+", "jr2"]
 
+    @pytest.fixture(autouse=True)
+    def skip_ipv4_on_ipv6_topo(self, tbinfo, erspan_ip_ver):        # noqa F811
+        """Skip IPv4 tests if running on IPv6 topology."""
+        # Determine if we should use IPv6 interface checking
+        use_ipv6_topo = (
+            "-v6-" in tbinfo["topo"]["name"]
+            if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+            else False
+        )
+
+        # Only skip if it's an IPv6 topology AND we're running IPv4 tests
+        if use_ipv6_topo and erspan_ip_ver == 4:
+            pytest.skip("Skipping IPv4 test on IPv6 topology")
+
     @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request, erspan_ip_ver):        # noqa F811
         """
@@ -105,6 +119,15 @@ class EverflowIPv4Tests(BaseEverflowTest):
             pytest.skip("Skipping DOWN_STREAM test on FT2 topology.")
 
         yield request.param
+
+        # Skip cleanup only when IPv4 tests run on IPv6 topologies (which shouldn't happen due to skip logic)
+        use_ipv6_topo = (
+            "-v6-" in tbinfo["topo"]["name"]
+            if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+            else False
+        )
+        if use_ipv6_topo and erspan_ip_ver == 4:
+            return
 
         session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
             else setup_mirror_session["session_prefixes_ipv6"]
