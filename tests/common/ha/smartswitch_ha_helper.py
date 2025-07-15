@@ -134,6 +134,32 @@ class PtfTcpTestAdapter(PtfTestAdapter):
             cmd = f"ip netns exec {namespace} {cmd}"
         self.ptfhost.shell(cmd)
 
+        if not self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not start successfully in namespace {}".format(namespace))
+
+    def stop_tcp_server(self, namespace=None):
+        cmd = "pkill -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+        if self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not stop successfully in namespace {}".format(namespace))
+
+    def _is_tcp_server_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
+    def _is_tcp_client_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_client.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
     def start_tcp_client(self, namespace=None):
         cmd = "python3 /root/tcp_client.py "
         if namespace:
