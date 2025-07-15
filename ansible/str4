@@ -656,7 +656,7 @@ sonic_nvidia_sn5640:
   hosts:
     str4-sn5640-1:
       ansible_host: 10.64.246.74
-      ansible_hostv6: 2a01:111:e210:b000::a40:f64a
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6ca
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
@@ -677,7 +677,7 @@ sonic_nvidia_sn5640:
         "0xFE": "0xC8BAF94C"
     str4-sn5640-2:
       ansible_host: 10.64.246.168
-      ansible_hostv6: 2a01:111:e210:b000::a40:f6a8
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6cb
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
@@ -738,6 +738,48 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0xCF014760"
+    str4-sn5640-4:
+      ansible_host: 10.64.246.202
+      ansible_hostv6: 2a01:111:e210:b000::a40:f64e
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT25116051TX
+      base_mac: 50:00:E6:01:F6:38
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT25116051TX"
+        "0x24": "50:00:E6:01:F6:38"
+        "0x25": "03/17/2025 14:36:49"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x8C2BB98E"
+    str4-sn5640-5:
+      ansible_host: 10.64.246.203
+      ansible_hostv6: 2a01:111:e210:b000::a40:f64e
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT25116051TN
+      base_mac: 50:00:E6:01:E5:28
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT25116051TN"
+        "0x24": "50:00:E6:01:E5:28"
+        "0x25": "03/17/2025 15:53:38"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x1CB6177D"
 
 sonic_cisco_8122_O128:
   hosts:

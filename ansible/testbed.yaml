@@ -4371,3 +4371,32 @@
   auto_recover: 'True'
   comment: MattSoulsby
 
+- conf-name: ptp-sn5640-1
+  group-name:
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5640-4
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-sn5640-2
+  group-name:
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5640-5
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
