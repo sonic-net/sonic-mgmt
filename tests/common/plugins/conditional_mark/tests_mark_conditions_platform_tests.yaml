@@ -982,6 +982,15 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
 
+############################################
+##### link_flap/test_cont_link_flap.py #####
+############################################
+platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
+  xfail:
+    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
+
 #######################################
 #####           mellanox          #####
 #######################################
