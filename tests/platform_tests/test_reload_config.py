@@ -189,7 +189,17 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
-    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+    # sometimes redis is not up in time (eg. t2 chassis), so retry until it's up
+    for i in range(10):
+        result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+        # Redis is up - can stop looping
+        if result and "RuntimeError: Unable to connect to redis" not in out['stderr']:
+            break
+
+        time.sleep(1)
+
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "
