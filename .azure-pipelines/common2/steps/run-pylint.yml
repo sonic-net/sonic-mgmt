@@ -6,8 +6,8 @@ steps:
         exit 1
       }
       # Install aspell and aspell-en non-interactively
-      timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en || {
-        echo "Failed to install aspell or aspell-en"
+      timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en libenchant-2-2 libenchant-2-dev || {
+        echo "Failed to install aspell or aspell-en or libenchant-2-2 or libenchant-2-dev"
         exit 1
       }
       pip install pylint

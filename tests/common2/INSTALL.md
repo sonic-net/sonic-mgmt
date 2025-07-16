@@ -26,8 +26,11 @@ Install via pip: `pip install pylint`
 
 ### 5. aspell (for spelling checks)
 
-On macOS: `brew install aspell`
-On Ubuntu/Debian: `sudo apt-get install aspell aspell-en`
+On Ubuntu/Debian:
+```
+sudo apt-get install libenchant-2-2 libenchant-2-dev
+sudo apt-get install aspell aspell-en
+```
 
 ## Initial Setup Steps
 
