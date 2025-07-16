@@ -81,12 +81,21 @@ all:
         vms75-2:
           ansible_host: 10.64.247.119
           ansible_hostv6: 2a01:111:e210:b000::a40:f777
+        vms75-3:
+          ansible_host: 10.64.246.208
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6d0
         vms13-1:
           ansible_host: 10.64.247.122
           ansible_hostv6: 2a01:111:e210:b000::a40:f77a
 
     pdu:
       hosts:
+        pdu-81:
+          ansible_host: 10.3.154.81
+          protocol: snmp
+        pdu-82:
+          ansible_host: 10.3.154.82
+          protocol: snmp
         pdu-85:
           ansible_host: 10.3.154.84
           protocol: snmp
@@ -191,6 +200,10 @@ all:
           protocol: snmp
         pdu-128:
           ansible_host: 10.3.154.97
+          protocol: snmp
+        pdu-242:
+          ansible_host: 10.3.154.242
+          protocol: snmp
 
 fanout:
   hosts:
@@ -252,6 +265,10 @@ fanout:
     str4-sn5640-fan-3:
       ansible_host: 10.64.246.123
       ansible_hostv6: 2a01:111:e210:b000::a40:f67b
+      os: sonic
+    str4-sn5640-fan-7:
+      ansible_host: 10.64.246.167
+      ansible_hostv6: 2a01:111:e210:b000::0A40:F6A7
       os: sonic
     str4-7060x6-64pe-fan-share-1:
       ansible_host: 10.64.247.239
@@ -639,7 +656,7 @@ sonic_nvidia_sn5640:
   hosts:
     str4-sn5640-1:
       ansible_host: 10.64.246.74
-      ansible_hostv6: 2a01:111:e210:b000::a40:f64a
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6ca
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
@@ -660,7 +677,7 @@ sonic_nvidia_sn5640:
         "0xFE": "0xC8BAF94C"
     str4-sn5640-2:
       ansible_host: 10.64.246.168
-      ansible_hostv6: 2a01:111:e210:b000::a40:f6a8
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6cb
       mgmt_subnet_mask_length: 23
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
@@ -700,6 +717,69 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x52FF3025"
+    str4-sn5640-7:
+      ansible_host: 10.64.246.184
+      ansible_hostv6: 2a01:111:e210:b000::0a40:f6bb
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: SN5640
+      serial: MT2516600JYQ
+      base_mac: 50:00:E6:E6:82:08
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT2516600JYQ"
+        "0x24": "50:00:E6:E6:82:08"
+        "0x25": "04/16/2025 08:09:30"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0xCF014760"
+    str4-sn5640-4:
+      ansible_host: 10.64.246.202
+      ansible_hostv6: 2a01:111:e210:b000::a40:f64e
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT25116051TX
+      base_mac: 50:00:E6:01:F6:38
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT25116051TX"
+        "0x24": "50:00:E6:01:F6:38"
+        "0x25": "03/17/2025 14:36:49"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x8C2BB98E"
+    str4-sn5640-5:
+      ansible_host: 10.64.246.203
+      ansible_hostv6: 2a01:111:e210:b000::a40:f64e
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial: MT25116051TN
+      base_mac: 50:00:E6:01:E5:28
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": "MT25116051TN"
+        "0x24": "50:00:E6:01:E5:28"
+        "0x25": "03/17/2025 15:53:38"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0x1CB6177D"
 
 sonic_cisco_8122_O128:
   hosts:

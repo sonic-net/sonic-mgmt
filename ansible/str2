@@ -283,6 +283,10 @@ all:
           protocol: snmp
         pdu-125:
           ansible_host: 10.3.154.126
+          protocol: snmp
+        pdu-242:
+          ansible_host: 10.3.154.242
+          protocol: snmp
 
 fanout:
   hosts:

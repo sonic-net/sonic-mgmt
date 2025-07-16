@@ -1830,9 +1830,9 @@
   auto_recover: 'True'
   comment: riffjiang
 
-- conf-name: vms72-t0-7060x6-11
+- conf-name: vms72-t1-7060x6-11
   group-name: vms72-1
-  topo: t0-isolated-d2u254s2
+  topo: t1-isolated-d254u2
   ptf_image_name: docker-ptf
   ptf: vms72-1
   ptf_ip: 10.64.247.117/23
@@ -1990,6 +1990,21 @@
   dut:
   - str4-7060x6-16pe-384c-1
   inv_name: str4
+  auto_recover: 'True'
+  comment: dashuaizhang
+
+- conf-name: vms91-t0-7060x6-moby-512-1
+  group-name: vms91-4
+  topo: t0-isolated-d96u32s2
+  ptf_image_name: docker-ptf
+  ptf: vms91-4
+  ptf_ip: 10.64.247.157/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f79d/64
+  server: server_91
+  vm_base: VM91130
+  dut:
+  - str5-7060x6-moby-512-1
+  inv_name: str5
   auto_recover: 'True'
   comment: dashuaizhang
 
@@ -4139,7 +4154,7 @@
 
 - conf-name: testbed-bjw3-can-7050-9
   group-name: bjw3-1-1
-  topo: m1-128
+  topo: m1-108
   ptf_image_name: docker-ptf
   ptf: bjw3-1-1
   ptf_ip: 10.150.239.1/23
@@ -4156,7 +4171,7 @@
 
 - conf-name: testbed-bjw3-can-7050-10
   group-name: bjw3-2-1
-  topo: m1-128
+  topo: m1-108
   ptf_image_name: docker-ptf
   ptf: bjw3-2-1
   ptf_ip: 10.150.239.3/23
@@ -4173,7 +4188,7 @@
 
 - conf-name: testbed-bjw3-can-7050-11
   group-name: bjw3-3-1
-  topo: m1-128
+  topo: m1-108
   ptf_image_name: docker-ptf
   ptf: bjw3-3-1
   ptf_ip: 10.150.239.2/23
@@ -4311,6 +4326,21 @@
   auto_recover: 'True'
   comment: yanmo
 
+- conf-name: vms75-t0-sn5640-7
+  group-name: vms75-3
+  topo: t0-isolated-v6-d32u32s2 
+  ptf_image_name: docker-ptf
+  ptf: vms75-3
+  ptf_ip: 10.64.246.208/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6d0/64
+  server: server_75
+  vm_base: VM75158
+  dut:
+  - str4-sn5640-7
+  inv_name: str4
+  auto_recover: 'True'
+  comment: yanmo
+
 - conf-name: vms13-lt2-7060x6-8
   group-name: vms13-1
   topo: lt2-p32o64
@@ -4341,3 +4371,32 @@
   auto_recover: 'True'
   comment: MattSoulsby
 
+- conf-name: ptp-sn5640-1
+  group-name:
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5640-4
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-sn5640-2
+  group-name:
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str4-sn5640-5
+  inv_name: str4
+  auto_recover: 'True'
+  comment: patelmi
