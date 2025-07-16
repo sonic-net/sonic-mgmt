@@ -24,6 +24,10 @@ Install via pip: `pip install pre-commit`
 Python linter used for code quality checks
 Install via pip: `pip install pylint`
 
+### 5. pyenchant
+
+Install pyenchant `pip install pyenchant` required for pylint spelling linters.
+
 ### 5. aspell (for spelling checks)
 
 On Ubuntu/Debian:

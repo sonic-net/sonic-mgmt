@@ -10,6 +10,7 @@ steps:
         echo "Failed to install aspell or aspell-en or libenchant-2-2 or libenchant-2-dev"
         exit 1
       }
+      pip install pyenchant
       pip install pylint
       echo "Running pylint"
       pylint --rcfile=pylintrc
