@@ -186,6 +186,14 @@ fanout:
       ansible_host: 10.64.247.155
       ansible_hostv6: 2a01:111:e210:b000::a40:f79b
       os: sonic
+    str5-7060x6-moby-512-fan-2:
+      ansible_host: 10.64.247.159
+      ansible_hostv6: 2a01:111:e210:b000::a40:f79f
+      os: sonic
+    str5-7060x6-moby-512-fan-3:
+      ansible_host: 10.64.247.166
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a6
+      os: sonic
     str5-sn5640-fan-1:
       ansible_host: 10.64.247.138
       ansible_hostv6: 2a01:111:e210:b000::a40:f78a
@@ -316,6 +324,46 @@ sonic_arista_7060x6_512:
     str5-7060x6-moby-512-1:
       ansible_host: 10.64.247.154
       ansible_hostv6: 2a01:111:e210:b000::a40:f79b
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-16PE-384C-B-O128S2
+      model: DCS-7060X6-16PE-B
+      serial: HBG25160FHW
+      base_mac: d8:06:f3:3b:ff:f7
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY089940107"
+        "0x23": "HBG25160FHW"
+        "0x24": "d8:06:f3:3b:ff:f7"
+        "0x25": "2025/03/08 09:42:12"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_16pe_384c_b"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160FHW"
+    str5-7060x6-moby-512-2:
+      ansible_host: 10.64.247.158
+      ansible_hostv6: 2a01:111:e210:b000::a40:f79e
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-16PE-384C-B-O128S2
+      model: DCS-7060X6-16PE-B
+      serial: HBG25160FHW
+      base_mac: d8:06:f3:3b:ff:f7
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY089940107"
+        "0x23": "HBG25160FHW"
+        "0x24": "d8:06:f3:3b:ff:f7"
+        "0x25": "2025/03/08 09:42:12"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_16pe_384c_b"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160FHW"
+    str5-7060x6-moby-512-3:
+      ansible_host: 10.64.247.162
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a2
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-B
