@@ -53,7 +53,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py,syslog/test_syslog_source_ip.py"
+    default: "qos/test_buffer.py,qos/test_qos_sai.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,pfcwd/test_pfcwd_warm_reboot.py,arp/test_wr_arp.py,syslog/test_syslog_source_ip.py,platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -70,6 +70,10 @@ parameters:
   - name: MAX_RUN_TEST_MINUTES
     type: number
     default: 3600
+  
+  - name: RETRY_TIMES
+    type: string
+    default: 0
 
 stages:
 - stage: Test
