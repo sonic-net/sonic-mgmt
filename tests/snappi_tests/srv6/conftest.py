@@ -22,7 +22,7 @@ def get_max_number_of_parallel_links_and_neighbors(duthost):
     return max(counters.values()), counters.keys()
 
 
-@pytest.fixture(scope="mosession")
+@pytest.fixture(scope="session")
 def config_setup(duthosts, tbinfo):
     logger.info("Setting up SRv6 configuration")
 
