@@ -32,7 +32,7 @@ MAX_UC_CNT = 7
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
     config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
-                  wait_for_bgp=True, yang_validate=False)
+                  wait_for_bgp=True)
     # config reload overrides testing telemetry config, ensure testing config exists
     setup_telemetry_forpyclient(duthost)
 
