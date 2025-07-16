@@ -51,39 +51,18 @@
       loop_var: dut_name
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
-    vm_topology:
-      cmd: "unbind"
-      vm_set_name: "{{ vm_set_name }}"
-      topo: "{{ topology }}"
-      vm_names: "{{ VM_hosts }}"
-      vm_name: "{{ vm_name }}"
-      vm_base: "{{ VM_base }}"
-      vm_type: "{{ vm_type }}"
-      duts_fp_ports: "{{ duts_fp_ports }}"
-      duts_midplane_ports: "{{ duts_midplane_ports }}"
-      duts_inband_ports: "{{ duts_inband_ports }}"
-      duts_mgmt_port: "{{ duts_mgmt_port }}"
-      duts_name: "{{ duts_name.split(',') }}"
-      max_fp_num: "{{ max_fp_num }}"
-      dut_interfaces: "{{ dut_interfaces | default('') }}"
-      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
-    become: yes
-    throttle: 100
-    async: 3600
-    poll: 0
-    loop: "{{ VM_hosts|flatten(levels=1) }}"
+    include_tasks: unbind_vm.yml
+    loop: "{{ VM_hosts | flatten(levels=1) }}"
     loop_control:
       loop_var: vm_name
-    register: async_unbind_topology_results
 
   - name: Wait for unbind tasks to complete
     become: yes
     async_status:
-      jid: "{{ async_unbind_topology_result_item.ansible_job_id }}"
-    loop: "{{ async_unbind_topology_results.results }}"
+      jid: "{{ async_unbind_job_results[vm_name] }}"
+    loop: "{{ VM_hosts | flatten(levels=1) }}"
     loop_control:
-      loop_var: async_unbind_topology_result_item
+      loop_var: vm_name
     register: async_unbind_topology_poll_results
     until: async_unbind_topology_poll_results.finished
     retries: 30
@@ -192,27 +171,20 @@
   when: container_type == "IxANVL-CONF-TESTER"
 
 - name: Destroy VMs network in parallel
-  vm_topology:
-    cmd: 'destroy'
-    vm_names: "{{ vm_name }}"
-  become: yes
-  async: 3600
-  poll: 0
+  include_tasks: destory_vm_network.yml
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  when: vm_type is defined and vm_type=="ceos"
-  register: async_destroy_vm_network_results
 
 - name: Wait for destroy tasks to complete
   become: yes
   async_status:
-    jid: "{{ async_destroy_vm_network_result_item.ansible_job_id }}"
-  loop: "{{ async_destroy_vm_network_results.results }}"
+    jid: "{{ async_destroy_vm_network_results[vm_name] }}"
+  loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
-    loop_var: async_destroy_vm_network_result_item
-  register: async_destroy_vm_network_poll_results
-  until: async_destroy_vm_network_poll_results.finished
+    loop_var: vm_name
+  register: async_destroy_vm_poll_results
+  until: async_destroy_vm_poll_results.finished
   retries: 30
   delay: 60
 
