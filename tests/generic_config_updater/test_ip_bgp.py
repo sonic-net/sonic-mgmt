@@ -12,7 +12,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
 ]
 
 
@@ -213,7 +213,7 @@ def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
 @pytest.mark.parametrize("ip_version", [6, 4])
 def test_ip_suite(duthost, ensure_dut_readiness, ip_version, enum_rand_one_frontend_asic_index):
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     add_deleted_ip_neighbor(duthost, asic_namespace, ip_version)
     add_duplicate_ip_neighbor(duthost, asic_namespace, ip_version)
     invalid_ip_neighbor(duthost, asic_namespace, ip_version)

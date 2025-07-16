@@ -194,6 +194,8 @@ def test_disable_rsyslog_rate_limit(duthosts):
             if (is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and
                     feature_name == "dhcp_relay"):
                 continue
+            if feature_name == "frr_bmp":
+                continue
             if feature_name == "telemetry":
                 # Skip telemetry if there's no docker image
                 output = dut.shell("docker images", module_ignore_errors=True)['stdout']
@@ -213,6 +215,44 @@ def test_disable_rsyslog_rate_limit(duthosts):
             executor.submit(disable_rsyslog_rate_limit, duthost)
 
 
+def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
+    """
+    Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
+    """
+    is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"]
+
+    pytest_require(is_ixia_testbed,
+                   "Skip snappi metadata generation for non-tgen testbed")
+
+    metadata = {}
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for dut in duthosts:
+            executor.submit(collect_dut_info, dut, metadata)
+
+    for dut in duthosts:
+        dutinfo = metadata[dut.hostname]
+        asic_to_interface = {}
+        for asic in dut.asics:
+            interfaces = dut.show_interface(command="status", namespace=asic.namespace)["ansible_facts"]["int_status"]
+            asic_to_interface[asic.namespace] = list(interfaces.keys())
+        dutinfo.update({"asic_to_interface": asic_to_interface})
+        metadata[dut.hostname] = dutinfo
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    info = {tbname: metadata}
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
 def collect_dut_lossless_prio(dut):
     dut_asic = dut.asic_instance()
     config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -226,7 +266,7 @@ def collect_dut_lossless_prio(dut):
 
     """ Here we assume all the ports have the same lossless priorities """
     intf = list(port_qos_map.keys())[0]
-    if 'pfc_enable' not in port_qos_map[intf]:
+    if not port_qos_map[intf].get('pfc_enable'):
         return []
 
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
@@ -425,7 +465,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
                 dut.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
                 output = dut.shell("TSB", module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Failed TSB")
-                duthost.shell("sudo config save -y")
+                dut.shell("sudo config save -y")
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(startup_tsa_tsb_file_path, dut.hostname))

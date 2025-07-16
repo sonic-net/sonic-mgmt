@@ -1,0 +1,66 @@
+---
+- name: Get ports to connect and L1 switches
+  script:
+    cmd: "{{ script_path }} {{ target_sonic_host }} {{ num_ports }}"
+    executable: /usr/bin/python3
+  environment:
+    PYTHONPATH: "{{ csv_dir }}"
+  delegate_to: localhost
+  register: script_output
+
+- name: Parse Python script output
+  set_fact:
+    script_result: "{{ script_output.stdout | from_json }}"
+
+- name: Set ports to connect and L1 switches
+  set_fact:
+    ports_to_connect: "{{ script_result.ports_to_connect }}"
+    l1_switches: "{{ script_result.l1_switches }}"
+
+- name: Disconnect ports if needed
+  block:
+    - name: Disconnect port
+      raw: "connection disconnect {{ item.key }} from {{ item.value }}"
+      ignore_errors: true
+      loop: "{{ script_result.ports_to_remove | default({}) | dict2items }}"
+      when:
+        - script_result.ports_to_remove is defined
+        - target_l1_switch in script_result.l1_switches
+      delegate_to: "{{ hostvars[target_l1_switch].ansible_host }}"
+      vars:
+        ansible_ssh_common_args: "{{ hostvars[target_l1_switch].ansible_ssh_common_args | default('') }}"
+        ansible_user: "{{ hostvars[target_l1_switch].ansible_user }}"
+        ansible_password: "{{ hostvars[target_l1_switch].ansible_password }}"
+      register: disconnect_result
+
+    - name: Pause for 2 seconds
+      pause:
+        seconds: 2
+      loop: "{{ script_result.ports_to_remove | default({}) | dict2items }}"
+      when:
+        - script_result.ports_to_remove is defined
+        - target_l1_switch in script_result.l1_switches
+
+- name: Connect new ports
+  block:
+    - name: Connect port
+      raw: "connection create {{ item.key }} to {{ item.value }}"
+      ignore_errors: true
+      loop: "{{ ports_to_connect | dict2items }}"
+      when:
+        - ports_to_connect | length > 0
+        - target_l1_switch in script_result.l1_switches
+      delegate_to: "{{ hostvars[target_l1_switch].ansible_host }}"
+      vars:
+        ansible_ssh_common_args: "{{ hostvars[target_l1_switch].ansible_ssh_common_args | default('') }}"
+        ansible_user: "{{ hostvars[target_l1_switch].ansible_user }}"
+        ansible_password: "{{ hostvars[target_l1_switch].ansible_password }}"
+      register: connect_result
+
+    - name: Pause for 2 seconds
+      pause:
+        seconds: 2
+      loop: "{{ script_result.ports_to_connect | default({}) | dict2items }}"
+      when:
+        - script_result.ports_to_connect is defined
+        - target_l1_switch in script_result.l1_switches

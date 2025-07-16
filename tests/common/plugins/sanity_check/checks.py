@@ -7,7 +7,7 @@ import pytest
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import wait, wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa: F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa: F401
@@ -63,9 +63,13 @@ def _find_down_phy_ports(dut, phy_interfaces):
     return down_phy_ports
 
 
-def _find_down_ip_ports(dut, ip_interfaces):
+def _find_down_ip_ports(dut, ip_interfaces, use_ipv6=False):
     down_ip_ports = []
-    ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+    if use_ipv6:
+        ip_intf_facts = dut.show_ipv6_interface()['ansible_facts']['ipv6_interfaces']
+    else:
+        ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+
     for intf in ip_interfaces:
         try:
             if ip_intf_facts[intf]['oper_state'] == 'down':
@@ -75,26 +79,27 @@ def _find_down_ip_ports(dut, ip_interfaces):
     return down_ip_ports
 
 
-def _find_down_ports(dut, phy_interfaces, ip_interfaces):
+def _find_down_ports(dut, phy_interfaces, ip_interfaces, use_ipv6=False):
     """Finds the ports which are operationally down
 
     Args:
         dut (object): The sonichost/sonicasic object
         phy_interfaces (list): List of all phyiscal operation in 'admin_up'
         ip_interfaces (list): List of the L3 interfaces
+        use_ipv6 (bool): Whether to use IPv6 interface check instead of IPv4
 
     Returns:
         [list]: list of the down ports
     """
     down_ports = []
-    down_ports = _find_down_ip_ports(dut, ip_interfaces) + \
+    down_ports = _find_down_ip_ports(dut, ip_interfaces, use_ipv6) + \
         _find_down_phy_ports(dut, phy_interfaces)
 
     return down_ports
 
 
 @pytest.fixture(scope="module")
-def check_interfaces(duthosts):
+def check_interfaces(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "interfaces"}
 
     def _check(*args, **kwargs):
@@ -118,6 +123,14 @@ def check_interfaces(duthosts):
 
         down_ports = []
         check_result = {"failed": True, "check_item": "interfaces", "host": dut.hostname}
+
+        # Determine if we should use IPv6 interface checking
+        use_ipv6 = (
+            "-v6-" in tbinfo["topo"]["name"]
+            if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+            else False
+        )
+
         for asic in dut.asics:
             ip_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
@@ -127,20 +140,30 @@ def check_interfaces(duthosts):
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
+                for vlan in cfg_facts["VLAN_INTERFACE"]:
+                    if use_ipv6:
+                        # check for IPv6 address.
+                        if any(is_ipv6_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
+                            ip_interfaces.append(vlan)
+                    else:
+                        # check for IPv4 address.
+                        if any(is_ipv4_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
+                            ip_interfaces.append(vlan)
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
+            if use_ipv6:
+                logger.info("Using IPv6 interface checking for topology: %s" % tbinfo["topo"]["name"])
 
             if timeout == 0:  # Check interfaces status, do not retry.
-                down_ports += _find_down_ports(asic, phy_interfaces, ip_interfaces)
+                down_ports += _find_down_ports(asic, phy_interfaces, ip_interfaces, use_ipv6)
                 check_result["failed"] = True if len(down_ports) > 0 else False
                 check_result["down_ports"] = down_ports
             else:  # Retry checking interface status
                 start = time.time()
                 elapsed = 0
                 while elapsed < timeout:
-                    down_ports = _find_down_ports(asic, phy_interfaces, ip_interfaces)
+                    down_ports = _find_down_ports(asic, phy_interfaces, ip_interfaces, use_ipv6)
                     check_result["failed"] = True if len(down_ports) > 0 else False
                     check_result["down_ports"] = down_ports
 
@@ -179,9 +202,28 @@ def check_bgp(duthosts, tbinfo):
                             module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
+        def _restart_bgp(dut):
+            # Restart BGP service
+            try:
+                if dut.is_multi_asic:
+                    with SafeThreadPoolExecutor(max_workers=8) as executor:
+                        for asic in range(dut.num_asics()):
+                            executor.submit(dut.command, f"systemctl restart bgp@{asic}.service")
+                else:
+                    dut.command("systemctl restart bgp.service")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart BGP service on %s: %s" % (dut.hostname, str(e)))
+                return False
+            return True
+
         def _check_bgp_status_helper():
             asic_check_results = []
-            bgp_facts = dut.bgp_facts(asic_index='all')
+            try:
+                bgp_facts = dut.bgp_facts(asic_index='all')
+            except Exception as e:
+                logger.error("Failed to get BGP status on host %s: %s", dut.hostname, repr(e))
+                check_result['failed'] = True
+                return False
 
             # Conditions to fail BGP check
             #   1. No BGP neighbor.
@@ -197,6 +239,10 @@ def check_bgp(duthosts, tbinfo):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
+                num_v4_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 4])
+                num_v6_neighbors = len([neigh_addr for neigh_addr, neigh_detail in list(a_asic_neighbors.items())
+                                        if neigh_detail['ip_version'] == 6])
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
@@ -217,12 +263,12 @@ def check_bgp(duthosts, tbinfo):
                 # Chassis and multi_asic is not supported for now
                 if not dut.is_multi_asic and not (dut.get_facts().get("modular_chassis") is True or
                                                   dut.get_facts().get("modular_chassis") == "True"):
-                    if not _check_default_route(4, dut):
+                    if (num_v4_neighbors > 0) and not _check_default_route(4, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v4_default_route"] = True
                         a_asic_result = True
-                    if not _check_default_route(6, dut):
+                    if (num_v6_neighbors > 0) and not _check_default_route(6, dut):
                         if asic_key not in check_result:
                             check_result[asic_key] = {}
                         check_result[asic_key]["no_v6_default_route"] = True
@@ -265,16 +311,20 @@ def check_bgp(duthosts, tbinfo):
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
-            for a_result in list(check_result.keys()):
-                if a_result != 'failed':
-                    # Dealing with asic result
-                    if 'down_neighbors' in check_result[a_result]:
-                        logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
-                            check_result[a_result]['down_neighbors'], a_result, dut.hostname))
-                    if "no_v4_default_route" in check_result[a_result]:
-                        logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
-                    if "no_v6_default_route" in check_result[a_result]:
-                        logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
+            # try restart bgp and verify again
+            _restart_bgp(dut)
+            wait_until(60, interval, 0, _check_bgp_status_helper)
+            if (check_result['failed']):
+                for a_result in list(check_result.keys()):
+                    if a_result != 'failed':
+                        # Dealing with asic result
+                        if 'down_neighbors' in check_result[a_result]:
+                            logger.info('BGP neighbors down: %s on bgp instance %s on dut %s' % (
+                                check_result[a_result]['down_neighbors'], a_result, dut.hostname))
+                        if "no_v4_default_route" in check_result[a_result]:
+                            logger.info('Deafult v4 route for {} {} is missing'.format(dut.hostname, a_result))
+                        if "no_v6_default_route" in check_result[a_result]:
+                            logger.info('Deafult v6 route for {} {} is missing'.format(dut.hostname, a_result))
         else:
             logger.info('No BGP neighbors are down or default route missing on %s' % dut.hostname)
 
@@ -702,6 +752,17 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         reason = ''
 
         check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+
+        if not check_passed:
+            def _verify_mux_simulator_status_passed():
+                nonlocal check_passed, err_msg, duts_mux_status
+                check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
+                return check_passed
+
+            logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
+            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
+
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
@@ -1188,17 +1249,15 @@ def check_bfd_up_count(duthosts):
                 logger.error("Failed to parse BFD up count on {} of {}: {}".format(asic_id, dut.hostname, e))
                 bfd_up_count = -1
 
+        is_expected = (bfd_up_count == expected_bfd_up_count)
         with lock:
             check_result["bfd_up_count"][asic_id] = bfd_up_count
-            if bfd_up_count != expected_bfd_up_count:
-                check_result["failed"] = True
-                logger.error("BFD up count on {} of {} is not as expected. Expected BFD up count: {}".format(
-                    asic_id,
-                    dut.hostname,
-                    expected_bfd_up_count,
-                ))
+            if is_expected:
+                logger.info("BFD up count on {} of {} is as expected".format(asic_id, dut.hostname))
+            else:
+                logger.info("BFD up count on {} of {} is not as expected".format(asic_id, dut.hostname))
 
-        return not check_result["failed"]
+        return is_expected
 
     def _check_bfd_up_count_on_asic(asic, dut, check_result):
         asic_id = "asic{}".format(asic.asic_index)
@@ -1212,6 +1271,16 @@ def check_bfd_up_count(duthosts):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for asic in dut.asics:
                 executor.submit(_check_bfd_up_count_on_asic, asic, dut, check_result)
+
+        for asic_id, count in check_result["bfd_up_count"].items():
+            if count != expected_bfd_up_count:
+                check_result["failed"] = True
+                logger.error("BFD up count on {} of {} is not as expected. Expected: {}, Actual: {}".format(
+                    asic_id,
+                    dut.hostname,
+                    expected_bfd_up_count,
+                    count,
+                ))
 
         logger.info("Done checking BFD up count on {}".format(dut.hostname))
         results[dut.hostname] = check_result

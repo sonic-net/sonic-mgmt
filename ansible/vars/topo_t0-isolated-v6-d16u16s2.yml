@@ -146,13 +146,16 @@ configuration_properties:
     tor_asn_start: 4200000000
     failure_rate: 0
     nhipv6: FC0A::FF
+    ipv6_address_pattern: 2064:100:0::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
 
 configuration:
   ARISTA01T1:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.33
+      router-id: 100.1.0.33
       asn: 4200100000
       peers:
         4200000000:
@@ -168,7 +171,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.41
+      router-id: 100.1.0.41
       asn: 4200100000
       peers:
         4200000000:
@@ -184,7 +187,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.49
+      router-id: 100.1.0.49
       asn: 4200100000
       peers:
         4200000000:
@@ -200,7 +203,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.57
+      router-id: 100.1.0.57
       asn: 4200100000
       peers:
         4200000000:
@@ -216,7 +219,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.65
+      router-id: 100.1.0.65
       asn: 4200100000
       peers:
         4200000000:
@@ -232,7 +235,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.73
+      router-id: 100.1.0.73
       asn: 4200100000
       peers:
         4200000000:
@@ -248,7 +251,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.81
+      router-id: 100.1.0.81
       asn: 4200100000
       peers:
         4200000000:
@@ -264,7 +267,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.89
+      router-id: 100.1.0.89
       asn: 4200100000
       peers:
         4200000000:
@@ -280,7 +283,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.161
+      router-id: 100.1.0.161
       asn: 4200100000
       peers:
         4200000000:
@@ -296,7 +299,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.169
+      router-id: 100.1.0.169
       asn: 4200100000
       peers:
         4200000000:
@@ -312,7 +315,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.177
+      router-id: 100.1.0.177
       asn: 4200100000
       peers:
         4200000000:
@@ -328,7 +331,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.185
+      router-id: 100.1.0.185
       asn: 4200100000
       peers:
         4200000000:
@@ -344,7 +347,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.193
+      router-id: 100.1.0.193
       asn: 4200100000
       peers:
         4200000000:
@@ -360,7 +363,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.201
+      router-id: 100.1.0.201
       asn: 4200100000
       peers:
         4200000000:
@@ -376,7 +379,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.209
+      router-id: 100.1.0.209
       asn: 4200100000
       peers:
         4200000000:
@@ -392,7 +395,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.0.217
+      router-id: 100.1.0.217
       asn: 4200100000
       peers:
         4200000000:
@@ -408,8 +411,8 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.1.1
-      asn: 4200000000
+      router-id: 100.1.1.1
+      asn: 64621
       peers:
         4200000000:
           - fc00::401
@@ -424,8 +427,8 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: 100.1.1.2
-      asn: 4200000000
+      router-id: 100.1.1.2
+      asn: 64622
       peers:
         4200000000:
           - fc00::405

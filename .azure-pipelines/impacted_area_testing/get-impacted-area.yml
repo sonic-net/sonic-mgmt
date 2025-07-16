@@ -3,7 +3,7 @@ steps:
     set -x
 
     git fetch --all
-    DIFF_FOLDERS=$(git diff $(git merge-base origin/master HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+    DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get diff folders fails."
@@ -25,15 +25,21 @@ steps:
 
     FINAL_FEATURES=""
     IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
+
+    # Define the list of folders include common features
+    COMMON_DIRS=("tests/common" "tests/scripts")
+
     for FEATURE in "${FEATURES_LIST[@]}"
     do
-      # If changes contains the common part in tests folder,the scope of PR testing is all test scripts.
-      if [[ "$FEATURE" == *tests/common* ]]; then
-        FINAL_FEATURES=""
-        break
+      for COMMON_DIR in "${COMMON_DIRS[@]}"; do
+        if [[ "$FEATURE" == *$COMMON_DIR* ]]; then
+          FINAL_FEATURES=""
+          break 2
+        fi
+      done
 
       # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      elif [[ "$FEATURE" =~ ^tests\/.* ]]; then
+      if [[ "$FEATURE" =~ ^tests\/.* ]]; then
         # Cut the feature path
         if [[ $FEATURE == */*/* ]]; then
             FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
