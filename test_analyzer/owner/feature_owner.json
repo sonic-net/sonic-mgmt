@@ -1045,6 +1045,20 @@
         ]
     },
     {
+        "feature": "packet_trimming",
+        "owner": "Kumaresh Perumal",
+        "email": "kperumal@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "packet_trimming.test_packet_trimming"
+                ],
+                "owner": "Kumaresh Perumal",
+                "email": "kperumal@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "passw_hardening",
         "owner": "Qi Luo",
         "email": "qiluo@microsoft.com",

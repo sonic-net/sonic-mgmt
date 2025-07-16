@@ -737,7 +737,7 @@
     },
     {
         "hwsku": "Mellanox-SN5640-C448O16",
-        "topo": "t1-isolated-d56u2",
+        "topo": "t1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
