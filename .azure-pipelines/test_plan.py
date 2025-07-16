@@ -152,7 +152,7 @@ class FinishStatus(AbstractStatus):
 
 
 def parse_list_from_str(s):
-    # Since Azure Pipeline doesn't support to receive an empty parameter,
+    # Since Azure Pipeline doesn't support receiving an empty parameter,
     # We use ' ' as a magic code for empty parameter.
     # So we should consider ' ' as en empty input.
     if isinstance(s, str):
