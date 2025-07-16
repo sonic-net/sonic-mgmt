@@ -655,20 +655,27 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 28):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-O8V40"]:
+            idx = 0
+            # Range 1: etp0a, etp0b ... etp11a, etp11b
             for i in range(0, 12):
-                base_eth = i * 8
-                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % base_eth
-                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % (base_eth + 4)
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % idx
+                idx += 4
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
+                idx += 4
+            # Range 2: etp12 to etp19
             for i in range(12, 20):
-                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (96 + (i - 12) * 8)
-            for i in range(20, 28):  # Update to include only up to etp27
-                base_eth = 160 + (i - 20) * 8
-                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % base_eth
-                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % (base_eth + 4)
-            start_eth = 224  # Start Ethernet port for etp28
-            for i in range(28, 36):  # Loop through etp28 to etp34
-                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % start_eth
-                start_eth += 8
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
+            # Range 3: etp20a, etp20b ... etp27a, etp27b
+            for i in range(20, 28):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % idx
+                idx += 4
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
+                idx += 4
+            # Range 4: etp28 to etp35
+            for i in range(28, 36):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
         elif hwsku == "Nokia-IXR7220-D4-36D":
             for i in range(1, 9):
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % ((i - 1) * 2)
