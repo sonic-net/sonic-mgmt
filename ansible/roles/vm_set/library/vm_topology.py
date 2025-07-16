@@ -573,7 +573,7 @@ class VMTopology(object):
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
-            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
@@ -596,7 +596,7 @@ class VMTopology(object):
         """Create a veth pair to connect the netns to the bridge."""
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
-            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
@@ -1564,12 +1564,12 @@ class VMTopology(object):
 
     def remove_ptf_mgmt_port(self):
         ext_if = PTF_MGMT_IF_TEMPLATE % self.vm_set_name
-        tmp_name = MGMT_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(MGMT_PORT_NAME))
+        tmp_name = MGMT_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(MGMT_PORT_NAME))
         self.remove_veth_if_from_docker(ext_if, MGMT_PORT_NAME, tmp_name)
 
     def remove_ptf_backplane_port(self):
         ext_if = PTF_BP_IF_TEMPLATE % self.vm_set_name
-        tmp_name = BP_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(BP_PORT_NAME))
+        tmp_name = BP_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(BP_PORT_NAME))
         self.remove_veth_if_from_docker(ext_if, BP_PORT_NAME, tmp_name)
 
     def remove_injected_fp_ports_from_docker(self):
@@ -1582,7 +1582,7 @@ class VMTopology(object):
                 create_vlan_subintf = properties.get('device_type') in (
                     BACKEND_TOR_TYPE, BACKEND_LEAF_TYPE)
                 if not create_vlan_subintf:
-                    tmp_name = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+                    tmp_name = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
                     self.remove_veth_if_from_docker(ext_if, int_if, tmp_name)
 
     @staticmethod
@@ -1720,7 +1720,7 @@ class VMTopology(object):
         grep_cmd_ori = grep_cmd
         for attempt in range(retry):
             logging.debug('*** CMD: %s, grep: %s, attempt: %d' %
-                          (cmdline, grep_cmd, attempt+1))
+                          (cmdline, grep_cmd, attempt + 1))
             if split_cmd:
                 cmdline = shlex.split(cmdline_ori)
             process = subprocess.Popen(
@@ -1813,7 +1813,7 @@ class VMTopology(object):
             # Check if we have vlan_iface populated
             if len(vlan_iface) == 0 or all([intf in result for intf in vlan_iface]):
                 return result
-            time.sleep(2*retries+1)
+            time.sleep(2 * retries + 1)
         # Flow reaches here when vlan_iface not present in result
         raise Exception("Can't find vlan_iface_id")
 
@@ -2081,8 +2081,10 @@ class VMTopologyWorker(object):
             self.thread_pool = ThreadPool(thread_worker_count)
             self._map_helper = self.thread_pool.map
             if hasattr(self.thread_pool, "shutdown"):
-                self._shutdown_helper = \
-                    lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+                if sys.version_info >= (3, 9):
+                    self._shutdown_helper = lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+                else:
+                    self._shutdown_helper = lambda: self.thread_pool.shutdown(wait=True)
             else:
                 self._shutdown_helper = \
                     lambda: self.thread_pool.terminate()
