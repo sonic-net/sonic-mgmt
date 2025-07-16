@@ -174,6 +174,79 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-patch-add test")
     chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-patch-add test")
 
+    # Ensure interface is up by showing interface status
+    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
+    res = duthost.shell("show interface status {}".format(tor_ifname))
+    assert res["rc"] == 0, "Failed to show interface status for {}".format
+    assert len(res["stdout_lines"]) > 2, "Failed to show interface status for {}".format
+
+    # According to output, interface should be up
+    """ Example output:
+    admin@str5-7060x6-512-4:~$ show interface status Ethernet0
+    Interface    Lanes    Speed    MTU    FEC    Alias    Vlan    Oper    Admin                           Type    Asym PFC
+    -----------  -------  -------  -----  -----  -------  ------  ------  -------  -----------------------------  ----------
+    Ethernet0       17     100G   9100     rs    etp1a  routed      up       up  OSFP 8X Pluggable Transceiver         off
+    """
+    # checking oper and admin status is up
+    assert res["stdout_lines"][2].split()[7] == "up", \
+        "Interface {} oper status is not up".format(tor_ifname)
+    assert res["stdout_lines"][2].split()[8] == "up", \
+        "Interface {} admin status is not up".format(tor_ifname)
+    
+    # Check PFC status if supported
+    res = duthost.shell("show pfc counters -d all | grep {}".format(tor_ifname), module_ignore_errors=True)
+    if res["rc"] == 0:
+        assert tor_ifname in res["stdout"], "PFC counters not available for {}".format(tor_ifname)
+
+    # Check ACL table presence
+    """ Example output:
+    admin@str5-7060x6-512-4:~$ show acl table | grep EVERFLOW | grep Ethernet0
+    EVERFLOW    MIRROR     Ethernet0       EVERFLOW       ingress  Active
+    EVERFLOWV6  MIRRORV6   Ethernet0       EVERFLOWV6     ingress  Active
+    """
+    res = duthost.shell("show acl table | grep EVERFLOW | grep {}".format(tor_ifname), module_ignore_errors=True)
+    assert res["rc"] == 0, "Failed to show ACL table"
+    assert "EVERFLOW" in res["stdout"], "ACL table EVERFLOW not present"
+    assert "EVERFLOWV6" in res["stdout"], "ACL table EVERFLOWV6 not present"
+    assert "Ethernet0" in res["stdout"], "ACL table EVERFLOWV6 not present"
+    assert "Active" in res["stdout"], "ACL table EVERFLOWV6 not present"
+
+    # Check queue presence
+    """ Example output:
+    admin@str5-7060x6-512-4:~$ show queue counters Ethernet0
+    For namespace :
+        Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
+    ---------  -----  --------------  ---------------  -----------  ------------
+    Ethernet0    UC0               0                0            0           N/A
+    Ethernet0    UC1               0                0            0           N/A
+    Ethernet0    UC2               0                0            0           N/A
+    Ethernet0    UC3               0                0            0           N/A
+    Ethernet0    UC4               0                0            0           N/A
+    Ethernet0    UC5               0                0            0           N/A
+    Ethernet0    UC6               0                0            0           N/A
+    Ethernet0    UC7               0                0            0           N/A
+    Ethernet0    UC8               0                0            0           N/A
+    Ethernet0    UC9               0                0            0           N/A
+    Ethernet0   MC10               0                0            0           N/A
+    Ethernet0   MC11               0                0            0           N/A
+    """
+    res = duthost.shell("show queue counters {}".format(tor_ifname), module_ignore_errors=True)
+    assert res["rc"] == 0, "Failed to show queue counters for {}".format(tor_ifname)
+    assert "UC0" in res["stdout"], "Queue UC0 not present for {}".format(tor_ifname)
+
+    # critical container check
+    critical_containers = [
+        "bgp",
+        "swss",
+        "syncd",
+        "teamd"
+    ]
+    running_containers = duthost.shell(r"docker ps -f 'status=running' --format \{\{.Names\}\}")[
+                'stdout_lines']
+    for container in critical_containers:
+        # If the critical container is not running, add an error log
+        if container not in running_containers:
+            assert False, "Critical container {} is not running".format(container)
 
 def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
     # Load config with T0

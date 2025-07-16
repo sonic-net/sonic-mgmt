@@ -256,9 +256,12 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
         if (not k.startswith("_")) and (not match_key(k, keys_skip_cmp)):
             value = db_read[k].get("value", {})  # Get the value or empty dictionary if
 
-            for skip_val in keys_skip_val:
-                if match_key(skip_val, value):
-                    value.pop(skip_val)
+            # Remove skip_val keys from value if present
+            if isinstance(value, dict):
+                for skip_val in keys_skip_val:
+                    if skip_val in value:
+                        value.pop(skip_val)
+
             db_write[k] = db_read[k]
 
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
