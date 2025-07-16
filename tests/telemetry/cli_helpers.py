@@ -9,6 +9,7 @@ def get_json_from_gnmi_output(stdout):
 
     json_blob = stdout[start_pos:]
     data = json.loads(json_blob)
+    return data
 
 
 def reboot_device(duthost, localhost):
@@ -22,9 +23,9 @@ def transform_reboot_cause_output(reboot_cause_dict):
 
     reboot_cause_str = ""
 
-    reboot_cause = output.get("cause", "Unknown")
-    reboot_user = output.get("user", "N/A")
-    reboot_time = output.get("time", "N/A")
+    reboot_cause = reboot_cause_dict.get("cause", "Unknown")
+    reboot_user = reboot_cause_dict.get("user", "N/A")
+    reboot_time = reboot_cause_dict.get("time", "N/A")
 
     if reboot_user != "N/A":
         reboot_cause_str = "User issued '{}' command".format(reboot_cause)
