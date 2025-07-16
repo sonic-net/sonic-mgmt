@@ -152,7 +152,7 @@ class FinishStatus(AbstractStatus):
 
 
 def parse_list_from_str(s):
-    # Since Azure Pipeline doesn't support receiving an empty parameter,
+    # Since Azure Pipeline doesn't support to receive an empty parameter,
     # We use ' ' as a magic code for empty parameter.
     # So we should consider ' ' as en empty input.
     if isinstance(s, str):
@@ -300,7 +300,7 @@ class TestPlanManager(object):
             # Add topo arg
             if topology in ["t0", "t0-64-32"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
-            elif topology in ["t1-lag", "t1-8-lag"]:
+            elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
             elif topology == "dualtor":
                 common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
