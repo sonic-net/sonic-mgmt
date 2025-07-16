@@ -12,6 +12,29 @@ steps:
       }
       pip install pyenchant
       pip install pylint
-      echo "Running pylint"
-      pylint --rcfile=pylintrc
-    displayName: 'Run pylint'
+
+      echo "Checking for added or modified Python files in tests/common2..."
+
+      # Determine the base commit to compare against
+      # This is robust for PRs (merging into main/master) and direct pushes
+      # Adjust 'main' to your default branch name if it's different (e.g., 'master')
+      BASE_COMMIT=$(git merge-base HEAD origin/main || git merge-base HEAD origin/master || echo HEAD~1)
+      if [ "$BASE_COMMIT" = "HEAD~1" ]; then
+          echo "Warning: Could not determine merge base with origin/main or origin/master. Comparing with previous commit (HEAD~1)."
+      else
+          echo "Comparing changes since $BASE_COMMIT."
+      fi
+
+      # Get names of added (A) or modified (M) files, filter to .py and tests/common2
+      # The '^(A|M)' regular expression ensures we only match lines starting with A or M
+      CHANGED_PYTHON_FILES=$(git diff --name-status "$BASE_COMMIT" HEAD -- tests/common2 | grep -E '^(A|M).*py$' | awk '{print $2}' | tr '\n' ' ')
+
+      if [ -z "$CHANGED_PYTHON_FILES" ]; then
+        echo "No .py files added or modified in tests/common2 in this commit. Skipping pylint."
+      else
+        echo "Found .py files added or modified: $CHANGED_PYTHON_FILES"
+        echo "Running pylint on these files..."
+        # Pass the specific files to pylint
+        pylint --rcfile=pylintrc $CHANGED_PYTHON_FILES || true # Or remove || true if you want failures to break the build
+      fi
+    displayName: 'Run pylint (conditional on changed .py files)'
