@@ -41,7 +41,7 @@ pre-commit install
 
 This sets up the Git hook to run pre-commit checks automatically before each commit.
 
-2. Run Pre-commit Manually (Optional)
+### 2. Run Pre-commit Manually (Optional)
 To run only on staged files:
 ```
 pre-commit run --files $(git diff --cached --name-only)
