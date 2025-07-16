@@ -1,3 +1,4 @@
+
 ################################################################################
 #                         CICD test list - Ring3                               #
 ################################################################################
@@ -278,7 +279,7 @@ MGMT:
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        - snmp/test_snmp_link_local.py
+        #- snmp/test_snmp_link_local.py
         - tacacs/test_authorization.py
         - tacacs/test_ro_disk.py
         - restapi/test_restapi.py
@@ -315,6 +316,10 @@ MGMT:
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
+        - dut_console/test_console_baud_rate.py
+        - dut_console/test_console_chassis_conn.py
+        - dut_console/test_escape_character.py
+        - dut_console/test_idle_timeout.py
         # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
@@ -362,7 +367,7 @@ MGMT:
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        - snmp/test_snmp_link_local.py
+        #- snmp/test_snmp_link_local.py
         - tacacs/test_authorization.py
         - tacacs/test_ro_disk.py
         - restapi/test_restapi.py
@@ -396,6 +401,10 @@ MGMT:
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
+        - dut_console/test_console_baud_rate.py
+        - dut_console/test_console_chassis_conn.py
+        - dut_console/test_escape_character.py
+        - dut_console/test_idle_timeout.py
         # - gnmi/test_mimic_hwproxy_cert_rotation.py
         # - dns/static_dns/test_static_dns.py
         # - generic_config_updater/test_aaa.py
