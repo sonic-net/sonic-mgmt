@@ -624,22 +624,6 @@ class VMTopology(object):
 
         VMTopology.iface_up(int_if, netns=self.netns)
 
-    def ip_exists(self, pid, mgmt_ip_addr, int_if):
-        output = VMTopology.cmd("nsenter -t %s -n ip addr show dev %s" % (pid, int_if), ignore_errors=True)
-        return mgmt_ip_addr in output
-
-    def ip_exists_v6(self, pid, mgmt_ipv6_addr, int_if):
-        output = VMTopology.cmd("nsenter -t %s -n ip -6 addr show dev %s" % (pid, int_if), ignore_errors=True)
-        return mgmt_ipv6_addr in output
-
-    def route_exists(self, pid, mgmt_gw):
-        output = VMTopology.cmd("nsenter -t %s -n ip route show default" % (pid), ignore_errors=True)
-        return mgmt_gw in output
-
-    def route_exists_v6(self, pid, mgmt_gw_v6):
-        output = VMTopology.cmd("nsenter -t %s -n ip -6 route show default" % (pid), ignore_errors=True)
-        return mgmt_gw_v6 in output
-
     def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None,
                             mgmt_gw=None, mgmt_gw_v6=None, extra_mgmt_ip_addr=None,
                             api_server_pid=None):
@@ -647,9 +631,7 @@ class VMTopology(object):
             self.pid = api_server_pid
 
         if VMTopology.intf_exists(int_if, pid=self.pid):
-            # VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" %
-            #                (self.pid, int_if))
-            if not self.ip_exists(self.pid, mgmt_ip_addr, int_if):
+            if not VMTopology.ip_exists(int_if, mgmt_ip_addr, pid=self.pid):
                 VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
                                (self.pid, mgmt_ip_addr, int_if))
             if extra_mgmt_ip_addr is not None:
@@ -661,19 +643,15 @@ class VMTopology(object):
                 if api_server_pid:
                     VMTopology.cmd(
                         "nsenter -t %s -n ip route del default" % (self.pid))
-                if not self.route_exists(self.pid, mgmt_gw):
+                if not VMTopology.route_exists(mgmt_gw, pid=self.pid):
                     VMTopology.cmd(
                         "nsenter -t %s -n ip route add default via %s dev %s" % (self.pid, mgmt_gw, int_if))
             if mgmt_ipv6_addr:
-                # VMTopology.cmd(
-                #     "nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
-                if not self.ip_exists_v6(self.pid, mgmt_ipv6_addr, int_if):
+                if not VMTopology.ip_exists(int_if, mgmt_ipv6_addr, pid=self.pid, ipv6=True):
                     VMTopology.cmd("nsenter -t %s -n ip -6 addr add %s dev %s" %
                                    (self.pid, mgmt_ipv6_addr, int_if))
             if mgmt_ipv6_addr and mgmt_gw_v6:
-                # VMTopology.cmd(
-                #     "nsenter -t %s -n ip -6 route flush default" % (self.pid))
-                if not self.route_exists_v6(self.pid, mgmt_gw_v6):
+                if not VMTopology.route_exists(mgmt_gw_v6, pid=self.pid, ipv6=True):
                     VMTopology.cmd(
                         "nsenter -t %s -n ip -6 route add default via %s dev %s" % (self.pid, mgmt_gw_v6, int_if))
 
@@ -1062,8 +1040,7 @@ class VMTopology(object):
             VMTopology.cmd("brctl delif %s %s" % (br_name, port1))
         if port2 in if_to_br:
             VMTopology.cmd("brctl delif %s %s" % (br_name, port2))
-        if br_name in VMTopology.cmd("ip link show %s" % br_name):
-            VMTopology.cmd('brctl delbr %s' % br_name)
+        VMTopology.cmd('brctl delbr %s || true' % br_name, shell=True, split_cmd=False)
 
     def bind_vm_link(self, br_name, port1, port2):
         if VMTopology.intf_not_exists(br_name):
@@ -1109,8 +1086,7 @@ class VMTopology(object):
 
         if VMTopology.intf_exists(self.bp_bridge):
             VMTopology.iface_down(self.bp_bridge)
-            if self.bp_bridge in VMTopology.cmd("ip link show %s" % self.bp_bridge):
-                VMTopology.cmd('brctl delbr %s' % self.bp_bridge)
+            VMTopology.cmd('brctl delbr %s || true' % self.bp_bridge, shell=True, split_cmd=False)
 
     def bind_vs_chassis_ports(self, duts_midplane_ports, duts_inband_ports):
         # We have a KVM based virtaul chassis, create two ovs bridges, bind the midplane and inband ports
@@ -1591,7 +1567,7 @@ class VMTopology(object):
 
         # Delete its peer in default namespace
         if VMTopology.intf_exists(ext_if):
-            VMTopology.cmd("ip link delete dev %s" % ext_if)
+            VMTopology.cmd("ip link delete dev %s || true" % ext_if, shell=True, split_cmd=False)
 
     def remove_ptf_mgmt_port(self):
         ext_if = PTF_MGMT_IF_TEMPLATE % self.vm_set_name
@@ -1694,6 +1670,54 @@ class VMTopology(object):
             return False
 
     @staticmethod
+    def _ip_cmd(intf, pid=None, netns=None, ipv6=False):
+        addr_cmd = 'ip addr show'
+        if ipv6:
+            addr_cmd = 'ip -6 addr show'
+
+        if pid:
+            cmdline = 'nsenter -t %s -n %s dev %s' % (pid, addr_cmd, intf)
+        elif netns:
+            cmdline = 'ip netns exec %s %s dev %s' % (netns, addr_cmd, intf)
+        else:
+            cmdline = '%s dev %s' % (addr_cmd, intf)
+        return cmdline
+
+    @staticmethod
+    def ip_exists(intf, ip_addr, pid=None, netns=None, ipv6=False):
+        cmdline = VMTopology._ip_cmd(intf, pid=pid, netns=netns, ipv6=ipv6)
+
+        try:
+            output = VMTopology.cmd(cmdline, retry=3)
+            return ip_addr in output
+        except Exception:
+            return False
+
+    @staticmethod
+    def _route_cmd(pid=None, netns=None, ipv6=False):
+        addr_cmd = 'ip route show default'
+        if ipv6:
+            addr_cmd = 'ip -6 route show default'
+
+        if pid:
+            cmdline = 'nsenter -t %s -n %s' % (pid, addr_cmd)
+        elif netns:
+            cmdline = 'ip netns exec %s %s' % (netns, addr_cmd)
+        else:
+            cmdline = '%s' % (addr_cmd)
+        return cmdline
+
+    @staticmethod
+    def route_exists(gw, pid=None, netns=None, ipv6=False):
+        cmdline = VMTopology._route_cmd(pid=pid, netns=netns, ipv6=ipv6)
+
+        try:
+            output = VMTopology.cmd(cmdline, retry=3)
+            return gw in output
+        except Exception:
+            return False
+
+    @staticmethod
     def iface_up(iface_name, pid=None, netns=None):
         return VMTopology.iface_updown(iface_name, 'up', pid, netns)
 
@@ -1708,8 +1732,7 @@ class VMTopology(object):
         elif netns is not None:
             return VMTopology.cmd('ip netns exec %s ip link set %s %s' % (netns, iface_name, state))
         else:
-            if iface_name in VMTopology.cmd('ip link show'):
-                return VMTopology.cmd('ip link set %s %s' % (iface_name, state))
+            return VMTopology.cmd('ip link set %s %s || true' % (iface_name, state), shell=True, split_cmd=False)
 
     @staticmethod
     def iface_disable_txoff(iface_name, pid=None):
@@ -1811,7 +1834,7 @@ class VMTopology(object):
 
     @staticmethod
     def get_ovs_br_ports(bridge):
-        out = VMTopology.cmd('ovs-vsctl list-ports %s' % bridge)
+        out = VMTopology.cmd('ovs-vsctl list-ports %s || true' % bridge, shell=True, split_cmd=False)
         ports = set()
         for port in out.split('\n'):
             if port != "":
