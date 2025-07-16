@@ -1,4 +1,4 @@
-from dash_api.eni_pb2 import State
+from dash_api.eni_pb2 import State, EniMode
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 from dash_api.types_pb2 import IpVersion
 
@@ -82,6 +82,21 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
+    }
+}
+
+ENI_CONFIG_FNIC = {
+    f"DASH_ENI_TABLE:{ENI_ID}": {
+        "vnet": VNET1,
+        "underlay_ip": VM1_PA,
+        "mac_address": ENI_MAC,
+        "eni_id": ENI_ID,
+        "admin_state": State.STATE_ENABLED,
+        "pl_underlay_sip": APPLIANCE_VIP,
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "v4_meter_policy_id": METER_POLICY_V4,
+        "eni_mode": EniMode.MODE_FNIC,
+        "trusted_vnis": ENCAP_VNI
     }
 }
 

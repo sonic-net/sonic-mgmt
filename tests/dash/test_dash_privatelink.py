@@ -55,7 +55,8 @@ def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dp
 
 
 @pytest.fixture(autouse=True, scope="module")
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts, set_vxlan_udp_sport_range, floating_nic):
+def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts, 
+                          set_vxlan_udp_sport_range, floating_nic):
     if skip_config:
         return
     dpuhost = dpuhosts[dpu_index]
@@ -67,8 +68,8 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.METER_POLICY_V4_CONFIG
     }
-    base_config_messages_floating_nic = {
-        **pl.APPLIANCE_CONFIG_FLOATING_NIC,
+    base_config_messages_fnic = {
+        **pl.APPLIANCE_CONFIG_FNIC,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
@@ -76,8 +77,8 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     }
 
     if floating_nic:
-        logger.info(base_config_messages_floating_nic)
-        apply_messages(localhost, duthost, ptfhost, base_config_messages_floating_nic, dpuhost.dpu_index)
+        logger.info(base_config_messages_fnic)
+        apply_messages(localhost, duthost, ptfhost, base_config_messages_fnic, dpuhost.dpu_index)
     else:
         logger.info(base_config_messages)
         apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
@@ -97,18 +98,28 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     logger.info(meter_rule_messages)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
 
-    logger.info(pl.ENI_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+    if floating_nic:
+        logger.info(pl.ENI_CONFIG_FNIC)
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG_FNIC, dpuhost.dpu_index)
+    else:
+        logger.info(pl.ENI_CONFIG)
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
 
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
+    if floating_nic:
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG_FNIC, dpuhost.dpu_index, False)
+    else:
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+    if floating_nic:
+        apply_messages(localhost, duthost, ptfhost, base_config_messages_fnic, dpuhost.dpu_index, False)
+    else:
+        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
