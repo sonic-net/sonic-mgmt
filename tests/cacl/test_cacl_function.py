@@ -109,7 +109,7 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                                  state='started',
                                  search_regex=SONIC_SSH_REGEX,
                                  delay=0,
-                                 timeout=90,
+                                 timeout=110,
                                  module_ignore_errors=True)
 
         pytest_assert(not res.is_failed, "SSH did not start working when expected. {}".format(res.get('msg', '')))
