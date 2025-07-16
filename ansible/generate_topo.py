@@ -41,7 +41,7 @@ roles_cfg = {
         "asn_v6": 4200000000,
         "downlink": None,
         "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000, "asn_increment": 0},
-        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000, "asn_increment": 1},
+        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 64620, "asn_increment": 1},
     },
     "t1": {
         "asn": 65100,
@@ -504,6 +504,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'o128t0'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -p 64 -l 'c256-sparse'
