@@ -1,0 +1,116 @@
+import pytest
+import logging
+import json
+
+from tests.common.config_reload import config_reload
+
+logger = logging.getLogger(__name__)
+
+
+SRV6_LOC_BLOCK = "fcbb:bbbb"
+IXIA_PORTS_PER_TG = 8
+
+
+def get_max_number_of_parallel_links_and_neighbors(duthost):
+    """Get the maximum number of parallel links and neighbors for SRv6 configuration"""
+    lldp_table = duthost.command("show lldp table")['stdout_lines'][3:]
+    counters = dict()
+    for line in lldp_table:
+        neigh = line.split(maxsplit=2)[1]
+        counters[neigh] = counters.get(neigh, 0) + 1
+
+    return max(counters.values()), counters.keys()
+
+
+@pytest.fixture(scope="mosession")
+def config_setup(duthosts, tbinfo):
+    logger.info("Setting up SRv6 configuration")
+
+    #Ixia Traffic Generators
+    tgs = tbinfo['tgs']
+
+    # Setup SRV6 configuration for each DUT and keep track of host SIDs & neighbors
+    device_sids = {}  # Bookkeeping dict for host SIDs
+    device_neighbors = {}  # Bookkeeping dict for host neighbors
+    for index, duthost in enumerate(duthosts):
+        max_parallel_links, neighbors = get_max_number_of_parallel_links_and_neighbors(duthost)
+        logger.info(f"Max parallel links for {duthost.hostname}: {max_parallel_links}")
+        logger.info(f"Neighbors for {duthost.hostname}: {neighbors}")
+        device_neighbors[duthost.hostname] = neighbors
+
+        # Initialize the dictionary that contains SRv6 configuration
+        config = {
+            "SRV6_MY_LOCATORS": {},
+            "SRV6_MY_SIDS": {},
+            "FLEX_COUNTER_TABLE": {
+                "SRV6": {
+                    "FLEX_COUNTER_STATUS": "enable"
+                }
+            }
+        }
+
+        # Initialize the host SID list
+        device_sids[duthost.hostname] = []
+        # configure a number of SRv6 SIDs based on max_parallel_links
+        for i in range(max_parallel_links):
+            sid = (index << 8) + i
+            config['SRV6_MY_LOCATORS'][f"loc{i}"] = {
+                "prefix": f"{SRV6_LOC_BLOCK}:{sid:x}::",
+                "func_len": 0
+            }
+            config['SRV6_MY_SIDS'][f"loc{i}|{SRV6_LOC_BLOCK}:{sid:x}::/48"] = {
+                "action": "uN",
+                "decap_dscp_mode": "pipe"
+            }
+            device_sids[duthost.hostname].append(sid)
+
+        # Apply the configuration to the DUT
+        tmpfile = duthost.shell('mktemp')['stdout']
+        duthost.copy(content=json.dumps(config, indent=4), dest=tmpfile)
+        duthost.shell(f'sonic-cfggen -j {tmpfile} -w')
+
+    # Generate SIDs for Ixia Traffic Generators
+    for index, tg in enumerate(tgs):
+        for i in range(IXIA_PORTS_PER_TG):
+            device_sids[tg].append(((len(duthosts) + index) << 8) + i)
+
+    # Setup static routes for SRv6 forwarding
+    for duthost in duthosts:
+        ipv6_interfaces = duthost.show_and_parse('show ipv6 int')
+        neighbor2intf = dict()
+        # First, create a mapping of neighbors to interfaces and their IPv6 addresses
+        for intf in ipv6_interfaces:
+            if 'bgp_neighbor' in ipv6_interfaces[intf] and ipv6_interfaces[intf]['bgp_neighbor'] != 'N/A':
+                neighbor2intf.get(ipv6_interfaces[intf]['bgp_neighbor'], []).append((intf, ipv6_interfaces[intf]['neighbor_ip']))
+
+        # Then, create static routes for each neighbor and their corresponding SIDs (1 route per SID)
+        config = {
+            "STATIC_ROUTE": {}
+        }
+        for neigh in device_neighbors[duthost.hostname]:
+            if neigh not in neighbor2intf:
+                logger.warning(f"No interfaces found for neighbor {neigh} on {duthost.hostname}, skipping...")
+                continue
+
+            for i, sid in enumerate(device_sids[neigh]):
+                if i >= len(neighbor2intf[neigh]):
+                    logger.warning(f"Not enough interfaces for neighbor {neigh} on {duthost.hostname}, \
+                                   {len(device_sids[neigh])} > {len(neighbor2intf[neigh])}, \
+                                   skipping the rest of SIDs")
+                    continue
+
+                intf, ipv6_addr = neighbor2intf[neigh][i]
+                config["STATIC_ROUTE"][f"default|{SRV6_LOC_BLOCK}:{sid:x}::/48"] = {
+                    "nexthop": ipv6_addr,
+                    "ifname": intf
+                }
+        # Apply the static route configuration
+        tmpfile = duthost.shell('mktemp')['stdout']
+        duthost.copy(content=json.dumps(config, indent=4), dest=tmpfile)
+        duthost.shell(f'sonic-cfggen -j {tmpfile} -w')
+
+    yield
+
+    logger.info("Tearing down SRv6 configuration by config reload")
+    for duthost in duthosts:
+        config_reload(duthost)
