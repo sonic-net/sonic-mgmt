@@ -96,18 +96,20 @@ class MultiAsicSonicHost(object):
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        if self.get_facts().get("modular_chassis"):
-            # Update the asic service based on feature table state and asic flag
-            for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-                if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                    logger.info("Removing teamd from default services for switch_type DPU")
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                    continue
-                if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                if config_facts['FEATURE'][service]['state'] == "disabled":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        else:
+        # Update the asic service based on feature table state and asic flag
+        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
+            if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+                logger.info("Removing teamd from default services for switch_type DPU")
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
+            if service not in config_facts['FEATURE']:
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
+            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+            if config_facts['FEATURE'][service]['state'] == "disabled":
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+        if not self.get_facts().get("modular_chassis"):
             service_list.append("lldp")
 
         for asic in active_asics:
