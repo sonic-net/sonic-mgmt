@@ -62,7 +62,7 @@
                     "id": "202311",
                     "name": "202311",
                     "testbed_branch": ["202311"],
-                    "included": true,
+                    "included": false,
                     "threshold": 51
                 },
                 {
@@ -201,6 +201,20 @@
                     "testbed_topology": ["dualtor-aa-64-breakout", "dualtor-aa-56", "dualtor-aa", "dualtor-120", "dualtor", "dualtor-64", "dualtor-56", "dualtor-mixed"],
                     "threshold": 51,
                     "included": true
+                },
+                {
+                    "id": "lt2",
+                    "name": "LT2",
+                    "testbed_topology": ["lt2-p32o64"],
+                    "threshold": 51,
+                    "included": true
+                },
+                {
+                    "id": "ft2",
+                    "name": "FT2",
+                    "testbed_topology": ["ft2-64"],
+                    "threshold": 51,
+                    "included": true
                 }
             ]
         },
@@ -250,7 +264,7 @@
         "recent_failure_tolerance_day": 3,
         "icm_number_threshold": 9,
         "eps": 0.3,
-        "summary_expiration_days": 5
+        "summary_expiration_days": 7
     },
     "icm_limitation": {
         "default_branch_limit": 5,

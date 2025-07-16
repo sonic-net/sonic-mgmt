@@ -1,0 +1,48 @@
+# This job is for periodically syncing sonic conversion status to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 15 * * *"
+    displayName: SONiC Daily Metric Sync Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+  - stage: SonicDailyMetricSync
+    jobs:
+      - job: SonicDailyMetricSync
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: Run SONiC daily metric sync script
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                set -x
+
+                cd test_analyzer
+                pip install -r requirements.txt
+
+                python sonic_daily_metric_sync.py
+            env:
+              AZPHYNET_KUSTO_CLUSTER_URL: $(TEST_REPORT_KUSTO_CLUSTER)
+              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

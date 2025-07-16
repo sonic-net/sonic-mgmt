@@ -272,23 +272,25 @@ class KustoConnector(object):
         | where Result in (ResultFilterList)
         '''.rstrip()
         query_str += self.query_common_condition + f'''
-        | extend FailedType = case(Summary contains "Pre-test sanity check failed","pre sanity check failed",
-                                    Summary contains "Recovery of sanity check failed","recovery sanity check failed",
-                                    Summary contains "stage_pre_test sanity check after recovery failed","stage_pre_test sanity check failed after recovery",
-                                    Summary contains "Did not receive expected packet" or Summary contains "Received expected packet", "expected packet loss",
+        | extend FailedType = case(Summary contains "Pre-test sanity check failed","pre_sanity_check_failed",
+                                    Summary contains "Recovery of sanity check failed","recovery_sanity_check_failed",
+                                    Summary contains "stage_pre_test sanity check after recovery failed","stage_pre_test_sanity_check_failed",
+                                    Summary contains "Did not receive expected packet" or Summary contains "Received expected packet", "PacketLoss",
                                     Summary contains "Match Messages:" and Summary contains "analyze_logs" ,"loganalyzer",
-                                    Summary contains "bin/ptf --test-dir ptftests", "ptf script failed",
-                                    Summary contains "Not all critical processes are healthy"," critical process unhealthy",
+                                    Summary contains "bin/ptf --test-dir ptftests", "PtfScriptFailed",
+                                    Summary contains "Not all critical processes are healthy","CriticalProcessUnhealthy",
                                     Summary contains "system cpu and memory usage check fails", "cpu memory check failed",
-                                    Summary contains "tests.common.errors.RunAnsibleModuleFail: run module shell failed, Ansible Results", "RunAnsibleModuleFail",
+                                    Summary contains "tests.common.errors.RunAnsibleModuleFail: run module" and Summary contains "failed, Ansible Results", "RunAnsibleModuleFail",
                                     Summary contains "PSU", "PSU",
                                     Summary contains "fan ", "fan",
                                     Summary contains "AssertionError", "AssertionError",
                                     Summary contains "Host unreachable in the inventory", 'unreachable',
-                                    Summary contains "failed on setup with", "setup error",
-                                    Summary contains "failed on teardown with", 'teardown',
+                                    Summary contains "memory usage" and Summary contains "exceeds high threshold", "MemoryExceed",
+                                    Summary contains "failed on setup with", "SetupError",
+                                    Summary contains "failed on teardown with", 'Teardown',
                                     "Others")
-        | where FailedType == "loganalyzer"
+        | where FailedType in ("loganalyzer","PacketLoss","PtfScriptFailed","AssertionError","PSU")
+        | where Summary !in (SummaryWhileList)
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.rstrip()
@@ -425,7 +427,7 @@ class KustoConnector(object):
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
                 | order by UploadTimestamp desc
                 '''.rstrip()
-            logger.info("Query consistent history results:\n{}".format(consistent_query_str))
+            logger.info("Query consistent or flaky history results:\n{}".format(consistent_query_str))
             return self.query(consistent_query_str)
         else:
             logger.warning("No valid query type specified. Please check the flags.")
