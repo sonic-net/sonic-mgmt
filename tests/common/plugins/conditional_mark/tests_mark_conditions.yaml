@@ -149,12 +149,6 @@ bgp/test_bgp_bbr.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
-bgp/test_bgp_command.py:
-  xfail:
-    reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 and t1-isolated-d56u2 topology on Mellanox platform'
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1', 't1-isolated-d56u2'] and asic_type in ['mellanox']"
-
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
@@ -1334,7 +1328,7 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #####            fib              #####
 #######################################
 fib/test_fib.py:
-  skip:
+  xfail:
     reason: 'Hash test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
