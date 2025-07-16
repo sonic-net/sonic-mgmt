@@ -55,7 +55,7 @@ parameters:
 
   - name: SKIP_RESTART_PTF
     type: boolean
-    default: false
+    default: true
 
   - name: COMMON_EXTRA_PARAMS
     type: string
