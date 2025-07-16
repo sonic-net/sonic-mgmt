@@ -1,0 +1,20 @@
+{
+	"reboot-cause": {
+		"sku":             "general",
+		"setup":           "reboot_device",
+		"setup_fixtures":  ["duthost", "localhost"],
+		"setup_args":      [],
+		"verify":          "check_reboot_cause",
+		"verify_fixtures": ["duthost"],
+		"verify_args":     ["output"]
+	},
+	"reboot-cause/history": {
+		"sku":             "general",
+		"setup":           "reboot_device",
+		"setup_fixtures":  ["duthost", "localhost"],
+		"pretest_args":    [],
+		"verify":          "check_reboot_cause_history",
+		"verify_fixtures": ["duthost"],
+		"verify_args":     ["output"]
+	}
+}
