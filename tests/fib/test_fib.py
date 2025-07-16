@@ -161,7 +161,7 @@ def filter_ports(all_port_indices, tbinfo):
     # Note: this filteration is useful for multilinecard DUTs to make sure incoming traffic is
     # landing on a different linecard; NA for pizza boxes
 
-    if tbinfo['topo']['type'] != 't2':
+    if tbinfo['topo']['type'] != 't2' or 't2_single_node' in tbinfo['topo']['name']:
         return []
 
     # Collect all port indices (keys) from all_port_indices
