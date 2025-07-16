@@ -3,5 +3,5 @@ steps:
       pip install mypy
       echo "Running mypy"
       # configuration is loaded from pyproject.toml
-      mypy . || true
+      mypy tests/common2 || true
     displayName: 'Run mypy static type checker'
