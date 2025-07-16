@@ -256,11 +256,9 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
         if (not k.startswith("_")) and (not match_key(k, keys_skip_cmp)):
             value = db_read[k].get("value", {})  # Get the value or empty dictionary if
 
-            # Remove skip_val keys from value if present
-            if isinstance(value, dict):
-                for skip_val in keys_skip_val:
-                    if skip_val in value:
-                        value.pop(skip_val)
+            for skip_val in keys_skip_val:
+                if match_key(skip_val, value):
+                    value.pop(skip_val)
 
             db_write[k] = db_read[k]
 
@@ -327,9 +325,16 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     if clet_data == orig_data:
         log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
         return 0, ""
-
-    orig_keys = set(sorted(orig_data.keys()))
-    clet_keys = set(sorted(clet_data.keys()))
+    
+    # exclude keys when its name contains "time"
+    # but only exclude when db_name is state-db
+    orig_keys, clet_keys = set(), set()
+    if db_name == "state-db":
+        orig_data = {k: v for k, v in orig_data.items() if "time" not in k}
+        clet_data = {k: v for k, v in clet_data.items() if "time" not in k}
+    else:
+        orig_keys = set(sorted(orig_data.keys()))
+        clet_keys = set(sorted(clet_data.keys()))
 
     diff = orig_keys - clet_keys
     for k in diff:
