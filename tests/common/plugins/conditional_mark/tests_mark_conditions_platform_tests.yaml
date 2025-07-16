@@ -889,7 +889,7 @@ platform_tests/broadcom/test_ser.py:
   xfail:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
-      - "release in ['202412'] and 'Arista-7060X6' in hwsku"
+      - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -981,6 +981,15 @@ platform_tests/fwutil/test_fwutil.py:
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
+
+############################################
+##### link_flap/test_cont_link_flap.py #####
+############################################
+platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
+  xfail:
+    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
 
 #######################################
 #####           mellanox          #####
@@ -1306,9 +1315,9 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
