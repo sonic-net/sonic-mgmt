@@ -17,10 +17,6 @@ def reboot_device(duthost, localhost):
 
 
 def transform_reboot_cause_output(reboot_cause_dict):
-    reboot_cause = reboot_cause_dict.get("cause", "Unknown")
-    reboot_user = reboot_cause_dict.get("user", "N/A")
-    reboot_time = reboot_cause_dict.get("time", "N/A")
-
     reboot_cause_str = ""
 
     reboot_cause = reboot_cause_dict.get("cause", "Unknown")
@@ -61,7 +57,5 @@ def check_reboot_cause_history(duthost, output):
     cmd = "show reboot-cause history"
     result = duthost.show_and_parse(cmd)
 
-    cmd_data = json.loads(result)
-
-    failure_message = "cmd result {} does not match gnmi output {} for SHOW/reboot-cause/history path".format(cmd_data, output)
-    assert cmd_data == output, failure_message
+    failure_message = "cmd result {} does not match gnmi output {} for SHOW/reboot-cause/history path".format(result, output)
+    assert result == output, failure_message

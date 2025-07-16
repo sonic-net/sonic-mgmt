@@ -1,4 +1,6 @@
 import logging
+import json
+import os
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 import cli_helpers as helper
@@ -12,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
-SHOW_PATHS_FILE = "cli_paths.json"
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+SHOW_PATHS_FILE = os.path.join(BASE_DIR, "cli_paths.json")
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
@@ -55,7 +58,7 @@ def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostnam
         logger.info("GNMI Server output: {}".format(show_gnmi_out))
 
         if test_config["verify"]:
-            output = str(show_gnmi_out)
+            output = helper.get_json_from_gnmi_output(show_gnmi_out)
             verify_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["verify_fixtures"]]
             verify_args = test_config["verify_args"]
             getattr(helper, test_config["verify"])(*verify_fixtures, *verify_args, output)
