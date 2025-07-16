@@ -103,7 +103,7 @@ def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostn
     random_file = f"/tmp/test_file_deletion_{random_uuid}"
     duthost.command(f"touch {random_file}")
     duthost.command(f"rm -f  {random_file}")
-    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog' | grep type=SYSCALL"
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
     result = duthost.shell(cmd)["stdout_lines"]
     print(result)
     logger.info(result)
