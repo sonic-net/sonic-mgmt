@@ -15,7 +15,16 @@ steps:
 
 - script: |
     set -x
-
+    # Update with timeout and retry logic
+    timeout 180s sudo apt-get update -y || {
+      echo "apt-get update failed or timed out"
+      exit 1
+    }
+    # Install aspell and aspell-en non-interactively
+    timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en || {
+      echo "Failed to install aspell or aspell-en"
+      exit 1
+    }
     sudo pip install pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
