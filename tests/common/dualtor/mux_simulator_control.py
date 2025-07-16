@@ -514,6 +514,8 @@ def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts,
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -533,6 +535,8 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -623,6 +627,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -641,6 +647,8 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -658,6 +666,8 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
 
@@ -671,6 +681,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed or dualtor testbed without active-standby ports
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -703,6 +715,8 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -735,6 +749,8 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
