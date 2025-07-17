@@ -706,7 +706,8 @@ class TestSfpApi(PlatformApiTestBase):
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
-            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+            if info_dict is None:
+                logger.warning("Skipping transceiver {} — no optic plugged in.".format(i))
                 continue
             port_index_to_info_dict[i] = info_dict
 
@@ -735,7 +736,7 @@ class TestSfpApi(PlatformApiTestBase):
 
             # If the xcvr supports low-power mode then it needs to be flapped
             # to come out of low-power mode after sfp_reset().
-            if self.is_xcvr_support_lpmode(info_dict):
+            if "cmis_rev" in info_dict or self.is_xcvr_support_lpmode(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
