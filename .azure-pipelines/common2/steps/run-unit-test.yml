@@ -1,5 +1,37 @@
 steps:
+  # IMPORTANT: Ensure you have a 'checkout' step with fetchDepth: 0
+  # at the beginning of your job, if this step is in a new job
+  # or if the previous checkout step doesn't have it.
+  # Example:
+  # - checkout: self
+  #   fetchDepth: 0
+
   - script: |
       pip install pytest pytest-cov
-      pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
-    displayName: 'Run Unit Tests with Coverage Check'
+
+      echo "Checking for added or modified Python files in tests/common2 for pytest-cov..."
+
+      # Determine the base commit to compare against
+      # This is robust for PRs (merging into main/master) and direct pushes
+      BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
+      if [ "$BASE_COMMIT" = "HEAD~1" ]; then
+          echo "Warning: Could not determine merge base with origin/master. Comparing with previous commit (HEAD~1)."
+      else
+          echo "Comparing changes since $BASE_COMMIT."
+      fi
+
+      # Get names of added (A) or modified (M) files, filter to .py and tests/common2
+      # The '^(A|M)' regular expression ensures we only match lines starting with A or M
+      CHANGED_PYTHON_FILES=$(git diff --name-status "$BASE_COMMIT" HEAD -- tests/common2 | grep -E '^(A|M).*py$' | awk '{print $2}' | tr '\n' ' ')
+
+      if [ -z "$CHANGED_PYTHON_FILES" ]; then
+        echo "No .py files added or modified in tests/common2 in this commit. Skipping Unit Tests with Coverage Check."
+      else
+        echo "Found .py files added or modified: $CHANGED_PYTHON_FILES"
+        echo "Running Unit Tests with Coverage Check for tests/common2..."
+        # The command below will run tests found in 'tests/common2'
+        # and collect coverage for source files in 'tests/common2'.
+        # It will fail the step if coverage is below 80% due to --cov-fail-under=80.
+        pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
+      fi
+    displayName: 'Run Unit Tests with Coverage Check (conditional)'

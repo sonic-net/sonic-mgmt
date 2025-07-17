@@ -24,7 +24,7 @@ steps:
         # For PRs, $(System.PullRequest.TargetBranch) is more appropriate.
         # For simplicity, let's assume we're comparing against the common ancestor with origin/main.
         # Adjust 'main' to your default branch name if it's different (e.g., 'master')
-        BASE_COMMIT=$(git merge-base HEAD origin/master || git merge-base HEAD origin/master || echo HEAD~1)
+        BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
         if [ "$BASE_COMMIT" = "HEAD~1" ]; then
             echo "Warning: Could not determine merge base with main/master. Comparing with previous commit (HEAD~1)."
         else

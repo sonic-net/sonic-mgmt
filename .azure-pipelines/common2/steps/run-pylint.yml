@@ -18,7 +18,7 @@ steps:
       # Determine the base commit to compare against
       # This is robust for PRs (merging into main/master) and direct pushes
       # Adjust 'main' to your default branch name if it's different (e.g., 'master')
-      BASE_COMMIT=$(git merge-base HEAD origin/main || git merge-base HEAD origin/master || echo HEAD~1)
+      BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
       if [ "$BASE_COMMIT" = "HEAD~1" ]; then
           echo "Warning: Could not determine merge base with origin/main or origin/master. Comparing with previous commit (HEAD~1)."
       else
@@ -35,6 +35,6 @@ steps:
         echo "Found .py files added or modified: $CHANGED_PYTHON_FILES"
         echo "Running pylint on these files..."
         # Pass the specific files to pylint
-        pylint --rcfile=pylintrc $CHANGED_PYTHON_FILES || true # Or remove || true if you want failures to break the build
+        pylint --rcfile=pylintrc $CHANGED_PYTHON_FILES
       fi
     displayName: 'Run pylint (conditional on changed .py files)'

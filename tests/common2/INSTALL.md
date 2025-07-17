@@ -1,8 +1,12 @@
 # Setup Instructions
 
-Before committing code, ensure the following tools are installed:
+## Automatic Installation
 
-## Installation
+A script `setup_environment.sh` is available to setup the development environment. This installs the required software and pre-commit hooks that are used to validate commits made to tests/common2 directory.
+
+## Manual Installation
+
+Alternatively to manually install the software packages follow the steps below.
 
 ### 1. Python
 
@@ -19,14 +23,10 @@ Verify with: `pip --version`
 Used to run automated checks before commits
 Install via pip: `pip install pre-commit`
 
-### 4. pylint
+### 4. pylint and penchant
 
-Python linter used for code quality checks
-Install via pip: `pip install pylint`
-
-### 5. pyenchant
-
-Install pyenchant `pip install pyenchant` required for pylint spelling linters.
+Install pylint and pyenchant required for pylint and spelling linters.
+Install via pip: `pip install pylint penchant`
 
 ### 5. aspell (for spelling checks)
 
