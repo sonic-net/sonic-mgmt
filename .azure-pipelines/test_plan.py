@@ -349,6 +349,7 @@ class TestPlanManager(object):
                 "setup_container_params": setup_container_params,
                 "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
                 "add_topo_params": kwargs.get("add_topo_params", ""),
+                "skip_restart_ptf": kwargs.get("skip_restart_ptf", False),
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
@@ -669,6 +670,17 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Deploy minigraph extra params"
+    )
+    parser_create.add_argument(
+        "--skip-restart-ptf",
+        type=ast.literal_eval,
+        dest="skip_restart_ptf",
+        nargs='?',
+        const=False,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Whether skip restart ptf for nightly test."
     )
     parser_create.add_argument(
         "--kvm-image-branch",
@@ -1127,6 +1139,7 @@ if __name__ == "__main__":
                     setup_container_params=args.setup_container_params,
                     add_topo_params=args.add_topo_params,
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    skip_restart_ptf=args.skip_restart_ptf,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
                     kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
