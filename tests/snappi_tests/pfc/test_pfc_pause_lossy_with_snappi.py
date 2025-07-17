@@ -1,18 +1,18 @@
 import pytest
+import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    get_snappi_ports_single_dut, snappi_testbed_config, \
-    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
-    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
+    snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
+    snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, tgen_port_info, \
+    get_snappi_ports, is_snappi_multidut                                        # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
-import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.files.helper import reboot_duts, setup_ports_and_dut, multidut_port_info  # noqa: F401
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
+from tests.snappi_tests.files.helper import reboot_duts     # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog       # noqa: F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
