@@ -17,6 +17,9 @@ str3-7800-lc6-2,10.64.246.73/23,Arista-7800R3-48CQ2-C48,DevSonic,sonic
 str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3,FanoutLeaf,sonic
 str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,sonic
 t2-aresone-ixia,10.3.145.74/32,IXIA-tester,DevIxiaChassis,
+t2-aresone-ixia-2,10.3.155.73/26,IXIA-tester,DevIxiaChassis,
+str-7280dr3-1,10.3.155.68/26,Arista-7280DR3AM-36,DevSonic,
+str2-7260cx3-d21-u22,10.3.155.72/26,Arista-7260CX3,FanoutLeaf,sonic
 msr-ixia-metronome-timing-0,10.3.145.7/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-aresone-800ge-1,10.3.145.9/32,IXIA-tester,DevIxiaChassis_Primary,
 msr-ixia-aresone-800ge-2,10.3.145.10/32,IXIA-tester,DevIxiaChassis,

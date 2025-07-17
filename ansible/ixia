@@ -53,6 +53,7 @@ sonic:
     sonic_nvidia_sn5600_stress:
     sonic_nvidia_sn5640_stress:
     sonic_arista_7060x6_512_stress:
+    sonic_arista_7280dr3_400G:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -312,6 +313,57 @@ sonic_str3_arista_7808_lc:
       ansible_hostv6: 2a01:111:e210:3000::a03:92d8
       mgmt_subnet_mask_length: 23
 
+sonic_arista_7280dr3_400G:
+  vars:
+    max_cores: 4
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+    macsec_card: True
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    str-7280dr3-1:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3am_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN2340035U
+      base_mac: 38:38:a6:a4:56:6d
+      ansible_host: 10.3.155.68
+      ansible_hostv6: 2a01:111:e210:8a::144
+      model: DCS-7280DR3AM-36
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN2340035U"
+        "0x24": "38:38:a6:a4:56:6d"
+        "0x25": "2023/10/04 21:48:30"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN2340035U"
+        "0xFE": "0xdeadbeef"
+
 sonic_str3_arista_7808_sup:
   vars:
     HwSku: Arista-7808R3A-FM
@@ -488,6 +540,9 @@ ixia_chassis:
     msr-ixia-aresone-800ge-8:
       ansible_host: 10.3.145.18
       os: ixia
+    t2-aresone-ixia-2:
+      ansible_host: 10.3.155.73
+      os: ixia  
 
 l1_switch:
   hosts:

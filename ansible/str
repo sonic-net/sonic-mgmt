@@ -304,6 +304,8 @@ sonic:
     sonic_agc7648:
     sonic_mlnx_4700:
     sonic_arista_7060c6:
+    sonic_arista_7280dr3_400G:
+    sonic_nokia_7250x3b_400G:
 
 sonic_mlnx_40:
   hosts:
@@ -514,6 +516,185 @@ sonic_arista_7060c6:
         "0x2B": "Arista Networks"
         "0x2F": "HBG231701WA"
 
+sonic_nokia_7250x3b_400G:
+  vars:
+    max_cores: 4
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+    console_baudrate: 115200
+    macsec_card: True
+  hosts:
+    str-7250x3b-1:
+      hwsku:  Nokia-IXR7250-X3B
+      sonic_hwsku:  Nokia-IXR7250-X3B
+      sonic_hw_platform:  x86_64-nokia_ixr7250_x3b-r0
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: NS-SD02-085
+      base_mac:  A8:24:B8:8B:43:33
+      ansible_host: 10.3.155.66
+      ansible_hostv6: 2a01:111:e210:8a::142
+      model: '3HE17033AAxx'
+      syseeprom_info:
+        "0x21": "7250 IXR-X3B"
+        "0x22": "3HE17033AAxx"
+        "0x23": "NS-SD02-085"
+        "0x24": "A8:24:B8:8B:43:33"
+        "0x27": "DEMO UNIT"
+        "0x28": "x86_64-nokia_ixr7250_x3b-r0"
+        "0x29": "2024.02-94-gdd93c892"
+        "0x2D": "NOKIA"
+        "0xFE": "0x376505E8"
+    str-7250x3b-2:
+      hwsku:  Nokia-IXR7250-X3B
+      sonic_hwsku:  Nokia-IXR7250-X3B
+      sonic_hw_platform:  x86_64-nokia_ixr7250_x3b-r0
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: NS-SD02-086
+      base_mac:  A8:24:B8:8B:43:30
+      ansible_host: 10.3.155.67
+      ansible_hostv6: 2a01:111:e210:8a::143
+      model: '3HE17033AAxx'
+      syseeprom_info:
+        "0x21":  "7250 IXR-X3B"
+        "0x22":  "3HE17033AAxx"
+        "0x23":  "NS-SD02-086"
+        "0x24":  "A8:24:B8:8B:43:30"
+        "0x27":  "DEMO UNIT"
+        "0x28":  "x86_64-nokia_ixr7250_x3b-r0"
+        "0x29":  "2024.02-94-gdd93c892"
+        "0x2D":  "NOKIA"
+        "0xFE":  "0x515B7931"
+
+sonic_arista_7280dr3_400G:
+  vars:
+    max_cores: 4
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+    macsec_card: True
+  hosts:
+    str-7280dr3-1:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3am_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN2340035U
+      base_mac: 38:38:a6:a4:56:6d
+      ansible_host: 10.3.155.68
+      ansible_hostv6: 2a01:111:e210:8a::144
+      model: DCS-7280DR3AM-36
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN2340035U"
+        "0x24": "38:38:a6:a4:56:6d"
+        "0x25": "2023/10/04 21:48:30"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN2340035U"
+        "0xFE": "0xdeadbeef"
+    str-7280dr3-2:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN235007EM
+      base_mac:  a4:3f:68:11:c5:86
+      ansible_host: 10.3.155.69
+      ansible_hostv6: 2a01:111:e210:8a::145
+      model: 'DCS-7280DR3AM-36'
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN235007EM"
+        "0x24": "a4:3f:68:11:c5:86"
+        "0x25": "2023/12/15 19:08:28"
+        "0x26": "03.00"
+        "0x27": "11.13"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN235007EM"
+    str-7280dr3-3:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN2340026T
+      base_mac: 38:38:a6:a4:53:04
+      ansible_host: 10.3.155.70
+      ansible_hostv6: 2a01:111:e210:8a::146
+      model: 'DCS-7280DR3AM-36'
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN2340026T"
+        "0x24": "38:38:a6:a4:53:04"
+        "0x25": "2023/10/04 08:35:14"
+        "0x26": "03.00"
+        "0x27": "11.13"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN2340026T"
+    str-7280dr3-4:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN235005R8
+      base_mac: a4:3f:68:11:ba:28
+      ansible_host: 10.3.155.71
+      ansible_hostv6: 2a01:111:e210:8a::147
+      model: 'DCS-7280DR3AM-36'
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN235005R8"
+        "0x24": "a4:3f:68:11:ba:28"
+        "0x25": "2023/12/15 18:01:29"
+        "0x26": "03.00"
+        "0x27": "11.13"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN235005R8"    
+
 sonic_mlnx_4700:
   vars:
     msft_an_enabled: True
@@ -609,6 +790,9 @@ fanout:
       ansible_host: 10.64.247.79
       ansible_hostv6: 2a01:111:e210:b000::a40:f74f
       os: sonic
+    str2-7260cx3-d21-u22:
+      ansible_host: 10.3.155.72
+      ansible_hostv6: 2a01:111:e210:8a::148
 
 server:
   hosts:
