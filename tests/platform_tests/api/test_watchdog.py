@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any'),
     pytest.mark.device_type('physical')
 ]
