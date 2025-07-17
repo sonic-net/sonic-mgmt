@@ -9,25 +9,12 @@ steps:
   - script: |
       pip install pytest pytest-cov
 
-      echo "Checking for added or modified Python files in tests/common2 for pytest-cov..."
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
 
-      # Determine the base commit to compare against
-      # This is robust for PRs (merging into main/master) and direct pushes
-      BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
-      if [ "$BASE_COMMIT" = "HEAD~1" ]; then
-          echo "Warning: Could not determine merge base with origin/master. Comparing with previous commit (HEAD~1)."
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping Unit Tests with Coverage Check."
       else
-          echo "Comparing changes since $BASE_COMMIT."
-      fi
-
-      # Get names of added (A) or modified (M) files, filter to .py and tests/common2
-      # The '^(A|M)' regular expression ensures we only match lines starting with A or M
-      CHANGED_PYTHON_FILES=$(git diff --name-status "$BASE_COMMIT" HEAD -- tests/common2 | grep -E '^(A|M).*py$' | awk '{print $2}' | tr '\n' ' ')
-
-      if [ -z "$CHANGED_PYTHON_FILES" ]; then
-        echo "No .py files added or modified in tests/common2 in this commit. Skipping Unit Tests with Coverage Check."
-      else
-        echo "Found .py files added or modified: $CHANGED_PYTHON_FILES"
         echo "Running Unit Tests with Coverage Check for tests/common2..."
         # The command below will run tests found in 'tests/common2'
         # and collect coverage for source files in 'tests/common2'.

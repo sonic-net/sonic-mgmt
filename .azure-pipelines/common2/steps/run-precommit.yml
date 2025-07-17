@@ -16,28 +16,12 @@ steps:
         pip install pre-commit
         pip install pylint # required as pylint is run in local mode
 
-        echo "Identifying changed files in tests/common2 directory..."
+        # Source the shared script to get changed files (all files, not just Python)
+        source .azure-pipelines/common2/scripts/get-changed-python-files.sh all
 
-        # Get the target branch name (e.g., 'main' or 'master')
-        # This assumes a typical Gitflow or GitHub flow where you merge into main/master
-        # You might need to adjust $(Build.SourceBranch) based on your specific trigger
-        # For PRs, $(System.PullRequest.TargetBranch) is more appropriate.
-        # For simplicity, let's assume we're comparing against the common ancestor with origin/main.
-        # Adjust 'main' to your default branch name if it's different (e.g., 'master')
-        BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
-        if [ "$BASE_COMMIT" = "HEAD~1" ]; then
-            echo "Warning: Could not determine merge base with main/master. Comparing with previous commit (HEAD~1)."
+        if [ "$HAS_CHANGED_FILES" = "false" ]; then
+          echo "Skipping pre-commit run for this directory."
         else
-            echo "Comparing with base commit: $BASE_COMMIT"
-        fi
-
-        # Get changed files relative to the base commit, filter to tests/common2
-        CHANGED_FILES=$(git diff --name-only "$BASE_COMMIT" HEAD -- tests/common2 | tr '\n' ' ')
-
-        if [ -z "$CHANGED_FILES" ]; then
-          echo "No relevant files changed in tests/common2. Skipping pre-commit run for this directory."
-        else
-          echo "Changed files in tests/common2: $CHANGED_FILES"
           echo "Running pre-commit on specific changed files..."
           # configuration is loaded from .pre-commit-config.yaml
           # We pass the list of changed files to pre-commit

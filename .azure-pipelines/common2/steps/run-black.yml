@@ -2,25 +2,12 @@ steps:
   - script: |
       pip install black
 
-      echo "Checking for added or modified Python files in tests/common2 for Black..."
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
 
-      # Determine the base commit to compare against
-      # This is robust for PRs (merging into main/master) and direct pushes
-      BASE_COMMIT=$(git merge-base HEAD origin/master || echo HEAD~1)
-      if [ "$BASE_COMMIT" = "HEAD~1" ]; then
-          echo "Warning: Could not determine merge base with origin/master. Comparing with previous commit (HEAD~1)."
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping Black."
       else
-          echo "Comparing changes since $BASE_COMMIT."
-      fi
-
-      # Get names of added (A) or modified (M) files, filter to .py and tests/common2
-      # The '^(A|M)' regular expression ensures we only match lines starting with A or M
-      CHANGED_PYTHON_FILES=$(git diff --name-status "$BASE_COMMIT" HEAD -- tests/common2 | grep -E '^(A|M).*py$' | awk '{print $2}' | tr '\n' ' ')
-
-      if [ -z "$CHANGED_PYTHON_FILES" ]; then
-        echo "No .py files added or modified in tests/common2 in this commit. Skipping Black."
-      else
-        echo "Found .py files added or modified: $CHANGED_PYTHON_FILES"
         echo "Running Black formatter on these files..."
         # Pass the specific files to black --check
         # Black will use the pyproject.toml configuration for these files
