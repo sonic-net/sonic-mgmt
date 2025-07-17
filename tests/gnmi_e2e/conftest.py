@@ -43,10 +43,10 @@ def apply_cert_config(duthost):
 
     # restart gnmi
     command = "docker exec gnmi supervisorctl stop gnmi-native"
-    duthost.shell(dut_command, module_ignore_errors=True)
+    duthost.shell(command, module_ignore_errors=True)
 
     command = "docker exec gnmi supervisorctl start gnmi-native"
-    duthost.shell(dut_command, module_ignore_errors=True)
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def recover_cert_config(duthost):
