@@ -266,7 +266,7 @@ def k8s_config_update(duthost, test_data):
     for num, (json_patch, target_config, target_table, expected_result) in enumerate(test_data):
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
