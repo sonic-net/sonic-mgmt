@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -90,10 +91,21 @@ class TestMACFault(object):
 
         return dut, selected_interfaces
 
+    def shutdown_and_startup_interfaces(self, dut, interface):
+        dut.command("sudo config interface shutdown {}".format(interface))
+        pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "down"),
+                     "Interface {} did not go down after shutdown".format(interface))
+
+        dut.command("sudo config interface startup {}".format(interface))
+        pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
+                     "Interface {} did not come up after startup".format(interface))
+
     def test_mac_local_fault_increment(self, select_random_interfaces):
         dut, interfaces = select_random_interfaces
 
         for interface in interfaces:
+            self.shutdown_and_startup_interfaces(dut, interface)
+
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {} was not up before disabling/enabling rx-output using sfputil".format(interface))
 
@@ -123,6 +135,8 @@ class TestMACFault(object):
         dut, interfaces = select_random_interfaces
 
         for interface in interfaces:
+            self.shutdown_and_startup_interfaces(dut, interface)
+
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {} was not up before disabling/enabling tx-output using sfputil".format(interface))
 
