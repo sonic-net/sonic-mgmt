@@ -76,6 +76,6 @@ def setup_gnmi_server_e2e(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 
     recover_cert_config(duthost)
     delete_gnmi_certs(localhost)
-  
+
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
