@@ -1,6 +1,7 @@
 import pytest
 import logging
 
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
@@ -41,16 +42,15 @@ def apply_cert_config(duthost):
     duthost.shell(command, module_ignore_errors=True)
 
     # restart gnmi
-    command = 'docker stop gnmi'
-    duthost.shell(command, module_ignore_errors=True)
+    command = "docker exec gnmi supervisorctl stop gnmi-native"
+    duthost.shell(dut_command, module_ignore_errors=True)
 
-    command = 'docker start gnmi'
-    duthost.shell(command, module_ignore_errors=True)
+    command = "docker exec gnmi supervisorctl start gnmi-native"
+    duthost.shell(dut_command, module_ignore_errors=True)
 
 
 def recover_cert_config(duthost):
-    command = 'sudo config reload -y'
-    duthost.shell(command, module_ignore_errors=True)
+    config_reload(duthost)
 
 
 @pytest.fixture(scope="module", autouse=True)
