@@ -69,7 +69,13 @@ class SmartSwitchHaTrafficTest:
             self.capture_log,
             self.sniff_timeout,
         )
+
+        logger.debug("PTF Sniffer args: {}".format(ptf_sniffer_args))
+        logger.debug("PTF Sniffer script: {}".format(self.ptf_sniffer))
+        logger.debug("PTF Sniffer namespace: {}".format(self.server_namespace))
+
         templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, SSW_HA_SNIFFER_CONF_TEMPL)).read())
+
         self.ptfhost.copy(
             content=templ.render(ptf_sniffer=self.ptf_sniffer,
                                  ptf_sniffer_args=ptf_sniffer_args,
@@ -193,7 +199,7 @@ class SmartSwitchHaTrafficTest:
 
     def send_packets(self):
         """Send packets generated."""
-        logger.info("Sender waiting to send {} packets".format(len(NUM_SENT_PACKETS)))
+        logger.info("Sender waiting to send {} packets".format(NUM_SENT_PACKETS))
 
         sender_start = datetime.datetime.now()
         logger.info("Sender started at {}".format(str(sender_start)))

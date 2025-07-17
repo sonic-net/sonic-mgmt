@@ -1,6 +1,6 @@
 [program:ha_sniffer]
 command=ip netns exec {{ netns }}  /usr/bin/python {{ ptf_sniffer }} {{ ptf_sniffer_args }}
-process_name=dual_tor_sniffer
+process_name=ha_sniffer
 stdout_logfile=/tmp/ha_sniffer.out.log
 stderr_logfile=/tmp/ha_sniffer.err.log
 redirect_stderr=false
