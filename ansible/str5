@@ -39,6 +39,9 @@ all:
         vms93-2:
           ansible_host: 10.64.247.139
           ansible_hostv6: 2a01:111:e210:b000::a40:f78b
+        vms93-3:
+          ansible_host: 10.64.247.168
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7a8
         vms94-1-a:
           ansible_host: 10.64.247.148
           ansible_hostv6: 2a01:111:e210:b000::a40:f794
@@ -204,6 +207,10 @@ fanout:
     str5-sn5640-fan-2:
       ansible_host: 10.64.246.77
       ansible_hostv6: 2a01:111:e210:b000::a40:f64d
+      os: sonic
+    str5-sn5640-fan-3:
+      ansible_host: 10.64.247.165
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a5
       os: sonic
     str5-sn5640-fan-4:
       ansible_host: 10.64.246.169
@@ -423,6 +430,27 @@ sonic_nvidia_sn5640:
         "0x21": "SN5640"
         "0x22": "920-9N52F-09RB-7S0"
         "0x23": "MT25116051T3"
+        "0x24": "50:00:e6:01:bc:52"
+        "0x25": "03/18/2025 09:19:04"
+        "0x26": "16"
+        "0x28": "x86_64-nvidia_sn5640-r0"
+        "0x29": "2024.08-5.3.0013-9600"
+        "0x2A": "546"
+        "0x2B": "Nvidia"
+        "0x2D": "Nvidia"
+        "0xFE": "0xC8BAF94C"
+    str5-sn5640-3:
+      ansible_host: 10.64.247.164
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7a4
+      mgmt_subnet_mask_length: 23
+      hwsku: Mellanox-SN5640-C512S2
+      model: MSN5640
+      serial:
+      base_mac: 50:00:E6:01:BC:52
+      syseeprom_info:
+        "0x21": "SN5640"
+        "0x22": "920-9N52F-09RB-7S0"
+        "0x23": ""
         "0x24": "50:00:e6:01:bc:52"
         "0x25": "03/18/2025 09:19:04"
         "0x26": "16"
