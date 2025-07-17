@@ -5,7 +5,7 @@ import logging
 import json
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
@@ -25,11 +25,8 @@ def parse_sfp_presence_output(sfp_presence_output):
         raise ValueError("Invalid output format: expected at least 2 lines")
     sfp_presence_parsed = {}
     for line in sfp_presence_output[table_header_length:]:
-        parts = line.split()
-        if len(parts) != 2:
-            raise ValueError(f"Invalid line: {line}")
-        port, status = parts
-        sfp_presence_parsed[port] = status
+        intf, status = line.split(maxsplit=1)
+        sfp_presence_parsed[intf] = status
     return sfp_presence_parsed
 
 
@@ -51,7 +48,8 @@ def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts, d
     intfs = conn_graph_facts["device_conn"][duthost.hostname]
     intf_list_to_check = {intf for intf in intfs if intf not in dpu_npu_port_list[duthost.hostname]}
     logging.info(f"Interfaces to check: {intf_list_to_check}")
-    intf_not_present = intf_list_to_check - set(presence_dict.keys())
+    missing_transceivers = {intf for intf, status in presence_dict.items() if status != 'Present'}
+    intf_not_present = intf_list_to_check.intersection(missing_transceivers)
     assert len(intf_not_present) == 0, \
         f"Missing interfaces in presence output: {intf_not_present}"
     logging.info("All expected interfaces are present in the output")
