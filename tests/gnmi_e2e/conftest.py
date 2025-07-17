@@ -5,7 +5,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
-                                            create_gnmi_certs, delete_gnmi_certs
+                                            create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment
 from tests.common.gu_utils import create_checkpoint, rollback
 
 
@@ -16,6 +16,8 @@ SETUP_ENV_CP = "test_setup_checkpoint"
 def apply_cert_config(duthost):
     command = 'sudo config save -y'
     duthost.shell(command, module_ignore_errors=True)
+
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
 
     # Setup gnmi client cert common name
     role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
@@ -35,17 +37,17 @@ def apply_cert_config(duthost):
     command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI|gnmi" "user_auth" "cert"'
     duthost.shell(command, module_ignore_errors=True)
 
-    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI|gnmi" "port" "50052"'
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI|gnmi" "port" "{}"'.format(env.gnmi_port)
     duthost.shell(command, module_ignore_errors=True)
 
     command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI|gnmi" "log_level" "10"'
     duthost.shell(command, module_ignore_errors=True)
 
     # restart gnmi
-    command = "docker exec gnmi supervisorctl stop gnmi-native"
+    command = "docker exec {} supervisorctl stop gnmi-native".format(env.gnmi_container, env.gnmi_program)
     duthost.shell(command, module_ignore_errors=True)
 
-    command = "docker exec gnmi supervisorctl start gnmi-native"
+    command = "docker exec {} supervisorctl start gnmi-native".format(env.gnmi_container, env.gnmi_program)
     duthost.shell(command, module_ignore_errors=True)
 
 
