@@ -75,6 +75,8 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     if not len(lag_facts['lags'].keys()):
         pytest.skip("No Lag found in this topology")
+    if len(lag_facts['lags'].keys()) == 1:
+        pytest.skip("Only one Lag found in this topology, skipping test")
     portchannel_name = list(lag_facts['lags'].keys())[0]
     portchannel_dest_name = None
     recv_port = []
