@@ -44,7 +44,7 @@ def fixture_encap_type(request):
     return request.param
 
 
-@pytest.fixture(autouse=True,scope="module")
+@pytest.fixture(autouse=True,scope="function")
 def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
