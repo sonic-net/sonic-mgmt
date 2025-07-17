@@ -374,6 +374,7 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
+
 def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
@@ -386,8 +387,11 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     output = duthost.shell("show version", module_ignore_errors=True)['stdout']
     version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
     asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
-    version = version_reg.findall(output)[0] if version_reg.search(output) else "" # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d, SONiC.master.882522-695c23859
-    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else "" # only broadcom, cisco-8000, mellanox support qos sai tests
+    # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d,
+    # SONiC.master.882522-695c23859
+    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
+    # only broadcom, cisco-8000, mellanox support qos sai tests
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
 
     if "master" in version:
         branch_name = "master"
@@ -405,7 +409,9 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     # Get debian codename from syncd container (not host OS)
     try:
         # Try to get codename from syncd container
-        syncd_codename_result = duthost.shell("docker exec syncd grep VERSION_CODENAME /etc/os-release | cut -d= -f2 | tr -d '\"'", module_ignore_errors=True)
+        syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                              "cut -d= -f2 | tr -d '\"'")
+        syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
         if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
             debian_codename = syncd_codename_result['stdout'].strip()
         else:
@@ -427,10 +433,13 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         # For internal branches older than 202405, use the original URL without modification
         pass
     elif branch_name == "master":
-        py_saithrift_url = f"http://{ip_addr}/mssonic-public-pipelines/Azure.sonic-buildimage.official.{asic}/master/{asic}/latest/target/debs/{debian_codename}/{pkg_name}"
+        py_saithrift_url = (f"http://{ip_addr}/mssonic-public-pipelines/"
+                            f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                            f"latest/target/debs/{debian_codename}/{pkg_name}")
     else:
         # For internal branches newer than 202405 and other branches
-        py_saithrift_url = f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}"
+        py_saithrift_url = (f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/"
+                            f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
 
     # Retry download of saithrift library
     retry_count = 5
