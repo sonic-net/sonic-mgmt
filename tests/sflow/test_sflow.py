@@ -17,6 +17,9 @@ from tests.ptf_runner import ptf_runner
 from tests.common import reboot
 from tests.common import config_reload
 from tests.common.utilities import wait_until
+from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_neighbor_port_list
+from tests.common.helpers.assertions import pytest_assert
 
 SFLOW_RATE_DEFAULT = 512
 
@@ -56,13 +59,23 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
 
     config_dut_ports(duthost, var['test_ports'][0:2], vlan=1000)
 
-    for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
-        for port in interfaces['members']:
-            var['sflow_ports'][port] = {}
-            var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost, port)
-            var['sflow_ports'][port]['port_index'] = get_port_index(duthost, port)
-            var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][port]
-            var['sflow_ports'][port]['sample_rate'] = SFLOW_RATE_DEFAULT
+    upstream_ports = []
+    if len(mg_facts["minigraph_portchannels"]) == 0:
+        topo = tbinfo["topo"]["type"]
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_ports = get_neighbor_port_list(duthost, upstream_neigh_type)
+    else:
+        for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
+            upstream_ports.extend(interfaces['members'])
+    pytest_assert(len(upstream_ports) > 0, 'No upstream ports found, please, please double confirm the logic of '
+                                           'preparing setup')
+    for port in upstream_ports:
+        var['sflow_ports'][port] = {}
+        var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost, port)
+        var['sflow_ports'][port]['port_index'] = get_port_index(duthost, port)
+        var['sflow_ports'][port]['ptf_indices'] = mg_facts['minigraph_ptf_indices'][port]
+        var['sflow_ports'][port]['sample_rate'] = SFLOW_RATE_DEFAULT
+
     var['portmap'] = json.dumps(var['sflow_ports'])
     logger.info(f'var = {var}')
 

@@ -15,12 +15,43 @@ class NtpDaemon(Enum):
 @contextmanager
 def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
+    ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
+    ntp_conf_path = None
+    ntp_service_name = None
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ntp_conf_path = '/etc/ntpsec/ntp.conf'
+        ntp_service_name = 'ntpsec'
+    elif ntp_daemon_type == NtpDaemon.CHRONY:
+        ntp_conf_path = '/etc/chrony/chrony.conf'
+        ntp_service_name = 'chrony'
+    elif ntp_daemon_type == NtpDaemon.NTP:
+        ntp_conf_path = '/etc/ntp.conf'
+        ntp_service_name = 'ntp'
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
+
+    # Comment out the default pool configuration
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 0.debian.pool.ntp.org iburst", regexp="^pool.*0.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 1.debian.pool.ntp.org iburst", regexp="^pool.*1.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 2.debian.pool.ntp.org iburst", regexp="^pool.*2.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 3.debian.pool.ntp.org iburst", regexp="^pool.*3.debian.*pool.*ntp.*org.*")
+
+    # Comment out the tos minclock minsane option line
+    # Having this option enabled can cause the NTP server to not synchronize
+    # with the PTF host, which can lead to test failures.
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+    ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
 
@@ -28,7 +59,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     # root dispersion of more than 3 seconds (configurable via /etc/chrony/chrony.conf, but we currently
     # don't touch that setting). Therefore, block here until the root dispersion is less than 3 seconds
     # so that we don't incorrectly fail the test.
-    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, NtpDaemon.NTP),
+    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type),
                   "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
 
     # check to see if iburst option is present
@@ -49,7 +80,20 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     yield
 
     # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
+    ptfhost.service(name=ntp_service_name, state="stopped")
+
+    # restore the default pool configuration
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 0.debian.pool.ntp.org iburst", regexp="#pool.*0.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 1.debian.pool.ntp.org iburst", regexp="#pool.*1.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 2.debian.pool.ntp.org iburst", regexp="#pool.*2.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
+
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
