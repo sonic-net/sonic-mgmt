@@ -13,8 +13,8 @@ from common.ha.smartswitch_ha_helper import (
 
 @pytest.fixture(scope="module")
 def copy_files(ptfhost):
-    ptfhost.copy(src="/data/tests/common/ha/tcp_server.py", dest='/root')
-    ptfhost.copy(src="/data/tests/common/ha/tcp_client.py", dest='/root')
+    ptfhost.copy(src="tests/common/ha/tcp_server.py", dest='/root')
+    ptfhost.copy(src="tests/common/ha/tcp_client.py", dest='/root')
 
 
 @pytest.fixture(scope='module')
