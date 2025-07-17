@@ -53,6 +53,10 @@ parameters:
     type: string
     default: ""
 
+  - name: SKIP_RESTART_PTF
+    type: boolean
+    default: false
+
   - name: COMMON_EXTRA_PARAMS
     type: string
     default: ""
@@ -280,6 +284,7 @@ steps:
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
       --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --skip-restart-ptf ${{ parameters.SKIP_RESTART_PTF }} \
       --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --asic-type ${{ parameters.ASIC_TYPE }} \
       --vm-type ${{ parameters.VM_TYPE }} \
