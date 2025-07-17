@@ -6,21 +6,26 @@ import time
 import logging
 import snappi
 import sys
+import os
+import yaml
 import random
 import subprocess
 import csv
 import json
-import os
 from copy import copy
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
     get_ipv6_addrs_in_subnet, parse_override
-from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
+from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location, \
+    get_macs, get_ip_addresses, subnet_mask_from_hosts   # noqa: F401
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
+    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
+from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port
+
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
 from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
 
@@ -90,7 +95,7 @@ def __gen_mac(id):
     Returns:
         MAC address (string)
     """
-    return '00:11:22:33:44:{:02d}'.format(id)
+    return '00:{:02d}:22:33:44:01'.format(id)
 
 
 def __gen_pc_mac(id):
@@ -819,40 +824,48 @@ def setup_dut_ports(
         port_config_list,
         snappi_ports):
 
-    for index, duthost in enumerate(duthost_list):
-        config_result = __vlan_intf_config(config=config,
-                                           port_config_list=port_config_list,
-                                           duthost=duthost,
-                                           snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
-
-    for index, duthost in enumerate(duthost_list):
-        config_result = __portchannel_intf_config(config=config,
-                                                  port_config_list=port_config_list,
-                                                  duthost=duthost,
-                                                  snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
-
-    if is_snappi_multidut(duthost_list):
+    ptype = "--snappi_macsec" in sys.argv
+    if not ptype:
         for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_multidut(
-                                                    config=config,
+            config_result = __vlan_intf_config(config=config,
+                                            port_config_list=port_config_list,
+                                            duthost=duthost,
+                                            snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
+
+        for index, duthost in enumerate(duthost_list):
+            config_result = __portchannel_intf_config(config=config,
                                                     port_config_list=port_config_list,
                                                     duthost=duthost,
-                                                    snappi_ports=snappi_ports,
-                                                    setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+                                                    snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+        if is_snappi_multidut(duthost_list):
+            for index, duthost in enumerate(duthost_list):
+                config_result = __intf_config_multidut(
+                                                        config=config,
+                                                        port_config_list=port_config_list,
+                                                        duthost=duthost,
+                                                        snappi_ports=snappi_ports,
+                                                        setup=setup)
+                pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+        else:
+            for index, duthost in enumerate(duthost_list):
+                config_result = __l3_intf_config(config=config,
+                                                port_config_list=port_config_list,
+                                                duthost=duthost,
+                                                snappi_ports=snappi_ports,
+                                                setup=setup)
+                pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
     else:
         for index, duthost in enumerate(duthost_list):
-            config_result = __l3_intf_config(config=config,
-                                             port_config_list=port_config_list,
-                                             duthost=duthost,
-                                             snappi_ports=snappi_ports,
-                                             setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
-
-    pytest_assert(len(port_config_list) == len(snappi_ports), 'Failed to configure DUT ports')
-
+            config_result = __intf_config_macsec(
+                                                config=config,
+                                                port_config_list=port_config_list,
+                                                duthost=duthost,
+                                                snappi_ports=snappi_ports,
+                                                setup=setup)
+            pytest_assert(config_result is True, 'Fail to configure macsec on snappi ports')
     return config, port_config_list, snappi_ports
 
 
