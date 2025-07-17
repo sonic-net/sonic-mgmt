@@ -19,24 +19,18 @@ def get_max_number_of_parallel_links_and_neighbors(duthost):
         neigh = line.split(maxsplit=2)[1]
         counters[neigh] = counters.get(neigh, 0) + 1
 
-    return max(counters.values()), list(counters.keys())
+    return max(counters.values())
 
 
 @pytest.fixture(scope="session")
 def config_setup(duthosts, tbinfo):
     logger.info("Setting up SRv6 configuration")
 
-    #Ixia Traffic Generators
-    tgs = tbinfo['tgs']
-
-    # Setup SRV6 configuration for each DUT and keep track of host SIDs & neighbors
+    # Setup SRV6 configuration for each DUT and keep track of host SIDs
     device_sids = {}  # Bookkeeping dict for host SIDs
-    device_neighbors = {}  # Bookkeeping dict for host neighbors
     for index, duthost in enumerate(duthosts):
-        max_parallel_links, neighbors = get_max_number_of_parallel_links_and_neighbors(duthost)
+        max_parallel_links = get_max_number_of_parallel_links_and_neighbors(duthost)
         logger.info(f"Max parallel links for {duthost.hostname}: {max_parallel_links}")
-        logger.info(f"Neighbors for {duthost.hostname}: {neighbors}")
-        device_neighbors[duthost.hostname] = neighbors
         if max_parallel_links > MAX_SID_NUM:
             pytest.skip(f"Max parallel links {max_parallel_links} exceeds the limit of {MAX_SID_NUM} for {duthost.hostname}")
 
@@ -71,11 +65,13 @@ def config_setup(duthosts, tbinfo):
         duthost.copy(content=json.dumps(config, indent=4), dest=tmpfile)
         duthost.shell(f'sonic-cfggen -j {tmpfile} -w')
 
+    #Ixia Traffic Generators
+    tgs = tbinfo['tgs']
     # Generate SIDs for Ixia Traffic Generators
     for index, tg in enumerate(tgs):
         # Initialize the host SID list
         device_sids[tg] = []
-        for i in range(IXIA_PORTS_PER_TG):
+        for i in range(1, IXIA_PORTS_PER_TG + 1):
             device_sids[tg].append(((len(duthosts) + index) << 8) + i)
 
     # Setup static routes for SRv6 forwarding
@@ -91,14 +87,10 @@ def config_setup(duthosts, tbinfo):
         config = {
             "STATIC_ROUTE": {}
         }
-        for neigh in device_neighbors[duthost.hostname]:
+        for neigh in neighbor2intf.keys():
             if neigh not in device_sids:
                 logger.warning(f"Neighbor {neigh} is not a DUT or TG, skipping...")
                 continue  # Skip if the neighbor is not a DUT or TG
-
-            if neigh not in neighbor2intf:
-                logger.warning(f"No interfaces found for neighbor {neigh} on {duthost.hostname}, skipping...")
-                continue
 
             for i, sid in enumerate(device_sids[neigh]):
                 if i >= len(neighbor2intf[neigh]):
