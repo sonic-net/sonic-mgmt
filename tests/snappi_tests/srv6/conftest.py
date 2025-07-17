@@ -2,24 +2,24 @@ import pytest
 import logging
 import json
 
-from tests.common.config_reload import config_reload
-
 logger = logging.getLogger(__name__)
 
 
 SRV6_LOC_BLOCK = "fcbb:bbbb"
 IXIA_PORTS_PER_TG = 8
+MAX_SID_NUM = 128
 
 
 def get_max_number_of_parallel_links_and_neighbors(duthost):
     """Get the maximum number of parallel links and neighbors for SRv6 configuration"""
     lldp_table = duthost.command("show lldp table")['stdout_lines'][3:]
+    lldp_table = lldp_table[:-2]  # remove the trailing 2 lines
     counters = dict()
     for line in lldp_table:
         neigh = line.split(maxsplit=2)[1]
         counters[neigh] = counters.get(neigh, 0) + 1
 
-    return max(counters.values()), counters.keys()
+    return max(counters.values()), list(counters.keys())
 
 
 @pytest.fixture(scope="session")
@@ -37,6 +37,8 @@ def config_setup(duthosts, tbinfo):
         logger.info(f"Max parallel links for {duthost.hostname}: {max_parallel_links}")
         logger.info(f"Neighbors for {duthost.hostname}: {neighbors}")
         device_neighbors[duthost.hostname] = neighbors
+        if max_parallel_links > MAX_SID_NUM:
+            pytest.skip(f"Max parallel links {max_parallel_links} exceeds the limit of {MAX_SID_NUM} for {duthost.hostname}")
 
         # Initialize the dictionary that contains SRv6 configuration
         config = {
@@ -52,7 +54,7 @@ def config_setup(duthosts, tbinfo):
         # Initialize the host SID list
         device_sids[duthost.hostname] = []
         # configure a number of SRv6 SIDs based on max_parallel_links
-        for i in range(max_parallel_links):
+        for i in range(1, max_parallel_links + 1):
             sid = (index << 8) + i
             config['SRV6_MY_LOCATORS'][f"loc{i}"] = {
                 "prefix": f"{SRV6_LOC_BLOCK}:{sid:x}::",
@@ -71,6 +73,8 @@ def config_setup(duthosts, tbinfo):
 
     # Generate SIDs for Ixia Traffic Generators
     for index, tg in enumerate(tgs):
+        # Initialize the host SID list
+        device_sids[tg] = []
         for i in range(IXIA_PORTS_PER_TG):
             device_sids[tg].append(((len(duthosts) + index) << 8) + i)
 
@@ -80,14 +84,18 @@ def config_setup(duthosts, tbinfo):
         neighbor2intf = dict()
         # First, create a mapping of neighbors to interfaces and their IPv6 addresses
         for intf in ipv6_interfaces:
-            if 'bgp_neighbor' in ipv6_interfaces[intf] and ipv6_interfaces[intf]['bgp_neighbor'] != 'N/A':
-                neighbor2intf.get(ipv6_interfaces[intf]['bgp_neighbor'], []).append((intf, ipv6_interfaces[intf]['neighbor_ip']))
+            if 'bgp neighbor' in intf and intf['bgp neighbor'] != 'N/A':
+                neighbor2intf.setdefault(intf['bgp neighbor'], []).append((intf['interface'], intf['neighbor ip']))
 
         # Then, create static routes for each neighbor and their corresponding SIDs (1 route per SID)
         config = {
             "STATIC_ROUTE": {}
         }
         for neigh in device_neighbors[duthost.hostname]:
+            if neigh not in device_sids:
+                logger.warning(f"Neighbor {neigh} is not a DUT or TG, skipping...")
+                continue  # Skip if the neighbor is not a DUT or TG
+
             if neigh not in neighbor2intf:
                 logger.warning(f"No interfaces found for neighbor {neigh} on {duthost.hostname}, skipping...")
                 continue
@@ -102,7 +110,8 @@ def config_setup(duthosts, tbinfo):
                 intf, ipv6_addr = neighbor2intf[neigh][i]
                 config["STATIC_ROUTE"][f"default|{SRV6_LOC_BLOCK}:{sid:x}::/48"] = {
                     "nexthop": ipv6_addr,
-                    "ifname": intf
+                    "ifname": intf,
+                    "advertise": "false",
                 }
         # Apply the static route configuration
         tmpfile = duthost.shell('mktemp')['stdout']
@@ -113,4 +122,4 @@ def config_setup(duthosts, tbinfo):
 
     logger.info("Tearing down SRv6 configuration by config reload")
     for duthost in duthosts:
-        config_reload(duthost)
+        duthost.command("config reload -y")
