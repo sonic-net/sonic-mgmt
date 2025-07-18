@@ -73,7 +73,7 @@
         "pmon": {
           "memory_increase_threshold": {
             "type": "value",
-            "value": 2
+            "value": 4
           },
           "memory_high_threshold": {
             "type": "value",
