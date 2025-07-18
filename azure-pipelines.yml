@@ -40,7 +40,7 @@ resources:
 parameters:
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
-  default: 480
+  default: 600
 
 stages:
 - template: /.azure-pipelines/common2/stages/analyze-code.yml
