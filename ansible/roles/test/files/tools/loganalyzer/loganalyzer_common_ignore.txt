@@ -356,3 +356,12 @@ r, ".* ERR kernel.*audit: rate limit exceeded.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/33479668
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
+
+# Ignore SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_ALGORITHM unsupported
+r, ".*ERR swss#orchagent.*:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_ALGORITHM.*"
+
+# Ignore SAI_SWITCH_ATTR_LAG_DEFAULT_HASH_ALGORITHM unsupported
+r, ".*ERR swss#orchagent.*:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_SWITCH_ATTR_LAG_DEFAULT_HASH_ALGORITHM.*"
+
+# Ignore SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE unsupported
+r, ".*ERR swss#orchagent.*:.*queryTrimModeEnumCapabilities:.*Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
