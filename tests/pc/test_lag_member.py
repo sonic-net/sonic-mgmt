@@ -13,6 +13,7 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import \
     copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py  # noqa: F401
 from tests.common.config_reload import config_reload
+from tests.pc.test_lag_2 import config_and_delete_multip_process
 
 logger = logging.getLogger(__name__)
 
@@ -412,8 +413,8 @@ def check_arp(duthost, port_name, ip_address):
             return True
     return False
 
-
-def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_teardown):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_teardown, testcase):
     """
     Test ports' status of members in a lag
 
@@ -421,6 +422,9 @@ def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_te
         1.) Setup DUT and PTF
         2.) Get status of port channel new added and verify number of member and members' status is correct
     """
+    # Test state_db status for lag interfaces
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True) 
     port_channel_status = duthost.get_port_channel_status(DUT_LAG_NAME)
     dut_hwsku = duthost.facts["hwsku"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
@@ -435,6 +439,8 @@ def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_te
                           "partner retry count is incorrect; expected 3, but is {}"
                           .format(status["runner"]["partner_retry_count"]))
 
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)      
 
 def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     """
@@ -461,8 +467,8 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     }
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
-
-def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_teardown):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_teardown, testcase):
     """
     Test traffic about ports in a lag
 
@@ -475,6 +481,8 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
         4.) Send ICMP request packet from port not behind lag in PTF to port behind lag in PTF,
             and then verify recieve the packet in port behind lag
     """
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     ptfhost = common_setup_teardown
     dut_ports, ptf_ports, vlan = ptf_dut_setup_and_teardown
     ping_format = "ping -c 5 -w 2 -l 5 -I {} {}"
@@ -494,3 +502,5 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
                   "Arp info for port not behind lag is not correct")
 
     run_lag_member_traffic_test(duthost, vlan, ptf_ports, ptfhost)
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)

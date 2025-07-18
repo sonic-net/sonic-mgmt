@@ -17,6 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import VoqDbCli
 from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
+from tests.pc.test_lag_2 import config_and_delete_multip_process
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -81,16 +82,21 @@ def pc_active(asichost, portchannel):
     return asichost.interface_facts()['ansible_facts']['ansible_interface_facts'][portchannel]['active']
 
 
-def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
+def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, testcase):
     """
     test port channel add/deletion as well ip address configuration
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asichost.interface_facts()['ansible_facts']
 
     port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
     if not port_channels_data:
+        if testcase == "multi_process":
+            config_and_delete_multip_process(duthost, False)
         pytest.skip(
             "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
 
@@ -184,18 +190,23 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
 
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
 def test_po_update_io_no_loss(
         duthosts,
         enum_rand_one_per_hwsku_frontend_hostname,
         enum_frontend_asic_index,
         tbinfo,
         ptfadapter,
-        reload_testbed_on_failed):
+        reload_testbed_on_failed, testcase):
     # GIVEN a lag topology, keep sending packets between 2 port channels
     # WHEN delete/add different members of a port channel
     # THEN no packets shall loss
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
@@ -212,6 +223,8 @@ def test_po_update_io_no_loss(
            peer_ip_pc_pair]
 
     if len(pcs) < 2:
+        if testcase == "multi_process":
+            config_and_delete_multip_process(duthost, False)
         pytest.skip(
             "Skip test due to there is no enough port channel with at least 2 members exists in current topology.")
 
@@ -223,6 +236,8 @@ def test_po_update_io_no_loss(
         and len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
 
     if len(out_pcs) < 1:
+        if testcase == "multi_process":
+            config_and_delete_multip_process(duthost, False)
         pytest.skip(
             "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
     # Select out pc from the port channels that are on the same asic as asichost
@@ -377,6 +392,8 @@ def test_po_update_io_no_loss(
         pytest_assert(
             has_bgp_neighbors(duthost, pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, pc))
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
 
 
 def increment_lag_id(duthost, upper_lagid_start):
@@ -496,14 +513,14 @@ def lag_set_sanity(duthosts):
     # Assert that the system LAG sanity check passes, using a wait_until function with a timeout
     pytest_assert(wait_until(220, 10, 0, verify_system_lag_sanity))
 
-
+@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
 @pytest.mark.disable_loganalyzer
 def test_po_update_with_higher_lagids(
         duthosts,
         enum_rand_one_per_hwsku_frontend_hostname,
         tbinfo,
         ptfadapter,
-        reload_testbed_on_failed, localhost):
+        reload_testbed_on_failed, localhost, testcase):
     """
     Test Port Channel Traffic with Higher LAG IDs:
 
@@ -515,11 +532,15 @@ def test_po_update_with_higher_lagids(
     4. Repeat the process for the higher LAG IDs.
        """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, True)
 
     # Check if the device is a modular chassis and the topology is T2
     is_chassis = duthost.get_facts().get("modular_chassis")
     if not (is_chassis and tbinfo['topo']['type'] == 't2' and duthost.facts['switch_type'] == "voq"):
         # Skip the test if the setup is not T2 Chassis
+        if testcase == "multi_process":
+            config_and_delete_multip_process(duthost, False)
         pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
 
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -596,3 +617,6 @@ def test_po_update_with_higher_lagids(
 
     # Send data one more time after the final sanity check
     send_data(dut_mg_facts, duthost, ptfadapter)
+    if testcase == "multi_process":
+        config_and_delete_multip_process(duthost, False)
+
