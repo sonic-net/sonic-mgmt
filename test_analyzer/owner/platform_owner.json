@@ -729,7 +729,7 @@
     },
     {
         "hwsku": "Mellanox-SN5640-C512S2",
-        "topo": "t0-isolated-d32u32s2",
+        "topo": "t0",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -758,5 +758,45 @@
         "email": "zhaohuisun@microsoft.com",
         "new_platform": "",
         "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE",
+        "topo": "ft2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-B-P32O64",
+        "topo": "lt2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-B-P64",
+        "topo": "ft2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-O128S2",
+        "topo": "lt2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-P64",
+        "topo": "ft2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
