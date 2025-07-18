@@ -19,7 +19,8 @@ SHOW_PATHS_FILE = os.path.join(BASE_DIR, "cli_paths.json")
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                                setup_streaming_telemetry, gnxi_path):
+                                setup_streaming_telemetry, gnxi_path,
+                                request, skip_non_container_test):
     """
     Test non-get mode from APPL_DB and query a non existing table and key, ensure no errors
     """
@@ -27,13 +28,14 @@ def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfh
     logger.info('Start telemetry SHOW testing')
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="reboot-cause", target="SHOW")
-    ptf_result = ptfhost.shell(cmd)
+    ptf_result = ptfhost.shell(cmd, module_ignore_errors=True)
     pytest_assert(ptf_result['rc'] != 0, "SHOW command for non GET operation should fail".format(cmd))
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostname, ptfhost,
-                            setup_streaming_telemetry, gnxi_path, request):
+                            setup_streaming_telemetry, gnxi_path, request,
+                            skip_non_container_test):
     """
     Test poll mode from APPL_DB and query a non existing table and key, ensure no errors
     """
@@ -50,6 +52,7 @@ def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostnam
             setup_args = test_config["setup_args"]
             getattr(helper, test_config["setup"])(*setup_fixtures, *setup_args)
 
+        # Execute gnmi get command
         cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
                                   xpath=path, target="SHOW")
         ptf_result = ptfhost.shell(cmd)
@@ -57,6 +60,7 @@ def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostnam
         show_gnmi_out = ptf_result['stdout']
         logger.info("GNMI Server output: {}".format(show_gnmi_out))
 
+        # Verify gnmi get with show command
         if test_config["verify"]:
             output = helper.get_json_from_gnmi_output(show_gnmi_out)
             verify_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["verify_fixtures"]]

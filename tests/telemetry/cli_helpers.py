@@ -7,9 +7,9 @@ def get_json_from_gnmi_output(stdout):
 
     assert start_pos > 0, "JSON not found in GetResponse"
 
-    json_blob = stdout[start_pos:]
-    data = json.loads(json_blob)
-    return data
+    decoder = json.JSONDecoder()
+    obj, _ = decoder.raw_decode(stdout[start_pos:])
+    return obj
 
 
 def reboot_device(duthost, localhost):
@@ -57,5 +57,7 @@ def check_reboot_cause_history(duthost, output):
     cmd = "show reboot-cause history"
     result = duthost.show_and_parse(cmd)
 
-    failure_message = "cmd result {} does not match gnmi output {} for SHOW/reboot-cause/history path".format(result, output)
-    assert result == output, failure_message
+    result_map = { entry["name"]: { k: entry[k] for k in entry if k != "name" } for entry in result }
+
+    failure_message = "show result {} != output {} for SHOW/reboot-cause/history path".format(result_map, output)
+    assert result_map == output, failure_message
