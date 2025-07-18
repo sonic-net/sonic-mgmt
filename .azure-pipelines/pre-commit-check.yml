@@ -15,7 +15,6 @@ steps:
 
 - script: |
     set -x
-
     sudo pip install pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
