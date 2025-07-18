@@ -574,9 +574,9 @@ def get_convergence_for_remote_link_failover(snappi_api,
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
             """ Withdrawing routes from a BGP peer """
-            logger.info('Withdrawing Routes from {}'.format(route_name))        
+            logger.info('Withdrawing Routes from {}'.format(route_name))
+            wait(TIMEOUT, "Waiting before routes to be withdrawn")
             cs = snappi_api.control_state()
-            wait(TIMEOUT, "waiting before routes to be withdrawn")
             cs.protocol.route.state = cs.protocol.route.WITHDRAW
             cs.protocol.route.names = [route_name]
             snappi_api.set_control_state(cs)
