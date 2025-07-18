@@ -1,6 +1,7 @@
 import json
 from tests.common.reboot import reboot
 
+
 def get_json_from_gnmi_output(stdout):
     marker_pos = stdout.find("The GetResponse is below")
     start_pos = stdout.find("{", marker_pos)
@@ -57,7 +58,7 @@ def check_reboot_cause_history(duthost, output):
     cmd = "show reboot-cause history"
     result = duthost.show_and_parse(cmd)
 
-    result_map = { entry["name"]: { k: entry[k] for k in entry if k != "name" } for entry in result }
+    result_map = {entry["name"]: {k: entry[k] for k in entry if k != "name"} for entry in result}
 
     failure_message = "show result {} != output {} for SHOW/reboot-cause/history path".format(result_map, output)
     assert result_map == output, failure_message

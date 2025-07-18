@@ -17,6 +17,7 @@ METHOD_SUBSCRIBE = "subscribe"
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 SHOW_PATHS_FILE = os.path.join(BASE_DIR, "cli_paths.json")
 
+
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                                 setup_streaming_telemetry, gnxi_path,
@@ -29,7 +30,7 @@ def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfh
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="reboot-cause", target="SHOW")
     ptf_result = ptfhost.shell(cmd, module_ignore_errors=True)
-    pytest_assert(ptf_result['rc'] != 0, "SHOW command for non GET operation should fail".format(cmd))
+    pytest_assert(ptf_result['rc'] != 0, "SHOW command {} for non GET operation should fail".format(cmd))
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)

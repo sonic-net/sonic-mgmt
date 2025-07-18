@@ -17,6 +17,7 @@ DATA_DIR = os.path.join(BASE_DIR, "files")
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture
 def skip_non_container_test(request):
     container_test = request.config.getoption("--container_test", default="")
