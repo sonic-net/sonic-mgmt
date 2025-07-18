@@ -184,6 +184,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    if "x86_64-nokia_ixr7220_d4-r0" in duthost.facts['platform'] and test_type == "reboot":
+        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
     if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):

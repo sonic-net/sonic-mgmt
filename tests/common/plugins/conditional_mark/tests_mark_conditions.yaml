@@ -73,12 +73,13 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 / WR not supported on D4"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "release in ['202412']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####            bfd              #####
@@ -99,6 +100,7 @@ bfd/test_bfd.py::test_bfd_basic:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
@@ -116,6 +118,7 @@ bfd/test_bfd.py::test_bfd_scale:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 bfd/test_bfd_static_route.py:
   skip:
@@ -198,6 +201,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -1270,6 +1274,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
@@ -1353,9 +1358,11 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 fib/test_fib.py::test_ipinip_hash:
   skip:
-    reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
+    reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265) and nokia-ixr7220 platform'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['mellanox']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
@@ -1381,9 +1388,11 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
-    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*'
+    reason: 'Vxlan hash test is not fully supported on VS platform; Not supported on M*, skip for nokia-ixr7220.'
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx', 'm1']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
   xfail:
@@ -1562,11 +1571,12 @@ gnmi/test_gnoi_killprocess.py:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    reason: "Warm reboot should only run on t0 topology but not on dualtor, Warm reboot not supported on nokia-ixr7220 platform."
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####           hash              #####
@@ -2071,15 +2081,25 @@ mvrf/test_mgmtvrf.py:
 
 mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot. Fast reboot not supported on nokia-ixr7220 platform"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot. Warm reboot not supported on nokia-ixr7220 platform"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_reboot:
+  skip:
+    reason: "Skip for nokia-ixr7220 platform"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####           nat               #####
@@ -2215,6 +2235,13 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+pfcwd/test_pfcwd_function.py:
+  skip:
+    reason: "PFC gen script not enough stop traffic from fanout"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
@@ -2232,7 +2259,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform and nokia-ixr7220 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -2241,6 +2268,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "asic_type in ['cisco-8000']"
         - "release in ['202412']"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
+        - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
@@ -2264,6 +2292,18 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
+pfcwd/test_pfcwd_cli.py:
+  skip:
+    reason: "PFC gen script not enough stop traffic from fanout"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+pfcwd/test_pfcwd_timer_accuracy:
+  skip:
+    reason: "PFC gen script not enough stop traffic from fanout"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 #######################################
 #####     platform_tests          #####
 #######################################
@@ -2272,6 +2312,30 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+platform_tests/test_advanced_reboot.py:
+  skip:
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+platform_tests/test_cont_warm_reboot.py::test_continuous_reboot:
+  skip:
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+platform_tests/broadcom/test_ser.py:
+  skip:
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####     process_monitoring      #####
@@ -2365,9 +2429,11 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
   skip:
-    reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping"
+    reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping, IpinIP is not supported on nokia-ixr7220 platform."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 qos/test_qos_masic.py:
   skip:
@@ -3110,6 +3176,12 @@ vlan/test_vlan_ping.py:
       - "asic_type in ['broadcom']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
 
+vlan/test_vlan_ports_down.py::test_vlan_ports_down:
+  skip:
+    reason: "IPinIP is not supported on nokia-ixr7220 platform."
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 #######################################
 #####             voq             #####
 #######################################
@@ -3198,6 +3270,12 @@ vrf/test_vrf.py::TestVrfAclRedirect:
       - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
+vrf/test_vrf.py::TestVrfWarmReboot:
+  skip:
+    reason: "Warm reboot not supported in x86_64-nokia_ixr7220_d4-r0 platform"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -3218,9 +3296,35 @@ vrf/test_vrf_attr.py:
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
-    reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing."
+    reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing/ Src mac is not derived from VRF on D4, https://github.com/sonic-net/sonic-swss/issues/1833"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot', 'vs']"
+      - "https://github.com/sonic-net/sonic-swss/issues/1833 and platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_new_router_mac:
+  skip:
+    reason: "Src mac is not derived from VRF on D4, https://github.com/sonic-net/sonic-swss/issues/1833"
+    conditions:
+      - "https://github.com/sonic-net/sonic-swss/issues/1833 and platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrIpState:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrIpAction:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrTTL:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####           vxlan            #####
@@ -3341,9 +3445,9 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms"
+    reason: "vxlan support not available for cisco-8122 platforms and nokia-ixr7220."
     conditions:
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-nokia_ixr7220_d4-r0']"
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
     conditions:
