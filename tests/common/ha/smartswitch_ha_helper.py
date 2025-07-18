@@ -1,5 +1,32 @@
+import logging
 import pytest
 from common.plugins.ptfadapter import PtfTestAdapter
+
+
+@pytest.fixture(scope="session")
+def npu_zero(duthosts):
+    """
+    Returns the first NPU in the testbed.
+    """
+    if not duthosts:
+        raise ValueError("No DUT hosts provided")
+
+    dut = duthosts[0]
+    logging.info("Using {} as the 1st NPU".format(dut.hostname))
+    return dut
+
+
+@pytest.fixture(scope="session")
+def npu_one(duthosts):
+    """
+    Returns the second NPU in the testbed.
+    """
+    if len(duthosts) < 2:
+        raise ValueError("Not enough DUT hosts provided")
+
+    dut = duthosts[1]
+    logging.info("Using {} as the 2nd NPU".format(dut.hostname))
+    return dut
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
@@ -106,6 +133,32 @@ class PtfTcpTestAdapter(PtfTestAdapter):
         if namespace:
             cmd = f"ip netns exec {namespace} {cmd}"
         self.ptfhost.shell(cmd)
+
+        if not self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not start successfully in namespace {}".format(namespace))
+
+    def stop_tcp_server(self, namespace=None):
+        cmd = "pkill -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+        if self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not stop successfully in namespace {}".format(namespace))
+
+    def _is_tcp_server_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
+    def _is_tcp_client_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_client.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
 
     def start_tcp_client(self, namespace=None):
         cmd = "python3 /root/tcp_client.py "
