@@ -319,11 +319,10 @@ def __gen_data_flow(testbed_config,
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = flow_prio[1]
     else:
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[1]
-        elif 'Test Flow 1 -> 0' in flow.name:
+        # Adding queue values based on flow_priorities for both test and background flows.
+        if 'Flow 1 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
-        elif 'Test Flow 2 -> 0' in flow.name:
+        elif 'Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     global UDP_PORT_START
@@ -338,19 +337,11 @@ def __gen_data_flow(testbed_config,
     ipv4.priority.choice = ipv4.priority.DSCP
 
     flow_prio_dscp_list = []
+    # Background flows have dynamic lossy priorities.
     if 'Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
-        ]
-        ipv4.priority.dscp.phb.values = [
-            60, 61, 62, 63, 24, 25, 27, 21, 23, 29,
-            0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
-            56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     elif 'Test Flow 1 -> 0' in flow.name:
         for fp in flow_prio:
             for val in prio_dscp_map[fp]:
