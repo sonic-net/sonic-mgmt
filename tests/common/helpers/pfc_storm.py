@@ -259,6 +259,8 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
+        logger.info("#### PFC storm extra vars: {} ####".format(self.extra_vars))
+
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
@@ -272,18 +274,24 @@ class PFCStorm(object):
                get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
               (self.peer_device.os == 'sonic' and
                get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+            
+            logger.info("#### PFC storm template: arista ####")
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_start_template})
+        logger.info("#### PFC storm template: {} ####".format(self.pfc_start_template))
+        logger.info("#### PFC storm extra vars: {} ####".format(self.extra_vars))
 
     def _prepare_stop_template(self):
         """
         Populates the pfc storm stop template
         """
         self._update_template_args()
+        logger.info("#### PFC storm stop extra vars: {} ####".format(self.extra_vars))
+
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
@@ -303,6 +311,8 @@ class PFCStorm(object):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_stop_template})
+        logger.info("#### PFC storm stop template: {} ####".format(self.pfc_stop_template))
+        logger.info("#### PFC storm stop extra vars: {} ####".format(self.extra_vars))
 
     def _run_pfc_gen_template(self):
         """
@@ -316,10 +326,13 @@ class PFCStorm(object):
                 cmds = tmpl.render(**self.extra_vars).splitlines()
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
+
+            logger.info("Running command: {}".format(cmd))
             self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
+            
             self.peer_device.exec_template(
                 ANSIBLE_ROOT, RUN_PLAYBOOK,
                 self.inventory, **self.extra_vars
