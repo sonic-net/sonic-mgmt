@@ -157,6 +157,7 @@ This is to validate when the double encaped PL packets land on NPU, the tunnel i
 * Remove the configuration in DASH_ENI_FORWARD_TABLE.
 
 ## TODO
-
+Need consider the floating nic feature, we should cover both src_mac and dst_mac for ENI.
+Make the #2 and #3 test cases switch only, and PL test should cover both forwarding models.
 
 ## Open questions
