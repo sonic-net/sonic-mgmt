@@ -382,6 +382,41 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def generate_default_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        return json.dumps(golden_config_db, indent=4)
+
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # hack docker_routing_config_mode issue, multiasic test failed because this field is 'None', which break yang validation.
+        if "docker_routing_config_mode" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
+                ori_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_dash_zmq_enabled" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_dash_zmq_enabled"] = "true"
+
+        if "orch_northbond_route_zmq_enabled" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -422,7 +457,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
         else:
-            config = "{}"
+            config = self.generate_default_golden_config_db()
 
         # update dns config
         config = self.update_dns_config(config)
@@ -446,6 +481,9 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # enable orch_northbond_route_zmq_enabled feature
+        config = self.update_zmq_config(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
