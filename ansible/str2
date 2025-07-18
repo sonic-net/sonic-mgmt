@@ -128,6 +128,9 @@ all:
         vms25-3:
           ansible_host: 10.64.246.181
           ansible_hostv6: 2a01:111:e210:b000::a40:f6b5
+        vms25-4:
+          ansible_host: 10.64.247.71
+          ansible_hostv6: 2a01:111:e210:b000::a40:f747
         vms26-1:
           ansible_host: 10.64.246.230
           ansible_hostv6: 2a01:111:e210:b000::a40:f6e6
@@ -164,9 +167,6 @@ all:
         vms28-10:
           ansible_host: 10.64.246.128
           ansible_hostv6: 2a01:111:e210:b000::a40:f680
-        vms29-1:
-          ansible_host: 10.64.247.71
-          ansible_hostv6: 2a01:111:e210:b000::a40:f747
         vms29-2:
           ansible_host: 10.64.246.245
           ansible_hostv6: 2a01:111:e210:b000::a40:f6f5
@@ -482,6 +482,7 @@ sonic:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
     sonic_cisco_8101_tornado:
+    sonic_cisco_8101_tornado_O32:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -2516,6 +2517,11 @@ sonic_cisco_8101_tornado:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+sonic_cisco_8101_tornado_O32:
+  vars:
+    hwsku: Cisco-8101-O32
+    iface_speed: 100000
+  hosts:
     str2-8101c1-03:
       ansible_host: 10.3.146.231
       ansible_hostv6: 2a01:111:e210:3000::a03:92e7
