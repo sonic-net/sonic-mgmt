@@ -23,7 +23,7 @@ def test_telemetry_show_non_get(duthosts, enum_rand_one_per_hwsku_hostname, ptfh
                                 setup_streaming_telemetry, gnxi_path,
                                 request, skip_non_container_test):
     """
-    Test non-get mode from APPL_DB and query a non existing table and key, ensure no errors
+    Test non-get mode for SHOW reboot-cause and we exepect failure as SHOW does not support GET
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry SHOW testing')
@@ -38,7 +38,7 @@ def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostnam
                             setup_streaming_telemetry, gnxi_path, request,
                             skip_non_container_test):
     """
-    Test poll mode from APPL_DB and query a non existing table and key, ensure no errors
+    Test all SHOW paths from cli_paths.json and execute setup func, gnmi query, and verify func defined in cli_helpers
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry SHOW testing')
