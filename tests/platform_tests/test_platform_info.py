@@ -318,7 +318,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     # Group outlets/PDUs by PSU and toggle PDUs by PSU
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
-    
+
     # Get list of PSUs to skip from inventory configuration
     skip_psu_list = get_skip_mod_list(duthost, ['psus'])
     logging.info(f"PSUs to skip during PDU testing: {skip_psu_list}")
@@ -331,7 +331,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
             if psu in skip_psu_list:
                 logging.info(f"Skipping PSU {psu} as it's in the skip list")
                 continue
-                
+
             outlets = psu_to_pdus[psu]
             psu_under_test = None
 
