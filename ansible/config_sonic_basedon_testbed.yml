@@ -636,15 +636,8 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
+          vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
         become: true
-
-      - name: Generate golden_config_db.json for filterleaf
-        generate_golden_config_db:
-          topo_name: "{{ topo }}"
-          port_index_map: "{{ port_index_map | default({}) }}"
-          vm_configuration: "{{ configuration }}"
-        become: true
-        when: topo == "t1-filterleaf-lag"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json

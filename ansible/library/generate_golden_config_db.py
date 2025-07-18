@@ -340,7 +340,7 @@ class GenerateGoldenConfigDBModule(object):
                         print("[ERROR] Invalid IPv4 address in {}: {}".format(device_name, ip))
         return bgp_neighbors
 
-    def generate__filterleaf_golden_config_db(self):
+    def generate_filterleaf_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
