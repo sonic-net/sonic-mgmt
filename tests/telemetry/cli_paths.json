@@ -1,6 +1,5 @@
 {
 	"reboot-cause": {
-		"sku":             "general",
 		"setup":           "reboot_device",
 		"setup_fixtures":  ["duthost", "localhost"],
 		"setup_args":      [],
@@ -9,7 +8,6 @@
 		"verify_args":     []
 	},
 	"reboot-cause/history": {
-		"sku":             "general",
 		"setup":           "reboot_device",
 		"setup_fixtures":  ["duthost", "localhost"],
 		"setup_args":      [],
