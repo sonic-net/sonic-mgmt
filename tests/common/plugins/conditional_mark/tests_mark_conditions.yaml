@@ -2049,9 +2049,9 @@ memory_checker/test_memory_checker.py:
 #######################################
 mpls/test_mpls.py:
   skip:
-    reason: "MPLS TCs are not supported on Barefoot plarforms"
+    reason: "MPLS TCs are not supported on Barefoot and Marvell-Teralynx plarforms"
     conditions:
-      - "asic_type in ['barefoot']"
+      - "asic_type in ['barefoot', 'marvell-teralynx']"
 
 #######################################
 #####           mvrf              #####
