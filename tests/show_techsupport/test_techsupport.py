@@ -89,7 +89,7 @@ def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     When dut is dpu, skip the case
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.get_facts().get('is_dpu'):
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
