@@ -2062,7 +2062,7 @@ class ReloadTest(BaseTest):
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     if sent_payload in sent_packets:
                         flooded_pkts.append(sent_payload)
-                    sent_packets[sent_payload] = packet.time
+                    sent_packets[sent_payload] = float(packet.time)
                     sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:

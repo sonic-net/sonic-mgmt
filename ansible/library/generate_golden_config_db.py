@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This ansible module is for generate golden_config_db.json
 # Currently, only enable dhcp_server feature and generated related configuration in MX device
@@ -27,6 +27,7 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
@@ -276,12 +277,11 @@ class GenerateGoldenConfigDBModule(object):
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            if "base" in hwsku_config and "step" in hwsku_config:
-                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
-            else:
-                port_key = hwsku_config["port_key"].format(i)
+            port_index = hwsku_config["base"] + i * hwsku_config["step"] \
+                if "base" in hwsku_config and "step" in hwsku_config else i
+            port_key = hwsku_config["port_key"].format(port_index)
             if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(i, i)
+                interface_key = hwsku_config["interface_key"].format(port_index, i)
             dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
@@ -382,15 +382,15 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_ft2_golden_config_db(self):
+    def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
         **Only PORT table is updated**.
         """
-        SUPPORTED_TOPO = ["ft2-64"]
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
-        SUPPORTED_PORT_SPEED = ["100000", "200000", "400000", "800000"]
+        SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
         port_config = ori_config.get("PORT", {})
         for name, config in port_config.items():
@@ -411,8 +411,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif self.topo_name in ["ft2-64"]:
-            config = self.generate_ft2_golden_config_db()
+        elif "ft2" in self.topo_name or "lt2" in self.topo_name:
+            config = self.generate_lt2_ft2_golden_config_db()
         elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
@@ -448,6 +448,8 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
+            temp_file.write(config)
+        with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
 

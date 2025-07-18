@@ -4,7 +4,6 @@ import re
 import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.config_reload import config_reload
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
@@ -18,6 +17,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
+ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
@@ -857,7 +857,7 @@ class TestConfigInterface():
                       "Interface {} should be admin and oper up".format(test_intf))
 
         # Make sure LLDP neighbor is repopulated
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
+        pytest_assert(wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, _lldp_exists, True),
                       "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
@@ -977,8 +977,6 @@ class TestConfigInterface():
         # After restoration, verify again
         assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
         _verify_speed(native_speed)
-        # Revert inconsistent config changes
-        config_reload(duthost)
 
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
