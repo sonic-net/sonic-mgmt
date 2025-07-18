@@ -4,8 +4,10 @@ This module allows various snappi based tests to generate various traffic config
 import time
 import logging
 import re
+import sys
 import pandas as pd
 from datetime import datetime
+from tests.common.utilities import (wait, wait_until)
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
@@ -14,7 +16,8 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
     get_pfcwd_stats
 from tests.common.snappi_tests.port import select_ports, select_tx_port
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
+    fetch_flow_metrics_for_macsec
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
@@ -147,42 +150,63 @@ def generate_test_flows(testbed_config,
             test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
         else:
             test_flow_name = "{} Prio {} Stream {}".format(data_flow_config["flow_name"], prio, flow_index)
+
         test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
-        test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
-        test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
-
-        eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
-        global UDP_PORT_START
-        src_port = UDP_PORT_START
-        UDP_PORT_START += number_of_streams
-        udp.src_port.increment.start = src_port
-        udp.src_port.increment.step = 1
-        udp.src_port.increment.count = number_of_streams
-
-        eth.src.value = base_flow_config["tx_mac"]
-        eth.dst.value = base_flow_config["rx_mac"]
-        if pfcQueueGroupSize == 8:
-            eth.pfc_queue.value = prio
+        ptype = "--macsec" in sys.argv
+        # Assign TX and RX port names to the flow
+        if ptype:
+            test_flow.tx_rx.device.tx_names = [testbed_config.devices[base_flow_config["tx_port_config"].id].ethernets[0].ipv4_addresses[0].name]
+            test_flow.tx_rx.device.rx_names = [testbed_config.devices[base_flow_config["rx_port_config"].id].ethernets[0].ipv4_addresses[0].name]
+            test_flow.tx_rx.device.mode = test_flow.tx_rx.device.ONE_TO_ONE
+            test_flow.packet.ethernet().ipv4()
+            ip = test_flow.packet[-1]
+            eth = test_flow.packet[-2]
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
+            ip.priority.choice = ip.priority.DSCP
+            phb_value = [random.choice(prio_dscp_map[prio])]
+            ip.priority.dscp.phb.values = phb_value
+            ip.priority.dscp.ecn.value = (ip.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
+                                            ip.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            snappi_extra_params.flow_name_dscp_map[test_flow_name] = phb_value[0]
         else:
-            eth.pfc_queue.value = pfcQueueValueDict[prio]
+            test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
+            test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
-        ipv4.priority.choice = ipv4.priority.DSCP
-        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
-                                        ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
+            global UDP_PORT_START
+            src_port = UDP_PORT_START
+            UDP_PORT_START += number_of_streams
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
+
+            eth.src.value = base_flow_config["tx_mac"]
+            eth.dst.value = base_flow_config["rx_mac"]
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+            ipv4.src.value = base_flow_config["tx_port_config"].ip
+            ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
+            ipv4.priority.choice = ipv4.priority.DSCP
+            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+            ipv4.priority.dscp.ecn.value = (ipv4.priority.dscp.ecn.CONGESTION_ENCOUNTERED if congested else
+                                            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
         if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["flow_delay_sec"]))
+                                                                    (data_flow_config["flow_delay_sec"]))
         elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
             test_flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
             test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["flow_delay_sec"]))
+                                                                    (data_flow_config["flow_delay_sec"]))
 
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
@@ -197,14 +221,14 @@ def generate_test_flows(testbed_config,
         test_flow_name_dut_rx_port_map[test_flow_name] = [base_flow_config["tx_port_config"].peer_port]
         test_flow_name_dut_tx_port_map[test_flow_name] = [base_flow_config["rx_port_config"].peer_port]
 
-    base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
-    base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
+        base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
+        base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
 
-    # If base_flow_config_list, exists, re-assign updated base_flow_config to it using flow_index.
-    if not snappi_extra_params.base_flow_config_list:
-        snappi_extra_params.base_flow_config = base_flow_config
-    else:
-        snappi_extra_params.base_flow_config_list[flow_index] = base_flow_config
+        # If base_flow_config_list, exists, re-assign updated base_flow_config to it using flow_index.
+        if not snappi_extra_params.base_flow_config_list:
+            snappi_extra_params.base_flow_config = base_flow_config
+        else:
+            snappi_extra_params.base_flow_config_list[flow_index] = base_flow_config
 
 
 def generate_background_flows(testbed_config,
@@ -236,28 +260,47 @@ def generate_background_flows(testbed_config,
     for prio in bg_flow_prio_list:
         # If flow_index exists, then flow name uses it to identify Stream-name.
         if flow_index is None:
-            bg_flow = testbed_config.flows.flow(name='{} Prio {}'.format(bg_flow_config["flow_name"], prio))[-1]
+            bg_flow_name = '{} Prio {}'.format(bg_flow_config["flow_name"], prio)
         else:
-            bg_flow = testbed_config.flows.flow(name='{} Prio {} Stream {}'.
-                                                format(bg_flow_config["flow_name"], prio, flow_index))[-1]
-
-        bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
-        bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
-
-        eth, ipv4 = bg_flow.packet.ethernet().ipv4()
-        eth.src.value = base_flow_config["tx_mac"]
-        eth.dst.value = base_flow_config["rx_mac"]
-        if pfcQueueGroupSize == 8:
-            eth.pfc_queue.value = prio
+            bg_flow_name = '{} Prio {} Stream {}'.format(bg_flow_config["flow_name"], prio, flow_index)
+        bg_flow = testbed_config.flows.flow(name=bg_flow_name)[-1]
+        ptype = "--macsec" in sys.argv
+        # Assign TX and RX port names to the flow
+        if ptype:
+            bg_flow.tx_rx.device.tx_names = [testbed_config.devices[base_flow_config["tx_port_config"].id].ethernets[0].ipv4_addresses[0].name]
+            bg_flow.tx_rx.device.rx_names = [testbed_config.devices[base_flow_config["rx_port_config"].id].ethernets[0].ipv4_addresses[0].name]
+            bg_flow.tx_rx.device.mode = bg_flow.tx_rx.device.ONE_TO_ONE
+            bg_flow.packet.ethernet().ipv4()
+            ip = bg_flow.packet[-1]
+            eth = bg_flow.packet[-2]
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
+            ip.priority.choice = ip.priority.DSCP
+            phb_value = [random.choice(prio_dscp_map[prio])]
+            ip.priority.dscp.phb.values = phb_value
+            ip.priority.dscp.ecn.value = (
+                ip.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            snappi_extra_params.flow_name_dscp_map[bg_flow_name] = phb_value[0]
         else:
-            eth.pfc_queue.value = pfcQueueValueDict[prio]
+            bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
+            bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        ipv4.src.value = base_flow_config["tx_port_config"].ip
-        ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
-        ipv4.priority.choice = ipv4.priority.DSCP
-        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-        ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            eth, ipv4 = bg_flow.packet.ethernet().ipv4()
+            eth.src.value = base_flow_config["tx_mac"]
+            eth.dst.value = base_flow_config["rx_mac"]
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+            ipv4.src.value = base_flow_config["tx_port_config"].ip
+            ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
+            ipv4.priority.choice = ipv4.priority.DSCP
+            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+            ipv4.priority.dscp.ecn.value = (
+                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
@@ -547,6 +590,109 @@ def run_traffic(duthost,
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
+def verify_pause_flow_for_macsec(flow_metrics,
+                                  pause_flow_tx_port_name):
+    """
+    Verify pause flow statistics i.e. all pause frames should be dropped
+
+    Args:
+        flow_metrics (list): per-flow statistics
+        pause_flow_tx_port_name (str): Tx port name of the pause flow
+    Returns:
+    """
+    pause_flow_row = next(fs for fs in flow_metrics if fs['Tx Port'] == pause_flow_tx_port_name)
+    pause_flow_tx_frames = int(pause_flow_row['Tx Frames'])
+    pause_flow_rx_frames = int(pause_flow_row['Rx Frames'])
+
+    pytest_assert(pause_flow_tx_frames > 0 and pause_flow_rx_frames == 0,
+                  "All the pause frames should be dropped")
+
+
+def verify_background_flow_stats_for_macsec(flow_metrics,                                  
+                                            speed_gbps,
+                                            tolerance,
+                                            snappi_extra_params):
+    """
+    Verify if the background flows doesnt see any loss and all flows are received.
+    Args:
+        api (obj): snappi session
+    Returns:
+
+    """
+    bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
+    for flow_name, dscp_value in snappi_extra_params.flow_name_dscp_map.items():
+        if bg_flow_config["flow_name"] not in flow_name:
+            logger.info("Skipping flow {} as it does not match background flow name {}".format(flow_name, bg_flow_config["flow_name"]))
+            continue
+        for metric in flow_metrics:
+            if int(metric['PGID']) == int(dscp_value) and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]:
+                tx_frames = int(metric['Tx Frames'])
+                rx_frames = int(metric['Rx Frames'])
+
+                exp_bg_flow_rx_pkts = bg_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
+                    * 1e9 * bg_flow_config["flow_dur_sec"] / 8.0 / bg_flow_config["flow_pkt_size"]
+                deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
+
+                pytest_assert(tx_frames == rx_frames,
+                            "{} should not have any dropped packet".format(flow_name))
+
+                pytest_assert(abs(deviation) < tolerance,
+                            "{} should receive {} packets (actual {})".format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
+            else:
+                continue
+
+
+def verify_test_flow_stats_for_macsec(flow_metrics,
+                                    speed_gbps,
+                                    tolerance,
+                                    test_flow_pause,
+                                    snappi_extra_params):
+    """
+    Verify if the background flows doesnt see any loss and all flows are received.
+    Args:
+        api (obj): snappi session
+    Returns:
+
+    """
+    test_tx_frames = []
+    data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
+    for flow_name, dscp_value in snappi_extra_params.flow_name_dscp_map.items():
+        if data_flow_config["flow_name"] not in flow_name:
+            continue
+        for metric in flow_metrics:
+            if int(metric['PGID']) == int(dscp_value) and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]:
+                tx_frames = int(metric['Tx Frames'])
+                rx_frames = int(metric['Rx Frames'])
+                test_tx_frames.append(tx_frames)
+                if test_flow_pause:
+                    pytest_assert(tx_frames > 0 and rx_frames == 0,
+                                "{} should be paused".format(flow_name))
+                else:
+                    pytest_assert(tx_frames == rx_frames,
+                                "{} should not have any dropped packet".format(flow_name))
+
+                    # Check if flow_rate_percent is a dictionary
+                    if isinstance(data_flow_config["flow_rate_percent"], dict):
+                        # Extract the priority number from metric.name
+                        match = re.search(r'Prio (\d+)', flow_name)
+                        prio = int(match.group(1)) if match else None
+                        flow_rate_percent = data_flow_config["flow_rate_percent"].get(prio, 0)
+                    else:
+                        # Use the flow rate percent as is
+                        flow_rate_percent = data_flow_config["flow_rate_percent"]
+
+                    exp_test_flow_rx_pkts = flow_rate_percent / 100.0 * speed_gbps \
+                        * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
+
+                    deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
+                    pytest_assert(abs(deviation) < tolerance,
+                                "{} should receive {} packets (actual {})".
+                                format(data_flow_config["flow_name"], exp_test_flow_rx_pkts, rx_frames))
+            else:
+                continue
+    snappi_extra_params.test_tx_frames = test_tx_frames
+
+
 def verify_pause_flow(flow_metrics,
                       pause_flow_name):
     """
@@ -674,8 +820,18 @@ def verify_in_flight_buffer_pkts(egress_duthost,
     Returns:
 
     """
+    ptype= "--macsec" in sys.argv
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
-    tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if data_flow_config["flow_name"] in metric.name)
+    if not ptype:
+        tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if data_flow_config["flow_name"] in metric.name)
+    else:
+        tx_frames_total = 0
+        for flow_name, dscp_value in snappi_extra_params.flow_name_dscp_map.items():
+            if data_flow_config["flow_name"] not in flow_name:
+                continue
+            for metric in flow_metrics: 
+                if int(metric["PGID"]) == dscp_value and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]:
+                    tx_frames_total += int(metric['Tx Frames'])
     tx_bytes_total = tx_frames_total * data_flow_config["flow_pkt_size"]
     dut_buffer_size = get_lossless_buffer_size(host_ans=ingress_duthost)
     headroom_test_params = snappi_extra_params.headroom_test_params

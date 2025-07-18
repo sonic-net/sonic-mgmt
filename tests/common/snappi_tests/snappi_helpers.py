@@ -345,3 +345,20 @@ def fetch_snappi_flow_metrics(api, flow_names):
     flow_metrics = api.get_metrics(request).flow_metrics
 
     return flow_metrics
+
+
+def fetch_flow_metrics_for_macsec(api):
+    """
+    Fetches the flow metrics from the corresponding snappi session using the api
+
+    Args:
+    api: snappi api
+    flow_names: list of flow names
+
+    Returns:
+    flow_metrics (obj): list of metrics
+    """
+    ixnet = api._ixnetwork
+    flow_metrics = StatViewAssistant(ixnet, 'Flow Statistics')
+
+    return flow_metrics

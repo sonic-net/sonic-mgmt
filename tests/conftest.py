@@ -218,6 +218,8 @@ def pytest_addoption(parser):
     ############################
     #   macsec options         #
     ############################
+    parser.addoption("--macsec", action="store_true", default=False,
+                    help="Enable macsec on tgen links of testbed")
     parser.addoption("--enable_macsec", action="store_true", default=False,
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
