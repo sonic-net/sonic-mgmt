@@ -106,6 +106,13 @@ class LogAnalyzer:
         cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
             .format(run_dir=self.dut_run_dir, marker=marker)
 
+        log_files = []
+        for idx, path in enumerate(self.additional_files):
+            if not self.additional_start_str or self.additional_start_str[idx] == '':
+                log_files.append(path)
+
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
 
@@ -375,7 +382,7 @@ class LogAnalyzer:
         for path in self.additional_files:
             file_dir, file_name = split(path)
             extracted_file_name = os.path.join(self.dut_run_dir, file_name)
-            tmp_folder = ".".join((extracted_file_name, timestamp))
+            tmp_folder = ".".join((extracted_file_name, self.ansible_host.hostname, timestamp))
             self.save_extracted_file(dest=tmp_folder, src=extracted_file_name)
             file_list.append(tmp_folder)
 
