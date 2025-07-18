@@ -368,6 +368,7 @@ class KustoConnector(object):
         in case of collecting test cases from unhealthy testbed.
         project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus        """
         common_query_tail = '''
+                | where Result in ("failure", "error", "success")
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
                 | order by UploadTimestamp desc
                 '''.rstrip()
@@ -424,6 +425,7 @@ class KustoConnector(object):
                 | extend AttemptInt = toint(Attempt)
                 | where Summary !in (SummaryWhileList)
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
+                | where Result in ("failure", "error", "success")
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
                 | order by UploadTimestamp desc
                 '''.rstrip()
