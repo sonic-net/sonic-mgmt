@@ -1,4 +1,6 @@
 import base64
+import logging
+import pytest
 import re
 import socket
 import uuid
@@ -15,9 +17,12 @@ from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
+from dash_api.tunnel_pb2 import Tunnel
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
+
+logger = logging.getLogger(__name__)
 
 ENABLE_PROTO = True
 
@@ -45,6 +50,7 @@ PB_CLASS_MAP = {
     "ENI_ROUTE": EniRoute,
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
+    "TUNNEL": Tunnel
 }
 
 
@@ -66,6 +72,21 @@ def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
 
+def parse_value_or_range(orig):
+    if isinstance(orig, str):
+        val = int(orig)
+        return {"value": val}
+    elif isinstance(orig, list):
+        if len(orig) == 1:
+            val = int(orig[0])
+            return {"value": val}
+        elif len(orig) == 2:
+            min = int(orig[0])
+            max = int(orig[1])
+            return {"range": {"min": min, "max": max}}
+    pytest.fail(f"Invalid ValueOrRange: {orig}")
+
+
 def parse_dash_proto(key: str, proto_dict: dict):
     """
     Custom parser for DASH configs to allow writing configs
@@ -79,11 +100,16 @@ def parse_dash_proto(key: str, proto_dict: dict):
         if field_map[key].type == field_map[key].TYPE_MESSAGE:
 
             if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
+                if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                    new_dict[key] = [parse_ip_address(val) for val in value]
+                else:
+                    new_dict[key] = parse_ip_address(value)
             elif field_map[key].message_type.name == "IpPrefix":
                 new_dict[key] = parse_ip_prefix(value)
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
+            elif field_map[key].message_type.name == "ValueOrRange":
+                new_dict[key] = parse_value_or_range(value)
 
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)
@@ -189,44 +215,3 @@ def parse_ip_prefix(ip_prefix_str):
     else:
         mask_str = mask
     return {"ip": parse_ip_address(ip_addr_str), "mask": parse_ip_address(mask_str)}
-
-
-def json_to_proto(key: str, proto_dict: dict):
-    """
-    Custom parser for DASH configs to allow writing configs
-    in a more human-readable format
-    """
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    if table_name == "ROUTING_TYPE":
-        pb = routing_type_from_json(proto_dict)
-        return pb.SerializeToString()
-
-    message = get_message_from_table_name(table_name)
-    field_map = message.DESCRIPTOR.fields_by_name
-    new_dict = {}
-    for key, value in proto_dict.items():
-        if field_map[key].type == field_map[key].TYPE_MESSAGE:
-
-            if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
-            elif field_map[key].message_type.name == "IpPrefix":
-                new_dict[key] = parse_ip_prefix(value)
-            elif field_map[key].message_type.name == "Guid":
-                new_dict[key] = parse_guid(value)
-
-        elif field_map[key].type == field_map[key].TYPE_ENUM:
-            new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
-        elif field_map[key].type == field_map[key].TYPE_BOOL:
-            new_dict[key] = value == 'true'
-
-        elif field_map[key].type == field_map[key].TYPE_BYTES:
-            new_dict[key] = parse_byte_field(value)
-
-        elif field_map[key].type in PB_INT_TYPES:
-            new_dict[key] = int(value)
-
-        if key not in new_dict:
-            new_dict[key] = value
-
-    pb = ParseDict(new_dict, message)
-    return pb.SerializeToString()
