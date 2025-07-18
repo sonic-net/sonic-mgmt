@@ -394,7 +394,7 @@ fanout:
       ansible_host: 10.3.146.153
       ansible_hostv6: 2a01:111:e210:3000::a03:9299
       os: sonic
-    str3-msn4700-fanout-03:
+    str3-8101-fanout-09:
       ansible_host: 10.3.146.12
       ansible_hostv6: 2a01:111:e210:3000::a03:920c
       os: sonic
@@ -1952,14 +1952,14 @@ sonic_mlnx_4700:
       ansible_hostv6: 2a01:111:e210:3000::a03:920b
       hwsku: Mellanox-SN4700-O8V48
       model: MSN4700-WS2ROS
-      serial: MT2340XZ127B
-      base_mac: 9C:05:91:B9:EA:00
+      serial: MT2310XZ0092
+      base_mac: 9C:05:91:3C:CB:00
       syseeprom_info:
         "0x21": "MSN4700"
         "0x22": "MSN4700-WS2ROS"
-        "0x23": "MT2340XZ127B"
-        "0x24": "9C:05:91:B9:EA:00"
-        "0x25": "11/12/2023 00:04:56"
+        "0x23": "MT2310XZ0092"
+        "0x24": "9C:05:91:3C:CB:00"
+        "0x25": "11/12/2023 23:01:25"
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
