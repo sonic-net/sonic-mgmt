@@ -339,7 +339,7 @@ stages:
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: 300
+    timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
@@ -366,8 +366,8 @@ stages:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
           SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: 20
-          MAX_WORKER: 20
+          MIN_WORKER: 25
+          MAX_WORKER: 25
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
