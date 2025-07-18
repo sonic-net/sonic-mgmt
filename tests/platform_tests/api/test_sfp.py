@@ -736,6 +736,7 @@ class TestSfpApi(PlatformApiTestBase):
 
             # If the xcvr supports low-power mode then it needs to be flapped
             # to come out of low-power mode after sfp_reset().
+            #Added cmis_rev check to address issues with pullrequest 16547
             if "cmis_rev" in info_dict or self.is_xcvr_support_lpmode(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
