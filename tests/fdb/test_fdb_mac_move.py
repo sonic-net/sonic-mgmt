@@ -130,7 +130,7 @@ def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, 
             port_index = port_list[(port_index_start + i) % len(port_list)]
             dummy_mac_set = dummy_mac_list[(port_index_start + i) % len(port_list)]
             for dummy_mac in dummy_mac_set:
-                send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                send_arp_request(ptfadapter, port_list[port_index], dummy_mac, router_mac, vlan_id)
 
         time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
         pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) > vlan_member_count),
