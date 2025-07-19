@@ -222,6 +222,7 @@
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       vm_names: "{{ VM_targets }}"
+      vm_name: "{{ vm_name }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
@@ -245,6 +246,25 @@
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
       batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
+    throttle: 100
+    async: 3600
+    poll: 0
+    loop: "{{ VM_targets|flatten(levels=1) }}"
+    loop_control:
+      loop_var: vm_name
+    register: async_bind_topology_results
+
+  - name: Wait for bind tasks to complete
+    become: yes
+    async_status:
+      jid: "{{ async_bind_topology_result_item.ansible_job_id }}"
+    loop: "{{ async_bind_topology_results.results }}"
+    loop_control:
+      loop_var: async_bind_topology_result_item
+    register: async_bind_topology_poll_results
+    until: async_bind_topology_poll_results.finished
+    retries: 30
+    delay: 60
 
   - name: Bind topology {{ topo }} to DPUs.
     vm_topology:
