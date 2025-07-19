@@ -2123,6 +2123,14 @@ packet_trimming/test_packet_trimming.py:
     conditions:
       - "asic_type in ['vs']"
 
+packet_trimming/test_packet_trimming.py:
+  skip:
+    reason: "Packet-trimming tests are only supported on Mellanox 5640 and Broadcom 7060x6 platforms."
+    conditions_logical_operator: and
+    conditions:
+      - "'7060x6' not in platform"
+      - "'sn5640' not in platform"
+
 #######################################
 #####           pc               #####
 #######################################
