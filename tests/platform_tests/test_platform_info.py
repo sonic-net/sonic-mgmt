@@ -15,6 +15,7 @@ from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pd
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
+from tests.platform_tests.cli.util import get_skip_mod_list
 from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
     mocker_factory, disable_thermal_policy  # noqa: F401
@@ -222,11 +223,15 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
 
 def check_all_psu_on(dut, psu_test_results):
     """
-        @summary: check all PSUs are in 'OK' status.
+        @summary: Check that all non-skipped PSUs are in 'OK' status.
         @param dut: dut host instance.
         @param psu_test_results: dictionary of all PSU names, values are not important.
+        @return: True if all non-skipped PSUs are on (no powered off PSUs), otherwise False.
     """
     power_off_psu_list = []
+
+    # Get list of PSUs to skip from inventory configuration
+    skip_psu_list = get_skip_mod_list(dut, ['psus'])
 
     if "201811" in dut.os_version or "201911" in dut.os_version:
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
@@ -234,6 +239,10 @@ def check_all_psu_on(dut, psu_test_results):
             fields = line.split()
             if " ".join(fields[2:]) != 'NOT PRESENT':
                 psu_test_results[fields[1]] = line
+            # Skip PSUs that are in the skip list
+            if fields[1] in skip_psu_list:
+                logging.info("Skip PSU {} as it is in skip list".format(fields[1]))
+                continue
             if " ".join(fields[2:]) == "NOT OK":
                 power_off_psu_list.append(fields[1])
     else:
@@ -241,14 +250,18 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
+            if psu_info["name"] in skip_psu_list:
+                logging.info("Skip PSU {} as it is in skip list".format(psu_info["name"]))
+                continue
             if psu_info["status"] != 'NOT PRESENT':
                 psu_test_results[psu_info['name']] = psu_info
             if psu_info["status"] == "NOT OK":
-                power_off_psu_list.append(psu_info["index"])
+                power_off_psu_list.append(psu_info["name"])
 
     if power_off_psu_list:
         logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
+    # Return True if all PSUs are on (no powered off PSUs), otherwise False
     return len(power_off_psu_list) == 0
 
 
@@ -306,8 +319,19 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     # Group outlets/PDUs by PSU and toggle PDUs by PSU
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
 
+    # Get list of PSUs to skip from inventory configuration
+    skip_psu_list = get_skip_mod_list(duthost, ['psus'])
+    logging.info(f"PSUs to skip during PDU testing: {skip_psu_list}")
+    logging.info(f"PSUs to check: {psu_to_pdus.keys()}")
+
     try:
         for psu in psu_to_pdus.keys():
+            logging.info(f"Checking PSU identifier: {psu}")
+            # Skip PSUs that are in the skip list
+            if psu in skip_psu_list:
+                logging.info(f"Skipping PSU {psu} as it's in the skip list")
+                continue
+
             outlets = psu_to_pdus[psu]
             psu_under_test = None
 
@@ -322,6 +346,12 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
             for line in cli_psu_status["stdout_lines"][2:]:
                 psu_match = psu_line_pattern.match(line)
                 pytest_assert(psu_match, "Unexpected PSU status output")
+                # Skip PSUs that are in the skip list
+                psu_identifier = psu_match.group(1)
+                psu_name = "PSU " + psu_identifier
+                if psu_name in skip_psu_list:
+                    logging.info(f"Skipping PSU {psu_name} as it's in the skip list")
+                    continue
                 # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
                 if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
                     psu_under_test = psu_match.group(1)
@@ -337,6 +367,13 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
             for line in cli_psu_status["stdout_lines"][2:]:
                 psu_match = psu_line_pattern.match(line)
                 pytest_assert(psu_match, "Unexpected PSU status output")
+                # Skip PSUs that are in the skip list
+                psu_identifier = psu_match.group(1)
+                psu_name = "PSU " + psu_identifier
+                # Skip PSUs that are in the skip list when checking status
+                if psu_name in skip_psu_list:
+                    logging.info(f"Skipping PSU {psu_name} as it's in the skip list")
+                    continue
                 if psu_match.group(1) == psu_under_test:
                     pytest_assert(psu_match.group(2) == "OK",
                                   "Unexpected PSU status after turned it on")
@@ -347,8 +384,12 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
         turn_on_all_outlets(pdu_ctrl)
 
     for psu in psu_test_results:
-        pytest_assert(psu_test_results[psu],
-                      "Test psu status of PSU %s failed" % psu)
+        pytest_assert(
+            psu_test_results[psu],
+            "Test psu status failed for PSU '{}'. Observed status: {}".format(
+                psu, psu_test_results[psu] if psu_test_results[psu] is not True else "OK"
+            )
+        )
 
 
 @pytest.mark.disable_loganalyzer
