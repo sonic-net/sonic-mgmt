@@ -528,7 +528,7 @@ sonic_cisco_8102:
           wait: 600
 sonic_cisco_8102_smartswitch:
   vars:
-    hwsku: Cisco-8102-28FH-DPU-O-T1
+    hwsku: Cisco-8102-28FH-DPU-O
     iface_speed: 400000
   hosts:
     str3-8102-07:
