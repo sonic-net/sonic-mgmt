@@ -1,7 +1,7 @@
 simulation:
   slurm_flags:
     pending_timeout: 60
-    hours: 20
+    hours: 24
     partition: regression
   no_image_copy: true
   pyvxr_flags:

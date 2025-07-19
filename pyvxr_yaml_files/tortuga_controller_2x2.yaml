@@ -5,7 +5,7 @@ simulation:
   skip_auto_bringup: false
   slurm_flags:
     pending_timeout: 60
-    hours: 20
+    hours: 24
     partition: regression
 devices:
   trex1:
