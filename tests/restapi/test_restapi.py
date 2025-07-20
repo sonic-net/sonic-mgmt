@@ -96,7 +96,7 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     if reboot_type == 'warm':
         wait_warmboot_finalizer = True
     reboot(duthost, localhost, reboot_type,
-           wait_warmboot_finalizer=wait_warmboot_finalizer)
+           wait_warmboot_finalizer=wait_warmboot_finalizer, safe_reboot=True)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
