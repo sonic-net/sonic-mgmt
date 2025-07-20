@@ -12,23 +12,23 @@ import re
 import random
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
-from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa F401
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa: F401
+from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa: F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa: F401
 from tests.common.dualtor.mux_simulator_control import mux_server_url, \
-                                                       toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
+                                                       toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa: F401
 from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
-from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -87,7 +87,7 @@ def simple_eth_packet(
     return pkt
 
 
-def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa F811
+def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa: F811
     """
     send ethernet packet
     :param ptfadapter: PTF adapter object
@@ -107,7 +107,7 @@ def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # no
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa F811
+def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa: F811
     """
     send arp request packet
     :param ptfadapter: PTF adapter object
@@ -133,7 +133,7 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):   
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):     # noqa F811
+def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):     # noqa: F811
     """
     send arp reply packet
     :param ptfadapter: PTF adapter object
@@ -158,7 +158,7 @@ def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):     
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                # noqa F811
+def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                # noqa: F811
                   dest_ports, dest_mac, src_vlan, dst_vlan):
     """
     send ethernet packet and verify it on dest_port
@@ -304,9 +304,9 @@ def pkt_type(request):
 
 
 @pytest.fixture
-def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
-                              pkt_type, config_active_active_dualtor_active_standby,                        # noqa F811
-                              validate_active_active_dualtor_setup):                                        # noqa F811
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa: F811
+                              pkt_type, config_active_active_dualtor_active_standby,                        # noqa: F811
+                              validate_active_active_dualtor_setup):                                        # noqa: F811
     if active_active_ports and pkt_type == "ethernet":
         # for active-active dualtor, the upstream traffic is ECMPed to both ToRs, so let's
         # config the unselected ToR as standby to ensure all ethernet type packets are
@@ -321,8 +321,8 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
-             setup_active_active_ports, get_dummay_mac_count, fanouthosts):                                  # noqa F811
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa: F811
+             setup_active_active_ports, get_dummay_mac_count, fanouthosts):  # noqa: F811
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
@@ -417,7 +417,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
 
 def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
-                             toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):    # noqa F811
+                             toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):    # noqa: F811
     """
     Verify self mac will not be learnt.
     """

@@ -1,0 +1,47 @@
+---
+- name: allocate ip for device
+  nut_allocate_ip: testbed_facts="{{ testbed_facts }}" device_info="{{ device_info }}" device_port_links="{{ device_conn }}"
+  delegate_to: localhost
+
+- name: output device info
+  debug:
+    var: device_info[inventory_hostname]
+
+- name: output device meta
+  debug:
+    var: device_meta[inventory_hostname]
+
+- name: output device conn
+  debug:
+    var: device_conn[inventory_hostname]
+
+- name: output device bgp neighbor devices
+  debug:
+    var: device_bgp_neighbor_devices[inventory_hostname]
+
+- name: output device bgp neighbor ports
+  debug:
+    var: device_bgp_neighbor_ports[inventory_hostname]
+    #var: device_bgp_neighbors
+
+- name: define features settings
+  set_fact:
+    device_feature_settings:
+      - { name: bgp, state: enabled, auto_restart: enabled }
+      - { name: lldp, state: enabled, auto_restart: enabled }
+      - { name: swss, state: enabled, auto_restart: enabled }
+      - { name: syncd, state: enabled, auto_restart: enabled }
+      - { name: pmon, state: enabled, auto_restart: enabled }
+
+- name: generate config patch for device on local machine
+  template:
+    src: templates/config_patch/dut/all.json.j2
+    dest: "{{ playbook_dir }}/../tests/metadata/config_patch.{{ inventory_hostname }}.json"
+  delegate_to: localhost
+  vars:
+    info: "{{ device_info[inventory_hostname] }}"
+    meta: "{{ device_meta[inventory_hostname] }}"
+    conn: "{{ device_conn[inventory_hostname] }}"
+    bgp_neighbor_devices: "{{ device_bgp_neighbor_devices[inventory_hostname] }}"
+    bgp_neighbor_ports: "{{ device_bgp_neighbor_ports[inventory_hostname] }}"
+    features: "{{ device_feature_settings }}"

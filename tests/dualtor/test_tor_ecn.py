@@ -19,19 +19,19 @@ import re
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
-from tests.common.dualtor.dual_tor_mock import *                                # noqa F403
+from tests.common.dualtor.dual_tor_mock import *                                # noqa: F403
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import rand_selected_interface         # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa F401
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface         # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa: F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa: F401
 from tests.common.utilities import is_ipv4_address
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa: F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa: F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa: F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
@@ -65,7 +65,7 @@ def mock_common_setup_teardown(
 def setup_dualtor_tor_active(
     tbinfo, request
 ):
-    if is_t0_mocked_dualtor(tbinfo):        # noqa F405
+    if is_t0_mocked_dualtor(tbinfo):        # noqa: F405
         request.getfixturevalue('apply_active_state_to_orchagent')
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
@@ -75,7 +75,7 @@ def setup_dualtor_tor_active(
 def setup_dualtor_tor_standby(
     tbinfo, request
 ):
-    if is_t0_mocked_dualtor(tbinfo):        # noqa F405
+    if is_t0_mocked_dualtor(tbinfo):        # noqa: F405
         request.getfixturevalue('apply_standby_state_to_orchagent')
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
@@ -83,7 +83,7 @@ def setup_dualtor_tor_standby(
 
 def build_encapsulated_ip_packet(
     inner_dscp,
-    rand_selected_interface,        # noqa F811
+    rand_selected_interface,        # noqa: F811
     ptfadapter,
     rand_selected_dut
 ):
@@ -120,7 +120,7 @@ def build_encapsulated_ip_packet(
     )[IP]
     packet = testutils.simple_ipv4ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
         ip_dscp=outer_dscp,
@@ -135,7 +135,7 @@ def build_encapsulated_ip_packet(
 
 def build_non_encapsulated_ip_packet(
     dscp,
-    rand_selected_interface,        # noqa F811
+    rand_selected_interface,        # noqa: F811
     ptfadapter,
     rand_selected_dut
 ):
@@ -147,7 +147,7 @@ def build_non_encapsulated_ip_packet(
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [dut_name["address_ipv4"]       # noqa F841
+        peer_ipv4_address = [dut_name["address_ipv4"]       # noqa: F841
                              for dut_name in list(config_facts["PEER_SWITCH"].values())][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
@@ -162,7 +162,7 @@ def build_non_encapsulated_ip_packet(
 
     packet = testutils.simple_ip_packet(
         eth_dst=tor.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src="1.1.1.1",
         ip_dst=server_ipv4,
         ip_dscp=dscp,
@@ -209,7 +209,7 @@ def build_expected_packet_to_server(
 def check_received_packet_on_expected_queue(
     duthosts,
     rand_one_dut_hostname,
-    rand_selected_interface,        # noqa F811
+    rand_selected_interface,        # noqa: F811
     expected_queue
 ):
     """
@@ -278,8 +278,8 @@ def skip_inner_dscp_2_6_on_nvidia(duthost, inner_dscp):
 @pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6])        # lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
-    request, rand_selected_interface, ptfadapter,           # noqa F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
+    request, rand_selected_interface, ptfadapter,           # noqa: F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa: F811
     duthosts, rand_one_dut_hostname
 ):
     """
@@ -349,14 +349,14 @@ def write_standby(rand_selected_dut):
 def test_dscp_to_queue_during_encap_on_standby(
     dscp,
     setup_dualtor_tor_standby,
-    rand_selected_interface, ptfadapter,            # noqa F811
+    rand_selected_interface, ptfadapter,            # noqa: F811
     tbinfo,
-    rand_selected_dut,                              # noqa F811
-    tunnel_traffic_monitor,                         # noqa F811
+    rand_selected_dut,                              # noqa: F811
+    tunnel_traffic_monitor,                         # noqa: F811
     duthosts,
     rand_one_dut_hostname,
     write_standby,
-    setup_standby_ports_on_rand_selected_tor,       # noqa F811
+    setup_standby_ports_on_rand_selected_tor,       # noqa: F811
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
@@ -384,8 +384,8 @@ def test_dscp_to_queue_during_encap_on_standby(
 @pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6])        # lossless queue is 3 or 4 or 2 or 6.
 def test_ecn_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
-    request, rand_selected_interface, ptfadapter,           # noqa F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
+    request, rand_selected_interface, ptfadapter,           # noqa: F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa: F811
 ):
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
@@ -419,10 +419,10 @@ def test_ecn_during_decap_on_active(
 def test_ecn_during_encap_on_standby(
     dscp,
     setup_dualtor_tor_standby,
-    rand_selected_interface, ptfadapter,                    # noqa F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
+    rand_selected_interface, ptfadapter,                    # noqa: F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa: F811
     write_standby,
-    setup_standby_ports_on_rand_selected_tor,               # noqa F811
+    setup_standby_ports_on_rand_selected_tor,               # noqa: F811
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby

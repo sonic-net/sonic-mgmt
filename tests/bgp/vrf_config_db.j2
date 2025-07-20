@@ -4,17 +4,12 @@
     "BGP_NEIGHBOR": {
 {%         for neigh in cfg_t1['BGP_NEIGHBOR'] | sort %}
 {#     to detect number of pcs, used multiplier 2, because each neigh have ipv4 and ipv6 key #}
-{%             if cfg_t1['BGP_NEIGHBOR'] | length == 48  %}
-{%                 if cfg_t1['BGP_NEIGHBOR'][neigh]['name'] in vm_list %}
+{%       if cfg_t1['BGP_NEIGHBOR'][neigh]['name'] in vm_list %}
         "Vrf1|{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
 {%-                else %}
         "{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
 {%-                endif %}
-{%-            else %}
-        "{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
-{%-            endif %}
 {%-            if not loop.last %},{%endif %}
-
 {%         endfor %}
     },
 {%     elif k == 'PORTCHANNEL_INTERFACE' %}

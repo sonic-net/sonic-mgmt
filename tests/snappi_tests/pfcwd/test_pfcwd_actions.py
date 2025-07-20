@@ -2,10 +2,12 @@ import pytest
 import logging
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut     # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
+    fanout_graph_facts   # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters      # noqa: F401
+    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_single_dut      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
@@ -13,6 +15,7 @@ from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfc_test
 from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +193,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -358,6 +362,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -529,6 +534,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -701,6 +707,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -873,6 +880,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
@@ -993,6 +1001,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     for dut in duthosts:
         clear_fabric_counters(dut)
+        if dut.facts.get('asic_type') == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(dut, False)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -1013,5 +1023,9 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
             check_fabric_counters(dut)
 
     finally:
+        cleanup_config(duthosts, snappi_ports)
+        for dut in duthosts:
+            if dut.facts.get('asic_type') == "cisco-8000":
+                modify_voq_watchdog_cisco_8000(dut, True)
         for duthost in dut_list:
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

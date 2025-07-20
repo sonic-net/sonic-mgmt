@@ -1,317 +1,32 @@
 import logging
 import time
 import requests
-import random
-import sys
-from io import StringIO
 import ptf.packet as scapy
 import ptf.testutils as testutils
-from tests.common.reboot import reboot
-from tests.common.config_reload import config_reload
 from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
     extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.srv6_helper import SRv6
 
 logger = logging.getLogger(__name__)
-
-
-class SRv6():
-    uN = 'uN'
-    prefix_len = '48'
-    pipe_mode = 'pipe'
-    uniform_mode = 'uniform'
-
-
-class SRv6Packets():
-    '''
-    Define the ipv6 packets used in srv6 test
-    Each item was defined with actions and packet type as well as segment left and segment list, destination ip
-    '''
-    srv6_packets = [
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1000:0100:0200::',
-            'exp_dst_ipv6': '2001:1000:0200::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward',
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'dst_ipv6': '2001:1001:0200:0300::',
-            'exp_dst_ipv6': '2001:1001:0300::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2000:0300:0400:0500:0600::'],
-            'dst_ipv6': '2001:2000:0300::',
-            'exp_dst_ipv6': '2001:2000:0300:0400:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': ['2001:2001:0400:0500:0600::'],
-            'dst_ipv6': '2001:2001:0400:0500::',
-            'exp_dst_ipv6': '2001:2001:0500::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 1,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3000:0500:0600::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3000:0500::',
-            'exp_dst_ipv6': '2001:3000:0500:0600::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 0,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 2,
-            'inner_dscp': None,
-            'outer_dscp': None,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:3001:0600::',
-            'exp_dst_ipv6': '2001:3000:0600:0700:0800:0900:0a00::',
-            'exp_inner_dscp_pipe': None,
-            'exp_outer_dscp_uniform': None,
-            'exp_srh_seg_left': 1,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 20,
-            'outer_dscp': 40,
-            'dst_ipv6': '2001:4000:0700::',
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'exp_inner_dscp_pipe': 20,
-            'exp_outer_dscp_uniform': 40,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'one_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 32,
-            'outer_dscp': 31,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:4001:0800::',
-            'exp_inner_dscp_pipe': 32,
-            'exp_outer_dscp_uniform': 31,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '4',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'two_u_sid',
-            'srh_seg_left': 0,
-            'inner_dscp': 2,
-            'outer_dscp': 62,
-            'srh_seg_list': [
-                '2001:3001:0500::',
-                '2001:3000:0600:0700:0800:0900:0a00::'
-            ],
-            'dst_ipv6': '2001:5000:0900::',
-            'exp_inner_dscp_pipe': 2,
-            'exp_outer_dscp_uniform': 62,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        },
-        {
-            'action': SRv6.uN,
-            'packet_type': 'reduced_srh',
-            'srh_seg_left': None,
-            'srh_seg_list': None,
-            'inner_dscp': 63,
-            'outer_dscp': 1,
-            'dst_ipv6': '2001:5001:0a00::',
-            'exp_inner_dscp_pipe': 63,
-            'exp_outer_dscp_uniform': 1,
-            'exp_dst_ipv6': None,
-            'exp_srh_seg_left': None,
-            'inner_pkt_ver': '6',
-            'exp_process_result': 'forward'
-        }
-    ]
-    srv6_next_header = {
-        scapy.IP: 4,
-        scapy.IPv6: 41
-    }
+LOCATOR_NUM = 128
+ROUTE_BASE = '2001'
 
 
 class MyLocators():
+    # Generate 128 locators with incrementing IPv6 addresses
     my_locator_list = [
-        ['locator_1', '2001:1000:100::'],
-        ['locator_2', '2001:1001:200::'],
-        ['locator_3', '2001:2000:300::'],
-        ['locator_4', '2001:2001:400::'],
-        ['locator_5', '2001:3000:500::'],
-        ['locator_6', '2001:3001:600::'],
-        ['locator_7', '2001:4000:700::'],
-        ['locator_8', '2001:4001:800::'],
-        ['locator_9', '2001:5000:900::'],
-        ['locator_10', '2001:5001:a00::']
+        [f'locator_{i + 1}', f'{ROUTE_BASE}:1001:{1 + i}::', f'{1 + i}'] for i in range(LOCATOR_NUM)
     ]
 
 
 class MySIDs(MyLocators):
     TUNNEL_MODE = [SRv6.pipe_mode]
+    # Generate 128 SIDs based on the locator list
     MY_SID_LIST = [
-        [MyLocators.my_locator_list[0][0], MyLocators.my_locator_list[0][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[1][0], MyLocators.my_locator_list[1][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[2][0], MyLocators.my_locator_list[2][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[3][0], MyLocators.my_locator_list[3][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[4][0], MyLocators.my_locator_list[4][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[5][0], MyLocators.my_locator_list[5][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[6][0], MyLocators.my_locator_list[6][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[7][0], MyLocators.my_locator_list[7][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[8][0], MyLocators.my_locator_list[8][1], SRv6.uN, 'default'],
-        [MyLocators.my_locator_list[9][0], MyLocators.my_locator_list[9][1], SRv6.uN, 'default']
+        [locator_name, sid, SRv6.uN, 'default']
+        for locator_name, sid, _ in MyLocators.my_locator_list
     ]
-
-
-def create_srv6_locator(duthost,
-                        locator_name,
-                        prefix,
-                        block_len=32,
-                        node_len=16,
-                        func_len=0,
-                        arg_len=0):
-    logger.info(f'Configure locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
-        f'"prefix" "{prefix}" '
-        f'"block_len" "{block_len}" '
-        f'"node_len" "{node_len}" '
-        f'"func_len" "{func_len}" '
-        f'"arg_len" "{arg_len}"')
-
-
-def validate_srv6_in_appl_db(duthost,
-                             block_len=32,
-                             node_len=16,
-                             func_len=0,
-                             arg_len=0):
-    for entry in MySIDs.MY_SID_LIST:
-        prefix = entry[1]
-        action = entry[2]
-        try:
-            appl_action = duthost.shell(f'sonic-db-cli APPL_DB HGET "SRV6_MY_SID_TABLE:'
-                                        f'{block_len}:{node_len}:{func_len}:{arg_len}:{prefix}" action')["stdout"]
-            if action.lower() != appl_action:
-                logger.error(f"Real action is {appl_action}, but expected action is {action}")
-                return False
-        except Exception as err:
-            logger.error(f"Failed to check SRV6_MY_SID_TABLE - prefix:{prefix} in Application DB")
-            raise err
-    return True
-
-
-def del_srv6_locator(duthost, locator_name):
-    logger.info(f'Delete locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
-
-
-def create_srv6_sid(duthost,
-                    locator_name,
-                    ip_addr,
-                    action=SRv6.uN,
-                    decap_vrf='default',
-                    decap_dscp_mode=SRv6.uniform_mode):
-    logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
-        f'"action" "{action}" '
-        f'"decap_vrf" "{decap_vrf}" '
-        f'"decap_dscp_mode" "{decap_dscp_mode}"')
-
-
-def del_srv6_sid(duthost, locator_name, ip_addr):
-    logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
-
-
-def random_reboot(duthost, localhost):
-    """
-    Randomly choose one action from reload/cold reboot and do the action and wait system recovery
-    """
-    reboot_type_list = ["reload", "cold"]
-    reboot_type = random.choice(reboot_type_list)
-    logger.info(f'Randomly choose {reboot_type} from {reboot_type_list}')
-
-    if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-    else:
-        logger.info(f'Do {reboot_type}')
-        reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True, safe_reboot=True,
-               check_intf_up_ports=True, wait_for_bgp=True)
-
-
-def dump_packet_detail(pkt):
-    _stdout, sys.stdout = sys.stdout, StringIO()
-    try:
-        pkt.show()
-        return sys.stdout.getvalue()
-    finally:
-        sys.stdout = _stdout
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
@@ -473,12 +188,14 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     @param pkt_expected: Indicated whether it is expected to receive the exp_pkt on one of the dst_ports
     @param ptfadapter: The ptfadapter fixture
     """
+    ptfadapter.dataplane.flush()
+    ptfadapter.dataplane.set_qlen(1000000)
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
 
     time.sleep(1)
-    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=60)
     received = False
     if rcv_pkt:
         received = True
@@ -645,9 +362,284 @@ def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
     return key in appl_db_my_sids if exist else key not in appl_db_my_sids
 
 
+def enable_srv6_counterpoll(duthost):
+    """
+    Enable SRv6 counterpoll on the DUT.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo counterpoll srv6 enable'
+        duthost.shell(cmd)
+        logger.info("Successfully enabled SRv6 counterpoll")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to enable SRv6 counterpoll: {str(e)}")
+
+
+def disable_srv6_counterpoll(duthost):
+    """
+    Disable SRv6 counterpoll on the DUT.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo counterpoll srv6 disable'
+        duthost.shell(cmd)
+        logger.info("Successfully disabled SRv6 counterpoll")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to disable SRv6 counterpoll: {str(e)}")
+
+
+def set_srv6_counterpoll_interval(duthost, interval_ms, wait_for_new_interval=True):
+    """
+    Set the polling interval for SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        interval_ms (int): Polling interval in milliseconds
+        wait_for_new_interval (bool): Whether to wait for the new interval to take effect
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get current interval
+        current_status = duthost.get_counter_poll_status()
+        if 'SRV6_STAT' not in current_status:
+            logger.error("SRv6 counterpoll is not available")
+            return False
+
+        current_interval = current_status['SRV6_STAT']['interval']
+
+        # Set new interval
+        cmd = f'sudo counterpoll srv6 interval {interval_ms}'
+        duthost.shell(cmd)
+
+        # Wait for the new interval to take effect if requested
+        if wait_for_new_interval:
+            wait_time = current_interval / 1000 + 1  # Convert to seconds and add 1 second buffer
+            logger.info(f"Waiting {wait_time} seconds for new interval to take effect")
+            time.sleep(wait_time)
+
+        logger.info(f"Successfully set SRv6 counterpoll interval to {interval_ms} ms")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to set SRv6 counterpoll interval: {str(e)}")
+
+
+def get_srv6_counterpoll_status(duthost):
+    """
+    Get the current status of SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        dict: Dictionary containing status information or None if failed
+    """
+    try:
+        status = duthost.get_counter_poll_status()
+        if 'SRV6_STAT' in status:
+            return status['SRV6_STAT']
+        return None
+    except Exception as e:
+        raise Exception(f"Failed to get SRv6 counterpoll status: {str(e)}")
+
+
+def verify_srv6_counterpoll_status(duthost, expected_status, expected_interval=None):
+    """
+    Verify the status of SRv6 counterpoll.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        expected_status (str): Expected status ('enable' or 'disable')
+        expected_interval (str): Expected interval in milliseconds
+    Returns:
+        bool: True if status matches expected, False otherwise
+    """
+    try:
+        status = get_srv6_counterpoll_status(duthost)
+        if status is None:
+            return False
+
+        actual_status = status['status'].lower()
+        expected_status = expected_status.lower()
+        actual_interval = status['interval']
+
+        if expected_interval:
+            if actual_interval != expected_interval:
+                logger.error(f"SRv6 counterpoll interval mismatch. Expected: {expected_interval}, "
+                             f"Actual: {actual_interval}")
+                return False
+
+        if actual_status == expected_status:
+            logger.info(f"SRv6 counterpoll status verified as {expected_status}")
+            return True
+        else:
+            logger.error(f"SRv6 counterpoll status mismatch. Expected: {expected_status}, Actual: {actual_status}")
+            return False
+    except Exception as e:
+        raise Exception(f"Failed to verify SRv6 counterpoll status: {str(e)}")
+
+
+def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
+    """
+    Validate SRv6 counters based on the list of SRv6 packets.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        srv6_pkt_list (list): List of SRv6 packets
+        mysid_list (list): List of MySID to validate
+        pkt_num (int): Number of packets to validate
+
+    Returns:
+        bool: True if counters match expected values, False otherwise
+    """
+    try:
+        stats_list = duthost.show_and_parse('show srv6 stats')
+        stats_dict = {item['mysid']: item for item in stats_list}
+
+        for srv6_pkt, mysid in zip(srv6_pkt_list, mysid_list):
+            # Wireshark and PTF do not include FCS field when calculating frame length, but the switch does,
+            # so add 4 bytes when validating SRv6 counters at switch
+            single_pkt_len = len(srv6_pkt) + 4
+            mysid_with_prefix = mysid[1] + '/' + str(SRv6.prefix_len)
+
+            if mysid_with_prefix not in stats_dict:
+                logger.error(f"MySID {mysid_with_prefix} not found in SRv6 statistics")
+                return False
+
+            current_stats = stats_dict[mysid_with_prefix]
+            current_packets = int(current_stats['packets'])
+            current_bytes = int(current_stats['bytes'])
+
+            if current_packets != pkt_num or current_bytes != pkt_num * single_pkt_len:
+                logger.error(f"SRv6 statistics mismatch for MySID {mysid_with_prefix}: "
+                             f"Expected Packets={pkt_num}, Bytes={pkt_num * single_pkt_len}, "
+                             f"Actual Packets={current_packets}, Bytes={current_bytes}")
+                return False
+
+            logger.info(f"SRv6 statistics match expected values for MySID {mysid_with_prefix}: "
+                        f"Packets={current_packets}, Bytes={current_bytes}")
+
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to validate SRv6 counters: {str(e)}")
+
+
+def get_srv6_mysid_entry_usage(duthost):
+    """
+    Get the usage information of SRv6 MySID Entry resources.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        dict: Dictionary containing usage information with keys:
+            - 'used_count': Number of used entries
+            - 'available_count': Number of available entries
+            - 'total_count': Total number of entries
+        Returns None if failed to get the information
+    """
+    try:
+        # Get SRv6 MySID Entry usage information using show_and_parse
+        usage_list = duthost.show_and_parse('crm show resources srv6-my-sid-entry')
+
+        # Find the entry for srv6_my_sid_entry
+        for entry in usage_list:
+            if entry['resource name'] == 'srv6_my_sid_entry':
+                used_count = int(entry['used count'])
+                available_count = int(entry['available count'])
+                total_count = used_count + available_count
+
+                result = {
+                    'used_count': used_count,
+                    'available_count': available_count,
+                    'total_count': total_count
+                }
+
+                logger.info(f"SRv6 MySID Entry usage: Used={used_count}, Available={available_count}, "
+                            f"Total={total_count}")
+                return result
+
+        logger.error("SRv6 MySID Entry resource not found in CRM output")
+        return None
+
+    except Exception as e:
+        raise Exception(f"Failed to get SRv6 MySID Entry usage: {str(e)}")
+
+
+def clear_srv6_counters(duthost):
+    """
+    Clear all SRv6 counters using sonic-clear command.
+
+    Args:
+        duthost (SonicHost): DUT host object
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        cmd = 'sudo sonic-clear srv6counters'
+        duthost.shell(cmd)
+        logger.info("Successfully cleared SRv6 counters")
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to clear SRv6 counters: {str(e)}")
+
+
+def verify_srv6_crm_status(duthost, expected_used_count, expected_available_count):
+    '''
+    Verify the CRM status of SRv6 SID.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        expected_used_count (int): Expected number of used entries
+        expected_available_count (int): Expected number of available entries
+    '''
+    mysid_crm_status = get_srv6_mysid_entry_usage(duthost)
+    if not mysid_crm_status:
+        logger.info("Failed to get SRv6 MySID Entry usage")
+        return False
+    if mysid_crm_status['used_count'] != expected_used_count:
+        logger.info(f"Expected {expected_used_count} used SRv6 MySID Entries, but got {mysid_crm_status['used_count']}")
+        return False
+    if mysid_crm_status['available_count'] != expected_available_count:
+        logger.info(f"Expected {expected_available_count} available SRv6 MySID Entries, "
+                    f"but got {mysid_crm_status['available_count']}")
+        return False
+
+    logger.info("SRv6 MySID Entry usage verified successfully")
+    return True
+
+
 #
 # Get the mac address of a neighbor
 #
 def get_neighbor_mac(dut, neighbor_ip):
     """Get the MAC address of the neighbor via the ip neighbor table"""
     return dut.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4]
+
+
+def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
+    """
+    Verify that ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries exist in the ASIC DB.
+    Args:
+        duthost: The DUT host object
+        sonic_db_cli: The sonic-db-cli command with namespace options
+    Returns:
+        bool: True if entries exist, False otherwise
+    """
+    asic_db_my_sids = duthost.command(sonic_db_cli +
+                                      " ASIC_DB keys *ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
+    return len(asic_db_my_sids.strip()) > 0
