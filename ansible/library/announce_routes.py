@@ -1571,7 +1571,7 @@ def main():
             dut_interfaces=dict(required=False, type='str', default=''),
             adhoc=dict(required=False, type='bool', default=False),
             peers_routes_to_change=dict(required=False, type='dict', default={}),
-            log_path=dict(required=False, type='str', default=''),
+            log_path=dict(required=False, type='str', default='/tmp'),
             upstream_neighbor_groups=dict(required=False, type='int', default=0),
             downstream_neighbor_groups=dict(required=False, type='int', default=0)
         ),
