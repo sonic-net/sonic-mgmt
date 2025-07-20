@@ -2920,6 +2920,12 @@ srv6/test_srv6_static_config.py:
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
 
+srv6/test_srv6_static_config.py::test_uDT46_config:
+  skip:
+    reason: "Unsupported platform"
+    conditions:
+      - "asic_type in ['mellanox']"
+
 srv6/test_srv6_vlan_forwarding.py:
   skip:
     reason: "Only target mellanox/brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
