@@ -1063,6 +1063,7 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6794"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "release in ['202412']"
