@@ -4,6 +4,7 @@ import re
 import logging
 import sys
 import os
+import pytest
 from multiprocessing.pool import ThreadPool
 from collections import deque
 
@@ -255,7 +256,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     """
 
     if reboot_type not in reboot_ss_ctrl_dict:
-        logger.info("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
+        pytest.skip(
+            "Skipping the reboot test as the reboot type {} is not supported on smartswitch".format(reboot_type))
         return
 
     hostname = duthost.hostname
@@ -343,7 +345,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
     time.sleep(wait_conlsole_connection)
     # Perform reboot
-    if duthost.get_facts().get("is_smartswitch"):
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
         reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
