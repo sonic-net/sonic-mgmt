@@ -114,7 +114,7 @@ stages:
     displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_lag_vpp_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
