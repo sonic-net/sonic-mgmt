@@ -91,8 +91,7 @@ class TestFaultHandling():
             ).format(dut_ingress_sa_table_orig, dut_ingress_sa_table_new)
             return True
         assert wait_until(30, 5, 2, check_new_mka_session), (
-            "New MKA session not established within expected time. "
-            "Result of check_new_mka_session")
+            "New MKA session not established within expected time. ")
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -100,12 +99,10 @@ class TestFaultHandling():
             "Portchannel {} did not come up within expected time. "
             "Portchannel status: {} "
             "Find portchannel from member: {} "
-            "Get portchannel status: {} "
         ).format(
             port_name,
             find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
-            find_portchannel_from_member(port_name, get_portchannel(duthost)),
-            get_portchannel(duthost)
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
         )
 
         if isinstance(nbr["host"], EosHost):
@@ -119,12 +116,10 @@ class TestFaultHandling():
             "Portchannel {} did not go down within expected time. "
             "Portchannel status: {} "
             "Find portchannel from member: {} "
-            "Get portchannel status: {} "
         ).format(
             port_name,
             find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
-            find_portchannel_from_member(port_name, get_portchannel(duthost)),
-            get_portchannel(duthost)
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
         )
 
         if isinstance(nbr["host"], EosHost):
@@ -136,12 +131,10 @@ class TestFaultHandling():
             "Portchannel {} did not come up within expected time. "
             "Portchannel status: {} "
             "Find portchannel from member: {} "
-            "Get portchannel status: {} "
         ).format(
             port_name,
             find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
-            find_portchannel_from_member(port_name, get_portchannel(duthost)),
-            get_portchannel(duthost)
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
         )
 
     @pytest.mark.disable_loganalyzer
