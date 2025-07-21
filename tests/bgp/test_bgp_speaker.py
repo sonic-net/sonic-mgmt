@@ -218,19 +218,16 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_
     assert all([v["state"] == "established" for _, v in list(bgp_facts["bgp_neighbors"].items())]), (
         "Not all BGP sessions are established. "
         "Current state: {} "
-        "BGP neighbors: {} "
         "BGP neighbors items: {} "
     ).format(
         (v["state"] for _, v in list(bgp_facts["bgp_neighbors"].items())),
-        bgp_facts["bgp_neighbors"],
         list(bgp_facts["bgp_neighbors"].items())
     )
 
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], (
         "No BGP session with PTF. "
         "Speaker IP: {} "
-        "BGP neighbors: {} "
-    ).format(str(speaker_ips[2].ip), bgp_facts["bgp_neighbors"])
+    ).format(str(speaker_ips[2].ip))
 
 
 # For dualtor
@@ -309,8 +306,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
         "Not all dynamic neighbors were learned. "
         "DUT Host: {}"
         "Speaker IPs: {}"
-        "Neighbor learning status: {}"
-    ).format(duthost, speaker_ips, is_all_neighbors_learned(duthost, speaker_ips))
+    ).format(duthost, speaker_ips)
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(prefix.encode().decode()))
