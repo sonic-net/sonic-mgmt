@@ -4324,15 +4324,15 @@
     - 172.16.188.2/17
 
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-1
-  group-name: bjw2-1-t
+  group-name: bjw2-3-5
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
-  ptf: bjw2-1-t
+  ptf: bjw2-3-5
   ptf_ip: 10.150.23.132/23
   ptf_ipv6: 2404:f801:10:2200::a96:1784/52
   netns_mgmt_ip: 10.150.23.40/23
-  server: server_bjw2_1
-  vm_base: VM81203
+  server: server_bjw2_3
+  vm_base: VM83035
   dut:
     - bjw2-can-8101c1-1
     - bjw2-can-8101c1-2
@@ -4343,15 +4343,15 @@
     - 172.16.188.132/17
 
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-2
-  group-name: bjw2-1-u
+  group-name: bjw2-4-1
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
-  ptf: bjw2-1-u
+  ptf: bjw2-4-1
   ptf_ip: 10.150.23.133/23
   ptf_ipv6: 2404:f801:10:2200::a96:1785/52
   netns_mgmt_ip: 10.150.23.41/23
-  server: server_bjw2_1
-  vm_base: VM81207
+  server: server_bjw2_4
+  vm_base: VM84011
   dut:
     - bjw2-can-8101c1-3
     - bjw2-can-8101c1-4
