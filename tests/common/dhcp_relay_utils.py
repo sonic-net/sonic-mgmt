@@ -2,10 +2,12 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 import json
 import logging
+import ptf.packet as scapy
+
 
 logger = logging.getLogger(__name__)
 SUPPORTED_DHCPV4_TYPE = [
-    "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
+     "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp", "Unknown"
 ]
 SUPPORTED_DIR = ["TX", "RX"]
 
@@ -145,10 +147,162 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
         compare_warning_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname),
         error_in_percentage)
     compare_dhcpcom_relay_counters_with_warning(
-        vlan_interface_counter, expected_downlink_counter,
-        compare_warning_msg.format(downlink_vlan_iface, "expected_downlink_counter", duthost.hostname),
+        client_interface_counter, expected_downlink_counter,
+        compare_warning_msg.format(client_iface, "expected_downlink_counter", duthost.hostname),
         error_in_percentage)
     compare_dhcpcom_relay_counters_with_warning(
         uplink_interface_counter, expected_uplink_counter,
         compare_warning_msg.format(uplink_interfaces, "expected_uplink_counter", duthost.hostname),
         error_in_percentage)
+
+
+def calculate_counters_per_pkts(pkts):
+    """
+    Calculate the counters for each interface index based on the packets.
+    Return the counters for each interface index.
+    """
+    all_counters = {}
+    for pkt in pkts:
+        if hasattr(pkt, 'ifindex'):
+            counter = all_counters.setdefault(pkt.ifindex, {
+                "RX": {},
+                "TX": {}
+            })
+            message_type_int = pkt[scapy.DHCP].options[0][1] if pkt.haslayer(scapy.DHCP) else None
+            message_type_str = SUPPORTED_DHCPV4_TYPE[message_type_int - 1] \
+                if message_type_int is not None and message_type_int > 0 else "Unknown"
+            sport = pkt[scapy.UDP].sport if pkt.haslayer(scapy.UDP) else None
+            dport = pkt[scapy.UDP].dport if pkt.haslayer(scapy.UDP) else None
+            # For DHCP Discover or Request, dport can only be 67, sport can be 68 or 67
+            # All other packets are skipped
+            if dport == 67 and (message_type_str == "Discover" or message_type_str == "Request"):
+                if sport == 68:
+                    counter["RX"][message_type_str] = counter["RX"].get(message_type_str, 0) + 1
+                elif sport == 67:
+                    counter["TX"][message_type_str] = counter["TX"].get(message_type_str, 0) + 1
+            # DHCP Offer or Ack, sport can only be 67, dport can be 68 or 67
+            # All other packets are skipped
+            elif sport == 67 and (message_type_str == "Offer" or message_type_str == "Ack"):
+                if dport == 67:
+                    counter["RX"][message_type_str] = counter["RX"].get(message_type_str, 0) + 1
+                elif dport == 68:
+                    counter["TX"][message_type_str] = counter["TX"].get(message_type_str, 0) + 1
+
+    return all_counters
+
+
+def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_name_index_mapping, local_ip,
+                                           error_in_percentage=0.0):
+    """Validate the dhcpcom relay counters and packets consistence"""
+    downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
+    # it can be portchannel or interface, it depends on the topology
+    uplink_portchannels_or_interfaces = dhcp_relay['uplink_interfaces']
+    client_iface = dhcp_relay['client_iface']['name']
+    portchannels = dhcp_relay['portchannels']
+
+    '''
+    If the uplink_portchannels_or_interfaces are portchannels,
+        uplink_interfaces will contains the members of the portchannels
+    If the uplink_portchannels_or_interfaces are not portchannels,
+        uplink_interfaces will equal to uplink_portchannels_or_interfaces
+    '''
+    uplink_interfaces = []
+    compare_warning_msg = "Warning for comparing {} counters and {} counters, hostname:{}. "
+    all_pkt_counters = calculate_counters_per_pkts(pkts)
+    for portchannel_name in uplink_portchannels_or_interfaces:
+        if portchannel_name in portchannels.keys():
+            uplink_interfaces.extend(portchannels[portchannel_name]['members'])
+            portchannel_counters = query_and_sum_dhcpcom_relay_counters(duthost,
+                                                                        downlink_vlan_iface,
+                                                                        [portchannel_name])
+            members_counters = query_and_sum_dhcpcom_relay_counters(duthost,
+                                                                    downlink_vlan_iface,
+                                                                    portchannels[portchannel_name]['members'])
+
+            # If the portchannel counters and its members' counters are not equal, yield a warning message
+
+            portchannel_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[portchannel_name],
+                                                                 {"RX": {}, "TX": {}})
+
+            members_counter_from_pkts = {
+                "RX": {},
+                "TX": {}
+            }
+            # sum the counters from pkts for each member of the portchannel
+            for member in portchannels[portchannel_name]['members']:
+                merge_counters(members_counter_from_pkts, all_pkt_counters.get(interface_name_index_mapping[member],
+                                                                              {"RX": {}, "TX": {}}))
+
+            ''' Compare the counters from pkts with the counters from the DB for portchannel and its members'''
+            compare_dhcpcom_relay_counters_with_warning(
+                portchannel_counters, portchannel_counter_from_pkts,
+                compare_warning_msg.format(portchannel_name, portchannel_name + " from pkts", duthost.hostname),
+                error_in_percentage)
+            compare_dhcpcom_relay_counters_with_warning(
+                members_counters, members_counter_from_pkts,
+                compare_warning_msg.format(portchannels[portchannel_name]['members'],
+                                           str(portchannels[portchannel_name]['members']) + " from pkts",
+                                           duthost.hostname),
+                error_in_percentage)
+            compare_dhcpcom_relay_counters_with_warning(
+                portchannel_counters, members_counters,
+                compare_warning_msg.format(portchannel_name,
+                                           portchannels[portchannel_name]['members'], duthost.hostname),
+                error_in_percentage)
+        else:
+            uplink_interfaces.append(portchannel_name)
+
+    vlan_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, [])
+    client_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, [client_iface])
+    uplink_portchannels_interfaces_counter = query_and_sum_dhcpcom_relay_counters(
+        duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces
+    )
+    uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
+
+    vlan_interface_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[downlink_vlan_iface],
+                                                            {"RX": {}, "TX": {}})
+    client_interface_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[client_iface],
+                                                              {"RX": {}, "TX": {}})
+    uplink_portchannels_interfaces_counter_from_pkts = {
+                "RX": {},
+                "TX": {}
+            }
+    for iface in uplink_portchannels_or_interfaces:
+        merge_counters(uplink_portchannels_interfaces_counter_from_pkts,
+                       all_pkt_counters.get(interface_name_index_mapping[iface], {"RX": {}, "TX": {}}))
+    uplink_interface_counter_from_pkts = {
+                "RX": {},
+                "TX": {}
+            }
+    for iface in uplink_interfaces:
+        merge_counters(uplink_interface_counter_from_pkts,
+                       all_pkt_counters.get(interface_name_index_mapping[iface], {"RX": {}, "TX": {}}))
+
+    compare_dhcpcom_relay_counters_with_warning(
+        vlan_interface_counter, vlan_interface_counter_from_pkts,
+        compare_warning_msg.format(downlink_vlan_iface, downlink_vlan_iface + " from pkts", duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        uplink_portchannels_interfaces_counter, uplink_portchannels_interfaces_counter_from_pkts,
+        compare_warning_msg.format(uplink_portchannels_or_interfaces,
+                                   str(uplink_portchannels_or_interfaces) + " from pkts", duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        uplink_portchannels_interfaces_counter, uplink_interface_counter,
+        compare_warning_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        client_interface_counter, client_interface_counter_from_pkts,
+        compare_warning_msg.format(client_iface, client_iface + " from pkts", duthost.hostname),
+        error_in_percentage)
+    compare_dhcpcom_relay_counters_with_warning(
+        uplink_interface_counter, uplink_interface_counter_from_pkts,
+        compare_warning_msg.format(uplink_interfaces, str(uplink_interfaces) + " from pkts", duthost.hostname),
+        error_in_percentage)
+
+
+def merge_counters(source_counter, merge_counter):
+    for dir in SUPPORTED_DIR:
+        for dhcp_type in SUPPORTED_DHCPV4_TYPE:
+            source_counter[dir][dhcp_type] = source_counter.get(dir, {}).get(dhcp_type, 0) + \
+                                                                    merge_counter.get(dir, {}).get(dhcp_type, 0)
