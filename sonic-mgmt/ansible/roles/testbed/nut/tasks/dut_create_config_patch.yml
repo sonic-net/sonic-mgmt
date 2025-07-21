@@ -35,7 +35,7 @@
 
 - name: generate config patch for device on local machine
   template:
-    src: templates/config_patch.json.j2
+    src: templates/config_patch/dut/all.json.j2
     dest: "{{ playbook_dir }}/../tests/metadata/config_patch.{{ inventory_hostname }}.json"
   delegate_to: localhost
   vars:

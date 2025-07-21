@@ -7,7 +7,7 @@
             "load_balance_mp_relax" : "true",
             "keepalive" : "10",
             "holdtime" : "30",
-            "sid_vpn_per_vrf_export_explicit": "true"
+            "sid_vpn_per_vrf_export_explicit": "fd00:202:202:2::"
         },
         "default" : {
             "local_asn" : "64601",
@@ -444,17 +444,17 @@
         "lsid1": {
             "argu_len": "48",
             "block_len": "32",
-            "func_len": "32",
+            "func_len": "16",
             "node_len": "16",
             "prefix": "fd00:202:202::/48"
         }
     },
     "SRV6_MY_SIDS": {
-        "lsid1|fd00:202:202:fff2:2::/80": {
+        "lsid1|fd00:202:202:2::/64": {
             "action": "uDT46",
             "decap_vrf": "Vrf1"
         },
-        "lsid1|fd00:202:202:fff2:22::/80": {
+        "lsid1|fd00:202:202:22::/64": {
             "action": "uDT46",
             "decap_vrf": "Vrf2"
         }

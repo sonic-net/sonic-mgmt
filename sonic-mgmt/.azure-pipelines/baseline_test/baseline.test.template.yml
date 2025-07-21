@@ -47,7 +47,7 @@ jobs:
         impacted-area-kvmtest-t0-sonic:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
-          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
           TOPOLOGY: t0-64-32
           PREPARE_TIME: 40
           VM_TYPE: vsonic
@@ -68,7 +68,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
-      COMMON_EXTRA_PARAMS: ""
+      COMMON_EXTRA_PARAMS: "--disable_sai_validation "
       DEPLOY_MG_EXTRA_PARAMS: ""
       SPECIFIC_PARAM: "[]"
     timeoutInMinutes: 300

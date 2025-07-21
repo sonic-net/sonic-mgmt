@@ -7163,3 +7163,55 @@ sensors_checks:
       temp: [ ]
     psu_skips: { }
     sensor_skip_per_version: { }
+
+
+  arm64-nvda_bf-bf3comdpu:
+    alarms:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+
+    compares:
+      power: [ ]
+      temp:
+
+      - - mlx5-pci-0300/asic/temp1_input
+        - mlx5-pci-0300/asic/temp1_crit
+
+      - - acpitz-acpi-0/temp1/temp1_input
+        - acpitz-acpi-0/temp1/temp1_crit
+
+      - - acpitz-acpi-0/temp2/temp2_input
+        - acpitz-acpi-0/temp2/temp2_crit
+
+      - - acpitz-acpi-0/temp3/temp3_input
+        - acpitz-acpi-0/temp3/temp3_crit
+
+      - - acpitz-acpi-0/temp4/temp4_input
+        - acpitz-acpi-0/temp4/temp4_crit
+
+      - - acpitz-acpi-0/temp5/temp5_input
+        - acpitz-acpi-0/temp5/temp5_crit
+
+      - - acpitz-acpi-0/temp6/temp6_input
+        - acpitz-acpi-0/temp6/temp6_crit
+
+      - - acpitz-acpi-0/temp7/temp7_input
+        - acpitz-acpi-0/temp7/temp7_crit
+
+      - - acpitz-acpi-0/temp8/temp8_input
+        - acpitz-acpi-0/temp8/temp8_crit
+
+      - - acpitz-acpi-0/temp9/temp9_input
+        - acpitz-acpi-0/temp9/temp9_crit
+
+      - - nvme-pci-0600/Composite/temp1_input
+        - nvme-pci-0600/Composite/temp1_crit
+
+
+    non_zero:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }

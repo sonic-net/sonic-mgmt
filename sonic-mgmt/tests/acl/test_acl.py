@@ -452,7 +452,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     acl_table_ports = defaultdict(list)
 
     if (topo in ["t0", "mx", "m0_vlan", "m0_l3", "m1", "ft2"]
-            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag")
+            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag", "t1-48-lag")
             or 't1-isolated' in tbinfo["topo"]["name"]):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -465,7 +465,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
@@ -477,6 +477,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                 acl_table_ports[''].append(k)
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
+    elif topo == "lt2":
+        # For LT2, add portchannels for downstream links
+        for k, v in list(port_channels.items()):
+            acl_table_ports[v['namespace']].append(k)
+        # Add RIF for upstream links
+        for namespace, port in list(upstream_ports.items()):
+            acl_table_ports[namespace] += port
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -847,7 +854,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     applying an empty configuration file.
     """
 
-    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
+    ACL_COUNTERS_UPDATE_INTERVAL_SECS = 30
 
     @abstractmethod
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
@@ -1657,10 +1664,37 @@ class TestAclWithReboot(TestBasicAcl):
             return
         TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
+
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
+
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
-            time.sleep(240)
+            route_convergence_delay = 240
+        elif dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+            # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+            # We observe flakiness failure on chassis devices
+            # Suspect it's because the route is not programmed into hardware
+            # Add external sleep to make sure route is in hardware
+            route_convergence_delay = 180
+
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1673,16 +1707,8 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
-        # Delay 10 seconds for route convergence
-        time.sleep(10)
-
-        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
-        # We observe flakiness failure on chassis devices
-        # Suspect it's because the route is not programmed into hardware
-        # Add external sleep to make sure route is in hardware
-        if dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
-            logger.info("Sleep 180s on Cisco chassis")
-            time.sleep(180)
+        # Delay for route convergence
+        time.sleep(route_convergence_delay)
 
         populate_vlan_arp_entries()
 
@@ -1709,14 +1735,34 @@ class TestAclWithPortToggle(TestBasicAcl):
         if TestAclWithPortToggle.dut_port_toggled:
             return
         TestAclWithPortToggle.dut_port_toggled = True
+
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
+
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
         if dut.get_facts().get("modular_chassis"):
-            port_toggle(dut, tbinfo, wait_after_ports_up=180)
-        else:
-            port_toggle(dut, tbinfo)
+            route_convergence_delay = 180
+
+        port_toggle(dut, tbinfo, wait_after_ports_up=route_convergence_delay)
         populate_vlan_arp_entries()
 
 

@@ -72,7 +72,6 @@ def random_intf_pair_to_remove_under_vlan(duthost, random_vlan, random_intf_pair
 
 
 def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
-    duthost.command('monit stop routeCheck', module_ignore_errors=True)
     ptfhost.remove_ip_addresses()
     ip = ipaddress.ip_address(ip)
     if isinstance(ip, ipaddress.IPv4Address):
@@ -109,7 +108,6 @@ def remove_ip_on_ptf(duthost, ptfhost):
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
     duthost.command("sonic-clear ndp")
-    duthost.command('monit start routeCheck', module_ignore_errors=True)
 
 
 @pytest.fixture(scope="class")

@@ -4,14 +4,14 @@ import random
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
-    fanout_graph_facts      # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api, \
-    snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
-    get_snappi_ports_multi_dut, get_snappi_ports_single_dut       # noqa: F401
+    fanout_graph_facts                                                                              # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    get_snappi_ports_single_dut, snappi_testbed_config, snappi_dut_base_config, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, tgen_port_info, \
+    snappi_api, get_snappi_ports, snappi_port_selection, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
@@ -92,7 +92,7 @@ def __gen_all_to_all_traffic(testbed_config,
     return testbed_config
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
     yield (1, 1)
 
@@ -106,7 +106,8 @@ def test_snappi(request,
                 get_snappi_ports,             # noqa: F811
                 tbinfo,
                 prio_dscp_map,                # noqa: F811
-                setup_ports_and_dut           # noqa: F811
+                number_of_tx_rx_ports,        # noqa: F811
+                tgen_port_info,               # noqa: F811
                 ):
 
     """
@@ -123,7 +124,9 @@ def test_snappi(request,
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    for port in snappi_ports:
+        logger.info('Snappi ports selected for test:{}'.format(port['peer_port']))
 
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])

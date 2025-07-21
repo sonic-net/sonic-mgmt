@@ -1,0 +1,12 @@
+[
+  {% filter indent(width=2) %}
+  {%- include 'templates/config_patch/dut/features.json.j2' %}
+  {%- include 'templates/config_patch/dut/ports.json.j2' %}
+  {%- include 'templates/config_patch/dut/loopback_interfaces.json.j2' %}
+  {%- include 'templates/config_patch/dut/interfaces.json.j2' %}
+  {%- include 'templates/config_patch/dut/bgp_neighbor_ports.json.j2' %}
+  {%- include 'templates/config_patch/dut/bgp_neighbor_devices.json.j2' %}
+  {%- include 'templates/config_patch/dut/device_metadata.json.j2' %}
+  {%- endfilter %}
+
+]

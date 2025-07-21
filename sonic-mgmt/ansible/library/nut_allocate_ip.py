@@ -44,17 +44,28 @@ EXAMPLES = '''
         {
             "name": "testbed-nut-1",
             "test_tags": [ "snappi-capacity" ],
+            "topo": {
+                "name": "nut-2tiers",
+                "type": "nut",
+                "properties": {
+                    "dut_templates": [{
+                        "name": ".*-t0-.*"
+                        "type": "ToRRouter"
+                        "loopback_v4": "100.1.0.0/24"
+                        "loopback_v6": "2064:100:0:0::/64"
+                        "asn_base": 64001
+                        "p2p_v4": "10.0.0.0/16"
+                        "p2p_v6": "fc0a::/64",
+                    }, ...],
+                    "tg_template": {
+                        "type": "Server",
+                        "asn_base": 60001,
+                        "p2p_v4": "10.0.0.0/16",
+                        "p2p_v6": "fc0a::/64"
+                    }
+                }
+            },
             "duts": [ "switch-t0-1", "switch-t1-1" ],
-            "dut_templates": [{
-                "name": ".*-t0-.*",
-                "type": "ToRRouter",
-                "loopback_v4": "100.1.0.0/24",
-                "loopback_v6": "2064:100:0:0::/64",
-                "asn_base": 64001,
-                "p2p_v4": "10.0.0.0/16",
-                "p2p_v6": "fc0a::/64",
-                ...
-            }, ...]
             "tgs": [ "tg-1" ],
             ...
         }
@@ -202,7 +213,7 @@ class GenerateDeviceConfig():
 
         # Build device template map
         for tg in self.testbed_facts['duts']:
-            for device_template in self.testbed_facts['dut_templates']:
+            for device_template in self.testbed_facts['topo']['properties']['dut_templates']:
                 if re.match(device_template['name'], tg):
                     self.device_templates[tg] = device_template
                     logging.debug(f"Found template for DUT {tg}: {device_template}")
@@ -231,7 +242,7 @@ class GenerateDeviceConfig():
                 self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[p2p_v6_cidr]
                 logging.debug(f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}")
 
-        tg_template = self.testbed_facts['tg_template']
+        tg_template = self.testbed_facts['topo']['properties']['tg_template']
         for tg in self.testbed_facts['tgs']:
             if 'p2p_v4' in tg_template:
                 p2p_v4_cidr = tg_template['p2p_v4']
@@ -304,22 +315,24 @@ class GenerateDeviceConfig():
         logging.debug(f"Allocated BGP ASN for {dut}: {self.device_meta[dut]['bgp_asn']}")
 
     def _set_tg_device_meta(self, tg):
-        logging.debug(f"Setting device type for {tg}: {self.testbed_facts['tg_template']['type']}")
-        self.device_meta[tg]['type'] = self.testbed_facts['tg_template']['type']
+        tg_template = self.testbed_facts['topo']['properties']['tg_template']
+        logging.debug(f"Setting device type for {tg}: {tg_template['type']}")
+        self.device_meta[tg]['type'] = tg_template['type']
 
     def _allocate_tg_bgp_asn(self, index, tg):
         """
         Allocate BGP ASN for the traffic generator based on the index of the traffic generator in the testbed.
         """
-        if 'tg_template' not in self.testbed_facts:
+        if 'tg_template' not in self.testbed_facts['topo']['properties']:
             raise ValueError("tg_template not found in testbed facts")
 
-        if 'asn_base' not in self.testbed_facts['tg_template']:
+        tg_template = self.testbed_facts['topo']['properties']['tg_template']
+        if 'asn_base' not in tg_template:
             raise ValueError("asn_base not found in testbed facts tg_template")
 
         # ASN is allocated based on the index of the traffic generator in the testbed
-        asn_base = self.testbed_facts['tg_template']['asn_base']
-        self.device_meta[tg]['bgp_asn'] = asn_base + index * self.testbed_facts['tg_template'].get('asn_step', 1)
+        asn_base = tg_template['asn_base']
+        self.device_meta[tg]['bgp_asn'] = asn_base + index * tg_template.get('asn_step', 1)
         logging.debug(f"Allocated BGP ASN for traffic generator {tg}: {self.device_meta[tg]['bgp_asn']}")
 
     def _allocate_p2p_ip(self):

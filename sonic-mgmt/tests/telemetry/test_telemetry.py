@@ -31,7 +31,8 @@ MAX_UC_CNT = 7
 
 def load_new_cfg(duthost, data):
     duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                  wait_for_bgp=True, yang_validate=False)
     # config reload overrides testing telemetry config, ensure testing config exists
     setup_telemetry_forpyclient(duthost)
 
@@ -185,26 +186,60 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         pytest.skip("Skipping test as there are none interfaces in admin'up' state with buffer queues to check")
 
     interface_buffer_queues = [bq for bq in buffer_queues if any(val in interface_to_check for val in bq.split('|'))]
+    if len(interface_buffer_queues) == 0:
+        pytest.skip("No valid entry for any interface:queue entry")
+
+    """If all queues for that pool are in the same pool ex Ethernet0|0-9
+    We will modify to separate the first queue and the remaining such
+    that we get a separate entry for Ethernet0|0 and Ethernet0|1-9"""
+    is_single_queue = False
+    bq_entry = interface_buffer_queues[0]
+
+    if len(interface_buffer_queues) == 1:
+        iface, q_range = bq_entry.split('|')
+        if '-' in q_range:  # Grouped queues
+            start, end = map(int, q_range.split('-'))
+            if start < end:
+                single_queue_entry = f"{iface}|{start}"
+                remaining_queue_entry = f"{iface}|{start + 1}-{end}"
+                profile = data['BUFFER_QUEUE'][bq_entry]['profile']
+                data['BUFFER_QUEUE'][remaining_queue_entry] = {"profile": profile}
+                data['BUFFER_QUEUE'][single_queue_entry] = {"profile": profile}
+                del data['BUFFER_QUEUE'][bq_entry]
+                bq_entry = single_queue_entry
+            else:
+                pytest.skip("Invalid buffer queue range")
+        else:
+            # Single queue entry for port such as Ethernet0|0
+            is_single_queue = True
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
     # to removing buffer queues
-    data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
-        = "true"
-    load_new_cfg(duthost, data)
-    pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                             dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
-    pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+    try:
+        data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
+            = "true"
+        load_new_cfg(duthost, data)
+        pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+                                 dut_ip, interface_to_check, env.gnmi_port),
+                      "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
+        pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
-    # Remove buffer queue and reload and get new number of queue counters
-    del data['BUFFER_QUEUE'][interface_buffer_queues[0]]
-    load_new_cfg(duthost, data)
-    pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                             dut_ip, interface_to_check, env.gnmi_port), "gnmi server not fully restarted")
-    post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+        # Remove buffer queue and reload and get new number of queue counters
+        del data['BUFFER_QUEUE'][bq_entry]
+        load_new_cfg(duthost, data)
+        if not is_single_queue:
+            pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
+                                     dut_ip, interface_to_check, env.gnmi_port),
+                          "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
+        post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
 
-    pytest_assert(pre_del_cnt > post_del_cnt,
-                  "Number of queue counters count differs from expected")
+        pytest_assert(pre_del_cnt > post_del_cnt,
+                      "Number of queue counters count differs from expected")
+    finally:
+        data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
+                                        verbose=False)['stdout'])
+        load_new_cfg(duthost, data)
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -345,7 +380,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
     cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                     new_state)
     cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
