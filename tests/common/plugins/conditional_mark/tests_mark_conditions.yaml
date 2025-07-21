@@ -183,6 +183,10 @@ bgp/test_bgp_queue.py:
     reason: "Not supported on mgmt device"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+  xfail:
+    reason: "Skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18349"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18349 and ('t1-isolated-d56u2' in topo_name or 't0-isolated-d32u32s2' in topo_name)"
 
 bgp/test_bgp_router_id.py:
   skip:
@@ -2976,21 +2980,36 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox and brcm platform with 202412 image at this time"
+    reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
+      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
+      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_static_config.py:
   skip:
-    reason: "Requires particular image support, skip in PR testing"
+    reason: "Requires particular image support, skip in PR testing. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    conditions_logical_operator: or
     conditions:
       - "release not in ['202412']"
+      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
+      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+
+srv6/test_srv6_static_config.py::test_uDT46_config:
+  skip:
+    reason: "Unsupported platform"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
-    reason: "Only target mellanox/brcm platform with 202412 image at this time"
+    reason: "Only target mellanox/brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
+      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
+      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
 
 #######################################
 #####             ssh             #####
