@@ -41,10 +41,10 @@ mux_simulator_http_port:
     vms24-dual-t0-7050-1: 8080
     vms24-dual-t0-7050-2: 8082
 
+    vms25-dual-t0-8101c1-02: 8080
+
     vms28-dual-t0-8102: 8080
     vms28-dual-t0-7260: 8082
-
-    vms29-dual-t0-8101c1-02: 8080
 
     vms61-dual-t0-8102: 8080
 
@@ -71,6 +71,7 @@ mux_simulator_http_port:
     # On strtk5-server-7
     tbtk5-dualtor-4600-1: 8080
 
-    # On server_bjw2_1
+    # On server_bjw2_3
     testbed-bjw2-can-dual-t0-8101c1-1: 8080
+    # On server_bjw2_4
     testbed-bjw2-can-dual-t0-8101c1-2: 8082

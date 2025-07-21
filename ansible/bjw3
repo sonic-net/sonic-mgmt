@@ -107,12 +107,6 @@ sonic_arista_7050_S128:
     hwsku: Arista-7050CX3-32S-S128
     iface_speed: 10000
   hosts:
-
-sonic_arista_7050_C6S104:
-  vars:
-    hwsku: Arista-7050CX3-32S-C6S104
-    iface_speed: 10000
-  hosts:
     bjw3-can-7050-9:
       ansible_host: 10.150.238.64
       ansible_hostv6: 2404:f801:10:16::a96:ee40
@@ -182,6 +176,13 @@ sonic_arista_7050_C6S104:
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "HBG244605QV"
         "0xFE": "0xdeadbeef"
+
+sonic_arista_7050_C6S104:
+  vars:
+    hwsku: Arista-7050CX3-32S-C6S104
+    iface_speed: 10000
+  hosts:
+
 
 sonic_arista_7050_C28S16:
   vars:

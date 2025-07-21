@@ -101,6 +101,12 @@ all:
         bjw2-3-4:
           ansible_host: 10.150.23.106
           ansible_hostv6: 2404:f801:10:2200::a96:176a
+        bjw2-3-5:
+          ansible_host: 10.150.23.132
+          ansible_hostv6: 2404:f801:10:2200::a96:1784
+        bjw2-4-1:
+          ansible_host: 10.150.23.133
+          ansible_hostv6: 2404:f801:10:2200::a96:1785
         bjw2-5-1:
           ansible_host: 10.150.23.107
           ansible_hostv6: 2404:f801:10:2200::a96:176b
@@ -176,12 +182,6 @@ all:
         bjw2-9-4:
           ansible_host: 10.150.23.131
           ansible_hostv6: 2404:f801:10:2200::a96:1783
-        bjw2-1-t:
-          ansible_host: 10.150.23.132
-          ansible_hostv6: 2404:f801:10:2200::a96:1784
-        bjw2-1-u:
-          ansible_host: 10.150.23.133
-          ansible_hostv6: 2404:f801:10:2200::a96:1785
         bjw2-2-c:
           ansible_host: 10.150.23.134
           ansible_hostv6: 2404:f801:10:2200::a96:1786
