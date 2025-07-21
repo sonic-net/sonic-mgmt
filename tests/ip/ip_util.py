@@ -78,7 +78,7 @@ def parse_rif_counters(output_lines):
         intf = portstats[0]
         results[intf] = {}
         for idx in range(1, len(portstats)):  # Skip the first column interface name
-            results[intf][headers[idx]] = portstats[idx]
+            results[intf][headers[idx]] = portstats[idx].replace(',', '')
 
     return results
 
