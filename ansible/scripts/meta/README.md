@@ -45,8 +45,7 @@ The SONiC Mgmt metadata validator is a comprehensive validation framework that e
 The validator ensures that:
 
 - All infrastructure groups have valid connection graphs
-- Testbed configurations are consistent and complete
-- Network connectivity can be established as configured
+- Testbed configurations are consistent
 - No duplicate or conflicting configurations exist
 - IP addressing schemes are valid and non-overlapping
 - VLAN configurations are properly formatted and within valid ranges
@@ -366,19 +365,6 @@ Global validators run once with access to data from all infrastructure groups. T
 - Validates console connection properties (peer device, port, proxy settings)
 - Checks that console server devices exist and are properly configured
 - Detects console port conflicts across all infrastructure groups
-
-**Validation Approach:**
-
-1. Identify all target devices (DevSonic and Fanout* types) from all connection graphs
-2. For each target device:
-   1. Check if console_links entry exists for the device
-   2. Validate console connection properties:
-      - `peerdevice`: Console server device name must exist in devices list
-      - `peerport`: Console port on the server
-      - `proxy`: Proxy configuration if required
-      - `type`: Console connection type
-   3. Verify the console server device exists and has correct type
-3. Check for console port conflicts across all groups (multiple devices using same console port)
 
 **Example Errors:**
 
