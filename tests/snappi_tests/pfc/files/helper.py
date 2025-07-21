@@ -77,7 +77,7 @@ def run_pfc_test(api,
     Returns:
         N/A
     """
-    ptype = "macsec" in sys.argv
+    ptype = "--snappi_macsec" in sys.argv
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 

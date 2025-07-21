@@ -842,7 +842,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
     Returns:
         True if we successfully configure the interfaces or False
     """
-    ptype = "--macsec" in sys.argv
+    ptype = "--snappi_macsec" in sys.argv
     if ptype:
         macsec_var_file = os.path.expanduser("~/sonic-mgmt/tests/snappi_tests/macsec_mka_info.yml")
         with open(macsec_var_file, 'r') as f:

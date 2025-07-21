@@ -153,7 +153,7 @@ def generate_test_flows(testbed_config,
             test_flow_name = "{} Prio {} Stream {}".format(data_flow_config["flow_name"], prio, flow_index)
 
         test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
-        ptype = "--macsec" in sys.argv
+        ptype = "--snappi_macsec" in sys.argv
         # Assign TX and RX port names to the flow
         if ptype:
             test_flow.tx_rx.device.tx_names = [
@@ -273,7 +273,7 @@ def generate_background_flows(testbed_config,
         else:
             bg_flow_name = '{} Prio {} Stream {}'.format(bg_flow_config["flow_name"], prio, flow_index)
         bg_flow = testbed_config.flows.flow(name=bg_flow_name)[-1]
-        ptype = "--macsec" in sys.argv
+        ptype = "--snappi_macsec" in sys.argv
         # Assign TX and RX port names to the flow
         if ptype:
             bg_flow.tx_rx.device.tx_names = [
@@ -485,7 +485,7 @@ def run_traffic(duthost,
                                                         (right before flows end)
     """
     api.set_config(config)
-    ptype = "--macsec" in sys.argv
+    ptype = "--snappi_macsec" in sys.argv
     if ptype:
         ixnet = api._ixnetwork
         for ti in ixnet.Traffic.TrafficItem.find():
@@ -897,7 +897,7 @@ def verify_in_flight_buffer_pkts(egress_duthost,
     Returns:
 
     """
-    ptype = "--macsec" in sys.argv
+    ptype = "--snappi_macsec" in sys.argv
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
     if not ptype:
         tx_frames_total = sum(
