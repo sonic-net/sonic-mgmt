@@ -187,23 +187,10 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
         # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2
         # this is the command to change
         duthost.shell_cmds(cmds=cmds)
-<<<<<<< HEAD
-        logger.info(
-            "DSCP decap mode changed from {} to {} on asic {}".format(
-                default_decap_mode, dscp_mode, asic_id
-            )
-        )
-
-    logger.info(
-        "SETUP: Reload required for dscp decap mode changes to take effect."
-    )
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
-=======
         logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
     logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
->>>>>>> 9e8c015a8fe62a94879fc4236fbdc9adb4b5b26e
 
 
 def apply_dscp_cfg_teardown(duthost):
