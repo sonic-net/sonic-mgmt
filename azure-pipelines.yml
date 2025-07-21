@@ -99,43 +99,20 @@ stages:
       value: $(Build.SourceBranchName)
 
   jobs:
-# Below are Impacted Area Based PR checkers
-  - job: get_impacted_area
-    displayName: "Get impacted area"
-    timeoutInMinutes: 10
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
-        parameters:
-          BUILD_BRANCH: $(BUILD_BRANCH)
-
   - job: impacted_area_t1_lag_vpp_elastictest
     displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
-    dependsOn:
-    - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
-    variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
-        parameters:
-          TOPOLOGY: t1
-          BUILD_BRANCH: $(BUILD_BRANCH)
-          # 40 mins for preparing testbed, 10 mins for pre-test and post-test
-          PREPARE_TIME: 50
-
       - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
         parameters:
           TOPOLOGY: t1-lag-vpp
-          SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: $(INSTANCE_NUMBER)
-          MAX_WORKER: $(INSTANCE_NUMBER)
+          MIN_WORKER: 20
+          MAX_WORKER: 20
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           ASIC_TYPE: "vpp"
           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          STOP_ON_FAILURE: "False"
