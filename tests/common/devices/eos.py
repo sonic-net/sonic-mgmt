@@ -309,8 +309,6 @@ class EosHost(AnsibleHostBase):
                             -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
         cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
                                            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
-        
-        logger.info("Executing command: {}".format(cli_cmd))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
