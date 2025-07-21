@@ -48,7 +48,7 @@ stages:
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-  - job: impacted_area_t1_lag_elastictest
+  - job: impacted_area_t1_lag_vpp_elastictest
     displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
     dependsOn:
     - get_impacted_area
