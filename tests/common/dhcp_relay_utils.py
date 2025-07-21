@@ -231,7 +231,7 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
             # sum the counters from pkts for each member of the portchannel
             for member in portchannels[portchannel_name]['members']:
                 merge_counters(members_counter_from_pkts, all_pkt_counters.get(interface_name_index_mapping[member],
-                                                                              {"RX": {}, "TX": {}}))
+                                                                               {"RX": {}, "TX": {}}))
 
             ''' Compare the counters from pkts with the counters from the DB for portchannel and its members'''
             compare_dhcpcom_relay_counters_with_warning(

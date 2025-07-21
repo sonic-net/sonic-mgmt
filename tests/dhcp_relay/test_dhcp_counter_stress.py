@@ -1,5 +1,4 @@
 import pytest
-import ptf.packet as scapy
 import logging
 import time
 import re
