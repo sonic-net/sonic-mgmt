@@ -67,7 +67,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode"):
             verify_asymmetric_dscp_packet_trimming(
@@ -133,7 +134,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode"):
             verify_asymmetric_dscp_packet_trimming(
@@ -169,7 +171,8 @@ class TestPacketTrimming:
         Test Case: Verify trimming works after switching between symmetric and asymmetric DSCP modes multiple times.
         """
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         for i in range(MODE_TOGGLE_COUNT):
             with allure.step(f"Round {i+1}: Configure trimming in Symmetric DSCP mode"):
@@ -207,7 +210,8 @@ class TestPacketTrimming:
         Test Case: Verify trimming does not modify untrimmed packet DSCP
         """
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Configure trimming in Asymmetric DSCP mode"):
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
@@ -250,7 +254,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode"):
             verify_asymmetric_dscp_packet_trimming(
@@ -312,7 +317,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify SRv6 packets after trimming in Asymmetric DSCP mode"):
             verify_srv6_packet_with_trimming(
@@ -337,7 +343,8 @@ class TestPacketTrimming:
         can handle multiple configuration changes without impacting trimming functionality.
         """
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Config and verify trimming in Asymmetric DSCP mode"):
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
@@ -355,7 +362,8 @@ class TestPacketTrimming:
             )
 
         with allure.step("Disable trimming"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "off")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
 
         with allure.step("Verify no trimming action in Asymmetric DSCP mode when disable trimming"):
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
@@ -374,7 +382,8 @@ class TestPacketTrimming:
             )
 
         with allure.step("Enable trimming again"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode after enable trimming"):
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
@@ -394,8 +403,10 @@ class TestPacketTrimming:
         with allure.step("Trimming config toggles"):
             for i in range(CONFIG_TOGGLE_COUNT):
                 logger.info(f"Trimming config toggle test iteration {i + 1}")
-                configure_trimming_action(duthost, test_params['trim_buffer_profile'], "off")
-                configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+                for buffer_profile in test_params['trim_buffer_profiles']:
+                    configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
+                for buffer_profile in test_params['trim_buffer_profiles']:
+                    configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming still works after feature toggles in Asymmetric DSCP mode"):
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
@@ -425,7 +436,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode"):
             verify_asymmetric_dscp_packet_trimming(
@@ -476,7 +488,8 @@ class TestPacketTrimming:
             configure_trimming_global(duthost, size=TRIM_SIZE, queue=TRIM_QUEUE, dscp='from-tc', tc=ASYM_TC)
 
         with allure.step("Enable trimming in buffer profile"):
-            configure_trimming_action(duthost, test_params['trim_buffer_profile'], "on")
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
 
         with allure.step("Verify trimming in Asymmetric DSCP mode"):
             verify_asymmetric_dscp_packet_trimming(
