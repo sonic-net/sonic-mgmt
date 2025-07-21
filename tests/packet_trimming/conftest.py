@@ -127,7 +127,10 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
 
     test_param = {
         'block_queue': block_queue,
-        'trim_buffer_profile': f"queue{block_queue}_lossy_profile",
+        'trim_buffer_profiles': {
+            'uplink': f"queue{block_queue}_uplink_lossy_profile",
+            'downlink': f"queue{block_queue}_downlink_lossy_profile",
+        },
         'ingress_port': {
             'name': ingress_port_name,
             'ptf_id': ingress_port[ingress_port_name]['ptf_port_id'],
@@ -171,9 +174,16 @@ def setup_trimming(duthost, test_params):
             configure_packet_aging(duthost, disabled=True)
 
     with allure.step("Configure buffer profile for blocked queue and trimmed queue"):
-        for egress_port in test_params['egress_ports']:
-            set_buffer_profiles_for_block_and_trim_queues(duthost, egress_port['name'], test_params['block_queue'],
-                                                          test_params['trim_buffer_profile'])
+        # The first interface is uplink interface, use uplink buffer profile
+        uplink_port = test_params['egress_ports'][0]
+        set_buffer_profiles_for_block_and_trim_queues(duthost, uplink_port['name'], test_params['block_queue'],
+                                                      test_params['trim_buffer_profiles']['uplink'])
+
+        # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
+        if len(test_params['egress_ports']) > 1:
+            downlink_port = test_params['egress_ports'][1]
+            set_buffer_profiles_for_block_and_trim_queues(duthost, downlink_port['name'], test_params['block_queue'],
+                                                          test_params['trim_buffer_profiles']['downlink'])
 
     with allure.step("Create scheduler used for blocking egress queues"):
         create_blocking_scheduler(duthost)
@@ -191,7 +201,8 @@ def setup_trimming(duthost, test_params):
     yield
 
     with allure.step("Disable trimming in buffer profile"):
-        configure_trimming_action(duthost, test_params['trim_buffer_profile'], "off")
+        for buffer_profile in test_params['trim_buffer_profiles']:
+            configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
 
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)
