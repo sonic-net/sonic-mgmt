@@ -12,6 +12,6 @@ macsec_mka_info:
 
 egress_tracking:
     rx_offset: 120
-    length: 6           
-    tx_offset_choice: "custom"   
-    tx_offset_custom_value: 240 
+    length: 6
+    tx_offset_choice: "custom"
+    tx_offset_custom_value: 240

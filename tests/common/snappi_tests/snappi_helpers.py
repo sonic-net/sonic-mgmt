@@ -7,6 +7,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 import time
 
 

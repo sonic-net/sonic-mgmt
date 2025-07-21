@@ -892,7 +892,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
         ethernet.mac = mac
         if ptype and port_id == 1:
             # Tx Port
-            ip1 =  ethernet.ipv4_addresses.add()
+            ip1 = ethernet.ipv4_addresses.add()
             ip1.name = "ip2"
             ip1.address = tgenIp
             ip1.prefix = prefix_length
@@ -907,25 +907,25 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
             macsec1_int.eth_name = ethernet.name
             secy1 = macsec1_int.secure_entity
             secy1.name = "macsec1"
- 
+
             # Data plane and crypto engine
             secy1.data_plane.choice = "encapsulation"
             secy1.data_plane.encapsulation.crypto_engine.choice = "encrypt_only"
- 
+
             # Data plane and crypto engine
             secy1.data_plane.choice = "encapsulation"
             secy1.data_plane.encapsulation.tx.include_sci = True
             secy1.data_plane.encapsulation.crypto_engine.choice = "encrypt_only"
-            secy1_crypto_engine_enc_only= secy1.data_plane.encapsulation.crypto_engine.encrypt_only
- 
-            # Data plane Tx SC PN 
-            secy1_dataplane_txsc1= secy1_crypto_engine_enc_only.secure_channels.add()
+            secy1_crypto_engine_enc_only = secy1.data_plane.encapsulation.crypto_engine.encrypt_only
+
+            # Data plane Tx SC PN
+            secy1_dataplane_txsc1 = secy1_crypto_engine_enc_only.secure_channels.add()
             secy1_dataplane_txsc1.tx_pn.choice = all_values['macsec_mka_info']['tx']['tx_pn']
- 
+
             ####################
             # MKA
             ####################
-            secy1_key_gen_proto= secy1.key_generation_protocol
+            secy1_key_gen_proto = secy1.key_generation_protocol
             secy1_key_gen_proto.choice = "mka"
             kay1 = secy1_key_gen_proto.mka
             kay1.name = "mka1"
@@ -936,34 +936,33 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
             kay1_key_src = kay1.basic.key_source
             kay1_key_src.choice = "psk"
             kay1_psk_chain = kay1_key_src.psks
- 
- 
+
             # PSK 1
             kay1_psk1 = kay1_psk_chain.add()
             kay1_psk1.cak_name = all_values['macsec_mka_info']['tx']['cak_name']
             kay1_psk1.cak_value = all_values['macsec_mka_info']['tx']['cak_value']
- 
-            kay1_psk1.start_offset_time.hh = 0 
+
+            kay1_psk1.start_offset_time.hh = 0
             kay1_psk1.start_offset_time.mm = 22
- 
+
             kay1_psk1.end_offset_time.hh = 0
             kay1_psk1.end_offset_time.hh = 0
- 
+
             # Rekey mode
             kay1_rekey_mode = kay1.basic.rekey_mode
             kay1_rekey_mode.choice = all_values['macsec_mka_info']['tx']['mka_rekey_mode_choice']
-            #kay1_rekey_mode.choice = kay2_rekey_mode.choice = "timer_based" 
-            #kay1_rekey_timer_based, kay2_rekey_timer_based = kay1_rekey_mode.timer_based, kay2_rekey_mode.timer_based
-            #kay1_rekey_timer_based.choice = kay2_rekey_timer_based.choice = "fixed_count"
-            #kay1_rekey_timer_based.fixed_count = kay2_rekey_timer_based.fixed_count = 20
-            #kay1_rekey_timer_based.interval = kay2_rekey_timer_based.interval = 200
- 
+            # kay1_rekey_mode.choice = kay2_rekey_mode.choice = "timer_based"
+            # kay1_rekey_timer_based, kay2_rekey_timer_based = kay1_rekey_mode.timer_based, kay2_rekey_mode.timer_based
+            # kay1_rekey_timer_based.choice = kay2_rekey_timer_based.choice = "fixed_count"
+            # kay1_rekey_timer_based.fixed_count = kay2_rekey_timer_based.fixed_count = 20
+            # kay1_rekey_timer_based.interval = kay2_rekey_timer_based.interval = 200
+
             # Remaining basic properties autofilled
             # Key server
             kay1_key_server = kay1.key_server
             kay1_key_server.cipher_suite = all_values['macsec_mka_info']['tx']['cipher_suite']
             kay1_key_server.confidentialty_offset = all_values['macsec_mka_info']['tx']['confidentialty_offset']
- 
+
             # Tx SC
             kay1_tx = kay1.tx
             kay1_txsc1 = kay1_tx.secure_channels.add()
@@ -973,17 +972,17 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
             eotr = config.egress_only_tracking
             eotr1 = eotr.add()
             eotr1.port_name = config.ports[port_id].name
- 
+
             # eotr filter
             eotr1_filter1 = eotr1.filters.add()
             eotr1_filter1.choice = "auto_macsec"
- 
+
             # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
             eotr1_mt1 = eotr1.metric_tags.add()
             eotr1_mt1.name = "pause traffic"
             eotr1_mt1.rx_offset = all_values['egress_tracking']['rx_offset']
             eotr1_mt1.length = all_values['egress_tracking']['length']
-            eotr1_mt1.tx_offset.choice =all_values['egress_tracking']['tx_offset_choice']
+            eotr1_mt1.tx_offset.choice = all_values['egress_tracking']['tx_offset_choice']
             eotr1_mt1.tx_offset.custom.value = all_values['egress_tracking']['tx_offset_custom_value']
             port_config = SnappiPortConfig(
                                 id=port_id,
@@ -1008,17 +1007,16 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                 eotr = config.egress_only_tracking
                 eotr1 = eotr.add()
                 eotr1.port_name = config.ports[port_id].name
- 
+
                 # eotr filter
                 eotr1_filter1 = eotr1.filters.add()
                 eotr1_filter1.choice = "auto_macsec"
- 
                 # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
                 eotr1_mt1 = eotr1.metric_tags.add()
                 eotr1_mt1.name = "ipv4_dscp"
                 eotr1_mt1.rx_offset = all_values['egress_tracking']['rx_offset']
                 eotr1_mt1.length = all_values['egress_tracking']['length']
-                eotr1_mt1.tx_offset.choice =all_values['egress_tracking']['tx_offset_choice']
+                eotr1_mt1.tx_offset.choice = all_values['egress_tracking']['tx_offset_choice']
                 eotr1_mt1.tx_offset.custom.value = all_values['egress_tracking']['tx_offset_custom_value']
             port_config = SnappiPortConfig(
                                             id=port_id,
