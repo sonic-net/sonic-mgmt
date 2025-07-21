@@ -55,10 +55,10 @@ def tet_dualtor_setup_marker_skip(setup_dualtor_mux_ports):
     pytest_assert(not setup_dualtor_mux_ports)
 
 
-def test_dualtor_setup_random_duthost_with_custom_toggle_fixture(active_standby_ports, cable_type,                  # noqa:F811
-                                                                 rand_selected_dut, rand_unselected_dut,
-                                                                 setup_dualtor_mux_ports,
-                                                                 toggle_all_simulator_ports_to_rand_selected_tor):  # noqa:F811
+def test_dualtor_setup_random_duthost_with_custom_toggle_fixture(
+    active_standby_ports, cable_type, rand_selected_dut, rand_unselected_dut,                               # noqa:F811
+    setup_dualtor_mux_ports, toggle_all_simulator_ports_to_rand_selected_tor                                # noqa:F811
+):
     """Verify setup_dualtor_mux_ports does nothing if test function has a custom toggle fixture."""
     pytest_assert(not setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(rand_selected_dut, active_standby_ports, "active"),
@@ -67,13 +67,13 @@ def test_dualtor_setup_random_duthost_with_custom_toggle_fixture(active_standby_
                   "%s mux ports are not standby" % rand_unselected_dut.hostname)
 
 
-def test_dualtor_setup_enum_duthost(cable_type, duthosts, enum_frontend_dut_hostname,                               # noqa:F811
+def test_dualtor_setup_enum_duthost(cable_type, duthosts, enum_frontend_dut_hostname,                       # noqa:F811
                                     setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports is skipped if duthost is enumerated."""
     pytest_assert(not setup_dualtor_mux_ports)
 
 
-def test_dualtor_setup_random_duthost(active_standby_ports, cable_type,                                             # noqa:F811
+def test_dualtor_setup_random_duthost(active_standby_ports, cable_type,                                     # noqa:F811
                                       rand_selected_dut, rand_unselected_dut,
                                       setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggles mux ports to the rand_selected_dut."""
@@ -84,7 +84,7 @@ def test_dualtor_setup_random_duthost(active_standby_ports, cable_type,         
                   "%s mux ports are not standby" % rand_unselected_dut.hostname)
 
 
-def test_dualtor_setup_duthost(active_standby_ports, cable_type, duthosts, duthost,                                 # noqa:F811
+def test_dualtor_setup_duthost(active_standby_ports, cable_type, duthosts, duthost,                         # noqa:F811
                                setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggles mux ports to the duthost."""
     pytest_assert(setup_dualtor_mux_ports)
@@ -95,7 +95,8 @@ def test_dualtor_setup_duthost(active_standby_ports, cable_type, duthosts, dutho
                   "%s mux ports are not standby" % standby_dut.hostname)
 
 
-def test_dualtor_setup_no_specified_duthost(active_standby_ports, cable_type, upper_tor_host, lower_tor_host,       # noqa:F811
+def test_dualtor_setup_no_specified_duthost(active_standby_ports, cable_type,                               # noqa:F811
+                                            upper_tor_host, lower_tor_host,
                                             setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggles mux ports to the upper ToR by default."""
     pytest_assert(setup_dualtor_mux_ports)
@@ -106,7 +107,7 @@ def test_dualtor_setup_no_specified_duthost(active_standby_ports, cable_type, up
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
-def test_dualtor_setup_marker_toggle_to_enum_manual_mode(active_standby_ports, cable_type,                          # noqa:F811
+def test_dualtor_setup_marker_toggle_to_enum_manual_mode(active_standby_ports, cable_type,                  # noqa:F811
                                                          duthosts, enum_frontend_dut_hostname,
                                                          setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggle to enum marker."""
@@ -122,9 +123,9 @@ def test_dualtor_setup_marker_toggle_to_enum_manual_mode(active_standby_ports, c
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_upper_tor_manual_mode
-def test_dualtor_setup_marker_toggle_to_upper_manual_mode(active_standby_ports, cable_type,                         # noqa:F811
+def test_dualtor_setup_marker_toggle_to_upper_manual_mode(active_standby_ports, cable_type,                 # noqa:F811
                                                           duthosts, setup_dualtor_mux_ports,
-                                                          upper_tor_host, lower_tor_host):
+                                                          upper_tor_host, lower_tor_host):                  # noqa:F811
     """Verify setup_dualtor_mux_ports toggle to upper marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(upper_tor_host, active_standby_ports, "active"),
@@ -136,9 +137,9 @@ def test_dualtor_setup_marker_toggle_to_upper_manual_mode(active_standby_ports, 
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_lower_tor_manual_mode
-def test_dualtor_setup_marker_toggle_to_lower_manual_mode(active_standby_ports, cable_type,                         # noqa:F811
+def test_dualtor_setup_marker_toggle_to_lower_manual_mode(active_standby_ports, cable_type,                 # noqa:F811
                                                           duthosts, setup_dualtor_mux_ports,
-                                                          upper_tor_host, lower_tor_host):
+                                                          upper_tor_host, lower_tor_host):                  # noqa:F811
     """Verify setup_dualtor_mux_ports toggle to lower marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(lower_tor_host, active_standby_ports, "active"),
@@ -150,9 +151,9 @@ def test_dualtor_setup_marker_toggle_to_lower_manual_mode(active_standby_ports, 
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_random_tor_manual_mode
-def test_dualtor_setup_marker_toggle_to_random_manual_mode(active_standby_ports, cable_type,                        # noqa:F811
+def test_dualtor_setup_marker_toggle_to_random_manual_mode(active_standby_ports, cable_type,                # noqa:F811
                                                            rand_selected_dut, rand_unselected_dut,
-                                                           setup_dualtor_mux_ports):
+                                                           duthosts, setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggle to random marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(rand_selected_dut, active_standby_ports, "active"),
@@ -164,9 +165,9 @@ def test_dualtor_setup_marker_toggle_to_random_manual_mode(active_standby_ports,
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_random_unselected_tor_manual_mode
-def test_dualtor_setup_marker_toggle_to_random_unselected_manual_mode(active_standby_ports, cable_type,             # noqa:F811
+def test_dualtor_setup_marker_toggle_to_random_unselected_manual_mode(active_standby_ports, cable_type,     # noqa:F811
                                                                       rand_selected_dut, rand_unselected_dut,
-                                                                      setup_dualtor_mux_ports):
+                                                                      duthosts, setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggle to random unselected marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(rand_unselected_dut, active_standby_ports, "active"),
@@ -179,8 +180,8 @@ def test_dualtor_setup_marker_toggle_to_random_unselected_manual_mode(active_sta
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_active_active_default_behavior(active_active_ports, cable_type, duthosts,                          # noqa:F811
-                                                upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):
+def test_dualtor_active_active_default_behavior(active_active_ports, cable_type, duthosts,                  # noqa:F811
+                                                upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):   # noqa:F811
     """Verify setup_dualtor_mux_ports is skipped for active-active dualtor by default."""
     pytest_assert(not setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(upper_tor_host, active_active_ports, "active"),
@@ -194,7 +195,7 @@ def test_dualtor_active_active_default_behavior(active_active_ports, cable_type,
 @pytest.mark.dualtor_active_active_setup_standby_on_enum_tor_manual_mode
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_setup_marker_standby_on_enum_manual_mode(active_active_ports, cable_type, duthosts,                # noqa:F811
+def test_dualtor_setup_marker_standby_on_enum_manual_mode(active_active_ports, cable_type, duthosts,        # noqa:F811
                                                           enum_frontend_dut_hostname, setup_dualtor_mux_ports):
     """Verify dualtor_active_active_setup_standby_on_enum_tor marker."""
     pytest_assert(setup_dualtor_mux_ports)
@@ -213,9 +214,9 @@ def test_dualtor_setup_marker_standby_on_enum_manual_mode(active_active_ports, c
 @pytest.mark.dualtor_active_active_setup_standby_on_upper_tor_manual_mode
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_setup_marker_standby_on_upper_manual_mode(active_active_ports, cable_type,                         # noqa:F811
+def test_dualtor_setup_marker_standby_on_upper_manual_mode(active_active_ports, cable_type,                 # noqa:F811
                                                            setup_dualtor_mux_ports,
-                                                           upper_tor_host, lower_tor_host):
+                                                           upper_tor_host, lower_tor_host):                 # noqa:F811
     """Verify dualtor_active_active_setup_standby_on_upper_tor marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(upper_tor_host, active_active_ports, "standby"),
@@ -230,9 +231,9 @@ def test_dualtor_setup_marker_standby_on_upper_manual_mode(active_active_ports, 
 @pytest.mark.dualtor_active_active_setup_standby_on_lower_tor_manual_mode
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_setup_marker_standby_on_lower_manual_mode(active_active_ports, cable_type,                         # noqa:F811
+def test_dualtor_setup_marker_standby_on_lower_manual_mode(active_active_ports, cable_type,                 # noqa:F811
                                                            setup_dualtor_mux_ports,
-                                                           upper_tor_host, lower_tor_host):
+                                                           upper_tor_host, lower_tor_host):                 # noqa:F811
     """Verify dualtor_active_active_setup_standby_on_lower_tor marker."""
     pytest_assert(setup_dualtor_mux_ports)
     pytest_assert(check_target_dut_mux_port_status(lower_tor_host, active_active_ports, "standby"),
@@ -247,7 +248,7 @@ def test_dualtor_setup_marker_standby_on_lower_manual_mode(active_active_ports, 
 @pytest.mark.dualtor_active_active_setup_standby_on_random_tor_manual_mode
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_setup_marker_standby_on_random_manual_mode(active_active_ports, cable_type,                        # noqa:F811
+def test_dualtor_setup_marker_standby_on_random_manual_mode(active_active_ports, cable_type,                # noqa:F811
                                                             setup_dualtor_mux_ports,
                                                             rand_selected_dut, rand_unselected_dut):
     """Verify dualtor_active_active_setup_standby_on_random_tor marker."""
@@ -264,7 +265,7 @@ def test_dualtor_setup_marker_standby_on_random_manual_mode(active_active_ports,
 @pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor_manual_mode
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_dualtor_setup_marker_standby_on_random_unselected_manual_mode(active_active_ports, cable_type,             # noqa:F811
+def test_dualtor_setup_marker_standby_on_random_unselected_manual_mode(active_active_ports, cable_type,     # noqa:F811
                                                                        setup_dualtor_mux_ports,
                                                                        rand_selected_dut, rand_unselected_dut):
     """Verify dualtor_active_active_setup_standby_on_random_unselected_tor marker."""
@@ -280,8 +281,8 @@ def test_dualtor_setup_marker_standby_on_random_unselected_manual_mode(active_ac
 
 @pytest.mark.dualtor_active_standby_toggle_to_upper_tor_manual_mode
 @pytest.mark.dualtor_active_active_setup_standby_on_lower_tor_manual_mode
-def test_example(active_active_ports, active_standby_ports, tbinfo,
-                 upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):
+def test_example(active_active_ports, active_standby_ports, tbinfo,                                         # noqa:F811
+                 upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):                                  # noqa:F811
     """Example case to demonstrate how to use the active-active/active-standby dualtor markers."""
     pytest_assert(setup_dualtor_mux_ports)
     is_dualtor_aa = "dualtor-aa" in tbinfo["topo"]["name"]

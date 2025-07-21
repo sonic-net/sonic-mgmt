@@ -1737,9 +1737,9 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
     standby_tor.shell_cmds(cmds=standby_side_commands)
 
     pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
-                "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+              "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
     pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
-                "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+              "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
 
 
 @pytest.fixture

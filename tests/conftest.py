@@ -40,7 +40,6 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
-from tests.common.dualtor.dual_tor_utils import check_active_active_port_status
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
 from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
 from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
@@ -478,34 +477,34 @@ def pytest_sessionstart(session):
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
 
-    # # Invoke the build-gnmi-stubs.sh script
-    # script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    # base_dir = os.getcwd()  # Use the current working directory as the base directory
-    # logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
 
-    # try:
-    #     result = subprocess.run(
-    #         [script_path, base_dir],
-    #         stdout=subprocess.PIPE,
-    #         stderr=subprocess.PIPE,
-    #         text=True,
-    #         check=False  # Do not raise an exception automatically on non-zero exit
-    #     )
-    #     logger.info(f"Output of {script_path}:\n{result.stdout}")
-    #     # logger.error(f"Error output of {script_path}:\n{result.stderr}")
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
 
-    #     if result.returncode != 0:
-    #         logger.error(f"{script_path} failed with exit code {result.returncode}")
-    #         session.exitstatus = 1  # Fail the pytest session
-    #     else:
-    #         # Add the generated directory to sys.path for module imports
-    #         generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-    #         if generated_path not in sys.path:
-    #             sys.path.insert(0, generated_path)
-    #             logger.info(f"Added {generated_path} to sys.path")
-    # except Exception as e:
-    #     logger.error(f"Exception occurred while invoking {script_path}: {e}")
-    #     session.exitstatus = 1  # Fail the pytest session
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            session.exitstatus = 1  # Fail the pytest session
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -3420,7 +3419,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):
+def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):           # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -3492,7 +3491,8 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
         elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR:
             standby_dut_hostname = rand_one_dut_hostname_var
             active_dut_hostname = rand_one_unselected_dut_hostname
-        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
+        elif dualtor_setup_config & \
+            DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
             standby_dut_hostname = rand_one_unselected_dut_hostname
             active_dut_hostname = rand_one_dut_hostname_var
         else:
