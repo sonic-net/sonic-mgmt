@@ -31,22 +31,12 @@ class TestbedNameValidator(GlobalValidator):
         result = ValidationResult(validator_name=self.name, group_name=context.get_group_name(), success=True)
         testbed_info = context.get_testbeds()
 
-        if not testbed_info:
-            result.add_error("No testbed information provided", ValidationCategory.MISSING_DATA)
-            return result
+        # Collect and validate testbed names in one pass
+        seen_names, duplicate_names, total_testbeds = self._validate_name_uniqueness(testbed_info, result)
 
-        # Collect testbed names
-        testbed_names = self._collect_testbed_names(testbed_info, result)
-
-        # Validate uniqueness
-        self._validate_name_uniqueness(testbed_names, result)
-
-        # Add metadata
-        seen_names = set(testbed_names)
-        duplicate_names = set(name for name in testbed_names if testbed_names.count(name) > 1)
-
+        # Add metadata using the returned values for better performance
         result.metadata.update({
-            "total_testbeds": len(testbed_names),
+            "total_testbeds": total_testbeds,
             "unique_names": len(seen_names),
             "duplicate_count": len(duplicate_names),
             "duplicate_names": list(duplicate_names)
@@ -54,24 +44,29 @@ class TestbedNameValidator(GlobalValidator):
 
         if result.success:
             result.add_info(
-                f"Testbed name validation passed for {len(testbed_names)} testbeds",
+                f"Testbed name validation passed for {total_testbeds} testbeds",
                 ValidationCategory.SUMMARY, result.metadata
             )
 
         return result
 
-    def _collect_testbed_names(self, testbed_info, result):
+    def _validate_name_uniqueness(self, testbed_info, result):
         """
-        Collect all testbed names from testbed configurations
+        Collect testbed names and validate uniqueness in a single pass
 
         Args:
             testbed_info: List of testbed configurations
             result: ValidationResult to add issues to
 
         Returns:
-            list: List of testbed names
+            tuple: (seen_names, duplicate_names, total_testbeds)
+                - seen_names: Set of unique testbed names
+                - duplicate_names: Set of duplicate testbed names
+                - total_testbeds: Total count of valid testbeds processed
         """
-        testbed_names = []
+        seen_names = set()
+        duplicate_names = set()
+        total_testbeds = 0
 
         for i, testbed in enumerate(testbed_info):
             if not isinstance(testbed, dict):
@@ -89,27 +84,16 @@ class TestbedNameValidator(GlobalValidator):
                 )
                 continue
 
-            testbed_names.append(conf_name)
+            total_testbeds += 1
 
-        return testbed_names
-
-    def _validate_name_uniqueness(self, testbed_names, result):
-        """
-        Validate that testbed names are unique
-
-        Args:
-            testbed_names: List of testbed names
-            result: ValidationResult to add issues to
-        """
-        seen_names = set()
-        duplicate_names = set()
-
-        for name in testbed_names:
-            if name in seen_names:
-                duplicate_names.add(name)
+            # Check for duplicates and track names in one pass
+            if conf_name in seen_names:
+                duplicate_names.add(conf_name)
                 result.add_error(
-                    f"Duplicate testbed name found: {name}",
-                    ValidationCategory.DUPLICATE, {"name": name}
+                    f"Duplicate testbed name found: {conf_name}",
+                    ValidationCategory.DUPLICATE, {"name": conf_name}
                 )
             else:
-                seen_names.add(name)
+                seen_names.add(conf_name)
+
+        return seen_names, duplicate_names, total_testbeds
