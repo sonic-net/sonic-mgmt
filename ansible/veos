@@ -13453,6 +13453,12 @@ vms_bjw2_4:
   hosts:
     VM84011:
       ansible_host: 172.16.206.11
+    VM84012:
+      ansible_host: 172.16.206.12
+    VM84013:
+      ansible_host: 172.16.206.13
+    VM84014:
+      ansible_host: 172.16.206.14
 
 vms_bjw2_5:
   hosts:
