@@ -96,7 +96,7 @@ def test_dualtor_setup_duthost(active_standby_ports, cable_type, duthosts, dutho
 
 
 def test_dualtor_setup_no_specified_duthost(active_standby_ports, cable_type,                               # noqa:F811
-                                            upper_tor_host, lower_tor_host,
+                                            upper_tor_host, lower_tor_host,                                 # noqa:F811
                                             setup_dualtor_mux_ports):
     """Verify setup_dualtor_mux_ports toggles mux ports to the upper ToR by default."""
     pytest_assert(setup_dualtor_mux_ports)

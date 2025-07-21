@@ -3419,7 +3419,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):           # noqa:F811
+def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -3492,7 +3492,7 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
             standby_dut_hostname = rand_one_dut_hostname_var
             active_dut_hostname = rand_one_unselected_dut_hostname
         elif dualtor_setup_config & \
-            DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
+                DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
             standby_dut_hostname = rand_one_unselected_dut_hostname
             active_dut_hostname = rand_one_dut_hostname_var
         else:
