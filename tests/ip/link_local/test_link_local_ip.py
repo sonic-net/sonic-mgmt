@@ -135,6 +135,18 @@ class TestLinkLocalIPacket:
         vtysh_cmd_for_namespace = duthost.get_vtysh_cmd_for_namespace(tag_route_cmd, ptf_port_idx_namespace)
         duthost.shell(vtysh_cmd_for_namespace)
 
+    @pytest.fixture(scope='class', autouse=True)
+    def config_counter_poll_interval(self, duthost):
+        """
+        Set counter poll interval to 100ms to ensure that the counters are updated in time
+        """
+        origin_queue_interval = duthost.get_counter_poll_status()['PORT_STAT']['interval']
+        duthost.set_counter_poll_interval('PORT_STAT', 100)
+
+        yield
+
+        duthost.set_counter_poll_interval('PORT_STAT', origin_queue_interval)
+
     @staticmethod
     def remove_ips_form_downlink_ifaces(duthost, mg_facts, rx_iface, tx_iface):
         for addr_dict in mg_facts['minigraph_interfaces']:
