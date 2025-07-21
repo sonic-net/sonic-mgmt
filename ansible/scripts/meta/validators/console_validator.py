@@ -286,7 +286,7 @@ class ConsoleValidator(GlobalValidator):
                 server_info = devices[console_server]
                 if isinstance(server_info, dict):
                     server_type = server_info.get('Type', '').lower()
-                    if server_type not in ['consoleserver', 'console_server', 'console']:
+                    if server_type not in ['consoleserver']:
                         result.add_warning(
                             f"Device {device_name} console server {console_server} has unexpected type '{server_type}'",
                             ValidationCategory.INVALID_TYPE,
