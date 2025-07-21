@@ -31,8 +31,10 @@ def topo_name_to_topo_checker(topo_name):
     if topo_type in ['mgmttor', 'm0', 'mc0', 'mx', 't0-52', 't0-mclag']:
         # certain testbed types are in 't0' category with different names.
         topo_type = 't0'
-    elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag', 't1-lag-vpp']:
+    elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
         topo_type = 't1'
+    elif topo_type in ['t1-lag-vpp']:
+        topo_type = 't1-lag-vpp'
 
     topology_checker = topo_type + "_checker"
 
