@@ -123,7 +123,7 @@ stages:
     steps:
       - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
         parameters:
-          TOPOLOGY: t1-lag-vpp
+          TOPOLOGY: t1-lag
           BUILD_BRANCH: $(BUILD_BRANCH)
           # 40 mins for preparing testbed, 10 mins for pre-test and post-test
           PREPARE_TIME: 50
