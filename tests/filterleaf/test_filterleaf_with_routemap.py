@@ -36,8 +36,7 @@ SRC_IP = {
 }
 
 pytestmark = [
-    # pytest.mark.topology('t1-filterleaf-lag')
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1-filterleaf-lag')
 ]
 
 logger = logging.getLogger(__name__)
