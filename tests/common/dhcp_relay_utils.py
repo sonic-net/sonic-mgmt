@@ -191,7 +191,7 @@ def calculate_counters_per_pkts(pkts):
     return all_counters
 
 
-def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_name_index_mapping, local_ip,
+def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_name_index_mapping,
                                            error_in_percentage=0.0):
     """Validate the dhcpcom relay counters and packets consistence"""
     downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']

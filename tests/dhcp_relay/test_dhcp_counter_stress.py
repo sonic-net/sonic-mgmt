@@ -12,10 +12,6 @@ from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
-pytestmark = [
-    pytest.mark.topology('t0', 'm0')
-]
-
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
@@ -41,7 +37,6 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
         testing_mode, client_packets_per_sec, error_margin))
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_id = dhcp_relay['client_iface']['port_idx']
-        vlan_ip = dhcp_relay['downlink_vlan_iface']['addr']
 
         init_dhcpcom_relay_counters(duthost)
         if testing_mode == DUAL_TOR_MODE:
@@ -78,7 +73,7 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
         def _verify_packets(pkts):
             # Default DB update timer for dhcpmon is 20s, hence wait for it to write DB
             time.sleep(25)
-            validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_dict, vlan_ip,
+            validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_dict,
                                                    error_in_percentage=error_margin)
             if testing_mode == DUAL_TOR_MODE:
                 validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
@@ -115,7 +110,4 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             check_dhcp_stress_status(duthost, packets_send_duration)
             pytest_assert(wait_until(600, 2, 0, _check_count_file_exists), "{} is missing".format(count_file))
             ptfhost.shell('rm -f {}'.format(count_file))
-            if testing_mode == DUAL_TOR_MODE:
-                interface_dict = get_ip_link_result(standby_duthost)
-            else:
-                interface_dict = get_ip_link_result(duthost)
+            interface_dict = get_ip_link_result(duthost)
