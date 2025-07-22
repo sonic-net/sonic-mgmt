@@ -29,6 +29,11 @@ parameters:
     default: ""
     displayName: "Deploy minigraph parameter"
 
+  - name: SKIP_RESTART_PTF
+    type: boolean
+    default: false
+    displayName: "Whether skip restart ptf for nightly test"
+
   - name: COMMON_EXTRA_PARAMS
     type: string
     default: ""
@@ -160,6 +165,7 @@ steps:
       SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }}
       ADD_TOPO_PARAMS: ${{ parameters.ADD_TOPO_PARAMS }}
       DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+      SKIP_RESTART_PTF: ${{ parameters.SKIP_RESTART_PTF }}
       SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
       AFFINITY: ${{ parameters.AFFINITY }}
       REPO_NAME: "sonic-mgmt-int"
