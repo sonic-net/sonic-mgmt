@@ -12,19 +12,19 @@
 # For example, "- template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt"
 
 pr:
-   branches:
-     include:
-       - master
-       - 202???
-   paths:
-     exclude:
-       - .github
-       - docs
-       - LICENSE
-       - README.md
-       - SECURITY.md
-       - sdn_tests/**
-       - '**/*.md'
+  branches:
+    include:
+      - master
+      - 202???
+  paths:
+    exclude:
+      - .github
+      - docs
+      - LICENSE
+      - README.md
+      - SECURITY.md
+      - sdn_tests/**
+      - '**/*.md'
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
@@ -38,81 +38,97 @@ resources:
       endpoint: sonic-net
 
 parameters:
-- name: TIMEOUT_IN_MINUTES_PR_TEST
-  type: number
-  default: 480
-- name: TIMEOUT_IN_MINUTES_TEST_JOB
-  type: number
-  default: 480
+  - name: TIMEOUT_IN_MINUTES_PR_TEST
+    type: number
+    default: 480
+  - name: TIMEOUT_IN_MINUTES_TEST_JOB
+    type: number
+    default: 480
 
 stages:
-- template: /.azure-pipelines/common2/stages/analyze-code.yml
-- stage: Pre_test
-  condition: succeededOrFailed()
-  jobs:
-  - job: static_analysis
-    displayName: "Static Analysis"
-    timeoutInMinutes: 10
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-    - template: .azure-pipelines/pre-commit-check.yml
+  - template: /.azure-pipelines/common2/stages/analyze-code.yml
+  - stage: Pre_test
+    condition: succeededOrFailed()
+    jobs:
+      - job: static_analysis
+        displayName: "Static Analysis"
+        timeoutInMinutes: 10
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/pre-commit-check.yml
 
-#  - job: validate_test_cases
-#    displayName: "Validate Test Cases"
-#    timeoutInMinutes: 30
-#    continueOnError: false
-#    pool: sonic-ubuntu-1c
-#    steps:
-#    - template: .azure-pipelines/pytest-collect-only.yml
-#      parameters:
-#        MGMT_BRANCH: ""
-#
-#  - job: dependency_check
-#    displayName: "Dependency Check"
-#    timeoutInMinutes: 10
-#    pool: sonic-ubuntu-1c
-#    steps:
-#      - template: .azure-pipelines/dependency-check.yml
-#
-#  - job: markers_check
-#    displayName: "Markers Check"
-#    timeoutInMinutes: 10
-#    pool: sonic-ubuntu-1c
-#    steps:
-#      - template: .azure-pipelines/markers-check.yml
+  #  - job: validate_test_cases
+  #    displayName: "Validate Test Cases"
+  #    timeoutInMinutes: 30
+  #    continueOnError: false
+  #    pool: sonic-ubuntu-1c
+  #    steps:
+  #    - template: .azure-pipelines/pytest-collect-only.yml
+  #      parameters:
+  #        MGMT_BRANCH: ""
+  #
+  #  - job: dependency_check
+  #    displayName: "Dependency Check"
+  #    timeoutInMinutes: 10
+  #    pool: sonic-ubuntu-1c
+  #    steps:
+  #      - template: .azure-pipelines/dependency-check.yml
+  #
+  #  - job: markers_check
+  #    displayName: "Markers Check"
+  #    timeoutInMinutes: 10
+  #    pool: sonic-ubuntu-1c
+  #    steps:
+  #      - template: .azure-pipelines/markers-check.yml
 
 
-- stage: Test
-  dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
-  variables:
-  - group: SONiC-Elastictest
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
-  - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      value: $(System.PullRequest.TargetBranch)
-    ${{ else }}:
-      value: $(Build.SourceBranchName)
+  - stage: Test
+    dependsOn: Pre_test
+    condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+    variables:
+      - group: SONiC-Elastictest
+      - name: inventory
+        value: veos_vtb
+      - name: testbed_file
+        value: vtestbed.yaml
+      - name: BUILD_BRANCH
+        ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+          value: $(System.PullRequest.TargetBranch)
+        ${{ else }}:
+          value: $(Build.SourceBranchName)
 
-  jobs:
-  - job: impacted_area_t1_lag_vpp_elastictest
-    displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
-    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
-        parameters:
-          TOPOLOGY: t1-lag-vpp
-          MIN_WORKER: 20
-          MAX_WORKER: 20
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
-          ASIC_TYPE: "vpp"
-          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          STOP_ON_FAILURE: "False"
+    jobs:
+      - job: get_impacted_area
+        displayName: "Get impacted area"
+        timeoutInMinutes: 10
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+            parameters:
+              BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - job: impacted_area_t1_lag_vpp_elastictest
+        displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
+        dependsOn:
+          - get_impacted_area
+        condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+        variables:
+          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+        timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+            parameters:
+              TOPOLOGY: t1-lag-vpp
+              SCRIPTS: $(SCRIPTS)
+              MIN_WORKER: 20
+              MAX_WORKER: 20
+              KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+              MGMT_BRANCH: $(BUILD_BRANCH)
+              ASIC_TYPE: "vpp"
+              KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+              COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+              STOP_ON_FAILURE: "False"
