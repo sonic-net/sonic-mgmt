@@ -46,12 +46,12 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost = duthosts[hostname]
         up_bgp_neighbors[duthost] = duthost.get_bgp_neighbors_per_asic("established")
 
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests before test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
 
     yield
 
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests after test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -219,7 +219,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     if "syncd" not in service_name:
         pytest.skip("[Debug] skip test which not have issue")
 
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests step1: {}".format(docker_routing_config_mode_config))
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
@@ -239,8 +239,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         disable_container_autorestart(duthost)
         time.sleep(30)
 
-    
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests step2: {}".format(docker_routing_config_mode_config))
 
     if not is_container_running(duthost, container_name):
@@ -250,8 +249,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         time.sleep(300)
         sleep_time = 80
 
-    
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests step3: {}".format(docker_routing_config_mode_config))
 
     asic.stop_service(service_name)
@@ -263,7 +261,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' on DuT '{}' was stopped".format(container_name, duthost.hostname))
 
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests step4: {}".format(docker_routing_config_mode_config))
 
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
@@ -272,7 +270,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
 
-    docker_routing_config_mode_config = duthost.shell("sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"")
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
     logger.warning("config_reload_after_tests step5: {}".format(docker_routing_config_mode_config))
 
 
