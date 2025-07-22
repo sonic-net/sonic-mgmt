@@ -492,6 +492,9 @@ class GenerateGoldenConfigDBModule(object):
             temp_file.write(config)
         self.module.exit_json(change=True, msg=module_msg)
 
+        golden_config = duthost.shell("sudo cat /etc/sonic/golden_config_db.json")
+        logger.warning("config_reload_after_tests before test golden_config: {}".format(golden_config))
+
 
 def main():
     generate_golden_config_db = GenerateGoldenConfigDBModule()
