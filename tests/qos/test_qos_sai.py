@@ -198,7 +198,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-C28S4',
-        'Arista-7050CX3-32S-D48C8'
+        'Arista-7050CX3-32S-D48C8',
+        'dbmvtx9180_64x100G'
     ]
 
     @pytest.fixture(scope="class", autouse=True)
@@ -937,7 +938,7 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip":
                 testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
             "pgs_num": qosConfig["hdrm_pool_size"]["pgs_num"],
-            "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc"],
+            "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"].get("pkts_num_trig_pfc", 0),
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
             "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
@@ -1136,7 +1137,7 @@ class TestQosSai(QosSaiBase):
                 testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
             "pgs_num": qosConfig["hdrm_pool_size"]["pgs_num"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
-            "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc"],
+            "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"].get("pkts_num_trig_pfc", 0),
             "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
             "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
             "hdrm_pool_wm_multiplier": dutQosConfig["param"]["hdrm_pool_wm_multiplier"],
@@ -1160,6 +1161,11 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
             testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
+
+        pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get(
+            "pkts_num_trig_pfc_shp")
+        if pkts_num_trig_pfc_shp:
+            testParams["pkts_num_trig_pfc_shp"] = pkts_num_trig_pfc_shp
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -1194,7 +1200,8 @@ class TestQosSai(QosSaiBase):
         disableTest = request.config.getoption("--disable_test")
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
-                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                 dutTestParams["basicParams"]["platform_asic"] in \
+                    ["broadcom-dnx", "marvell-teralynx"]):
             disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
@@ -1250,6 +1257,9 @@ class TestQosSai(QosSaiBase):
 
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
+
+        if "extra_cap_margin" in list(qosConfig[bufPool].keys()):
+            testParams["extra_cap_margin"] = qosConfig[bufPool]["extra_cap_margin"]
 
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
             testParams["extra_cap_margin"] = 20
