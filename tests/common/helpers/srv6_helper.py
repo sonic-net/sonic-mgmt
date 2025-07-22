@@ -222,10 +222,6 @@ class SRv6Packets():
                 packet['exp_outer_dscp_uniform'] = packet['outer_dscp'] = i % 64
                 packet['exp_inner_dscp_pipe'] = packet['inner_dscp'] = (packet['outer_dscp'] + 8) % 64
 
-            # Alternate between IPv4 and IPv6 for inner packet
-            if i % 2 == 1:
-                packet['inner_pkt_ver'] = '4'
-
             srv6_packets.append(packet)
 
         return srv6_packets
