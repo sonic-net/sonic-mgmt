@@ -422,46 +422,6 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "HBG25160FHW"
-    str5-7060x6-moby-512-4:
-      ansible_host: 10.64.247.201
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7c9
-      mgmt_subnet_mask_length: 23
-      hwsku: Arista-7060X6-16PE-384C-B-O128S2
-      model: DCS-7060X6-16PE-384C-B
-      serial: SSN25202314
-      base_mac: b8:a1:b8:a2:2d:35
-      syseeprom_info:
-        "0x21": "DCS-7060X6-16PE-384C"
-        "0x22": "ASY088971103"
-        "0x23": "SSN25202314"
-        "0x24": "b8:a1:b8:a2:2d:35"
-        "0x25": "2025/06/12 23:31:52"
-        "0x26": "10.11"
-        "0x27": "03.00"
-        "0x28": "x86_64-arista_7060x6_16pe_384c_b"
-        "0x2B": "Arista Networks"
-        "0x2D": "Arista Networks"
-        "0x2F": "SSN25202314"
-    str5-7060x6-moby-512-5:
-      ansible_host: 10.64.247.202
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7ca
-      mgmt_subnet_mask_length: 23
-      hwsku: Arista-7060X6-16PE-384C-B-O128S2
-      model: DCS-7060X6-16PE-384C-B
-      serial: SSN25202318
-      base_mac: b8:a1:b8:a2:33:47
-      syseeprom_info:
-        "0x21": "DCS-7060X6-16PE-384C"
-        "0x22": "ASY088971103"
-        "0x23": "SSN25202318"
-        "0x24": "b8:a1:b8:a2:33:47"
-        "0x25": "2025/06/13 22:51:27"
-        "0x26": "10.11"
-        "0x27": "03.00"
-        "0x28": "x86_64-arista_7060x6_16pe_384c_b"
-        "0x2B": "Arista Networks"
-        "0x2D": "Arista Networks"
-        "0x2F": "SSN25202318"
 
 sonic_nvidia_sn5640:
   hosts:
