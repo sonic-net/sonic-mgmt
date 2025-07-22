@@ -4,6 +4,7 @@ import pytest
 import time
 import json
 import uuid
+import warnings
 
 import requests
 from requests.packages.urllib3.util import Retry
@@ -523,6 +524,8 @@ def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts,
         return
 
     if cable_type == CableType.active_standby:
+        warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                      "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
         restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
 
@@ -544,6 +547,8 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
         return
 
     if cable_type == CableType.active_standby:
+        warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                      "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
         restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
 
@@ -635,6 +640,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
         logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         return
 
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
 
 
@@ -654,6 +661,8 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
 
 
@@ -669,6 +678,8 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
     NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
 
 
@@ -690,6 +701,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
         logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         yield
         return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
@@ -722,6 +736,9 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
@@ -756,6 +773,9 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')

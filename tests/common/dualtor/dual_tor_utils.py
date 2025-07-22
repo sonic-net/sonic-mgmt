@@ -13,6 +13,7 @@ import string
 import sys
 import six
 import tabulate
+import warnings
 
 from collections import defaultdict
 from datetime import datetime
@@ -1759,6 +1760,9 @@ def config_active_active_dualtor_active_standby(duthosts, active_active_ports, t
         ports_to_restore.extend(ports)
 
     ports_to_restore = []
+
+    warnings.warn("Deprecated mux port setup fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     yield _config_active_active_dualtor_active_standby
 
