@@ -283,19 +283,6 @@ def run_pfc_test(api,
                                tolerance=TOLERANCE_THRESHOLD,
                                test_flow_pause=test_traffic_pause,
                                snappi_extra_params=snappi_extra_params)
-
-        if test_traffic_pause and not snappi_extra_params.gen_background_traffic:
-            # Verify TX frame count on the DUT when traffic is expected to be paused
-            # and only test traffic flows are generated
-            verify_tx_frame_count_dut(duthost=egress_duthost,
-                                      api=api,
-                                      snappi_extra_params=snappi_extra_params)
-
-            # Verify TX frame count on the DUT when traffic is expected to be paused
-            # and only test traffic flows are generated
-            verify_rx_frame_count_dut(duthost=ingress_duthost,
-                                      api=api,
-                                      snappi_extra_params=snappi_extra_params)
     else:
         # Verify PFC pause frames
         verify_pause_flow_for_macsec(flow_metrics=tgen_flow_stats,
@@ -351,6 +338,19 @@ def run_pfc_test(api,
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,
                                            snappi_extra_params=snappi_extra_params)
+
+    if test_traffic_pause and not snappi_extra_params.gen_background_traffic:
+        # Verify TX frame count on the DUT when traffic is expected to be paused
+        # and only test traffic flows are generated
+        verify_tx_frame_count_dut(duthost=egress_duthost,
+                                  api=api,
+                                  snappi_extra_params=snappi_extra_params)
+
+        # Verify TX frame count on the DUT when traffic is expected to be paused
+        # and only test traffic flows are generated
+        verify_rx_frame_count_dut(duthost=ingress_duthost,
+                                  api=api,
+                                  snappi_extra_params=snappi_extra_params)
 
 
 def run_tx_drop_counter(

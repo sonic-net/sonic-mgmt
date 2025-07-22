@@ -1024,6 +1024,7 @@ def verify_tx_frame_count_dut(duthost,
     Returns:
 
     """
+    ptype = "--snappi_macsec" in sys.argv
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     test_flow_name_dut_tx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_tx_port_map"]
@@ -1033,9 +1034,19 @@ def verify_tx_frame_count_dut(duthost,
         # Collect metrics from TGEN once all flows have stopped
         test_flow_name = next((test_flow_name for test_flow_name, dut_tx_ports in test_flow_name_dut_tx_port_map.items()
                                if peer_port in dut_tx_ports), None)
-        tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        if not ptype:
+            tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        else:
+            tgen_test_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
         pytest_assert(tgen_test_flow_metrics, "TGEN test flow metrics is not provided")
-        tgen_tx_frames = tgen_test_flow_metrics[0].frames_tx
+        if not ptype:
+            tgen_tx_frames = tgen_test_flow_metrics[0].frames_tx
+        else:
+            for tgen_test_flow_metric in tgen_test_flow_metrics:
+                if tgen_test_flow_metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"] and \
+                   int(tgen_test_flow_metric['PGID']) == snappi_extra_params.flow_name_dscp_map[test_flow_name]:
+                    tgen_tx_frames = tgen_test_flow_metric['Tx Frames']
+                    break
 
         # Collect metrics from DUT once all flows have stopped
         tx_dut_frames, tx_dut_drop_frames = get_tx_frame_count(duthost, peer_port)
@@ -1063,6 +1074,7 @@ def verify_rx_frame_count_dut(duthost,
     Returns:
 
     """
+    ptype = "--snappi_macsec" in sys.argv
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     test_flow_name_dut_rx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_rx_port_map"]
@@ -1072,9 +1084,19 @@ def verify_rx_frame_count_dut(duthost,
         # Collect metrics from TGEN once all flows have stopped
         test_flow_name = next((test_flow_name for test_flow_name, dut_rx_ports in test_flow_name_dut_rx_port_map.items()
                                if peer_port in dut_rx_ports), None)
-        tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        if not ptype:
+            tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        else:
+            tgen_test_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
         pytest_assert(tgen_test_flow_metrics, "TGEN test flow metrics is not provided")
-        tgen_rx_frames = tgen_test_flow_metrics[0].frames_rx
+        if not ptype:
+            tgen_rx_frames = tgen_test_flow_metrics[0].frames_rx
+        else:
+            for tgen_test_flow_metric in tgen_test_flow_metrics:
+                if tgen_test_flow_metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"] and \
+                   int(tgen_test_flow_metric['PGID']) == snappi_extra_params.flow_name_dscp_map[test_flow_name]:
+                    tgen_rx_frames = tgen_test_flow_metric['Rx Frames']
+                    break
 
         # Collect metrics from DUT once all flows have stopped
         rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
