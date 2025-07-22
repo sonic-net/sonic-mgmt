@@ -47,13 +47,13 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         up_bgp_neighbors[duthost] = duthost.get_bgp_neighbors_per_asic("established")
 
     golden_config = duthost.shell("sudo cat /etc/sonic/golden_config_db.json")
-    logger.info("config_reload_after_tests before test golden_config: {}".format(golden_config))
+    logger.warning("config_reload_after_tests before test golden_config: {}".format(golden_config))
 
     yield
 
     
     golden_config = duthost.shell("sudo cat /etc/sonic/golden_config_db.json")
-    logger.info("config_reload_after_tests after test golden_config: {}".format(golden_config))
+    logger.warning("config_reload_after_tests after test golden_config: {}".format(golden_config))
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for hostname in selected_rand_one_per_hwsku_hostname:
