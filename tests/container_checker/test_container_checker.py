@@ -51,7 +51,6 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
 
     yield
 
-    
     golden_config = duthost.shell("sudo cat /etc/sonic/golden_config_db.json")
     logger.warning("config_reload_after_tests after test golden_config: {}".format(golden_config))
 
