@@ -950,4 +950,11 @@
         become: True
         shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
+      - name: enable IPv6 on device
+        become: true
+        ansible.builtin.sysctl:
+          name: net.ipv6.conf.all.disable_ipv6
+          value: 0
+          sysctl_set: true
+
     when: deploy is defined and deploy|bool == true
