@@ -120,6 +120,11 @@ stages:
         continueOnError: false
         pool: sonic-ubuntu-1c
         steps:
+          - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+            parameters:
+              TOPOLOGY: t1
+              BUILD_BRANCH: $(BUILD_BRANCH)
+
           - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
             parameters:
               TOPOLOGY: t1-lag-vpp
