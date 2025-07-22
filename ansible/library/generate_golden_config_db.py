@@ -405,8 +405,8 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"]["localhost"] = {}
 
         # multiasic test failed because this field is 'None', which break yang validation.
-        if "docker_routing_config_mode" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
+        #if "docker_routing_config_mode" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
+        #    ori_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
 
         # Older version image may not support ZMQ feature flag
         rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
