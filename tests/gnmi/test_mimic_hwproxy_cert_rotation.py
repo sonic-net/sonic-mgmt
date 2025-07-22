@@ -4,8 +4,7 @@ import logging
 from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from .helper import gnmi_capabilities
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
 from tests.common.utilities import get_image_type
 
 
