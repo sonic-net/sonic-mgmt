@@ -406,24 +406,29 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         else:
             pytest.fail("Unable to parse or recognize version format: {}".format(version))
 
-    # Get debian codename from syncd container (not host OS)
-    try:
-        # Try to get codename from syncd container
-        syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
-                              "cut -d= -f2 | tr -d '\"'")
-        syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
-        if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
-            debian_codename = syncd_codename_result['stdout'].strip()
-        else:
-            pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
-                syncd_codename_result['rc'], syncd_codename_result['stdout']))
-    except Exception as e:
-        pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
-
     # Apply special codename overrides for specific internal branches
     if branch_name == "internal-202411":
         # internal-202411 has saithrift URL hardcoded to bullseye
         debian_codename = "bullseye"
+    elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+        # For internal branches older than 202405, use the original URL without modification
+        # No need to get debian_codename as URL won't be modified
+        debian_codename = None
+    else:
+        # Get debian codename from syncd container (not host OS)
+        # This applies to: master branch and internal branches >= 202405 (except 202411)
+        try:
+            # Try to get codename from syncd container
+            syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                                  "cut -d= -f2 | tr -d '\"'")
+            syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
+            if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+                debian_codename = syncd_codename_result['stdout'].strip()
+            else:
+                pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                    syncd_codename_result['rc'], syncd_codename_result['stdout']))
+        except Exception as e:
+            pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
 
     pkg_name = py_saithrift_url.split("/")[-1]
     ip_addr = py_saithrift_url.split("/")[2]
