@@ -479,11 +479,11 @@ def parse_free_output(output, memory_params):
 
 
 def parse_monit_status_output(output, memory_params):
-    """Parse the 'monit status' command output to extract memory usage information."""
+    """Parse the 'monit validate' command output to extract memory usage information."""
     memory_values = {}
 
     if not output:
-        logger.warning("Empty output for monit status command, returning empty values")
+        logger.warning("Empty output for monit validate command, returning empty values")
         return memory_values
 
     memory_pattern = r"memory usage\s+([\d\.]+ \w+)\s+\[(\d+\.\d+)%\]"
