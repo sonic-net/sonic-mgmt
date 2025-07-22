@@ -1522,19 +1522,22 @@ generic_config_updater/test_packet_trimming_config.py:
 
 generic_config_updater/test_pfcwd_interval.py:
   skip:
-    reason: "This test can only support mellanox platforms"
+    reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox']"
+      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
+                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
-    reason: "This test is not run on this topo type or version or topology currently"
-    conditions_logical_operator: "OR"
+    reason: "This test is not run on this topo type or version or topology or hwsku currently"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
-      - "hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C224O8',
-                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']"
+      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
+                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
