@@ -160,7 +160,7 @@ pdu-236,25,strtk5-z9332f-fanout-06,PSU2
 pdu-237,34,strtk5-8800-sup-1,PSU1
 pdu-237,35,strtk5-8800-sup-1,PSU2
 pdu-237,18,strtk5-8800-sup-1,PSU3
-pdu-235,36,strtk5-8800-sup-1,PSU4
+pdu-235,18,strtk5-8800-sup-1,PSU4
 pdu-237,17,strtk5-8800-sup-1,PSU5
 pdu-237,16,strtk5-8800-sup-1,PSU6
 pdu-237,36,strtk5-8800-sup-1,PSU9
