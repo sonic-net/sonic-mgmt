@@ -23,7 +23,7 @@ PR_CHECKER_TOPOLOGY_NAME = {
     "t1-multi-asic": ["t1-8-lag", "_kvmtest-multi-asic-t1-lag_"],
     "dpu": ["dpu", "_kvmtest-dpu_"],
     "dualtor": ["dualtor", "_kvmtest-dualtor-t0_"],
-    "t2": ["t2", "_kvmtest-t2_"]
+    "t2": ["t2", "kvmtest-t2_"]
 }
 
 MAX_INSTANCE_NUMBER = 40
