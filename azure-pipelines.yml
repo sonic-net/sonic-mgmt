@@ -129,8 +129,8 @@ stages:
             parameters:
               TOPOLOGY: t1-lag-vpp
               SCRIPTS: $(SCRIPTS)
-              MIN_WORKER: 20
-              MAX_WORKER: 20
+              MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+              MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
               KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
               MGMT_BRANCH: $(BUILD_BRANCH)
               ASIC_TYPE: "vpp"
