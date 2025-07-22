@@ -37,7 +37,7 @@ stages:
         value: $(Build.SourceBranchName)
 
     jobs:
-      # Based on Impacted Area Test
+      # Based on Impacted Area Test to get the full test scripts set run on t1 topo
       - job: get_impacted_area
         displayName: "Get impacted area"
         timeoutInMinutes: 10
