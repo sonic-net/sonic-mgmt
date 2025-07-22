@@ -37,6 +37,8 @@ def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_l47):
         api = run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value)
     elif ha_test_case == 'dpuloss':
         api = run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value)
+    elif ha_test_case == 'linkloss4':
+        api = run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value)
     else:
         return
 
@@ -70,10 +72,12 @@ class ContinuousMetricsCollector:
                     client_req.choice = "httpclient"
                     client_req.httpclient.stat_name = ["Connection Rate", "HTTP Concurrent Connections",
                                                        "TCP Resets Sent", "TCP Retries"]
+                    # client_req.httpclient.end_test = False
 
                     # Configure server request
                     server_req.choice = "httpserver"
                     server_req.httpserver.stat_name = ["TCP Resets Sent", "TCP Retries"]
+                    # server_req.httpclient.end_test = False
 
                     # Get metrics
                     client_metrics = api.get_metrics(client_req).httpclient_metrics
@@ -244,6 +248,30 @@ def power_on_dpu(duthost, dpu_id):
         duthost.shell(f"sudo config chassis module startup DPU{dpu_id}")
     except Exception as e:
         logger.error(f"Error powering on dpu{dpu_id}: {e}")
+
+    return
+
+
+def shutdown_link_npu_dpu(duthost, dpu_id, tbinfo):
+
+    dpu_if = tbinfo['dpu_active_if']
+    try:
+        duthost.shell(f"sudo config interface shutdown {dpu_if}")
+        logger.info(f"Shutting down link between NPU and DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error shutting down {dpu_if}: {e}")
+
+    return
+
+
+def startup_link_npu_dpu(duthost, dpu_id, tbinfo):
+
+    dpu_if = tbinfo['dpu_active_if']
+    try:
+        duthost.shell(f"sudo config interface shutdown {dpu_if}")
+        logger.info(f"Starting up link between NPU and DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error starting up link {dpu_if}: {e}")
 
     return
 
@@ -581,12 +609,14 @@ def run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value):
     logger.info(f"Collected metrics for {len(all_metrics)} phases")
 
     pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+
     stats_client_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['client_metrics']),
                                   re.DOTALL)
     stats_server_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['server_metrics']),
                                   re.DOTALL)
 
     stats_client_result = {}
+
     for match in stats_client_tmp:
         name = match[0].strip()
         timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
@@ -756,6 +786,11 @@ def run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value):
     testRun = [[peak_performance, stable_performance, failure_detected]]
     table = tabulate(testRun, headers=columns, tablefmt='grid')
     logger.info(table)
+
+    return
+
+
+def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value):
 
     return
 
