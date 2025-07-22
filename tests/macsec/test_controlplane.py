@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session,\
                            get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
+from tests.common.macsec.macsec_config_helper import setup_macsec_configuration, delete_macsec_profile
 from tests.common.macsec.macsec_platform_helper import get_platform, get_macsec_ifname
 
 logger = logging.getLogger(__name__)
@@ -86,3 +87,36 @@ class TestControlPlane():
         assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
         assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
         duthost.command("rm {}".format(tmp_file))
+
+    @pytest.mark.disable_loganalyzer
+    def test_profile_replace(self, duthost, ctrl_links,
+                             profile_name, default_priority, cipher_suite,
+                             primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo, wait_mka_establish):
+        # Only pick one controlled link for profile replace test
+        ctrl_link = dict([next(iter(ctrl_links.items()))])
+        port_name, nbr = list(ctrl_link.items())[0]
+        _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        # Replace existing profile with new profile
+        new_profile_name = profile_name+"_NEW"
+        setup_macsec_configuration(duthost, ctrl_link, new_profile_name, default_priority,
+                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
+
+        def check_mka_new_session():
+            _, _, new_dut_ingress_sc_table, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            assert new_dut_ingress_sc_table
+            assert new_dut_egress_sa_table
+            assert new_dut_ingress_sa_table
+            assert last_dut_egress_sa_table != new_dut_egress_sa_table
+            assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+            return True
+        try:
+            # To check whether the MKA establishment happened within 60 seconds
+            assert wait_until(60, 5, 2, check_mka_new_session)
+        finally:
+            # Revert back to original configuration
+            setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
+                                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
+            # Clean up new macsec profile
+            delete_macsec_profile(duthost, port_name, new_profile_name)
