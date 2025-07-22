@@ -807,6 +807,3 @@ specific_param:
   dpu:
   - name: dash/test_dash_vnet.py
     param: " --skip_dataplane_checking "
-
-t1-lag-vpp:
-  - abc/def.py

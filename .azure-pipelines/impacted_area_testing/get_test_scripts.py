@@ -19,7 +19,7 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 def topo_name_to_topo_checker(topo_name):
     pattern = re.compile(r'^(ciscovs-7nodes|ciscovs-5nodes|wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
                          r't0|t0-52|t0-mclag|mgmttor|m0|mc0|mx|'
-                         r't1|t1-lag|t1-56-lag|t1-64-lag|t1-lag-vpp|'
+                         r't1|t1-lag|t1-56-lag|t1-64-lag|'
                          r'ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|dpu|any|snappi|util|'
                          r't0-2vlans|t0-sonic|t1-multi-asic)$')
     match = pattern.match(topo_name)
@@ -33,8 +33,6 @@ def topo_name_to_topo_checker(topo_name):
         topo_type = 't0'
     elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
         topo_type = 't1'
-    elif topo_type in ['t1-lag-vpp']:
-        topo_type = 't1-lag-vpp'
 
     topology_checker = topo_type + "_checker"
 
