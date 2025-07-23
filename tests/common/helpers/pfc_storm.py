@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import json
 
 from jinja2 import Template
 from tests.common.errors import MissingInputError
@@ -316,10 +317,13 @@ class PFCStorm(object):
                 cmds = tmpl.render(**self.extra_vars).splitlines()
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
+            logger.info("Running command: {}".format(cmd))
             self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
+            logger.info("Running Template: {}".format(json.dumps(self.extra_vars)))
+
             self.peer_device.exec_template(
                 ANSIBLE_ROOT, RUN_PLAYBOOK,
                 self.inventory, **self.extra_vars
