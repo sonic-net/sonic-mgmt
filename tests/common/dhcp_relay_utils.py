@@ -263,13 +263,33 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
             uplink_interfaces.append(portchannel_name)
 
     vlan_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, [])
+
+    # uplink_portchannels_interfaces means the item can be the portchannel or the interface
+    # Example:
+    #   If there are 4 uplink portchannels, the uplink_portchannels_or_interfaces will be
+    #   ['PortChannel101', 'PortChannel103', 'PortChannel105', 'PortChannel106']
+    #   If there is no portchannel, the uplink_portchannels_or_interfaces will be
+    #   ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
     uplink_portchannels_interfaces_counter = query_and_sum_dhcpcom_relay_counters(
         duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces
     )
+
+    """
+    Example:
+    Discover counter for PortChannels:
+    {'TX': {'Unknown': 0, 'Discover': 141216, 'Offer': 0, 'Request': 0, 'Decline': 0, 'Ack': 0, 'Nak': 0, 'Release': 0,
+    'Inform': 0, 'Bootp': 0},
+    'RX': {'Unknown': 0, 'Discover': 0, 'Offer': 0, 'Request': 0, 'Decline': 0, 'Ack': 0, 'Nak': 0,
+    'Release': 0, 'Inform': 0, 'Bootp': 0}}
+    """
+    # Query the counters for uplink portchannels interfaces such as:
+    # ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
 
     vlan_interface_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[downlink_vlan_iface],
                                                             {"RX": {}, "TX": {}})
+
+    # calculate the sum of uplink portchannels interfaces counters from pkts
     uplink_portchannels_interfaces_counter_from_pkts = {
                 "RX": {},
                 "TX": {}
@@ -277,6 +297,8 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
     for iface in uplink_portchannels_or_interfaces:
         merge_counters(uplink_portchannels_interfaces_counter_from_pkts,
                        all_pkt_counters.get(interface_name_index_mapping[iface], {"RX": {}, "TX": {}}))
+
+    # calculate the sum of uplink interface counters from pkts
     uplink_interface_counter_from_pkts = {
                 "RX": {},
                 "TX": {}
