@@ -87,7 +87,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     logger.info("=================Deduplicating legacy aggregated df against consistent aggregated df=================")
     legacy_deduplicated_vs_consistent_df = deduper.deduplicate_dataframe_clusters(consistent_aggregated_df, legacy_aggregated_df)
     legacy_deduplicated_vs_consistent_df.to_csv(LEGACY_AFTER_DEDUPLICATION_CSV, index=False)
-    logger.info(f"After deduplication with consistent df, kept {len(legacy_deduplicated_vs_consistent_df)} unique legacy failure cases, before is {len(legacy_aggregated_df)}")
+    logger.info(f"After deduplication with consistent failure cases, kept {len(legacy_deduplicated_vs_consistent_df)} unique legacy failure cases, before is {len(legacy_aggregated_df)}")
 
     aggregated_legacy_new_icm_list = deduper.filter_out_icm_list("legacy", legacy_new_icm_table, legacy_deduplicated_vs_consistent_df)
 
@@ -103,7 +103,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     )
 
     # Deduplicate flaky_aggregated_df against consistent_aggregated_df and legacy failures
-    logger.info("=================Deduplicating flaky aggregated df against consistent and legacy aggregated dfs=================")
+    logger.info("=================Deduplicating flaky failure case aggregated df against consistent and legacy aggregated dfs=================")
     # Combine legacy and consistent dataframes to use as reference for flaky deduplication
     combined_reference_df = pd.concat([consistent_aggregated_df, legacy_deduplicated_vs_consistent_df], ignore_index=True)
     logger.info(f"Combined dataframe has {len(consistent_aggregated_df)} consistent + {len(legacy_deduplicated_vs_consistent_df)} legacy = {len(combined_reference_df)} total entries")

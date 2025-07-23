@@ -1068,7 +1068,7 @@ class DataDeduplicator:
             logger.info("Processing flaky failures")
             aggregated_df = self.find_similar_summaries_and_count(prepared_df, analyzer.week_flaky_testcases_df)
         aggregated_df.to_csv(aggregated_csv, index=False)
-        logger.debug("The count of {} failures before aggregation: {} after:{}".format(failure_type, len(prepared_df), len(aggregated_df)))
+        logger.debug("The count of {} failure cases before aggregation: {} after:{}".format(failure_type, len(prepared_df), len(aggregated_df)))
         logger.info(f"=================Deduplicating {failure_type} aggregated df against active IcM=================")
         aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(aggregated_df, analyzer.active_icm_df)
         aggregated_dedup_df.to_csv(dedup_csv, index=False)
