@@ -261,6 +261,7 @@ MGMT:
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_lldp.py
         - dns/static_dns/test_static_dns.py
+        - dns/test_dns_resolv_conf.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
@@ -298,6 +299,7 @@ MGMT:
         - http/test_http_copy.py
         - mvrf/test_mgmtvrf.py
         - ssh/test_ssh_default_password.py
+        - passw_hardening/test_passw_hardening.py
 
       hw:
         - generic_config_updater/test_aaa.py
@@ -334,8 +336,8 @@ MGMT:
         - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
-        # - restapi/test_restapi.py
-        # - restapi/test_restapi_vxlan_ecmp.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
 
@@ -355,6 +357,7 @@ MGMT:
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_lldp.py
         - dns/static_dns/test_static_dns.py
+        - dns/test_dns_resolv_conf.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
@@ -386,6 +389,7 @@ MGMT:
         - http/test_http_copy.py
       #  - mvrf/test_mgmtvrf.py
         - ssh/test_ssh_default_password.py
+        - passw_hardening/test_passw_hardening.py
 
       hw:
         - snmp/test_snmp_cpu.py
@@ -422,8 +426,8 @@ MGMT:
         - ssh/test_ssh_default_password.py
         # - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
-        # - restapi/test_restapi.py
-        # - restapi/test_restapi_vxlan_ecmp.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
 
