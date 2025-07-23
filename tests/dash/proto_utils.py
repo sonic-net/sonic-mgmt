@@ -65,6 +65,30 @@ def parse_byte_field(orig_val):
 def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
+def parse_range(range_str):
+    parts = range_str.split(",")
+    num_parts = len(parts)
+    if num_parts != 2:
+        raise ValueError("Input string must contain exactly two numbers separated by a comma.")
+    try:
+       int(parts[0])
+       int(parts[1])
+    except ValueError:
+        raise ValueError("Both parts of the input string must be valid integers.")
+    return {"min": parts[0], "max": parts[1]}
+
+def parse_value_or_range(value_or_range_str):
+    parts = value_or_range_str.split(",")
+    if len(parts) == 1:
+        try:
+            int(parts[0])
+        except ValueError:
+            raise ValueError("Input string must be a valid integer.")
+        return {"value": parts[0]}
+    elif len(parts) == 2:
+        return parse_range(value_or_range_str)
+    else:
+        raise ValueError("Input string must contain either one or two numbers separated by a comma.")
 
 def parse_dash_proto(key: str, proto_dict: dict):
     """
@@ -213,6 +237,10 @@ def json_to_proto(key: str, proto_dict: dict):
                 new_dict[key] = parse_ip_prefix(value)
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
+            elif field_map[key].message_type.name == "Range":
+                new_dict[key] = parse_range(value)
+            elif field_map[key].message_type.name == "ValueOrRange":
+                new_dict[key] = parse_value_or_range(value)
 
         elif field_map[key].type == field_map[key].TYPE_ENUM:
             new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
