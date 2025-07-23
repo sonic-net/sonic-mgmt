@@ -12,6 +12,10 @@ from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('t0', 'm0')
+]
+
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
