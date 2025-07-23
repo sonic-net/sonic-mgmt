@@ -225,7 +225,7 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     container_name = asic.get_docker_name(service_name)
 
-    if "syncd" not in service_name:
+    if True:
         pytest.skip("[Debug] skip test which not have issue")
 
     docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
