@@ -1,6 +1,5 @@
 # Dual-ToR Mux Port Setup
 
-
 ## Purpose
 The purpose of this document is to introduce the new Dual-ToR mux port setup infrastructure, describe how it works, and how to use it for test users.
 
@@ -91,4 +90,4 @@ Please refer to the API unit test `tests/dualtor_mgmt/test_dualtor_setup_mux_por
 ## Q & A
 
 ### Q: Will the existing mux port toggle/setup fixtures be removed in the future?
-No, all the existing mux port toggle/setup fixtures are marked with deprecation warnings and there is no plan to use the new markers for existing test cases. For new cases, it is recommended to use this new markers. 
+No, all the existing mux port toggle/setup fixtures are marked with deprecation warnings and there is no plan to use the new markers for existing test cases. For new cases, it is recommended to use this new markers.
