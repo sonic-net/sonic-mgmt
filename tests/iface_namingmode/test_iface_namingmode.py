@@ -272,13 +272,31 @@ class TestShowLLDP():
 
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
-                assert re.search(r'{}.*\s+{}'
-                                 .format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']),
-                                 lldp_table) is not None
+                assert re.search(
+                    r'{}.*\s+{}'.format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']),
+                    lldp_table
+                ) is not None, (
+                     "Expected alias '{}' with neighbor '{}' not found in LLDP table.\n"
+                     "- LLDP Table Output: \n{}"
+                ).format(
+                    alias,
+                    minigraph_neighbors[setup['port_alias_map'][alias]]['name'],
+                    lldp_table
+                )
+
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
-                assert re.search(r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
-                                 lldp_table) is not None
+                assert re.search(
+                        r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
+                        lldp_table
+                ) is not None, (
+                    "Expected LLDP entry for interface '{}' with neighbor '{}' not found.\n"
+                    "- LLDP Table Output:\n{}"
+                ).format(
+                    intf,
+                    minigraph_neighbors[intf]['name'],
+                    lldp_table
+                )
 
     def test_show_lldp_neighbor(self, setup, setup_config_mode, lldp_interfaces):
         """
@@ -295,12 +313,50 @@ class TestShowLLDP():
         logger.info('lldp_neighbor:\n{}'.format(lldp_neighbor))
 
         if mode == 'alias':
-            assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
-            assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']),
-                             lldp_neighbor) is not None
+            assert re.search(
+                r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf),
+                lldp_neighbor
+            ) is not None, (
+                "Interface '{}' not found in LLDP neighbor output.\n"
+                "- LLDP Neighbor Output:\n{}"
+            ).format(
+                test_intf,
+                lldp_neighbor
+            )
+
+            assert re.search(
+                r'SysName:\s+{}'.format(
+                    minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']
+                ),
+                lldp_neighbor
+            ) is not None, (
+                "Expected SysName '{}' not found in LLDP neighbor output for interface '{}'.\n"
+                "- LLDP Neighbor Output:\n{}"
+            ).format(
+                minigraph_neighbors[setup['port_alias_map'][test_intf]]['name'],
+                test_intf,
+                lldp_neighbor
+            )
+        # Check for default mode
         elif mode == 'default':
-            assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
-            assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[test_intf]['name']), lldp_neighbor) is not None
+            assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None, (
+                "Interface '{}' not found.\n"
+                "- LLDP Neighbor Output:\n{}"
+            ).format(
+                test_intf,
+                lldp_neighbor
+            )
+            assert re.search(
+                r'SysName:\s+{}'.format(minigraph_neighbors[test_intf]['name']),
+                lldp_neighbor
+            ) is not None, (
+                "SysName '{}' not found in LLDP neighbor output for interface '{}'.\n"
+                "- LLDP Neighbor Output:\n{}"
+            ).format(
+                minigraph_neighbors[test_intf]['name'],
+                test_intf,
+                lldp_neighbor
+            )
 
 
 class TestShowInterfaces():
@@ -322,13 +378,26 @@ class TestShowInterfaces():
             if regex_int.match(line):
                 interfaces.append(regex_int.match(line).group(0))
 
-        assert (len(interfaces) > 0)
+        assert (len(interfaces) > 0), (
+            "No interfaces were found in the output of 'show interfaces counter'. "
+            "Expected at least one interface entry, but none were found.\n"
+            "Parsed interfaces: {}"
+        ).format(interfaces)
 
         for item in interfaces:
             if mode == 'alias':
-                assert item in setup['port_alias']
+                assert item in setup['port_alias'], (
+                    "Interface '{}' not found in the list of port aliases. "
+                    "Expected the interface to match a known port alias in the test setup.\n"
+                    "Port aliases in setup: {}"
+                ).format(item, setup['port_alias'])
+
             elif mode == 'default':
-                assert item in setup['default_interfaces']
+                assert item in setup['default_interfaces'], (
+                    "Interface '{}' not found in the list of default interfaces. "
+                    "Expected the interface to match a known default interface in the test setup.\n"
+                    "Default interfaces in setup: {}"
+                ).format(item, setup['default_interfaces'])
 
     def test_show_interfaces_description(self, setup_config_mode, sample_intf):
         """
@@ -345,7 +414,11 @@ class TestShowInterfaces():
                                             | sed -n "/^ *Eth/ p"'.format(ifmode, test_intf))['stdout']
         logger.info('show_intf_desc:\n{}'.format(show_intf_desc))
 
-        assert re.search(r'{}.*{}'.format(interface, interface_alias), show_intf_desc) is not None
+        assert re.search(r'{}.*{}'.format(interface, interface_alias), show_intf_desc) is not None, (
+            "Expected to find interface '{}' with alias '{}' in the output of "
+            "'show interfaces description', but it was not found.\n"
+            "- Output:\n{}"
+        ).format(interface, interface_alias, show_intf_desc)
 
     def test_show_interfaces_status(self, setup_config_mode, sample_intf):
         """
@@ -368,7 +441,11 @@ class TestShowInterfaces():
             name = regex_int.match(line).group(1)
             alias = regex_int.match(line).group(4)
 
-        assert (name == interface) and (alias == interface_alias)
+        assert (name == interface) and (alias == interface_alias), (
+            "Interface name or alias mismatch in 'show interfaces status' output. "
+            "Expected interface: '{}', actual: '{}'. "
+            "Expected alias: '{}', actual: '{}'."
+        ).format(interface, name, interface_alias, alias)
 
     def test_show_interfaces_portchannel(self, setup, setup_config_mode):
         """
@@ -385,10 +462,31 @@ class TestShowInterfaces():
 
         for key, value in list(minigraph_portchannels.items()):
             if mode == 'alias':
-                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, setup['port_name_map'][value['members'][0]]),
-                                 int_po) is not None
+                assert re.search(
+                    r'{}\s+LACP\(A\)\(Up\).*{}'.format(
+                        key, setup['port_name_map'][value['members'][0]]),
+                    int_po
+                ) is not None, (
+                    (
+                        "Expected portchannel '{}' with member alias '{}' in "
+                        "'show interfaces portchannel' output, but not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(
+                    key,
+                    setup['port_name_map'][value['members'][0]],
+                    int_po
+                )
+
             elif mode == 'default':
-                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, value['members'][0]), int_po) is not None
+                assert re.search(
+                    r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, value['members'][0]),
+                    int_po
+                ) is not None, (
+                    "Expected portchannel '{}' with member '{}' in output, but not found.\n{}"
+                ).format(
+                    key, value['members'][0], int_po
+                )
 
 
 def test_show_pfc_counters(setup, setup_config_mode):
@@ -411,14 +509,45 @@ def test_show_pfc_counters(setup, setup_config_mode):
 
     if mode == 'alias':
         for alias in setup['port_alias']:
-            assert (alias in pfc_rx_names) and (alias in pfc_tx_names)
+            assert (alias in pfc_rx_names) and (alias in pfc_tx_names), (
+                "PFC counters not found for alias '{}'. "
+                "PFC Rx names: {}\n"
+                "PFC Tx names: {}"
+            ).format(alias, pfc_rx_names, pfc_tx_names)
+
             assert (setup['port_alias_map'][alias] not in pfc_rx_names) and \
-                (setup['port_alias_map'][alias] not in pfc_tx_names)
+                   (setup['port_alias_map'][alias] not in pfc_tx_names), (
+                "Physical interface '{}' (mapped from alias '{}') was found in PFC Rx or Tx names, "
+                "but should not appear when interface naming mode is set to 'alias'. "
+                "PFC Rx names: {}\n"
+                "PFC Tx names: {}"
+            ).format(
+                setup['port_alias_map'][alias],
+                alias,
+                pfc_rx_names,
+                pfc_tx_names
+            )
+
     elif mode == 'default':
         for intf in setup['default_interfaces']:
-            assert (intf in pfc_rx_names) and (intf in pfc_tx_names)
+            assert (intf in pfc_rx_names) and (intf in pfc_tx_names), (
+                "PFC counters not found for interface '{}'. "
+                "PFC Rx names: {}\n"
+                "PFC Tx names: {}"
+            ).format(intf, pfc_rx_names, pfc_tx_names)
+
             assert (setup['port_name_map'][intf] not in pfc_rx_names) and \
-                (setup['port_name_map'][intf] not in pfc_tx_names)
+                   (setup['port_name_map'][intf] not in pfc_tx_names), (
+                "Alias '{}' (mapped from interface '{}') was found in PFC Rx or Tx names, "
+                "but should not appear when interface naming mode is set to 'default'. "
+                "PFC Rx names: {}\n"
+                "PFC Tx names: {}"
+            ).format(
+                setup['port_name_map'][intf],
+                intf,
+                pfc_rx_names,
+                pfc_tx_names
+            )
 
 
 class TestShowPriorityGroup():
@@ -439,10 +568,23 @@ class TestShowPriorityGroup():
 
         if mode == 'alias':
             for alias in setup['upport_alias_list']:
-                assert re.search(r'{}.*'.format(alias), show_pg) is not None
+                assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show priority-group persistent-watermark headroom', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_pg)
+
         elif mode == 'default':
             for intf in setup['up_ports']:
-                assert re.search(r'{}.*'.format(intf), show_pg) is not None
+                assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show priority-group persistent-watermark headroom'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(intf, show_pg)
 
     def test_show_priority_group_persistent_watermark_shared(self, setup, setup_config_mode):
         """
@@ -456,10 +598,23 @@ class TestShowPriorityGroup():
 
         if mode == 'alias':
             for alias in setup['upport_alias_list']:
-                assert re.search(r'{}.*'.format(alias), show_pg) is not None
+                assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show priority-group persistent-watermark shared'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_pg)
+
         elif mode == 'default':
             for intf in setup['up_ports']:
-                assert re.search(r'{}.*'.format(intf), show_pg) is not None
+                assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show priority-group persistent-watermark shared'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_pg)
 
     def test_show_priority_group_watermark_headroom(self, setup, setup_config_mode):
         """
@@ -473,10 +628,23 @@ class TestShowPriorityGroup():
 
         if mode == 'alias':
             for alias in setup['upport_alias_list']:
-                assert re.search(r'{}.*'.format(alias), show_pg) is not None
+                assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show priority-group watermark headroom'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_pg)
+
         elif mode == 'default':
             for intf in setup['up_ports']:
-                assert re.search(r'{}.*'.format(intf), show_pg) is not None
+                assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show priority-group watermark headroom'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(intf, show_pg)
 
     def test_show_priority_group_watermark_shared(self, setup, setup_config_mode):
         """
@@ -490,10 +658,23 @@ class TestShowPriorityGroup():
 
         if mode == 'alias':
             for alias in setup['upport_alias_list']:
-                assert re.search(r'{}.*'.format(alias), show_pg) is not None
+                assert re.search(r'{}.*'.format(alias), show_pg) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show priority group watermark shared'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_pg)
+
         elif mode == 'default':
             for intf in setup['up_ports']:
-                assert re.search(r'{}.*'.format(intf), show_pg) is not None
+                assert re.search(r'{}.*'.format(intf), show_pg) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show priority group watermark shared'.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(intf, show_pg)
 
 
 class TestShowQueue():
@@ -534,29 +715,64 @@ class TestShowQueue():
                     pass
 
             # For the test to be valid, we should have at least one interface selected
-            assert (len(interfaces) > 0)
+            assert (len(interfaces) > 0), (
+                "No interfaces were found in the output of 'show interfaces counter'. "
+                "Expected at least one interface entry, but none were found.\n"
+                "Parsed interfaces: {}"
+            ).format(interfaces)
 
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
                     alias = setup['port_name_map'][intf]
-                    assert (re.search(QUEUE_COUNTERS_RE_FMT.format(alias),
-                                      queue_counter) is not None) \
-                        and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_alias_map'][alias]),
-                             queue_counter) is None)
+                    assert (
+                        re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None
+                        and (
+                            re.search(
+                                QUEUE_COUNTERS_RE_FMT.format(setup['port_alias_map'][alias]),
+                                queue_counter
+                            ) is None
+                        )
+                    ), (
+                        "Queue counters output did not match expectations for alias '{}'.\n"
+                        "- Physical interface checked: {}\n"
+                        "- Queue counters output:\n{}"
+                    ).format(
+                        alias,
+                        setup['port_alias_map'][alias],
+                        queue_counter
+                    )
+
                     intfsChecked += 1
             elif mode == 'default':
                 for intf in interfaces:
                     if intf not in setup['port_name_map']:
                         continue
-                    assert (re.search(QUEUE_COUNTERS_RE_FMT.format(intf),
-                                      queue_counter) is not None) \
-                        and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_name_map'][intf]),
-                             queue_counter) is None)
+                    assert (
+                        re.search(QUEUE_COUNTERS_RE_FMT.format(intf), queue_counter) is not None
+                        and (
+                            re.search(
+                                QUEUE_COUNTERS_RE_FMT.format(setup['port_name_map'][intf]),
+                                queue_counter
+                            ) is None
+                        )
+                    ), (
+                        "Queue counters output did not match expectations for interface '{}'.\n"
+                        "- Alias checked: {}\n"
+                        "- Queue counters output:\n{}"
+                    ).format(
+                        intf,
+                        setup['port_name_map'][intf],
+                        queue_counter
+                    )
+
                     intfsChecked += 1
 
             # At least one interface should have been checked to have a valid result
-            assert (intfsChecked > 0)
+            assert (intfsChecked > 0), (
+                "No interfaces were checked in the queue counters test.\n"
+                "Interfaces checked: {}"
+            ).format(intfsChecked)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -575,8 +791,16 @@ class TestShowQueue():
         logger.info('queue_counter_intf:\n{}'.format(queue_counter_intf))
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
-            assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'
-                             .format(test_intf, i), queue_counter_intf['stdout']) is not None
+            assert (
+                re.search(
+                    r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i),
+                    queue_counter_intf['stdout']
+                ) is not None
+            ), (
+                "Queue counter entry not found for interface '{}' and queue index {} "
+                "in the output of 'show queue counters'.\n"
+                "- Output:\n{}"
+            ).format(test_intf, i, queue_counter_intf['stdout'])
 
     def test_show_queue_persistent_watermark_multicast(self, setup, setup_config_mode):
         """
@@ -592,10 +816,23 @@ class TestShowQueue():
                 "because the multicast queues are not configured in the CONFIG_DB!":
             if mode == 'alias':
                 for alias in setup['port_alias']:
-                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
+                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None, (
+                        (
+                            "Expected to find alias '{}' in the output of "
+                            "'show queue persistent-watermark multicast', but it was not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(alias, show_queue_wm_mcast)
+
             elif mode == 'default':
                 for intf in setup['default_interfaces']:
-                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
+                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None, (
+                        (
+                            "Expected to find interface '{}' in the output of "
+                            "'show queue persistent-watermark multicast', but it was not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(intf, show_queue_wm_mcast)
 
     def test_show_queue_persistent_watermark_unicast(self, setup, setup_config_mode):
         """
@@ -609,10 +846,23 @@ class TestShowQueue():
 
         if mode == 'alias':
             for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show queue persistent-watermark unicast', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_queue_wm_ucast)
+
         elif mode == 'default':
             for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show queue persistent-watermark unicast', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(intf, show_queue_wm_ucast)
 
     def test_show_queue_watermark_multicast(self, setup, setup_config_mode):
         """
@@ -628,10 +878,22 @@ class TestShowQueue():
                                    "are not configured in the CONFIG_DB!"):
             if mode == 'alias':
                 for alias in setup['port_alias']:
-                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
+                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None, (
+                        (
+                            "Expected to find alias '{}' in the output of "
+                            "'show queue watermark multicast', but it was not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(alias, show_queue_wm_mcast)
             elif mode == 'default':
                 for intf in setup['default_interfaces']:
-                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
+                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None, (
+                        (
+                            "Expected to find interface '{}' in the output of "
+                            "'show queue watermark multicast', but it was not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(intf, show_queue_wm_mcast)
 
     def test_show_queue_watermark_unicast(self, setup, setup_config_mode):
         """
@@ -645,10 +907,22 @@ class TestShowQueue():
 
         if mode == 'alias':
             for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None, (
+                    (
+                        "Expected to find alias '{}' in the output of "
+                        "'show queue watermark unicast', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(alias, show_queue_wm_ucast)
         elif mode == 'default':
             for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None, (
+                    (
+                        "Expected to find interface '{}' in the output of "
+                        "'show queue watermark unicast', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(intf, show_queue_wm_ucast)
 
 
 # Tests to be run in t0/m0 topology
@@ -695,10 +969,21 @@ class TestShowVlan():
 
         for item in minigraph_vlans['Vlan1000']['members']:
             if mode == 'alias':
-                assert re.search(r'{}.*{}'
-                                 .format(setup['port_name_map'][item], vlan_type), show_vlan_brief) is not None
+                assert re.search(
+                    r'{}.*{}'.format(setup['port_name_map'][item], vlan_type),
+                    show_vlan_brief
+                ) is not None, (
+                    "Expected to find interface alias '{}' with VLAN type '{}' in the output of "
+                    "'show vlan brief', but it was not found.\n"
+                    "- Output:\n{}"
+                ).format(setup['port_name_map'][item], vlan_type, show_vlan_brief)
+
             elif mode == 'default':
-                assert re.search(r'{}.*{}'.format(item, vlan_type), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(item, vlan_type), show_vlan_brief) is not None, (
+                    "Expected to find interface '{}' with VLAN type '{}' in the output of "
+                    "'show vlan brief', but it was not found.\n"
+                    "- Output:\n{}"
+                ).format(item, vlan_type, show_vlan_brief)
 
     @pytest.mark.usefixtures('setup_vlan')
     def test_show_vlan_config(self, setup, setup_config_mode):
@@ -721,7 +1006,10 @@ class TestShowVlan():
         dutHostGuest.shell(
             'SONIC_CLI_IFACE_MODE={} sudo config vlan member del 100 {}'.format(ifmode, v_intf))
 
-        assert v_intf in show_vlan
+        assert v_intf in show_vlan, (
+            "Expected to find VLAN member interface '{}' in the output of 'show vlan config', but it was not found.\n"
+            "- Output:\n{}"
+        ).format(v_intf, show_vlan)
 
 
 # Tests to be run in t1 topology
@@ -792,7 +1080,11 @@ class TestConfigInterface():
         show_ip_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip interface'.format(ifmode))['stdout']
         logger.info('show_ip_intf:\n{}'.format(show_ip_intf))
 
-        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is None
+        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is None, (
+            "IP address '{}' was still found assigned to interface '{}' in the output of "
+            "'show ip interface' after removal.\n"
+            "- Output:\n{}"
+        ).format(test_intf_ip, test_intf, show_ip_intf)
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} ip add {} {}'.format(
             ifmode, cli_ns_option, test_intf, test_intf_ip))
@@ -803,7 +1095,13 @@ class TestConfigInterface():
         show_ip_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip interface'.format(ifmode))['stdout']
         logger.info('show_ip_intf:\n{}'.format(show_ip_intf))
 
-        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is not None
+        assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is not None, (
+            (
+                "Expected to find interface '{}' with IP address '{}' in the output of "
+                "'show ip interface', but it was not found.\n"
+                "- Output:\n{}"
+            )
+        ).format(test_intf, test_intf_ip, show_ip_intf)
 
     def test_config_interface_state(self, setup_config_mode, sample_intf):
         """
@@ -845,8 +1143,12 @@ class TestConfigInterface():
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
-                      "Interface {} should be admin down".format(test_intf))
+        pytest_assert(
+            wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
+            (
+                "Interface '{}' did not reach admin down state within {} seconds after shutdown command.\n"
+            ).format(test_intf, PORT_TOGGLE_TIMEOUT)
+        )
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
@@ -854,6 +1156,12 @@ class TestConfigInterface():
             pytest.fail()
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                       "Interface {} should be admin and oper up".format(test_intf))
+        pytest_assert(
+            wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
+            (
+                "Interface '{}' did not reach admin up state within {} seconds after startup command.\n"
+            ).format(test_intf, PORT_TOGGLE_TIMEOUT)
+        )
 
         # Make sure LLDP neighbor is repopulated
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _lldp_exists, True),
@@ -901,7 +1209,10 @@ class TestConfigInterface():
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
-        assert speed == configure_speed
+        assert speed == configure_speed, (
+            "Interface speed mismatch after configuration. "
+            "Expected speed: '{}', actual speed: '{}'."
+        ).format(configure_speed, speed)
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
@@ -911,7 +1222,10 @@ class TestConfigInterface():
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
-        assert speed == native_speed
+        assert speed == native_speed, (
+            "Interface speed mismatch after restoring to native speed. "
+            "Expected native speed: '{}', actual speed: '{}'."
+        ).format(native_speed, speed)
 
     def test_config_interface_speed_40G_100G(self, setup_config_mode, sample_intf, duthosts, fanouthosts,
                                              enum_rand_one_per_hwsku_frontend_hostname):
@@ -956,25 +1270,42 @@ class TestConfigInterface():
             db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
                 .format(duthost.asic_instance(asic_index).sonic_db_cli, interface)
             dut_speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
-            pytest_assert(dut_speed == speed, 'DUT expected speed: {}, but got {}'.format(target_speed, dut_speed))
+            pytest_assert(
+                dut_speed == speed,
+                (
+                    "DUT interface speed mismatch after configuration. "
+                    "Expected speed: '{}', but got '{}'."
+                ).format(target_speed, dut_speed)
+            )
+
             # verify the speed on fanout
             fanout_speed = fanout.get_speed(fanout_port)
-            pytest_assert(fanout_speed == speed, 'Fanout expected speed: {}, but got {}'
-                          .format(target_speed, fanout_speed))
+            pytest_assert(
+                fanout_speed == speed,
+                (
+                    "Fanout interface speed mismatch after configuration. "
+                    "Expected speed: '{}', but got '{}'."
+                ).format(target_speed, fanout_speed)
+            )
 
         # Change the speed
         _set_speed(target_speed)
 
         try:
             # Verify speed and link status
-            assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+            assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
+                "Interface '{}' did not reach link up state within the expected time after speed configuration."
+            ).format(interface)
             _verify_speed(target_speed)
+
         finally:
             # Restore to native speed after test
             _set_speed(native_speed)
 
         # After restoration, verify again
-        assert wait_until(60, 1, 0, duthost.links_status_up, [interface])
+        assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
+            "Interface '{}' did not reach link up state within the expected time after speed configuration."
+        ).format(interface)
         _verify_speed(native_speed)
 
 
@@ -1001,9 +1332,19 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
     for item in minigraph_acls['DataAcl']:
         if item in setup['physical_interfaces']:
             if mode == 'alias':
-                assert setup['port_name_map'][item] in acl_table
+                assert setup['port_name_map'][item] in acl_table, (
+                    (
+                        "Expected to find interface alias '{}' in the output of "
+                        "'show acl table DATAACL', but it was not found.\n"
+                        "- Output:\n{}"
+                    )
+                ).format(setup['port_name_map'][item], acl_table)
+
             elif mode == 'default':
-                assert item in acl_table
+                assert item in acl_table, (
+                    "Expected to find interface '{}' in the output of 'show acl table DATAACL', but it was not found.\n"
+                    "- Output:\n{}"
+                ).format(item, acl_table)
 
 
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
@@ -1033,13 +1374,33 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
     for key, value in list(minigraph_neighbors.items()):
         if 'server' not in value['name'].lower():
             if mode == 'alias':
-                assert re.search(r'{}\s+{}'
-                                 .format(setup['port_name_map'][key], value['name']),
-                                 show_int_neighbor[value["namespace"]]) is not None
+                assert re.search(
+                    r'{}\s+{}'.format(setup['port_name_map'][key], value['name']),
+                    show_int_neighbor[value["namespace"]]
+                ) is not None, (
+                    "Expected to find interface alias '{}' with neighbor '{}' in the output of "
+                    "'show interfaces neighbor expected', but it was not found.\n"
+                    "- Output:\n{}"
+                ).format(
+                    setup['port_name_map'][key],
+                    value['name'],
+                    show_int_neighbor[value["namespace"]]
+                )
+
             elif mode == 'default':
                 logger.info("key value name: {} - {}".format(key, value['name']))
-                assert re.search(r'{}\s+{}'.format(key, value['name']),
-                                 show_int_neighbor[value["namespace"]]) is not None
+                assert re.search(
+                    r'{}\s+{}'.format(key, value['name']),
+                    show_int_neighbor[value["namespace"]]
+                ) is not None, (
+                    "Expected to find interface '{}' with neighbor '{}' in the output of "
+                    "'show interfaces neighbor expected', but it was not found.\n"
+                    "- Output:\n{}"
+                ).format(
+                    key,
+                    value['name'],
+                    show_int_neighbor[value["namespace"]]
+                )
 
 
 @pytest.mark.topology('t1', 't2')
@@ -1074,10 +1435,26 @@ class TestNeighbors():
                 if mode == 'alias':
                     assert re.search(r'{}.*\s+{}'
                                      .format(item, setup['port_name_map'][arptable['v4'][item]['interface']]),
-                                     arp_output) is not None
+                                     arp_output) is not None, (
+                                     "Expected to find ARP entry for IP '{}' with interface alias '{}' "
+                                     "in 'show arp' output, but it was not found.\n"
+                                     "- ARP Output:\n{}"
+                                 ).format(
+                                     item,
+                                     setup['port_name_map'][arptable['v4'][item]['interface']],
+                                     arp_output
+                                 )
                 elif mode == 'default':
                     assert re.search(r'{}.*\s+{}'
-                                     .format(item, arptable['v4'][item]['interface']), arp_output) is not None
+                                     .format(item, arptable['v4'][item]['interface']), arp_output) is not None, (
+                                             "Expected to find ARP entry for IP '{}' with interface '{}' in "
+                                             "'show arp' output, but it was not found.\n"
+                                             "- ARP Output:\n{}"
+                                         ).format(
+                                             item,
+                                             arptable['v4'][item]['interface'],
+                                             arp_output
+                                         )
 
     def test_show_ndp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, setup_config_mode):
         """
@@ -1099,11 +1476,21 @@ class TestNeighbors():
                     detail['interface'] not in minigraph_portchannels
             ):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'
-                                     .format(addr, setup['port_name_map'][detail['interface']]),
-                                     ndp_output) is not None
+                    assert re.search(
+                        r'{}.*\s+{}'.format(addr, setup['port_name_map'][detail['interface']]),
+                        ndp_output
+                    ) is not None, (
+                        "Expected to find NDP entry for IPv6 address '{}' with interface alias '{}' in the output of "
+                        "'show ndp', but it was not found.\n"
+                        "- Output:\n{}"
+                    ).format(addr, setup['port_name_map'][detail['interface']], ndp_output)
+
                 elif mode == 'default':
-                    assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None, (
+                        "Expected to find NDP entry for IPv6 address '{}' with interface '{}' in the output of "
+                        "'show ndp', but it was not found.\n"
+                        "- Output:\n{}"
+                    ).format(addr, detail['interface'], ndp_output)
 
 
 @pytest.mark.topology('t1', 't2')
@@ -1188,15 +1575,39 @@ class TestShowIP():
                 if mode == 'alias':
                     assert re.search(r'{}\s+{}'
                                      .format(setup['port_name_map'][item['attachto']], item['addr']),
-                                     show_ip_interface) is not None
+                                     show_ip_interface) is not None, (
+                        (
+                            "Expected to find interface alias '{}' with IP address '{}' "
+                            "in 'show ip interface' output, but not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(
+                        setup['port_name_map'][item['attachto']],
+                        item['addr'],
+                        show_ip_interface
+                    )
                 elif mode == 'default':
-                    assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']), show_ip_interface) is not None
+                    assert (
+                        re.search(
+                            r'{}\s+{}'.format(item['attachto'], item['addr']),
+                            show_ip_interface
+                        ) is not None
+                    ), (
+                        "Expected to find interface '{}' with IP address '{}' in 'show ip interface' output, "
+                        "but not found.\n"
+                        "- Output:\n{}"
+                    ).format(
+                        item['attachto'],
+                        item['addr'],
+                        show_ip_interface
+                    )
 
     def test_show_ipv6_interface(self, setup, setup_config_mode):
         """
         Checks whether 'show ipv6 interface' lists the interface names as
         per the configured naming mode
         """
+
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_interfaces = setup['minigraph_facts']['minigraph_interfaces']
 
@@ -1208,10 +1619,28 @@ class TestShowIP():
             if IPAddress(item['addr']).version == 6:
                 if mode == 'alias':
                     assert re.search(r'{}\s+{}'.format(setup['port_name_map'][item['attachto']], item['addr']),
-                                     show_ipv6_interface) is not None
+                                     show_ipv6_interface) is not None, (
+                        "Expected to find interface alias '{}' with IPv6 address '{}' in "
+                        "'show ipv6 interface' output, but not found.\n"
+                        "- Output:\n{}"
+                    ).format(
+                        setup['port_name_map'][item['attachto']],
+                        item['addr'],
+                        show_ipv6_interface
+                    )
                 elif mode == 'default':
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']),
-                                     show_ipv6_interface) is not None
+                                     show_ipv6_interface) is not None, (
+                        (
+                            "Expected to find interface '{}' with IPv6 address '{}' in "
+                            "'show ipv6 interface' output, but not found.\n"
+                            "- Output:\n{}"
+                        )
+                    ).format(
+                        item['attachto'],
+                        item['addr'],
+                        show_ipv6_interface
+                    )
 
     def test_show_ip_route_v4(self, setup_config_mode, static_route_intf, tbinfo):
         """
@@ -1225,10 +1654,23 @@ class TestShowIP():
 
         if mode == 'alias':
             for alias in static_route_intf['alias']:
-                assert re.search(r'via {}'.format(alias), route) is not None
+                assert re.search(r'via {}'.format(alias), route) is not None, (
+                    "Expected to find 'via {}' in the route output, but it was not found.\n"
+                    "- Route Output:\n{}"
+                ).format(
+                    alias,
+                    route
+                )
+
         elif mode == 'default':
             for intf in static_route_intf['interface']:
-                assert re.search(r'via {}'.format(intf), route) is not None
+                assert re.search(r'via {}'.format(intf), route) is not None, (
+                    "Expected to find 'via {}' in the route output, but it was not found.\n"
+                    "- Route Output:\n{}"
+                ).format(
+                    intf,
+                    route
+                )
 
     def test_show_ip_route_v6(self, setup_config_mode, static_route_intf):
         """
@@ -1242,7 +1684,14 @@ class TestShowIP():
 
         if mode == 'alias':
             for alias in static_route_intf['alias']:
-                assert re.search(r'via {}'.format(alias), route) is not None
+                assert re.search(r'via {}'.format(alias), route) is not None, (
+                    "Expected to find 'via {}' in the route output, but it was not found.\n"
+                    "- Route Output:\n{}"
+                ).format(alias, route)
+
         elif mode == 'default':
             for intf in static_route_intf['interface']:
-                assert re.search(r'via {}'.format(intf), route) is not None
+                assert re.search(r'via {}'.format(intf), route) is not None, (
+                    "Expected to find 'via {}' in the route output, but it was not found.\n"
+                    "- Route Output:\n{}"
+                ).format(intf, route)
