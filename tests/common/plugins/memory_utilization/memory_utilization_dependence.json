@@ -45,11 +45,11 @@
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 70
           }
         }
@@ -62,101 +62,101 @@
       "memory_params": {
         "snmp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           }
         },
         "pmon": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 8
           }
         },
         "lldp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           }
         },
         "gnmi": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 6
           }
         },
         "radv": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 3
           }
         },
         "syncd": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 5
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 18
           }
         },
         "bgp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 14
           }
         },
         "teamd": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 5
           }
         },
         "swss": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 3
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 8
           }
         },
         "database": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 6
           }
         }
@@ -207,11 +207,11 @@
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 85
           }
         }
@@ -226,11 +226,11 @@
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 75
           }
         }
@@ -243,11 +243,11 @@
       "memory_params": {
         "syncd": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 5
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 20
           }
         }
