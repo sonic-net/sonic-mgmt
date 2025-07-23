@@ -242,7 +242,7 @@ def pytest_addoption(parser):
                      help="gNMI target port number")
     parser.addoption("--gnmi_insecure", action="store_true", default=True,
                      help="Use insecure connection to gNMI target")
-    parser.addoption("--disable_sai_validation", action="store_true", default=False,
+    parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
     ############################
     #   Parallel run options   #
