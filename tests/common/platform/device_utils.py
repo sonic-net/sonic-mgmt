@@ -87,19 +87,20 @@ def get_dut_psu_line_pattern(dut):
     elif dut.facts["asic_type"] in ["mellanox"]:
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     else:
-        """
-        Changed the pattern to match space (s+) and non-space (S+) only.
-        w+ cannot match following examples properly:
-
-        example 1:
-            psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
-            psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
-        example 2:
-            psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
-            psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
-
-        """
-        psu_line_pattern = re.compile(r"^(\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        # Changed the pattern to match different PSU name formats and status patterns.
+        # Supports various PSU naming conventions:
+        #
+        # example 1:
+        #     psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
+        #     psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
+        # example 2:
+        #     psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
+        #     psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
+        # example 3:
+        #     PSU 9  PSU6.3KW-20A-HV  DTM273501QU      1.00  55.052         11.359         626.386      OK        green
+        #
+        psu_line_pattern = re.compile(
+            r"^(PSU\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 
