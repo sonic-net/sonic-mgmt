@@ -4,7 +4,7 @@ import pytest
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
-from .bug_handler_helper import bug_handler_wrapper
+from .bug_handler_helper import get_bughandler_instance
 
 
 def pytest_addoption(parser):
@@ -109,4 +109,5 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
         duthosts,
         timeout=240
     )
-    bug_handler_wrapper(analyzers, duthosts, la_results)
+    consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
+    consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
