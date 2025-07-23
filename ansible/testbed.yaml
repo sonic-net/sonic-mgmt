@@ -707,8 +707,8 @@
   server: server_24
   vm_base: VM24088
   dut:
-  - str2-7050cx3-acs-08
-  - str2-7050cx3-acs-09
+  - str2-7050cx3-32c-f-acs-08
+  - str2-7050cx3-32c-f-acs-09
   inv_name: str2
   auto_recover: 'True'
   comment: hellogemini
