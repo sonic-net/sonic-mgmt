@@ -65,17 +65,19 @@ def parse_byte_field(orig_val):
 def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
+
 def parse_range(range_str):
     parts = range_str.split(",")
     num_parts = len(parts)
     if num_parts != 2:
         raise ValueError("Input string must contain exactly two numbers separated by a comma.")
     try:
-       int(parts[0])
-       int(parts[1])
+        int(parts[0])
+        int(parts[1])
     except ValueError:
         raise ValueError("Both parts of the input string must be valid integers.")
     return {"min": parts[0], "max": parts[1]}
+
 
 def parse_value_or_range(value_or_range_str):
     parts = value_or_range_str.split(",")
@@ -89,6 +91,7 @@ def parse_value_or_range(value_or_range_str):
         return parse_range(value_or_range_str)
     else:
         raise ValueError("Input string must contain either one or two numbers separated by a comma.")
+
 
 def parse_dash_proto(key: str, proto_dict: dict):
     """
