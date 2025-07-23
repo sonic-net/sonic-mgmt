@@ -279,10 +279,31 @@ def test_dualtor_setup_marker_standby_on_random_unselected_manual_mode(active_ac
     pytest_assert(check_target_dut_mux_port_config(rand_unselected_dut, active_active_ports, "manual"))
 
 
-@pytest.mark.dualtor_active_standby_toggle_to_upper_tor_manual_mode
-@pytest.mark.dualtor_active_active_setup_standby_on_lower_tor_manual_mode
+@pytest.mark.dualtor_active_standby_toggle_to_upper_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_lower_tor
 def test_example(active_active_ports, active_standby_ports, tbinfo,                                         # noqa:F811
                  upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):                                  # noqa:F811
+    """Example case to demonstrate how to use the active-active/active-standby dualtor markers."""
+    pytest_assert(setup_dualtor_mux_ports)
+    is_dualtor_aa = "dualtor-aa" in tbinfo["topo"]["name"]
+    if is_dualtor_aa:
+        mux_ports = active_active_ports
+        expected_active_side_mux_mode = "auto"
+        expected_standby_side_mux_mode = "standby"
+    else:
+        mux_ports = active_standby_ports
+        expected_active_side_mux_mode = "auto"
+        expected_standby_side_mux_mode = "auto"
+    pytest_assert(check_target_dut_mux_port_status(upper_tor_host, mux_ports, "active"))
+    pytest_assert(check_target_dut_mux_port_status(lower_tor_host, mux_ports, "standby"))
+    pytest_assert(check_target_dut_mux_port_config(upper_tor_host, mux_ports, expected_active_side_mux_mode))
+    pytest_assert(check_target_dut_mux_port_config(lower_tor_host, mux_ports, expected_standby_side_mux_mode))
+
+
+@pytest.mark.dualtor_active_standby_toggle_to_upper_tor_manual_mode
+@pytest.mark.dualtor_active_active_setup_standby_on_lower_tor_manual_mode
+def test_example_with_manual(active_active_ports, active_standby_ports, tbinfo,                             # noqa:F811
+                             upper_tor_host, lower_tor_host, setup_dualtor_mux_ports):                      # noqa:F811
     """Example case to demonstrate how to use the active-active/active-standby dualtor markers."""
     pytest_assert(setup_dualtor_mux_ports)
     is_dualtor_aa = "dualtor-aa" in tbinfo["topo"]["name"]
