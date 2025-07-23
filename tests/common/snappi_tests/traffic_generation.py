@@ -1064,9 +1064,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         while retry > 0 and not stormed:
             for dut, port in dutport_list:
                 for pri in switch_tx_lossless_prios:
-                    if dut == tx_duthost:
-                        stormed = clear_pfc_counter_after_storm(dut, port, pri)
+                    stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
+                        clear_dut_pfc_counters(rx_duthost)
+                        clear_dut_pfc_counters(tx_duthost)
                         logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
                         break  # break inner for
                 if stormed:
