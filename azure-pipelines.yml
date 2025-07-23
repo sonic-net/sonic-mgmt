@@ -357,4 +357,4 @@ stages:
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation --mark-conditions-files tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml"
