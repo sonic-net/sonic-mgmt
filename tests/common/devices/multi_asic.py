@@ -418,6 +418,9 @@ class MultiAsicSonicHost(object):
 
         return True
 
+    def is_dpu(self):
+        return self.sonichost.is_dpu()
+
     def get_asic_index_for_portchannel(self, portchannel):
         for asic in self.asics:
             if asic.portchannel_on_asic(portchannel):
