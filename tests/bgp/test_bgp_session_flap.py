@@ -12,6 +12,7 @@ import time
 from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
+from tests.common.devices.sonic import SonicHost
 
 from natsort import natsorted
 
@@ -28,7 +29,7 @@ cpuSpike = 10
 memSpike = 1.3
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 
@@ -56,23 +57,27 @@ def get_cpu_stats(dut):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index):
+    duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
 
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    neigh_keys = []
     tor_neighbors = dict()
-    tor1 = natsorted(nbrhosts.keys())[0]
-
-    skip_hosts = duthost.get_asic_namespace_list()
-
-    bgp_facts = duthost.bgp_facts(instance_id=enum_rand_one_frontend_asic_index)['ansible_facts']
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
+        # Skip iBGP neighbors
+        if "INTERNAL" not in v["peer group"] and "VOQ_CHASSIS" not in v["peer group"]:
+            neigh_keys.append(v['description'])
             neigh_asn[v['description']] = v['remote AS']
             tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
             assert v['state'] == 'established'
+
+    if not neigh_keys:
+        pytest.skip("No BGP neighbors found on ASIC {} of DUT {}".format(asic_index, duthost.hostname))
+
+    tor1 = natsorted(neigh_keys)[0]
 
     # verify sessions are established
     logger.info(duthost.shell('show ip bgp summary'))
@@ -89,8 +94,15 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
     logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
                                                           module_ignore_errors=True)))
-    logger.info("Neighbor BGP Config: {}".format(
-        nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+    # If host it sonic use 'show runningconfig bgp'
+    if isinstance(nbrhosts[tor1]["host"], SonicHost):
+        logger.info("Neighbor BGP Config: {}".format(
+           nbrhosts[tor1]["host"].command("show runningconfig bgp")))
+    else:
+        # Else use industry standard 'show run | sec bgp'
+        logger.info("Neighbor BGP Config: {}".format(
+           nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization
@@ -125,7 +137,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
 
 def flap_neighbor_session(neigh):
-    while(True):
+    while (True):
         neigh.kill_bgpd()
         neigh.start_bgpd()
         if stop_threads:

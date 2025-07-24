@@ -1,0 +1,63 @@
+name: BaselineTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 8 * * *"
+    displayName: Baseline test Scheduler
+    branches:
+      include:
+        - master
+    always: true
+
+stages:
+
+- stage: Test_round_1
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  jobs:
+  - template: baseline.test.template.yml
+
+- stage: Test_round_2
+  dependsOn:
+  - Test_round_1
+  condition: succeededOrFailed('Test_round_1')
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  jobs:
+  - template: baseline.test.template.yml
+
+- stage: Test_round_3
+  dependsOn:
+  - Test_round_2
+  condition: succeededOrFailed('Test_round_2')
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  jobs:
+  - template: baseline.test.template.yml
+
+- stage: Test_round_4
+  dependsOn:
+  - Test_round_3
+  condition: succeededOrFailed('Test_round_3')
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  jobs:
+  - template: baseline.test.template.yml

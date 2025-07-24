@@ -1,14 +1,20 @@
 # This file contains the list of API's for operations of GNMI CLI
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
 
-from spytest import st
 import tempfile
-import utilities.utils as util_obj
-import json, os, re, subprocess, shlex
-from apis.system.basic import service_operations_by_systemctl
+import json
+import os
+import re
+import shlex
+
+from spytest import st
+
 from apis.common import redis
-import utilities.common as cutils
 from apis.system.rest import fix_set_url, fix_get_url
+from apis.system.basic import docker_operation
+
+import utilities.utils as util_obj
+import utilities.common as cutils
 
 supported_gnmi_operations = ["set", "get", "cli"]
 
@@ -155,18 +161,21 @@ def gnmi_set(dut, xpath, json_content, **kwargs):
         return False
 
 
-def gnmi_cli(dut, query_type="once", ip_address="127.0.0.1", port=8080, **kwargs):
+def gnmi_cli(dut, **kwargs):
     """
     API to configure gnmi using cli
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     :param dut:
-    :param query_type: once, stream, poll
-    :param ip_address:
-    :param port:
+    :param :query_type: once, stream, poll
     :param kwargs:
     :return:
     """
     docker_command = get_docker_command()
+    credentails = st.get_credentials(dut)
+    query_type = kwargs.get('query_type', 'stream')
+    ip_address = kwargs.get('ip_address', '127.0.0.1')
+    port = kwargs.get('port', '8080')
+    gnmi_utils_path = kwargs.get('gnmi_utils_path', '/tmp')
     if not docker_command:
         st.log("Docker command not found ..")
         return False
@@ -178,30 +187,103 @@ def gnmi_cli(dut, query_type="once", ip_address="127.0.0.1", port=8080, **kwargs
         if arg not in kwargs:
             st.log("Please provide {} attribute".format(arg))
             return False
-    insecure = "" if "insecure" in kwargs and not kwargs["insecure"] else "-insecure"
-    logstostderr = "" if "logstostderr" in kwargs and not kwargs["logstostderr"] else "-logstostderr"
+    mode = kwargs.get("mode", 'remote')  # local | remote
+    insecure = "" if kwargs.get("insecure") else "-insecure"
+    logtostderr = "" if kwargs.get("logtostderr") else "-logtostderr"
+    with_user_pass = "-with_user_pass" if kwargs.get("with_user_pass") else ""
+    username = kwargs.get('username', credentails[0])
+    password = kwargs.get('password', credentails[3])
     xpath_list = list(kwargs["xpath"]) if isinstance(kwargs["xpath"], list) else [kwargs["xpath"]]
-    version = kwargs["version"] if "version" in kwargs and kwargs["version"] else 0
-    target = kwargs["target"] if "target" in kwargs and kwargs["target"] else "OC-YANG"
-    gnmi_cmd = "gnmi_cli {} {} -address {}:{} ".format(insecure, logstostderr, ip_address, port)
-    if query_type == "stream":
-        stream_type = kwargs["streaming_type"] if "streaming_type" in kwargs and kwargs["streaming_type"] else 1
-        gnmi_cmd += " -query_type {} -streaming_type {} -q {} -v {} -target {}".\
-            format("s", stream_type, ",".join(xpath_list), version, target)
-    elif query_type == "poll":
-        poll_interval = kwargs["poll_interval"] if "poll_interval" in kwargs and kwargs["poll_interval"] else 1
-        gnmi_cmd += " -query_type {} -pi {} -q {} -v {} -target {}".\
-            format("p", poll_interval, ",".join(xpath_list), version, target)
-    else:
-        gnmi_cmd += " -query_type {} -q {} -v {} -target {}".format("o", ",".join(xpath_list), version, target)
+    xpath_str = "".join(xpath_list)
+    version = kwargs.get("version", 0)
+    target = kwargs.get("target", "OC-YANG")
+    encoding = kwargs.get("encoding")
+    file_name = kwargs.get("file_name")
+    background = kwargs.get("background")
+    sample_interval = kwargs.get("sample_interval", 20)
+    poll_interval = kwargs.get("poll_interval", 20)
+    suppress_redundant = kwargs.get("suppress_redundant")
+    updates_only = kwargs.get("updates_only")
 
-    if gnmi_cmd:
+    gnmi_cmd = "gnmi_cli {} {} {} -address {}:{} ".format(insecure, logtostderr, with_user_pass, ip_address, port)
+    if username and password:
+        gnmi_cmd += " -username {} -password {}".format(username, password)
+
+    if query_type == "stream":
+        stream_type = kwargs.get("streaming_type", 1)
+        gnmi_cmd += " -query_type s -streaming_type {} -v {} -target {} -q {}".\
+            format(stream_type, version, target, xpath_str)
+        if stream_type == "SAMPLE":
+            gnmi_cmd += " -streaming_sample_interval {} ".format(sample_interval)
+            if suppress_redundant:
+                gnmi_cmd += " -suppress_redundant "
+
+    elif query_type == "poll":
+        gnmi_cmd += " -query_type p -pi {} -q {} -v {} -target {} ".\
+            format(poll_interval, xpath_str, version, target)
+    else:
+        gnmi_cmd += " -query_type o -q {} -v {} -target {} ".format(xpath_str, version, target)
+
+    if encoding:
+        gnmi_cmd += " -encoding {} ".format(encoding)
+    if updates_only:
+        gnmi_cmd += " -updates_only "
+    if file_name:
+        gnmi_cmd += " >{} 2>&1".format(file_name)
+    if background:
+        gnmi_cmd += " & "
+
+    if mode == 'local':
+        result = {}
         command = '{} -c "{}"'.format(docker_command, gnmi_cmd)
         output = st.config(dut, command)
+        result.update({"output": output})
+        result.update({"error": ''})
+        result.update({"rc": ''})
+        result.update({"pid": ''})
         if "Error response" in util_obj.remove_last_line_from_string(output):
-            st.log(output)
-            return False
-    return True
+            result.update({"error": output})
+        st.log("RESULT {}".format(result))
+        return result
+    elif mode == 'remote':
+        if not os.path.exists("{}/gnmi_cli".format(gnmi_utils_path)):
+            copy_gnmi_utils(dut, src_path="/home/admin", dst_path=gnmi_utils_path,
+                            gnmi_files=["gnmi_cli"])
+        command = "{}/{} ".format(gnmi_utils_path, gnmi_cmd)
+        return _run_gnmi_command(command, pid=True)
+
+
+def dialout_server_cli(**kwargs):
+    """
+    API to start gnmi server (dialout)
+    Author: Jack Pettrakool (jack.pettrakool@dell.com)
+    :param kwargs:
+    :return:
+    """
+
+    port = kwargs.get('port', '8080')
+    cli_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'spytest', 'gnmi', "dialout_server_cli"))
+    if not os.path.exists(cli_path):
+        st.log("{} command not found ..".format(cli_path))
+        return False
+    flags = []
+    for fg in ['allow_no_client_auth', 'insecure', 'logtostderr', 'logtostdout', 'alsologtostderr', 'alsologtosyslog', 'pretty']:
+        if kwargs.get(fg, False):
+            flags.append('-{}'.format(fg))
+    opts = ['-port {}'.format(port), '-v={}'.format(kwargs.get("log_level", 2))]
+    for op in ['ca_crt', 'log_backtrace_at', 'log_dir', 'server_crt', 'server_key', 'stderrthreshold', 'syslogthreshold', 'vmodule']:
+        if kwargs.get(op, None) is not None:
+            opts.append('-{} "{}"'.format(op, kwargs.get(op)))
+    file_name = kwargs.get("file_name")
+    background = kwargs.get("background")
+
+    cmd = "{} {} {}".format(cli_path, " ".join(flags), " ".join(opts))
+    if file_name:
+        cmd += " >{} 2>&1".format(file_name)
+    if background:
+        cmd += " & "
+
+    return _run_gnmi_command(cmd, pid=True)
 
 
 def client_auth(dut, **kwargs):
@@ -213,33 +295,189 @@ def client_auth(dut, **kwargs):
     :return:
     """
     st.log("Configuring gNMI authentication.")
-    docker_name= "telemetry"
+    docker_name = "telemetry"
     command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
             command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
         else:
             command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|gnmi" client_auth')
-        st.config(dut, command)
+        st.config(dut, command, on_cr_recover="retry5")
     if 'server_key' in kwargs:
         if kwargs.get('server_key'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" server_key "{}"'.format(kwargs.get('server_key')))
-        st.config(dut, command)
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_key "{}"'.format(kwargs.get('server_key')))
+        else:
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_key')
+        st.config(dut, command, on_cr_recover="retry5")
     if 'server_crt' in kwargs:
         if kwargs.get('server_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" server_crt "{}"'.format(kwargs.get('server_crt')))
-        st.config(dut, command)
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_crt "{}"'.format(kwargs.get('server_crt')))
+        else:
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_crt')
+        st.config(dut, command, on_cr_recover="retry5")
     if 'ca_crt' in kwargs:
         if kwargs.get('ca_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" ca_crt "{}"'.format(kwargs.get('ca_crt')))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" ca_crt "{}"'.format(kwargs.get('ca_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "DEVICE_METADATA|x509" ca_crt')
-        st.config(dut, command)
-    service_operations_by_systemctl(dut, docker_name, 'stop')
-    service_operations_by_systemctl(dut, docker_name, 'start')
-    command = 'sonic-cfggen -d -v "TELEMETRY"'
-    st.config(dut, command)
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" ca_crt')
+        st.config(dut, command, on_cr_recover="retry5")
+    if kwargs.get('restart'):
+        docker_operation(dut, docker_name, 'restart')
+    gnmi_debug(dut)
     return True
+
+
+def telemetry_client_auth(dut, **kwargs):
+    """
+
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+
+    auth_type = kwargs.get("auth_type")
+    skip_errors = kwargs.get('skip_errors', True)
+    cli_type = 'klish'
+    cmd = "no ip telemetry authentication"
+    if auth_type:
+        cmd = "ip telemetry authentication {}".format(auth_type)
+    st.config(dut, cmd, type=cli_type, skip_error_check=skip_errors)
+
+
+def crypto_cert_key_install(dut, **kwargs):
+    """
+    To install cer-file and key-file and create security-profile
+    Author: Ramprakash Reddy (ramprakash-reddy.kanala@broadcom.com)
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    config = kwargs.get("config", True)
+    home_dir = kwargs.get("home_dir", "/home/admin")
+    cert_file = kwargs.get("cert_file", "")
+    cert_file_name = os.path.basename(cert_file) if cert_file else ''
+    cert_file_name_no_ext = cert_file_name.replace(".crt", "")
+    key_file = kwargs.get("key_file")
+    ca_cert = kwargs.get("ca_cert")
+    ca_cert_file_name = os.path.basename(ca_cert) if cert_file else ''
+    ca_cert_file_name_no_ext = ca_cert_file_name.replace(".crt", "")
+    profile_name = kwargs.get("profile_name")
+    trust_store = kwargs.get("trust_store")
+    docker_name = kwargs.get("docker_name", "telemetry")
+    skip_errors = kwargs.get('skip_errors', True)
+    cli_type = 'klish'
+    cmds = []
+    if not (cert_file and key_file):
+        st.error("please provide cert file and key file", dut=dut)
+        return False
+    if config:
+        cmds += ["crypto cert install cert-file {} key-file {}".format(cert_file.replace(home_dir, "home:/"),
+                                                                       key_file.replace(home_dir, "home:/"))]
+
+        if ca_cert:
+            cmds += ['crypto ca-cert install {}'.format(ca_cert.replace(home_dir, "home:/"))]
+            if trust_store:
+                cmds += ['crypto trust-store {} ca-cert {}'.format(trust_store, ca_cert_file_name_no_ext)]
+
+        if profile_name and cert_file:
+            cmds += ["crypto security-profile {}".format(profile_name)]
+            cmds += ["crypto security-profile certificate {} {}".format(profile_name, cert_file_name_no_ext)]
+            if trust_store:
+                cmds += ["crypto security-profile trust-store {} {}".format(profile_name, trust_store)]
+            cmds += ["ip telemetry security-profile {}".format(profile_name)]
+
+    else:
+
+        if 'profile_name' in kwargs:
+            cmds += ["no ip telemetry security-profile"]
+            if trust_store:
+                cmds += ["no crypto security-profile trust-store {} ".format(profile_name)]
+            cmds += ["no crypto security-profile certificate {}".format(profile_name)]
+            cmds += ["no crypto security-profile {}".format(profile_name)]
+
+        if ca_cert:
+            if trust_store:
+                cmds += ['no crypto trust-store {} ca-cert {}'.format(trust_store, ca_cert_file_name)]
+            cmds += ["crypto ca-cert delete all"]
+
+        cmds += ["crypto cert delete all"]
+
+    st.config(dut, cmds, type=cli_type, skip_error_check=skip_errors)
+
+    if kwargs.get("restart", False):
+        docker_operation(dut, docker_name, 'restart')
+    return True
+
+
+def show_crypto_cert(dut, **kwargs):
+    """
+    Api to show crypto cerificates
+    :param dut:
+    :return:
+    """
+    cmd = "show crypto cert all"
+    if kwargs.get('cert'):
+        cmd += " | grep Certificate"
+    return st.show(dut, cmd, **kwargs)
+
+
+def show_crypto_security_profile(dut, **kwargs):
+    """
+    Api to show crypto security profile
+    :param dut:
+    :return:
+    """
+    cmd = "show crypto security-profile"
+    if kwargs.get('cert') and kwargs.get('profile_name'):
+        cmd += " | grep Security|Certificate"
+    return st.show(dut, cmd, **kwargs)
+
+
+def show_ip_telemetry_security_profile(dut, **kwargs):
+    """
+    Api to show ip telemetry security profile
+    :param dut:
+    :return:
+    """
+    cmd = "show ip telemetry security-profile"
+    if kwargs.get('telemetry_profile_name'):
+        cmd += " | grep Security"
+    return st.show(dut, cmd, **kwargs)
+
+
+def verify_cert_security_profile(dut, **kwargs):
+    """
+    Api to verify crypto certificates and crypto, ip telemetry security profiles
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    cert = kwargs.get("cert")
+    profile_name = kwargs.get("profile_name")
+    telemetry_profile_name = kwargs.get("telemetry_profile_name", "")
+    kwargs.setdefault("type", "klish")
+    kwargs.setdefault("skip_tmpl", True)
+    rv = True
+    if cert:
+        output = show_crypto_cert(dut, **kwargs)
+        if cert not in output:
+            st.error('certificate "{}" not found'.format(cert), dut=dut)
+            rv = False
+    if profile_name and cert:
+        output = show_crypto_security_profile(dut, **kwargs)
+        if profile_name not in output:
+            st.error('crypto security profile "{}" not found'.format(profile_name), dut=dut)
+            rv = False
+        if cert not in output:
+            st.error('crypto security profile {} not assigned with "{}"'.format(profile_name, cert), dut=dut)
+            rv = False
+    if telemetry_profile_name:
+        output = show_ip_telemetry_security_profile(dut, **kwargs)
+        if telemetry_profile_name not in output:
+            st.error('ip telemetry security profile "{}" not found.'.format(telemetry_profile_name), dut=dut)
+            rv = False
+    return rv
+
 
 def gnmi_delete(dut, xpath, **kwargs):
     """
@@ -285,6 +523,7 @@ def gnmi_delete(dut, xpath, **kwargs):
         st.error(e)
         return False
 
+
 def gnmi_debug(dut):
     """
     API to check the debug commands for GNMI
@@ -292,19 +531,19 @@ def gnmi_debug(dut):
     :return:
     """
     command = 'sonic-cfggen -d -v "TELEMETRY"'
-    output = st.config(dut, command)
-    st.log("DEBUG OUPUT for GNMI STATUS --- {}".format(output))
+    st.config(dut, command)
 
 
-def clear_gnmi_utils():
+def clear_gnmi_utils(path="/tmp/gnmi_*"):
+    st.log('Clearing {}'.format(path))
     try:
-        os.system("rm -f /tmp/gnmi_*")
-    except Exception:
-        pass
+        os.system("rm -f {}".format(path))
+    except Exception as e:
+        st.error(e)
 
 
-def copy_gnmi_utils(dut, src_path, dst_path="/tmp"):
-    gnmi_files = ["gnmi_set", "gnmi_get"]
+def copy_gnmi_utils(dut, src_path, dst_path="/tmp", gnmi_files=["gnmi_set", "gnmi_get"]):
+    st.log("Copying gNMI Utils {}".format(gnmi_files))
     dut_path = src_path
     for file in gnmi_files:
         command = "docker cp telemetry:/usr/sbin/{} {}".format(file, dut_path)
@@ -325,15 +564,21 @@ def convert_rest_url_to_gnmi_url(path, url_params={}):
     return path
 
 
-def _run_gnmi_command(command):
+def _run_gnmi_command(command, pid=False):
     result = dict()
     st.log("CMD: {}".format(command))
-    process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if pid:
+        process = cutils.process_popen(command, preexec_fn=os.setsid)
+    else:
+        process = cutils.process_popen(shlex.split(command), shell=False)
     data, error = process.communicate()
     rc = process.poll()
     result.update({"output": data})
     result.update({"rc": rc})
     result.update({"error": error})
+    result.update({"pid": ''})
+    if pid:
+        result.update({"pid": process.pid})
     st.log("RESULT {}".format(result))
     return result
 
@@ -351,10 +596,12 @@ def _prepare_gnmi_command(dut, xpath, **kwargs):
     pretty = kwargs.get('pretty')
     mode = kwargs.get('mode', '-update')
     target_name = kwargs.get('target_name')
+    gnmi_command = ''
     if action == "get":
         gnmi_command = 'gnmi_get -xpath {} -target_addr {}:{}'.format(xpath, ip_address, port)
     elif action == "set":
-        gnmi_command = 'gnmi_set {} {}:@{} -target_addr {}:{}'.format(mode, xpath, kwargs.get("data_file_path"), ip_address, port)
+        gnmi_command = 'gnmi_set {} {}:@{} -target_addr {}:{}'.format(mode, xpath, kwargs.get("data_file_path"),
+                                                                      ip_address, port)
         if pretty:
             gnmi_command += " --pretty"
     elif action == "delete":
@@ -387,10 +634,10 @@ def gnmi_apply(dut, **kwargs):
         st.error("XPATH NOT PROVIDED")
         return False
     ip_addr = st.get_mgmt_ip(dut)
-    kwargs.update({"ip_address":kwargs.get("ip_address", ip_addr)})
+    kwargs.update({"ip_address": kwargs.get("ip_address", ip_addr)})
     xpath = convert_rest_url_to_gnmi_url(xpath, kwargs.get("url_params"))
-    kwargs.update({"json_content":kwargs.get("data")})
-    kwargs.update({"action":action})
+    kwargs.update({"json_content": kwargs.get("data")})
+    kwargs.update({"action": action})
     if action == "set":
         xpath, data = fix_set_url(xpath, kwargs.get("data"))
         kwargs.update({"json_content": data})
@@ -443,7 +690,8 @@ def _gnmi_operation(dut, xpath, **kwargs):
             kwargs.update({"devname": dut})
             command = _prepare_gnmi_command(dut, xpath, **kwargs)
             output = _run_gnmi_command(command)
-            output['output'] = _get_processed_gnmi_ouput(output['output']) if kwargs.get("action") == 'get' else output['output']
+            output['output'] = _get_processed_gnmi_ouput(output['output']) if kwargs.get("action") == 'get' \
+                else output['output']
             st.debug(output)
             return output
         except Exception as e:
@@ -466,7 +714,8 @@ def _get_processed_gnmi_ouput(data):
     """
     my_data = ""
     if data:
-        out=data.replace("\n", "").replace(" ", "").replace(">", "").replace("<", "").replace("'\"", "").replace("\"'", "").replace("False", "false").replace("True", "true").replace("\\", "")
+        out = data.replace("\n", "").replace(" ", "").replace(">", "").replace("<", "")\
+            .replace("'\"", "").replace("\"'", "").replace("False", "false").replace("True", "true").replace("\\", "")
         processed_output = re.findall(r'json_ietf_val:(.*)', out)
         if processed_output:
             a = processed_output[0].strip('"')

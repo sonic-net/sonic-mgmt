@@ -10,7 +10,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.cisco_data import is_cisco_device
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
         image_version (str): The version of the image to tag.
     """
     vendor_id = _get_vendor_id(duthost)
-    if vendor_id in ['invm']:
+    if vendor_id in ['mrvl-teralynx']:
         image_name = "docker-syncd-{}-rpc".format(vendor_id)
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
@@ -244,8 +244,8 @@ def _get_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
-    elif is_innovium_device(duthost):
-        vendor_id = "invm"
+    elif is_marvell_teralynx_device(duthost):
+        vendor_id = "mrvl-teralynx"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

@@ -30,6 +30,24 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
+def _get_pdu_controller(duthost, conn_graph_facts):
+    hostname = duthost.hostname
+    # To adapt to the kvm testbed, conn_graph_facts is None for kvm.
+    # Unfortunately, for most DUTs
+    # we will get None because there is no key pdu_host under most of the hosts in iventory.
+    # And although we can get the pdu hosts list of a DUT from inventory
+    # we can not get the hwsku and os of pdu host from inventory.
+    # So we give the default value `{}` to kvm.
+    device_pdu_links = conn_graph_facts.get('device_pdu_links', {})
+    device_pdu_info = conn_graph_facts.get('device_pdu_info', {})
+
+    pdu_links = device_pdu_links.get(hostname, {})
+    pdu_info = device_pdu_info.get(hostname, {})
+    pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
+
+    return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
+
+
 @pytest.fixture(scope="module")
 def pdu_controller(duthosts, conn_graph_facts):
     """
@@ -39,16 +57,7 @@ def pdu_controller(duthosts, conn_graph_facts):
               controller_base.py.
     """
     duthost = get_sup_node_or_random_node(duthosts)
-    pdu_hosts = get_pdu_hosts(duthost)
-    pdu_hostnames = []
-    if pdu_hosts:
-        pdu_hostnames = pdu_hosts.keys()
-    else:
-        duthost_pdu_info = conn_graph_facts.get("device_pdu_info", {}).get(duthost.hostname, {})
-        pdu_hostnames = [pdu["Hostname"] for pdu in duthost_pdu_info.values()]
-
-    pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_hostnames)
-    controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu_vars)
+    controller = _get_pdu_controller(duthost, conn_graph_facts)
 
     yield controller
 
@@ -64,16 +73,7 @@ def get_pdu_controller(conn_graph_facts):
 
     def pdu_controller_helper(duthost):
         if duthost.hostname not in controller_map:
-            pdu_hosts = get_pdu_hosts(duthost)
-            pdu_hostnames = []
-            if pdu_hosts:
-                pdu_hostnames = pdu_hosts.keys()
-            else:
-
-                duthost_pdu_info = conn_graph_facts.get("device_pdu_info", {}).get(duthost.hostname, {})
-                pdu_hostnames = [pdu["Hostname"] for pdu in duthost_pdu_info.values()]
-            pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_hostnames)
-            controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu_vars)
+            controller = _get_pdu_controller(duthost, conn_graph_facts)
             controller_map[duthost.hostname] = controller
 
         return controller_map[duthost.hostname]

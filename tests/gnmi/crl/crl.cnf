@@ -1,0 +1,23 @@
+# OpenSSL configuration for CRL generation
+#
+####################################################################
+[ ca ]
+default_ca	= CA_default		# The default ca section
+
+####################################################################
+[ CA_default ]
+database = gnmi/crl/index.txt
+crlnumber = gnmi/crl/sonic_crl_number
+x509_extensions = added-extensions
+crl_extensions    = crl_ext
+
+
+default_days	= 365			# how long to certify for
+default_crl_days= 30			# how long before next CRL
+default_md	= default		# use public key default MD
+preserve	= no			# keep passed DN ordering
+
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always

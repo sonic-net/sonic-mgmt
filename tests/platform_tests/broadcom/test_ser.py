@@ -1,7 +1,5 @@
-import os
 import time
 import logging
-
 import pytest
 
 from tests.common.reboot import reboot
@@ -14,12 +12,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
-
-FILES_DIR = os.path.join(BASE_DIR, 'files')
-SER_INJECTOR_FILE = 'ser_injector.py'
-DUT_WORKING_DIR = '/tmp/'
+SER_RESULTS_DIR = '/tmp/ser_result.log'
 
 
 def disable_ssh_timout(dut):
@@ -69,31 +62,40 @@ def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
 @pytest.mark.broadcom
 def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     '''
-    @summary: Broadcom SER injection test use Broadcom SER injection utility
-              to insert SER into different memory tables. Before the SER
-              injection, Broadcom mem/sram scanners are started and syslog
-              file location is marked.  The test is invoked using:
-
-              pytest platform/broadcom/test_ser.py --testbed=vms12-t0-s6000-1 \
-              --inventory=../ansible/str --testbed_file=../ansible/testbed.csv \
-              --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
+    @summary: Broadcom SER capability tests will test SER injections
+              into different memory tables
 
     @param duthost: Ansible framework testbed DUT device
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
-    logger.info('Copying SER injector to dut: %s' % duthost.hostname)
-    duthost.copy(
-        src=os.path.join(FILES_DIR, SER_INJECTOR_FILE),
-        dest=DUT_WORKING_DIR
-    )
+    def extract_failed_memory(output):
+        failed_memory_list = []
+        capture = False
 
-    logger.info('Running SER injector test')
-    args = "" if enum_asic_index is None else "-n {}".format(enum_asic_index)
-    rc = duthost.shell(
-        'python {} {}'.format(
-            os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE), args
-        ),
-        executable="/bin/bash"
-    )
-    logger.info('Test complete with %s: ' % rc)
+        for line in output:
+            if "total failed memory" in line:
+                capture = True
+
+            if "total skipped memory" in line:
+                break
+
+            if capture:
+                failed_memory_list.append(line.strip())
+
+        assert capture, "Did not find failed memory list"
+        ser_passed = "total failed memory 0" in failed_memory_list[0]
+        return ser_passed, failed_memory_list
+
+    logger.info('Running SER capability test')
+
+    duthost.shell(f"bcmcmd 'SER CAPABILITY Indextype=single Errtype=single Filename={SER_RESULTS_DIR}'",
+                  module_ignore_errors=True, executable="/bin/bash")
+    output = duthost.shell(f"docker exec syncd cat {SER_RESULTS_DIR}",
+                           module_ignore_errors=True, executable="/bin/bash")['stdout_lines']
+
+    logger.info('SER capability test results:')
+    logger.info(output)
+
+    ser_passed, failed_memory_list = extract_failed_memory(output)
+    assert ser_passed, "SER test failed! \n" + "\n".join(failed_memory_list)

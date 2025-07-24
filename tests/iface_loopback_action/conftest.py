@@ -16,7 +16,7 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--rif_loppback_reboot_type",
+        "--rif_loopback_reboot_type",
         action="store",
         type=str,
         default="cold",
@@ -61,9 +61,14 @@ def orig_ports_configuration(request, duthost, ptfhost, tbinfo):
                                         constants.PTF_PORT_MAPPING_MODE_DEFAULT)
     else:
         ptf_port_mapping_mode = 'use_orig_interface'
+
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
+
     res = ptfhost.command('cat /proc/net/dev')
     ptf_ifaces = get_ifaces(res['stdout'])
-    ptf_ifaces_map = get_ifaces_map(ptf_ifaces, ptf_port_mapping_mode)
+    ptf_ifaces_map = get_ifaces_map(ptf_ifaces, ptf_port_mapping_mode, need_backplane)
     port_dict = get_tested_up_ports(duthost, ptf_ifaces_map, count=PORT_COUNT)
     yield port_dict
 
@@ -183,7 +188,7 @@ def generate_ip_list():
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
-          backup_and_restore_config_db_package, nbrhosts, tbinfo):                # noqa: F811
+          backup_and_restore_config_db_package, nbrhosts, tbinfo, is_sonic_mlnx_leaf_fanout):  # noqa: F811
     """
     Config: Cleanup the original port configuration and add new configurations before test
     Cleanup: restore the config on the VMs
@@ -195,6 +200,9 @@ def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
     :param nbrhosts: nbrhosts fixture.
     :param tbinfo: Testbed object
     """
+    if is_sonic_mlnx_leaf_fanout:
+        pytest.skip("Not supporteds on Mellanox leaf-fanout running SONiC")
+        return
     peer_shutdown_ports = get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts)
     remove_orig_dut_port_config(duthost, orig_ports_configuration)
     for vm_host, peer_ports in list(peer_shutdown_ports.items()):
@@ -209,12 +217,28 @@ def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def recover(duthost, ptfhost, ports_configuration):
+def recover(duthost, ptfhost, ports_configuration, is_sonic_mlnx_leaf_fanout):
     """
     restore the original configurations
     :param duthost: DUT host object
     :param ptfhost: PTF host object
     :param ports_configuration: ports configuration parameters
     """
+    if is_sonic_mlnx_leaf_fanout:
+        yield
+        return
     yield
     recover_config(duthost, ptfhost, ports_configuration)
+
+
+@pytest.fixture(scope='module')
+def is_sonic_mlnx_leaf_fanout(fanouthosts):
+    """
+    The test sends QinQ packet for testing purpose. However, the QinQ packet will be dropped on leaf fanout
+    if it's running SONiC and Mellanox ASIC.
+    More info https://github.com/sonic-net/SONiC/blob/master/doc/tpid/SonicTPIDSettingHLD1.md
+    """
+    for fanouthost in list(fanouthosts.values()):
+        if fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts['asic_type'] == "mellanox":
+            return True
+    return False

@@ -5,6 +5,8 @@ import yaml
 import datetime
 import os
 import argparse
+from collections import OrderedDict
+import copy
 
 """"
 Testbed Processing
@@ -54,6 +56,7 @@ vmHostCreds_file = "group_vars/vm_host/creds.yml"
 labLinks_file = "files/sonic_lab_links.csv"
 testbed_file = "testbed.yaml"
 devices_file = "files/sonic_lab_devices.csv"
+console_links_file = "files/sonic_lab_console_links.csv"
 eosCred_file = "group_vars/eos/creds.yml"
 fanoutSecrets_file = "group_vars/fanout/secrets.yml"
 labSecrets_file = "group_vars/lab/secrets.yml"
@@ -74,6 +77,7 @@ backupList.append(vmHostCreds_file)
 backupList.append(labLinks_file)
 backupList.append(testbed_file)
 backupList.append(devices_file)
+backupList.append(console_links_file)
 backupList.append(eosCred_file)
 backupList.append(fanoutSecrets_file)
 backupList.append(labSecrets_file)
@@ -236,6 +240,53 @@ def makeSonicLabDevices(data, outfile):
 
 
 """
+makeSonicLabConsoleLinks(data, outfile)
+@:parameter data - the dictionary to look through (devices dictionary)
+@:parameter outfile - the file to write to
+generates files/sonic_lab_console_links.csv
+"""
+
+
+def makeSonicLabConsoleLinks(data, outfile):
+    def fill_missing_fields(data, template):
+        """Returns a copy of `data` with missing fields from `template` \
+                filled with empty strings."""
+        filled_data = copy.deepcopy(OrderedDict(template))  # Preserve the order
+
+        for key in template:
+            filled_data[key] = str(data.get(key)) if data.get(key) is not None else ''
+
+        return filled_data
+
+    devices = data
+    csv_file = outfile
+    # folding this line inserts unwanted spaces
+    csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate"
+    console_info_template = OrderedDict({
+        "start_device": "",
+        "start_port": "",
+        "end_device": "",
+        "console_type": "",
+        "console_menu_type": "",
+        "proxy": "",
+        "baud_rate": ""})
+    try:
+        with open(csv_file, "w") as f:
+            f.write(csv_columns + "\n")
+            for device, deviceDetails in devices.items():
+                console_info = deviceDetails.get("console_info")
+                if not console_info:
+                    continue
+
+                result = fill_missing_fields(console_info, console_info_template)
+
+                row = ','.join(list(result.values()))
+                f.write(row + "\n")
+    except IOError:
+        print("I/O error: makeSonicLabConsoleLinks")
+
+
+"""
 makeTestbed(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
@@ -311,7 +362,7 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeSonicLabLinks(data, outfile):
-    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,SlotId"
+    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg,SlotId"
     topology = data
     csv_file = outfile
 
@@ -331,6 +382,7 @@ def makeSonicLabLinks(data, outfile):
                     bandWidth = element.get("Bandwidth")
                     vlanID = element.get("VlanID")
                     vlanMode = element.get("VlanMode")
+                    AutoNeg = element.get("AutoNeg")
                     slotId = element.get("SlotId")
 
                     # catch empty values
@@ -346,10 +398,13 @@ def makeSonicLabLinks(data, outfile):
                         vlanMode = ""
                     if not slotId:
                         slotId = ""
+                    if not AutoNeg:
+                        AutoNeg = ""
 
                     row = startDevice + "," + startPort + "," + endDevice + "," + \
                         endPort + "," + str(bandWidth) + \
                         "," + str(vlanID) + "," + vlanMode + \
+                        "," + str(AutoNeg) + \
                         "," + str(slotId)
                     f.write(row + "\n")
     except IOError:
@@ -392,10 +447,12 @@ def makeFanoutSecrets(data, outfile):
 
     for key, value in devices.items():
         if "fanout" in value.get("device_type").lower():
-            result.update({"ansible_ssh_user": value.get(
-                "ansible").get("ansible_ssh_user")})
-            result.update({"ansible_ssh_pass": value.get(
-                "ansible").get("ansible_ssh_pass")})
+            result.update({"ansible_ssh_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"ansible_ssh_pass": value.get("ansible").get("ansible_ssh_pass")})
+            result.update({"fanout_network_user": value.get("ansible").get("fanout_network_user")})
+            result.update({"fanout_network_password": value.get("ansible").get("fanout_network_password")})
+            result.update({"fanout_shell_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"fanout_shell_password": value.get("ansible").get("ansible_ssh_pass")})
 
     with open(outfile, "w") as toWrite:
         yaml.dump(result, stream=toWrite, default_flow_style=False)
@@ -427,6 +484,9 @@ def makeLabSecrets(data, outfile):
                 "ansible").get("sonicadmin_password")})
             result.update({"sonicadmin_initial_password": value.get(
                 "ansible").get("sonicadmin_initial_password")})
+
+        if "serialconsole" in str(value.get("device_type")).lower():
+            result["console_login"] = value.get("console_login")
 
     with open(outfile, "w") as toWrite:
         yaml.dump(result, stream=toWrite, default_flow_style=False)
@@ -466,6 +526,14 @@ def makeLab(data, devices, testbed, outfile):
                     else:
                         dev = None
 
+                    try:
+                        ansible_hostv6 = dev.get(
+                            "ansible").get("ansible_hostv6")
+                        entry += "\tansible_hostv6=" + \
+                            ansible_hostv6.split("/")[0]
+                    except Exception:
+                        print("\t\t" + host + ": ansible_hostv6 not found")
+
                     if "ptf" in key:
                         try:  # get ansible host
                             ansible_host = dev.get(
@@ -474,14 +542,6 @@ def makeLab(data, devices, testbed, outfile):
                                 ansible_host.split("/")[0]
                         except Exception:
                             print("\t\t" + host + ": ansible_host not found")
-
-                        try:
-                            ansible_hostv6 = dev.get(
-                                "ansible").get("ansible_hostv6")
-                            entry += "\tansible_hostv6=" + \
-                                ansible_hostv6.split("/")[0]
-                        except Exception:
-                            print("\t\t" + host + ": ansible_hostv6 not found")
 
                         if ansible_host:
                             try:  # get ansible ssh username
@@ -999,7 +1059,7 @@ def main():
     # Load Data
     print("LOADING PROCESS STARTED")
     print("LOADING: " + args.i)
-    doc = yaml.load(open(args.i, 'r'))
+    doc = yaml.safe_load(open(args.i, 'r'))
     # dictionary contains information about devices
     devices = dict()
     generateDictionary(doc, devices, "devices")             # load devices
@@ -1037,6 +1097,9 @@ def main():
     print("\tCREATING SONIC LAB DEVICES: " + args.basedir + devices_file)
     # Generate sonic_lab_devices.csv (DEVICES)
     makeSonicLabDevices(devices, args.basedir + devices_file)
+    print("\tCREATING SONIC LAB CONSOLE LINKS: " + args.basedir + console_links_file)
+    # Generate sonic_lab_console_links.csv (DEVICES)
+    makeSonicLabConsoleLinks(devices, args.basedir + console_links_file)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
     # Generate testbed.yaml (TESTBED)
     makeTestbed(testbed, args.basedir + testbed_file)

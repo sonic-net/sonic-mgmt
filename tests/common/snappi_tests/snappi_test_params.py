@@ -3,6 +3,8 @@ The SnappiTestParams module allows for modular pass through of test parameters f
 """
 
 from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
+from tests.common.snappi_tests.multi_dut_params import MultiDUTParams
 
 
 class SnappiTestParams():
@@ -21,8 +23,28 @@ class SnappiTestParams():
             is_snappi_ingress_port_cap (bool): whether or not the packet capture is on the tgen ingress port, if False,
                                              then pcap is on the tgen egress port
             base_flow_config (dict): base flow configuration
+            base_flow_config_list (list): list for base flow config.
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
+                                    for priorities 3 and 4
+            multi_dut_params (MultiDUTParams obj): contains det=120ails of duthost objects,
+                                                   multidut_ports and other parameters
+            test_iterations (int) : No of iterations in the test
+                for ex. priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
+            poll_device_runtime (bool): whether or not to poll the device for stats when traffic is running
+                                        (default: False)
                 for priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
+            ecn_params (dict): ECN parameters
+                Dict values:
+                    kmin: minimum ECN marking threshold
+                    kmax: maximum ECN marking threshold
+                    pmax: maximum ECN marking probability
+            traffic_flow_config (TrafficFlowConfig obj): traffic flow configuration object
+            reboot_type (str): The type of reboot command to be issued during traffic transmission.
+                               It can be "warm", "cold", "fast", or None. If set to None, then
+                               no reboot is performed. (default: None)
+            localhost (pytest fixture): localhost handle
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -32,4 +54,13 @@ class SnappiTestParams():
         self.packet_capture_ports = None
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
+        self.base_flow_config_list = []
         self.test_tx_frames = 0
+        self.multi_dut_params = MultiDUTParams()
+        self.test_iterations = 1
+        self.gen_background_traffic = True
+        self.poll_device_runtime = True
+        self.ecn_params = None
+        self.traffic_flow_config = TrafficFlowConfig()
+        self.reboot_type = None
+        self.localhost = None

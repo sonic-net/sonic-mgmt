@@ -3,8 +3,8 @@ import logging
 
 from tests.common.utilities import skip_release
 from tests.common.config_reload import config_reload
-from tests.generic_config_updater.gu_utils import apply_patch
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch, restore_backup_test_config, save_backup_test_config
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
@@ -12,48 +12,63 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module")
+def selected_dut_hostname(request, rand_one_dut_hostname):
+    """Fixture that returns either `rand_one_dut_hostname` or `rand_one_dut_front_end_hostname`
+    depending on availability."""
+    if "rand_one_dut_front_end_hostname" in request.fixturenames:
+        logger.info("Running on front end duthost")
+        return request.getfixturevalue("rand_one_dut_front_end_hostname")
+    else:
+        logger.info("Running on any type of duthost")
+        return rand_one_dut_hostname
+
+
 # Module Fixture
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname):
+def cfg_facts(duthosts, selected_dut_hostname, selected_asic_index):
     """
     Config facts for selected DUT
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_hostname: Hostname of a random chosen dut
+        selected_dut_hostname: Hostname of a random chosen dut
+        selected_asic_index: Random selected asic id
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    duthost = duthosts[selected_dut_hostname]
+    asic_id = selected_asic_index
+    asic_namespace = duthost.get_namespace_from_asic_id(asic_id)
+    return duthost.config_facts(host=duthost.hostname, source="persistent", namespace=asic_namespace)['ansible_facts']
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_image_version(duthosts, rand_one_dut_hostname):
+def check_image_version(duthosts, selected_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202111
 
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_hostname: Hostname of a random chosen dut
+        selected_dut_hostname: Hostname of a random chosen dut
 
     Returns:
         None.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[selected_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
 @pytest.fixture(scope="module", autouse=True)
-def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
+def reset_and_restore_test_environment(duthosts, selected_dut_hostname):
     """Reset and restore test env if initial Config cannot pass Yang
 
     Back up the existing config_db.json file and restore it once the test ends.
 
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_hostname: Hostname of a random chosen dut
+        selected_dut_hostname: Hostname of a random chosen dut
 
     Returns:
         None.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[selected_dut_hostname]
     json_patch = []
     tmpfile = generate_tmpfile(duthost)
 
@@ -62,9 +77,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-    logger.info("Backup {} to {} on {}".format(
-        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
-    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    save_backup_test_config(duthost, file_postfix="before_gcu_test")
 
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
         logger.info("Running config failed SONiC Yang validation. Reload minigraph. config: {}"
@@ -73,9 +86,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
 
     yield
 
-    logger.info("Restore {} with {} on {}".format(
-        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
-    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    restore_backup_test_config(duthost, file_postfix="before_gcu_test", config_reload=False)
 
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
         logger.info("Restore Config after GCU test.")
@@ -83,17 +94,17 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def verify_configdb_with_empty_input(duthosts, rand_one_dut_hostname):
+def verify_configdb_with_empty_input(duthosts, selected_dut_hostname):
     """Fail immediately if empty input test failure
 
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_hostname: Hostname of a random chosen dut
+        selected_dut_hostname: Hostname of a random chosen dut
 
     Returns:
         None.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[selected_dut_hostname]
     json_patch = []
     tmpfile = generate_tmpfile(duthost)
 
@@ -109,9 +120,17 @@ def verify_configdb_with_empty_input(duthosts, rand_one_dut_hostname):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.fixture(scope='function')
+def skip_when_buffer_is_dynamic_model(duthost):
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    if buffer_model == 'dynamic':
+        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
+
+
 # Function Fixture
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loganalyzer):
     """
        Ignore expected yang validation failure during test execution
 
@@ -119,14 +138,15 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
        Args:
             duthosts: list of DUTs.
-            rand_one_dut_hostname: Hostname of a random chosen dut
+            selected_dut_hostname: Hostname of a random chosen dut
            loganalyzer: Loganalyzer utility fixture
     """
     # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[selected_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
+            ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",  # Valid test_dhcp_relay for Bookworm
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
             # Valid test_dhcp_relay test_syslog
             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
@@ -144,5 +164,10 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
             ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*",   # test_portchannel_interface tc2
+            ".*ERR.*'apply-patch' executed failed.*",  # negative cases that are expected to fail
+
+            # Ignore errors from k8s config test
+            ".*ERR ctrmgrd.py: Refer file.*",
+            ".*ERR ctrmgrd.py: Join failed.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)

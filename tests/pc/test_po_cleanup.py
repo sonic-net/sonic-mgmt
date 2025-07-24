@@ -5,6 +5,7 @@ from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology('any'),
 ]
 
@@ -58,7 +59,7 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
             fail_msg = "PortChannel interface still exists in kernel"
             pytest.fail(fail_msg)
     # Restore config services
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
@@ -94,7 +95,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
 
         with loganalyzer:
             logging.info("Reloading config..")
-            config_reload(duthost)
+            config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
 
         duthost.shell("killall yes")
     except Exception:

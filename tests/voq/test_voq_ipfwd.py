@@ -15,18 +15,18 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 
 from .test_voq_nbr import LinkFlap
 
-from .voq_helpers import sonic_ping
-from .voq_helpers import eos_ping
-from .voq_helpers import get_inband_info
-from .voq_helpers import get_vm_with_ip
-from .voq_helpers import asic_cmd
-from .voq_helpers import get_port_by_ip
-from .voq_helpers import get_sonic_mac
-from .voq_helpers import get_ptf_port
+from tests.common.helpers.voq_helpers import sonic_ping
+from tests.common.helpers.voq_helpers import eos_ping
+from tests.common.helpers.voq_helpers import get_inband_info
+from tests.common.helpers.voq_helpers import get_vm_with_ip
+from tests.common.helpers.voq_helpers import asic_cmd
+from tests.common.helpers.voq_helpers import get_port_by_ip
+from tests.common.helpers.voq_helpers import get_sonic_mac
+from tests.common.helpers.voq_helpers import get_ptf_port
 import re
 
 logger = logging.getLogger(__name__)
@@ -217,7 +217,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
         for key, value in list(minigraph_neighbors.items()):
-            if 'T1' in value['name']:
+            if 'T1' in value['name'] or 'LT2' in value['name']:
                 dutA = a_dut
                 break
         if dutA:
@@ -225,7 +225,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
 
     if dutA is None:
         pytest.skip("Did not find any asic in the DUTs (linecards) \
-            that are connected to T1 VM's")
+            that are connected to T1/LT2 VM's")
 
     for asic_index, asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
         cfg_facts = asic_cfg['ansible_facts']
@@ -261,6 +261,9 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
 
         if 'portA' in intfs_to_test:
             break
+
+    if 'portA' not in intfs_to_test:
+        pytest.skip("Could not find portA that is connected to a downstream T1/LT2 VM's")
 
     if len(duthosts.frontend_nodes) == 1:
         # We are dealing with a single card, lets find the portC and portD in other asic on the same card
@@ -571,8 +574,22 @@ class TestTableValidation(object):
         ipv4_routes = asic_cmd(asic_to_use, "ip -4 route")["stdout_lines"]
         ipv6_routes = asic_cmd(asic_to_use, "ip -6 route")["stdout_lines"]
 
+        cfgd_dev_neigh_md = cfg_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in cfg_facts else {}
+        dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md
+                        if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
+
         # get attached neighbors
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = dict(cfg_facts['BGP_NEIGHBOR'])
+
+        # Remove the neighbor if BGP neighbor is of type RegionalHub
+        keys_to_remove = []
+        for k, v in neighs.items():
+            if v['name'] in dev_rh_neigh:
+                keys_to_remove.append(k)
+
+        for k in keys_to_remove:
+            neighs.pop(k)
+
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']
 
@@ -793,6 +810,9 @@ class TestVoqIPFwd(object):
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         # these don't decrement ttl
         check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld='my_lb_ip', dst_ip_fld='my_ip', size=size, ttl=ttl,
                      ttl_change=0)
@@ -894,6 +914,10 @@ class TestVoqIPFwd(object):
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}"
                     .format(ipv=version, ttl=ttl, size=size))
+
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
         check_packet(eos_ping, ports, 'portB', 'portA', dst_ip_fld='nbr_lb', src_ip_fld='nbr_lb', dev=vm_host_to_A,
                      size=size, ttl=ttl)
@@ -922,6 +946,9 @@ def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, po
     """
 
     ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+    if 'portD' not in ports:
+        pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
 
     if 'portB' in ports:
         dst_list = [('portB', ports['portB']['nbr_lb']), ('portD', ports['portD']['nbr_lb'])]
@@ -1028,6 +1055,10 @@ class TestFPLinkFlap(LinkFlap):
         logger.info("Fanouthosts: %s", fanouthosts)
 
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         cfg_facts = all_cfg_facts[ports['portA']['dut'].hostname][ports['portA']['asic'].asic_index]['ansible_facts']
 
         if "portchannel" in ports['portA']['port'].lower():
@@ -1150,6 +1181,9 @@ def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, por
 
     """
     ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+    if 'portD' not in ports:
+        pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
 
     dst_ip = ports[port][ip]
 

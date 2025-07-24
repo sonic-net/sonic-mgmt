@@ -44,6 +44,7 @@
 import os.path
 import json
 import base64
+import six
 from datetime import datetime
 import logging
 import random
@@ -70,7 +71,7 @@ VARS['udp_sport'] = 1234
 Logger = logging.getLogger(__name__)
 
 # Some constants used in this code
-MIN_PACKET_COUNT = 4
+MIN_PACKET_COUNT = 10
 MINIMUM_PACKETS_FOR_ECMP_VALIDATION = 300
 TEST_ECN = True
 
@@ -84,18 +85,18 @@ def get_ip_address(af, hostid=1, netid=100):
         netid  : The first octet in the Address.
     '''
     global Address_Count
-    third_octet = Address_Count % 255
-    second_octet = (Address_Count / 255) % 255
-    first_octet = netid + (Address_Count / 65025)
+    third_octet = int(Address_Count % 255)
+    second_octet = int((Address_Count / 255) % 255)
+    first_octet = int(netid + (Address_Count / 65025))
     Address_Count = Address_Count + 1
     if af == 'v4':
-        return "{}.{}.{}.{}".format(
-            first_octet, second_octet, third_octet, hostid).decode()
+        return six.text_type("{}.{}.{}.{}".format(
+            first_octet, second_octet, third_octet, hostid))
     if af == 'v6':
         # :0: gets removed in the IPv6 addresses.
         # Adding a to octets, to avoid it.
-        return "fddd:a{}:a{}::a{}:{}".format(
-            first_octet, second_octet, third_octet, hostid).decode()
+        return six.text_type("fddd:a{}:a{}::a{}:{}".format(
+            first_octet, second_octet, third_octet, hostid))
 
 
 def get_incremental_value(key):

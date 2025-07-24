@@ -3,8 +3,9 @@ import pytest
 from tests.common import reboot
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.dualtor.mux_simulator_control import \
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa F401
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa:F401
 from tests.common.utilities import wait_until, delete_running_config
+from tests.common.helpers.assertions import pytest_require
 
 
 pytestmark = [
@@ -17,7 +18,11 @@ NEIGHBOR_EXABGP_PORT = 11000
 
 
 @pytest.fixture(params=["warm", "fast"])
-def reboot_type(request):
+def reboot_type(request, tbinfo):
+    pytest_require(
+        not (request.param == "fast" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip fast reboot test on dualtor topology"
+    )
     return request.param
 
 
@@ -34,7 +39,7 @@ def slb_neighbor_asn(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo
             .yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     neighbor_asn = res['stdout'].strip()
     if not neighbor_asn:
-        pytest.fail("Failed to retieve asn defined for dynamic neighbors")
+        pytest.fail("Failed to retrieve asn defined for dynamic neighbors")
     return neighbor_asn
 
 
@@ -63,7 +68,7 @@ def bgp_slb_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_
 @pytest.mark.disable_loganalyzer
 def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, bgp_slb_neighbor,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, reboot_type, localhost     # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, reboot_type, localhost     # noqa:F811
 ):
 
     def verify_bgp_session(duthost, bgp_neighbor):

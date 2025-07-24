@@ -1,5 +1,7 @@
+import contextlib
 import os
 import re
+import tempfile
 import time
 import json
 import pytest
@@ -11,10 +13,16 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
+    DEFAULT_ASIC_ID
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.constants import TS_NORMAL
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -28,7 +36,7 @@ CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
 CUSTOM_DUMP_SCRIPT_DEST = "/usr/share/exabgp/bgp_monitor_dump.py"
 BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
-BGP_MONITOR_NAME = "bgp_monitor"
+BGP_MONITOR_NAME = "BGPMonitor"
 BGP_MONITOR_PORT = 7000
 BGPSENTINEL_CONFIG_FILE = '/tmp/bgpsentinel.json'
 BGP_SENTINEL_NAME_V4 = "bgp_sentinelV4"
@@ -58,6 +66,9 @@ QUEUED = "queued"
 ACTION_IN = "in"
 ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
+WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
 def apply_bgp_config(duthost, template_name):
@@ -95,8 +106,15 @@ def get_no_export_output(vm_host):
     Args:
         vm_host: VM host object
     """
-    out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-    return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    if isinstance(vm_host, EosHost):
+        out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    elif isinstance(vm_host, SonicHost):
+        out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
+        # For SonicHost, output is already a string, no need to index
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out)
+    else:
+        raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
@@ -213,6 +231,22 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 
+def is_neighbor_sessions_established(duthost, neighbors):
+    is_established = True
+
+    # handle both multi-asic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
+
+    return is_established
+
+
 @pytest.fixture(scope='module')
 def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     """
@@ -283,7 +317,7 @@ def update_routes(action, ptfip, port, route):
     url = 'http://%s:%d' % (ptfip, port)
     data = {'commands': msg}
     logging.info('Post url={}, data={}'.format(url, data))
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
 
 
@@ -321,7 +355,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     for peer_ips in list(downstream_peers.values()):
         for peer_ip in peer_ips:
             cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].eos_config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -339,7 +373,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
     # Restore EOS config
     no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].eos_config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
@@ -556,33 +590,41 @@ def get_eth_port(duthost, tbinfo):
     return port
 
 
-def get_vm_offset(duthost, nbrhosts, tbinfo):
+def get_vm_offset(duthost, nbrhosts, tbinfo, is_random=True):
     """
-    Get port offset of exabgp and ptf receive port
+    Get ports offset of exabgp and ptf receive port
     """
+    port_offset_ptf_recv_port_list = []
+    vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
     logging.info("get_vm_offset ---------")
-    vm_name = random.choice([vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')])
-    ptf_recv_port = get_ptf_recv_port(duthost, vm_name, tbinfo)
-    port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
-    logging.info("vm_offset of {} is: {}".format(vm_name, port_offset))
-    return port_offset, ptf_recv_port
+    if is_random:
+        vm_name_list = [random.choice(vm_name_list)]
+    for vm_name in vm_name_list:
+        port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
+        ptf_recv_port = get_ptf_recv_port(duthost, vm_name, tbinfo)
+        logging.info("vm_offset of {} is: {}".format(vm_name, port_offset))
+        port_offset_ptf_recv_port_list.append((port_offset, ptf_recv_port))
+    return port_offset_ptf_recv_port_list
 
 
-def get_exabgp_port(duthost, nbrhosts, tbinfo, exabgp_base_port):
+def get_exabgp_port(duthost, nbrhosts, tbinfo, exabgp_base_port, is_random=True):
     """
     Get exabgp port and ptf receive port
     """
-    port_offset, ptf_recv_port = get_vm_offset(duthost, nbrhosts, tbinfo)
-    return exabgp_base_port + port_offset, ptf_recv_port
+    port_offset_ptf_recv_port_list = get_vm_offset(duthost, nbrhosts, tbinfo, is_random)
+    port_offset_list, ptf_recv_port_list = zip(*port_offset_ptf_recv_port_list)
+    return [_ + exabgp_base_port for _ in port_offset_list], ptf_recv_port_list
 
 
-def get_vm_name(tbinfo, vm_level='T2'):
+def get_vm_name_list(tbinfo, vm_level='T2'):
     """
     Get vm name, default return value would be T2 VM name
     """
+    vm_name_list = []
     for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
         if vm[-2:] == vm_level:
-            return vm
+            vm_name_list.append(vm)
+    return vm_name_list
 
 
 def get_t2_ptf_intfs(mg_facts):
@@ -600,20 +642,32 @@ def get_t2_ptf_intfs(mg_facts):
     return ptf_interfaces
 
 
+def get_eth_name_from_ptf_port(mg_facts, ptf_ports):
+    """
+    Get eth name from ptf port
+    """
+    eth_name_list = []
+    for k, v in mg_facts["minigraph_ptf_indices"].items():
+        for port in ptf_ports:
+            if v == port:
+                eth_name_list.append(k)
+    return eth_name_list
+
+
 def get_bgp_neighbor_ip(duthost, vm_name, vrf=DEFAULT):
     """
     Get ipv4 and ipv6 bgp neighbor ip addresses
     """
     if vrf == DEFAULT:
-        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $5}}'"
-        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $5}}'"
-        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout']
-        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout']
+        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $2}}'"
+        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $2}}'"
+        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout'].split('/')[0]
+        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout'].split('/')[0]
     else:
-        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $7}}' | sed 's/)//g'"
-        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $7}}' | sed 's/)//g'"
-        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout'][1:-1]
-        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout'][1:-1]
+        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $3}}'"
+        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $3}}'"
+        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout'].split('/')[0]
+        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout'].split('/')[0]
     logging.info("BGP neighbor of {} is {}".format(vm_name, bgp_neighbor_ip))
     logging.info("IPv6 BGP neighbor of {} is {}".format(vm_name, bgp_neighbor_ipv6))
 
@@ -642,6 +696,8 @@ def check_route_status(duthost, route, check_field, vrf=DEFAULT, ip_ver=IP_VER, 
     Get 'offloaded' or 'queu' value of specific route
     """
     out = get_vrf_route_json(duthost, route, vrf, ip_ver)
+    if out == '{}':
+        return False
     check_field_status = out[route][0].get(check_field, None)
     if check_field_status:
         logging.info("Route:{} - {} status:{} - expect status:{}"
@@ -672,55 +728,68 @@ def check_route_install_status(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, check
                           "Vrf:{} - route:{} is installed into FIB".format(vrf, route))
 
 
-def check_propagate_route(duthost, route, bgp_neighbor, vrf=DEFAULT, ip_ver=IP_VER, action=ACTION_IN):
+def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, action=ACTION_IN):
     """
     Check whether ipv4 or ipv6 route is advertised to T2 VM
     """
     if ip_ver == IP_VER:
-        logging.info('Execute command - vtysh -c "show ip bgp vrf {} neighbors {} advertised-routes"'
-                     .format(vrf, bgp_neighbor))
-        out = duthost.shell('vtysh -c "show ip bgp vrf {} neighbors {} advertised-routes"'.format(vrf, bgp_neighbor),
-                            verbose=False)['stdout']
+        logging.info('Execute EOS command - "show ip bgp neighbors {} routes"'.format(bgp_neighbor))
+        out = vmhost['host'].eos_command(commands=['show ip bgp neighbors {} routes'.format(bgp_neighbor)])['stdout'][0]
     else:
-        logging.info('Execute command - vtysh -c "show ip bgp vrf {} ipv6 neighbors {} advertised-routes"'
-                     .format(vrf, bgp_neighbor))
-        out = duthost.shell('vtysh -c "show ip bgp vrf {} ipv6 neighbors {} advertised-routes"'.
-                            format(vrf, bgp_neighbor), verbose=False)['stdout']
+        logging.info('Execute EOS command - "show ipv6 bgp peers {} routes"'.format(bgp_neighbor))
+        out = vmhost['host'].eos_command(commands=['show ipv6 bgp peers {} routes'.format(bgp_neighbor)])['stdout'][0]
     logging.debug('Command output:\n {}'.format(out))
 
     if action == ACTION_IN:
-        if route in out:
-            logging.info("Route:{} found - action:{}".format(route, action))
-            return True
-        else:
-            logging.info("Route:{} not found - action:{}".format(route, action))
-            return False
+        for route in route_list:
+            if route in out:
+                logging.debug("Route:{} found - action:{}".format(route, action))
+            else:
+                logging.info("Route:{} not found - action:{}".format(route, action))
+                return False
     else:
-        if route in out:
-            logging.info("Route:{} found - action:{}".format(route, action))
-            return False
-        else:
-            logging.info("Route:{} not found - action:{}".format(route, action))
-            return True
+        for route in route_list:
+            if route in out:
+                logging.info("Route:{} found - action:{}".format(route, action))
+                return False
+            else:
+                logging.debug("Route:{} not found - action:{}".format(route, action))
+    return True
 
 
-def validate_route_propagate_status(duthost, route, bgp_neighbor, vrf=DEFAULT, ip_ver=IP_VER, exist=True):
+def validate_route_propagate_status(vmhost, route_list, bgp_neighbor, vrf=DEFAULT, ip_ver=IP_VER, exist=True):
     """
     Verify ipv4 or ipv6 route propagate status
-    :param duthost: duthost fixture
-    :param route: ipv4 or ipv6 route
+    :param vmhost: vm host object
+    :param route_list: ipv4 or ipv6 route list
     :param bgp_neighbor: ipv4 or ipv6 bgp neighbor address
     :param vrf: vrf name
     :param ip_ver: ip version number
     :param exist: route expected status
     """
     if exist:
-        pytest_assert(wait_until(30, 2, 0, check_propagate_route, duthost, route, bgp_neighbor, vrf, ip_ver),
-                      "Vrf:{} - route:{} is not propagated to {}".format(vrf, route, bgp_neighbor))
+        pytest_assert(wait_until(30, 2, 0, check_propagate_route, vmhost, route_list, bgp_neighbor, ip_ver),
+                      "Vrf:{} - route:{} is not propagated to T2 VM {}".format(vrf, route_list, vmhost))
     else:
-        pytest_assert(wait_until(30, 2, 0, check_propagate_route, duthost, route, bgp_neighbor, vrf, ip_ver,
-                                 ACTION_NOT_IN),
-                      "Vrf:{} - route:{} is propagated to {}".format(vrf, route, bgp_neighbor))
+        pytest_assert(
+            wait_until(30, 2, 0, check_propagate_route, vmhost, route_list, bgp_neighbor, ip_ver, ACTION_NOT_IN),
+            "Vrf:{} - route:{} is propagated to T2 VM {}".format(vrf, route_list, vmhost))
+
+
+def check_fib_route(duthost, route_list, ip_ver=IP_VER):
+    """
+    Verify ipv4 or ipv6 routes are installed into fib
+    """
+    fib_type = 'ip' if ip_ver == IP_VER else 'ipv6'
+    logging.info(f"Execute command - show {fib_type} fib")
+    out = duthost.shell(f"show {fib_type} fib")
+    for route in route_list:
+        if route in out['stdout']:
+            logging.debug(f"Route:{route} installed into fib")
+        else:
+            logging.info(f"Route:{route} not found in fib")
+            assert False
+    logging.info(f"{route_list} are installed into fib successfully")
 
 
 def operate_orchagent(duthost, action=ACTION_STOP):
@@ -734,3 +803,135 @@ def operate_orchagent(duthost, action=ACTION_STOP):
         logging.info('Recover orchagent process')
         cmd = 'sudo kill -SIGCONT $(pidof orchagent)'
     duthost.shell(cmd)
+
+
+def check_bgp_neighbor(duthost):
+    """
+    Validate all the bgp neighbors are established
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(
+        wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
+        "bgp sessions {} are not up".format(bgp_neighbors)
+    )
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)["stdout"]:
+        return True
+    return False
+
+
+@contextlib.contextmanager
+def capture_bgp_packages_to_file(duthost, iface, save_path, ns):
+    """Capture bgp packets to file."""
+    if iface == "any":
+        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+        # defaults to writing in that format when listening on any interface. Therefore,
+        # have it use LINUX_SLL (Linux cooked) instead.
+        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    else:
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
+    stop_pcap = "sudo pkill -f '%s%s'" % (
+        duthost.asic_instance_from_namespace(ns).ns_arg,
+        start_pcap,
+    )
+    start_pcap_cmd = "nohup {}{} &".format(
+        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
+    )
+
+    duthost.file(path=save_path, state="absent")
+
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(
+        WAIT_TIMEOUT,
+        5,
+        1,
+        lambda: is_tcpdump_running(duthost, start_pcap),
+    ):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
+    try:
+        yield
+    finally:
+        duthost.shell(stop_pcap, module_ignore_errors=True)
+
+
+def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
+    if log_dir:
+        local_pcap_filename = os.path.join(
+            log_dir, LOCAL_PCAP_FILE_TEMPLATE % request.node.name
+        )
+    else:
+        local_pcap_file = tempfile.NamedTemporaryFile(delete=False)
+        local_pcap_filename = local_pcap_file.name
+    duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
+    duthost.file(path=bgp_pcap, state="absent")
+    return local_pcap_filename
+
+
+def get_tsa_chassisdb_config(duthost):
+    """
+    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def get_sup_cfggen_tsa_value(suphost):
+    """
+    @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def verify_dut_configdb_tsa_value(duthost):
+    """
+    @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_config = list()
+    tsa_enabled = False
+    for asic_index in duthost.get_frontend_asic_ids():
+        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
+        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
+                               format(prefix))['stdout']
+        tsa_config.append(output)
+    if 'true' in tsa_config:
+        tsa_enabled = True
+
+    return tsa_enabled
+
+
+def initial_tsa_check_before_and_after_test(duthosts):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            # Initially make sure both supervisor and line cards are in BGP operational normal state
+            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
+                duthost.shell('TSB')
+                duthost.shell('sudo config save -y')
+                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
+                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+
+    def run_tsb_on_linecard_and_verify(lc):
+        if verify_dut_configdb_tsa_value(lc) is not False or get_tsa_chassisdb_config(lc) != 'false' or \
+                get_traffic_shift_state(lc, cmd='TSC no-stats') != TS_NORMAL:
+            lc.shell('TSB')
+            lc.shell('sudo config save -y')
+            # Ensure that the DUT is not in maintenance already before start of the test
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                          "DUT is not in normal state")
+
+    # Issue TSB on the line card before proceeding further
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for linecard in duthosts.frontend_nodes:
+            executor.submit(run_tsb_on_linecard_and_verify, linecard)

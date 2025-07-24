@@ -80,7 +80,9 @@ class SnappiFanoutManager():
         self.ip_address = '0.0.0.0'
 
         for fanout in list(fanout_data.keys()):
-            self.fanout_list.append(fanout_data[fanout])
+            # only snappi fanout, skip other fanout type(eos, sonic, etc.)
+            if fanout_data[fanout]['device_info']['HwSku'] in ('SNAPPI-tester', 'IXIA-tester'):
+                self.fanout_list.append(fanout_data[fanout])
 
     def __parse_fanout_connections__(self):
         device_conn = self.last_device_connection_details
@@ -94,7 +96,7 @@ class SnappiFanoutManager():
                 format(self.ip_address, fanout_port, peer_port, peer_device, speed)
             retval.append(string)
 
-        return(retval)
+        return (retval)
 
     def get_fanout_device_details(self, device_number):
         """With the help of this function you can select the chassis you want
@@ -145,7 +147,7 @@ class SnappiFanoutManager():
         Returns:
             Details of the chassis connection as dictionary format.
         """
-        return(self.last_device_connection_details)
+        return (self.last_device_connection_details)
 
     def get_chassis_ip(self):
         """This function returns IP address of a particular chassis
@@ -171,6 +173,9 @@ class SnappiFanoutManager():
             (first) chassis remains selected. If you do not specify peer_device,
             this function will return all the ports of the chassis.
 
+            For Breakout ports in single appliance , the ports will be in dotted notation,
+            for example: in links.csv file the numbering will be like Port1.1, Port1.2
+
         Args:
             peer_device (str): hostname of the peer device
 
@@ -180,17 +185,29 @@ class SnappiFanoutManager():
         retval = []
         for port in self.current_snappi_port_list:
             info_list = port.split('/')
-            dict_element = {
-                'ip': info_list[0],
-                'card_id': info_list[1].replace('Card', ''),
-                'port_id': info_list[2].replace('Port', ''),
-                'peer_port': info_list[3],
-                'peer_device': info_list[4],
-                'speed': info_list[5]
-            }
+            if 'Card' in port:
+                dict_element = {
+                    'ip': info_list[0],
+                    'card_id': info_list[1].replace('Card', ''),
+                    'port_id': info_list[2].replace('Port', ''),
+                    'peer_port': info_list[3],
+                    'peer_device': info_list[4],
+                    'speed': info_list[5]
+                }
 
-            if peer_device is None or info_list[4] == peer_device:
-                retval.append(dict_element)
+                if peer_device is None or info_list[4] == peer_device:
+                    retval.append(dict_element)
+            else:
+                dict_element = {
+                    'ip': info_list[0],
+                    'port_id': info_list[1].replace('Port', ''),
+                    'peer_port': info_list[2],
+                    'peer_device': info_list[3],
+                    'speed': info_list[4]
+                }
+
+                if peer_device is None or info_list[3] == peer_device:
+                    retval.append(dict_element)
 
         return retval
 
@@ -214,10 +231,12 @@ def get_snappi_port_location(intf):
     Returns: location in string format. Example: '10.36.78.5;1;2' where
     1 is card_id and 2 is port_id.
     """
-    keys = set(['ip', 'card_id', 'port_id'])
-    pytest_assert(keys.issubset(set(intf.keys())), "intf does not have all the keys")
-
-    return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
+    if 'card_id' in intf.keys():
+        keys = set(['ip', 'card_id', 'port_id'])
+        pytest_assert(keys.issubset(set(intf.keys())), "intf does not have all the keys")
+        return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
+    else:
+        return "{}/{}".format(intf['ip'], intf['port_id'])
 
 
 def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
@@ -308,3 +327,21 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
                   "ARP is not resolved in {} seconds".format(max_attempts * poll_interval_sec))
 
     return attempts
+
+
+def fetch_snappi_flow_metrics(api, flow_names):
+    """
+    Fetches the flow metrics from the corresponding snappi session using the api
+
+    Args:
+    api: snappi api
+    flow_names: list of flow names
+
+    Returns:
+    flow_metrics (obj): list of metrics
+    """
+    request = api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_metrics = api.get_metrics(request).flow_metrics
+
+    return flow_metrics

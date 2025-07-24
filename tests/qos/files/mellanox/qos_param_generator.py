@@ -8,7 +8,7 @@ MELLANOX_QOS_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__
 class QosParamMellanox(object):
     def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile,
                  ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-                 dualTor, src_dut_index, src_asic_index, dst_asic_index, dst_dut_index):
+                 dualTor, src_dut_index, src_asic_index, dst_dut_index, dst_asic_index):
         self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -29,12 +29,17 @@ class QosParamMellanox(object):
                 'cell_size': 192,
                 'headroom_overhead': 47,
                 'private_headroom': 30
+            },
+            'spc5': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
+                'private_headroom': 30
             }
         }
         self.asic_type = asic_type
         self.cell_size = self.asic_param_dic[asic_type]['cell_size']
         self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
-        if speed_cable_len[0:6] == '400000':
+        if self.asic_type == "spc3" and speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
             self.extra_margin = 16
@@ -86,7 +91,7 @@ class QosParamMellanox(object):
             headroom = xon + xoff
             ingress_lossless_size = int(
                 math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 pg_q_alpha = self.ingressLosslessProfile['pg_q_alpha']
                 port_alpha = self.ingressLosslessProfile['port_alpha']
                 pool_size = int(math.ceil(float(self.ingressLosslessProfile['pool_size']) / self.cell_size))
@@ -122,7 +127,7 @@ class QosParamMellanox(object):
             self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
             occupied_buffer = 0
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 for i in range(1, ingress_ports_num_shp):
                     for j in range(pgs_per_port):
                         pg_occupancy = int(math.ceil(
@@ -236,6 +241,11 @@ class QosParamMellanox(object):
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
+        if 'lossy_dscp' in self.egressLossyProfile:
+            lossy_queue['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_pg_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['queue'] = self.egressLossyProfile['lossy_queue']
 
         wm_buf_pool_lossless = self.qos_params_mlnx['wm_buf_pool_lossless']
         wm_buf_pool_lossless['pkts_num_trig_pfc'] = pkts_num_trig_pfc

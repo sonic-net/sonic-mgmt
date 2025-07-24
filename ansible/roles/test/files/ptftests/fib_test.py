@@ -25,7 +25,6 @@ import time
 import json
 import itertools
 import fib
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -39,7 +38,8 @@ from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
 from ptf.testutils import verify_no_packet_any
 
-from collections import Iterable, defaultdict
+from collections.abc import Iterable
+from collections import defaultdict
 
 
 class FibTest(BaseTest):
@@ -118,7 +118,10 @@ class FibTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
-        if self.asic_type == "marvell":
+        # if test_params has skip_src_ports then set it otherwise empty
+        self.skip_src_ports = self.test_params.get('skip_src_ports', [])
+
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
@@ -166,10 +169,15 @@ class FibTest(BaseTest):
         if not self.src_ports:
             self.src_ports = [int(port)
                               for port in self.ptf_test_port_map.keys()]
+        # remove the skip_src_ports
+        if self.skip_src_ports is not None:
+            self.src_ports = [port for port in self.src_ports if port not in self.skip_src_ports]
+            logging.info("Skipping some src ports: new set src_ports: {}".format(self.src_ports))
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
             'single_fib_for_duts', "multiple-fib")
+        self.topo_type = self.test_params.get('topo_type', None)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, dut_fib in enumerate(self.fibs):
@@ -204,15 +212,27 @@ class FibTest(BaseTest):
                          for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list()
                               for next_hop in next_hops]
+            # On FT2 topo, since all the ports are in the next hop list of default route,
+            # we need to skip check if the src_port is in exp_port_list. Otherwise, it will
+            # cause the function to stuck in infinite loop.
+            lt2_default_route = False
+            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
+                if self.switch_type == "chassis-packet":
+                    exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
+                elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
+                    dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
+                    src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
+                    if src_port_dut_index == 0 and dest_port_dut_index == 0:
+                        ptf_non_upstream_ports = []
+                        for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
+                            if ptf_port_info['target_dut'][0] != 0:
+                                ptf_non_upstream_ports.append(ptf_port)
+                        src_port = int(random.choice(ptf_non_upstream_ports))
                 logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(
                     src_port, exp_port_lists, active_dut_indexes))
                 break
@@ -284,7 +304,7 @@ class FibTest(BaseTest):
                 for next_hop in next_hops:
                     # only check balance on a DUT
                     self.check_hit_count_map(
-                        next_hop.get_next_hop(), hit_count_map)
+                        next_hop.get_next_hop(), hit_count_map, src_port)
                     self.balancing_test_count += 1
                 if self.balancing_test_count >= self.balancing_test_number:
                     break
@@ -374,7 +394,7 @@ class FibTest(BaseTest):
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports)
+                self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -469,7 +489,7 @@ class FibTest(BaseTest):
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports)
+                self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -508,7 +528,34 @@ class FibTest(BaseTest):
         percentage = (actual - expected) / float(expected)
         return (percentage, abs(percentage) <= self.balancing_range)
 
-    def check_hit_count_map(self, dest_port_list, port_hit_cnt):
+    def check_same_asic(self, src_port, exp_port_list):
+        updated_exp_port_list = list()
+        for port in exp_port_list:
+            if type(port) == list:
+                per_port_list = list()
+                for per_port in port:
+                    if self.ptf_test_port_map[str(per_port)]['target_dut'] \
+                            != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                        return exp_port_list
+                    else:
+                        if self.ptf_test_port_map[str(per_port)]['asic_idx'] \
+                                == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                            per_port_list.append(per_port)
+                if per_port_list:
+                    updated_exp_port_list.append(per_port_list)
+            else:
+                if self.ptf_test_port_map[str(port)]['target_dut'] \
+                        != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                    return exp_port_list
+                else:
+                    if self.ptf_test_port_map[str(port)]['asic_idx'] \
+                            == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                        updated_exp_port_list.append(port)
+        if updated_exp_port_list:
+            exp_port_list = updated_exp_port_list
+        return exp_port_list
+
+    def check_hit_count_map(self, dest_port_list, port_hit_cnt, src_port):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
@@ -518,6 +565,9 @@ class FibTest(BaseTest):
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" %
                      ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
+
+        if self.switch_type == "chassis-packet":
+            dest_port_list = self.check_same_asic(src_port, dest_port_list)
 
         asic_list = defaultdict(list)
         if self.switch_type == "voq":

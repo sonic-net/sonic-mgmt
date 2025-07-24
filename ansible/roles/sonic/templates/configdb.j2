@@ -1,5 +1,20 @@
 {% set host = configuration[hostname] %}
 {
+{% set lag_member_count = dict() %}
+    "PORTCHANNEL_MEMBER": {
+{% set separator = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if iface['lacp'] is defined %}
+{{ separator() }}
+{% if iface['lacp'] in lag_member_count %}
+{% set _dummy = lag_member_count.update({ iface['lacp']: lag_member_count[iface['lacp']] + 1 }) %}
+{% else %}
+{% set _dummy = lag_member_count.update({ iface['lacp']: 1 }) %}
+{% endif %}
+        "PortChannel{{ iface['lacp'] }}|{{ name }}": {}
+{% endif %}
+{% endfor %}
+    },
     "PORTCHANNEL": {
 {% set separator = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
@@ -7,6 +22,7 @@
 {{ separator() }}
         "{{ name | replace("-", "") }}": {
             "admin_status": "up",
+            "min_links": {{ (lag_member_count[name | replace("Port-Channel", "") | int] * 0.75) | round(0, 'ceil') | int }},
             "mtu": "9100"
         }
 {% endif %}
@@ -108,9 +124,8 @@
         }
 {% endfor %}
     },
-{% set separator = joiner(",") %}
-{% set first_in_loop = true %}
     "PORTCHANNEL_INTERFACE": {
+{% set separator = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Port-Channel') %}
 {{ separator() }}
@@ -126,18 +141,8 @@
 {% endif %}
 {% endfor %}
     },
-{% set separator = joiner(",") %}
-    "PORTCHANNEL_MEMBER": {
-{% for name, iface in host['interfaces'].items() %}
-{% if iface['lacp'] is defined %}
-{{ separator() }}
-{% set index = name | replace("Ethernet", "") | int - 1 %}
-        "PortChannel{{ iface['lacp'] }}|{{ name }}": {}
-{% endif %}
-{% endfor %}
-    },
-{% set separator = joiner(",") %}
     "LOOPBACK_INTERFACE": {
+{% set separator = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Loopback') %}
 {{ separator() }}

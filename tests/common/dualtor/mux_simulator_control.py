@@ -1,14 +1,19 @@
+import inspect
 import logging
 import pytest
 import time
 import json
 import uuid
+import warnings
 
 import requests
+from requests.packages.urllib3.util import Retry
+from requests.adapters import HTTPAdapter
+from requests import Session
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
-from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                             # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config                             # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, \
@@ -17,6 +22,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 __all__ = [
     'mux_server_info',
     'restart_mux_simulator',
+    'restart_mux_simulator_session',
     'mux_server_url',
     'url',
     'get_mux_status',
@@ -68,8 +74,14 @@ def mux_server_info(request, tbinfo):
     return None, None, None
 
 
+def _restart_mux_simulator(vmhost, vmset_name, ip, port):
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)
+
+
 @pytest.fixture(scope='session', autouse=True)
-def restart_mux_simulator(mux_server_info, vmhost):
+def restart_mux_simulator_session(mux_server_info, vmhost):
     """Session level fixture restart mux simulator server
 
     For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
@@ -82,9 +94,13 @@ def restart_mux_simulator(mux_server_info, vmhost):
         vmhost (obj): The test server object.
     """
     ip, port, vmset_name = mux_server_info
-    if ip is not None and port is not None and vmset_name is not None:
-        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
-        time.sleep(5)  # Wait for the mux simulator to initialize
+    _restart_mux_simulator(vmhost, vmset_name, ip, port)
+
+
+@pytest.fixture(scope="module")
+def restart_mux_simulator(mux_server_info, vmhost):
+    ip, port, vmset_name = mux_server_info
+    return lambda: _restart_mux_simulator(vmhost, vmset_name, ip, port)
 
 
 @pytest.fixture(scope='session')
@@ -153,9 +169,9 @@ def _get(server_url):
         if resp.status_code == 200:
             return resp.json()
         else:
-            logger.warn("GET {} failed with {}".format(server_url, resp.text))
+            logger.warning("GET {} failed with {}".format(server_url, resp.text))
     except Exception as e:
-        logger.warn("GET {} failed with {}".format(server_url, repr(e)))
+        logger.warning("GET {} failed with {}".format(server_url, repr(e)))
 
     return None
 
@@ -171,14 +187,25 @@ def _post(server_url, data):
         True if succeed. False otherwise
     """
     try:
+        session = Session()
+        if "allowed_methods" in inspect.signature(Retry).parameters:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          allowed_methods=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+        else:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          method_whitelist=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+
+        session.mount('http://', HTTPAdapter(max_retries=retry))
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = requests.post(server_url, json=data, headers=headers, timeout=10)
+        resp = session.post(server_url, json=data, headers=headers, timeout=(3.5, 30))
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
-        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+        logger.warning("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
 
     return False
 
@@ -217,14 +244,19 @@ def set_drop_all(url, recover_directions_all):
     A helper function is returned to make fixture accept arguments
     """
     def _set_drop_all(directions):
+        nonlocal is_dropped
         server_url = url(action=DROP)
         data = {"out_sides": directions}
         logger.info("Dropping all packets to {}".format(directions))
         pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+        is_dropped = True
+
+    is_dropped = False
 
     yield _set_drop_all
 
-    recover_directions_all()
+    if is_dropped:
+        recover_directions_all()
 
 
 @pytest.fixture(scope='function')
@@ -401,33 +433,90 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
     return _get_active_torhost
 
 
-def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
+def _toggle_all_simulator_ports(mux_server_url, side, tbinfo, retries=1):
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
+    toggle_success = False
+    for retry in range(retries):
+        logger.info("Retry=%d, toggle all mux cables to %s side", retry + 1, side)
+        toggle_success = _post(mux_server_url, data)
+        if toggle_success:
+            break
+    pytest_assert(toggle_success, "Failed to toggle all ports to '{}'".format(side))
 
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url, tbinfo):
+def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
     """
     A module level fixture to toggle all ports to specified side.
     """
-    def _toggle(side):
-        _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
+
+    def _check_toggle_and_probe(duthosts, active_side):
+        """Check if toggle success and probe those inconsistent mux ports if any."""
+        if active_side == UPPER_TOR:
+            active_duthost, standby_duthost = duthosts[0], duthosts[1]
+        elif active_side == LOWER_TOR:
+            standby_duthost, active_duthost = duthosts[0], duthosts[1]
+        else:
+            raise ValueError("Unsupported side %s" % active_side)
+
+        standby_ports_on_active_side = _get_mux_ports(active_duthost, exclude_status="active")
+        active_ports_on_standby_side = _get_mux_ports(standby_duthost, exclude_status="standby")
+        logging.debug("standby mux ports on the active side %s:\n%s",
+                      active_duthost, json.dumps(list(standby_ports_on_active_side.keys())))
+        logging.debug("active mux ports on the standby side %s:\n%s",
+                      standby_duthost, json.dumps(list(active_ports_on_standby_side.keys())))
+        if (not standby_ports_on_active_side) and (not active_ports_on_standby_side):
+            return True
+
+        # probe those inconsistent mux ports
+        _probe_mux_ports([active_duthost], list(standby_ports_on_active_side.keys()))
+        _probe_mux_ports([standby_duthost], list(active_ports_on_standby_side.keys()))
+        return False
+
+    def _toggle(active_side, retries=0):
+        _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+        if retries <= 0:
+            return
+
+        time.sleep(10)
+        if _check_toggle_and_probe(duthosts, active_side):
+            return
+
+        for retry in range(retries):
+            logging.info("Retry=%d, toggle all mux cables to %s", retry + 1, active_side)
+            _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+            time.sleep(10)
+            if _check_toggle_and_probe(duthosts, active_side):
+                return
+
+        pytest_assert(utilities.wait_until(120, 10, 0, _check_toggle_and_probe, duthosts, active_side),
+                      "Failed to toggle all mux cables to %s" % active_side)
+
     return _toggle
 
 
+def restart_linkmgrd(duthosts):
+    """Restart linkmgrd on all DUTs."""
+    duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
+def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts,
+                                            mux_server_url, tbinfo, cable_type):    # noqa: F811
     """
     A function level fixture to toggle all active-standby ports to upper_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -435,16 +524,22 @@ def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_
         return
 
     if cable_type == CableType.active_standby:
+        warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                      "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
+        restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
+def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
+                                            mux_server_url, tbinfo, cable_type):    # noqa: F811
     """
     A function level fixture to toggle all active-standby ports to lower_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -452,6 +547,9 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts, mux_
         return
 
     if cable_type == CableType.active_standby:
+        warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                      "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
+        restart_linkmgrd(duthosts)
         _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
 
 
@@ -480,20 +578,25 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
     """Helper function to toggle all ports to active on the target DUT."""
 
     def _check_toggle_done(duthosts, target_dut_hostname, probe=False):
-        duthost = duthosts[target_dut_hostname]
-        inactive_ports = _get_mux_ports(duthost, exclude_status="active")
-        if not inactive_ports:
+        active_duthost = duthosts[target_dut_hostname]
+        standby_duthost = [_ for _ in duthosts if _.hostname != target_dut_hostname][0]
+        inactive_ports = _get_mux_ports(active_duthost, exclude_status="active")
+        not_standby_ports = _get_mux_ports(standby_duthost, exclude_status="standby")
+
+        if not inactive_ports and not not_standby_ports:
             return True
 
         # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
         # the mux probe interval is backed off. Adding a probe here to notify linkmgrd to shorten
         # the wait for linkmgrd's sync with the mux.
         if probe:
-            _probe_mux_ports(duthosts, list(inactive_ports.keys()))
+            probe_ports = set(inactive_ports.keys()) | set(not_standby_ports.keys())
+            _probe_mux_ports(duthosts, probe_ports)
 
-        logger.info(
-            'Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(list(inactive_ports.keys())))
-        )
+        logger.info('Found muxcables not active on {}: {}'.format(
+            active_duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        logger.info('Found muxcables not standby on {}: {}'.format(
+            standby_duthost.hostname, json.dumps(list(not_standby_ports.keys()))))
         return False
 
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))
@@ -511,8 +614,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             data['active_side']
         ))
         _post(mux_server_url, data)
-        time.sleep(5)
-        if _check_toggle_done(duthosts, target_dut_hostname):
+        if utilities.wait_until(15, 5, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
             is_toggle_done = True
             break
 
@@ -530,27 +632,37 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         return
 
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut,
+                                                      mux_server_url, tbinfo,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
 
 
@@ -563,7 +675,11 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
     _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
 
 
@@ -576,6 +692,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed or dualtor testbed without active-standby ports
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
@@ -583,6 +701,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
         logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         yield
         return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
@@ -593,22 +714,31 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
 
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo, active_standby_ports   # noqa: F811
 ):
     """
     A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
@@ -621,10 +751,52 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
+def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
+    duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
+):
+    """
+    A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
+
+    Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
+    After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+
+    NOTE: deprecated toggle utility, please use setup_dualtor_mux_ports.
+    """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        yield
+        return
+
+    warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
+
+    logger.info('Set all muxcable to manual mode on all ToRs')
+    duthosts.shell('config muxcable mode manual all')
+
+    _toggle_all_simulator_ports_to_target_dut(
+        enum_rand_one_per_hwsku_hostname, duthosts, mux_server_url, tbinfo
+    )
+
+    yield
+
+    logger.info('Set all muxcable to auto mode on all ToRs')
+    duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts,
+                                              mux_server_url, tbinfo, mux_config):    # noqa: F811
     """
     A function level fixture to toggle all ports to a random side.
     """
@@ -639,17 +811,17 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
         simulator_mux_status = _get(mux_server_url)
 
         if not upper_tor_mux_status:
-            logging.warn("Failed to retrieve mux status from the upper tor")
+            logging.warning("Failed to retrieve mux status from the upper tor")
             return False
         if not lower_tor_mux_status:
-            logging.warn("Failed to retrieve mux status from the lower tor")
+            logging.warning("Failed to retrieve mux status from the lower tor")
             return False
         if not simulator_mux_status:
-            logging.warn("Failed to retrieve mux status from the mux simulator")
+            logging.warning("Failed to retrieve mux status from the mux simulator")
             return False
 
         if not set(upper_tor_mux_status.keys()) == set(lower_tor_mux_status.keys()):
-            logging.warn("Ports mismatch between the upper tor and lower tor")
+            logging.warning("Ports mismatch between the upper tor and lower tor")
             return False
 
         # get mapping from port indices to mux status
@@ -662,7 +834,7 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
 
             intf_index = port_indices[intf]
             if intf_index not in simulator_port_mux_status:
-                logging.warn("No mux status for interface %s from mux simulator", intf)
+                logging.warning("No mux status for interface %s from mux simulator", intf)
                 return False
 
             simulator_status = simulator_port_mux_status[intf_index]
@@ -675,11 +847,11 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
             if upper_tor_status == 'standby' and lower_tor_status == 'active' \
                     and simulator_status['active_side'] == 'lower_tor':
                 continue
-            logging.warn(
+            logging.warning(
                 "For interface %s, upper tor mux status: %s, lower tor mux status: %s, simulator status: %s",
                 intf, upper_tor_status, lower_tor_status, simulator_status
             )
-            logging.warn("Inconsistent mux status for interface %s", intf)
+            logging.warning("Inconsistent mux status for interface %s", intf)
             inconsistent_intfs.append(intf)
 
         # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
@@ -693,7 +865,7 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
-    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
+    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo, retries=3)
     upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
@@ -728,7 +900,7 @@ def simulator_flap_counter(url):
     def _simulator_flap_counter(interface_name):
         server_url = url(interface_name, FLAP_COUNTER)
         counter = _get(server_url)
-        assert(counter and len(counter) == 1)
+        assert (counter and len(counter) == 1)
         return list(counter.values())[0]
 
     return _simulator_flap_counter
@@ -772,7 +944,7 @@ def simulator_clear_flap_counters(url):
 def reset_simulator_port(url):
 
     def _reset_simulator_port(interface_name=None):
-        logger.warn("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
+        logger.warning("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
         server_url = url(interface_name=interface_name, action=RESET)
         pytest_assert(_post(server_url, {}))
 

@@ -5,31 +5,56 @@ A helper module for PTF tests.
 import pytest
 import random
 import os
+import logging
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
 
+logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope="module")
-def downstream_links(duthost, tbinfo):
+def downstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
     Returns a dictionary of all the links that are downstream from the DUT.
 
     Args:
-        duthost: DUT fixture
+        rand_selected_dut: DUT fixture
         tbinfo: testbed information fixture
+        nbrhosts: neighbor host fixture
     Returns:
         links: Dictionary of links downstream from the DUT
     """
     links = dict()
+    duthost = rand_selected_dut
 
     def filter(interface, neighbor, mg_facts, tbinfo):
-        if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
-                or (tbinfo["topo"]["type"] == "t1" and "T0" in neighbor["name"])):
-            port = mg_facts["minigraph_neighbors"][interface]["port"]
+        port = mg_facts["minigraph_neighbors"][interface]["port"]
+        ptf_port_id = mg_facts["minigraph_ptf_indices"][interface]
+        if tbinfo["topo"]["type"] == "t1" and "T0" in neighbor["name"]:
+            # Search for BGP neighbor information
+            local_ipv4_addr = None
+            peer_ipv4_addr = None
+            for item in mg_facts["minigraph_bgp"]:
+                if item["name"] == neighbor["name"]:
+                    if isinstance(ip_address(item["addr"]), IPv4Address):
+                        # The address of neighbor device
+                        local_ipv4_addr = item["addr"]
+                        # The address of DUT
+                        peer_ipv4_addr = item["peer_addr"]
+                        break
             links[interface] = {
                 "name": neighbor["name"],
-                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
+                "ptf_port_id": ptf_port_id,
+                "local_ipv4_addr": local_ipv4_addr,
+                "peer_ipv4_addr": peer_ipv4_addr,
+                "downstream_port": port,
+                "host": nbrhosts[neighbor["name"]]["host"]
+            }
+        elif tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
+            links[interface] = {
+                "name": neighbor["name"],
+                "ptf_port_id": ptf_port_id,
                 "downstream_port": port
             }
 
@@ -38,22 +63,25 @@ def downstream_links(duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def upstream_links(duthost, tbinfo, nbrhosts):
+def upstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
     Returns a dictionary of all the links that are upstream from the DUT.
 
     Args:
-        duthost: DUT fixture
+        rand_selected_dut: DUT fixture
         tbinfo: testbed information fixture
         nbrhosts: neighbor host fixture
     Returns:
         links: Dictionary of links upstream from the DUT
     """
     links = dict()
+    duthost = rand_selected_dut
 
     def filter(interface, neighbor, mg_facts, tbinfo):
-        if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
+        if ((tbinfo["topo"]["type"] == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"]))
                 or (tbinfo["topo"]["type"] == "t1" and "T2" in neighbor["name"])):
+            local_ipv4_addr = None
+            peer_ipv4_addr = None
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ip_address(item["addr"]), IPv4Address):
@@ -76,6 +104,47 @@ def upstream_links(duthost, tbinfo, nbrhosts):
     return links
 
 
+@pytest.fixture(scope="module")
+def peer_links(rand_selected_dut, tbinfo, nbrhosts):
+    """
+    Returns a dictionary of all the links that are service ports from the DUT.
+
+    Args:
+        rand_selected_dut: DUT fixture
+        tbinfo: testbed information fixture
+        nbrhosts: neighbor host fixture
+    Returns:
+        links: Dictionary of service links from the DUT
+    """
+    links = dict()
+    duthost = rand_selected_dut
+
+    def filter(interface, neighbor, mg_facts, tbinfo):
+        if "PT0" in neighbor["name"]:
+            local_ipv4_addr = None
+            peer_ipv4_addr = None
+            for item in mg_facts["minigraph_bgp"]:
+                if item["name"] == neighbor["name"]:
+                    if isinstance(ip_address(item["addr"]), IPv4Address):
+                        # The address of neighbor device
+                        local_ipv4_addr = item["addr"]
+                        # The address of DUT
+                        peer_ipv4_addr = item["peer_addr"]
+                        break
+            port = mg_facts["minigraph_neighbors"][interface]["port"]
+            links[interface] = {
+                "name": neighbor["name"],
+                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
+                "local_ipv4_addr": local_ipv4_addr,
+                "peer_ipv4_addr": peer_ipv4_addr,
+                "service_port": port,
+                "host": nbrhosts[neighbor["name"]]["host"]
+            }
+
+    find_links(duthost, tbinfo, filter)
+    return links
+
+
 def apply_dscp_cfg_setup(duthost, dscp_mode):
     """
     Applies the DSCP decap configuration to the DUT.
@@ -86,21 +155,26 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
     """
 
     default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
+    logger.info("Current DSCP decap mode: {}".format(default_decap_mode))
 
     if default_decap_mode == dscp_mode:
+        logger.info("Current DSCP decap mode: {} matches required decap mode - no reload required"
+                    .format(default_decap_mode))
         return
 
     for asic_id in duthost.get_frontend_asic_ids():
         swss = "swss{}".format(asic_id if asic_id is not None else '')
-        cmds = [
-            "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 /usr/share/sonic/templates/ipinip.json.j2.tmp"
-            .format(swss),
-            "docker exec {} sed -i 's/{}/{}/g' /usr/share/sonic/templates/ipinip.json.j2 "
-            .format(swss, default_decap_mode, dscp_mode)
-        ]
+        logger.info("DSCP decap mode required to be changed to {} on asic {}".format(dscp_mode, asic_id))
+        cmds = ["docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 ".format(swss) +
+                "/usr/share/sonic/templates/ipinip.json.j2.tmp",
+                "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".
+                format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"]
+        # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2 - this is the command to change
         duthost.shell_cmds(cmds=cmds)
+        logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
-    config_reload(duthost, config_source='minigraph', safe_reload=True)
+    logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def apply_dscp_cfg_teardown(duthost):
@@ -118,15 +192,15 @@ def apply_dscp_cfg_teardown(duthost):
         except Exception:
             continue
         if file_out["rc"] == 0:
-            cmds = [
-                'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp '.format(swss) +
-                '/usr/share/sonic/templates/ipinip.json.j2'
-                ]
+            cmd1 = "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp ".format(swss) + \
+                "/usr/share/sonic/templates/ipinip.json.j2"
             reload_required = True
-            duthost.shell_cmds(cmds=cmds)
+            logger.info("DSCP decap mode required to be changed to default on asic {}".format(asic_id))
+            duthost.shell(cmd1)
 
     if reload_required:
-        config_reload(duthost, config_source='minigraph', safe_reload=True)
+        logger.info("TEARDOWN: Reload required for dscp decap mode changes to take effect.")
+        config_reload(duthost, safe_reload=True)
 
 
 def find_links(duthost, tbinfo, filter):

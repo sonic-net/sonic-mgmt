@@ -1,5 +1,5 @@
 import pytest
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 
 
 @pytest.fixture(scope="module")
@@ -13,7 +13,9 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
     lossless_priorities = list()
-    intf = list(port_qos_map.keys())[0]
+    # Get VLAN members as they are server facing
+    vlan = list(config_facts['VLAN_MEMBER'].keys())[0]
+    intf = list(config_facts['VLAN_MEMBER'][vlan].keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
 
@@ -28,7 +30,8 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
     for prio in lossless_priorities:
         result[prio] = list()
 
-    profile = list(prio_to_tc_map.keys())[0]
+    # Retrieve DSCP_TO_TC_MAP from the downlink port.
+    profile = port_qos_map[intf]['dscp_to_tc_map']
 
     for prio in prio_to_tc_map[profile]:
         tc = prio_to_tc_map[profile][prio]
@@ -40,7 +43,7 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def leaf_fanouts(conn_graph_facts):         # noqa F811
+def leaf_fanouts(conn_graph_facts):         # noqa: F811
     """
     @summary: Fixture for getting the list of leaf fanout switches
     @param conn_graph_facts: Topology connectivity information
