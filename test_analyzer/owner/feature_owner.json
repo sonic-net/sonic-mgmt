@@ -1772,6 +1772,21 @@
         ]
     },
     {
+        "feature": "vrf",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "vrf.test_vrf",
+                    "vrf.test_vrf_attr"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "vxlan",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",

@@ -57,6 +57,7 @@ class KustoConnector(object):
             let prod_branch_name_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}$");
             let prod_os_version_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}\\.\\d{{1,3}}$");
             let ResultFilterList = dynamic(["failure", "error"]);
+            let ResultList = dynamic(["failure", "error", "success"]);
             let ExcludeTestbedList = dynamic({configuration["testbeds"]["excluded_testbed_keywords_setup_error"]});
             let ExcludeBranchList = dynamic({configuration["branch"]["excluded_branch_setup_error"]});
             let ExcludeHwSkuList = dynamic({configuration["hwsku"]["excluded_hwsku"]});
@@ -80,7 +81,7 @@ class KustoConnector(object):
                     )
                 ) or isempty(TestBranch)
         '''.rstrip()
-        self.query_common_condition = self.query_valid_condition + f'''
+        self.query_common_condition = f'''
             | where TestbedName != ''
             | where not(TestbedName has_any(ExcludeTestbedList))
             | where not(HardwareSku has_any(ExcludeHwSkuList))
@@ -171,61 +172,6 @@ class KustoConnector(object):
         logger.info("Query ado:{}".format(query_str))
         return self.ado_query(query_str)
 
-    def query_summary_results(self):
-        """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        """
-        query_str = self.query_head + f'''
-            TestReportUnionData
-            | where PipeStatus == 'FINISHED'
-            | where TestbedName != ''
-            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where Result in (ResultFilterList)
-            | where not(TestbedName has_any(ExcludeTestbedList))
-            | where not (HardwareSku has_any(ExcludeHwSkuList))
-            | where not(TopologyType has_any(ExcludeTopoList))
-            | where not(AsicType has_any(ExcludeAsicList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
-            | where OSVersion has_any(exact_match_os_list) or OSVersion matches regex prod_os_version_prefix_pattern
-            | where Result in (ResultFilterList)
-            | where Summary !in (SummaryWhileList)
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, BranchName, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by BranchName, ModulePath, Summary, Result
-            | project ReproCount, Result, BranchName,ModulePath,Summary)
-                                                            on $left.BranchName == $right.BranchName,
-                                                                $left.ModulePath == $right.ModulePath,
-                                                                $left.Summary == $right.Summary,
-                                                                $left.Result == $right.Result
-                                                                | sort by ReproCount desc
-            | where not(BranchName has_any(ExcludeBranchList))
-            | where BranchName in(exact_match_os_list) or BranchName matches regex prod_branch_name_prefix_pattern
-            | where TestBranch !contains "/"
-            // Extract the version from the branch name, get the first 6 digits
-            | extend BranchVersion = substring(BranchName, 0, 6)
-            | where (
-                    BranchName in ('master', 'internal') and TestBranch == 'internal'
-                ) or (
-                    BranchName !in ('master', 'internal') and (
-                        TestBranch == strcat('internal-', BranchVersion) or
-                        TestBranch == strcat('internal-', BranchVersion, '-chassis') or
-                        TestBranch == strcat('internal-', BranchVersion, '-dev')
-                    )
-                ) or
-                    isempty(TestBranch)
-            | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-            | distinct ModulePath,BranchName,ReproCount, Result,Summary
-            | where ReproCount >= {configuration['threshold']['repro_count_limit_summary']}
-            | sort by ReproCount, ModulePath
-            '''.rstrip()
-
-        logger.info("Query common summary cases:{}".format(query_str))
-        return self.query(query_str)
-
     def query_common_summary_results(self):
         """
         Query common summary failed test cases for the past 7 days
@@ -234,7 +180,7 @@ class KustoConnector(object):
         TestReportUnionData
         | where UploadTimestamp > datetime({self.search_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
         '''.rstrip()
-        query_str += self.query_common_condition + f'''
+        query_str += self.query_valid_condition + self.query_common_condition + f'''
         | where Summary in (SummaryWhileList)
         | project UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType, Summary, BuildId, PipeStatus
         | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, HardwareSku, Asic, AsicType, Topology, TopologyType
@@ -257,6 +203,7 @@ class KustoConnector(object):
         | project BuildId
         | distinct BuildId;
         let dataClean = TestReportUnionData
+        | where Result in (ResultList)
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
         let flakySummary = dataClean
@@ -311,6 +258,7 @@ class KustoConnector(object):
         | project BuildId
         | distinct BuildId;
         let dataClean = TestReportUnionData
+        | where Result in (ResultList)
         | where BuildId in (buildsWithRetry)
         | extend AttemptInt = toint(Attempt);
         let consistentFailures = dataClean
@@ -368,7 +316,6 @@ class KustoConnector(object):
         in case of collecting test cases from unhealthy testbed.
         project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus        """
         common_query_tail = '''
-                | where Result in ("failure", "error", "success")
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
                 | order by UploadTimestamp desc
                 '''.rstrip()
@@ -377,9 +324,10 @@ class KustoConnector(object):
                 TestReportUnionData
                 | where UploadTimestamp > datetime({self.history_start_time}) and UploadTimestamp <= datetime({self.search_end_time})
                 '''.rstrip()
-            common_query_head += self.query_common_condition
+            common_query_head += self.query_valid_condition + self.query_common_condition
             query_str = self.query_head + common_query_head + f'''
                 | where ModulePath == "{module_path}"
+                | where Result in (ResultList)
                 '''.rstrip() + common_query_tail
             logger.info("Query common history results:\n{}".format(query_str))
             return self.query(query_str)
@@ -402,6 +350,7 @@ class KustoConnector(object):
                 | where BuildId in (buildsWithoutRetry)
                 | where Summary !in (SummaryWhileList)
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
+                | where Result in (ResultList)
                 '''.rstrip()
             legacy_query_str += common_query_tail
             logger.info("Query legacy history results:\n{}".format(legacy_query_str))
@@ -425,7 +374,7 @@ class KustoConnector(object):
                 | extend AttemptInt = toint(Attempt)
                 | where Summary !in (SummaryWhileList)
                 | where opTestCase == "{testcase_name}" and ModulePath == "{module_path}"
-                | where Result in ("failure", "error", "success")
+                | where Result in (ResultList)
                 | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
                 | order by UploadTimestamp desc
                 '''.rstrip()
