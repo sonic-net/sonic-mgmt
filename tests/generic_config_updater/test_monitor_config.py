@@ -21,6 +21,16 @@ MONITOR_CONFIG_MIRROR_SESSION = "mirror_session_dscp"
 MONITOR_CONFIG_POLICER = "policer_dscp"
 
 
+def is_policer_supported(duthost):
+    """
+    Return True if policer is supported in MIRROR_SESSION creation on this platform, otherwise return False.
+    """
+    platform = duthost.facts.get('platform', '')
+    if platform.startswith("x86_64-arista_7060x6_64pe"):
+        return False
+    return True
+
+
 @pytest.fixture(scope='module')
 def get_valid_acl_ports(cfg_facts):
     """ Get valid acl ports that could be added to ACL table
@@ -119,8 +129,11 @@ def verify_monitor_config(duthost):
     expect_res_success(duthost, policer, [MONITOR_CONFIG_POLICER], [])
 
     mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
-    expect_res_success(duthost, mirror_session, [
-        MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER], [])
+    if is_policer_supported(duthost):
+        expect_res_success(duthost, mirror_session, [
+            MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER], [])
+    else:
+        expect_res_success(duthost, mirror_session, [MONITOR_CONFIG_MIRROR_SESSION], [])
 
 
 def verify_no_monitor_config(duthost):
@@ -145,10 +158,20 @@ def verify_no_monitor_config(duthost):
 def monitor_config_add_config(duthost, get_valid_acl_ports):
     """ Test to add everflow always on config
     """
+
+    mirror_session = {
+        "dscp": "5",
+        "dst_ip": "2.2.2.2",
+        "src_ip": "1.1.1.1",
+        "ttl": "32",
+        "type": "ERSPAN"
+    }
+    if is_policer_supported(duthost):
+        mirror_session["policer"] = MONITOR_CONFIG_POLICER
+
     json_patch = [
         {
             "op": "add",
-            "path": "/ACL_TABLE/{}".format(MONITOR_CONFIG_ACL_TABLE),
             "value": {
                 "policy_desc": "{}".format(MONITOR_CONFIG_ACL_TABLE),
                 "ports": get_valid_acl_ports,
@@ -171,14 +194,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
             "op": "add",
             "path": "/MIRROR_SESSION",
             "value": {
-               "{}".format(MONITOR_CONFIG_MIRROR_SESSION): {
-                    "dscp": "5",
-                    "dst_ip": "2.2.2.2",
-                    "policer": "{}".format(MONITOR_CONFIG_POLICER),
-                    "src_ip": "1.1.1.1",
-                    "ttl": "32",
-                    "type": "ERSPAN"
-               }
+               "{}".format(MONITOR_CONFIG_MIRROR_SESSION): mirror_session
             }
         },
         {
