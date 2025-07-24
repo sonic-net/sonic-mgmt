@@ -4070,9 +4070,9 @@
   auto_recover: 'True'
   comment: jianquanye
 
-- conf-name: tk5-7050-t0-01
-  group-name: 7050-01
-  topo: t0
+- conf-name: tbtk5-dual-t0-7050-1
+  group-name: tk5-7-4
+  topo: dualtor
   ptf_image_name: docker-ptf
   ptf: ptf7-4
   ptf_ip: 10.212.65.94/24
@@ -4081,24 +4081,10 @@
   vm_base: VM77096
   dut:
   - strtk5-7050cx3-01
-  inv_name: strtk5
-  auto_recover: 'True'
-  comment: tk5-7050-t0-01
-
-- conf-name: tk5-7050-t1-01
-  group-name: 7050-02
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: ptf7-5
-  ptf_ip: 10.212.65.95/24
-  ptf_ipv6: 2603:10e2:140:3000::11f/122
-  server: server_tk5_7
-  vm_base: VM77100
-  dut:
   - strtk5-7050cx3-02
   inv_name: strtk5
   auto_recover: 'True'
-  comment: tk5-7050-t1-01
+  comment: tbtk5-dual-t0-7050-1
 
 - conf-name: vms24-t1-8101-02
   group-name: vms24-1
