@@ -49,8 +49,7 @@ APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
-        "local_region_id": LOCAL_REGION_ID,
-        "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP
+        "local_region_id": LOCAL_REGION_ID
     }
 }
 
