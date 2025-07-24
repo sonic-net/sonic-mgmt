@@ -165,10 +165,8 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
 
     passwords = [creds['sonicadmin_password'], sonic_admin_alt_password] + sonic_admin_alt_passwords
 
-    # Simulate disk exhaustion and release space after 60 seconds
+    # Simulate disk exhaustion and release space in finally block
     # Use command 'fallocate' to create large file, it's efficient.
-    # Create a shell script to do the operations like fallocate and remove file,
-    # because when space is full, duthost.command() is not work
 
     # Get available space in /tmp mounted partition, the output of "df /tmp" was like below:
     #   Filesystem     1K-blocks    Used Available Use% Mounted on
@@ -181,11 +179,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
 
     # Setup test.sh and execute
     duthost.shell_cmds(cmds=[
-        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file' > /tmp/test.sh",
-        "echo 'sleep 60' >> /tmp/test.sh",
-        "echo 'sudo rm -f /tmp/huge_dummy_file' >> /tmp/test.sh",
-        "chmod u+x /tmp/test.sh",
-        "nohup /tmp/test.sh >/dev/null 2>&1 &"
+        f"fallocate -l {allocate_kb}K /tmp/huge_dummy_file"
     ], continue_on_fail=False, module_ignore_errors=True)
 
     try:
@@ -205,14 +199,11 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     except Exception:
         raise
     finally:
-        # Wait for disk space release
         # This should be involved in the final block
         # Otherwise, if the try block fails,
         # it will execute other post steps outside the module, but disk space has not released
-        time.sleep(60)
-
-        # Delete test.sh
-        duthost.shell("sudo rm -f /tmp/test.sh")
+        # Delete huge_dummy_file to release disk space
+        duthost.shell("sudo rm -f /tmp/huge_dummy_file")
         # Confirm disk space was released
         df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
         used_after_test = int(df_rst[4].rstrip('%'))
