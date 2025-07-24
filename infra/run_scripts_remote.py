@@ -25,6 +25,8 @@ CICD_LOG_URL = "https://allure.cisco.com/auto/mb/sonic/workspace/sonic-cicd/sani
 SUCCESS_STATUS = "success"
 FAILURE_STATUS = "failure"
 
+from utils import upload_log_files_to_log_server 
+
 class FAILURE_RESONS(str, Enum):
     SIM_BAD_STATE = "sim_bad_state"
     TEST_CASES_FAILED = "test_cases_failed"
@@ -577,7 +579,7 @@ def generate_results_json(run_result, failure_reason):
 
     # List of files to copy into the build directory
     files_to_copy = ["report.html", "test-results.xml.html", "sanity_logs.tar.gz", "sanity_logs", "syslogs", "syslogs.tar.gz"]
-    log_url = upload_log_files(files_to_copy)
+    log_url = upload_log_files_to_log_server(files_to_copy)
 
     sum["log_tarball_link"] = log_url
 
@@ -587,43 +589,6 @@ def generate_results_json(run_result, failure_reason):
     sum_f.close()
 
     return sum
-
-def upload_log_files(files_to_copy):
-    print("Current working directory:", os.getcwd())
-
-    user = os.getenv("USER")
-    date_formatted = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    pipeline_type = os.getenv("PIPELINE_TYPE", "manual_sanity")
-    build_id = os.getenv("BUILD_ID", f"{user}_{date_formatted}")
-    report_repo = os.getenv("REPORT_REPO", f"{CICD_LOG_DIR}/{pipeline_type}")
-
-    # Create the build directory within the 'infra' directory
-    os.makedirs(build_id, exist_ok=True)
-
-    uploaded_files = []
-
-    # Copy each file from 'infra' to the build directory
-    for file_name in files_to_copy:
-        if os.path.exists(file_name):
-            if os.path.isdir(file_name):
-                dest = os.path.join(build_id, os.path.basename(file_name))
-                shutil.copytree(file_name, dest, dirs_exist_ok=True)
-            else:
-                shutil.copy(file_name, build_id)
-            uploaded_files.append(file_name)
-        else:
-            print(f"Warning: {file_name} does not exist and was not copied.")
-
-    # Copy the build directory to the report repository
-    dest_dir = os.path.join(report_repo, build_id)
-    try:
-        shutil.copytree(build_id, dest_dir, dirs_exist_ok=True)
-        log_url = f"{CICD_LOG_URL}/{pipeline_type}/{build_id}"
-        print(f"uploaded files {uploaded_files} to url: {log_url}")
-        return log_url
-    except Exception as e:
-        print(f"Error copying build directory to report repo: {e}")
-        return None
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
             sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, add_sim_patches=False, test_tag=None):

@@ -13,7 +13,7 @@ from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, dut_user
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
     dut_alt_password, dut_alt_username, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
     scpUtil, sonic_prompt, getDockerExecCommand, checkForMGFailures, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
-    default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability
+    default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, channelConnection
 
 UNSET_PROXY = "unset https_proxy http_proxy HTTPS_PROXY HTTP_PROXY"
 DEFAULT_DOCKER_COUNT = 13
@@ -777,24 +777,6 @@ def read_stream(stream, name):
     for line in iter(stream.readline, b''):
         log.debug(f"{name}: {line.strip()}")
 
-def channelConnection(bastion_client, target_host, target_user, target_key):
-    log.debug(f"channel connection into {target_host}")
-    try:
-        # Create a transport for the target host
-        tp = bastion_client.get_transport()
-        sock_channel = tp.open_channel("direct-tcpip", (target_host, 22), ("localhost", 0))
-        log.debug("Channel created")
-        # Connect to the target host through the bastion
-        paramiko.util.log_to_file('paramiko.log')
-        target_client = paramiko.SSHClient()
-        target_client.load_system_host_keys()
-        target_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        target_client.connect(target_host, username=target_user, password=target_key, sock=sock_channel)
-    except:
-        log.debug("Connection failed :(")
-        return [None, None]
-    return [target_client, sock_channel]
-
 def closeConnections(bastion_client, target_client, sock_channel):
     target_client.close()  # Close target host client
     sock_channel.close()        # Close the transport channel
@@ -820,7 +802,6 @@ def checkforInterfaces(type, arg, index = 0):
         # connection gets lost after loading new image, reconnect
         rc = nested_ssh(arg["ucs_host_name"], arg["ucs_username"], arg["ucs_password"], arg["dut_ssh"][index], dut_username, dut_password, cmd_list, True)
     return rc
-
 
 
 if __name__ == "__main__":

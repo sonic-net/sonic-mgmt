@@ -32,7 +32,7 @@ import re
 import urllib.parse
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
 from jinja2 import Environment, FileSystemLoader
-from run_scripts_remote import run_scripts_remote, upload_log_files, SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
+from run_scripts_remote import run_scripts_remote, upload_log_files_to_log_server, SUCCESS_STATUS, FAILURE_STATUS, FAILURE_RESONS
 
 ##DEBUG is falg to control traces are generated for untaring/listing files that fill out the logs and make the  debugging difficult
 ## use this flag to enable it when it is needed
@@ -1019,7 +1019,7 @@ def generate_results_json(run_result, failure_reason):
 
     # List of files to copy into the build directory
     files_to_copy = [VXR_OUT_TAR_GZ, VXR_OUT]
-    log_url = upload_log_files(files_to_copy)
+    log_url = upload_log_files_to_log_server(files_to_copy)
 
     sum["log_tarball_link"] = log_url
 
@@ -1359,7 +1359,7 @@ def main():
 
     export_sim_cfg_to_file(data, "docker-ptf", device_type, "docker-sonic-mgmt")
     create_vxr_log_tarball(vxr_path)
-    upload_log_files([VXR_OUT, VXR_OUT_TAR_GZ])
+    upload_log_files_to_log_server([VXR_OUT, VXR_OUT_TAR_GZ])
 
     ret = 0
     if run_sanity:

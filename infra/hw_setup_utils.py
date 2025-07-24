@@ -8,10 +8,9 @@ import requests
 import logging
 import paramiko
 import yaml
-from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, copy_logfiles
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
-
 FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga']
 
 def load_json(filepath):
@@ -148,8 +147,11 @@ ucs_m31_images_folder = "/var/www/html/IMAGES"
 ucs_m31_wget = "wget "
 
 WHITEBOX_TOKEN = os.getenv("WHITEBOX_TOKEN")
+PIPELINE_TYPE = os.getenv("PIPELINE_TYPE")
 SONIC_TEST_REPO = "wwwin-github.cisco.com/whitebox/sonic-test"
 TORTUGA_SONIC_TEST_FOLDER = '/home/sonic/cicd2/sonic-test/'
+WORKSPACE = os.getenv("WORKSPACE")
+SANITY_LOGS_PATH = 'sanity_logs'
 
 EMPTY = "{}"
 DELETE_CMD = f"find . -maxdepth 1 -type d -mtime +30 -exec rm -rf {EMPTY} \;"
@@ -345,7 +347,7 @@ def getImageUCS(testbed):
         return
 
 def create_allure_id(build_id, image_id, testbed="none"):
-    return f'ring4-{build_id}-{image_id}-{testbed}'
+    return f'{PIPELINE_TYPE}-{build_id}-{image_id}-{testbed}'
 
 def checkProdImage(stream):
     return "release" in stream
@@ -638,9 +640,9 @@ def collect_spytest_results(testbed, test_suites, image_id, build_id):
     test_suite_type = (test_suites.split("/")[-1]).split(".")[0]
     testbed_type = testbed.split("-")[-1]
     if "hw_type" in testbed_info_dict:
-        image_folder = 'ring4-'+testbed_info_dict["hw_type"]+'-'+image_id+'-'+build_id+'-'+test_suite_type
+        image_folder = PIPELINE_TYPE+'-'+testbed_info_dict["hw_type"]+'-'+image_id+'-'+build_id+'-'+test_suite_type
     else:
-        image_folder = 'ring4'+'-'+image_id+'-'+build_id+'-'+testbed_type
+        image_folder = PIPELINE_TYPE+'-'+image_id+'-'+build_id+'-'+testbed_type
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -686,6 +688,7 @@ def collect_spytest_results(testbed, test_suites, image_id, build_id):
 
 def upload_result(testbed, test_start_time):
     testbed_info_dict = getTestbedInfoDict(testbed)
+    build_id = os.getenv("BUILD_ID")
     hw_type = testbed_info_dict["hw_type"]
     if test_start_time == None:
         return 1, "test_start_time not detected, Summary.txt not available.", None
@@ -783,9 +786,9 @@ def prep_special_run_commands(testbed, test_suites_arg, test_suites, image_id, b
     test_suite_type = (test_suites.split("/")[-1]).split(".")[0]
     testbed_type = testbed.split("-")[-1]
     if "hw_type" in testbed_info_dict:
-        image_folder = 'ring4-'+testbed_info_dict["hw_type"]+'-'+image_id+'-'+build_id+'-'+test_suite_type
+        image_folder = PIPELINE_TYPE+'-'+testbed_info_dict["hw_type"]+'-'+image_id+'-'+build_id+'-'+test_suite_type
     else:
-        image_folder = 'ring4'+'-'+image_id+'-'+build_id+'-'+testbed_type
+        image_folder = PIPELINE_TYPE+'-'+image_id+'-'+build_id+'-'+testbed_type
     cmd_list = list()
     if docker_container == 'True':
         cmd_list.append(docker_exec_cmd)
@@ -999,7 +1002,7 @@ def flushChannel(thread):
             break
     log.debug("flush complete")
 
-def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suites, test_name, skip_folders, skip_tests, remote_file=None):
+def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites, test_name, skip_folders, skip_tests, local_log_dir, remote_file=None):
     testcase_start = datetime.now()
     testcase_start_time = testcase_start.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
@@ -1013,6 +1016,7 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_n
     log.debug(f'skip_folders_list: {skip_folders_list}')
     docker_prompt = testbed_info_dict['docker_prompt']
     allure_id = create_allure_id(build_id, image_id, testbed)
+    run_tests_log_file = ""
 
     if test_suites.startswith("file:"):
         # if test_suites.startswith("file:"):
@@ -1026,11 +1030,10 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_n
             if test.find("#")==0:
                 log.info(f"Test commented {test}")
             else:
-                folder = f"sanity_script_tests_{image_id}_{build_id}"
                 log_file_base = test.replace("/", "_").replace(".py", "")
-                log_file = f"run_test_{log_file_base}_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
-                run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -e -rapP -e --alluredir={allure_directory} -u -e -s -c {test} -p /run_logs/{folder} > {log_file} 2>&1 &"
-                log.info(f'To check logs of the tests, go to vxr@SONiC:/run_logs/{folder}')
+                run_tests_log_file = f"run_test_{log_file_base}_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
+                run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -e -rapP -e --alluredir={allure_directory} -u -e -s -c {test} -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
+                log.info(f'To check logs of the tests, go to vxr@SONiC:{dut_log_dir}')
                 stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)
                 log.debug(f"{run_cmd} output:\n{stdout}")
                 # Check for known failure patterns in stdout/stderr
@@ -1045,11 +1048,12 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_n
                 time.sleep(20)
         return None
     else:
-        folder = f'{image_id}_jenkins_nightly_logs_{build_id}_{test_suites}'  
+        
         dut_flag = "" if "skip_dut_flag" in testbed_info_dict else f" -d {t2} "
         if test_suites == "All":
             extra_params = testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else ""
-            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p /run_logs/{folder} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" > run_all_tests_{datetime.now().strftime('%Y%m%d%H%M%S')}.log 2>&1 &"
+            run_tests_log_file = f"run_all_tests_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p {dut_log_dir} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" > {run_tests_log_file} 2>&1 &"
         else:
             extra_params = "-O -e --disable_loganalyzer -e --qos_swap_syncd=False" if test_suites=="qos" else ""
             extra_params = extra_params+" "+testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else extra_params
@@ -1062,18 +1066,18 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_n
             # Format the datetime object as a string
             formatted_time = now.strftime("%Y%m%d%H%M%S")
             test_name_output = test_name.replace("/","_").replace(".py","")
-            folder = folder.replace("/","_").replace(".py","")
-            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p /run_logs/{folder} > run_test_{test_name_output}_{formatted_time}.log 2>&1 &"
+            run_tests_log_file = f"run_test_{test_name_output}_{formatted_time}.log"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
     
-    log.debug(f'To check logs of the tests, go to ucs:/run_logs/{folder}')
+    log.debug(f'To check logs of the tests, go to ucs:{dut_log_dir}')
     stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)
     log.debug(f"{run_cmd} output:\n{stdout}")
     time.sleep(30)
     combined_output = stdout + stderr
     if test_suites == "All":
-        exp_str = f'generated xml file: /run_logs/{folder}/wan/traffic_test/'
+        exp_str = f'generated xml file: {dut_log_dir}/wan/traffic_test/'
     else:
-        exp_str = f'generated xml file: /run_logs/{folder}'
+        exp_str = f'generated xml file: {dut_log_dir}'
     
     rc = pollingRuns(testbed_info_dict, test_suites)
     if rc!=0:
@@ -1090,16 +1094,19 @@ def runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_n
         time.sleep(60)
     else:
         log.debug("No expect string match found!")
-    time.sleep(60)
+    # time.sleep(60)
     now = datetime.now()
     testcase_end_time = now.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
     log.debug(f'Testcase - {test_name} end time {testcase_end_time}')
     log.debug(f'Time elapsed - {now-testcase_start}')
     output = f'Testcase - {test_name}'+'\n'+f'start time - {testcase_start_time}'+'\n'+f'end time - {testcase_end_time}'+'\n'+f'Time elapsed - {now-testcase_start}'+'\n'
+
+    rc = copy_logfiles(client, container_name, run_tests_log_file, local_log_dir)
+
     if remote_file:
         remote_file.write(output)
-    return 0
+    return rc
 
 def removeImageDir(thread, cmd, image, password):
     thread.sendline(f"cd ..")
@@ -1179,3 +1186,117 @@ def extractFromImageName(image_name):
         image_id = parts[IMAGE_INDEX]
     
     return [image, image_id, stream]
+
+def run_exec_cmds(thread, cmd_list):
+    for cmd in cmd_list:
+        stdin, stdout, stderr = thread.exec_command(cmd)
+        stdout.channel.recv_exit_status()
+        try:
+            out = stdout.read().decode("ascii").strip()
+            error = stderr.read()
+            log.debug(out)
+            if error:
+                log.error('There was an error pulling the runtime: {}'.format(error))
+        except:
+            log.debug("Problem decoding output of ssh command")
+    return thread
+
+def getTechSupport(client, local_log_dir):
+    log.debug("Entered getTechSupport")
+    
+    try:
+        cmd_list = list()
+        cmd_list.append("pwd")
+        cmd_list.append("show techsupport")
+        client = run_exec_cmds(client, cmd_list)
+        file_path = copy_techsupport(client, local_log_dir)
+        log.debug(f"file_path: {file_path}")
+
+        return 0
+    
+    except Exception as e:
+        print(f"An error occurred in getTechSupport: {e}")
+        return -1
+        
+    
+def copy_techsupport(ssh, local_log_dir):
+    log.debug("Entered copy_techsupport")
+
+    ts_dir='/var/dump'
+
+    try:
+        # Open an SFTP session
+        sftp = ssh.open_sftp()
+
+        # List all files in the remote directory
+        # files = sftp.listdir_attr(ts_dir)
+        files = [(f.filename, f) for f in sftp.listdir_attr(ts_dir)]
+
+        if not files:
+            print("No files found in the directory.")
+            return None
+
+        log.debug(f"file_list: {files}")
+        # Find the latest file by modification time
+        latest_file = max(files, key=lambda x: x[1].st_mtime)[0]
+        log.debug(f"Latest file: {latest_file}")
+        # latest_file = max(files, key=lambda x: x.st_mtime)
+        latest_file_path = os.path.join(ts_dir, latest_file)
+        log.debug(latest_file_path)
+        remote_path = f'{local_log_dir}/{latest_file}'
+        sftp.get(latest_file_path, remote_path)
+
+        # Close the SFTP session and SSH connection
+        sftp.close()
+
+        return latest_file
+
+    except Exception as e:
+        print(f"An error occurred in copy_techsupport: {e}")
+        return None
+
+def channelConnection(bastion_client, target_host, target_user, target_key):
+    log.debug(f"channel connection into {target_host}")
+    log.debug(f"{target_host}, {target_user}")
+    try:
+        # Create a transport for the target host
+        tp = bastion_client.get_transport()
+        sock_channel = tp.open_channel("direct-tcpip", (target_host, 22), ("localhost", 0))
+        log.debug("Channel created")
+        # Connect to the target host through the bastion
+        paramiko.util.log_to_file('paramiko.log')
+        target_client = paramiko.SSHClient()
+        target_client.load_system_host_keys()
+        target_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        target_client.connect(target_host, username=target_user, password=target_key, sock=sock_channel)
+    except:
+        log.debug("Connection failed :(")
+        return [None, None]
+    return [target_client, sock_channel]    
+
+def nested_ssh_connection(bastion_host, bastion_user, bastion_key, target_host, target_user, target_key, retry):
+    # Connect to the bastion host
+    bastion_client = paramiko.SSHClient()
+    bastion_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    bastion_client.connect(bastion_host, username=bastion_user, password=bastion_key)
+    log.debug("First ssh done")
+    [target_client, sock_channel] = channelConnection(bastion_client, target_host, target_user, target_key)
+    log.debug(f"target_client: {target_client}")
+    if target_client == None and retry==True:
+        log.debug("Entered retry loop")
+        retries = MAX_RETRIES
+        while target_client == None and retries!=0:    
+            log.debug("target_client is None, retry after timeout")
+            time.sleep(100)
+            [target_client, sock_channel] = channelConnection(bastion_client, target_host, target_user, target_key)
+            log.debug(target_client)
+            retries = retries-1
+        if retries==0:
+            log.error("Reached max retries, Second ssh failed!")
+            return -1
+    elif target_client == None:
+        log.error("Second ssh failed!")
+        return -1
+    log.debug("Second ssh done. Execute commands...")
+
+    return [target_client, bastion_client]

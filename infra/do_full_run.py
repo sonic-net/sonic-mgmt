@@ -10,8 +10,9 @@ import json
 import paramiko
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
-    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName
-from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container
+    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName, getTechSupport, \
+    nested_ssh_connection, dut_username, dut_password, WORKSPACE, SANITY_LOGS_PATH
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_to_log_server, create_sanity_log_tarball, SANITY_LOG_TARBALL, print_folder_contents
 
 # Parse config file
 allure_config = {}
@@ -117,6 +118,9 @@ def run_test(args):
     testbed_info_dict = getTestbedInfoDict(testbed)
     local_ucs = testbed_info_dict['ucs_host_name']
 
+    local_log_dir = os.path.join(WORKSPACE, 'sanity/infra/', SANITY_LOGS_PATH)
+    os.makedirs(local_log_dir, exist_ok=True)
+
     ucs_ssh = testbed_info_dict["ucs_username"]+"@"+testbed_info_dict['ucs_host_name']
     container_name = getSonicMgmtContainterName(stream, testbed)
     docker_exec_cmd = getDockerExecCommand(stream, testbed)
@@ -189,13 +193,16 @@ def run_test(args):
     if rerun == False or rerun == "false":
         stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, f"cd {allure_directory} && rm -rf *")
 
+    dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suites_arg}'
     if testfile and test_tag:
         sftp = client.open_sftp()
         remote_file_path = f"/home/sonic/ring3-time-{build_id}.txt"
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suite, test_suite, skip_folders, skip_tests, remote_file)
+                test_suite_name = test_suite.replace("/","_").replace(".py","")
+                dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suite_name}'
+                exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
                     client.close()
@@ -211,19 +218,36 @@ def run_test(args):
     elif test_suites_arg and "," in test_suites_arg:
         test_suites_array = test_suites_arg.split(",")
         for test_suite in test_suites_array:
-            exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suite, test_suite, skip_folders, skip_tests)
+            dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suite}'
+            exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir)
             if exit_code!=0:
                 time.sleep(30)
                 client.close()
                 return exit_code
     elif test_suites_arg:
-        exit_code = runIndividualTests(image_id, build_id, testbed, ucs_ssh, client, container_name, test_suites_arg, test_suites_arg, skip_folders, skip_tests)
+        exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites_arg, test_suites_arg, skip_folders, skip_tests, local_log_dir)
     else:
         log.error(f"No tests found! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
         return -1
     log.debug("Timeout for 2 minutes to let the run finish")
     time.sleep(120)
     client.close()
+
+    for dut in testbed_info_dict['dut_ssh']:
+        log.debug(f"Collect show tech logs for dut: {dut}")
+        target_client, bastion_client = nested_ssh_connection(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], dut, dut_username, dut_password, True)
+        rc = getTechSupport(target_client, local_log_dir)
+        if rc!=0:
+            log.error(f"Tech support failure")
+            return rc
+        target_client.close()
+        bastion_client.close()
+
+    # Bundle the log files into one location
+    os.chdir(local_log_dir)
+    log.debug("Bundle the log files into one location")
+    create_sanity_log_tarball(local_log_dir)
+    print_folder_contents(local_log_dir)
     return exit_code
 
 def collect_results(args):
@@ -320,7 +344,10 @@ def collect_results(args):
             result["status"] = FAILURE_STATUS
             result["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
             rc = -1
-        
+    files_to_move = [SANITY_LOG_TARBALL]
+    log_url = upload_log_files_to_log_server(files_to_move)
+    log.debug(log_url)
+    result["log_tarball_link"] = log_url
     with open(results_path, "w") as results_file:
         json.dump(result, results_file, indent=2)
     log.info(f"Saved results.json at: {results_path}")
