@@ -136,6 +136,9 @@ connections:
     L0_trex4_1:
       - L0.Ethernet1_12
       - trex4.eth1
+    L0_trex4_2:
+      - L0.Ethernet1_14
+      - trex4.eth2
     L0_LOOP:
       - L0.Ethernet1_16
       - L0.Ethernet1_17
@@ -151,6 +154,9 @@ connections:
     L1_trex7_1:
       - L1.Ethernet1_11
       - trex7.eth1
+    L1_trex7_2:
+      - L1.Ethernet1_14
+      - trex7.eth2
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1

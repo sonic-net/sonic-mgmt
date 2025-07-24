@@ -31,8 +31,6 @@ fi
 
 # Common sub-interfaces and routed port configs for PyVxr setups.
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG is added.
-PYVXR_POLICIES="policy-imp#false#*|true#9999:99"
-PYVXR_POLICIES="${PYVXR_POLICIES},policy-exp#true#*|false#*#9999:99|false#*#4|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
 PYVXR_DHCPS="*"
 PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
@@ -47,11 +45,14 @@ HOST_USER="vxr"
 STP=true
 DHCP=vlan
 LAG=true
-BREAKOUTS="$"
+BGP=true
+BREAKOUT="breakout"
 LOADTEST="*"
 TIMEOUT="15m"
 BULK_MODE=true
 DSCP="no-dscp"
+SUBINFS=2
+VLANS=5
 
 # Test ports.
 STP_PORT1="Ethernet1_16"
@@ -60,7 +61,10 @@ DHCP_PORT="Ethernet1_12"
 SUBINF_PORT="Ethernet1_11"
 LAG_PORT1="Ethernet1_9"
 LAG_PORT2="Ethernet1_13"
-ROUTED_PORT="Ethernet1_32"
+ROUTED_PORT1="Ethernet1_14"
+ROUTED_PORT2="Ethernet1_32"
+VLAN_PORT1="Ethernet1_10"
+VLAN_PORT2="Ethernet1_12"
 
 # Parse command line arguments.
 while :
@@ -100,6 +104,9 @@ do
   -arp-ping)
     TEST_TAGS="${TEST_TAGS},arp-ping"
     shift;;
+  -dup-ok)
+    TEST_TAGS="${TEST_TAGS},dup-ok"
+    shift;;
   -dhcp)
     DHCP="${2}"
     shift; shift;;
@@ -112,11 +119,20 @@ do
   -no-lag)
     LAG=false
     shift;;
+  -no-bgp)
+    BGP=false
+    shift;;
   -vrfs)
     PYVXR_VRFS="${2}"
     shift; shift;;
+  -subinfs)
+    SUBINFS="${2}"
+    shift; shift;;
+  -vlans)
+    VLANS="${2}"
+    shift; shift;;
   -no-breakout)
-    BREAKOUTS="*"
+    BREAKOUT="no-breakout"
     shift;;
   -no-bulk-mode)
     BULK_MODE=false
@@ -132,16 +148,6 @@ do
   -a|-action)
     CGEN_TEST="${2}"
     shift; shift;;
-  -g200)
-    STP_PORT1="Ethernet1_8_2"
-    STP_PORT2="Ethernet1_9_1"
-    DHCP_PORT="Ethernet1_6_2"
-    LAG_PORT1="Ethernet1_5_1"
-    LAG_PORT2="Ethernet1_7_1"
-    ROUTED_PORT="Ethernet1_32_1"
-    SUBINF_PORT="Ethernet1_6_1"
-    BREAKOUTS="*"
-    shift;;
   *)
     shift;;
   esac
@@ -156,58 +162,82 @@ if [[ "${BULK_MODE}" == true ]]; then
 fi
 
 # Add sub-interfaces on hosts connected to the ports specified in SUBINF_PORT.
-PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#2|lo"
+PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#${SUBINFS}|lo"
+
+# Add tagged vlans for host sub-interfaces. In case of a single switch setup,
+# add tagged vlans on the DHCP host port so as to have connected vlan hosts.
+PYVXR_VLANS="Vrf40000|*|${VLAN_PORT1}|eth1#${VLANS}"
+if [[ ${LENGTH} -eq 0 ]]; then
+  PYVXR_VLANS="${PYVXR_VLANS},Vrf40000|*|${VLAN_PORT2}|eth1#${VLANS}"
+fi
 
 # Add a routed port on leaf0 with point-to-point network.
-PYVXR_PORTS="leaf0|${ROUTED_PORT}#41.230.10.1/31#Vrf12000000"
+PYVXR_PORTS="leaf0|${ROUTED_PORT1}#41.230.10.1/31#Vrf40000,leaf0|${ROUTED_PORT2}#41.240.10.1/31#Vrf12000000"
 
 # Add static routes -- one blackhole, one using point-to-point IP and one a normal route.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.230.10.0,Vrf40000|8.8.8.2/32#41.216.0.3#4"
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.240.10.0"
 
-# Add BGP peers. bgp1 uses default policies, and bgp2 uses custom policies.
-PYVXR_BGPPEERS="Vrf12000000|bgp1#4000|41.230.10.0#2000|leaf0#${ROUTED_PORT}"
+# Add BGP peers and BGP policies.
+# Northbound BGP peer is on a routed port using point-to-point connection. Northbound peer uses
+# custom policies. Custom export policy re-writes next-hop to leaf0's Loopback IPs. By default,
+# FRR assigns connected port's IP as next-hop, and that would create traffic failures. Following
+# scripts add IP 41.230.10.0/31 on eth2 of host3.
+PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#GREEN|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
+PYVXR_POLICIES="${PYVXR_POLICIES},import-nb#false#*|true#9999:99"
+PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.230.10.0#2000|leaf0#${ROUTED_PORT1}|export-nb#import-nb"
+
+# Southbound BGP peer is on leaf0 and leaf1, and uses default policies.
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1|41.216.1.0/28#10000#4|leaf0#Loopback10"
 if [[ ${LENGTH} -gt 1 ]]; then
-  PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|bgp2#4000|41.216.0.5#3000|leaf1#Loopback10|policy-exp#policy-imp"
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf1#Loopback10"
 fi
+
+# Clear BGP config if not needed.
+if [[ "${BGP}" == false ]]; then
+  PYVXR_POLICIES="*"
+  PYVXR_BGPPEERS="*"
+fi
+
+# Add static routes for Vrf400000
+PYVXR_IPS="7.7.7.1"
+PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#GREEN|8.8.8.3/32#41.216.0.3#RED|7.7.7.1/32#41.216.0.2#BLUE"
 
 # Add PortChannels for single switch setup.
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
-PYVXR_IPS="7.7.7.1"
-PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.1/32#41.216.0.2#3"
 
 # Add PortChannels for two leaves fabric.
 if [[ ${LENGTH} -eq 1 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.2"
-  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#BLUE"
 fi
 
-# Add PortChannels for three leaves fabric: MLAG on first and second leaves, and LAG on third leaf.
+# Add PortChannels for three leaf fabric: MLAG on first and second leaves, and LAG on third leaf.
 if [[ ${LENGTH} -gt 1 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.2#7.7.7.3"
-  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#3|7.7.7.3/32#41.216.0.4#3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#BLUE|7.7.7.3/32#41.216.0.4#BLUE"
 fi
 
-# Add PortChannels for six leaves fabric: MLAG on fourth and fifth leaves, and LAG on sixth leaf.
+# Add PortChannels for six leaf fabric: MLAG on fourth and fifth leaves, and LAG on sixth leaf.
 if [[ ${LENGTH} -gt 3 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel30|leaf3:${LAG_PORT1}#leaf4:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel40|leaf4:${LAG_PORT1}#leaf3:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel50|leaf5:${LAG_PORT1}#leaf5:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.4#7.7.7.5#7.7.7.6"
-  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.4/32#41.216.0.5#3|7.7.7.5/32#41.216.0.6#3|7.7.7.6/32#41.216.0.7#3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.4/32#41.216.0.5#BLUE|7.7.7.5/32#41.216.0.6#3|7.7.7.6/32#41.216.0.7#BLUE"
 fi
 
-# Add PortChannels for nine leaves fabric: MLAG on seventh and eighth leaves, and LAG on nineth leaf.
+# Add PortChannels for nine leaf fabric: MLAG on seventh and eighth leaves, and LAG on nineth leaf.
 if [[ ${LENGTH} -gt 6 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel60|leaf6:${LAG_PORT1}#leaf7:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel70|leaf7:${LAG_PORT1}#leaf6:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel80|leaf8:${LAG_PORT1}#leaf8:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.7#7.7.7.8#7.7.7.9"
-  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.7/32#41.216.0.8#3|7.7.7.8/32#41.216.0.9#3|7.7.7.9/32#41.216.0.10#3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.7/32#41.216.0.8#BLUE|7.7.7.8/32#41.216.0.9#3|7.7.7.9/32#41.216.0.10#BLUE"
 fi
 
 PYVXR_IPS="Vrf40000|${PYVXR_IPS}|10"
@@ -253,12 +283,7 @@ if [[ "${LAG}" == false ]]; then
   PYVXR_CHANNELS="*"
 fi
 
-TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP}"
-if [[ "${BREAKOUTS}" == "$" ]]; then
-  TEST_TAGS="${TEST_TAGS},breakout"
-else
-  TEST_TAGS="${TEST_TAGS},no-breakout"
-fi
+TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP},${BREAKOUT}"
 
 function run_pyvxr() {
   "${CONFIG_GEN}" \
@@ -281,6 +306,7 @@ function run_pyvxr() {
     --bgpPeers "${PYVXR_BGPPEERS}" \
     --bgpPolicies "${PYVXR_POLICIES}" \
     --subInterfaces "${PYVXR_SUBINFS}" \
+    --hostVlans "${PYVXR_VLANS}" \
     --portChannels "${PYVXR_CHANNELS}" \
     --vrfs "${PYVXR_VRFS}" \
     --vlanStp "${PYVXR_STPS}" \
@@ -304,4 +330,3 @@ stm=$((end-START_TIME))
 echo
 echo "Completed in ${stm}s"
 echo
-

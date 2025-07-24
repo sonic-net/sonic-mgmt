@@ -21,9 +21,9 @@ devices:
     linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
-          file: /auto/vxr/images/linux/ubuntu22.qcow2.old
+          file: /auto/vxr1/sonic-images/yadeng/ubuntu22.qcow2
           type: reference
-    memory: 2GB
+    memory: 4GB
     platform: linux
     vcpu: 1
     xr_port_redir:
@@ -132,6 +132,9 @@ connections:
     L0_trex4_1:
       - L0.Ethernet1_12
       - trex4.eth1
+    L0_trex4_2:
+      - L0.Ethernet1_14
+      - trex4.eth2
     L1_trex5_1:
       - L1.Ethernet1_9
       - trex5.eth1
@@ -144,6 +147,9 @@ connections:
     L1_trex7_1:
       - L1.Ethernet1_11
       - trex7.eth1
+    L1_trex7_2:
+      - L1.Ethernet1_14
+      - trex7.eth2
     L2_trex8_1:
       - L2.Ethernet1_9
       - trex8.eth1
@@ -156,6 +162,9 @@ connections:
     L2_trex10_1:
       - L2.Ethernet1_11
       - trex10.eth1
+    L2_trex10_2:
+      - L2.Ethernet1_14
+      - trex10.eth2
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1

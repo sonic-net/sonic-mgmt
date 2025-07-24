@@ -103,6 +103,9 @@ connections:
     N1_trex4_1:
       - N1.Ethernet1_12
       - trex4.eth1
+    N1_trex4_2:
+      - N1.Ethernet1_14
+      - trex4.eth2
     N1_LOOP:
       - N1.Ethernet1_16
       - N1.Ethernet1_17
