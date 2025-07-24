@@ -792,6 +792,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
+    if tbinfo['topo']['name'].startswith("nut-"):
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -937,13 +939,18 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa: F811
+def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
     """
 
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
+
+    if tbinfo['topo']['name'].startswith('nut-'):
+        # Nut topology has no fanout
+        return fanout_hosts
+
     # WA for virtual testbed which has no fanout
     for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
