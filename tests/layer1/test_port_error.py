@@ -6,7 +6,6 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
-from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -29,8 +28,6 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if not check_sc_sai_attribute_value(duthost):
-            pytest.skip("SW control feature is not enabled")
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
@@ -50,7 +47,6 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
-    # TODO: Reboot the switch before test as a WA of #22205, remove this after the issue is fixed
     @pytest.fixture(scope="class", autouse=True)
     def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname):
         from tests.common.reboot import reboot
