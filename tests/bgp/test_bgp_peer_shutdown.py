@@ -51,10 +51,10 @@ def common_setup_teardown(
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
     elif dut_type == "UpperSpineRouter":
-        neigh_type = "SpineRouter"
+        neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
     logging.info(
