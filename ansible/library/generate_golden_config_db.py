@@ -483,9 +483,6 @@ class GenerateGoldenConfigDBModule(object):
                 }
             })
 
-        # enable orch_northbond_route_zmq_enabled feature
-        config = self.update_zmq_config(config)
-
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
