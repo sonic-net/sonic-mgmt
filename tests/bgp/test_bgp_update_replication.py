@@ -136,10 +136,10 @@ def setup_bgp_peers(
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
     elif dut_type == "UpperSpineRouter":
-        neigh_type = "SpineRouter"
+        neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
 
