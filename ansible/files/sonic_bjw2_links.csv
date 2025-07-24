@@ -3707,7 +3707,7 @@ bjw2-can-8101c1-4,Ethernet80,bjw2-can-8101-leaf-9,Ethernet80,400000,4033,Access,
 bjw2-can-8101c1-4,Ethernet88,bjw2-can-8101-leaf-9,Ethernet88,400000,4034,Access,Off
 bjw2-can-8101c1-4,Ethernet96,bjw2-can-8101-leaf-9,Ethernet96,400000,4035,Access,Off
 bjw2-can-8101c1-4,Ethernet104,bjw2-can-8101-leaf-9,Ethernet104,400000,4036,Access,Off
-bjw2-can-8101c1-4,Ethernet112,bjw2-can-8101-leaf-9,Ethernet112,400000,4037,Access,Off
+bjw2-can-8101c1-4,Ethernet112,bjw2-can-8101-leaf-4,Ethernet32,400000,4037,Access,Off
 bjw2-can-8101c1-4,Ethernet120,bjw2-can-8101-leaf-9,Ethernet120,400000,4038,Access,Off
 bjw2-can-8101c1-4,Ethernet128,bjw2-can-8101-leaf-9,Ethernet128,400000,4039,Access,Off
 bjw2-can-8101c1-4,Ethernet136,bjw2-can-8101-leaf-9,Ethernet136,400000,4040,Access,Off
@@ -3765,7 +3765,7 @@ bjw2-can-7260-root-1,Ethernet23/3,bjw2-can-720dt-leaf-19,etp49,10000,3727-3774,T
 bjw2-can-7260-root-1,Ethernet23/4,bjw2-can-720dt-leaf-20,etp49,10000,3779-3826,Trunk,off
 bjw2-can-7260-root-1,Ethernet27/1,bjw2-can-8101-leaf-1,Ethernet248,100000,2409-2439,Trunk,off
 bjw2-can-7260-root-1,Ethernet28/1,bjw2-can-8101-leaf-2,Ethernet248,100000,2441-2471,Trunk,off
-bjw2-can-7260-root-1,Ethernet30/1,bjw2-can-8101-leaf-4,Ethernet248,100000,"2440,2472,4021,4085",Trunk,off
+bjw2-can-7260-root-1,Ethernet30/1,bjw2-can-8101-leaf-4,Ethernet248,100000,"2440,2472,4021,4037,4085",Trunk,off
 bjw2-can-7260-root-1,Ethernet33/1,bjw2-can-7260-leaf-17,Ethernet65,10000,2281-2344,Trunk,off
 bjw2-can-7260-root-1,Ethernet33/2,bjw2-can-7260-leaf-18,Ethernet65,10000,2345-2408,Trunk,off
 bjw2-can-7260-root-1,Ethernet34/1,bjw2-can-7260-leaf-5,Ethernet65,10000,1289-1352,Trunk,off
