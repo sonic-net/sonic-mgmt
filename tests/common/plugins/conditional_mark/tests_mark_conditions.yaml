@@ -745,6 +745,10 @@ dualtor/test_switchover_failure.py:
     conditions:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14247
+  xfail:
+    reason: "XFAIL the test on Nvidia platform due to test issue https://github.com/sonic-net/sonic-mgmt/issues/19771."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19771 and asic_type in ['mellanox']"
 
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
