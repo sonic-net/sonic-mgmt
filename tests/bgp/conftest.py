@@ -799,3 +799,34 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope='module', autouse=True)
+def enable_orch_northbond_route_zmq_feature(duthost):
+    # Older version image may not support ZMQ feature flag
+    yang = duthost.shell("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")['stdout']
+    if "orch_northbond_route_zmq_enabled" not in yang:
+        logger.debug('The current SONiC version does not support the orch_northbond_route_zmq_enabled feature flag')
+        yield
+        return
+
+    old_status = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')['stdout']
+    if old_status == "true":
+        logger.debug('The orch_northbond_route_zmq_enabled feature is already enabled.')
+        yield
+        return
+
+    logger.debug('Enable orch_northbond_route_zmq_enabled feature, old status: {}'.format(old_status))
+    duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "true"')
+    duthost.shell('sudo config save -y')
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+    yield
+
+    if old_status:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "{}"'.format(old_status))
+    else:
+        duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')
+
+    duthost.shell('sudo config save -y')
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
