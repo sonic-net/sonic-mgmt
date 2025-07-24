@@ -35,6 +35,8 @@ configuration:
     tornum: {{vm.tornum}}
     {%- elif vm.role == 'ut2' %}
     - spine
+    {%- elif vm.role == 'ft2' %}
+    - leaf
     {%- endif %}
     bgp:
       asn: {{vm.asn}}
