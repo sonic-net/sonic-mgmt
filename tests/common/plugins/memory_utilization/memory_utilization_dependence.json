@@ -54,7 +54,7 @@
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     },
     {
       "name": "docker",
@@ -216,7 +216,7 @@
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     }
   ],
   "Mellanox-SN4600C": [
@@ -235,7 +235,7 @@
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     },
     {
       "name": "docker",

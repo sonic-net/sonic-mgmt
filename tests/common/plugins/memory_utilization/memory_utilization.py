@@ -478,7 +478,7 @@ def parse_free_output(output, memory_params):
     return memory_values
 
 
-def parse_monit_status_output(output, memory_params):
+def parse_monit_validate_output(output, memory_params):
     """Parse the 'monit validate' command output to extract memory usage information."""
     memory_values = {}
 
