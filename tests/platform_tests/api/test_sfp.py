@@ -359,8 +359,9 @@ class TestSfpApi(PlatformApiTestBase):
             # skip if info_dict is not retrieved during reset, which also means reset was not performed.
             sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
             if sfp_port_idx not in port_index_to_info_dict:
-                logger.info("Skipping interface {} \
-                as SFP reset was not performed on port index {}".format(intf, sfp_port_idx))
+                logger.info(
+                    "Skipping interface {} as SFP reset was not performed on port index {}".format(intf, sfp_port_idx)
+                )
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
