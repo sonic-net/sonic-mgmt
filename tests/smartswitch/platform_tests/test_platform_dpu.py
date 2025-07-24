@@ -232,13 +232,13 @@ def test_npu_dpu_date(duthosts, dpuhosts,
             continue
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = dpuhosts[index].command(date_cmd)['stdout']
+        dpu_date = dpuhosts[index].command(date_cmd)['stdout_lines']
 
         logging.info("Checking date and time on switch")
         switch_date = duthost.command(date_cmd)['stdout_lines']
 
         date1 = datetime.fromisoformat(switch_date[0])
-        date2 = datetime.fromisoformat(dpu_date)
+        date2 = datetime.fromisoformat(dpu_date[0])
 
         time_difference = abs((date1 - date2).total_seconds())
 
