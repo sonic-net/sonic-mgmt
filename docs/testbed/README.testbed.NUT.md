@@ -23,6 +23,7 @@
 6. [6. Command references](#6-command-references)
    1. [6.1. Generate config: `gen-cfg`](#61-generate-config-gen-cfg)
    2. [6.2. Deploy config: `deploy-cfg`](#62-deploy-config-deploy-cfg)
+   3. [6.3. Run tests](#63-run-tests)
 
 ## 1. Overview
 
@@ -503,4 +504,16 @@ The configuration will be generated into a few places:
 ```bash
 # ./testbed-cli.sh -t <testbed-yaml-file-path> deploy-cfg <testbed-name> <inventory-name> <password-file>
 ./testbed-cli.sh -t testbed.nut.yaml deploy-cfg nut-testbed-1 ixia ../../password.txt
+```
+
+### 6.3. Run tests
+
+We can directly use the `pytest` module to run the tests against the NUT testbed:
+
+```bash
+# Under tests directory, run:
+./run_tests.sh -f ../ansible/testbed.nut.yaml -i <inventory-file> -n nut-testbed-1 -d all -m individual -a False -u -l debug -e "--skip_sanity --disable_loganalyzer" -c <test case>
+
+# Or directly use pytest
+python3 -m pytest --inventory <inventory-file> --host-pattern all --testbed nut-testbed-1 --testbed_file ../ansible/testbed.nut.yaml --show-capture=stdout --log-cli-level info <test_file>
 ```
