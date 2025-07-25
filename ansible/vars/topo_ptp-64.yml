@@ -64,8 +64,6 @@ topology:
    - 61
    - 62
    - 63
-   - 64
-   - 65
   VMs: {}
   DUT:
     vlan_configs:
@@ -75,6 +73,6 @@ topology:
 configuration_properties:
   common:
     dut_asn: 0
-    dut_type: SpineRouter
+    dut_type: ToRRouter
 
 configuration: {}
