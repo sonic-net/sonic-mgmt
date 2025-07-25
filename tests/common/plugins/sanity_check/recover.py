@@ -270,7 +270,7 @@ def recover_chassis(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
             running_golden_config_file_check = duthost.shell("[ -f /etc/sonic/running_golden_config.json ]",
-                                                     module_ignore_errors=True)
+                                                             module_ignore_errors=True)
             if running_golden_config_file_check.get('rc') == 0:
                 config_source = 'running_golden_config'
             else:
