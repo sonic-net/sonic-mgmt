@@ -266,7 +266,9 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    swrole: leaf
+    leaf_asn_start: 4200300000
+    tor_asn_start: 4200400000
+    swrole: lowerspine
 
 configuration:
   ARISTA01LT2:
