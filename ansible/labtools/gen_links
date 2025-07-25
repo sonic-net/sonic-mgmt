@@ -1334,7 +1334,7 @@ class GenLinks:
     def gen_physical_links(self, m0_pattern="2"):
         for item in self.__genlinks:
             item.gen_physical_link(self.root_fanout_name, self.__root_fanout_port.pop_port, self.shared_fanout_name,
-                                   self.__shared_fanout_port.pop_port, m0_pattern)
+                                   None if self.shared_fanout_name is None else self.__shared_fanout_port.pop_port, m0_pattern)
 
     def gen_logical_links(self, vlan):
         starting_vlan = vlan

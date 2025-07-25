@@ -19793,6 +19793,14 @@ vms_bjw3_1:
       ansible_host: 172.16.213.137
     VM19138:   # Last VM of testbed-bjw3-can-7050-9 M1-128
       ansible_host: 172.16.213.138
+    VM19139:
+      ansible_host: 172.16.213.139
+    VM19140:
+      ansible_host: 172.16.213.140
+    VM19141:
+      ansible_host: 172.16.213.141
+    VM19142:
+      ansible_host: 172.16.213.142
 
 vms_bjw3_2:
   hosts:
@@ -20052,6 +20060,14 @@ vms_bjw3_2:
       ansible_host: 172.16.214.137
     VM22138:   # Last VM of testbed-bjw3-can-7050-10 M1-128
       ansible_host: 172.16.214.138
+    VM22139:
+      ansible_host: 172.16.214.139
+    VM22140:
+      ansible_host: 172.16.214.140
+    VM22141:
+      ansible_host: 172.16.214.141
+    VM22142:
+      ansible_host: 172.16.214.142
 
 vms_bjw3_3:
   hosts:
