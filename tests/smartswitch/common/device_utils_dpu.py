@@ -452,14 +452,14 @@ def post_test_switch_check(duthost, localhost,
     logging.info("Waiting for ssh connection to switch")
     wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
 
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(duthost)
+
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
                   check_interface_status_of_up_ports, duthost),
                   "Not all ports that are admin up, are operationally UP")
     logging.info("Interfaces are UP")
-
-    logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(duthost)
 
     logging.info("Checking DPU link status and connectivity")
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
