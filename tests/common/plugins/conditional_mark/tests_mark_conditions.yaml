@@ -442,7 +442,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
     reason: "Not supported on broadcom after 201911 release, cisco-8000 all releases and marvell-prestera asics. Skip on t1-isolated-d32/128 topos"
     conditions_logical_operator: or
     conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell']). Skip on t1-isolated-d32/128 topos"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell'])"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
