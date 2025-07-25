@@ -461,7 +461,6 @@ def post_test_switch_check(duthost, localhost,
                   "Not all ports that are admin up, are operationally UP")
     logging.info("Interfaces are UP")
 
-
     logging.info("Checking DPU link status and connectivity")
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
                   check_dpu_ping_status,
