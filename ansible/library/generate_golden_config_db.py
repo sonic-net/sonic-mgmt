@@ -395,6 +395,11 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
+        if "DEVICE_METADATA" not in golden_config_db:
+            golden_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in golden_config_db["DEVICE_METADATA"]:
+            golden_config_db["DEVICE_METADATA"]["localhost"] = {}
+
         return json.dumps(golden_config_db, indent=4)
 
     def update_zmq_config(self, config):
