@@ -825,9 +825,8 @@ def enable_orch_northbond_route_zmq_feature(duthost):
     yield
 
     if old_status:
-        cmd = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "{}"'
-              .format(old_status)
-        duthost.shell(cmd)
+        duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" \
+                       "orch_northbond_route_zmq_enabled" "{}"'.format(old_status))
     else:
         duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')
 
