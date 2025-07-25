@@ -8,7 +8,7 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni, State  # noqa: F401
+from dash_api.eni_pb2 import Eni, State, EniMode  # noqa: F401
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route

@@ -1,6 +1,7 @@
 import logging
 import time
 
+import ptf.packet as scapy
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import ptf
@@ -28,12 +29,8 @@ Test prerequisites:
 
 
 @pytest.fixture(scope="module")
-def use_pkt_alt_attrs(duthost):
-    hwsku = duthost.sonichost._facts["hwsku"]
-    if hwsku == "Cisco-8102-28FH-DPU-O-T1":
-        return True
-    else:
-        return False
+def floating_nic(duthost):
+    return True
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -68,9 +65,10 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     dpuhost = dpuhosts[dpu_index]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
+        **pl.APPLIANCE_FNIC_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
+        **pl.VNET2_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.METER_POLICY_V4_CONFIG,
         **pl.TUNNEL2_CONFIG
@@ -80,10 +78,11 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
 
     route_and_mapping_messages = {
-        **pl.PE_VNET_MAPPING_CONFIG,
+        **pl.PE1_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **pl.VM_SUBNET_ROUTE_WITH_TUNNEL_CONFIG,
-        **pl.INBOUND_VM_ROUTE_RULE_CONFIG
+        **pl.INBOUND_VM_ROUTE_RULE_CONFIG,
+        **pl.ROUTE_RULE1_CONFIG,
     }
     logger.info(route_and_mapping_messages)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
@@ -95,15 +94,15 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     logger.info(meter_rule_messages)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
 
-    logger.info(pl.ENI_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+    logger.info(pl.ENI_TRUSTED_VNI_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index)
 
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
@@ -112,16 +111,15 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
 def test_privatelink_trusted_vni(
     ptfadapter,
     dash_pl_config,
-    use_pkt_alt_attrs,
+    floating_nic,
     localhost,
     duthost,
     ptfhost,
     dpuhost,
 ):
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index)
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", use_pkt_alt_attrs)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, use_pkt_alt_attrs)
-    exp_dpu_to_vm_pkt.set_do_not_care_scapy("IP", "dst")
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", floating_nic)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, floating_nic)
+    exp_dpu_to_vm_pkt.set_do_not_care_packet(scapy.IP, "dst")
 
     num_packets = 1000
     timeout = 5
@@ -129,6 +127,7 @@ def test_privatelink_trusted_vni(
     tunnel_endpoint_counts = {ip: 0 for ip in pl.TUNNEL2_ENDPOINT_IPS}
     for i in range(num_packets):
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+        import pdb; pdb.set_trace()
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
         testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
         start_time = time.time()
