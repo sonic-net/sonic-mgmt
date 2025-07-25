@@ -121,7 +121,7 @@ hw_port_cfg = {
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
+                         'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
                          'skip_ports': PortList(63),
                          "panel_port_step": 1},
