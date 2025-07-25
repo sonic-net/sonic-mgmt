@@ -2156,9 +2156,11 @@ override_config_table/test_override_config_table.py:
 ########################################
 packet_trimming/test_packet_trimming.py:
   skip:
-    reason: "KVM do not support the feature"
+    reason: "Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
 
 #######################################
 #####           pc               #####
