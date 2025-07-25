@@ -1,0 +1,22 @@
+---
+- import_tasks: testbed_facts.yml
+
+- name: config L1 devices
+  when: (config_l1s is not defined or config_l1s|bool == true) and
+        device_info[inventory_hostname] is defined and
+        device_info[inventory_hostname].Type == 'FanoutL1Sonic'
+  block:
+  - import_tasks: l1_create_config_patch.yml
+  - import_tasks: device_prepare_config.yml
+  - import_tasks: device_apply_config.yml
+    when: deploy is defined and deploy|bool == true
+
+- name: config duts
+  when: (config_duts is not defined or config_duts|bool == true) and
+        device_info[inventory_hostname] is defined and
+        device_info[inventory_hostname].Type != 'FanoutL1Sonic'
+  block:
+  - import_tasks: dut_create_config_patch.yml
+  - import_tasks: device_prepare_config.yml
+  - import_tasks: device_apply_config.yml
+    when: deploy is defined and deploy|bool == true

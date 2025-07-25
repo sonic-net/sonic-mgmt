@@ -86,8 +86,13 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+
+        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        device_type = device_metadata.get('type')
+        device_subtype = device_metadata.get('subtype')
+        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+
         feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
@@ -419,42 +424,6 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
-    def is_smartswitch(self):
-        """Check if the current node is a SmartSwitch
-
-        Returns:
-            True if the current node is a SmartSwitch, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "SmartSwitch" and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] != "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
-    def is_dpu(self):
-        """Check if the current node is a DPU
-
-        Returns:
-            True if the current node is a DPU, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] == "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 
@@ -749,7 +718,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -1600,6 +1569,9 @@ Totals               6450                 6449
         for line in show_cmd_output["stdout_lines"]:
             container_name = line.split()[0].strip()
             container_state = line.split()[1].strip()
+            if container_name == "frr_bmp":
+                continue
+
             if container_state in ["enabled", "disabled"]:
                 container_autorestart_states[container_name] = container_state
 
@@ -1832,6 +1804,7 @@ Totals               6450                 6449
         search_sets = {
             "td2": {"b85", "BCM5685"},
             "td3": {"b87", "BCM5687"},
+            "td4": {"b78", "BCM5678"},
             "th":  {"b96", "BCM5696"},
             "th2": {"b97", "BCM5697"},
             "th3": {"b98", "BCM5698"},
@@ -1853,6 +1826,8 @@ Totals               6450                 6449
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+        elif "Marvell Technology" in output:
+            asic = "marvell-teralynx"
 
         logger.info("asic: {}".format(asic))
 
@@ -2128,8 +2103,15 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert (timeout >= 0)
-
+        assert (timeout >= 0), (
+            "Timeout expired while waiting for CRM counters to become ready. "
+            "CRM resource data was not available within the allotted time. "
+            "- Timeout value: {}\n"
+            "- Polling interval: {}\n"
+        ).format(
+            timeout,
+            crm_facts.get('polling_interval', 'N/A')
+        )
         return crm_facts
 
     def start_service(self, service_name, docker_name):
@@ -2471,7 +2453,11 @@ Totals               6450                 6449
         Return:
             packets_count (int): count of packets hit the specific ACL rule.
         """
-        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        assert timeout >= 0 and interval > 0, (
+            "Invalid arguments for ACL counter polling: timeout={}, interval={}. "
+            "Timeout must be non-negative and interval must be positive."
+        ).format(timeout, interval)
+        # Validate arguments to avoid infinite loop
         while timeout >= 0:
             time.sleep(interval)  # Wait for orchagent to update the ACL counters
             timeout -= interval

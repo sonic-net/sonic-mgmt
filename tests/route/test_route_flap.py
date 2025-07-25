@@ -46,9 +46,12 @@ def get_prefix_len_by_net_size(net_size):
 
 
 def get_route_prefix_len(tbinfo, common_config):
-    if tbinfo["topo"]["name"] == "m0":
+    if tbinfo["topo"]["type"] == "m1":
+        # The only multipath route in m1 topo is the default route
+        subnet_size = 2 ** 32
+    elif tbinfo["topo"]["type"] == "m0":
         subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
-    elif tbinfo["topo"]["name"] == "mx":
+    elif tbinfo["topo"]["type"] == "mx":
         subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     else:
         subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
@@ -116,16 +119,11 @@ def get_neighbor_info(duthost, dev_port, tbinfo):
     neighs = config_facts['BGP_NEIGHBOR']
     dev_neigh_mdata = config_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in config_facts else {}
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    nbr_port_map = mg_facts['minigraph_port_name_to_alias_map'] \
-        if 'minigraph_port_name_to_alias_map' in mg_facts else {}
     for neighbor in neighs:
         local_ip = neighs[neighbor]['local_addr']
-        nbr_port = get_port_by_ip(config_facts, local_ip)
-        if 'Ethernet' in nbr_port:
-            for p_key, p_value in nbr_port_map.items():
-                if p_value == nbr_port:
-                    nbr_port = p_key
-        if dev_port == nbr_port:
+        nbr_port_alias = get_port_by_ip(config_facts, local_ip)
+        nbr_port_name = mg_facts['minigraph_port_alias_to_name_map'].get(nbr_port_alias, nbr_port_alias)
+        if dev_port == nbr_port_name:
             neighbor_name = neighs[neighbor]['name']
     for k, v in dev_neigh_mdata.items():
         if k == neighbor_name:
