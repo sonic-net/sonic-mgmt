@@ -238,6 +238,20 @@ def restart_dhcp_relay_and_check_dhcp6relay(duthost):
                                                              "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
 
 
+def ensure_client_reachability(duthost, vlan_name):
+    """
+    Ensure the DHCP client's link-local address is reachable from the relay agent.
+    This prevents the "neighbor solicitation" issue during DHCPv6 relay.
+    """
+    logger.info(f"Ensuring client reachability on VLAN {vlan_name}")
+
+    # Send multicast ping to discover all link-local addresses on the segment
+    duthost.shell(f"ping6 -I {vlan_name} -c 3 ff02::1", module_ignore_errors=True)
+
+    # Wait a moment for ND table to be populated
+    time.sleep(2)
+
+
 @pytest.fixture(scope="function")
 def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
@@ -556,6 +570,7 @@ class TestDhcpv6RelayWithMultipleVlan:
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
             _, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
             logger.info("Randomly selected PTF port index: {}".format(ptf_port_index))
+            ensure_client_reachability(duthost, vlan_name)
             command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
                 .format(vlan_name)
             down_interface_link_local = duthost.shell(command)['stdout']
