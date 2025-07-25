@@ -32,7 +32,7 @@ def test_bgp_outbound_uplink_complete_blackout(snappi_api,                      
                                                conn_graph_facts,                             # noqa: F811
                                                fanout_graph_facts_multidut,                   # noqa: F811
                                                duthosts,
-                                               creds, record_property):
+                                               creds):
     """
     Gets the packet loss duration on flapping all portchannels in uplink side
 
@@ -75,8 +75,7 @@ def test_bgp_outbound_uplink_complete_blackout(snappi_api,                      
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,
-                                          snappi_extra_params=snappi_extra_params,
-                                          record_property=record_property)
+                                          snappi_extra_params=snappi_extra_params)
 
 
 def test_bgp_outbound_uplink_partial_blackout(snappi_api,                                     # noqa: F811
@@ -84,7 +83,7 @@ def test_bgp_outbound_uplink_partial_blackout(snappi_api,                       
                                               conn_graph_facts,                             # noqa: F811
                                               fanout_graph_facts_multidut,                   # noqa: F811
                                               duthosts,
-                                              creds, record_property):
+                                              creds):
     """
     Gets the packet loss duration on flapping 50% of portchannels in uplink side
 
@@ -126,5 +125,4 @@ def test_bgp_outbound_uplink_partial_blackout(snappi_api,                       
     snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
     run_bgp_outbound_uplink_blackout_test(api=snappi_api,
                                           creds=creds,
-                                          snappi_extra_params=snappi_extra_params,
-                                          record_property=record_property)
+                                          snappi_extra_params=snappi_extra_params)

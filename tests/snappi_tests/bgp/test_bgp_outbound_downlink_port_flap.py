@@ -33,8 +33,7 @@ def test_bgp_outbound_downlink_port_flap(snappi_api,                            
                                          conn_graph_facts,                             # noqa: F811
                                          fanout_graph_facts_multidut,                           # noqa: F811
                                          duthosts,
-                                         creds,
-                                         record_property):
+                                         creds):
     """
     Gets the packet loss duration on flapping the interconnected port between T1 and downlink in T1 side
 
@@ -84,5 +83,4 @@ def test_bgp_outbound_downlink_port_flap(snappi_api,                            
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_link_flap_test(api=snappi_api,
                                     creds=creds,
-                                    snappi_extra_params=snappi_extra_params,
-                                    record_property=record_property)
+                                    snappi_extra_params=snappi_extra_params)
