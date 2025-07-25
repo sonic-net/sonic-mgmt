@@ -588,3 +588,26 @@ def get_random_copp_trap_config(duthost):
     trap_ids = trap_data.get("trap_ids", "").split(",")
     trap_group = trap_data.get("trap_group", "")
     return trap_ids[0], trap_group, copp_cfg["COPP_GROUP"][trap_group]
+
+
+def get_feature_name_from_trap_id(duthost, trap_id):
+    """
+    Get the feature name corresponding to the given trap ID.
+    Args:
+        duthost (SonicHost): The target device.
+        trap_id (str): The trap ID to look up.
+    Returns:
+        bool: True if the trap ID is always enabled, False otherwise.
+        str: The feature name associated with the trap ID.
+    """
+
+    copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
+    copp_trap_cfg = copp_cfg.get("COPP_TRAP", {})
+
+    for feature_name, feature_data in copp_trap_cfg.items():
+        trap_ids = feature_data.get("trap_ids", "").split(",")
+        if trap_id in trap_ids:
+            always_enabled = feature_data.get("always_enabled", "false")
+            return always_enabled.lower() == "true", feature_name if always_enabled.lower() == "true" else feature_name
+
+    return False, None

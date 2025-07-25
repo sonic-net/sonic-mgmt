@@ -116,8 +116,19 @@ class TestCOPP(object):
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
-            pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
-                          f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
+            is_always_enabled, feature_name = copp_utils.get_feature_name_from_trap_id(duthost, trap_ids[0])
+            if is_always_enabled:
+                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
+                              f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
+            else:
+                feature_list, _ = duthost.get_feature_status()
+                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0])
+                if feature_name in feature_list and feature_list[feature_name] == "enabled":
+                    pytest_assert(trap_installed,
+                                  f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
+                else:
+                    pytest_assert(not trap_installed,
+                                  f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
 
         _copp_runner(duthost,
                      ptfhost,
