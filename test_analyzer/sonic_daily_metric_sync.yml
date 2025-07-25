@@ -28,7 +28,7 @@ stages:
             retryCountOnTaskFailure: 3
             displayName: Run SONiC daily metric sync script
             inputs:
-              azureSubscription: "SONiC-Automation"
+              azureSubscription: "sonic-kusto-federated-conn"
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
