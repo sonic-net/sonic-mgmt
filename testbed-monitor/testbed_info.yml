@@ -1,0 +1,63 @@
+# Network Device Testbed Configuration
+# 
+# Configure your devices with meaningful names that reflect your network topology.
+# Device names will appear in logs and reports, so use descriptive names like:
+
+# Each device needs:
+# - ansible_host: IP address or hostname
+# - ansible_user: SSH username  
+# - ansible_password: SSH password
+
+all:
+  children:
+    dut_group:
+      hosts:
+        #T2-1-RP:                    
+        #  ansible_host: 10.1.65.28
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #T2-1-LC0:                    
+        #  ansible_host: 10.1.65.29
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #T2-1-LC1:                   
+        #  ansible_host: 10.1.65.30
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #T2-1-LC2:                   
+        #  ansible_host: 10.1.65.31
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #T2-1-LC3:                   
+        #  ansible_host: 10.1.65.32
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #dut6:
+        #  ansible_host: 10.1.65.41
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        sonic_dut_lc0:
+          ansible_host: 192.168.122.227
+          ansible_user: cisco
+          ansible_password: cisco123
+        sonic_dut_lc1:
+          ansible_host: 192.168.122.143
+          ansible_user: cisco
+          ansible_password: cisco123
+
+
+  commands:
+    #- show interface counters
+    - show int counter -d all
+    - show dropcounter count
+    #- show queue counters -d all
+    #- pg-drop -c show
+    #- sudo show platform npu global -n asic0
+    #- sudo show platform npu global -n asic1
+    #- sudo show platform npu counters -n asic0
+    #- sudo show platform npu counters -n asic1
+    #- sudo show platform npu counters -n asic2
+    - sudo show platform npu counters
+    #- sudo show platform npu rx interface_cgm -t 0 -i Ethernet0
+    #- sudo show platform npu tx cgm_state -i Ethernet0
+  
