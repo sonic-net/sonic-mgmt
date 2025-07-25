@@ -68,6 +68,7 @@ all:
           - t0-isolated-d32u32s2
           - t0-isolated-v6-d256u256s2
           - t0-isolated-v6-d32u32s2
+          - t0-isolated-d96u32s2
           - dualtor
           - dualtor-56
           - cable-test
