@@ -628,6 +628,11 @@ reset_factory/test_reset_factory.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+route/test_route_flap.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 route/test_route_flow_counter.py:
   skip:
     conditions:
