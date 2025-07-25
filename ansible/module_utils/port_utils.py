@@ -178,7 +178,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                         alias = "etp{}{}".format(i, split_alias)
                         eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
                         port_alias_to_name_map[alias] = eth_name
-        elif hwsku == "Arista-7060X6-16PE-384C-O128S2":
+        elif hwsku in ["Arista-7060X6-16PE-384C-O128S2", "Arista-7060X6-16PE-384C-B-O128S2",
+                       "Arista-7060X6-16PE-384C-B-O128S2-COPPER-LAB", "Arista-7060X6-16PE-384C-B-O128S2-LAB",
+                       "Arista-7060X6-16PE-384C-O128S2-COPPER-LAB", "Arista-7060X6-16PE-384C-O128S2-LAB"]:
             split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
             split_alias_list_1 = ["a", "b"]
             split_2_port_indexs = list(range(1, 17))
