@@ -12,7 +12,7 @@
   - [Enabling and Disabling](#enabling-and-disabling)
   - [Configuration Examples](#configuration-examples)
 - [Supported Memory Monitors](#supported-memory-monitors)
-  - [Monit Status Monitor](#monit-status-monitor)
+  - [Monit Validate Monitor](#monit-validate-monitor)
   - [Free Memory Monitor](#free-memory-monitor)
   - [Docker Stats Monitor](#docker-stats-monitor)
   - [Top Monitor](#top-monitor)
@@ -225,12 +225,12 @@ Memory utilization checking is enabled by default for all tests. To disable it:
 
 ## Supported Memory Monitors and Configuration Examples
 
-### Monit Status Monitor
+### Monit Validate Monitor
 
 Monitors system memory usage via Monit.
 
-- **Command**: `sudo monit status`
-- **Parser Function**: `parse_monit_status_output`
+- **Command**: `sudo monit validate`
+- **Parser Function**: `parse_monit_validate_output`
 - **Monitored Parameters**:
   - `memory_usage`: System memory utilization percentage
 - **Threshold Type**: Use `percentage_points` for percentage-based thresholds
@@ -239,7 +239,7 @@ Example configuration:
 ```json
 {
   "name": "monit",
-  "cmd": "sudo monit status",
+  "cmd": "sudo monit validate",
   "memory_params": {
     "memory_usage": {
       "memory_increase_threshold": {
@@ -252,7 +252,7 @@ Example configuration:
       }
     }
   },
-  "memory_check": "parse_monit_status_output"
+  "memory_check": "parse_monit_validate_output"
 }
 ```
 
@@ -414,7 +414,7 @@ Example:
   "Arista-7050QX": [
     {
       "name": "monit",
-      "cmd": "sudo monit status",
+      "cmd": "sudo monit validate",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
@@ -427,7 +427,7 @@ Example:
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     }
   ]
 }
