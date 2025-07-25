@@ -810,7 +810,8 @@ def enable_orch_northbond_route_zmq_feature(duthost):
         yield
         return
 
-    old_status = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')['stdout']
+    get_status_cmd = 'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"'
+    old_status = duthost.shell(get_status_cmd)['stdout']
     if old_status == "true":
         logger.debug('The orch_northbond_route_zmq_enabled feature is already enabled.')
         yield
@@ -824,7 +825,9 @@ def enable_orch_northbond_route_zmq_feature(duthost):
     yield
 
     if old_status:
-        duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "{}"'.format(old_status))
+        cmd = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "{}"'
+              .format(old_status)
+        duthost.shell(cmd)
     else:
         duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')
 
