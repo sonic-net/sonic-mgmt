@@ -118,6 +118,11 @@ class ConfigLoader:
                     'name': 'pdu',
                     'enabled': True,
                     'config': {}
+                },
+                {
+                    'name': 'topology',
+                    'enabled': True,
+                    'config': {}
                 }
             ]
         }

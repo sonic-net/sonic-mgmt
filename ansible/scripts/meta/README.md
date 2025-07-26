@@ -20,6 +20,7 @@
       2. [5.1.2. IPAddress Validator](#512-ipaddress-validator)
       3. [5.1.3. Console Validator](#513-console-validator)
       4. [5.1.4. PDU Validator](#514-pdu-validator)
+      5. [5.1.5. Topology Validator](#515-topology-validator)
    2. [5.2. Group Validators](#52-group-validators)
       1. [5.2.1. Device Name Validator](#521-device-name-validator)
       2. [5.2.2. Vlan Validator](#522-vlan-validator)
@@ -409,6 +410,31 @@ Global validators run once with access to data from all infrastructure groups. T
 [ERROR] missing_pdu: Device sonic-s6100-dut (DevSonic) has no PDU connections configured
 [ERROR] invalid_pdu_device: Device sonic-s6100-dut PSU1 points to non-existent PDU pdu-2
 [ERROR] pdu_port_conflict: PDU outlet pdu-1:5 is used by multiple devices: sonic-s6100:PSU1 (group: str1), sonic-s6000:PSU1 (group: str2)
+```
+
+#### 5.1.5. Topology Validator
+
+**Purpose**: Validates topology files defined under `ansible/vars` folder to ensure template files exist and configurations are consistent.
+
+**Configuration Options:** No configuration options available.
+
+**Validation Rules:**
+
+- Ensures template files for swrole exist in `ansible/roles/eos/templates/`
+- Ensure VM and host interface VLAN assignments are unique
+- Ensures VM offset values are unique across all VMs
+- Validates interface uniqueness within each vlan_config and checks prefix limits
+- Verifies all bp_interface IPs live within a single subnet. One for IPv4 and one for IPv6.
+
+**Example Errors:**
+
+```text
+[ERROR] missing_data: Template file ansible/roles/eos/templates/topo_t1-isolated-d56u1-lag-spine.j2 not found for swrole: spine
+[ERROR] conflict: VLAN ID 100 is used by both VM ARISTA01T0 and host_interfaces
+[ERROR] conflict: VM offset 5 is used by multiple VMs: ARISTA05T0, ARISTA06T0
+[ERROR] conflict: Interface 10 appears multiple times in vlan_config Vlan1000.intfs
+[ERROR] conflict: vlan_config Vlan1000 has 25 interfaces but prefix 192.168.0.1/27 only supports 30 hosts
+[ERROR] conflict: bp_interface IPs span multiple subnets: 10.10.246.0/24, 10.10.247.0/24
 ```
 
 ### 5.2. Group Validators

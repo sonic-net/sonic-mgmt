@@ -38,6 +38,7 @@ from .ip_address_validator import IpAddressValidator
 from .vlan_validator import VlanValidator
 from .console_validator import ConsoleValidator
 from .pdu_validator import PDUValidator
+from .topology_validator import TopologyValidator
 
 __all__ = [
     # Core components
@@ -66,5 +67,6 @@ __all__ = [
     'IpAddressValidator',
     'VlanValidator',
     'ConsoleValidator',
-    'PDUValidator'
+    'PDUValidator',
+    'TopologyValidator'
 ]
