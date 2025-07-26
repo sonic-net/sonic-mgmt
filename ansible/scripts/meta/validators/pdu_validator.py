@@ -2,7 +2,7 @@
 PDUValidator - Validates that all DevSonic and Fanout devices have PDU connections configured
 """
 
-from .base_validator import GlobalValidator, ValidatorContext, ValidationCategory
+from .base_validator import GlobalValidator, ValidatorContext, ValidationSeverity
 from .validator_factory import register_validator
 
 
@@ -29,7 +29,7 @@ class PDUValidator(GlobalValidator):
         # Collect PDU connection data from all groups
         pdu_data = self._collect_pdu_data_globally(context)
         if not pdu_data:
-            self.result.add_info("No PDU connection data found", ValidationCategory.SUMMARY)
+            self.result.add_summary("No PDU connection data found")
             return
 
         # Validate PDU connections
@@ -45,11 +45,11 @@ class PDUValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_info(
+            self.result.add_summary(
                 f"PDU validation passed for {validation_stats['devices_with_pdu']} out of "
                 f"{validation_stats['target_devices']} target devices with "
                 f"{validation_stats['total_psu_connections']} PSU connections",
-                ValidationCategory.SUMMARY, self.result.metadata
+                self.result.metadata
             )
 
     def _collect_pdu_data_globally(self, context: ValidatorContext):
@@ -95,16 +95,15 @@ class PDUValidator(GlobalValidator):
             for device_name, pdu_info in pdu_links.items():
                 if device_name in all_pdu_links:
                     # PDU link exists in multiple groups - could indicate duplicate config
-                    self.result.add_warning(
+                    self.result.add_duplicate(
                         f"Device {device_name} has PDU configuration in multiple groups",
-                        ValidationCategory.DUPLICATE,
-                        {"device": device_name, "groups": [group_name, "previous"]}
+                        {"device": device_name, "groups": [group_name, "previous"]},
+                        severity=ValidationSeverity.WARNING
                     )
                 all_pdu_links[device_name] = pdu_info
 
         if not all_target_devices:
-            self.result.add_info("No target devices (DevSonic or Fanout*) found across all groups",
-                                 ValidationCategory.SUMMARY)
+            self.result.add_summary("No target devices (DevSonic or Fanout*) found across all groups")
             return None
 
         return {
@@ -139,9 +138,8 @@ class PDUValidator(GlobalValidator):
 
             # Check if device has PDU connections
             if device_name not in pdu_links:
-                self.result.add_error(
+                self.result.add_missing_data(
                     f"Device {device_name} ({device_type}) has no PDU connections configured",
-                    ValidationCategory.MISSING_DATA,
                     {"device": device_name, "device_type": device_type}
                 )
                 continue
@@ -149,9 +147,8 @@ class PDUValidator(GlobalValidator):
             # Validate PDU connections for this device
             device_pdu_info = pdu_links[device_name]
             if not isinstance(device_pdu_info, dict):
-                self.result.add_error(
+                self.result.add_format_issue(
                     f"Device {device_name} PDU connection info must be a dictionary",
-                    ValidationCategory.FORMAT,
                     {"device": device_name, "pdu_info": device_pdu_info}
                 )
                 continue
@@ -168,10 +165,10 @@ class PDUValidator(GlobalValidator):
 
                 # Check power redundancy
                 if device_stats["psu_count"] == 1:
-                    self.result.add_warning(
+                    self.result.add_consistency_error(
                         f"Device {device_name} has only one PSU connection - no power redundancy",
-                        ValidationCategory.CONSISTENCY_ERROR,
-                        {"device": device_name, "psu_count": device_stats["psu_count"]}
+                        {"device": device_name, "psu_count": device_stats["psu_count"]},
+                        severity=ValidationSeverity.WARNING
                     )
                     power_redundancy_warnings += 1
 
@@ -201,9 +198,8 @@ class PDUValidator(GlobalValidator):
 
         for psu_name, psu_info in device_pdu_info.items():
             if not isinstance(psu_info, dict):
-                self.result.add_error(
+                self.result.add_format_issue(
                     f"Device {device_name} PSU {psu_name} info must be a dictionary",
-                    ValidationCategory.FORMAT,
                     {"device": device_name, "psu": psu_name, "psu_info": psu_info}
                 )
                 continue
@@ -211,9 +207,8 @@ class PDUValidator(GlobalValidator):
             # Validate each feed for this PSU
             for feed_name, feed_info in psu_info.items():
                 if not isinstance(feed_info, dict):
-                    self.result.add_error(
+                    self.result.add_format_issue(
                         f"Device {device_name} PSU {psu_name} feed {feed_name} info must be a dictionary",
-                        ValidationCategory.FORMAT,
                         {"device": device_name, "psu": psu_name, "feed": feed_name, "feed_info": feed_info}
                     )
                     continue
@@ -235,10 +230,9 @@ class PDUValidator(GlobalValidator):
                     if port_key in pdu_port_usage:
                         # PDU port conflict detected
                         existing_device_psu = pdu_port_usage[port_key]
-                        self.result.add_error(
+                        self.result.add_conflict(
                             f"PDU outlet {pdu_device}:{pdu_port} is used by multiple devices: "
                             f"{existing_device_psu}, {device_psu_key}",
-                            ValidationCategory.DUPLICATE,
                             {
                                 "pdu_device": pdu_device,
                                 "pdu_port": pdu_port,
@@ -271,9 +265,8 @@ class PDUValidator(GlobalValidator):
         required_fields = ['peerdevice', 'peerport', 'feed']
         for field in required_fields:
             if field not in feed_info:
-                self.result.add_error(
+                self.result.add_missing_data(
                     f"Device {device_name} PSU {psu_name} feed {feed_name} missing required field '{field}'",
-                    ValidationCategory.MISSING_DATA,
                     {"device": device_name, "psu": psu_name, "feed": feed_name, "missing_field": field}
                 )
 
@@ -281,9 +274,8 @@ class PDUValidator(GlobalValidator):
         pdu_device = feed_info.get('peerdevice')
         if pdu_device:
             if pdu_device not in devices:
-                self.result.add_error(
+                self.result.add_invalid_format(
                     f"Device {device_name} PSU {psu_name} points to non-existent PDU {pdu_device}",
-                    ValidationCategory.INVALID_FORMAT,
                     {"device": device_name, "psu": psu_name, "pdu_device": pdu_device}
                 )
             else:
@@ -292,19 +284,17 @@ class PDUValidator(GlobalValidator):
                 if isinstance(pdu_info, dict):
                     pdu_type = pdu_info.get('Type', '').lower()
                     if pdu_type != 'pdu':
-                        self.result.add_warning(
+                        self.result.add_invalid_type(
                             f"Device {device_name} PSU {psu_name} PDU {pdu_device} has unexpected type '{pdu_type}' "
                             f"(expected 'Pdu')",
-                            ValidationCategory.INVALID_TYPE,
                             {"device": device_name, "psu": psu_name, "pdu_device": pdu_device, "pdu_type": pdu_type}
                         )
 
         # Validate PDU port
         pdu_port = feed_info.get('peerport')
         if pdu_port and not str(pdu_port).strip():
-            self.result.add_error(
+            self.result.add_invalid_format(
                 f"Device {device_name} PSU {psu_name} has empty PDU port",
-                ValidationCategory.INVALID_FORMAT,
                 {"device": device_name, "psu": psu_name}
             )
 
@@ -313,9 +303,9 @@ class PDUValidator(GlobalValidator):
         if feed_id:
             valid_feeds = ['A', 'B', 'N/A']
             if feed_id not in valid_feeds:
-                self.result.add_warning(
+                self.result.add_invalid_format(
                     f"Device {device_name} PSU {psu_name} has unusual power feed '{feed_id}' "
                     f"(expected one of: {', '.join(valid_feeds)})",
-                    ValidationCategory.INVALID_FORMAT,
-                    {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds}
+                    {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds},
+                    severity=ValidationSeverity.WARNING
                 )

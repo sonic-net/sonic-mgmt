@@ -2,7 +2,7 @@
 ConsoleValidator - Validates that all DevSonic and Fanout devices have console connections configured
 """
 
-from .base_validator import GlobalValidator, ValidatorContext, ValidationCategory
+from .base_validator import GlobalValidator, ValidatorContext, ValidationSeverity
 from .validator_factory import register_validator
 
 
@@ -29,7 +29,7 @@ class ConsoleValidator(GlobalValidator):
         # Collect console connection data from all groups
         console_data = self._collect_console_data_globally(context)
         if not console_data:
-            self.result.add_info("No console connection data found", ValidationCategory.SUMMARY)
+            self.result.add_summary("No console connection data found")
             return
 
         # Validate console connections
@@ -44,10 +44,10 @@ class ConsoleValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_info(
+            self.result.add_summary(
                 f"Console validation passed for {validation_stats['devices_with_console']} out of "
                 f"{validation_stats['target_devices']} target devices",
-                ValidationCategory.SUMMARY, self.result.metadata
+                self.result.metadata
             )
 
     def _collect_console_data_globally(self, context: ValidatorContext):
@@ -93,16 +93,15 @@ class ConsoleValidator(GlobalValidator):
             for device_name, console_info in console_links.items():
                 if device_name in all_console_links:
                     # Console link exists in multiple groups - could indicate duplicate config
-                    self.result.add_warning(
+                    self.result.add_duplicate(
                         f"Device {device_name} has console configuration in multiple groups",
-                        ValidationCategory.DUPLICATE,
-                        {"device": device_name, "groups": [group_name, "previous"]}
+                        {"device": device_name, "groups": [group_name, "previous"]},
+                        severity=ValidationSeverity.WARNING
                     )
                 all_console_links[device_name] = console_info
 
         if not all_target_devices:
-            self.result.add_info("No target devices (DevSonic or Fanout*) found across all groups",
-                                 ValidationCategory.SUMMARY)
+            self.result.add_summary("No target devices (DevSonic or Fanout*) found across all groups")
             return None
 
         return {
@@ -135,9 +134,8 @@ class ConsoleValidator(GlobalValidator):
 
             # Check if device has console connection
             if device_name not in console_links:
-                self.result.add_error(
+                self.result.add_missing_data(
                     f"Device {device_name} ({device_type}) has no console connection configured",
-                    ValidationCategory.MISSING_DATA,
                     {"device": device_name, "device_type": device_type}
                 )
                 continue
@@ -145,9 +143,8 @@ class ConsoleValidator(GlobalValidator):
             # Validate console connection properties
             console_info = console_links[device_name]
             if not isinstance(console_info, dict):
-                self.result.add_error(
+                self.result.add_format_issue(
                     f"Device {device_name} console connection info must be a dictionary",
-                    ValidationCategory.FORMAT,
                     {"device": device_name, "console_info": console_info}
                 )
                 continue
@@ -155,9 +152,8 @@ class ConsoleValidator(GlobalValidator):
             # Check for ConsolePort entry
             console_port_info = console_info.get('ConsolePort')
             if not console_port_info:
-                self.result.add_error(
+                self.result.add_missing_data(
                     f"Device {device_name} console connection missing ConsolePort information",
-                    ValidationCategory.MISSING_DATA,
                     {"device": device_name}
                 )
                 continue
@@ -176,10 +172,9 @@ class ConsoleValidator(GlobalValidator):
                 if port_key in console_port_usage:
                     # Console port conflict detected
                     existing_device = console_port_usage[port_key]
-                    self.result.add_error(
+                    self.result.add_conflict(
                         f"Console port {console_server}:{console_port} is used by multiple devices: "
                         f"{existing_device}, {device_name}",
-                        ValidationCategory.DUPLICATE,
                         {
                             "console_server": console_server,
                             "console_port": console_port,
@@ -210,9 +205,8 @@ class ConsoleValidator(GlobalValidator):
             devices: All devices in the connection graph
         """
         if not isinstance(console_port_info, dict):
-            self.result.add_error(
+            self.result.add_format_issue(
                 f"Device {device_name} ConsolePort info must be a dictionary",
-                ValidationCategory.FORMAT,
                 {"device": device_name, "console_port_info": console_port_info}
             )
             return
@@ -221,9 +215,8 @@ class ConsoleValidator(GlobalValidator):
         required_fields = ['peerdevice', 'peerport']
         for field in required_fields:
             if field not in console_port_info:
-                self.result.add_error(
+                self.result.add_missing_data(
                     f"Device {device_name} console connection missing required field '{field}'",
-                    ValidationCategory.MISSING_DATA,
                     {"device": device_name, "missing_field": field}
                 )
 
@@ -231,9 +224,8 @@ class ConsoleValidator(GlobalValidator):
         console_server = console_port_info.get('peerdevice')
         if console_server:
             if console_server not in devices:
-                self.result.add_error(
+                self.result.add_invalid_format(
                     f"Device {device_name} console points to non-existent server {console_server}",
-                    ValidationCategory.INVALID_FORMAT,
                     {"device": device_name, "console_server": console_server}
                 )
             else:
@@ -242,18 +234,16 @@ class ConsoleValidator(GlobalValidator):
                 if isinstance(server_info, dict):
                     server_type = server_info.get('Type', '').lower()
                     if server_type not in ['consoleserver']:
-                        self.result.add_warning(
+                        self.result.add_invalid_type(
                             f"Device {device_name} console server {console_server} has unexpected type '{server_type}'",
-                            ValidationCategory.INVALID_TYPE,
                             {"device": device_name, "console_server": console_server, "server_type": server_type}
                         )
 
         # Validate console port
         console_port = console_port_info.get('peerport')
         if console_port and not str(console_port).strip():
-            self.result.add_error(
+            self.result.add_invalid_format(
                 f"Device {device_name} console connection has empty console port",
-                ValidationCategory.INVALID_FORMAT,
                 {"device": device_name}
             )
 
@@ -263,8 +253,8 @@ class ConsoleValidator(GlobalValidator):
             if field in console_port_info:
                 value = console_port_info[field]
                 if value is None or (isinstance(value, str) and not value.strip()):
-                    self.result.add_warning(
+                    self.result.add_invalid_format(
                         f"Device {device_name} console connection has empty {field}",
-                        ValidationCategory.INVALID_FORMAT,
-                        {"device": device_name, "field": field}
+                        {"device": device_name, "field": field},
+                        severity=ValidationSeverity.WARNING
                     )

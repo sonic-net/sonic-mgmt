@@ -17,6 +17,7 @@ class ValidationCategory:
     FORMAT = "format"
     SUMMARY = "summary"
     DUPLICATE = "duplicate"
+    CONFLICT = "conflict"
     INVALID_FORMAT = "invalid_format"
     INVALID_RANGE = "invalid_range"
     INVALID_TYPE = "invalid_type"
@@ -115,6 +116,56 @@ class ValidationResult:
     def add_info(self, message: str, category: str, details: Optional[Dict[str, Any]] = None):
         """Add an info-level issue"""
         self.add_issue(message, ValidationSeverity.INFO, category, details)
+
+    # Category-specific utility functions
+    def add_summary(self, message: str, details: Optional[Dict[str, Any]] = None):
+        """Add a validation summary"""
+        self.add_info(message, ValidationCategory.SUMMARY, details)
+
+    def add_missing_data(self, message: str, details: Optional[Dict[str, Any]] = None,
+                         severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a missing data issue"""
+        self.add_issue(message, severity, ValidationCategory.MISSING_DATA, details)
+
+    def add_format_issue(self, message: str, details: Optional[Dict[str, Any]] = None,
+                         severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a format validation issue"""
+        self.add_issue(message, severity, ValidationCategory.FORMAT, details)
+
+    def add_duplicate(self, message: str, details: Optional[Dict[str, Any]] = None,
+                      severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a duplicate item issue"""
+        self.add_issue(message, severity, ValidationCategory.DUPLICATE, details)
+
+    def add_conflict(self, message: str, details: Optional[Dict[str, Any]] = None,
+                     severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a conflict issue"""
+        self.add_issue(message, severity, ValidationCategory.CONFLICT, details)
+
+    def add_invalid_format(self, message: str, details: Optional[Dict[str, Any]] = None,
+                           severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add an invalid format issue"""
+        self.add_issue(message, severity, ValidationCategory.INVALID_FORMAT, details)
+
+    def add_invalid_range(self, message: str, details: Optional[Dict[str, Any]] = None,
+                          severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add an invalid range issue"""
+        self.add_issue(message, severity, ValidationCategory.INVALID_RANGE, details)
+
+    def add_invalid_type(self, message: str, details: Optional[Dict[str, Any]] = None,
+                         severity: ValidationSeverity = ValidationSeverity.WARNING):
+        """Add an invalid type issue"""
+        self.add_issue(message, severity, ValidationCategory.INVALID_TYPE, details)
+
+    def add_parse_error(self, message: str, details: Optional[Dict[str, Any]] = None,
+                        severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a parse error issue"""
+        self.add_issue(message, severity, ValidationCategory.PARSE_ERROR, details)
+
+    def add_consistency_error(self, message: str, details: Optional[Dict[str, Any]] = None,
+                              severity: ValidationSeverity = ValidationSeverity.ERROR):
+        """Add a consistency error issue"""
+        self.add_issue(message, severity, ValidationCategory.CONSISTENCY_ERROR, details)
 
 
 class ValidatorContext:
