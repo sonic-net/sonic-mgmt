@@ -359,3 +359,6 @@ r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent s
 
 # https://github.com/sonic-net/sonic-mgmt/issues/19790
 r, ".* ERR syncd#syncd: [none] SAI_API_SWITCH:sai_query_stats_capability:874 stats capability not supported for object.*"
+
+# Ignore all audisp-tacplus Accounting logs
+r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"
