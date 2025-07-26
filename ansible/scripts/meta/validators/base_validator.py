@@ -5,7 +5,7 @@ BaseValidator - Base validator classes and interfaces for SONiC Mgmt metadata va
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from enum import Enum
 import time
 from functools import wraps
@@ -199,21 +199,23 @@ class BaseValidator(ABC):
         self.description = description
         self.category = category
         self.logger = logging.getLogger(f"meta.{name}")
+        self.result = None  # Will be initialized in validate()
 
     def requires_global_context(self) -> bool:
         """Return False by default - validators are group-scoped unless they inherit from GlobalValidator"""
         return False
 
     @abstractmethod
-    def _validate(self, context: ValidatorContext) -> ValidationResult:
+    def _validate(self, context: ValidatorContext) -> Union[ValidationResult, None]:
         """
-        Core validation logic to be implemented by subclasses
+        Core validation logic to be implemented by subclasses.
+        Can either return a ValidationResult or use self.result directly and return None.
 
         Args:
             context: ValidatorContext containing testbed and connection graph data
 
         Returns:
-            ValidationResult: Comprehensive validation result
+            ValidationResult or None: Validation result (None if using self.result)
         """
         pass
 
@@ -228,25 +230,38 @@ class BaseValidator(ABC):
         Returns:
             ValidationResult: Comprehensive validation result
         """
-        result = ValidationResult(validator_name=self.name, group_name=context.get_group_name(), success=True)
+        # Create ValidationResult and store it as instance variable
+        self.result = ValidationResult(validator_name=self.name, group_name=context.get_group_name(), success=True)
 
         try:
             self.logger.debug(f"Starting validation: {self.name}")
-            result = self._validate(context)
-            result.validator_name = self.name
-            result.group_name = context.get_group_name()
 
-            if result.success:
+            # Run common pre-validation checks
+            if not self._run_pre_validation_checks(context):
+                # If pre-validation checks fail, skip the main validation
+                self.logger.warning(f"Pre-validation checks failed for {self.name}, skipping main validation")
+            else:
+                # Run the main validation logic
+                result = self._validate(context)
+
+                # If _validate returns a result, use it; otherwise use self.result
+                if result is not None:
+                    self.result = result
+
+            self.result.validator_name = self.name
+            self.result.group_name = context.get_group_name()
+
+            if self.result.success:
                 self.logger.info(f"Validation passed: {self.name}")
             else:
-                self.logger.warning(f"Validation failed: {self.name} with {result.error_count} errors")
+                self.logger.warning(f"Validation failed: {self.name} with {self.result.error_count} errors")
 
         except Exception as e:
             error_msg = f"Unexpected error during {self.name} validation: {str(e)}"
             self.logger.error(error_msg)
-            result.add_error(error_msg, "exception", {"exception_type": type(e).__name__})
+            self.result.add_error(error_msg, "exception", {"exception_type": type(e).__name__})
 
-        return result
+        return self.result
 
     def get_info(self) -> Dict[str, str]:
         """Get validator information"""
@@ -256,6 +271,70 @@ class BaseValidator(ABC):
             "category": self.category
         }
 
+    def _check_testbed_data(self, testbed_info: List[Dict[str, Any]], context: ValidatorContext) -> bool:
+        """
+        Common check for testbed data availability
+
+        Args:
+            testbed_info: Testbed information list
+            context: ValidatorContext
+
+        Returns:
+            bool: True if testbed data is available, False otherwise
+        """
+        if not testbed_info:
+            self.result.add_warning(
+                f"No testbed data available for validation in context {context.get_group_name()}",
+                ValidationCategory.MISSING_DATA
+            )
+            return False
+        return True
+
+    def _check_connection_graph_data(self, conn_graph: Dict[str, Any], context: ValidatorContext) -> bool:
+        """
+        Common check for connection graph data availability
+
+        Args:
+            conn_graph: Connection graph data
+            context: ValidatorContext
+
+        Returns:
+            bool: True if connection graph data is available, False otherwise
+        """
+        if not conn_graph:
+            self.result.add_warning(
+                f"No connection graph data available for group {context.get_group_name()}",
+                ValidationCategory.MISSING_DATA
+            )
+            return False
+        return True
+
+    def _run_pre_validation_checks(self, context: ValidatorContext) -> bool:
+        """
+        Run common pre-validation checks before calling _validate
+
+        Args:
+            context: ValidatorContext containing validation data
+
+        Returns:
+            bool: True if pre-validation checks pass, False otherwise
+        """
+        # Check that all_groups_data is present in the context
+        all_groups_data = context.get_all_groups_data()
+        if not all_groups_data:
+            self.result.add_error(
+                f"No groups data available in context for validator {self.name}",
+                ValidationCategory.MISSING_DATA
+            )
+            return False
+
+        # Check testbed data
+        testbed_info = context.get_testbeds()
+        if not self._check_testbed_data(testbed_info, context):
+            return False
+
+        return True
+
 
 class GroupValidator(BaseValidator):
     """Base class for validators that operate on a single group"""
@@ -263,6 +342,27 @@ class GroupValidator(BaseValidator):
     def requires_global_context(self) -> bool:
         """Return False to indicate this validator works with single group context"""
         return False
+
+    def _run_pre_validation_checks(self, context: ValidatorContext) -> bool:
+        """
+        Run pre-validation checks specific to group validators
+
+        Args:
+            context: ValidatorContext containing validation data
+
+        Returns:
+            bool: True if pre-validation checks pass, False otherwise
+        """
+        # Run base pre-validation checks first
+        if not super()._run_pre_validation_checks(context):
+            return False
+
+        # For group validators, also check connection graph data
+        conn_graph = context.get_connection_graph()
+        if not self._check_connection_graph_data(conn_graph, context):
+            return False
+
+        return True
 
     @measure_execution_time
     def validate(self, context: ValidatorContext) -> ValidationResult:

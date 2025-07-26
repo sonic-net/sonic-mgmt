@@ -3,7 +3,7 @@ IpAddressValidator - Validates IP address uniqueness between devices and testbed
 """
 
 import ipaddress
-from .base_validator import GlobalValidator, ValidationResult, ValidatorContext, ValidationCategory
+from .base_validator import GlobalValidator, ValidatorContext, ValidationCategory
 from .validator_factory import register_validator
 
 
@@ -19,29 +19,25 @@ class IpAddressValidator(GlobalValidator):
         )
         self.config = config or {}
 
-    def _validate(self, context: ValidatorContext) -> ValidationResult:
+    def _validate(self, context: ValidatorContext) -> None:
         """
         Validate that IP addresses are unique across devices and testbeds using global context
 
         Args:
             context: ValidatorContext containing testbed and connection graph data
-
-        Returns:
-            ValidationResult: Comprehensive validation result
         """
-        result = ValidationResult(validator_name=self.name, group_name="global", success=True)
         testbed_info = context.get_testbeds()
 
         # Collect all IP addresses from all groups
-        ip_addresses = self._collect_all_ip_addresses_globally(context, testbed_info, result)
+        ip_addresses = self._collect_all_ip_addresses_globally(context, testbed_info)
 
         # Validate IP addresses
-        self._validate_collected_ip_addresses(ip_addresses, result)
+        self._validate_collected_ip_addresses(ip_addresses)
 
         # Add metadata (handle both old and new format)
         if ip_addresses and len(list(ip_addresses.values())[0]) == 4:
             # New format with group info: (source_type, source_name, ip_type, group_name)
-            result.metadata.update({
+            self.result.metadata.update({
                 "total_ips": len(ip_addresses),
                 "device_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "device"]),
                 "testbed_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "testbed"]),
@@ -51,7 +47,7 @@ class IpAddressValidator(GlobalValidator):
             })
         else:
             # Old format: (source_type, source_name, ip_type)
-            result.metadata.update({
+            self.result.metadata.update({
                 "total_ips": len(ip_addresses),
                 "device_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "device"]),
                 "testbed_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "testbed"]),
@@ -59,22 +55,19 @@ class IpAddressValidator(GlobalValidator):
                 "ipv6_count": len([ip for ip, info in ip_addresses.items() if info[2] == "ipv6"])
             })
 
-        if result.success and ip_addresses:
-            result.add_info(
+        if self.result.success and ip_addresses:
+            self.result.add_info(
                 f"IP address validation passed for {len(ip_addresses)} unique IP addresses",
-                ValidationCategory.SUMMARY, result.metadata
+                ValidationCategory.SUMMARY, self.result.metadata
             )
 
-        return result
-
-    def _collect_all_ip_addresses_globally(self, context: ValidatorContext, testbed_info, result):
+    def _collect_all_ip_addresses_globally(self, context: ValidatorContext, testbed_info):
         """
         Collect all IP addresses from all groups in the global context
 
         Args:
             context: ValidatorContext with global data
             testbed_info: Testbed information
-            result: ValidationResult to add issues to
 
         Returns:
             dict: Dictionary mapping IP addresses to their source information
@@ -84,14 +77,14 @@ class IpAddressValidator(GlobalValidator):
         # Collect device management IPs from all connection graphs
         all_conn_graphs = context.get_all_connection_graphs()
         for group_name, conn_graph in all_conn_graphs.items():
-            self._collect_device_ips_with_group(conn_graph, group_name, ip_addresses, result)
+            self._collect_device_ips_with_group(conn_graph, group_name, ip_addresses)
 
         # Collect testbed PTF IPs (these are shared across groups)
-        self._collect_testbed_ips_with_group(testbed_info, ip_addresses, result)
+        self._collect_testbed_ips_with_group(testbed_info, ip_addresses)
 
         return ip_addresses
 
-    def _collect_device_ips_with_group(self, conn_graph, group_name, ip_addresses, result):
+    def _collect_device_ips_with_group(self, conn_graph, group_name, ip_addresses):
         """Collect device management IPs from connection graph with group information"""
         if not conn_graph or 'devices' not in conn_graph:
             return
@@ -106,10 +99,10 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address_with_group(
                         ip_addr, "device", device_name, ip_type, group_name,
-                        ip_addresses, result
+                        ip_addresses
                     )
 
-    def _collect_testbed_ips_with_group(self, testbed_info, ip_addresses, result):
+    def _collect_testbed_ips_with_group(self, testbed_info, ip_addresses):
         """Collect testbed PTF IPs with group information"""
         if not testbed_info:
             return
@@ -131,7 +124,7 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address_with_group(
                         ip_addr, "testbed", f"{testbed_name}:ptf_ip", ip_type, "testbed",
-                        ip_addresses, result
+                        ip_addresses
                     )
 
             # Check PTF IPv6 address
@@ -141,10 +134,10 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address_with_group(
                         ip_addr, "testbed", f"{testbed_name}:ptf_ipv6", ip_type, "testbed",
-                        ip_addresses, result
+                        ip_addresses
                     )
 
-    def _add_ip_address_with_group(self, ip_addr, source_type, source_name, ip_type, group_name, ip_addresses, result):
+    def _add_ip_address_with_group(self, ip_addr, source_type, source_name, ip_type, group_name, ip_addresses):
         """Add IP address to tracking dict with group information and check for conflicts"""
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
@@ -160,7 +153,7 @@ class IpAddressValidator(GlobalValidator):
                 return
 
             # This is a real IP conflict
-            result.add_error(
+            self.result.add_error(
                 f"Duplicate IP address {ip_addr}: {source_type} {source_name} (group: {group_name}) conflicts with "
                 f"{existing_source_type} {existing_source_name} (group: {existing_group_name})",
                 ValidationCategory.DUPLICATE,
@@ -176,14 +169,13 @@ class IpAddressValidator(GlobalValidator):
         else:
             ip_addresses[ip_addr] = (source_type, source_name, ip_type, group_name)
 
-    def _collect_all_ip_addresses(self, conn_graph, testbed_info, result):
+    def _collect_all_ip_addresses(self, conn_graph, testbed_info):
         """
         Collect all IP addresses from devices and testbeds
 
         Args:
             conn_graph: Connection graph data
             testbed_info: Testbed information
-            result: ValidationResult to add issues to
 
         Returns:
             dict: Dictionary mapping IP addresses to their source information
@@ -191,24 +183,23 @@ class IpAddressValidator(GlobalValidator):
         ip_addresses = {}  # ip -> (source_type, source_name, ip_type)
 
         # Collect device management IPs from connection graph
-        self._collect_device_ips(conn_graph, ip_addresses, result)
+        self._collect_device_ips(conn_graph, ip_addresses)
 
         # Collect testbed PTF IPs
-        self._collect_testbed_ips(testbed_info, ip_addresses, result)
+        self._collect_testbed_ips(testbed_info, ip_addresses)
 
         return ip_addresses
 
-    def _validate_collected_ip_addresses(self, ip_addresses, result):
+    def _validate_collected_ip_addresses(self, ip_addresses):
         """
         Validate properties of collected IP addresses
 
         Args:
             ip_addresses: Dictionary of IP addresses and their source information
-            result: ValidationResult to add issues to
         """
-        self._validate_ip_addresses(ip_addresses, result)
+        self._validate_ip_addresses(ip_addresses)
 
-    def _collect_device_ips(self, conn_graph, ip_addresses, result):
+    def _collect_device_ips(self, conn_graph, ip_addresses):
         """Collect device management IPs from connection graph"""
         if not conn_graph or 'devices' not in conn_graph:
             return
@@ -223,10 +214,10 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address(
                         ip_addr, "device", device_name, ip_type,
-                        ip_addresses, result
+                        ip_addresses
                     )
 
-    def _collect_testbed_ips(self, testbed_info, ip_addresses, result):
+    def _collect_testbed_ips(self, testbed_info, ip_addresses):
         """Collect testbed PTF IPs"""
         if not testbed_info:
             return
@@ -248,7 +239,7 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address(
                         ip_addr, "testbed", f"{testbed_name}:ptf_ip", ip_type,
-                        ip_addresses, result
+                        ip_addresses
                     )
 
             # Check PTF IPv6 address
@@ -258,14 +249,14 @@ class IpAddressValidator(GlobalValidator):
                 if ip_addr:
                     self._add_ip_address(
                         ip_addr, "testbed", f"{testbed_name}:ptf_ipv6", ip_type,
-                        ip_addresses, result
+                        ip_addresses
                     )
 
-    def _add_ip_address(self, ip_addr, source_type, source_name, ip_type, ip_addresses, result):
+    def _add_ip_address(self, ip_addr, source_type, source_name, ip_type, ip_addresses):
         """Add IP address to tracking dict and check for conflicts"""
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
-            result.add_error(
+            self.result.add_error(
                 f"Duplicate IP address {ip_addr}: {source_type} {source_name} conflicts with "
                 f"{existing_source[0]} {existing_source[1]}",
                 ValidationCategory.DUPLICATE,
@@ -279,7 +270,7 @@ class IpAddressValidator(GlobalValidator):
         else:
             ip_addresses[ip_addr] = (source_type, source_name, ip_type)
 
-    def _validate_ip_addresses(self, ip_addresses, result):
+    def _validate_ip_addresses(self, ip_addresses):
         """Validate IP address properties"""
         for ip_addr, info in ip_addresses.items():
             try:
@@ -294,7 +285,7 @@ class IpAddressValidator(GlobalValidator):
 
                 # Check for reserved addresses
                 if ip_obj.is_reserved:
-                    result.add_warning(
+                    self.result.add_warning(
                         f"Reserved IP address found: {ip_addr} in {source_type} {source_name} (group: {group_name})",
                         ValidationCategory.INVALID_RANGE,
                         {
@@ -308,7 +299,7 @@ class IpAddressValidator(GlobalValidator):
 
                 # Check for loopback addresses
                 if ip_obj.is_loopback:
-                    result.add_warning(
+                    self.result.add_warning(
                         f"Loopback IP address found: {ip_addr} in {source_type} {source_name} (group: {group_name})",
                         ValidationCategory.INVALID_RANGE,
                         {
@@ -322,7 +313,7 @@ class IpAddressValidator(GlobalValidator):
 
             except ValueError:
                 # This should not happen as we validate during extraction
-                result.add_error(
+                self.result.add_error(
                     f"Invalid IP address format: {ip_addr} in {source_type} {source_name} (group: {group_name})",
                     ValidationCategory.INVALID_FORMAT,
                     {

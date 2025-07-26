@@ -4,7 +4,7 @@ VlanValidator - Validates VLAN configuration validity and ranges using BFS trave
 
 import re
 from collections import deque
-from .base_validator import GroupValidator, ValidationResult, ValidatorContext, ValidationCategory
+from .base_validator import GroupValidator, ValidatorContext, ValidationCategory
 from .validator_factory import register_validator
 
 
@@ -22,34 +22,26 @@ class VlanValidator(GroupValidator):
         self.min_vlan_id = self.config.get('min_vlan_id', 1)
         self.max_vlan_id = self.config.get('max_vlan_id', 4096)
 
-    def _validate(self, context: ValidatorContext) -> ValidationResult:
+    def _validate(self, context: ValidatorContext) -> None:
         """
         Validate VLAN configurations using BFS traversal from DUTs
 
         Args:
             context: ValidatorContext containing testbed and connection graph data
-
-        Returns:
-            ValidationResult: Comprehensive validation result
         """
-        result = ValidationResult(validator_name=self.name, group_name=context.get_group_name(), success=True)
         conn_graph = context.get_connection_graph()
 
-        if not conn_graph:
-            result.add_error("Connection graph is empty", ValidationCategory.MISSING_DATA)
-            return result
-
         # Collect topology data needed for BFS traversal
-        topology_data = self._collect_topology_data(conn_graph, result)
+        topology_data = self._collect_topology_data(conn_graph)
         if not topology_data:
-            result.add_info("No topology data found for VLAN validation", ValidationCategory.SUMMARY)
-            return result
+            self.result.add_info("No topology data found for VLAN validation", ValidationCategory.SUMMARY)
+            return
 
         # Validate VLANs using BFS traversal
-        validation_stats = self._validate_vlans_with_bfs(topology_data, result)
+        validation_stats = self._validate_vlans_with_bfs(topology_data)
 
         # Add metadata
-        result.metadata.update({
+        self.result.metadata.update({
             "devices_visited": validation_stats["devices_visited"],
             "links_processed": validation_stats["links_processed"],
             "unique_vlans": validation_stats["unique_vlans"],
@@ -58,23 +50,20 @@ class VlanValidator(GroupValidator):
             "max_vlan_id": self.max_vlan_id
         })
 
-        if result.success:
-            result.add_info(
+        if self.result.success:
+            self.result.add_info(
                 f"VLAN validation passed for {validation_stats['devices_visited']} devices "
                 f"with {validation_stats['links_processed']} links using "
                 f"{validation_stats['unique_vlans']} unique VLANs",
-                ValidationCategory.SUMMARY, result.metadata
+                ValidationCategory.SUMMARY, self.result.metadata
             )
 
-        return result
-
-    def _collect_topology_data(self, conn_graph, result):
+    def _collect_topology_data(self, conn_graph):
         """
         Collect topology data needed for BFS traversal
 
         Args:
             conn_graph: Connection graph data
-            result: ValidationResult to add issues to
 
         Returns:
             dict: Topology data with devices, connections, and VLAN configurations
@@ -83,10 +72,6 @@ class VlanValidator(GroupValidator):
         device_conn = conn_graph.get('links', {})
         port_vlans = conn_graph.get('port_vlans', {})
 
-        if not devices:
-            result.add_error("No devices found in connection graph", ValidationCategory.MISSING_DATA)
-            return None
-
         # Find DUT devices (DevSonic type)
         dut_devices = []
         for device_name, device_info in devices.items():
@@ -94,7 +79,7 @@ class VlanValidator(GroupValidator):
                 dut_devices.append(device_name)
 
         if not dut_devices:
-            result.add_error("No DUT devices (DevSonic) found in topology", ValidationCategory.MISSING_DATA)
+            self.result.add_error("No DUT devices (DevSonic) found in topology", ValidationCategory.MISSING_DATA)
             return None
 
         return {
@@ -104,13 +89,12 @@ class VlanValidator(GroupValidator):
             'dut_devices': dut_devices
         }
 
-    def _validate_vlans_with_bfs(self, topology_data, result):
+    def _validate_vlans_with_bfs(self, topology_data):
         """
         Validate VLANs using BFS traversal from DUT devices with new algorithm
 
         Args:
             topology_data: Topology data containing devices and connections
-            result: ValidationResult to add issues to
 
         Returns:
             dict: Validation statistics
@@ -144,14 +128,14 @@ class VlanValidator(GroupValidator):
 
             # Step 1: Enumerate all non-visited links and store VLAN IDs for peer devices
             peer_vlans = self._process_peer_links(
-                current_device, topology_data, visited_links, device_vlans_table, device_tracked_ports, result
+                current_device, topology_data, visited_links, device_vlans_table, device_tracked_ports
             )
             links_processed += peer_vlans['links_processed']
 
             # Step 2: Load and validate VLAN IDs for current device
             current_device_vlans = self._validate_current_device_vlans(
                 current_device, topology_data, device_vlans_table, device_tracked_ports,
-                peer_vlans['peer_devices'], result
+                peer_vlans['peer_devices']
             )
             all_vlans.update(current_device_vlans)
 
@@ -170,7 +154,7 @@ class VlanValidator(GroupValidator):
         }
 
     def _process_peer_links(self, current_device, topology_data, visited_links, device_vlans_table,
-                            device_tracked_ports, result):
+                            device_tracked_ports):
         """
         Process all non-visited links for current device and store VLAN IDs for peer devices
 
@@ -180,7 +164,6 @@ class VlanValidator(GroupValidator):
             visited_links: Set of already visited links
             device_vlans_table: Hash table to store VLAN IDs per device
             device_tracked_ports: Hash table to store tracked ports per device
-            result: ValidationResult to add issues to
 
         Returns:
             dict: Contains peer_devices list and links_processed count
@@ -213,7 +196,7 @@ class VlanValidator(GroupValidator):
                 peer_devices.add(peer_device)
 
                 # Get VLAN IDs from CURRENT device port (not peer port)
-                current_port_vlans = self._get_port_vlans(current_device, port_name, topology_data, result)
+                current_port_vlans = self._get_port_vlans(current_device, port_name, topology_data)
 
                 # Store VLAN IDs from current device port for the peer device
                 # This means: "peer device should expect to see these VLANs from this link"
@@ -232,7 +215,7 @@ class VlanValidator(GroupValidator):
         }
 
     def _validate_current_device_vlans(self, current_device, topology_data, device_vlans_table,
-                                       device_tracked_ports, peer_devices, result):
+                                       device_tracked_ports, peer_devices):
         """
         Load and validate VLAN IDs for current device
 
@@ -242,7 +225,6 @@ class VlanValidator(GroupValidator):
             device_vlans_table: Hash table with VLAN IDs per device
             device_tracked_ports: Hash table with tracked ports per device
             peer_devices: Set of peer devices for this device
-            result: ValidationResult to add issues to
 
         Returns:
             set: All VLAN IDs found on current device
@@ -254,13 +236,13 @@ class VlanValidator(GroupValidator):
 
         for port_name, vlan_config in port_vlans_config.items():
             if not isinstance(vlan_config, dict):
-                result.add_error(
+                self.result.add_error(
                     f"Device {current_device} port {port_name} VLAN config must be a dictionary",
                     ValidationCategory.FORMAT, {"device": current_device, "port": port_name}
                 )
                 continue
 
-            port_vlans = self._get_port_vlans(current_device, port_name, topology_data, result)
+            port_vlans = self._get_port_vlans(current_device, port_name, topology_data)
             all_device_vlans.update(port_vlans)
 
         # Only validate VLANs that were stored/tracked from peer devices in BFS traversal
@@ -268,11 +250,11 @@ class VlanValidator(GroupValidator):
         tracked_ports = device_tracked_ports.get(current_device, set())
         if stored_vlans and tracked_ports:
             # Simple rule: Check for duplicates only among tracked ports
-            self._validate_simple_vlan_uniqueness(current_device, stored_vlans, tracked_ports, topology_data, result)
+            self._validate_simple_vlan_uniqueness(current_device, stored_vlans, tracked_ports, topology_data)
 
         return all_device_vlans
 
-    def _validate_simple_vlan_uniqueness(self, device_name, tracked_vlans, tracked_ports, topology_data, result):
+    def _validate_simple_vlan_uniqueness(self, device_name, tracked_vlans, tracked_ports, topology_data):
         """
         Simple VLAN uniqueness validation: only check uniqueness among tracked ports
 
@@ -284,19 +266,18 @@ class VlanValidator(GroupValidator):
             tracked_vlans: Set of VLAN IDs that were tracked from peer devices during BFS
             tracked_ports: Set of port names that were tracked during BFS traversal
             topology_data: Topology data
-            result: ValidationResult to add issues to
         """
         seen_vlans = {}  # vlan_id -> port_name (only for tracked VLANs on tracked ports)
 
         # Only check the ports that were tracked during BFS traversal
         for port_name in tracked_ports:
-            port_vlans = self._get_port_vlans(device_name, port_name, topology_data, result)
+            port_vlans = self._get_port_vlans(device_name, port_name, topology_data)
 
             for vlan_id in port_vlans:
                 # Only check VLANs that were tracked from peer devices
                 if vlan_id in tracked_vlans:
                     if vlan_id in seen_vlans:
-                        result.add_error(
+                        self.result.add_error(
                             f"Device {device_name}: VLAN ID {vlan_id} is duplicated on ports "
                             f"{seen_vlans[vlan_id]} and {port_name}",
                             ValidationCategory.DUPLICATE,
@@ -310,7 +291,7 @@ class VlanValidator(GroupValidator):
                     else:
                         seen_vlans[vlan_id] = port_name
 
-    def _validate_vlan_mapping(self, device_name, device_vlans, stored_vlans, result):
+    def _validate_vlan_mapping(self, device_name, device_vlans, stored_vlans):
         """
         Validate that all VLAN IDs can be uniquely mapped to peer links
 
@@ -318,7 +299,6 @@ class VlanValidator(GroupValidator):
             device_name: Device name
             device_vlans: Set of VLAN IDs on this device
             stored_vlans: Set of VLAN IDs stored from peer links
-            result: ValidationResult to add issues to
         """
         # Check if device VLANs match stored VLANs from peer links
         if device_vlans != stored_vlans:
@@ -326,7 +306,7 @@ class VlanValidator(GroupValidator):
             extra_vlans = stored_vlans - device_vlans
 
             if missing_vlans:
-                result.add_error(
+                self.result.add_error(
                     f"Device {device_name}: VLAN IDs {sorted(missing_vlans)} are not mapped to any peer links",
                     ValidationCategory.INVALID_RANGE,
                     {
@@ -338,7 +318,7 @@ class VlanValidator(GroupValidator):
                 )
 
             if extra_vlans:
-                result.add_error(
+                self.result.add_error(
                     f"Device {device_name}: VLAN IDs {sorted(extra_vlans)} from peer links are not "
                     f"configured on device",
                     ValidationCategory.INVALID_RANGE,
@@ -350,7 +330,7 @@ class VlanValidator(GroupValidator):
                     }
                 )
 
-    def _get_port_vlans(self, device_name, port_name, topology_data, result):
+    def _get_port_vlans(self, device_name, port_name, topology_data):
         """
         Get VLAN IDs configured on a specific port
 
@@ -358,7 +338,6 @@ class VlanValidator(GroupValidator):
             device_name: Device name
             port_name: Port name
             topology_data: Topology data
-            result: ValidationResult to add issues to
 
         Returns:
             set: Set of VLAN IDs on this port
@@ -373,20 +352,20 @@ class VlanValidator(GroupValidator):
         # Get VLANs from vlanids string
         vlanids = vlan_config.get('vlanids')
         if vlanids:
-            vlan_set = self._validate_vlan_string(vlanids, device_name, port_name, result)
+            vlan_set = self._validate_vlan_string(vlanids, device_name, port_name)
             if vlan_set:
                 port_vlans.update(vlan_set)
 
         # Get VLANs from vlanlist array
         vlanlist = vlan_config.get('vlanlist')
         if vlanlist:
-            vlan_set = self._validate_vlan_list(vlanlist, device_name, port_name, result)
+            vlan_set = self._validate_vlan_list(vlanlist, device_name, port_name)
             if vlan_set:
                 port_vlans.update(vlan_set)
 
         return port_vlans
 
-    def _validate_vlan_string(self, vlanids, device_name, port_name, result):
+    def _validate_vlan_string(self, vlanids, device_name, port_name):
         """
         Validate VLAN IDs in string format (e.g., "2525-2556,3006-3061")
 
@@ -394,7 +373,6 @@ class VlanValidator(GroupValidator):
             vlanids: VLAN IDs string
             device_name: Device name for error reporting
             port_name: Port name for error reporting
-            result: ValidationResult to add issues to
 
         Returns:
             set: Set of VLAN IDs found, or None if parsing failed
@@ -410,7 +388,7 @@ class VlanValidator(GroupValidator):
                     # Handle range (e.g., "2525-2556")
                     range_match = re.match(r'^(\d+)-(\d+)$', part)
                     if not range_match:
-                        result.add_error(
+                        self.result.add_error(
                             f"Device {device_name} port {port_name}: Invalid VLAN range format '{part}'",
                             ValidationCategory.INVALID_RANGE,
                             {"device": device_name, "port": port_name, "range": part}
@@ -421,7 +399,7 @@ class VlanValidator(GroupValidator):
                     end_vlan = int(range_match.group(2))
 
                     if start_vlan > end_vlan:
-                        result.add_error(
+                        self.result.add_error(
                             f"Device {device_name} port {port_name}: Invalid VLAN range '{part}' - start > end",
                             ValidationCategory.INVALID_RANGE,
                             {"device": device_name, "port": port_name, "range": part, "start": start_vlan,
@@ -432,7 +410,7 @@ class VlanValidator(GroupValidator):
                     # Validate each VLAN in range
                     for vlan_id in range(start_vlan, end_vlan + 1):
                         if not self._is_valid_vlan_id(vlan_id):
-                            result.add_error(
+                            self.result.add_error(
                                 f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
                                 f"{self.min_vlan_id}-{self.max_vlan_id}",
                                 "invalid_vlan_id",
@@ -444,7 +422,7 @@ class VlanValidator(GroupValidator):
                 else:
                     # Handle individual VLAN
                     if not part.isdigit():
-                        result.add_error(
+                        self.result.add_error(
                             f"Device {device_name} port {port_name}: Invalid VLAN ID format '{part}'",
                             ValidationCategory.INVALID_FORMAT,
                             {"device": device_name, "port": port_name, "vlan_id": part}
@@ -453,7 +431,7 @@ class VlanValidator(GroupValidator):
 
                     vlan_id = int(part)
                     if not self._is_valid_vlan_id(vlan_id):
-                        result.add_error(
+                        self.result.add_error(
                             f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
                             f"{self.min_vlan_id}-{self.max_vlan_id}",
                             "invalid_vlan_id",
@@ -464,7 +442,7 @@ class VlanValidator(GroupValidator):
                         vlan_set.add(vlan_id)
 
         except ValueError as e:
-            result.add_error(
+            self.result.add_error(
                 f"Device {device_name} port {port_name}: Error parsing VLAN string '{vlanids}': {str(e)}",
                 ValidationCategory.PARSE_ERROR,
                 {"device": device_name, "port": port_name, "vlanids": vlanids, "error": str(e)}
@@ -473,7 +451,7 @@ class VlanValidator(GroupValidator):
 
         return vlan_set
 
-    def _validate_vlan_list(self, vlanlist, device_name, port_name, result):
+    def _validate_vlan_list(self, vlanlist, device_name, port_name):
         """
         Validate VLAN IDs in list format
 
@@ -481,7 +459,6 @@ class VlanValidator(GroupValidator):
             vlanlist: List of VLAN IDs
             device_name: Device name for error reporting
             port_name: Port name for error reporting
-            result: ValidationResult to add issues to
 
         Returns:
             set: Set of VLAN IDs found, or None if validation failed
@@ -489,7 +466,7 @@ class VlanValidator(GroupValidator):
         vlan_set = set()
 
         if not isinstance(vlanlist, list):
-            result.add_error(
+            self.result.add_error(
                 f"Device {device_name} port {port_name}: vlanlist must be a list",
                 ValidationCategory.INVALID_TYPE,
                 {"device": device_name, "port": port_name, "type": str(type(vlanlist))}
@@ -498,7 +475,7 @@ class VlanValidator(GroupValidator):
 
         for i, vlan_id in enumerate(vlanlist):
             if not isinstance(vlan_id, int):
-                result.add_error(
+                self.result.add_error(
                     f"Device {device_name} port {port_name}: VLAN ID at index {i} ({vlan_id}) must be an integer",
                     ValidationCategory.INVALID_TYPE,
                     {"device": device_name, "port": port_name, "index": i, "vlan_id": vlan_id,
@@ -507,7 +484,7 @@ class VlanValidator(GroupValidator):
                 continue
 
             if not self._is_valid_vlan_id(vlan_id):
-                result.add_error(
+                self.result.add_error(
                     f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
                     f"{self.min_vlan_id}-{self.max_vlan_id}",
                     "invalid_vlan_id",
