@@ -39,7 +39,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202411)
+    default: $(IMAGE_CISCO_202501)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -107,7 +107,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8101.dualtor.202411.V64.NightlyTest_by_Elastictest
+    displayName: 8101.dualtor.202501.V64.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
