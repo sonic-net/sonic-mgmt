@@ -156,6 +156,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
             ".*ERR kernel.*Reset adapter.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR systemd.*Failed to start Host core file uploader daemon.*",  # Valid test_syslog
+            ".*ERR systemd.*Failed to start core_uploader.service.*",  # Valid test_syslog
 
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
