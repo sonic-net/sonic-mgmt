@@ -5,12 +5,17 @@ Meta validators package for SONiC Mgmt infrastructure validation with enhanced O
 # Core components
 from .base_validator import (
     BaseValidator,
+    ValidatorContext,
+    measure_execution_time
+)
+
+from .validation_result import (
     ValidationResult,
     ValidationIssue,
-    ValidatorContext,
     ValidationSeverity,
-    ValidationCategory,
-    measure_execution_time
+    ValidationIssueDefinition,
+    ValidationIssueRegistry,
+    get_issue_registry
 )
 
 # Factory and orchestration
@@ -47,7 +52,9 @@ __all__ = [
     'ValidationIssue',
     'ValidatorContext',
     'ValidationSeverity',
-    'ValidationCategory',
+    'ValidationIssueDefinition',
+    'ValidationIssueRegistry',
+    'get_issue_registry',
     'measure_execution_time',
 
     # Factory and orchestration

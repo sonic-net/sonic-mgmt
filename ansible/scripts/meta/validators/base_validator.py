@@ -4,175 +4,17 @@ BaseValidator - Base validator classes and interfaces for SONiC Mgmt metadata va
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Union
-from enum import Enum
+from typing import Dict, Any, Optional, Union
 import time
 from functools import wraps
-
-
-class ValidationCategory:
-    """Common validation issue categories"""
-    MISSING_DATA = "missing_data"
-    FORMAT = "format"
-    SUMMARY = "summary"
-    DUPLICATE = "duplicate"
-    CONFLICT = "conflict"
-    INVALID_FORMAT = "invalid_format"
-    INVALID_RANGE = "invalid_range"
-    INVALID_TYPE = "invalid_type"
-    PARSE_ERROR = "parse_error"
-    CONSISTENCY_ERROR = "consistency_error"
-
-
-class ValidationSeverity(Enum):
-    """Validation result severity levels"""
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    CRITICAL = "critical"
-
-
-@dataclass
-class ValidationIssue:
-    """Represents a single validation issue"""
-    message: str
-    severity: ValidationSeverity
-    category: str
-    source: str
-    group_name: str
-    details: Optional[Dict[str, Any]] = None
-
-    def __str__(self):
-        return f"[{self.severity.value.upper()}] {self.category}: {self.message}"
-
-    def __hash__(self):
-        """Make ValidationIssue hashable for deduplication"""
-        return hash((self.message, self.severity, self.category, self.source))
-
-    def __eq__(self, other):
-        """Define equality for deduplication"""
-        if not isinstance(other, ValidationIssue):
-            return False
-        return (self.message == other.message and
-                self.severity == other.severity and
-                self.category == other.category and
-                self.source == other.source)
-
-
-@dataclass
-class ValidationResult:
-    """Comprehensive validation result with detailed information"""
-    validator_name: str
-    group_name: str
-    success: bool
-    issues: List[ValidationIssue] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    execution_time: float = 0.0
-
-    @property
-    def errors(self) -> List[ValidationIssue]:
-        """Get all error-level issues"""
-        return [
-            issue for issue in self.issues
-            if issue.severity in [ValidationSeverity.ERROR, ValidationSeverity.CRITICAL]
-        ]
-
-    @property
-    def warnings(self) -> List[ValidationIssue]:
-        """Get all warning-level issues"""
-        return [issue for issue in self.issues if issue.severity == ValidationSeverity.WARNING]
-
-    @property
-    def error_count(self) -> int:
-        """Get count of error-level issues"""
-        return len(self.errors)
-
-    @property
-    def warning_count(self) -> int:
-        """Get count of warning-level issues"""
-        return len(self.warnings)
-
-    def add_issue(
-        self, message: str, severity: ValidationSeverity, category: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Add a validation issue"""
-        issue = ValidationIssue(message, severity, category, self.validator_name, self.group_name, details)
-        self.issues.append(issue)
-
-        # Update success status based on severity
-        if severity in [ValidationSeverity.ERROR, ValidationSeverity.CRITICAL]:
-            self.success = False
-
-    def add_error(self, message: str, category: str, details: Optional[Dict[str, Any]] = None):
-        """Add an error-level issue"""
-        self.add_issue(message, ValidationSeverity.ERROR, category, details)
-
-    def add_warning(self, message: str, category: str, details: Optional[Dict[str, Any]] = None):
-        """Add a warning-level issue"""
-        self.add_issue(message, ValidationSeverity.WARNING, category, details)
-
-    def add_info(self, message: str, category: str, details: Optional[Dict[str, Any]] = None):
-        """Add an info-level issue"""
-        self.add_issue(message, ValidationSeverity.INFO, category, details)
-
-    # Category-specific utility functions
-    def add_summary(self, message: str, details: Optional[Dict[str, Any]] = None):
-        """Add a validation summary"""
-        self.add_info(message, ValidationCategory.SUMMARY, details)
-
-    def add_missing_data(self, message: str, details: Optional[Dict[str, Any]] = None,
-                         severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a missing data issue"""
-        self.add_issue(message, severity, ValidationCategory.MISSING_DATA, details)
-
-    def add_format_issue(self, message: str, details: Optional[Dict[str, Any]] = None,
-                         severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a format validation issue"""
-        self.add_issue(message, severity, ValidationCategory.FORMAT, details)
-
-    def add_duplicate(self, message: str, details: Optional[Dict[str, Any]] = None,
-                      severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a duplicate item issue"""
-        self.add_issue(message, severity, ValidationCategory.DUPLICATE, details)
-
-    def add_conflict(self, message: str, details: Optional[Dict[str, Any]] = None,
-                     severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a conflict issue"""
-        self.add_issue(message, severity, ValidationCategory.CONFLICT, details)
-
-    def add_invalid_format(self, message: str, details: Optional[Dict[str, Any]] = None,
-                           severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add an invalid format issue"""
-        self.add_issue(message, severity, ValidationCategory.INVALID_FORMAT, details)
-
-    def add_invalid_range(self, message: str, details: Optional[Dict[str, Any]] = None,
-                          severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add an invalid range issue"""
-        self.add_issue(message, severity, ValidationCategory.INVALID_RANGE, details)
-
-    def add_invalid_type(self, message: str, details: Optional[Dict[str, Any]] = None,
-                         severity: ValidationSeverity = ValidationSeverity.WARNING):
-        """Add an invalid type issue"""
-        self.add_issue(message, severity, ValidationCategory.INVALID_TYPE, details)
-
-    def add_parse_error(self, message: str, details: Optional[Dict[str, Any]] = None,
-                        severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a parse error issue"""
-        self.add_issue(message, severity, ValidationCategory.PARSE_ERROR, details)
-
-    def add_consistency_error(self, message: str, details: Optional[Dict[str, Any]] = None,
-                              severity: ValidationSeverity = ValidationSeverity.ERROR):
-        """Add a consistency error issue"""
-        self.add_issue(message, severity, ValidationCategory.CONSISTENCY_ERROR, details)
+from .validation_result import ValidationResult, ValidationSeverity, get_issue_registry
 
 
 class ValidatorContext:
     """Context object containing validation data and utilities"""
 
     def __init__(
-        self, group_name: str, testbed_info: List[Dict[str, Any]],
+        self, group_name: str, testbed_info: list[Dict[str, Any]],
         all_groups_data: Optional[Dict[str, Dict[str, Any]]] = None
     ):
         self.group_name = group_name
@@ -183,7 +25,7 @@ class ValidatorContext:
         """Get the name of the validation group"""
         return self.group_name
 
-    def get_testbeds(self) -> List[Dict[str, Any]]:
+    def get_testbeds(self) -> list[Dict[str, Any]]:
         """Get all testbed configurations"""
         return self.testbed_info
 
@@ -310,7 +152,12 @@ class BaseValidator(ABC):
         except Exception as e:
             error_msg = f"Unexpected error during {self.name} validation: {str(e)}"
             self.logger.error(error_msg)
-            self.result.add_error(error_msg, "exception", {"exception_type": type(e).__name__})
+            # Need to add the exception issue ID to the registry
+            registry = get_issue_registry()
+            registry.register_issue(
+                'base', 'E0001', 'validation_exception', ValidationSeverity.ERROR, 'Unexpected validation error'
+            )
+            self.result.add_issue('E0001', {"error_message": error_msg, "validator": self.name})
 
         return self.result
 
@@ -322,7 +169,7 @@ class BaseValidator(ABC):
             "category": self.category
         }
 
-    def _check_testbed_data(self, testbed_info: List[Dict[str, Any]], context: ValidatorContext) -> bool:
+    def _check_testbed_data(self, testbed_info: list[Dict[str, Any]], context: ValidatorContext) -> bool:
         """
         Common check for testbed data availability
 
@@ -334,10 +181,11 @@ class BaseValidator(ABC):
             bool: True if testbed data is available, False otherwise
         """
         if not testbed_info:
-            self.result.add_warning(
-                f"No testbed data available for validation in context {context.get_group_name()}",
-                ValidationCategory.MISSING_DATA
+            registry = get_issue_registry()
+            registry.register_issue(
+                'base', 'E0002', 'missing_testbed_data', ValidationSeverity.WARNING, 'No testbed data available'
             )
+            self.result.add_issue('E0002', {"context": context.get_group_name()})
             return False
         return True
 
@@ -353,10 +201,12 @@ class BaseValidator(ABC):
             bool: True if connection graph data is available, False otherwise
         """
         if not conn_graph:
-            self.result.add_warning(
-                f"No connection graph data available for group {context.get_group_name()}",
-                ValidationCategory.MISSING_DATA
+            registry = get_issue_registry()
+            registry.register_issue(
+                'base', 'E0003', 'missing_connection_graph', ValidationSeverity.WARNING,
+                'No connection graph data available'
             )
+            self.result.add_issue('E0003', {"group": context.get_group_name()})
             return False
         return True
 
@@ -373,10 +223,11 @@ class BaseValidator(ABC):
         # Check that all_groups_data is present in the context
         all_groups_data = context.get_all_groups_data()
         if not all_groups_data:
-            self.result.add_error(
-                f"No groups data available in context for validator {self.name}",
-                ValidationCategory.MISSING_DATA
+            registry = get_issue_registry()
+            registry.register_issue(
+                'base', 'E0004', 'missing_groups_data', ValidationSeverity.ERROR, 'No groups data available'
             )
+            self.result.add_issue('E0004', {"validator": self.name})
             return False
 
         # Check testbed data

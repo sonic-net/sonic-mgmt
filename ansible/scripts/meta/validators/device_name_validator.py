@@ -2,7 +2,7 @@
 DeviceNameValidator - Validates that all device names are unique within each infrastructure group.
 """
 
-from .base_validator import GroupValidator, ValidatorContext, ValidationSeverity
+from .base_validator import GroupValidator, ValidatorContext
 from .validator_factory import register_validator
 
 
@@ -45,9 +45,9 @@ class DeviceNameValidator(GroupValidator):
         })
 
         if self.result.success and device_names:
-            self.result.add_summary(
-                f"Device name validation passed for {len(device_names)} devices in group {context.get_group_name()}",
-                self.result.metadata
+            self.result.add_issue(
+                'I6000',
+                {"device_count": len(device_names), "group": context.get_group_name()}
             )
 
     def _extract_device_names(self, conn_graph, group_name):
@@ -64,16 +64,17 @@ class DeviceNameValidator(GroupValidator):
         device_names = []
 
         if 'devices' not in conn_graph:
-            self.result.add_missing_data(
-                f"No devices section found in connection graph for group {group_name}",
-                severity=ValidationSeverity.WARNING
+            self.result.add_issue(
+                'E6001',
+                {"group": group_name}
             )
             return device_names
 
         devices = conn_graph['devices']
         if not isinstance(devices, dict):
-            self.result.add_invalid_format(
-                f"Devices section is not a dictionary in group {group_name}"
+            self.result.add_issue(
+                'E6002',
+                {"group": group_name, "actual_type": type(devices).__name__}
             )
             return device_names
 
@@ -81,9 +82,9 @@ class DeviceNameValidator(GroupValidator):
             if device_name:  # Only add non-empty device names
                 device_names.append(device_name)
             else:
-                self.result.add_invalid_format(
-                    f"Empty or invalid device name found in group {group_name}",
-                    {"device_info": device_info}
+                self.result.add_issue(
+                    'E6003',
+                    {"group": group_name}
                 )
 
         return device_names
@@ -106,12 +107,9 @@ class DeviceNameValidator(GroupValidator):
                 seen_names.add(device_name)
 
         for duplicate_name in duplicates:
-            self.result.add_conflict(
-                f"Duplicate device name found in group {group_name}: {duplicate_name}",
-                {
-                    "device_name": duplicate_name,
-                    "group_name": group_name
-                }
+            self.result.add_issue(
+                'E6004',
+                {"group": group_name, "device": duplicate_name}
             )
 
     def _validate_device_name_format(self, device_names, group_name):
@@ -129,12 +127,9 @@ class DeviceNameValidator(GroupValidator):
         for device_name in device_names:
             # Check for empty or whitespace-only names
             if not device_name or not device_name.strip():
-                self.result.add_invalid_format(
-                    f"Empty or whitespace-only device name found in group {group_name}",
-                    {
-                        "device_name": repr(device_name),
-                        "group_name": group_name
-                    }
+                self.result.add_issue(
+                    'E6005',
+                    {"group": group_name, "name": repr(device_name)}
                 )
                 continue
 
@@ -142,25 +137,19 @@ class DeviceNameValidator(GroupValidator):
             found_invalid = [char for char in invalid_chars if char in device_name]
 
             if found_invalid:
-                self.result.add_invalid_format(
-                    f"Device name '{device_name}' in group {group_name} contains invalid characters: {found_invalid}",
-                    {
-                        "device_name": device_name,
-                        "group_name": group_name,
-                        "invalid_characters": found_invalid,
-                        "configured_invalid_chars": invalid_chars
-                    }
+                self.result.add_issue(
+                    'E6006',
+                    {"group": group_name, "device": device_name, "chars": found_invalid}
                 )
 
             # Check for device names exceeding maximum length
             if len(device_name) > max_length:
-                self.result.add_invalid_format(
-                    f"Device name '{device_name}' in group {group_name} exceeds maximum length ({len(device_name)} "
-                    f"characters, max allowed: {max_length})",
+                self.result.add_issue(
+                    'E6007',
                     {
-                        "device_name": device_name,
-                        "group_name": group_name,
+                        "group": group_name,
+                        "device": device_name,
                         "length": len(device_name),
-                        "max_length": max_length
+                        "max": max_length
                     }
                 )

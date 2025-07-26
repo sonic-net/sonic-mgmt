@@ -2,7 +2,7 @@
 PDUValidator - Validates that all DevSonic and Fanout devices have PDU connections configured
 """
 
-from .base_validator import GlobalValidator, ValidatorContext, ValidationSeverity
+from .base_validator import GlobalValidator, ValidatorContext
 from .validator_factory import register_validator
 
 
@@ -29,7 +29,7 @@ class PDUValidator(GlobalValidator):
         # Collect PDU connection data from all groups
         pdu_data = self._collect_pdu_data_globally(context)
         if not pdu_data:
-            self.result.add_summary("No PDU connection data found")
+            self.result.add_issue('I4000', {"message": "No PDU connection data found"})
             return
 
         # Validate PDU connections
@@ -45,11 +45,13 @@ class PDUValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_summary(
-                f"PDU validation passed for {validation_stats['devices_with_pdu']} out of "
-                f"{validation_stats['target_devices']} target devices with "
-                f"{validation_stats['total_psu_connections']} PSU connections",
-                self.result.metadata
+            self.result.add_issue(
+                'I4000',
+                {
+                    "devices_with_pdu": validation_stats['devices_with_pdu'],
+                    "target_devices": validation_stats['target_devices'],
+                    "total_psu_connections": validation_stats['total_psu_connections']
+                }
             )
 
     def _collect_pdu_data_globally(self, context: ValidatorContext):
@@ -95,15 +97,16 @@ class PDUValidator(GlobalValidator):
             for device_name, pdu_info in pdu_links.items():
                 if device_name in all_pdu_links:
                     # PDU link exists in multiple groups - could indicate duplicate config
-                    self.result.add_duplicate(
-                        f"Device {device_name} has PDU configuration in multiple groups",
-                        {"device": device_name, "groups": [group_name, "previous"]},
-                        severity=ValidationSeverity.WARNING
+                    self.result.add_issue(
+                        'E4001',
+                        {"device": device_name, "group": group_name}
                     )
                 all_pdu_links[device_name] = pdu_info
 
         if not all_target_devices:
-            self.result.add_summary("No target devices (DevSonic or Fanout*) found across all groups")
+            self.result.add_issue(
+                'I4000', {"message": "No target devices (DevSonic or Fanout*) found across all groups"}
+            )
             return None
 
         return {
@@ -138,8 +141,8 @@ class PDUValidator(GlobalValidator):
 
             # Check if device has PDU connections
             if device_name not in pdu_links:
-                self.result.add_missing_data(
-                    f"Device {device_name} ({device_type}) has no PDU connections configured",
+                self.result.add_issue(
+                    'E4002',
                     {"device": device_name, "device_type": device_type}
                 )
                 continue
@@ -147,9 +150,9 @@ class PDUValidator(GlobalValidator):
             # Validate PDU connections for this device
             device_pdu_info = pdu_links[device_name]
             if not isinstance(device_pdu_info, dict):
-                self.result.add_format_issue(
-                    f"Device {device_name} PDU connection info must be a dictionary",
-                    {"device": device_name, "pdu_info": device_pdu_info}
+                self.result.add_issue(
+                    'E4003',
+                    {"device": device_name, "actual_type": type(device_pdu_info).__name__}
                 )
                 continue
 
@@ -165,10 +168,9 @@ class PDUValidator(GlobalValidator):
 
                 # Check power redundancy
                 if device_stats["psu_count"] == 1:
-                    self.result.add_consistency_error(
-                        f"Device {device_name} has only one PSU connection - no power redundancy",
-                        {"device": device_name, "psu_count": device_stats["psu_count"]},
-                        severity=ValidationSeverity.WARNING
+                    self.result.add_issue(
+                        'E4004',
+                        {"device": device_name, "psu_count": device_stats['psu_count']}
                     )
                     power_redundancy_warnings += 1
 
@@ -198,18 +200,21 @@ class PDUValidator(GlobalValidator):
 
         for psu_name, psu_info in device_pdu_info.items():
             if not isinstance(psu_info, dict):
-                self.result.add_format_issue(
-                    f"Device {device_name} PSU {psu_name} info must be a dictionary",
-                    {"device": device_name, "psu": psu_name, "psu_info": psu_info}
+                self.result.add_issue(
+                    'E4005',
+                    {"device": device_name, "psu": psu_name, "actual_type": type(psu_info).__name__}
                 )
                 continue
 
             # Validate each feed for this PSU
             for feed_name, feed_info in psu_info.items():
                 if not isinstance(feed_info, dict):
-                    self.result.add_format_issue(
-                        f"Device {device_name} PSU {psu_name} feed {feed_name} info must be a dictionary",
-                        {"device": device_name, "psu": psu_name, "feed": feed_name, "feed_info": feed_info}
+                    self.result.add_issue(
+                        'E4006',
+                        {
+                            "device": device_name, "psu": psu_name, "feed": feed_name,
+                            "actual_type": type(feed_info).__name__
+                        }
                     )
                     continue
 
@@ -230,14 +235,13 @@ class PDUValidator(GlobalValidator):
                     if port_key in pdu_port_usage:
                         # PDU port conflict detected
                         existing_device_psu = pdu_port_usage[port_key]
-                        self.result.add_conflict(
-                            f"PDU outlet {pdu_device}:{pdu_port} is used by multiple devices: "
-                            f"{existing_device_psu}, {device_psu_key}",
+                        self.result.add_issue(
+                            'E4007',
                             {
-                                "pdu_device": pdu_device,
-                                "pdu_port": pdu_port,
-                                "device_psu1": existing_device_psu,
-                                "device_psu2": device_psu_key
+                                "pdu": pdu_device,
+                                "port": pdu_port,
+                                "device1": existing_device_psu,
+                                "device2": device_psu_key
                             }
                         )
                     else:
@@ -265,18 +269,18 @@ class PDUValidator(GlobalValidator):
         required_fields = ['peerdevice', 'peerport', 'feed']
         for field in required_fields:
             if field not in feed_info:
-                self.result.add_missing_data(
-                    f"Device {device_name} PSU {psu_name} feed {feed_name} missing required field '{field}'",
-                    {"device": device_name, "psu": psu_name, "feed": feed_name, "missing_field": field}
+                self.result.add_issue(
+                    'E4008',
+                    {"device": device_name, "psu": psu_name, "feed": feed_name, "field": field}
                 )
 
         # Validate PDU device exists
         pdu_device = feed_info.get('peerdevice')
         if pdu_device:
             if pdu_device not in devices:
-                self.result.add_invalid_format(
-                    f"Device {device_name} PSU {psu_name} points to non-existent PDU {pdu_device}",
-                    {"device": device_name, "psu": psu_name, "pdu_device": pdu_device}
+                self.result.add_issue(
+                    'E4009',
+                    {"device": device_name, "psu": psu_name, "pdu": pdu_device}
                 )
             else:
                 # Check PDU device type
@@ -284,17 +288,22 @@ class PDUValidator(GlobalValidator):
                 if isinstance(pdu_info, dict):
                     pdu_type = pdu_info.get('Type', '').lower()
                     if pdu_type != 'pdu':
-                        self.result.add_invalid_type(
-                            f"Device {device_name} PSU {psu_name} PDU {pdu_device} has unexpected type '{pdu_type}' "
-                            f"(expected 'Pdu')",
-                            {"device": device_name, "psu": psu_name, "pdu_device": pdu_device, "pdu_type": pdu_type}
+                        self.result.add_issue(
+                            'E4010',
+                            {
+                                "device": device_name,
+                                "psu": psu_name,
+                                "pdu": pdu_device,
+                                "type": pdu_type,
+                                "expected": "pdu"
+                            }
                         )
 
         # Validate PDU port
         pdu_port = feed_info.get('peerport')
         if pdu_port and not str(pdu_port).strip():
-            self.result.add_invalid_format(
-                f"Device {device_name} PSU {psu_name} has empty PDU port",
+            self.result.add_issue(
+                'E4011',
                 {"device": device_name, "psu": psu_name}
             )
 
@@ -303,9 +312,7 @@ class PDUValidator(GlobalValidator):
         if feed_id:
             valid_feeds = ['A', 'B', 'N/A']
             if feed_id not in valid_feeds:
-                self.result.add_invalid_format(
-                    f"Device {device_name} PSU {psu_name} has unusual power feed '{feed_id}' "
-                    f"(expected one of: {', '.join(valid_feeds)})",
-                    {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds},
-                    severity=ValidationSeverity.WARNING
+                self.result.add_issue(
+                    'E4012',
+                    {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds}
                 )

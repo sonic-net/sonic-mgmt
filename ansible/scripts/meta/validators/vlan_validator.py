@@ -4,7 +4,7 @@ VlanValidator - Validates VLAN configuration validity and ranges using BFS trave
 
 import re
 from collections import deque
-from .base_validator import GroupValidator, ValidatorContext, ValidationCategory
+from .base_validator import GroupValidator, ValidatorContext
 from .validator_factory import register_validator
 
 
@@ -34,7 +34,7 @@ class VlanValidator(GroupValidator):
         # Collect topology data needed for BFS traversal
         topology_data = self._collect_topology_data(conn_graph)
         if not topology_data:
-            self.result.add_summary("No topology data found for VLAN validation")
+            self.result.add_issue('I7000', {"message": "No topology data found for VLAN validation"})
             return
 
         # Validate VLANs using BFS traversal
@@ -51,11 +51,13 @@ class VlanValidator(GroupValidator):
         })
 
         if self.result.success:
-            self.result.add_summary(
-                f"VLAN validation passed for {validation_stats['devices_visited']} devices "
-                f"with {validation_stats['links_processed']} links using "
-                f"{validation_stats['unique_vlans']} unique VLANs",
-                self.result.metadata
+            self.result.add_issue(
+                'I7000',
+                {
+                    "devices_visited": validation_stats['devices_visited'],
+                    "links_processed": validation_stats['links_processed'],
+                    "unique_vlans": validation_stats['unique_vlans']
+                }
             )
 
     def _collect_topology_data(self, conn_graph):
@@ -79,7 +81,7 @@ class VlanValidator(GroupValidator):
                 dut_devices.append(device_name)
 
         if not dut_devices:
-            self.result.add_missing_data("No DUT devices (DevSonic) found in topology")
+            self.result.add_issue('E7001', {"devices_checked": "all"})
             return None
 
         return {
@@ -236,9 +238,9 @@ class VlanValidator(GroupValidator):
 
         for port_name, vlan_config in port_vlans_config.items():
             if not isinstance(vlan_config, dict):
-                self.result.add_format_issue(
-                    f"Device {current_device} port {port_name} VLAN config must be a dictionary",
-                    {"device": current_device, "port": port_name}
+                self.result.add_issue(
+                    'E7002',
+                    {"device": current_device, "port": port_name, "actual_type": type(vlan_config).__name__}
                 )
                 continue
 
@@ -277,15 +279,9 @@ class VlanValidator(GroupValidator):
                 # Only check VLANs that were tracked from peer devices
                 if vlan_id in tracked_vlans:
                     if vlan_id in seen_vlans:
-                        self.result.add_conflict(
-                            f"Device {device_name}: VLAN ID {vlan_id} is duplicated on ports "
-                            f"{seen_vlans[vlan_id]} and {port_name}",
-                            {
-                                "device": device_name,
-                                "vlan_id": vlan_id,
-                                "port1": seen_vlans[vlan_id],
-                                "port2": port_name
-                            }
+                        self.result.add_issue(
+                            'E7003',
+                            {"device": device_name, "vlan": vlan_id, "port1": seen_vlans[vlan_id], "port2": port_name}
                         )
                     else:
                         seen_vlans[vlan_id] = port_name
@@ -305,28 +301,15 @@ class VlanValidator(GroupValidator):
             extra_vlans = stored_vlans - device_vlans
 
             if missing_vlans:
-                self.result.add_invalid_range(
-                    f"Device {device_name}: VLAN IDs {sorted(missing_vlans)} are not mapped to any peer links",
-                    ValidationCategory.INVALID_RANGE,
-                    {
-                        "device": device_name,
-                        "missing_vlans": sorted(missing_vlans),
-                        "device_vlans": sorted(device_vlans),
-                        "stored_vlans": sorted(stored_vlans)
-                    }
+                self.result.add_issue(
+                    'E7004',
+                    {"device": device_name, "missing": sorted(missing_vlans)}
                 )
 
             if extra_vlans:
-                self.result.add_invalid_range(
-                    f"Device {device_name}: VLAN IDs {sorted(extra_vlans)} from peer links are not "
-                    f"configured on device",
-                    ValidationCategory.INVALID_RANGE,
-                    {
-                        "device": device_name,
-                        "extra_vlans": sorted(extra_vlans),
-                        "device_vlans": sorted(device_vlans),
-                        "stored_vlans": sorted(stored_vlans)
-                    }
+                self.result.add_issue(
+                    'E7005',
+                    {"device": device_name, "extra": sorted(extra_vlans)}
                 )
 
     def _get_port_vlans(self, device_name, port_name, topology_data):
@@ -387,9 +370,8 @@ class VlanValidator(GroupValidator):
                     # Handle range (e.g., "2525-2556")
                     range_match = re.match(r'^(\d+)-(\d+)$', part)
                     if not range_match:
-                        self.result.add_invalid_range(
-                            f"Device {device_name} port {port_name}: Invalid VLAN range format '{part}'",
-                            ValidationCategory.INVALID_RANGE,
+                        self.result.add_issue(
+                            'E7006',
                             {"device": device_name, "port": port_name, "range": part}
                         )
                         continue
@@ -398,51 +380,66 @@ class VlanValidator(GroupValidator):
                     end_vlan = int(range_match.group(2))
 
                     if start_vlan > end_vlan:
-                        self.result.add_invalid_range(
-                            f"Device {device_name} port {port_name}: Invalid VLAN range '{part}' - start > end",
-                            ValidationCategory.INVALID_RANGE,
-                            {"device": device_name, "port": port_name, "range": part, "start": start_vlan,
-                             "end": end_vlan}
+                        self.result.add_issue(
+                            'E7007',
+                            {
+                                "device": device_name,
+                                "port": port_name,
+                                "range": part,
+                                "start": start_vlan,
+                                "end": end_vlan
+                            }
                         )
                         continue
 
                     # Validate each VLAN in range
                     for vlan_id in range(start_vlan, end_vlan + 1):
                         if not self._is_valid_vlan_id(vlan_id):
-                            self.result.add_invalid_range(
-                                f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
-                                f"{self.min_vlan_id}-{self.max_vlan_id}",
-                                ValidationCategory.INVALID_RANGE,
-                                {"device": device_name, "port": port_name, "vlan_id": vlan_id,
-                                 "valid_range": f"{self.min_vlan_id}-{self.max_vlan_id}"}
+                            self.result.add_issue(
+                                'E7008',
+                                {
+                                    "device": device_name,
+                                    "port": port_name,
+                                    "vlan": vlan_id,
+                                    "min_range": self.min_vlan_id,
+                                    "max_range": self.max_vlan_id
+                                }
                             )
                         else:
                             vlan_set.add(vlan_id)
                 else:
                     # Handle individual VLAN
                     if not part.isdigit():
-                        self.result.add_invalid_format(
-                            f"Device {device_name} port {port_name}: Invalid VLAN ID format '{part}'",
-                            {"device": device_name, "port": port_name, "vlan_id": part}
+                        self.result.add_issue(
+                            'E7009',
+                            {"device": device_name, "port": port_name, "vlan": part}
                         )
                         continue
 
                     vlan_id = int(part)
                     if not self._is_valid_vlan_id(vlan_id):
-                        self.result.add_invalid_range(
-                            f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
-                            f"{self.min_vlan_id}-{self.max_vlan_id}",
-                            ValidationCategory.INVALID_RANGE,
-                            {"device": device_name, "port": port_name, "vlan_id": vlan_id,
-                             "valid_range": f"{self.min_vlan_id}-{self.max_vlan_id}"}
+                        self.result.add_issue(
+                            'E7008',
+                            {
+                                "device": device_name,
+                                "port": port_name,
+                                "vlan": vlan_id,
+                                "min_range": self.min_vlan_id,
+                                "max_range": self.max_vlan_id
+                            }
                         )
                     else:
                         vlan_set.add(vlan_id)
 
         except ValueError as e:
-            self.result.add_parse_error(
-                f"Device {device_name} port {port_name}: Error parsing VLAN string '{vlanids}': {str(e)}",
-                {"device": device_name, "port": port_name, "vlanids": vlanids, "error": str(e)}
+            self.result.add_issue(
+                'E7010',
+                {
+                    "device": device_name,
+                    "port": port_name,
+                    "vlanids": vlanids,
+                    "error": str(e)
+                }
             )
             return None
 
@@ -463,28 +460,36 @@ class VlanValidator(GroupValidator):
         vlan_set = set()
 
         if not isinstance(vlanlist, list):
-            self.result.add_invalid_type(
-                f"Device {device_name} port {port_name}: vlanlist must be a list",
-                {"device": device_name, "port": port_name, "type": str(type(vlanlist))}
+            self.result.add_issue(
+                'E7011',
+                {"device": device_name, "port": port_name, "actual_type": str(type(vlanlist))}
             )
             return None
 
         for i, vlan_id in enumerate(vlanlist):
             if not isinstance(vlan_id, int):
-                self.result.add_invalid_type(
-                    f"Device {device_name} port {port_name}: VLAN ID at index {i} ({vlan_id}) must be an integer",
-                    {"device": device_name, "port": port_name, "index": i, "vlan_id": vlan_id,
-                     "type": str(type(vlan_id))}
+                self.result.add_issue(
+                    'E7012',
+                    {
+                        "device": device_name,
+                        "port": port_name,
+                        "index": i,
+                        "vlan": vlan_id,
+                        "type": str(type(vlan_id))
+                    }
                 )
                 continue
 
             if not self._is_valid_vlan_id(vlan_id):
-                self.result.add_invalid_range(
-                    f"Device {device_name} port {port_name}: VLAN ID {vlan_id} not in valid range "
-                    f"{self.min_vlan_id}-{self.max_vlan_id}",
-                    ValidationCategory.INVALID_RANGE,
-                    {"device": device_name, "port": port_name, "vlan_id": vlan_id,
-                     "valid_range": f"{self.min_vlan_id}-{self.max_vlan_id}"}
+                self.result.add_issue(
+                    'E7008',
+                    {
+                        "device": device_name,
+                        "port": port_name,
+                        "vlan": vlan_id,
+                        "min_range": self.min_vlan_id,
+                        "max_range": self.max_vlan_id
+                    }
                 )
             else:
                 vlan_set.add(vlan_id)

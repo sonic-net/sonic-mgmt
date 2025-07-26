@@ -502,12 +502,41 @@ Operates on each infrastructure group individually. Starting from all DUTs (DevS
 
 ### 6.1. Creating Custom Validators
 
-#### 6.1.1. Step 1: Create validator class
+#### 6.1.1. Step 1: Define Issue Definitions
+
+Before creating a validator, first define your issue definitions with unique IDs. Each validator gets a range of 1000 issue IDs:
+
+**Add to `validators/validation_result.py` in the `register_all_issues()` function:**
+
+```python
+# Custom Validator Issues (8000-8999)
+_def_issue('my_validator', 'I8000', 'validation_summary', 'Custom validation summary', ValidationSeverity.INFO)
+_def_issue('my_validator', 'E8001', 'custom_error', 'Custom validation error occurred')
+_def_issue('my_validator', 'E8002', 'configuration_missing', 'Required configuration is missing', ValidationSeverity.WARNING)
+_def_issue('my_validator', 'E8003', 'invalid_format', 'Invalid format detected')
+```
+
+**Update the validator ranges in `ValidationIssueRegistry`:**
+
+```python
+self._validator_ranges: Dict[str, range] = {
+    'testbed_name': range(1000, 2000),
+    'ip_address': range(2000, 3000),
+    'console': range(3000, 4000),
+    'pdu': range(4000, 5000),
+    'topology': range(5000, 6000),
+    'device_name': range(6000, 7000),
+    'vlan': range(7000, 8000),
+    'my_validator': range(8000, 9000),  # Add your validator range
+}
+```
+
+#### 6.1.2. Step 2: Create validator class
 
 **For group-specific validation:**
 
 ```python
-from validators import GroupValidator, ValidationResult, ValidatorContext, register_validator
+from validators import GroupValidator, ValidatorContext, register_validator
 
 @register_validator("my_group_validator")
 class MyGroupValidator(GroupValidator):
@@ -519,24 +548,29 @@ class MyGroupValidator(GroupValidator):
         )
         self.config = config or {}
 
-    def _validate(self, context: ValidatorContext) -> ValidationResult:
-        result = ValidationResult(validator_name=self.name, group_name=context.get_group_name(), success=True)
-
+    def _validate(self, context: ValidatorContext) -> None:
         # Your validation logic here
         testbeds = context.get_testbeds()
         conn_graph = context.get_connection_graph()  # Single group
 
-        # Add errors/warnings as needed
+        # Add issues with structured details
         if some_condition:
-            result.add_error("Error message", "category")
+            self.result.add_issue('E8001', {
+                'device': device_name,
+                'port': port_name,
+                'expected': expected_value,
+                'actual': actual_value
+            })
 
-        return result
+        # Add summary issue
+        if self.result.success:
+            self.result.add_issue('I8000', {'device_count': len(devices)})
 ```
 
 **For global validation across all groups:**
 
 ```python
-from validators import GlobalValidator, ValidationResult, ValidatorContext, register_validator
+from validators import GlobalValidator, ValidatorContext, register_validator
 
 @register_validator("my_global_validator")
 class MyGlobalValidator(GlobalValidator):
@@ -548,21 +582,48 @@ class MyGlobalValidator(GlobalValidator):
         )
         self.config = config or {}
 
-    def _validate(self, context: ValidatorContext) -> ValidationResult:
-        result = ValidationResult(validator_name=self.name, group_name="global", success=True)
-
+    def _validate(self, context: ValidatorContext) -> None:
         # Your validation logic here
         testbeds = context.get_testbeds()
         all_conn_graphs = context.get_all_connection_graphs()  # All groups
 
-        # Add errors/warnings as needed
+        # Add issues with structured details
         if some_condition:
-            result.add_error("Error message", "category")
+            self.result.add_issue('E8002', {
+                'group': group_name,
+                'config_type': config_type,
+                'required_fields': missing_fields
+            })
 
-        return result
+        # Add summary issue
+        if self.result.success:
+            self.result.add_issue('I8000', {'group_count': len(all_conn_graphs)})
 ```
 
-#### 6.1.2. Step 2: Register in configuration
+#### 6.1.3. Step 3: Issue Reporting Best Practices
+
+**Use structured details for better reporting:**
+
+```python
+# Instead of embedding details in the message:
+self.result.add_issue('E8001', f'Device {device} port {port} has invalid VLAN {vlan_id}')
+
+# Use structured details (message comes from issue definition):
+self.result.add_issue('E8001', {
+    'device': device,
+    'port': port,
+    'vlan_id': vlan_id,
+    'valid_range': '1-4096'
+})
+```
+
+**Benefits of structured details:**
+- **Programmatic processing**: Easy to parse and analyze results
+- **Consistent formatting**: Automatic formatting of details in output
+- **Better filtering**: Filter results by specific detail fields
+- **Rich context**: Include all relevant metadata without cluttering the message
+
+#### 6.1.4. Step 4: Register in configuration
 
 ```yaml
 validators:
@@ -710,16 +771,35 @@ The connection graph data structure used by validators:
 
 ### 8.2. Result Objects
 
-**ValidationIssue**: Individual validation issue
+**ValidationIssue**: Individual validation issue with structured details
 
 ```python
 @dataclass
 class ValidationIssue:
+    issue_id: str                   # Unique issue ID (e.g., E1001, I2000)
     message: str                    # Human-readable error message
-    severity: ValidationSeverity    # INFO, WARNING, ERROR, CRITICAL
-    category: str                   # Error category for grouping
     source: str                     # Validator that created the issue
-    details: Optional[Dict[str, Any]]  # Additional context data
+    group_name: str                 # Group context for the issue
+    details: Dict[str, Any]         # Structured metadata and context
+
+    # Properties derived from issue definition:
+    @property
+    def severity(self) -> ValidationSeverity  # INFO, WARNING, ERROR, CRITICAL
+    @property
+    def keyword(self) -> str        # Issue keyword from definition
+    @property
+    def description(self) -> str    # Issue description from definition
+```
+
+**ValidationIssueDefinition**: Issue definition with metadata
+
+```python
+@dataclass
+class ValidationIssueDefinition:
+    issue_id: str                   # Unique issue ID
+    keyword: str                    # Short keyword for the issue
+    severity: ValidationSeverity    # Severity level
+    description: str                # Human-readable description
 ```
 
 **ValidationSeverity Levels:**

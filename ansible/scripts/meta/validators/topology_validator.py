@@ -46,7 +46,7 @@ class TopologyValidator(BaseValidator):
         topology_files = self._find_topology_files()
 
         if not topology_files:
-            self.result.add_summary("No topology files found for validation")
+            self.result.add_issue('I5000', {"message": "No topology files found for validation"})
             return
 
         validated_files = 0
@@ -60,9 +60,9 @@ class TopologyValidator(BaseValidator):
                     total_errors += file_errors
                     validated_files += 1
             except Exception as e:
-                self.result.add_parse_error(
-                    f"Failed to process topology file {topo_file}: {str(e)}",
-                    {"file": str(topo_file), "error": str(e)}
+                self.result.add_issue(
+                    'E5001',
+                    {"topology_file": str(topo_file), "error": str(e)}
                 )
                 total_errors += 1
 
@@ -74,9 +74,9 @@ class TopologyValidator(BaseValidator):
         })
 
         if self.result.success:
-            self.result.add_summary(
-                f"Topology validation passed for {validated_files} topology files",
-                self.result.metadata
+            self.result.add_issue(
+                'I5000',
+                {"validated_files": validated_files}
             )
 
     def _find_topology_files(self):
@@ -84,8 +84,9 @@ class TopologyValidator(BaseValidator):
         topology_files = []
 
         if not self.vars_path.exists():
-            self.result.add_missing_data(
-                f"Topology vars directory not found: {self.vars_path}"
+            self.result.add_issue(
+                'E5011',
+                {"vars_path": str(self.vars_path)}
             )
             return topology_files
 
@@ -101,14 +102,15 @@ class TopologyValidator(BaseValidator):
             with open(topo_file, 'r') as f:
                 return yaml.safe_load(f)
         except yaml.YAMLError as e:
-            self.result.add_parse_error(
-                f"Invalid YAML in topology file {topo_file.name}: {str(e)}",
-                {"file": str(topo_file), "yaml_error": str(e)}
+            self.result.add_issue(
+                'E5012',
+                {"topology_file": topo_file.name, "error": str(e)}
             )
             return None
         except FileNotFoundError:
-            self.result.add_missing_data(
-                f"Topology file not found: {topo_file}"
+            self.result.add_issue(
+                'E5013',
+                {"topology_file": str(topo_file)}
             )
             return None
 
@@ -178,8 +180,8 @@ class TopologyValidator(BaseValidator):
             template_path = self.templates_path / template_filename
 
             if not template_path.exists():
-                self.result.add_missing_data(
-                    f"Template file {template_path} not found for swrole: {swrole} in topology {topo_name}",
+                self.result.add_issue(
+                    'E5014',
                     {
                         "topology": topo_name,
                         "swrole": swrole,
@@ -209,8 +211,8 @@ class TopologyValidator(BaseValidator):
             vm_offset = vm_config.get('vm_offset')
             if vm_offset is not None:
                 if vm_offset in vm_offsets:
-                    self.result.add_duplicate(
-                        f"VM offset {vm_offset} is used by multiple VMs: {vm_offsets[vm_offset]}, {vm_name}",
+                    self.result.add_issue(
+                        'E5015',
                         {
                             "topology": topo_name,
                             "duplicate_offset": vm_offset,
@@ -225,8 +227,8 @@ class TopologyValidator(BaseValidator):
             for vlan_id in vm_vlans:
                 vlan_source = f"VM {vm_name}"
                 if vlan_id in used_vlans:
-                    self.result.add_duplicate(
-                        f"VLAN ID {vlan_id} is used by both {used_vlans[vlan_id]} and {vlan_source}",
+                    self.result.add_issue(
+                        'E5016',
                         {
                             "topology": topo_name,
                             "duplicate_vlan": vlan_id,
@@ -240,12 +242,13 @@ class TopologyValidator(BaseValidator):
         # Note: host_interfaces are VLAN ID indices assigned to these interfaces
         for interface_idx in host_interfaces:
             if interface_idx in used_vlans:
-                self.result.add_duplicate(
-                    f"VLAN ID {interface_idx} is used by both {used_vlans[interface_idx]} and host_interfaces",
+                self.result.add_issue(
+                    'E5004',
                     {
                         "topology": topo_name,
-                        "duplicate_vlan": interface_idx,
-                        "conflicting_sources": [used_vlans[interface_idx], "host_interfaces"]
+                        "vlan_id": interface_idx,
+                        "source1": used_vlans[interface_idx],
+                        "source2": "host_interfaces"
                     }
                 )
 
@@ -276,13 +279,13 @@ class TopologyValidator(BaseValidator):
                 seen_intfs = set()
                 for intf in intfs:
                     if intf in seen_intfs:
-                        self.result.add_duplicate(
-                            f"Interface {intf} appears multiple times in vlan_config {vlan_name}.intfs",
+                        self.result.add_issue(
+                            'E5005',
                             {
                                 "topology": topo_name,
-                                "vlan_config": config_name,
+                                "config": config_name,
                                 "vlan_name": vlan_name,
-                                "duplicate_interface": intf
+                                "interface": intf
                             }
                         )
                     else:
@@ -295,24 +298,23 @@ class TopologyValidator(BaseValidator):
                         max_hosts = network.num_addresses - 2  # Subtract network and broadcast addresses
 
                         if len(intfs) > max_hosts:
-                            self.result.add_consistency_error(
-                                f"vlan_config {vlan_name} has {len(intfs)} interfaces but prefix {prefix} "
-                                f"only supports {max_hosts} hosts",
+                            self.result.add_issue(
+                                'E5006',
                                 {
                                     "topology": topo_name,
-                                    "vlan_config": config_name,
+                                    "config": config_name,
                                     "vlan_name": vlan_name,
                                     "interface_count": len(intfs),
-                                    "max_hosts": max_hosts,
-                                    "prefix": prefix
+                                    "prefix": prefix,
+                                    "max_hosts": max_hosts
                                 }
                             )
                     except (ipaddress.AddressValueError, ValueError) as e:
-                        self.result.add_format_error(
-                            f"Invalid prefix format in vlan_config {vlan_name}: {prefix}",
+                        self.result.add_issue(
+                            'E5007',
                             {
                                 "topology": topo_name,
-                                "vlan_config": config_name,
+                                "config": config_name,
                                 "vlan_name": vlan_name,
                                 "prefix": prefix,
                                 "error": str(e)
@@ -350,12 +352,12 @@ class TopologyValidator(BaseValidator):
                 bp_subnets[subnet].append((vm_name, str(ip_addr)))
 
             except (ipaddress.AddressValueError, ValueError) as e:
-                self.result.add_format_error(
-                    f"Invalid bp_interface IPv4 address format in {vm_name}: {ipv4_addr}",
+                self.result.add_issue(
+                    'E5008',
                     {
                         "topology": topo_name,
                         "vm_name": vm_name,
-                        "ipv4_address": ipv4_addr,
+                        "ipv4_addr": ipv4_addr,
                         "error": str(e)
                     }
                 )
@@ -369,12 +371,12 @@ class TopologyValidator(BaseValidator):
                     "vms": [vm_name for vm_name, _ in vm_list]
                 })
 
-            self.result.add_consistency_error(
-                f"bp_interface IPs span multiple subnets: {', '.join(str(s) for s in bp_subnets.keys())}",
+            self.result.add_issue(
+                'E5009',
                 {
                     "topology": topo_name,
-                    "subnet_count": len(bp_subnets),
-                    "subnets": subnet_info
+                    "subnets": [str(s) for s in bp_subnets.keys()],
+                    "subnet_count": len(bp_subnets)
                 }
             )
 
@@ -383,13 +385,14 @@ class TopologyValidator(BaseValidator):
             ip_to_vm = {}
             for vm_name, ip_addr in vm_list:
                 if ip_addr in ip_to_vm:
-                    self.result.add_duplicate(
-                        f"Duplicate bp_interface IP {ip_addr} used by VMs: {ip_to_vm[ip_addr]}, {vm_name}",
+                    self.result.add_issue(
+                        'E5010',
                         {
                             "topology": topo_name,
-                            "duplicate_ip": ip_addr,
                             "subnet": str(subnet),
-                            "conflicting_vms": [ip_to_vm[ip_addr], vm_name]
+                            "ip_address": ip_addr,
+                            "vm1": ip_to_vm[ip_addr],
+                            "vm2": vm_name
                         }
                     )
                 else:

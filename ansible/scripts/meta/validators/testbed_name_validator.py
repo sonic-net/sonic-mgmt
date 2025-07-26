@@ -39,9 +39,9 @@ class TestbedNameValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_summary(
-                f"Testbed name validation passed for {total_testbeds} testbeds",
-                self.result.metadata
+            self.result.add_issue(
+                'I1000',
+                {"total_testbeds": total_testbeds}
             )
 
     def _validate_name_uniqueness(self, testbed_info):
@@ -63,17 +63,17 @@ class TestbedNameValidator(GlobalValidator):
 
         for i, testbed in enumerate(testbed_info):
             if not isinstance(testbed, dict):
-                self.result.add_format_issue(
-                    f"Invalid testbed configuration format at index {i}: {type(testbed)}",
+                self.result.add_issue(
+                    'E1001',
                     {"index": i, "type": str(type(testbed))}
                 )
                 continue
 
             conf_name = testbed.get('conf-name')
             if not conf_name:
-                self.result.add_missing_data(
-                    f"Testbed at index {i} missing 'conf-name' field",
-                    {"index": i, "testbed": testbed}
+                self.result.add_issue(
+                    'E1002',
+                    {"index": i}
                 )
                 continue
 
@@ -82,8 +82,8 @@ class TestbedNameValidator(GlobalValidator):
             # Check for duplicates and track names in one pass
             if conf_name in seen_names:
                 duplicate_names.add(conf_name)
-                self.result.add_duplicate(
-                    f"Duplicate testbed name found: {conf_name}",
+                self.result.add_issue(
+                    'E1003',
                     {"name": conf_name}
                 )
             else:

@@ -56,9 +56,9 @@ class IpAddressValidator(GlobalValidator):
             })
 
         if self.result.success and ip_addresses:
-            self.result.add_summary(
-                f"IP address validation passed for {len(ip_addresses)} unique IP addresses",
-                self.result.metadata
+            self.result.add_issue(
+                'I2000',
+                {"unique_ip_addresses": len(ip_addresses)}
             )
 
     def _collect_all_ip_addresses_globally(self, context: ValidatorContext, testbed_info):
@@ -153,16 +153,16 @@ class IpAddressValidator(GlobalValidator):
                 return
 
             # This is a real IP conflict
-            self.result.add_conflict(
-                f"Duplicate IP address {ip_addr}: {source_type} {source_name} (group: {group_name}) conflicts with "
-                f"{existing_source_type} {existing_source_name} (group: {existing_group_name})",
+            self.result.add_issue(
+                'E2001',
                 {
-                    "ip": ip_addr,
-                    "source1": {"type": source_type, "name": source_name, "group": group_name},
-                    "source2": {
-                        "type": existing_source_type, "name": existing_source_name, "group": existing_group_name
-                    },
-                    "ip_type": ip_type
+                    "ip_address": ip_addr,
+                    "source1_type": existing_source_type,
+                    "source1_name": existing_source_name,
+                    "source1_group": existing_group_name,
+                    "source2_type": source_type,
+                    "source2_name": source_name,
+                    "source2_group": group_name
                 }
             )
         else:
@@ -255,14 +255,14 @@ class IpAddressValidator(GlobalValidator):
         """Add IP address to tracking dict and check for conflicts"""
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
-            self.result.add_conflict(
-                f"Duplicate IP address {ip_addr}: {source_type} {source_name} conflicts with "
-                f"{existing_source[0]} {existing_source[1]}",
+            self.result.add_issue(
+                'E2001',
                 {
-                    "ip": ip_addr,
-                    "source1": {"type": source_type, "name": source_name},
-                    "source2": {"type": existing_source[0], "name": existing_source[1]},
-                    "ip_type": ip_type
+                    "ip_address": ip_addr,
+                    "source1_type": existing_source[0],
+                    "source1_name": existing_source[1],
+                    "source2_type": source_type,
+                    "source2_name": source_name
                 }
             )
         else:
@@ -283,39 +283,37 @@ class IpAddressValidator(GlobalValidator):
 
                 # Check for reserved addresses
                 if ip_obj.is_reserved:
-                    self.result.add_invalid_range(
-                        f"Reserved IP address found: {ip_addr} in {source_type} {source_name} (group: {group_name})",
+                    self.result.add_issue(
+                        'E2002',
                         {
-                            "ip": ip_addr,
+                            "ip_address": ip_addr,
                             "source_type": source_type,
                             "source_name": source_name,
-                            "ip_type": ip_type,
-                            "group_name": group_name
+                            "group": group_name
                         }
                     )
 
                 # Check for loopback addresses
                 if ip_obj.is_loopback:
-                    self.result.add_invalid_range(
-                        f"Loopback IP address found: {ip_addr} in {source_type} {source_name} (group: {group_name})",
+                    self.result.add_issue(
+                        'E2002',
                         {
-                            "ip": ip_addr,
+                            "ip_address": ip_addr,
                             "source_type": source_type,
                             "source_name": source_name,
-                            "ip_type": ip_type,
-                            "group_name": group_name
+                            "group": group_name
                         }
                     )
 
             except ValueError:
                 # This should not happen as we validate during extraction
-                self.result.add_invalid_format(
-                    f"Invalid IP address format: {ip_addr} in {source_type} {source_name} (group: {group_name})",
+                self.result.add_issue(
+                    'E2003',
                     {
-                        "ip": ip_addr,
+                        "ip_address": ip_addr,
                         "source_type": source_type,
                         "source_name": source_name,
-                        "group_name": group_name
+                        "group": group_name
                     }
                 )
 
