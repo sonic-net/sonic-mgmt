@@ -687,4 +687,3 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.info('End: collect mgmt config by  console  ...')
     else:
         logger.warning("dut console is not ready, we can get mgmt config by console")
-
