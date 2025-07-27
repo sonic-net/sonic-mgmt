@@ -337,6 +337,7 @@ def register_all_issues():
     _def_issue('topology', 'E5011', 'missing_topology_dir', 'Topology vars directory not found')
     _def_issue('topology', 'E5012', 'yaml_parse_error', 'Invalid YAML in topology file')
     _def_issue('topology', 'E5013', 'missing_topology_file', 'Topology file not found')
+    _def_issue('topology', 'E5014', 'missing_template_file', 'Template file not found for swrole')
 
     # Device Name Validator Issues (6000-6999)
     _def_issue(

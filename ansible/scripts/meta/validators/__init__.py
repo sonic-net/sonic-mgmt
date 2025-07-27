@@ -37,7 +37,7 @@ from validator_orchestrator import (
 # Configuration system - removed from this package (moved to parent directory)
 
 # Concrete validators
-from .testbed_name_validator import TestbedNameValidator
+from .testbed_validator import TestbedValidator
 from .device_name_validator import DeviceNameValidator
 from .ip_address_validator import IpAddressValidator
 from .vlan_validator import VlanValidator
@@ -69,7 +69,7 @@ __all__ = [
     'ValidationSummary',
 
     # Concrete validators
-    'TestbedNameValidator',
+    'TestbedValidator',
     'DeviceNameValidator',
     'IpAddressValidator',
     'VlanValidator',

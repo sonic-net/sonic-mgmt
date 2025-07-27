@@ -351,7 +351,7 @@ Global validators run once with access to data from all infrastructure groups. T
 - Ensures all testbed names (from `conf-name` field) are unique
 - Validates testbed names across all groups globally
 - Verifies that topology files exist for each testbed's `topo` field
-- Checks for topology files in `ansible/vars/` directory
+- Checks for topology files in `ansible/vars/` directory with `topo_` prefix
 
 **Issues:**
 
@@ -479,6 +479,7 @@ Global validators run once with access to data from all infrastructure groups. T
 - `E5011`: missing_topology_dir - Topology vars directory not found
 - `E5012`: yaml_parse_error - Invalid YAML in topology file
 - `E5013`: missing_topology_file - Topology file not found
+- `E5014`: missing_template_file - Template file not found for swrole
 
 ### 5.2. Group Validators
 

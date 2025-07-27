@@ -136,7 +136,7 @@ class TestbedValidator(GlobalValidator):
                     {
                         "testbed": conf_name,
                         "topology": topo,
-                        "expected_path": topology_file_path or f"ansible/vars/{topo}.yml"
+                        "expected_path": topology_file_path or f"ansible/vars/topo_{topo}.yml"
                     }
                 )
 
@@ -156,10 +156,10 @@ class TestbedValidator(GlobalValidator):
         Returns:
             str: Path to topology file if found, None otherwise
         """
-        # Standard topology file locations
+        # Standard topology file locations with topo_ prefix
         possible_paths = [
-            f"ansible/vars/{topo_name}.yml",
-            f"ansible/vars/{topo_name}.yaml"
+            f"ansible/vars/topo_{topo_name}.yml",
+            f"ansible/vars/topo_{topo_name}.yaml"
         ]
 
         for path in possible_paths:
