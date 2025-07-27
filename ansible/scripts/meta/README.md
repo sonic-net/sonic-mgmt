@@ -251,6 +251,12 @@ class ValidatorContext:
 logging:
   level: INFO
   format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+issue_severities:
+  # Examples: Override specific issue severities
+  # 'E2002': 'ignore'    # Ignore reserved IP warnings
+  # 'E3008': 'info'      # Convert console server type warnings to info logs
+  # 'E3001': 'warning'   # Downgrade console conflicts to warnings
+  # 'E4004': 'error'     # Upgrade PDU redundancy warnings to errors
 validators:
   - name: testbed_name
     enabled: true
@@ -276,7 +282,26 @@ validators:
     config: {}
 ```
 
-### 4.2. Validation Options
+### 4.2. Issue Severities
+
+Users can customize the severity of specific validation issues to control validation behavior:
+
+```yaml
+issue_severities:
+  'E2002': 'ignore'    # Ignore reserved IP warnings completely
+  'E3008': 'info'      # Convert console server type warnings to info logs
+  'E3001': 'warning'   # Downgrade console conflicts to warnings
+  'E4004': 'error'     # Upgrade PDU redundancy warnings to errors
+```
+
+**Available severity levels:**
+- `ignore`: Skip the issue entirely (not reported)
+- `info`: Convert to informational log message (not counted as validation issue)
+- `warning`: Treat as warning (reported but doesn't fail validation)
+- `error`: Treat as error (fails validation)
+- `critical`: Treat as critical error (fails validation)
+
+### 4.3. Validation Options
 
 Validation behavior can be controlled via command-line arguments:
 
@@ -287,7 +312,7 @@ Validation behavior can be controlled via command-line arguments:
 - **--fail-fast**: Stops on first validation failure
 - **--warnings-as-errors**: Treats warnings as errors
 
-### 4.3. Validator Configuration
+### 4.4. Validator Configuration
 
 Each validator can be configured individually:
 

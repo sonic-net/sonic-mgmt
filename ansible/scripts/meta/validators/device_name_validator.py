@@ -45,9 +45,9 @@ class DeviceNameValidator(GroupValidator):
         })
 
         if self.result.success and device_names:
-            self.result.add_issue(
-                'I6000',
-                {"device_count": len(device_names), "group": context.get_group_name()}
+            group_name = context.get_group_name()
+            self.logger.info(
+                f"Device name validation summary: {len(device_names)} devices validated in group {group_name}"
             )
 
     def _extract_device_names(self, conn_graph, group_name):

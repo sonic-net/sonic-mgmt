@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
 import time
 from functools import wraps
-from .validation_result import ValidationResult, ValidationSeverity, get_issue_registry
+from .validation_result import ValidationResult
 
 
 class ValidatorContext:
@@ -152,11 +152,6 @@ class BaseValidator(ABC):
         except Exception as e:
             error_msg = f"Unexpected error during {self.name} validation: {str(e)}"
             self.logger.error(error_msg)
-            # Need to add the exception issue ID to the registry
-            registry = get_issue_registry()
-            registry.register_issue(
-                'base', 'E0001', 'validation_exception', ValidationSeverity.ERROR, 'Unexpected validation error'
-            )
             self.result.add_issue('E0001', {"error_message": error_msg, "validator": self.name})
 
         return self.result
@@ -181,10 +176,6 @@ class BaseValidator(ABC):
             bool: True if testbed data is available, False otherwise
         """
         if not testbed_info:
-            registry = get_issue_registry()
-            registry.register_issue(
-                'base', 'E0002', 'missing_testbed_data', ValidationSeverity.WARNING, 'No testbed data available'
-            )
             self.result.add_issue('E0002', {"context": context.get_group_name()})
             return False
         return True
@@ -201,11 +192,6 @@ class BaseValidator(ABC):
             bool: True if connection graph data is available, False otherwise
         """
         if not conn_graph:
-            registry = get_issue_registry()
-            registry.register_issue(
-                'base', 'E0003', 'missing_connection_graph', ValidationSeverity.WARNING,
-                'No connection graph data available'
-            )
             self.result.add_issue('E0003', {"group": context.get_group_name()})
             return False
         return True
@@ -223,10 +209,6 @@ class BaseValidator(ABC):
         # Check that all_groups_data is present in the context
         all_groups_data = context.get_all_groups_data()
         if not all_groups_data:
-            registry = get_issue_registry()
-            registry.register_issue(
-                'base', 'E0004', 'missing_groups_data', ValidationSeverity.ERROR, 'No groups data available'
-            )
             self.result.add_issue('E0004', {"validator": self.name})
             return False
 

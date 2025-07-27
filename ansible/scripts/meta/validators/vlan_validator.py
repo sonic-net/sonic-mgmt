@@ -34,7 +34,7 @@ class VlanValidator(GroupValidator):
         # Collect topology data needed for BFS traversal
         topology_data = self._collect_topology_data(conn_graph)
         if not topology_data:
-            self.result.add_issue('I7000', {"message": "No topology data found for VLAN validation"})
+            self.logger.info("VLAN validation summary: No topology data found for VLAN validation")
             return
 
         # Validate VLANs using BFS traversal

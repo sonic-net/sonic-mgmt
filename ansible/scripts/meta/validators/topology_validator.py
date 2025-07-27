@@ -46,7 +46,7 @@ class TopologyValidator(BaseValidator):
         topology_files = self._find_topology_files()
 
         if not topology_files:
-            self.result.add_issue('I5000', {"message": "No topology files found for validation"})
+            self.logger.info("Topology validation summary: No topology files found for validation")
             return
 
         validated_files = 0

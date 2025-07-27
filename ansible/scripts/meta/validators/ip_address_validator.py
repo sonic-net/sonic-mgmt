@@ -56,9 +56,8 @@ class IpAddressValidator(GlobalValidator):
             })
 
         if self.result.success and ip_addresses:
-            self.result.add_issue(
-                'I2000',
-                {"unique_ip_addresses": len(ip_addresses)}
+            self.logger.info(
+                f"IP address validation summary: {len(ip_addresses)} unique IP addresses validated across all groups"
             )
 
     def _collect_all_ip_addresses_globally(self, context: ValidatorContext, testbed_info):

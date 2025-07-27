@@ -29,7 +29,7 @@ class PDUValidator(GlobalValidator):
         # Collect PDU connection data from all groups
         pdu_data = self._collect_pdu_data_globally(context)
         if not pdu_data:
-            self.result.add_issue('I4000', {"message": "No PDU connection data found"})
+            self.logger.info("PDU validation summary: No PDU connection data found")
             return
 
         # Validate PDU connections
@@ -45,13 +45,12 @@ class PDUValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_issue(
-                'I4000',
-                {
-                    "devices_with_pdu": validation_stats['devices_with_pdu'],
-                    "target_devices": validation_stats['target_devices'],
-                    "total_psu_connections": validation_stats['total_psu_connections']
-                }
+            devices_with_pdu = validation_stats['devices_with_pdu']
+            target_devices = validation_stats['target_devices']
+            total_psu_connections = validation_stats['total_psu_connections']
+            self.logger.info(
+                f"PDU validation summary: {devices_with_pdu} of {target_devices} target devices have PDU connections, "
+                f"{total_psu_connections} total PSU connections"
             )
 
     def _collect_pdu_data_globally(self, context: ValidatorContext):

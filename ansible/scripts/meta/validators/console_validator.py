@@ -29,7 +29,7 @@ class ConsoleValidator(GlobalValidator):
         # Collect console connection data from all groups
         console_data = self._collect_console_data_globally(context)
         if not console_data:
-            self.result.add_issue('I3000', {"message": "No console connection data found."})
+            self.logger.info("Console validation summary: No console connection data found")
             return
 
         # Validate console connections
@@ -44,12 +44,9 @@ class ConsoleValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_issue(
-                'I3000',
-                {
-                    "devices_with_console": validation_stats['devices_with_console'],
-                    "target_devices": validation_stats['target_devices']
-                }
+            self.logger.info(
+                f"Console validation summary: {validation_stats['devices_with_console']} of "
+                f"{validation_stats['target_devices']} target devices have console connections"
             )
 
     def _collect_console_data_globally(self, context: ValidatorContext):
@@ -102,7 +99,7 @@ class ConsoleValidator(GlobalValidator):
                 all_console_links[device_name] = console_info
 
         if not all_target_devices:
-            self.result.add_issue('I3000', {"message": "No target devices found across all groups."})
+            self.logger.info("Console validation summary: No target devices found across all groups")
             return None
 
         return {

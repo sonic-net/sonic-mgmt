@@ -10,6 +10,7 @@ from pathlib import Path
 
 from validators.base_validator import BaseValidator
 from validators.validator_factory import ValidatorRegistry, ConfigurableValidatorFactory
+from validators.validation_result import get_issue_registry
 
 
 class ValidationConfig:
@@ -26,6 +27,10 @@ class ValidationConfig:
     def get_logging_config(self) -> Dict[str, Any]:
         """Get logging configuration"""
         return self.config_dict.get('logging', {})
+
+    def get_issue_severities(self) -> Dict[str, str]:
+        """Get issue severity configuration"""
+        return self.config_dict.get('issue_severities', {})
 
     def is_validator_enabled(self, validator_name: str) -> bool:
         """Check if a specific validator is enabled"""
@@ -154,6 +159,13 @@ class ValidatorConfigManager:
         Returns:
             List of configured validator instances
         """
+        # Apply issue severities
+        severities = config.get_issue_severities()
+        if severities:
+            issue_registry = get_issue_registry()
+            issue_registry.configure_severities(severities)
+            self.logger.info(f"Applied {len(severities)} issue severities")
+
         factory = ConfigurableValidatorFactory(
             self.registry,
             {}
@@ -231,6 +243,13 @@ def create_sample_config_file(output_path: Union[str, Path]):
         'logging': {
             'level': 'INFO',
             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        },
+        'issue_severities': {
+            # Examples: Override specific issue severities
+            # 'E2002': 'ignore',    # Ignore reserved IP warnings
+            # 'E3008': 'info',      # Downgrade console server type warnings to info logs
+            # 'E3001': 'warning',   # Downgrade console conflicts to warnings
+            # 'E4004': 'error'      # Upgrade PDU redundancy warnings to errors
         },
         'validators': [
             {

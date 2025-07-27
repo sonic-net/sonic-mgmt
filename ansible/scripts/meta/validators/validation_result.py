@@ -1,6 +1,7 @@
 """
 Validation result classes and issue definitions
 Each validator gets a range of 1000 issue IDs:
+- Base Validator: 0-999
 - Testbed Name Validator: 1000-1999
 - IP Address Validator: 2000-2999
 - Console Validator: 3000-3999
@@ -13,10 +14,12 @@ Each validator gets a range of 1000 issue IDs:
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from enum import Enum
+import logging
 
 
 class ValidationSeverity(Enum):
     """Validation result severity levels"""
+    IGNORE = "ignore"
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -53,7 +56,9 @@ class ValidationIssueRegistry:
 
     def __init__(self):
         self._issues: Dict[str, ValidationIssueDefinition] = {}
+        self._severities: Dict[str, ValidationSeverity] = {}
         self._validator_ranges: Dict[str, range] = {
+            'base': range(0, 1000),
             'testbed_name': range(1000, 2000),
             'ip_address': range(2000, 3000),
             'console': range(3000, 4000),
@@ -90,6 +95,29 @@ class ValidationIssueRegistry:
         """Get all registered issues"""
         return self._issues.copy()
 
+    def set_severity(self, issue_id: str, severity: ValidationSeverity) -> None:
+        """Set severity for a specific issue ID"""
+        self._severities[issue_id] = severity
+
+    def get_severity(self, issue_id: str) -> Optional[ValidationSeverity]:
+        """Get severity for an issue (with custom severities applied)"""
+        if issue_id in self._severities:
+            return self._severities[issue_id]
+
+        issue_def = self._issues.get(issue_id)
+        return issue_def.severity if issue_def else None
+
+    def configure_severities(self, severities: Dict[str, str]) -> None:
+        """Configure severities from string mapping"""
+        self._severities.clear()
+        for issue_id, severity_str in severities.items():
+            try:
+                severity = ValidationSeverity(severity_str.lower())
+                self._severities[issue_id] = severity
+            except ValueError:
+                # Invalid severity string, skip this severity
+                continue
+
 
 @dataclass
 class ValidationIssue:
@@ -108,8 +136,9 @@ class ValidationIssue:
 
     @property
     def severity(self) -> ValidationSeverity:
-        """Get severity from issue definition"""
-        return self._issue_def.severity
+        """Get severity (with custom severities applied)"""
+        severity = _issue_registry.get_severity(self.issue_id)
+        return severity if severity else self._issue_def.severity
 
     @property
     def keyword(self) -> str:
@@ -179,6 +208,26 @@ class ValidationResult:
         if details is None:
             details = {}
 
+        # Get severity (with custom severities applied)
+        severity = _issue_registry.get_severity(issue_id)
+
+        # Handle IGNORE severity - skip entirely
+        if severity == ValidationSeverity.IGNORE:
+            return
+
+        # Handle I* issues or INFO severity as logs instead of adding to issues list
+        if issue_id.startswith('I') or severity == ValidationSeverity.INFO:
+            logger = logging.getLogger(f"meta.{self.validator_name}")
+            issue_def = _issue_registry.get_issue(issue_id)
+            if issue_def:
+                message = issue_def.description
+                detail_str = ", ".join([f"{k}={v}" for k, v in details.items()]) if details else ""
+                log_message = f"[{issue_id}] {issue_def.keyword}: {message}"
+                if detail_str:
+                    log_message += f" ({detail_str})"
+                logger.info(log_message)
+            return
+
         # Get issue definition to form the message
         issue_def = _issue_registry.get_issue(issue_id)
         if not issue_def:
@@ -215,22 +264,25 @@ def _def_issue(
 def register_all_issues():
     """Register all issue definitions with the global registry"""
 
-    # Testbed Name Validator Issues (1000-1999)
+    # Base Validator Issues (0-999)
+    _def_issue('base', 'E0001', 'validation_exception', 'Unexpected validation error')
+    _def_issue('base', 'E0002', 'missing_testbed_data', 'No testbed data available', ValidationSeverity.WARNING)
     _def_issue(
-        'testbed_name', 'I1000', 'validation_summary', 'Testbed name validation summary', ValidationSeverity.INFO
+        'base', 'E0003', 'missing_connection_graph', 'No connection graph data available', ValidationSeverity.WARNING
     )
+    _def_issue('base', 'E0004', 'missing_groups_data', 'No groups data available')
+
+    # Testbed Name Validator Issues (1000-1999)
     _def_issue('testbed_name', 'E1001', 'invalid_config_format', 'Testbed configuration is not in valid format')
     _def_issue('testbed_name', 'E1002', 'missing_conf_name', 'Testbed configuration missing conf-name field')
     _def_issue('testbed_name', 'E1003', 'duplicate_name', 'Duplicate testbed name found')
 
     # IP Address Validator Issues (2000-2999)
-    _def_issue('ip_address', 'I2000', 'validation_summary', 'IP address validation summary', ValidationSeverity.INFO)
     _def_issue('ip_address', 'E2001', 'duplicate_ip', 'Duplicate IP address conflict detected')
     _def_issue('ip_address', 'E2002', 'reserved_ip', 'Reserved IP address found', ValidationSeverity.WARNING)
     _def_issue('ip_address', 'E2003', 'invalid_ip_format', 'Invalid IP address format')
 
     # Console Validator Issues (3000-3999)
-    _def_issue('console', 'I3000', 'validation_summary', 'Console validation summary', ValidationSeverity.INFO)
     _def_issue(
         'console', 'E3001', 'duplicate_config_groups',
         'Device has console configuration in multiple groups', ValidationSeverity.WARNING
@@ -252,7 +304,6 @@ def register_all_issues():
     )
 
     # PDU Validator Issues (4000-4999)
-    _def_issue('pdu', 'I4000', 'validation_summary', 'PDU validation summary', ValidationSeverity.INFO)
     _def_issue(
         'pdu', 'E4001', 'duplicate_config_groups',
         'Device has PDU configuration in multiple groups', ValidationSeverity.WARNING
@@ -272,7 +323,6 @@ def register_all_issues():
     _def_issue('pdu', 'E4011', 'empty_pdu_port', 'PDU connection has empty port')
 
     # Topology Validator Issues (5000-5999)
-    _def_issue('topology', 'I5000', 'validation_summary', 'Topology validation summary', ValidationSeverity.INFO)
     _def_issue('topology', 'E5001', 'parse_error', 'Failed to process topology file')
     _def_issue('topology', 'E5002', 'missing_template', 'Template file not found for swrole')
     _def_issue('topology', 'E5003', 'duplicate_vm_offset', 'VM offset is used by multiple VMs')
@@ -288,7 +338,6 @@ def register_all_issues():
     _def_issue('topology', 'E5013', 'missing_topology_file', 'Topology file not found')
 
     # Device Name Validator Issues (6000-6999)
-    _def_issue('device_name', 'I6000', 'validation_summary', 'Device name validation summary', ValidationSeverity.INFO)
     _def_issue(
         'device_name', 'E6001', 'missing_devices_section',
         'No devices section found in connection graph', ValidationSeverity.WARNING
@@ -301,7 +350,6 @@ def register_all_issues():
     _def_issue('device_name', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
 
     # VLAN Validator Issues (7000-7999)
-    _def_issue('vlan', 'I7000', 'validation_summary', 'VLAN validation summary', ValidationSeverity.INFO)
     _def_issue('vlan', 'E7001', 'missing_dut_devices', 'No DUT devices found in topology')
     _def_issue('vlan', 'E7002', 'invalid_vlan_config_format', 'VLAN configuration format is invalid')
     _def_issue('vlan', 'E7003', 'duplicate_vlan', 'VLAN ID is duplicated on multiple ports')

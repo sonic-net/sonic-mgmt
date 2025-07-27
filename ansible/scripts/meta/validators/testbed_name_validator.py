@@ -39,9 +39,8 @@ class TestbedNameValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_issue(
-                'I1000',
-                {"total_testbeds": total_testbeds}
+            self.logger.info(
+                f"Testbed name validation summary: {total_testbeds} testbeds validated, {len(seen_names)} unique names"
             )
 
     def _validate_name_uniqueness(self, testbed_info):
