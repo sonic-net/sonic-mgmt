@@ -87,7 +87,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
         # The dualtor I/O flow examine logic will regard those duplications as packet delivery,
         # so multiple disruptions will be reported. So we need to reassemble the true disruption
         # with the duplications here.
-        if merge_duplications_into_disruptions and result['disruptions'] and result['duplications']:
+        if merge_duplications_into_disruptions and result['disruptions']:
             logger.debug("Server %s disruptions before merge:\n%s",
                          server_ip, json.dumps(result['disruptions'], indent=4))
             logger.debug("Server %s duplications before merge:\n%s",
@@ -309,7 +309,7 @@ def run_test(
 
 
 def cleanup(ptfadapter, duthosts_list, ptfhost):
-    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True)
+    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True, check_ptf_mgmt=False)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
