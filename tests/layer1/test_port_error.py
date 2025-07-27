@@ -6,6 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -27,6 +28,9 @@ class TestMACFault(object):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+
+        if 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost):
+            pytest.skip("SW control feature is not enabled on platform")
 
 
     @staticmethod
