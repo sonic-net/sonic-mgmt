@@ -3,13 +3,11 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
-    get_snappi_ports_multi_dut, is_snappi_multidut, \
-    get_snappi_ports                                         # noqa: F401
+    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
+    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list                         # noqa F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED   # noqa: F401
+    lossy_prio_list                         # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -20,7 +18,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
     yield (1, 1)
 
@@ -36,7 +34,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      lossless_prio_list,        # noqa: F811
                                      get_snappi_ports,          # noqa: F811
                                      tbinfo,                    # noqa: F811
-                                     setup_ports_and_dut        # noqa: F811
+                                     tgen_port_info        # noqa: F811
                                      ):
     """
     Test if PFC will impact a single lossy priority in multidut setup
@@ -56,7 +54,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     _, lossy_prio = enum_one_dut_lossy_prio.split('|')
     lossy_prio = int(lossy_prio)
@@ -64,7 +62,6 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     test_prio_list = [lossy_prio]
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossy_prio)
-
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
@@ -72,21 +69,23 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False,
-                 test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params,
-                 flow_factor=flow_factor)
+    try:
+        run_pfc_test(api=snappi_api,
+                     testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     conn_data=conn_graph_facts,
+                     fanout_data=fanout_graph_facts_multidut,
+                     global_pause=False,
+                     pause_prio_list=pause_prio_list,
+                     test_prio_list=test_prio_list,
+                     bg_prio_list=bg_prio_list,
+                     prio_dscp_map=prio_dscp_map,
+                     test_traffic_pause=False,
+                     test_flow_is_lossless=False,
+                     snappi_extra_params=snappi_extra_params,
+                     flow_factor=flow_factor)
+    finally:
+        cleanup_config(duthosts, snappi_ports)
 
 
 def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
@@ -98,7 +97,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                                     lossless_prio_list,              # noqa: F811
                                     get_snappi_ports,         # noqa: F811
                                     tbinfo,                # noqa: F811
-                                    setup_ports_and_dut):                 # noqa: F811
+                                    tgen_port_info):                 # noqa: F811
     """
     Test if PFC will impact multiple lossy priorities in multidut setup
 
@@ -115,7 +114,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     pause_prio_list = lossy_prio_list
     test_prio_list = lossy_prio_list
@@ -128,21 +127,23 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False,
-                 test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params,
-                 flow_factor=flow_factor)
+    try:
+        run_pfc_test(api=snappi_api,
+                     testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     conn_data=conn_graph_facts,
+                     fanout_data=fanout_graph_facts_multidut,
+                     global_pause=False,
+                     pause_prio_list=pause_prio_list,
+                     test_prio_list=test_prio_list,
+                     bg_prio_list=bg_prio_list,
+                     prio_dscp_map=prio_dscp_map,
+                     test_traffic_pause=False,
+                     test_flow_is_lossless=False,
+                     snappi_extra_params=snappi_extra_params,
+                     flow_factor=flow_factor)
+    finally:
+        cleanup_config(duthosts, snappi_ports)
 
 
 @pytest.mark.disable_loganalyzer
@@ -158,7 +159,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             lossless_prio_list,     # noqa: F811
                                             get_snappi_ports,       # noqa: F811
                                             tbinfo,                 # noqa: F811
-                                            setup_ports_and_dut,    # noqa: F811
+                                            tgen_port_info,    # noqa: F811
                                             reboot_duts):           # noqa: F811
     """
     Test if PFC will impact a single lossy priority after various kinds of reboots in multidut setup
@@ -179,7 +180,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     _, lossy_prio = enum_one_dut_lossy_prio_with_completeness_level.split('|')
     lossy_prio = int(lossy_prio)
@@ -196,20 +197,23 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False,
-                 test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params,
-                 flow_factor=flow_factor)
+    try:
+        run_pfc_test(api=snappi_api,
+                     testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     conn_data=conn_graph_facts,
+                     fanout_data=fanout_graph_facts_multidut,
+                     global_pause=False,
+                     pause_prio_list=pause_prio_list,
+                     test_prio_list=test_prio_list,
+                     bg_prio_list=bg_prio_list,
+                     prio_dscp_map=prio_dscp_map,
+                     test_traffic_pause=False,
+                     test_flow_is_lossless=False,
+                     snappi_extra_params=snappi_extra_params,
+                     flow_factor=flow_factor)
+    finally:
+        cleanup_config(duthosts, snappi_ports)
 
 
 @pytest.mark.disable_loganalyzer
@@ -223,7 +227,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            lossless_prio_list,   # noqa: F811
                                            get_snappi_ports,     # noqa: F811
                                            tbinfo,               # noqa: F811
-                                           setup_ports_and_dut,  # noqa: F811
+                                           tgen_port_info,  # noqa: F811
                                            reboot_duts):         # noqa: F811
     """
     Test if PFC will impact multiple lossy priorities after various kinds of reboots
@@ -244,7 +248,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     Returns:
         N/A
     """
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     pause_prio_list = lossy_prio_list
     test_prio_list = lossy_prio_list
@@ -257,18 +261,20 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False,
-                 test_flow_is_lossless=False,
-                 snappi_extra_params=snappi_extra_params,
-                 flow_factor=flow_factor)
+    try:
+        run_pfc_test(api=snappi_api,
+                     testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     conn_data=conn_graph_facts,
+                     fanout_data=fanout_graph_facts_multidut,
+                     global_pause=False,
+                     pause_prio_list=pause_prio_list,
+                     test_prio_list=test_prio_list,
+                     bg_prio_list=bg_prio_list,
+                     prio_dscp_map=prio_dscp_map,
+                     test_traffic_pause=False,
+                     test_flow_is_lossless=False,
+                     snappi_extra_params=snappi_extra_params,
+                     flow_factor=flow_factor)
+    finally:
+        cleanup_config(duthosts, snappi_ports)

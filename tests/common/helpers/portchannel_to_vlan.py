@@ -420,6 +420,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
         return
+    ptf_lag_map = None
     # --------------------- Setup -----------------------
     try:
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
@@ -431,7 +432,8 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     # --------------------- Teardown -----------------------
     finally:
         config_reload(duthost, safe_reload=True)
-        ptf_teardown(ptfhost, ptf_lag_map)
+        if ptf_lag_map is not None:
+            ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):

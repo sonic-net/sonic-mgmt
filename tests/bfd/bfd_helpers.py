@@ -25,6 +25,12 @@ def prepare_bfd_state(dut, flag, expected_bfd_state):
             10,
             0,
             lambda: find_bfd_peers_with_given_state(dut, asic, expected_bfd_state),
+        ), (
+            "Timed out waiting for all BFD peers on ASIC {} of DUT '{}' to reach state '{}'."
+        ).format(
+            asic,
+            dut.hostname,
+            expected_bfd_state
         )
 
 
@@ -35,6 +41,13 @@ def verify_bfd_only(dut, nexthops, asic, expected_bfd_state):
         10,
         0,
         lambda: verify_bfd_state(dut, nexthops.values(), asic, expected_bfd_state),
+    ), (
+        "Timed out waiting to verify BFD state is expected for nexthops {} on ASIC {} of DUT '{}' to reach state '{}'."
+    ).format(
+        nexthops.values(),
+        asic,
+        dut.hostname,
+        expected_bfd_state
     )
 
 
@@ -64,7 +77,9 @@ def get_dut_asic_static_routes(version, dut):
     elif version == "ipv6":
         static_route_command = "show ipv6 route static"
     else:
-        assert False, "Invalid version"
+        assert False, (
+            "Invalid version specified: '{}'. Expected 'ipv4' or 'ipv6'."
+        ).format(version)
 
     stdout = dut.shell(static_route_command, module_ignore_errors=True)["stdout"]
     if sys.version_info.major < 3:
@@ -74,7 +89,10 @@ def get_dut_asic_static_routes(version, dut):
 
     asic_static_routes = extract_routes(static_routes_output, version)
     logger.info("asic routes, {}".format(asic_static_routes))
-    assert len(asic_static_routes) > 0, "static routes on dut are empty"
+    assert len(asic_static_routes) > 0, (
+        "Static routes on DUT are empty. Parsed static routes: {}"
+    ).format(asic_static_routes)
+
     return asic_static_routes
 
 
@@ -105,7 +123,9 @@ def verify_static_route(
     elif version == "ipv6":
         command = "show ipv6 route static"
     else:
-        assert False, "Invalid version"
+        assert False, (
+            "Invalid version specified: '{}'. Expected 'ipv4' or 'ipv6'."
+        ).format(version)
 
     static_route = dut.shell(command, module_ignore_errors=True)["stdout"]
     if sys.version_info.major < 3:
@@ -120,19 +140,24 @@ def verify_static_route(
         if len(asic_routes) == 0 and request.config.interface_shutdown:
             logger.info("asic routes are empty post interface shutdown")
         else:
-            assert len(asic_routes) > 0, "static routes on source dut are empty"
+            assert len(asic_routes) > 0, (
+                "Static routes on source DUT are empty. Parsed static routes: {}"
+            ).format(asic_routes)
+
             assert (
-                prefix
-                not in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
-            ), "Prefix removal is not successful. Prefix being validated: {}.".format(
-                prefix
-            )
+                prefix not in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
+            ), (
+                "Prefix removal is not successful. Prefix being validated: {}.\n"
+                "Current ASIC routes: {}"
+            ).format(prefix, asic_routes)
+
     elif expected_prefix_state == "Route Addition":
         assert (
             prefix in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
-        ), "Prefix has not been added even though BFD is expected. Prefix: {}".format(
-            prefix
-        )
+        ), (
+            "Prefix has not been added even though BFD is expected. Prefix: {}.\n"
+            "Current ASIC routes: {}"
+        ).format(prefix, asic_routes)
 
 
 def batch_control_interface_state(dut, asic, interfaces, action):
@@ -167,12 +192,18 @@ def toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for cmd in cmds:
                 executor.submit(dut.shell, cmd)
-
         assert wait_until(
             180,
             10,
             0,
             lambda: check_interfaces_oper_state(dut, asic, interfaces, target_state),
+        ), (
+            "Timed out waiting for interfaces {} on ASIC {} of DUT '{}' to reach state '{}'."
+        ).format(
+            interfaces,
+            asic,
+            dut.hostname,
+            target_state
         )
 
 
@@ -632,7 +663,11 @@ def get_src_dst_asic_next_hops(version, src_dut, src_asic, src_backend_port_chan
         backend_port_channels=dst_backend_port_channels,
     )
 
-    assert len(src_asic_next_hops) != 0, "Source next hops are empty"
+    assert len(src_asic_next_hops) != 0, (
+        "Source next hops are empty. "
+        "Parsed source next hops: {}"
+    ).format(src_asic_next_hops)
+
     dst_asic_next_hops = extract_ip_addresses_for_backend_portchannels(
         src_dut,
         src_asic,
@@ -640,7 +675,11 @@ def get_src_dst_asic_next_hops(version, src_dut, src_asic, src_backend_port_chan
         backend_port_channels=src_backend_port_channels,
     )
 
-    assert len(dst_asic_next_hops) != 0, "Destination next hops are empty"
+    assert len(dst_asic_next_hops) != 0, (
+        "Destination next hops are empty. "
+        "Parsed destination next hops: {}"
+    ).format(dst_asic_next_hops)
+
     return src_asic_next_hops, dst_asic_next_hops
 
 
@@ -734,6 +773,12 @@ def wait_until_given_bfd_down(next_hops, port_channel, asic_index, dut):
         10,
         0,
         lambda: verify_given_bfd_state(next_hops, port_channel, asic_index, dut, "Down"),
+    ), (
+        "Timed out waiting for BFD session on port channel '{}' (ASIC {} of DUT '{}') to reach state 'Down'."
+    ).format(
+        port_channel,
+        asic_index,
+        dut.hostname
     )
 
 

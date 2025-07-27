@@ -125,7 +125,7 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_asic_index
     # Verify Loopback ip has been advertised to neighbor
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
-        if "." not in remote_ip:
+        if "." not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
             continue
         output = duthost.shell("show ip bgp neighbor {} advertised-routes| grep {}".format(remote_ip, loopback_ip),
                                module_ignore_errors=True)

@@ -3,12 +3,12 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts                  # noqa F401
+    fanout_graph_facts                  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config   # noqa F401
+    snappi_api, snappi_testbed_config   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
@@ -24,7 +24,7 @@ def __gen_all_to_all_traffic(testbed_config,
                              conn_data,
                              fanout_data,
                              priority,
-                             prio_dscp_map):        # noqa F811
+                             prio_dscp_map):        # noqa: F811
 
     rate_percent = 100 / (len(port_config_list) - 1)
     duration_sec = 2
@@ -82,12 +82,12 @@ def __gen_all_to_all_traffic(testbed_config,
     return testbed_config
 
 
-def test_snappi(snappi_api,                     # noqa F811
-                snappi_testbed_config,          # noqa F811
-                conn_graph_facts,               # noqa F811
-                fanout_graph_facts,             # noqa F811
+def test_snappi(snappi_api,                     # noqa: F811
+                snappi_testbed_config,          # noqa: F811
+                conn_graph_facts,               # noqa: F811
+                fanout_graph_facts,             # noqa: F811
                 rand_one_dut_lossless_prio,
-                prio_dscp_map):                 # noqa F811
+                prio_dscp_map):                 # noqa: F811
     """
     Test if we can use Snappi API generate traffic in a testbed
 
@@ -133,9 +133,9 @@ def test_snappi(snappi_api,                     # noqa F811
     wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
 
     # """ Start traffic """
-    ts = snappi_api.transmit_state()
-    ts.state = ts.START
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    snappi_api.set_control_state(cs)
 
     # """ Wait for traffic to finish """
     time.sleep(duration_sec)
@@ -167,9 +167,9 @@ def test_snappi(snappi_api,                     # noqa F811
     request.flow.flow_names = all_flow_names
     rows = snappi_api.get_metrics(request).flow_metrics
 
-    ts = snappi_api.transmit_state()
-    ts.state = ts.STOP
-    snappi_api.set_transmit_state(ts)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    snappi_api.set_control_state(cs)
 
     """ Analyze traffic results """
     for row in rows:
