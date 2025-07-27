@@ -492,6 +492,7 @@ sonic:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_V64:
     sonic_cisco_8101_O32:
+    sonic_cisco_8101_C32:
     sonic_cisco_8101_O8C48:
     sonic_arista_7050_C32:
     sonic_arista_7050_S128:
@@ -1635,9 +1636,9 @@ sonic_cisco_8101_V64:
           timeout: 300
           wait: 600
 
-sonic_cisco_8101_O32:
+sonic_cisco_8101_C32:
   vars:
-    hwsku: Cisco-8101-O32
+    hwsku: Cisco-8101-C32
     iface_speed: 100000
   hosts:
     bjw2-can-8101c1-3:
@@ -1704,6 +1705,12 @@ sonic_cisco_8101_O32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_cisco_8101_O32:
+  vars:
+    hwsku: Cisco-8101-O32
+    iface_speed: 100000
+  hosts:
     bjw2-can-8101c1-5:
       ansible_host: 10.150.23.249
       ansible_hostv6: 2404:f801:10:2200::a96:17f9
