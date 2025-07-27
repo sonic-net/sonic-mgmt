@@ -92,6 +92,7 @@ class ConsoleValidator(GlobalValidator):
             for device_name, console_info in console_links.items():
                 if device_name in all_console_links:
                     # Console link exists in multiple groups - could indicate duplicate config
+                    # duplicate_config_groups: Device has console configuration in multiple groups
                     self.result.add_issue(
                         'E3001',
                         {"device": device_name, "group": group_name}
@@ -132,6 +133,7 @@ class ConsoleValidator(GlobalValidator):
 
             # Check if device has console connection
             if device_name not in console_links:
+                # missing_console: Device has no console connection configured
                 self.result.add_issue(
                     'E3002',
                     {"device": device_name, "device_type": device_type}
@@ -141,6 +143,7 @@ class ConsoleValidator(GlobalValidator):
             # Validate console connection properties
             console_info = console_links[device_name]
             if not isinstance(console_info, dict):
+                # invalid_config_format: Console connection configuration format is invalid
                 self.result.add_issue(
                     'E3003',
                     {"device": device_name, "actual_type": type(console_info).__name__}
@@ -150,6 +153,7 @@ class ConsoleValidator(GlobalValidator):
             # Check for ConsolePort entry
             console_port_info = console_info.get('ConsolePort')
             if not console_port_info:
+                # missing_console_port: Console connection missing ConsolePort information
                 self.result.add_issue(
                     'E3004',
                     {"device": device_name}
@@ -170,6 +174,7 @@ class ConsoleValidator(GlobalValidator):
                 if port_key in console_port_usage:
                     # Console port conflict detected
                     existing_device = console_port_usage[port_key]
+                    # console_port_conflict: Console port is used by multiple devices
                     self.result.add_issue(
                         'E3005',
                         {
@@ -202,6 +207,7 @@ class ConsoleValidator(GlobalValidator):
             devices: All devices in the connection graph
         """
         if not isinstance(console_port_info, dict):
+            # invalid_config_format: Console connection configuration format is invalid
             self.result.add_issue(
                 'E3003',
                 {"device": device_name, "actual_type": type(console_port_info).__name__}
@@ -212,6 +218,7 @@ class ConsoleValidator(GlobalValidator):
         required_fields = ['peerdevice', 'peerport']
         for field in required_fields:
             if field not in console_port_info:
+                # missing_required_field: Console connection missing required field
                 self.result.add_issue(
                     'E3006',
                     {"device": device_name, "field": field}
@@ -221,6 +228,7 @@ class ConsoleValidator(GlobalValidator):
         console_server = console_port_info.get('peerdevice')
         if console_server:
             if console_server not in devices:
+                # invalid_console_server: Console points to non-existent server
                 self.result.add_issue(
                     'E3007',
                     {"device": device_name, "server": console_server}
@@ -231,6 +239,7 @@ class ConsoleValidator(GlobalValidator):
                 if isinstance(server_info, dict):
                     server_type = server_info.get('Type', '').lower()
                     if server_type not in ['consoleserver']:
+                        # invalid_server_type: Console server has unexpected type
                         self.result.add_issue(
                             'E3008',
                             {
@@ -244,6 +253,7 @@ class ConsoleValidator(GlobalValidator):
         # Validate console port
         console_port = console_port_info.get('peerport')
         if console_port and not str(console_port).strip():
+            # empty_console_port: Console connection has empty port
             self.result.add_issue(
                 'E3009',
                 {"device": device_name}
@@ -255,6 +265,7 @@ class ConsoleValidator(GlobalValidator):
             if field in console_port_info:
                 value = console_port_info[field]
                 if value is None or (isinstance(value, str) and not value.strip()):
+                    # empty_optional_field: Console connection has empty optional field
                     self.result.add_issue(
                         'E3010',
                         {"device": device_name, "field": field}

@@ -152,6 +152,7 @@ class IpAddressValidator(GlobalValidator):
                 return
 
             # This is a real IP conflict
+            # conflict_ip: IP address conflict detected
             self.result.add_issue(
                 'E2001',
                 {
@@ -254,6 +255,7 @@ class IpAddressValidator(GlobalValidator):
         """Add IP address to tracking dict and check for conflicts"""
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
+            # conflict_ip: IP address conflict detected
             self.result.add_issue(
                 'E2001',
                 {
@@ -282,6 +284,7 @@ class IpAddressValidator(GlobalValidator):
 
                 # Check for reserved addresses
                 if ip_obj.is_reserved:
+                    # reserved_ip: Reserved IP address found
                     self.result.add_issue(
                         'E2002',
                         {
@@ -294,6 +297,7 @@ class IpAddressValidator(GlobalValidator):
 
                 # Check for loopback addresses
                 if ip_obj.is_loopback:
+                    # reserved_ip: Reserved IP address found
                     self.result.add_issue(
                         'E2002',
                         {
@@ -306,6 +310,7 @@ class IpAddressValidator(GlobalValidator):
 
             except ValueError:
                 # This should not happen as we validate during extraction
+                # invalid_ip_format: Invalid IP address format
                 self.result.add_issue(
                     'E2003',
                     {

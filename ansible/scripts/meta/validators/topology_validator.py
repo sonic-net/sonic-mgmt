@@ -5,12 +5,12 @@ TopologyValidator - Validates topology files in ansible/vars folder
 import yaml
 import ipaddress
 from pathlib import Path
-from .base_validator import BaseValidator, ValidatorContext
+from .base_validator import GlobalValidator, ValidatorContext
 from .validator_factory import register_validator
 
 
 @register_validator("topology")
-class TopologyValidator(BaseValidator):
+class TopologyValidator(GlobalValidator):
     """Validates topology files defined under ansible/vars folder"""
 
     def __init__(self, config=None):
@@ -24,16 +24,6 @@ class TopologyValidator(BaseValidator):
         self.base_path = Path(__file__).parent.parent.parent.parent
         self.vars_path = self.base_path / "vars"
         self.templates_path = self.base_path / "roles" / "eos" / "templates"
-
-    def _run_pre_validation_checks(self, context: ValidatorContext) -> bool:
-        """
-        Override pre-validation checks since topology validator doesn't need group data
-
-        Returns:
-            bool: Always True since this validator only needs file system access
-        """
-        # Topology validator only needs file system access, not group data
-        return True
 
     def _validate(self, context: ValidatorContext) -> None:
         """
@@ -60,6 +50,7 @@ class TopologyValidator(BaseValidator):
                     total_errors += file_errors
                     validated_files += 1
             except Exception as e:
+                # parse_error: Failed to process topology file
                 self.result.add_issue(
                     'E5001',
                     {"topology_file": str(topo_file), "error": str(e)}
@@ -84,6 +75,7 @@ class TopologyValidator(BaseValidator):
         topology_files = []
 
         if not self.vars_path.exists():
+            # missing_topology_dir: Topology vars directory not found
             self.result.add_issue(
                 'E5011',
                 {"vars_path": str(self.vars_path)}
@@ -102,12 +94,14 @@ class TopologyValidator(BaseValidator):
             with open(topo_file, 'r') as f:
                 return yaml.safe_load(f)
         except yaml.YAMLError as e:
+            # yaml_parse_error: Invalid YAML in topology file
             self.result.add_issue(
                 'E5012',
                 {"topology_file": topo_file.name, "error": str(e)}
             )
             return None
         except FileNotFoundError:
+            # missing_topology_file: Topology file not found
             self.result.add_issue(
                 'E5013',
                 {"topology_file": str(topo_file)}
@@ -180,6 +174,7 @@ class TopologyValidator(BaseValidator):
             template_path = self.templates_path / template_filename
 
             if not template_path.exists():
+                # missing_swrole_template_file: Template file not found for swrole
                 self.result.add_issue(
                     'E5014',
                     {
@@ -211,8 +206,9 @@ class TopologyValidator(BaseValidator):
             vm_offset = vm_config.get('vm_offset')
             if vm_offset is not None:
                 if vm_offset in vm_offsets:
+                    # duplicate_vm_offset: VM offset is used by multiple VMs
                     self.result.add_issue(
-                        'E5015',
+                        'E5003',
                         {
                             "topology": topo_name,
                             "duplicate_offset": vm_offset,
@@ -227,8 +223,9 @@ class TopologyValidator(BaseValidator):
             for vlan_id in vm_vlans:
                 vlan_source = f"VM {vm_name}"
                 if vlan_id in used_vlans:
+                    # duplicate_vlan: VLAN ID is used by multiple sources
                     self.result.add_issue(
-                        'E5016',
+                        'E5004',
                         {
                             "topology": topo_name,
                             "duplicate_vlan": vlan_id,
@@ -242,6 +239,7 @@ class TopologyValidator(BaseValidator):
         # Note: host_interfaces are VLAN ID indices assigned to these interfaces
         for interface_idx in host_interfaces:
             if interface_idx in used_vlans:
+                # duplicate_vlan: VLAN ID is used by multiple sources
                 self.result.add_issue(
                     'E5004',
                     {
@@ -279,6 +277,7 @@ class TopologyValidator(BaseValidator):
                 seen_intfs = set()
                 for intf in intfs:
                     if intf in seen_intfs:
+                        # duplicate_interface: Interface appears multiple times in vlan_config
                         self.result.add_issue(
                             'E5005',
                             {
@@ -298,6 +297,7 @@ class TopologyValidator(BaseValidator):
                         max_hosts = network.num_addresses - 2  # Subtract network and broadcast addresses
 
                         if len(intfs) > max_hosts:
+                            # interface_count_exceed: Interface count exceeds prefix capacity
                             self.result.add_issue(
                                 'E5006',
                                 {
@@ -310,6 +310,7 @@ class TopologyValidator(BaseValidator):
                                 }
                             )
                     except (ipaddress.AddressValueError, ValueError) as e:
+                        # invalid_prefix_format: Invalid prefix format in vlan_config
                         self.result.add_issue(
                             'E5007',
                             {
@@ -352,6 +353,7 @@ class TopologyValidator(BaseValidator):
                 bp_subnets[subnet].append((vm_name, str(ip_addr)))
 
             except (ipaddress.AddressValueError, ValueError) as e:
+                # invalid_ip_format: Invalid bp_interface IPv4 address format
                 self.result.add_issue(
                     'E5008',
                     {
@@ -371,6 +373,7 @@ class TopologyValidator(BaseValidator):
                     "vms": [vm_name for vm_name, _ in vm_list]
                 })
 
+            # multiple_subnets: bp_interface IPs span multiple subnets
             self.result.add_issue(
                 'E5009',
                 {
@@ -385,6 +388,7 @@ class TopologyValidator(BaseValidator):
             ip_to_vm = {}
             for vm_name, ip_addr in vm_list:
                 if ip_addr in ip_to_vm:
+                    # conflict_ip: bp_interface IP address conflict
                     self.result.add_issue(
                         'E5010',
                         {

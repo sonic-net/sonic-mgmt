@@ -119,6 +119,15 @@ python3 meta_validator.py --fail-fast
 
 # Treat warnings as errors
 python3 meta_validator.py --warnings-as-errors
+
+# Show full report with all errors and warnings
+python3 meta_validator.py --report-level full
+
+# Run only specific validators
+python3 meta_validator.py --enable-validators ip_address console pdu
+
+# Run all validators except specific ones
+python3 meta_validator.py --disable-validators vlan topology
 ```
 
 ### 2.3. Advanced Options
@@ -136,7 +145,7 @@ python3 meta_validator.py \
     --testbed-nut-config ansible/testbed.nut.yaml \
     --group specific-group \
     --report-level full \
-    --enable-validators testbed_name ip_address \
+    --enable-validators testbed ip_address \
     --disable-validators vlan \
     --verbose
 
@@ -150,7 +159,7 @@ python3 meta_validator.py \
     -tn ansible/testbed.nut.yaml \
     -g specific-group \
     -r full \
-    -e testbed_name ip_address \
+    -e testbed ip_address \
     -d vlan \
     -v
 ```
@@ -375,7 +384,7 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Issues:**
 
-- `E2001`: duplicate_ip - Duplicate IP address conflict detected
+- `E2001`: conflict_ip - IP address conflict detected
 - `E2002`: reserved_ip - Reserved IP address found (WARNING)
 - `E2003`: invalid_ip_format - Invalid IP address format
 
@@ -475,7 +484,7 @@ Global validators run once with access to data from all infrastructure groups. T
 - `E5007`: invalid_prefix_format - Invalid prefix format in vlan_config
 - `E5008`: invalid_ip_format - Invalid bp_interface IPv4 address format
 - `E5009`: multiple_subnets - bp_interface IPs span multiple subnets
-- `E5010`: duplicate_ip - Duplicate bp_interface IP address
+- `E5010`: conflict_ip - bp_interface IP address conflict
 - `E5011`: missing_topology_dir - Topology vars directory not found
 - `E5012`: yaml_parse_error - Invalid YAML in topology file
 - `E5013`: missing_topology_file - Topology file not found
@@ -542,7 +551,7 @@ Operates on each infrastructure group individually. Starting from all DUTs (DevS
 
 - `E7001`: missing_dut_devices - No DUT devices found in topology
 - `E7002`: invalid_vlan_config_format - VLAN configuration format is invalid
-- `E7003`: duplicate_vlan - VLAN ID is duplicated on multiple ports
+- `E7003`: duplicate_vlan - VLAN IDs are duplicated on multiple ports (reported in range format)
 - `E7004`: vlan_mapping_missing - VLAN IDs are not mapped to peer links
 - `E7005`: vlan_mapping_extra - VLAN IDs from peer links not configured on device
 - `E7006`: invalid_vlan_range_format - Invalid VLAN range format
@@ -735,7 +744,7 @@ orchestrator.add_hook('after_validator', log_end)
 #!/bin/bash
 # CI validation script
 python3 meta_validator.py \
-    --strategy fail_fast \
+    --fail-fast \
     --config ci_config.yaml \
     --verbose
 
@@ -757,7 +766,7 @@ python3 meta_validator.py --create-sample-config dev_config.yaml
 # Run with relaxed settings
 python3 meta_validator.py \
     --config dev_config.yaml \
-    --strategy warnings_as_errors
+    --warnings-as-errors
 ```
 
 ### 7.3. Example 3: Custom Validation Pipeline

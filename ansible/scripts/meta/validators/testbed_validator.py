@@ -70,6 +70,7 @@ class TestbedValidator(GlobalValidator):
 
         for i, testbed in enumerate(testbed_info):
             if not isinstance(testbed, dict):
+                # invalid_config_format: Testbed configuration is not in valid format
                 self.result.add_issue(
                     'E1001',
                     {"index": i, "type": str(type(testbed))}
@@ -78,6 +79,7 @@ class TestbedValidator(GlobalValidator):
 
             conf_name = testbed.get('conf-name')
             if not conf_name:
+                # missing_conf_name: Testbed configuration missing conf-name field
                 self.result.add_issue(
                     'E1002',
                     {"index": i}
@@ -89,6 +91,7 @@ class TestbedValidator(GlobalValidator):
             # Check for duplicates and track names in one pass
             if conf_name in seen_names:
                 duplicate_names.add(conf_name)
+                # duplicate_name: Duplicate testbed name found
                 self.result.add_issue(
                     'E1003',
                     {"name": conf_name}
@@ -131,6 +134,7 @@ class TestbedValidator(GlobalValidator):
             else:
                 missing += 1
                 conf_name = testbed.get('conf-name', f'testbed-{i}')
+                # missing_topology_file: Topology file not found for testbed
                 self.result.add_issue(
                     'E1004',
                     {

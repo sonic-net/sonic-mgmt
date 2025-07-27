@@ -81,6 +81,7 @@ class VlanValidator(GroupValidator):
                 dut_devices.append(device_name)
 
         if not dut_devices:
+            # keyword: missing_dut_devices - No DUT devices found in topology
             self.result.add_issue('E7001', {"devices_checked": "all"})
             return None
 
@@ -238,6 +239,7 @@ class VlanValidator(GroupValidator):
 
         for port_name, vlan_config in port_vlans_config.items():
             if not isinstance(vlan_config, dict):
+                # keyword: invalid_vlan_config_format - VLAN configuration format is invalid
                 self.result.add_issue(
                     'E7002',
                     {"device": current_device, "port": port_name, "actual_type": type(vlan_config).__name__}
@@ -270,6 +272,7 @@ class VlanValidator(GroupValidator):
             topology_data: Topology data
         """
         seen_vlans = {}  # vlan_id -> port_name (only for tracked VLANs on tracked ports)
+        conflicts = {}   # (port1, port2) -> set of conflicting vlan_ids
 
         # Only check the ports that were tracked during BFS traversal
         for port_name in tracked_ports:
@@ -279,12 +282,29 @@ class VlanValidator(GroupValidator):
                 # Only check VLANs that were tracked from peer devices
                 if vlan_id in tracked_vlans:
                     if vlan_id in seen_vlans:
-                        self.result.add_issue(
-                            'E7003',
-                            {"device": device_name, "vlan": vlan_id, "port1": seen_vlans[vlan_id], "port2": port_name}
-                        )
+                        # Found conflict - collect all conflicting VLANs for this port pair
+                        conflicting_port = seen_vlans[vlan_id]
+                        port_pair = tuple(sorted([conflicting_port, port_name]))
+
+                        if port_pair not in conflicts:
+                            conflicts[port_pair] = set()
+                        conflicts[port_pair].add(vlan_id)
                     else:
                         seen_vlans[vlan_id] = port_name
+
+        # Report conflicts with VLAN ranges
+        for (port1, port2), conflicting_vlans in conflicts.items():
+            vlan_ranges = self._format_vlan_ranges(conflicting_vlans)
+            # keyword: duplicate_vlan - VLAN IDs are duplicated on multiple ports
+            self.result.add_issue(
+                'E7003',
+                {
+                    "device": device_name,
+                    "vlans": vlan_ranges,
+                    "port1": port1,
+                    "port2": port2
+                }
+            )
 
     def _validate_vlan_mapping(self, device_name, device_vlans, stored_vlans):
         """
@@ -301,15 +321,19 @@ class VlanValidator(GroupValidator):
             extra_vlans = stored_vlans - device_vlans
 
             if missing_vlans:
+                missing_ranges = self._format_vlan_ranges(missing_vlans)
+                # keyword: vlan_mapping_missing - VLAN IDs are not mapped to peer links
                 self.result.add_issue(
                     'E7004',
-                    {"device": device_name, "missing": sorted(missing_vlans)}
+                    {"device": device_name, "missing": missing_ranges}
                 )
 
             if extra_vlans:
+                extra_ranges = self._format_vlan_ranges(extra_vlans)
+                # keyword: vlan_mapping_extra - VLAN IDs from peer links not configured on device
                 self.result.add_issue(
                     'E7005',
-                    {"device": device_name, "extra": sorted(extra_vlans)}
+                    {"device": device_name, "extra": extra_ranges}
                 )
 
     def _get_port_vlans(self, device_name, port_name, topology_data):
@@ -370,6 +394,7 @@ class VlanValidator(GroupValidator):
                     # Handle range (e.g., "2525-2556")
                     range_match = re.match(r'^(\d+)-(\d+)$', part)
                     if not range_match:
+                        # keyword: invalid_vlan_range_format - Invalid VLAN range format
                         self.result.add_issue(
                             'E7006',
                             {"device": device_name, "port": port_name, "range": part}
@@ -380,6 +405,7 @@ class VlanValidator(GroupValidator):
                     end_vlan = int(range_match.group(2))
 
                     if start_vlan > end_vlan:
+                        # keyword: invalid_vlan_range_order - Invalid VLAN range - start greater than end
                         self.result.add_issue(
                             'E7007',
                             {
@@ -395,6 +421,7 @@ class VlanValidator(GroupValidator):
                     # Validate each VLAN in range
                     for vlan_id in range(start_vlan, end_vlan + 1):
                         if not self._is_valid_vlan_id(vlan_id):
+                            # keyword: vlan_out_of_range - VLAN ID not in valid range
                             self.result.add_issue(
                                 'E7008',
                                 {
@@ -410,6 +437,7 @@ class VlanValidator(GroupValidator):
                 else:
                     # Handle individual VLAN
                     if not part.isdigit():
+                        # keyword: invalid_vlan_id_format - Invalid VLAN ID format
                         self.result.add_issue(
                             'E7009',
                             {"device": device_name, "port": port_name, "vlan": part}
@@ -418,6 +446,7 @@ class VlanValidator(GroupValidator):
 
                     vlan_id = int(part)
                     if not self._is_valid_vlan_id(vlan_id):
+                        # keyword: vlan_out_of_range - VLAN ID not in valid range
                         self.result.add_issue(
                             'E7008',
                             {
@@ -432,6 +461,7 @@ class VlanValidator(GroupValidator):
                         vlan_set.add(vlan_id)
 
         except ValueError as e:
+            # keyword: vlan_parse_error - Error parsing VLAN string
             self.result.add_issue(
                 'E7010',
                 {
@@ -460,6 +490,7 @@ class VlanValidator(GroupValidator):
         vlan_set = set()
 
         if not isinstance(vlanlist, list):
+            # keyword: invalid_vlan_list_type - VLAN list must be a list
             self.result.add_issue(
                 'E7011',
                 {"device": device_name, "port": port_name, "actual_type": str(type(vlanlist))}
@@ -468,6 +499,7 @@ class VlanValidator(GroupValidator):
 
         for i, vlan_id in enumerate(vlanlist):
             if not isinstance(vlan_id, int):
+                # keyword: invalid_vlan_type - VLAN ID must be an integer
                 self.result.add_issue(
                     'E7012',
                     {
@@ -481,6 +513,7 @@ class VlanValidator(GroupValidator):
                 continue
 
             if not self._is_valid_vlan_id(vlan_id):
+                # keyword: vlan_out_of_range - VLAN ID not in valid range
                 self.result.add_issue(
                     'E7008',
                     {
@@ -507,3 +540,43 @@ class VlanValidator(GroupValidator):
             bool: True if valid, False otherwise
         """
         return isinstance(vlan_id, int) and self.min_vlan_id <= vlan_id <= self.max_vlan_id
+
+    def _format_vlan_ranges(self, vlan_ids):
+        """
+        Convert a list of VLAN IDs to a compact range format
+
+        Args:
+            vlan_ids: List or set of VLAN IDs
+
+        Returns:
+            str: Formatted VLAN ranges (e.g., "100-105,200,300-302")
+        """
+        if not vlan_ids:
+            return ""
+
+        # Convert to sorted list
+        sorted_vlans = sorted(set(vlan_ids))
+        ranges = []
+        start = sorted_vlans[0]
+        end = sorted_vlans[0]
+
+        for i in range(1, len(sorted_vlans)):
+            if sorted_vlans[i] == end + 1:
+                # Consecutive VLAN, extend the range
+                end = sorted_vlans[i]
+            else:
+                # Gap found, close current range and start new one
+                if start == end:
+                    ranges.append(str(start))
+                else:
+                    ranges.append(f"{start}-{end}")
+                start = sorted_vlans[i]
+                end = sorted_vlans[i]
+
+        # Add the final range
+        if start == end:
+            ranges.append(str(start))
+        else:
+            ranges.append(f"{start}-{end}")
+
+        return ",".join(ranges)

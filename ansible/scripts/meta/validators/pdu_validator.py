@@ -96,6 +96,7 @@ class PDUValidator(GlobalValidator):
             for device_name, pdu_info in pdu_links.items():
                 if device_name in all_pdu_links:
                     # PDU link exists in multiple groups - could indicate duplicate config
+                    # duplicate_config_groups: Device has PDU configuration in multiple groups
                     self.result.add_issue(
                         'E4001',
                         {"device": device_name, "group": group_name}
@@ -140,6 +141,7 @@ class PDUValidator(GlobalValidator):
 
             # Check if device has PDU connections
             if device_name not in pdu_links:
+                # missing_pdu: Device has no PDU connections configured
                 self.result.add_issue(
                     'E4002',
                     {"device": device_name, "device_type": device_type}
@@ -149,6 +151,7 @@ class PDUValidator(GlobalValidator):
             # Validate PDU connections for this device
             device_pdu_info = pdu_links[device_name]
             if not isinstance(device_pdu_info, dict):
+                # invalid_config_format: PDU connection configuration format is invalid
                 self.result.add_issue(
                     'E4003',
                     {"device": device_name, "actual_type": type(device_pdu_info).__name__}
@@ -167,6 +170,7 @@ class PDUValidator(GlobalValidator):
 
                 # Check power redundancy
                 if device_stats["psu_count"] == 1:
+                    # no_power_redundancy: Device has only one PSU connection - no power redundancy
                     self.result.add_issue(
                         'E4004',
                         {"device": device_name, "psu_count": device_stats['psu_count']}
@@ -199,6 +203,7 @@ class PDUValidator(GlobalValidator):
 
         for psu_name, psu_info in device_pdu_info.items():
             if not isinstance(psu_info, dict):
+                # invalid_psu_format: PSU configuration format is invalid
                 self.result.add_issue(
                     'E4005',
                     {"device": device_name, "psu": psu_name, "actual_type": type(psu_info).__name__}
@@ -208,6 +213,7 @@ class PDUValidator(GlobalValidator):
             # Validate each feed for this PSU
             for feed_name, feed_info in psu_info.items():
                 if not isinstance(feed_info, dict):
+                    # invalid_feed_format: Feed configuration format is invalid
                     self.result.add_issue(
                         'E4006',
                         {
@@ -234,6 +240,7 @@ class PDUValidator(GlobalValidator):
                     if port_key in pdu_port_usage:
                         # PDU port conflict detected
                         existing_device_psu = pdu_port_usage[port_key]
+                        # pdu_port_conflict: PDU outlet is used by multiple devices
                         self.result.add_issue(
                             'E4007',
                             {
@@ -268,6 +275,7 @@ class PDUValidator(GlobalValidator):
         required_fields = ['peerdevice', 'peerport', 'feed']
         for field in required_fields:
             if field not in feed_info:
+                # missing_required_field: PDU connection missing required field
                 self.result.add_issue(
                     'E4008',
                     {"device": device_name, "psu": psu_name, "feed": feed_name, "field": field}
@@ -277,6 +285,7 @@ class PDUValidator(GlobalValidator):
         pdu_device = feed_info.get('peerdevice')
         if pdu_device:
             if pdu_device not in devices:
+                # invalid_pdu_device: PDU points to non-existent device
                 self.result.add_issue(
                     'E4009',
                     {"device": device_name, "psu": psu_name, "pdu": pdu_device}
@@ -287,6 +296,7 @@ class PDUValidator(GlobalValidator):
                 if isinstance(pdu_info, dict):
                     pdu_type = pdu_info.get('Type', '').lower()
                     if pdu_type != 'pdu':
+                        # invalid_pdu_type: PDU device has unexpected type
                         self.result.add_issue(
                             'E4010',
                             {
@@ -301,6 +311,7 @@ class PDUValidator(GlobalValidator):
         # Validate PDU port
         pdu_port = feed_info.get('peerport')
         if pdu_port and not str(pdu_port).strip():
+            # empty_pdu_port: PDU connection has empty port
             self.result.add_issue(
                 'E4011',
                 {"device": device_name, "psu": psu_name}
@@ -311,6 +322,7 @@ class PDUValidator(GlobalValidator):
         if feed_id:
             valid_feeds = ['A', 'B', 'N/A']
             if feed_id not in valid_feeds:
+                # invalid_feed_id: PDU feed ID is not valid
                 self.result.add_issue(
                     'E4012',
                     {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds}
