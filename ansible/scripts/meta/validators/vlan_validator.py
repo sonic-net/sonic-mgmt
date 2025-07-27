@@ -51,13 +51,10 @@ class VlanValidator(GroupValidator):
         })
 
         if self.result.success:
-            self.result.add_issue(
-                'I7000',
-                {
-                    "devices_visited": validation_stats['devices_visited'],
-                    "links_processed": validation_stats['links_processed'],
-                    "unique_vlans": validation_stats['unique_vlans']
-                }
+            self.logger.info(
+                f"VLAN validation completed successfully: {validation_stats['devices_visited']} devices visited, "
+                f"{validation_stats['links_processed']} links processed, "
+                f"{validation_stats['unique_vlans']} unique VLANs"
             )
 
     def _collect_topology_data(self, conn_graph):

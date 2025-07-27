@@ -65,10 +65,7 @@ class TopologyValidator(GlobalValidator):
         })
 
         if self.result.success:
-            self.result.add_issue(
-                'I5000',
-                {"validated_files": validated_files}
-            )
+            self.logger.info(f"Topology validation completed successfully: {validated_files} files validated")
 
     def _find_topology_files(self):
         """Find all topology files in ansible/vars folder"""

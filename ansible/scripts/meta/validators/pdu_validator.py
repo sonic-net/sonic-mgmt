@@ -104,9 +104,7 @@ class PDUValidator(GlobalValidator):
                 all_pdu_links[device_name] = pdu_info
 
         if not all_target_devices:
-            self.result.add_issue(
-                'I4000', {"message": "No target devices (DevSonic or Fanout*) found across all groups"}
-            )
+            self.logger.info("PDU validation summary: No target devices (DevSonic or Fanout*) found across all groups")
             return None
 
         return {

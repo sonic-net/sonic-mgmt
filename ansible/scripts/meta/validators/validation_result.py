@@ -306,10 +306,6 @@ def register_all_issues():
 
     # PDU Validator Issues (4000-4999)
     _def_issue(
-        'pdu', 'I4000', 'validation_summary', 'PDU validation completed successfully',
-        ValidationSeverity.INFO
-    )
-    _def_issue(
         'pdu', 'E4001', 'duplicate_config_groups',
         'Device has PDU configuration in multiple groups', ValidationSeverity.WARNING
     )
@@ -329,10 +325,6 @@ def register_all_issues():
     _def_issue('pdu', 'E4012', 'invalid_feed_id', 'PDU feed ID is not valid')
 
     # Topology Validator Issues (5000-5999)
-    _def_issue(
-        'topology', 'I5000', 'validation_summary', 'Topology validation completed successfully',
-        ValidationSeverity.INFO
-    )
     _def_issue('topology', 'E5001', 'parse_error', 'Failed to process topology file')
     _def_issue('topology', 'E5002', 'missing_template', 'Template file not found for swrole')
     _def_issue('topology', 'E5003', 'duplicate_vm_offset', 'VM offset is used by multiple VMs')
@@ -361,10 +353,6 @@ def register_all_issues():
     _def_issue('device_name', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
 
     # VLAN Validator Issues (7000-7999)
-    _def_issue(
-        'vlan', 'I7000', 'validation_summary', 'VLAN validation completed successfully',
-        ValidationSeverity.INFO
-    )
     _def_issue('vlan', 'E7001', 'missing_dut_devices', 'No DUT devices found in topology')
     _def_issue('vlan', 'E7002', 'invalid_vlan_config_format', 'VLAN configuration format is invalid')
     _def_issue('vlan', 'E7003', 'duplicate_vlan', 'VLAN IDs are duplicated on multiple ports')
