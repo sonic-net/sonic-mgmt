@@ -671,6 +671,7 @@ def collect_console_log(duthost, localhost, timeout):
         logger.warning("dut console is not ready, we cannot get log by console")
         return None
 
+
 def collect_mgmt_config_by_console(duthost, localhost):
     logger.info("check if dut is pingable")
     localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
@@ -686,3 +687,4 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.info('End: collect mgmt config by  console  ...')
     else:
         logger.warning("dut console is not ready, we can get mgmt config by console")
+
