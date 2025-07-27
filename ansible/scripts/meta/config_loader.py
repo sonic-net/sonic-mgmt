@@ -92,7 +92,7 @@ class ConfigLoader:
             },
             'validators': [
                 {
-                    'name': 'testbed_name',
+                    'name': 'testbed',
                     'enabled': True,
                     'config': {}
                 },
@@ -253,7 +253,7 @@ def create_sample_config_file(output_path: Union[str, Path]):
         },
         'validators': [
             {
-                'name': 'testbed_name',
+                'name': 'testbed',
                 'enabled': True,
                 'config': {}
             },

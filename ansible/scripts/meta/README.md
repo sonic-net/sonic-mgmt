@@ -258,7 +258,7 @@ issue_severities:
   # 'E3001': 'warning'   # Downgrade console conflicts to warnings
   # 'E4004': 'error'     # Upgrade PDU redundancy warnings to errors
 validators:
-  - name: testbed_name
+  - name: testbed
     enabled: true
     config: {}
   - name: ip_address
@@ -340,9 +340,9 @@ The validation framework includes two types of validators based on their scope o
 
 Global validators run once with access to data from all infrastructure groups. They are designed to detect cross-group conflicts and ensure global consistency.
 
-#### 5.1.1. Testbed Name Validator
+#### 5.1.1. Testbed Validator
 
-**Purpose**: Validates that all testbed names are unique across the infrastructure.
+**Purpose**: Validates testbed configuration, name uniqueness, and topology file existence.
 
 **Configuration Options:** No configuration options available.
 
@@ -350,12 +350,15 @@ Global validators run once with access to data from all infrastructure groups. T
 
 - Ensures all testbed names (from `conf-name` field) are unique
 - Validates testbed names across all groups globally
+- Verifies that topology files exist for each testbed's `topo` field
+- Checks for topology files in `ansible/vars/` directory
 
-**Example Error:**
+**Issues:**
 
-```text
-[ERROR] duplicate_name: Duplicate testbed name found: vms01-1
-```
+- `E1001`: invalid_config_format - Testbed configuration is not in valid format
+- `E1002`: missing_conf_name - Testbed configuration missing conf-name field
+- `E1003`: duplicate_name - Duplicate testbed name found
+- `E1004`: missing_topology_file - Topology file not found for testbed
 
 #### 5.1.2. IPAddress Validator
 
@@ -370,12 +373,11 @@ Global validators run once with access to data from all infrastructure groups. T
 - Ensures no reserved and loopback address will be used
 - Skips IP conflict detection for shared infrastructure devices, such as PDU and console servers
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] duplicate_ip: Duplicate IP address 192.168.1.100: device sonic-s6100 (group: str1) conflicts with testbed vms01:ptf_ip (group: testbed)
-[WARNING] reserved_ip: Reserved IP address found: 192.168.1.1 in device router (group: str2)
-```
+- `E2001`: duplicate_ip - Duplicate IP address conflict detected
+- `E2002`: reserved_ip - Reserved IP address found (WARNING)
+- `E2003`: invalid_ip_format - Invalid IP address format
 
 #### 5.1.3. Console Validator
 
@@ -392,13 +394,18 @@ Global validators run once with access to data from all infrastructure groups. T
 - Checks that console server devices exist and are properly configured
 - Detects console port conflicts across all infrastructure groups
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] missing_console: Device sonic-s6100-dut (DevSonic) has no console connection configured
-[ERROR] invalid_console_server: Device sonic-s6100-dut console points to non-existent server console-1
-[ERROR] console_port_conflict: Console port console-1:1 is used by multiple devices: sonic-s6100 (group: str1), sonic-s6000 (group: str2)
-```
+- `E3001`: duplicate_config_groups - Device has console configuration in multiple groups (WARNING)
+- `E3002`: missing_console - Device has no console connection configured
+- `E3003`: invalid_config_format - Console connection configuration format is invalid
+- `E3004`: missing_console_port - Console connection missing ConsolePort information
+- `E3005`: console_port_conflict - Console port is used by multiple devices
+- `E3006`: missing_required_field - Console connection missing required field
+- `E3007`: invalid_console_server - Console points to non-existent server
+- `E3008`: invalid_server_type - Console server has unexpected type (WARNING)
+- `E3009`: empty_console_port - Console connection has empty port
+- `E3010`: empty_optional_field - Console connection has empty optional field (WARNING)
 
 #### 5.1.4. PDU Validator
 
@@ -429,13 +436,19 @@ Global validators run once with access to data from all infrastructure groups. T
    3. Validate power redundancy and report warning if only one feed is configured
 3. Check for PDU port conflicts across all groups (multiple devices using same PDU outlet)
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] missing_pdu: Device sonic-s6100-dut (DevSonic) has no PDU connections configured
-[ERROR] invalid_pdu_device: Device sonic-s6100-dut PSU1 points to non-existent PDU pdu-2
-[ERROR] pdu_port_conflict: PDU outlet pdu-1:5 is used by multiple devices: sonic-s6100:PSU1 (group: str1), sonic-s6000:PSU1 (group: str2)
-```
+- `E4001`: duplicate_config_groups - Device has PDU configuration in multiple groups (WARNING)
+- `E4002`: missing_pdu - Device has no PDU connections configured
+- `E4003`: invalid_config_format - PDU connection configuration format is invalid
+- `E4004`: no_power_redundancy - Device has only one PSU connection - no power redundancy (WARNING)
+- `E4005`: invalid_psu_format - PSU configuration format is invalid
+- `E4006`: invalid_feed_format - Feed configuration format is invalid
+- `E4007`: pdu_port_conflict - PDU outlet is used by multiple devices
+- `E4008`: missing_required_field - PDU connection missing required field
+- `E4009`: invalid_pdu_device - PDU points to non-existent device
+- `E4010`: invalid_pdu_type - PDU device has unexpected type (WARNING)
+- `E4011`: empty_pdu_port - PDU connection has empty port
 
 #### 5.1.5. Topology Validator
 
@@ -451,16 +464,21 @@ Global validators run once with access to data from all infrastructure groups. T
 - Validates interface uniqueness within each vlan_config and checks prefix limits
 - Verifies all bp_interface IPs live within a single subnet. One for IPv4 and one for IPv6.
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] missing_data: Template file ansible/roles/eos/templates/topo_t1-isolated-d56u1-lag-spine.j2 not found for swrole: spine
-[ERROR] conflict: VLAN ID 100 is used by both VM ARISTA01T0 and host_interfaces
-[ERROR] conflict: VM offset 5 is used by multiple VMs: ARISTA05T0, ARISTA06T0
-[ERROR] conflict: Interface 10 appears multiple times in vlan_config Vlan1000.intfs
-[ERROR] conflict: vlan_config Vlan1000 has 25 interfaces but prefix 192.168.0.1/27 only supports 30 hosts
-[ERROR] conflict: bp_interface IPs span multiple subnets: 10.10.246.0/24, 10.10.247.0/24
-```
+- `E5001`: parse_error - Failed to process topology file
+- `E5002`: missing_template - Template file not found for swrole
+- `E5003`: duplicate_vm_offset - VM offset is used by multiple VMs
+- `E5004`: duplicate_vlan - VLAN ID is used by multiple sources
+- `E5005`: duplicate_interface - Interface appears multiple times in vlan_config
+- `E5006`: interface_count_exceed - Interface count exceeds prefix capacity
+- `E5007`: invalid_prefix_format - Invalid prefix format in vlan_config
+- `E5008`: invalid_ip_format - Invalid bp_interface IPv4 address format
+- `E5009`: multiple_subnets - bp_interface IPs span multiple subnets
+- `E5010`: duplicate_ip - Duplicate bp_interface IP address
+- `E5011`: missing_topology_dir - Topology vars directory not found
+- `E5012`: yaml_parse_error - Invalid YAML in topology file
+- `E5013`: missing_topology_file - Topology file not found
 
 ### 5.2. Group Validators
 
@@ -486,12 +504,15 @@ Group validators run individually for each infrastructure group, operating only 
 3. Validate device name format (non-empty, valid characters)
 4. Report any conflicts or invalid names found
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] duplicate_device_name: Duplicate device name found in group str1: sonic-s6100
-[ERROR] invalid_device_name: Empty or whitespace-only device name found in group str1
-```
+- `E6001`: missing_devices_section - No devices section found in connection graph (WARNING)
+- `E6002`: invalid_devices_format - Devices section is not in valid format
+- `E6003`: empty_device_name - Empty or invalid device name found
+- `E6004`: duplicate_device_name - Duplicate device name found
+- `E6005`: whitespace_device_name - Empty or whitespace-only device name
+- `E6006`: invalid_characters - Device name contains invalid characters
+- `E6007`: name_too_long - Device name exceeds maximum length
 
 #### 5.2.2. Vlan Validator
 
@@ -516,12 +537,20 @@ Operates on each infrastructure group individually. Starting from all DUTs (DevS
    2. All VLAN IDs can be uniquely mapped to one of the non-visited peer links above
 3. Move to next device and repeat until all devices in the group are visited
 
-**Example Errors:**
+**Issues:**
 
-```text
-[ERROR] invalid_vlan_id: Device sonic-s6100 port Ethernet64: VLAN ID 5000 not in valid range 1-4096
-[ERROR] duplicate_vlan: Device sonic-s6100: VLAN ID 100 is used on multiple ports
-```
+- `E7001`: missing_dut_devices - No DUT devices found in topology
+- `E7002`: invalid_vlan_config_format - VLAN configuration format is invalid
+- `E7003`: duplicate_vlan - VLAN ID is duplicated on multiple ports
+- `E7004`: vlan_mapping_missing - VLAN IDs are not mapped to peer links
+- `E7005`: vlan_mapping_extra - VLAN IDs from peer links not configured on device
+- `E7006`: invalid_vlan_range_format - Invalid VLAN range format
+- `E7007`: invalid_vlan_range_order - Invalid VLAN range - start greater than end
+- `E7008`: vlan_out_of_range - VLAN ID not in valid range
+- `E7009`: invalid_vlan_id_format - Invalid VLAN ID format
+- `E7010`: vlan_parse_error - Error parsing VLAN string
+- `E7011`: invalid_vlan_list_type - VLAN list must be a list
+- `E7012`: invalid_vlan_type - VLAN ID must be an integer
 
 ## 6. Extending the Framework
 

@@ -2,7 +2,7 @@
 Validation result classes and issue definitions
 Each validator gets a range of 1000 issue IDs:
 - Base Validator: 0-999
-- Testbed Name Validator: 1000-1999
+- Testbed Validator: 1000-1999
 - IP Address Validator: 2000-2999
 - Console Validator: 3000-3999
 - PDU Validator: 4000-4999
@@ -59,7 +59,7 @@ class ValidationIssueRegistry:
         self._severities: Dict[str, ValidationSeverity] = {}
         self._validator_ranges: Dict[str, range] = {
             'base': range(0, 1000),
-            'testbed_name': range(1000, 2000),
+            'testbed': range(1000, 2000),
             'ip_address': range(2000, 3000),
             'console': range(3000, 4000),
             'pdu': range(4000, 5000),
@@ -272,10 +272,11 @@ def register_all_issues():
     )
     _def_issue('base', 'E0004', 'missing_groups_data', 'No groups data available')
 
-    # Testbed Name Validator Issues (1000-1999)
-    _def_issue('testbed_name', 'E1001', 'invalid_config_format', 'Testbed configuration is not in valid format')
-    _def_issue('testbed_name', 'E1002', 'missing_conf_name', 'Testbed configuration missing conf-name field')
-    _def_issue('testbed_name', 'E1003', 'duplicate_name', 'Duplicate testbed name found')
+    # Testbed Validator Issues (1000-1999)
+    _def_issue('testbed', 'E1001', 'invalid_config_format', 'Testbed configuration is not in valid format')
+    _def_issue('testbed', 'E1002', 'missing_conf_name', 'Testbed configuration missing conf-name field')
+    _def_issue('testbed', 'E1003', 'duplicate_name', 'Duplicate testbed name found')
+    _def_issue('testbed', 'E1004', 'missing_topology_file', 'Topology file not found for testbed')
 
     # IP Address Validator Issues (2000-2999)
     _def_issue('ip_address', 'E2001', 'duplicate_ip', 'Duplicate IP address conflict detected')
