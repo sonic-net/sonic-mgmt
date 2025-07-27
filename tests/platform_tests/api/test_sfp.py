@@ -348,7 +348,7 @@ class TestSfpApi(PlatformApiTestBase):
         return self.is_xcvr_optical(xcvr_info_dict) and is_valid_xcvr_type
 
     def get_interfaces_to_flap_after_sfp_reset(self, port_index_to_info_dict, duthost):
-        intf_list = []
+        interfaces_to_flap = []
         admin_up_port_list = set(duthost.get_admin_up_ports())
         for intf in self.sfp_setup['conn_interfaces']:
             logger.info("Processing interface {} for flap after SFP reset".format(intf))
@@ -360,19 +360,16 @@ class TestSfpApi(PlatformApiTestBase):
             # skip if info_dict is not retrieved during reset, which also means reset was not performed.
             sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
             if sfp_port_idx not in port_index_to_info_dict:
-                logger.info("Skipping interface {} \
-                as SFP reset was not performed on port index {}".format(intf, sfp_port_idx))
+                logger.info(
+                    "Skipping interface {} as SFP reset was not performed on port index {}".format(intf, sfp_port_idx)
+                )
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
-            # only flap interfaces where are CMIS optics,
-            # non-CMIS optics should stay up after sfp_reset(), no need to flap.
-            if "cmis_rev" in info_dict:
-                logger.info("Flapping interface {} as it has CMIS optics".format(intf))
-                intf_list.append(intf)
-            else:
-                logger.info("Skipping interface {} as it does not have CMIS optics".format(intf))
-        return intf_list
+            if self.is_xcvr_support_lpmode(info_dict):
+                logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
+                interfaces_to_flap.append(intf)
+        return interfaces_to_flap
 
     #
     # Functions to test methods inherited from DeviceBase class
