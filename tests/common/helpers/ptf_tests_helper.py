@@ -174,7 +174,8 @@ def apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer):
         logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
     logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                  ignore_loganalyzer=loganalyzer)
 
 
 def apply_dscp_cfg_teardown(duthost, loganalyzer):
