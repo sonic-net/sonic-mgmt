@@ -3473,6 +3473,12 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
         except KeyError:
             continue
     logging.debug("dualtor mux port setup config: %s", dualtor_setup_config)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SKIP_SETUP_MUX_PORTS:
+        logging.info("skip setup dualtor mux cables")
+        yield False
+        return
+
     is_test_func_parametrized = hasattr(request.node, "callspec")
     is_enum = is_test_func_parametrized and \
         any(param.startswith("enum_") for param in request.node.callspec.params.keys())
