@@ -4532,7 +4532,7 @@
   ptf: bjw3-2-2
   ptf_ip: 10.150.239.5/23
   ptf_ipv6: 2404:f801:10:16::a96:ef05/64
-  netns_mgmt_ip: 10.150.238.32
+  netns_mgmt_ip: 10.150.238.32/23
   server: server_bjw3_2
   vm_base: VM22139
   dut:
@@ -4543,3 +4543,22 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.136/17
+
+- conf-name: testbed-bjw2-can-dual-t0-8101c1-3
+  group-name: bjw2-9-5
+  topo: dualtor-aa-64-breakout
+  ptf_image_name: docker-ptf
+  ptf: bjw2-9-5
+  ptf_ip: 10.150.23.135/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1787/52
+  netns_mgmt_ip: 10.150.23.42/23
+  server: server_bjw2_9
+  vm_base: VM89203
+  dut:
+    - bjw2-can-8101c1-6
+    - bjw2-can-8101c1-7
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.137/17

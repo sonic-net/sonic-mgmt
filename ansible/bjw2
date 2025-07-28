@@ -183,6 +183,9 @@ all:
         bjw2-2-c:
           ansible_host: 10.150.23.134
           ansible_hostv6: 2404:f801:10:2200::a96:1786
+        bjw2-9-5:
+          ansible_host: 10.150.23.135
+          ansible_hostv6: 2404:f801:10:2200::a96:1787
 
     pdu:
       hosts:
@@ -474,6 +477,14 @@ fanout:
     bjw2-can-8101c1-leaf-5:
       ansible_host: 10.150.23.250
       ansible_hostv6: 2404:f801:10:2200::a96:17fa
+      os: sonic
+    bjw2-can-8101c1-leaf-6:
+      ansible_host: 10.150.22.60
+      ansible_hostv6: 2404:f801:10:2200::a96:163c
+      os: sonic
+    bjw2-can-8101c1-leaf-7:
+      ansible_host: 10.150.22.63
+      ansible_hostv6: 2404:f801:10:2200::a96:163f
       os: sonic
 
 
@@ -1743,6 +1754,22 @@ sonic_cisco_8101_O32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+    bjw2-can-8101c1-6:
+      ansible_host: 10.150.22.59
+      ansible_hostv6: 2404:f801:10:2200::a96:163b
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O-C01
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-8101c1-7:
+      ansible_host: 10.150.22.62
+      ansible_hostv6: 2404:f801:10:2200::a96:163e
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O-C01
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 sonic_arista_7050_C32:

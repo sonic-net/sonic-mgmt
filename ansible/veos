@@ -13993,6 +13993,14 @@ vms_bjw2_9:
       ansible_host: 172.16.211.201
     VM89202:
       ansible_host: 172.16.211.202
+    VM89203:
+      ansible_host: 172.16.211.203
+    VM89204:
+      ansible_host: 172.16.211.204
+    VM89205:
+      ansible_host: 172.16.211.205
+    VM89206:
+      ansible_host: 172.16.211.206
 
 vms_bjw2_10:
   hosts:
