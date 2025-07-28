@@ -84,12 +84,19 @@ class TestOqWatchdog(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
 
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+        interfaces = self.get_port_channel_members(dst_dut, dst_port)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "dscp": 8,
+            "queue_id": 0,
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "dst_interfaces": interfaces,
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
@@ -98,23 +105,15 @@ class TestOqWatchdog(QosSaiBase):
             "oq_watchdog_enabled": True,
         })
 
-        # Run TrafficSanityTest to verify the system state is good before starting the test
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
-            testParams=testParams)
-
         try:
-            dst_dut = get_src_dst_asic_and_duts['dst_dut']
-            dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
-            dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
-
             # Block voq7
             original_pir_voq7 = self.block_queue(dst_dut, dst_port, 7, "voq", dst_asic_index)
             # Fill leakout of Q7 by ping
+            dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
             cmd_opt = "sudo ip netns exec asic{}".format(dst_asic_index)
             if not dst_dut.sonichost.is_multi_asic:
                 cmd_opt = ""
-            dst_dut.shell("{} ping -I {} -c 50 1.1.1.1 -i 0 -w 0 || true".format(cmd_opt, dst_port))
+            dst_dut.shell("{} ping -I {} -c 50 {} -i 0 -w 0 || true".format(cmd_opt, dst_port, dst_port_ip))
 
             # Block oq0
             original_pir_oq0 = self.block_queue(dst_dut, dst_port, 0, "oq", dst_asic_index)
@@ -122,20 +121,6 @@ class TestOqWatchdog(QosSaiBase):
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.OqWatchdogTest",
                 testParams=testParams)
-
-        except Exception as e:
-            # Print extra debug information
-            cmd_list = [
-                "df -hl",
-                "show interface portchannel",
-                "show ip interface",
-                "show queue counters",
-            ]
-            for cmd in cmd_list:
-                logger.info("Running command on {}: {}".format(dst_dut.hostname, cmd))
-                dst_dut.shell(cmd)
-            logger.error("OQ watchdog test failed: {}".format(e))
-            raise e
 
         finally:
             # Unblock voq7 and oq0 to restore the system state
