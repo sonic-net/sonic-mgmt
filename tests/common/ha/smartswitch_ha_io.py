@@ -12,7 +12,6 @@ from collections import defaultdict
 from natsort import natsorted
 
 from tests.common.utilities import wait_until, convert_scapy_packet_to_bytes
-from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
 
 TCP_DST_PORT = 5000
 TEMPLATES_DIR = "templates/"
@@ -30,12 +29,11 @@ logger = logging.getLogger(__name__)
 class SmartSwitchHaTrafficTest:
     """Class to conduct IO over ports in `active-standby` mode."""
 
-    def __init__(self, targethost, ptfhost, ptfadapter, tbinfo,
+    def __init__(self, targethost, ptfhost, tbinfo,
                  io_ready, send_interval=0.01,
                  client_namespace=SENDER_NAMESPACE,
                  server_namespace=SNIFFER_NAMESPACE):
         self.duthost = targethost
-        self.ptfadapter = PtfTcpTestAdapter(ptfadapter)
         self.ptfhost = ptfhost
         self.tbinfo = tbinfo
         self.io_ready_event = io_ready
@@ -207,9 +205,9 @@ class SmartSwitchHaTrafficTest:
         # Signal data_plane_utils that sender and sniffer threads have begun
         self.io_ready_event.set()
 
-        self.ptfadapter.start_tcp_server(namespace=self.server_namespace)
+        self.start_tcp_server(namespace=self.server_namespace)
         # TODO: interval, packet numbers etc. should be passed as parameters
-        self.ptfadapter.start_tcp_client(namespace=self.client_namespace)
+        self.start_tcp_client(namespace=self.client_namespace)
 
         # wait 10s so all packets could be forwarded
         time.sleep(10)
@@ -219,7 +217,7 @@ class SmartSwitchHaTrafficTest:
             NUM_SENT_PACKETS
         )
 
-        self.ptfadapter.stop_tcp_server(namespace=self.server_namespace)
+        self.stop_tcp_server(namespace=self.server_namespace)
 
         if not self._is_ptf_sniffer_running():
             raise RuntimeError("ptf sniffer is not running enough time to cover packets sending.")
@@ -381,3 +379,41 @@ class SmartSwitchHaTrafficTest:
             return -1
 
         return id
+
+    def start_tcp_server(self, namespace=None):
+        cmd = "python3 /root/tcp_server.py &"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+        if not self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not start successfully in namespace {}".format(namespace))
+
+    def stop_tcp_server(self, namespace=None):
+        cmd = "pkill -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)
+
+        if self._is_tcp_server_running(namespace):
+            raise RuntimeError("TCP server did not stop successfully in namespace {}".format(namespace))
+
+    def _is_tcp_server_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_server.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
+    def _is_tcp_client_running(self, namespace=None):
+        cmd = "pgrep -f /root/tcp_client.py"
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+        return result["rc"] == 0
+
+    def start_tcp_client(self, namespace=None):
+        cmd = "python3 /root/tcp_client.py "
+        if namespace:
+            cmd = f"ip netns exec {namespace} {cmd}"
+        self.ptfhost.shell(cmd)

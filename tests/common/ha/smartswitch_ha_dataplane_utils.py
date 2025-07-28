@@ -36,7 +36,7 @@ def run_test(duthosts, targethost, ptfhost, ptfadapter, tbinfo, action=None, sto
     io_ready = threading.Event()
 
     test_IO = SmartSwitchHaTrafficTest(
-        targethost, ptfhost, ptfadapter, tbinfo,
+        targethost, ptfhost, tbinfo,
         io_ready, send_interval=DEFAULT_SEND_INTERVAL
     )
 
