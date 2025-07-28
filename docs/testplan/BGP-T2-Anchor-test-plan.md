@@ -19,8 +19,8 @@ Run `prefix_list status` to confirm prefixes are added to CONFIG_DB
 #### verify_prefix_in_table
 
 Verify whether prefixes in fib / bgp table
-- fib table: use cmd `vtysh -n {asic_index} -c 'show {ip_version} route {prefix}'` and Anchor route is not expected to be installed in fib table
-- bgp table: use cmd `vtysh -n {asic_index} -c 'show bgp {ip_version} {prefix}'` and Anchor route is expected to be installed in fib table
+- fib table: use cmd `vtysh -n {asic_index} -c 'show {ip_version} route {prefix}'` and local Anchor route is not expected to be installed in fib table
+- bgp table: use cmd `vtysh -n {asic_index} -c 'show bgp {ip_version} {prefix}'` and local Anchor route is expected to be installed in fib table
 
 #### verify_prefix_announce_to_neighbor
 
