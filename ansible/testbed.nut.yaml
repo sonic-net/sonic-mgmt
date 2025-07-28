@@ -13,6 +13,9 @@
     - tgen-1
     - tgen-2
   tg_api_server: 10.2.0.1:443
+  l1s:
+    - ocs-01
+    - ocs-02
   auto_recover: 'True'
 
 - name: nut-sn5640-stress-1
