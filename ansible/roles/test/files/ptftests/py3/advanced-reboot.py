@@ -1757,7 +1757,7 @@ class ReloadTest(BaseTest):
 
         if self.test_params['neighbor_type'] == "eos":
             if 'ceos_neighbor_lacp_multiplier' in self.test_params \
-                and self.test_params['ceos_neighbor_lacp_multiplier']:
+                    and self.test_params['ceos_neighbor_lacp_multiplier']:
                 lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
             else:
                 lacp_multiplier = 3
