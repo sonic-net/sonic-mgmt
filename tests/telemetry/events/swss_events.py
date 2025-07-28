@@ -30,7 +30,7 @@ WAIT_TIME = 3
 
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    if duthost.topo_type.lower() in ["m0", "mx", "m1"]:
+    if [i for i in ["m0", "mx", "m1", "m2"] if duthost.topo_type.lower().startswith(i)]:
         logger.info("Skipping swss events test on MGFX topologies")
         return
     logger.info("Beginning to test swss events")
