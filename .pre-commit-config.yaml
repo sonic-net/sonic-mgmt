@@ -50,6 +50,7 @@ repos:
     # arguments are specified in pyproject.toml
     -   id: mypy
         files: ^tests/common2/
+        additional_dependencies: ["types-PyYAML", "types-six", "types-paramiko", "types-requests"]
 
 # it is recommended to run pylint locally unlike other hooks
 -   repo: local

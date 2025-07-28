@@ -16,6 +16,9 @@ steps:
         pip install pre-commit
         pip install pylint # required as pylint is run in local mode
 
+        pre-commit install
+        pre-commit install-hooks
+
         # Source the shared script to get changed files (all files, not just Python)
         source .azure-pipelines/common2/scripts/get-changed-python-files.sh all
 
