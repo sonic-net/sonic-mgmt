@@ -24,7 +24,7 @@ Verify whether prefixes in fib / bgp table
 
 #### verify_prefix_announce_to_neighbor
 
-- For iBGP neighbor, make sure it wouldn't receive Anchor route by vtysh
+- For iBGP neighbor, make sure it wouldn't receive local Anchor route by vtysh
 - For eBGP neighbor, login to the neighbor host and use `show {ip_version} bgp {prefix}` to check whether routes are advertised to neighbor with correct community. Notice: maybe need `neighbor {neighbor_ip} send community` in DUT to enable sending community
 
 ### Test Module
