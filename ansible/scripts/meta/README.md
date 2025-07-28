@@ -501,31 +501,39 @@ Group validators run individually for each infrastructure group, operating only 
 
 **Purpose**: Validates that all device info is correct within each infrastructure group.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `invalid_chars`: List of invalid characters in device names (default: [])
+- `max_length`: Maximum allowed device name length (default: 255)
 
 **Validation Rules:**
 
 - Ensures all device names within a group are unique
 - Validates device name format and consistency
 - Checks that device names are not empty or invalid
+- Validates that all devices have non-empty HwSku fields
 - Operates on each infrastructure group individually
 
 **Validation Approach:**
 
-1. Extract all device names from the connection graph devices section
-2. Check for duplicate device names within the group
-3. Validate device name format (non-empty, valid characters)
-4. Report any conflicts or invalid names found
+Operates on each infrastructure group individually using a single-pass optimization through all devices:
+
+1. Iterate through each device in the connection graph devices section once
+2. For each device, simultaneously:
+   1. Track device names and detect duplicates within the group
+   2. Validate device name format (non-empty, valid characters, length limits)
+   3. Validate HwSku field is present and non-empty
+3. Report all validation issues found during the single pass
 
 **Issues:**
 
 - `E6001`: missing_devices_section - No devices section found in connection graph (WARNING)
 - `E6002`: bad_devices_data_in_graph - Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors
-- `E6003`: empty_device_info - Empty or invalid device name found
-- `E6004`: conflict_device_info - Conflicting device name found
-- `E6005`: whitespace_device_info - Empty or whitespace-only device name
-- `E6006`: invalid_characters - Device name contains invalid characters
-- `E6007`: name_too_long - Device name exceeds maximum length
+- `E6003`: empty_device_name - Empty or invalid device name found
+- `E6004`: conflict_device_name - Conflicting device name found
+- `E6005`: invalid_characters - Device name contains invalid characters
+- `E6006`: device_name_too_long - Device name exceeds maximum length
+- `E6007`: empty_hwsku - Device has empty or missing HwSku field
 
 #### 5.2.2. Vlan Validator
 

@@ -365,11 +365,11 @@ def register_all_issues():
         'device_info', 'E6002', 'bad_devices_data_in_graph',
         'Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
     )
-    _def_issue('device_info', 'E6003', 'empty_device_name', 'Empty or invalid device name found')
+    _def_issue('device_info', 'E6003', 'empty_device_name', 'Empty or whitespace-only device name found')
     _def_issue('device_info', 'E6004', 'conflict_device_name', 'Conflicting device name found')
-    _def_issue('device_info', 'E6005', 'whitespace_device_name', 'Empty or whitespace-only device name')
-    _def_issue('device_info', 'E6006', 'invalid_characters', 'Device name contains invalid characters')
-    _def_issue('device_info', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
+    _def_issue('device_info', 'E6005', 'invalid_characters', 'Device name contains invalid characters')
+    _def_issue('device_info', 'E6006', 'device_name_too_long', 'Device name exceeds maximum length')
+    _def_issue('device_info', 'E6007', 'empty_hwsku', 'Device has empty or missing HwSku field')
 
     # VLAN Validator Issues (7000-7999)
     _def_issue('vlan', 'E7001', 'missing_dut_devices', 'No DUT devices found in topology')
