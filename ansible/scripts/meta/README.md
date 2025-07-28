@@ -12,22 +12,25 @@
    2. [3.2. Validation Flow](#32-validation-flow)
 4. [4. Configuration](#4-configuration)
    1. [4.1. Configuration File Format](#41-configuration-file-format)
-   2. [4.2. Validation Options](#42-validation-options)
-   3. [4.3. Validator Configuration](#43-validator-configuration)
+   2. [4.2. Issue Severities](#42-issue-severities)
+   3. [4.3. Validation Options](#43-validation-options)
+   4. [4.4. Validator Configuration](#44-validator-configuration)
 5. [5. Validation Components](#5-validation-components)
    1. [5.1. Global Validators](#51-global-validators)
-      1. [5.1.1. Testbed Name Validator](#511-testbed-name-validator)
+      1. [5.1.1. Testbed Validator](#511-testbed-validator)
       2. [5.1.2. IPAddress Validator](#512-ipaddress-validator)
       3. [5.1.3. Console Validator](#513-console-validator)
       4. [5.1.4. PDU Validator](#514-pdu-validator)
       5. [5.1.5. Topology Validator](#515-topology-validator)
    2. [5.2. Group Validators](#52-group-validators)
-      1. [5.2.1. Device Name Validator](#521-device-name-validator)
+      1. [5.2.1. Device Info Validator](#521-device-info-validator)
       2. [5.2.2. Vlan Validator](#522-vlan-validator)
 6. [6. Extending the Framework](#6-extending-the-framework)
    1. [6.1. Creating Custom Validators](#61-creating-custom-validators)
-      1. [6.1.1. Step 1: Create validator class](#611-step-1-create-validator-class)
-      2. [6.1.2. Step 2: Register in configuration](#612-step-2-register-in-configuration)
+      1. [6.1.1. Step 1: Define Issue Definitions](#611-step-1-define-issue-definitions)
+      2. [6.1.2. Step 2: Create validator class](#612-step-2-create-validator-class)
+      3. [6.1.3. Step 3: Issue Reporting Best Practices](#613-step-3-issue-reporting-best-practices)
+      4. [6.1.4. Step 4: Register in configuration](#614-step-4-register-in-configuration)
    2. [6.2. Adding Validation Hooks](#62-adding-validation-hooks)
 7. [7. Examples and Use Cases](#7-examples-and-use-cases)
    1. [7.1. Example 1: CI/CD Pipeline Integration](#71-example-1-cicd-pipeline-integration)
@@ -364,7 +367,7 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Issues:**
 
-- `E1001`: invalid_config_format - Testbed configuration is not in valid format
+- `E1001`: bad_config_data_in_graph - Bad testbed configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E1002`: missing_conf_name - Testbed configuration missing conf-name field
 - `E1003`: duplicate_name - Duplicate testbed name found
 - `E1004`: missing_topology_file - Topology file not found for testbed
@@ -407,7 +410,7 @@ Global validators run once with access to data from all infrastructure groups. T
 
 - `E3001`: duplicate_config_groups - Device has console configuration in multiple groups (WARNING)
 - `E3002`: missing_console - Device has no console connection configured
-- `E3003`: invalid_config_format - Console connection configuration format is invalid
+- `E3003`: bad_console_data_in_graph - Bad console connection data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E3004`: missing_console_port - Console connection missing ConsolePort information
 - `E3005`: console_port_conflict - Console port is used by multiple devices
 - `E3006`: missing_required_field - Console connection missing required field
@@ -449,10 +452,10 @@ Global validators run once with access to data from all infrastructure groups. T
 
 - `E4001`: duplicate_config_groups - Device has PDU configuration in multiple groups (WARNING)
 - `E4002`: missing_pdu - Device has no PDU connections configured
-- `E4003`: invalid_config_format - PDU connection configuration format is invalid
+- `E4003`: bad_pdu_data_in_graph - Bad PDU connection data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E4004`: no_power_redundancy - Device has only one PSU connection - no power redundancy (WARNING)
-- `E4005`: invalid_psu_format - PSU configuration format is invalid
-- `E4006`: invalid_feed_format - Feed configuration format is invalid
+- `E4005`: bad_psu_data_in_graph - Bad PSU configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors
+- `E4006`: bad_feed_data_in_graph - Bad feed configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E4007`: pdu_port_conflict - PDU outlet is used by multiple devices
 - `E4008`: missing_required_field - PDU connection missing required field
 - `E4009`: invalid_pdu_device - PDU points to non-existent device
@@ -488,15 +491,15 @@ Global validators run once with access to data from all infrastructure groups. T
 - `E5011`: missing_topology_dir - Topology vars directory not found
 - `E5012`: yaml_parse_error - Invalid YAML in topology file
 - `E5013`: missing_topology_file - Topology file not found
-- `E5014`: missing_template_file - Template file not found for swrole
+- `E5014`: missing_swrole_template_file - Template file not found for swrole
 
 ### 5.2. Group Validators
 
 Group validators run individually for each infrastructure group, operating only on data from a single group. They validate group-specific configurations and constraints.
 
-#### 5.2.1. Device Name Validator
+#### 5.2.1. Device Info Validator
 
-**Purpose**: Validates that all device names are unique within each infrastructure group.
+**Purpose**: Validates that all device info is correct within each infrastructure group.
 
 **Configuration Options:** No configuration options available.
 
@@ -517,9 +520,9 @@ Group validators run individually for each infrastructure group, operating only 
 **Issues:**
 
 - `E6001`: missing_devices_section - No devices section found in connection graph (WARNING)
-- `E6002`: invalid_devices_format - Devices section is not in valid format
+- `E6002`: bad_devices_data_in_graph - Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E6003`: empty_device_name - Empty or invalid device name found
-- `E6004`: duplicate_device_name - Duplicate device name found
+- `E6004`: conflict_device_name - Conflicting device name found
 - `E6005`: whitespace_device_name - Empty or whitespace-only device name
 - `E6006`: invalid_characters - Device name contains invalid characters
 - `E6007`: name_too_long - Device name exceeds maximum length
@@ -550,7 +553,7 @@ Operates on each infrastructure group individually. Starting from all DUTs (DevS
 **Issues:**
 
 - `E7001`: missing_dut_devices - No DUT devices found in topology
-- `E7002`: invalid_vlan_config_format - VLAN configuration format is invalid
+- `E7002`: bad_vlan_data_in_graph - Bad VLAN configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors
 - `E7003`: duplicate_vlan - VLAN IDs are duplicated on multiple ports (reported in range format)
 - `E7004`: vlan_mapping_missing - VLAN IDs are not mapped to peer links
 - `E7005`: vlan_mapping_extra - VLAN IDs from peer links not configured on device

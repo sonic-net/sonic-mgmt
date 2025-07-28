@@ -143,7 +143,7 @@ class ConsoleValidator(GlobalValidator):
             # Validate console connection properties
             console_info = console_links[device_name]
             if not isinstance(console_info, dict):
-                # invalid_config_format: Console connection configuration format is invalid
+                # bad_console_data_in_graph: Bad console connection data in connection graph
                 self.result.add_issue(
                     'E3003',
                     {"device": device_name, "actual_type": type(console_info).__name__}
@@ -207,7 +207,7 @@ class ConsoleValidator(GlobalValidator):
             devices: All devices in the connection graph
         """
         if not isinstance(console_port_info, dict):
-            # invalid_config_format: Console connection configuration format is invalid
+            # bad_console_data_in_graph: Bad console connection data in connection graph
             self.result.add_issue(
                 'E3003',
                 {"device": device_name, "actual_type": type(console_port_info).__name__}

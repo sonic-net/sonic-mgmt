@@ -149,7 +149,7 @@ class PDUValidator(GlobalValidator):
             # Validate PDU connections for this device
             device_pdu_info = pdu_links[device_name]
             if not isinstance(device_pdu_info, dict):
-                # invalid_config_format: PDU connection configuration format is invalid
+                # bad_pdu_data_in_graph: Bad PDU connection data in connection graph
                 self.result.add_issue(
                     'E4003',
                     {"device": device_name, "actual_type": type(device_pdu_info).__name__}
@@ -201,7 +201,7 @@ class PDUValidator(GlobalValidator):
 
         for psu_name, psu_info in device_pdu_info.items():
             if not isinstance(psu_info, dict):
-                # invalid_psu_format: PSU configuration format is invalid
+                # bad_psu_data_in_graph: Bad PSU configuration data in connection graph
                 self.result.add_issue(
                     'E4005',
                     {"device": device_name, "psu": psu_name, "actual_type": type(psu_info).__name__}
@@ -211,7 +211,7 @@ class PDUValidator(GlobalValidator):
             # Validate each feed for this PSU
             for feed_name, feed_info in psu_info.items():
                 if not isinstance(feed_info, dict):
-                    # invalid_feed_format: Feed configuration format is invalid
+                    # bad_feed_data_in_graph: Bad feed configuration data in connection graph
                     self.result.add_issue(
                         'E4006',
                         {

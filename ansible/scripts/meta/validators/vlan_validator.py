@@ -236,7 +236,7 @@ class VlanValidator(GroupValidator):
 
         for port_name, vlan_config in port_vlans_config.items():
             if not isinstance(vlan_config, dict):
-                # keyword: invalid_vlan_config_format - VLAN configuration format is invalid
+                # keyword: bad_vlan_data_in_graph - Bad VLAN configuration data in connection graph
                 self.result.add_issue(
                     'E7002',
                     {"device": current_device, "port": port_name, "actual_type": type(vlan_config).__name__}

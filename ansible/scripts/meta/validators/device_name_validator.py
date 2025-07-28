@@ -1,5 +1,5 @@
 """
-DeviceNameValidator - Validates that all device names are unique within each infrastructure group.
+DeviceInfoValidator - Validates that all device info is correct within each infrastructure group.
 """
 
 from .base_validator import GroupValidator, ValidatorContext
@@ -7,13 +7,13 @@ from .validator_factory import register_validator
 
 
 @register_validator("device_name")
-class DeviceNameValidator(GroupValidator):
-    """Validates that all device names are unique within each infrastructure group"""
+class DeviceInfoValidator(GroupValidator):
+    """Validates that all device info is correct within each infrastructure group"""
 
     def __init__(self, config=None):
         super().__init__(
             name="device_name",
-            description="Validates that all device names are unique within each infrastructure group",
+            description="Validates that all device info is correct within each infrastructure group",
             category="naming"
         )
         self.config = config or {}
@@ -73,7 +73,7 @@ class DeviceNameValidator(GroupValidator):
 
         devices = conn_graph['devices']
         if not isinstance(devices, dict):
-            # invalid_devices_format: Devices section is not in valid format
+            # bad_devices_data_in_graph: Bad devices section data in connection graph
             self.result.add_issue(
                 'E6002',
                 {"group": group_name, "actual_type": type(devices).__name__}
@@ -110,7 +110,7 @@ class DeviceNameValidator(GroupValidator):
                 seen_names.add(device_name)
 
         for duplicate_name in duplicates:
-            # duplicate_device_name: Duplicate device name found
+            # conflict_device_name: Conflicting device name found
             self.result.add_issue(
                 'E6004',
                 {"group": group_name, "device": duplicate_name}

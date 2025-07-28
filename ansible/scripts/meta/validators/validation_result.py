@@ -273,7 +273,11 @@ def register_all_issues():
     _def_issue('base', 'E0004', 'missing_groups_data', 'No groups data available')
 
     # Testbed Validator Issues (1000-1999)
-    _def_issue('testbed', 'E1001', 'invalid_config_format', 'Testbed configuration is not in valid format')
+    _def_issue(
+        'testbed', 'E1001', 'bad_config_data_in_graph',
+        'Bad testbed configuration data in connection graph - infra issue, '
+        'check conn_graph_facts.py for errors'
+    )
     _def_issue('testbed', 'E1002', 'missing_conf_name', 'Testbed configuration missing conf-name field')
     _def_issue('testbed', 'E1003', 'duplicate_name', 'Duplicate testbed name found')
     _def_issue('testbed', 'E1004', 'missing_topology_file', 'Topology file not found for testbed')
@@ -289,7 +293,10 @@ def register_all_issues():
         'Device has console configuration in multiple groups', ValidationSeverity.WARNING
     )
     _def_issue('console', 'E3002', 'missing_console', 'Device has no console connection configured')
-    _def_issue('console', 'E3003', 'invalid_config_format', 'Console connection configuration format is invalid')
+    _def_issue(
+        'console', 'E3003', 'bad_console_data_in_graph',
+        'Bad console connection data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
     _def_issue('console', 'E3004', 'missing_console_port', 'Console connection missing ConsolePort information')
     _def_issue('console', 'E3005', 'console_port_conflict', 'Console port is used by multiple devices')
     _def_issue('console', 'E3006', 'missing_required_field', 'Console connection missing required field')
@@ -310,13 +317,22 @@ def register_all_issues():
         'Device has PDU configuration in multiple groups', ValidationSeverity.WARNING
     )
     _def_issue('pdu', 'E4002', 'missing_pdu', 'Device has no PDU connections configured')
-    _def_issue('pdu', 'E4003', 'invalid_config_format', 'PDU connection configuration format is invalid')
+    _def_issue(
+        'pdu', 'E4003', 'bad_pdu_data_in_graph',
+        'Bad PDU connection data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
     _def_issue(
         'pdu', 'E4004', 'no_power_redundancy',
         'Device has only one PSU connection - no power redundancy', ValidationSeverity.WARNING
     )
-    _def_issue('pdu', 'E4005', 'invalid_psu_format', 'PSU configuration format is invalid')
-    _def_issue('pdu', 'E4006', 'invalid_feed_format', 'Feed configuration format is invalid')
+    _def_issue(
+        'pdu', 'E4005', 'bad_psu_data_in_graph',
+        'Bad PSU configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
+    _def_issue(
+        'pdu', 'E4006', 'bad_feed_data_in_graph',
+        'Bad feed configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
     _def_issue('pdu', 'E4007', 'pdu_port_conflict', 'PDU outlet is used by multiple devices')
     _def_issue('pdu', 'E4008', 'missing_required_field', 'PDU connection missing required field')
     _def_issue('pdu', 'E4009', 'invalid_pdu_device', 'PDU points to non-existent device')
@@ -340,21 +356,27 @@ def register_all_issues():
     _def_issue('topology', 'E5013', 'missing_topology_file', 'Topology file not found')
     _def_issue('topology', 'E5014', 'missing_swrole_template_file', 'Template file not found for swrole')
 
-    # Device Name Validator Issues (6000-6999)
+    # Device Info Validator Issues (6000-6999)
     _def_issue(
         'device_name', 'E6001', 'missing_devices_section',
         'No devices section found in connection graph', ValidationSeverity.WARNING
     )
-    _def_issue('device_name', 'E6002', 'invalid_devices_format', 'Devices section is not in valid format')
+    _def_issue(
+        'device_name', 'E6002', 'bad_devices_data_in_graph',
+        'Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
     _def_issue('device_name', 'E6003', 'empty_device_name', 'Empty or invalid device name found')
-    _def_issue('device_name', 'E6004', 'duplicate_device_name', 'Duplicate device name found')
+    _def_issue('device_name', 'E6004', 'conflict_device_name', 'Conflicting device name found')
     _def_issue('device_name', 'E6005', 'whitespace_device_name', 'Empty or whitespace-only device name')
     _def_issue('device_name', 'E6006', 'invalid_characters', 'Device name contains invalid characters')
     _def_issue('device_name', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
 
     # VLAN Validator Issues (7000-7999)
     _def_issue('vlan', 'E7001', 'missing_dut_devices', 'No DUT devices found in topology')
-    _def_issue('vlan', 'E7002', 'invalid_vlan_config_format', 'VLAN configuration format is invalid')
+    _def_issue(
+        'vlan', 'E7002', 'bad_vlan_data_in_graph',
+        'Bad VLAN configuration data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
+    )
     _def_issue('vlan', 'E7003', 'duplicate_vlan', 'VLAN IDs are duplicated on multiple ports')
     _def_issue('vlan', 'E7004', 'vlan_mapping_missing', 'VLAN IDs are not mapped to peer links')
     _def_issue('vlan', 'E7005', 'vlan_mapping_extra', 'VLAN IDs from peer links not configured on device')

@@ -70,7 +70,7 @@ class TestbedValidator(GlobalValidator):
 
         for i, testbed in enumerate(testbed_info):
             if not isinstance(testbed, dict):
-                # invalid_config_format: Testbed configuration is not in valid format
+                # bad_config_data_in_graph: Bad testbed configuration data in connection graph
                 self.result.add_issue(
                     'E1001',
                     {"index": i, "type": str(type(testbed))}
