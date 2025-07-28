@@ -36,9 +36,6 @@
    1. [7.1. Example 1: CI/CD Pipeline Integration](#71-example-1-cicd-pipeline-integration)
    2. [7.2. Example 2: Development Environment Setup](#72-example-2-development-environment-setup)
    3. [7.3. Example 3: Custom Validation Pipeline](#73-example-3-custom-validation-pipeline)
-8. [8. Architecture Details](#8-architecture-details)
-   1. [8.1. Connection Graph Structure](#81-connection-graph-structure)
-   2. [8.2. Result Objects](#82-result-objects)
 
 ## 1. Overview
 
@@ -253,6 +250,38 @@ class ValidatorContext:
 7. **Result Aggregation**: Collect and summarize validation results from both phases
 8. **Reporting**: Generate detailed reports with metrics and categorization
 
+Here is an example of connection graph data structure used by validators:
+
+```json
+{
+    "devices": {
+        "sonic-s6100-dut": {
+            "HwSku": "Arista-7060CX-32S-C32",
+            "Type": "DevSonic",
+            "ManagementIp": "192.168.1.100/24"
+        }
+    },
+    "links": {
+        "sonic-s6100-dut": {
+            "Ethernet64": {
+                "peerdevice": "snappi-sonic",
+                "peerport": "Card4/Port1",
+                "speed": "100000"
+            }
+        }
+    },
+    "port_vlans": {
+        "sonic-s6100-dut": {
+            "Ethernet64": {
+                "mode": "Access",
+                "vlanids": "2,100-200",
+                "vlanlist": [2, 100, 101, 102, 200]
+            }
+        }
+    }
+}
+```
+
 ## 4. Configuration
 
 ### 4.1. Configuration File Format
@@ -307,6 +336,7 @@ issue_severities:
 ```
 
 **Available severity levels:**
+
 - `ignore`: Skip the issue entirely (not reported)
 - `info`: Convert to informational log message (not counted as validation issue)
 - `warning`: Treat as warning (reported but doesn't fail validation)
@@ -691,6 +721,7 @@ self.result.add_issue('E8001', {
 ```
 
 **Benefits of structured details:**
+
 - **Programmatic processing**: Easy to parse and analyze results
 - **Consistent formatting**: Automatic formatting of details in output
 - **Better filtering**: Filter results by specific detail fields
@@ -754,8 +785,7 @@ orchestrator.add_hook('after_validator', log_end)
 # CI validation script
 python3 meta_validator.py \
     --fail-fast \
-    --config ci_config.yaml \
-    --verbose
+    --config ci_config.yaml
 
 if [ $? -eq 0 ]; then
     echo "✅ All validations passed"
@@ -804,96 +834,4 @@ context = ValidatorContext(testbeds, conn_graph)
 summary = orchestrator.validate(validators, context)
 
 print(f"Validation completed: {summary.success_rate:.1f}% success rate")
-```
-
-## 8. Architecture Details
-
-### 8.1. Connection Graph Structure
-
-The connection graph data structure used by validators:
-
-```json
-{
-    "devices": {
-        "sonic-s6100-dut": {
-            "HwSku": "Arista-7060CX-32S-C32",
-            "Type": "DevSonic",
-            "ManagementIp": "192.168.1.100/24"
-        }
-    },
-    "links": {
-        "sonic-s6100-dut": {
-            "Ethernet64": {
-                "peerdevice": "snappi-sonic",
-                "peerport": "Card4/Port1",
-                "speed": "100000"
-            }
-        }
-    },
-    "port_vlans": {
-        "sonic-s6100-dut": {
-            "Ethernet64": {
-                "mode": "Access",
-                "vlanids": "2,100-200",
-                "vlanlist": [2, 100, 101, 102, 200]
-            }
-        }
-    }
-}
-```
-
-### 8.2. Result Objects
-
-**ValidationIssue**: Individual validation issue with structured details
-
-```python
-@dataclass
-class ValidationIssue:
-    issue_id: str                   # Unique issue ID (e.g., E1001, I2000)
-    message: str                    # Human-readable error message
-    source: str                     # Validator that created the issue
-    group_name: str                 # Group context for the issue
-    details: Dict[str, Any]         # Structured metadata and context
-
-    # Properties derived from issue definition:
-    @property
-    def severity(self) -> ValidationSeverity  # INFO, WARNING, ERROR, CRITICAL
-    @property
-    def keyword(self) -> str        # Issue keyword from definition
-    @property
-    def description(self) -> str    # Issue description from definition
-```
-
-**ValidationIssueDefinition**: Issue definition with metadata
-
-```python
-@dataclass
-class ValidationIssueDefinition:
-    issue_id: str                   # Unique issue ID
-    keyword: str                    # Short keyword for the issue
-    severity: ValidationSeverity    # Severity level
-    description: str                # Human-readable description
-```
-
-**ValidationSeverity Levels:**
-
-- `INFO`: Informational messages
-- `WARNING`: Issues that should be reviewed but don't block deployment
-- `ERROR`: Issues that must be fixed before deployment
-- `CRITICAL`: Severe issues that could cause system failure
-
-**ValidationSummary**: Aggregated results
-
-```python
-@dataclass
-class ValidationSummary:
-    total_validators: int
-    executed_validators: int
-    passed_validators: int
-    failed_validators: int
-    skipped_validators: int
-    total_errors: int
-    total_warnings: int
-    total_execution_time: float
-    results: List[ValidationResult]
 ```
