@@ -2,16 +2,16 @@
 # Everytime a new third-party package is used in a file under
 # tests/common2 add the package to the list here.
 #
-# NOTE some packages are pre-added to ensure much of the move to
-# common2 is covered. Versions don't matter this is for pylint to not complain
+# NOTE: This list contains only packages actually used in tests/common
+# Versions don't matter - this is for pylint to not complain
 
 # Testing framework
 pytest
+pytest-ansible
 
 # Network libraries
 requests
 netaddr
-ipaddress  # Note: built-in for Python 3.3+, but kept for compatibility
 scapy
 paramiko
 pysnmp
@@ -20,24 +20,17 @@ pysnmp
 jinja2
 yaml
 PyYAML
-json  # Note: built-in, but keeping for clarity
 
 # Text processing and parsing
-textfsm
 tabulate
 six
-
-# System and process management
-click
-pexpect
 natsort
-docker
-kubernetes
 
-# Data manipulation
-jsonpatch
+# System management
+pexpect
+ansible
 
-# Allure reporting
+# Reporting
 allure-commons
 
 # Type checking support
@@ -45,9 +38,3 @@ types-PyYAML
 types-six
 types-paramiko
 types-requests
-
-# Redis for SONiC database interactions
-redis
-
-# Additional utility libraries
-ansible
