@@ -1,4 +1,5 @@
 import pytest
+import re
 from common.plugins.ptfadapter import PtfTestAdapter
 
 
@@ -24,25 +25,40 @@ def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
     ptfhost.shell_cmds(cmds=cmds)
 
 
-def remove_namespace(ptfhost, name_of_namespace, port_name, port_ip):
+def remove_namespace(ptfhost, name_of_namespace):
     """
-    Remove namespace from the PTF
+    Remove namespace and move all its Ethernet ports back to root namespace.
 
     Args:
         ptfhost: PTF host object
         name_of_namespace: Name of namespace
-        port_name: member name of namespace
-        port_ip: IP address of the port
     """
     if check_namespace(ptfhost, name_of_namespace):
         cmds = []
 
-        cmds.append('ip netns exec {} ip link set {} netns 1'.format(name_of_namespace, port_name))
-        cmds.append('ip address add {} dev {}'.format(port_ip, port_name))
-        cmds.append('ip link set {} up'.format(port_name))
-        cmds.append('ip -n {} link set lo down'.format(name_of_namespace))
-        cmds.append('ip netns del {}'.format(name_of_namespace))
+        # Get all interfaces in the namespace
+        result = ptfhost.shell(f'ip netns exec {name_of_namespace} ifconfig')
+        lines = result['stdout_lines']
 
+        # Extract all interfaces except loopback (lo)
+        intfs = []
+        for line in lines:
+            match = re.match(r"^\s*(\S+):", line)
+            if match:
+                iface = match.group(1)
+                if iface != "lo":
+                    intfs.append(iface)
+
+        # Move each interface back to root namespace and bring it up
+        for iface in intfs:
+            cmds.append(f'ip netns exec {name_of_namespace} ip link set {iface} netns 1')
+            cmds.append(f'ip link set {iface} up')
+
+        # Bring down loopback and delete namespace
+        cmds.append(f'ip -n {name_of_namespace} link set lo down')
+        cmds.append(f'ip netns del {name_of_namespace}')
+
+        # Run all commands
         ptfhost.shell_cmds(cmds=cmds)
 
 
