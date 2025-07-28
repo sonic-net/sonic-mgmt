@@ -355,9 +355,15 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     if not wait_for_ssh:
         pool.terminate()
         return
+    dut_console = None
     try:
         wait_for_startup(duthost, localhost, delay, timeout)
-        dut_console = console_thread_res.get()
+        try:
+            dut_console = console_thread_res.get()
+        except Exception as console_err:
+            logger.warning(f'Failed to get console thread result: {console_err}')
+            dut_console = None
+    
     except Exception as err:
         if dut_console:
             dut_console.disconnect()
