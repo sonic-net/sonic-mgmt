@@ -820,7 +820,8 @@ def enable_orch_northbond_route_zmq_feature(duthost, loganalyzer):
     logger.debug('Enable orch_northbond_route_zmq_enabled feature, old status: {}'.format(old_status))
     duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "true"')
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True, check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True,
+                  check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
 
     yield
 
@@ -831,4 +832,5 @@ def enable_orch_northbond_route_zmq_feature(duthost, loganalyzer):
         duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')
 
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True, check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True,
+                  check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
