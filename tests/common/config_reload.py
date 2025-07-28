@@ -265,7 +265,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             "Yang validation failed after config_reload"
         )
 
-
     # Loganalyzer may fail due to TACACS server disconnection.
     # This happens because config_reload restarts the networking service,
     # which interrupts the connection to the TACACS server.
