@@ -6,13 +6,13 @@ from .base_validator import GroupValidator, ValidatorContext
 from .validator_factory import register_validator
 
 
-@register_validator("device_name")
+@register_validator("device_info")
 class DeviceInfoValidator(GroupValidator):
     """Validates that all device info is correct within each infrastructure group"""
 
     def __init__(self, config=None):
         super().__init__(
-            name="device_name",
+            name="device_info",
             description="Validates that all device info is correct within each infrastructure group",
             category="naming"
         )

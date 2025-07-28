@@ -38,7 +38,7 @@ from validator_orchestrator import (
 
 # Concrete validators
 from .testbed_validator import TestbedValidator
-from .device_name_validator import DeviceNameValidator
+from .device_info_validator import DeviceInfoValidator
 from .ip_address_validator import IpAddressValidator
 from .vlan_validator import VlanValidator
 from .console_validator import ConsoleValidator
@@ -70,7 +70,7 @@ __all__ = [
 
     # Concrete validators
     'TestbedValidator',
-    'DeviceNameValidator',
+    'DeviceInfoValidator',
     'IpAddressValidator',
     'VlanValidator',
     'ConsoleValidator',

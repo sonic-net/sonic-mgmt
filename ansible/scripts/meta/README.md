@@ -276,7 +276,7 @@ validators:
   - name: ip_address
     enabled: true
     config: {}
-  - name: device_name
+  - name: device_info
     enabled: true
     config:
       invalid_chars: [' ', '\t', '\n', '\r']
@@ -521,9 +521,9 @@ Group validators run individually for each infrastructure group, operating only 
 
 - `E6001`: missing_devices_section - No devices section found in connection graph (WARNING)
 - `E6002`: bad_devices_data_in_graph - Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors
-- `E6003`: empty_device_name - Empty or invalid device name found
-- `E6004`: conflict_device_name - Conflicting device name found
-- `E6005`: whitespace_device_name - Empty or whitespace-only device name
+- `E6003`: empty_device_info - Empty or invalid device name found
+- `E6004`: conflict_device_info - Conflicting device name found
+- `E6005`: whitespace_device_info - Empty or whitespace-only device name
 - `E6006`: invalid_characters - Device name contains invalid characters
 - `E6007`: name_too_long - Device name exceeds maximum length
 
@@ -557,11 +557,9 @@ Operates on each infrastructure group individually. Starting from all DUTs (DevS
 - `E7003`: duplicate_vlan - VLAN IDs are duplicated on multiple ports (reported in range format)
 - `E7004`: vlan_mapping_missing - VLAN IDs are not mapped to peer links
 - `E7005`: vlan_mapping_extra - VLAN IDs from peer links not configured on device
-- `E7006`: invalid_vlan_range_format - Invalid VLAN range format
+- `E7006`: invalid_vlan_format - Invalid VLAN format
 - `E7007`: invalid_vlan_range_order - Invalid VLAN range - start greater than end
 - `E7008`: vlan_out_of_range - VLAN ID not in valid range
-- `E7009`: invalid_vlan_id_format - Invalid VLAN ID format
-- `E7010`: vlan_parse_error - Error parsing VLAN string
 - `E7011`: invalid_vlan_list_type - VLAN list must be a list
 - `E7012`: invalid_vlan_type - VLAN ID must be an integer
 
@@ -592,7 +590,7 @@ self._validator_ranges: Dict[str, range] = {
     'console': range(3000, 4000),
     'pdu': range(4000, 5000),
     'topology': range(5000, 6000),
-    'device_name': range(6000, 7000),
+    'device_info': range(6000, 7000),
     'vlan': range(7000, 8000),
     'my_validator': range(8000, 9000),  # Add your validator range
 }
@@ -623,7 +621,7 @@ class MyGroupValidator(GroupValidator):
         # Add issues with structured details
         if some_condition:
             self.result.add_issue('E8001', {
-                'device': device_name,
+                'device': device_info,
                 'port': port_name,
                 'expected': expected_value,
                 'actual': actual_value
@@ -702,7 +700,7 @@ validators:
     enabled: true
     config:
       custom_setting: value
-  - name: device_name
+  - name: device_info
     enabled: true
     config:
       invalid_chars: [' ', '\t', '\n', '\r']

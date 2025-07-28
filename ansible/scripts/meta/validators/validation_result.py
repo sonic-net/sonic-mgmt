@@ -64,7 +64,7 @@ class ValidationIssueRegistry:
             'console': range(3000, 4000),
             'pdu': range(4000, 5000),
             'topology': range(5000, 6000),
-            'device_name': range(6000, 7000),
+            'device_info': range(6000, 7000),
             'vlan': range(7000, 8000),
         }
 
@@ -358,18 +358,18 @@ def register_all_issues():
 
     # Device Info Validator Issues (6000-6999)
     _def_issue(
-        'device_name', 'E6001', 'missing_devices_section',
+        'device_info', 'E6001', 'missing_devices_section',
         'No devices section found in connection graph', ValidationSeverity.WARNING
     )
     _def_issue(
-        'device_name', 'E6002', 'bad_devices_data_in_graph',
+        'device_info', 'E6002', 'bad_devices_data_in_graph',
         'Bad devices section data in connection graph - possible infra issue, check conn_graph_facts.py for errors'
     )
-    _def_issue('device_name', 'E6003', 'empty_device_name', 'Empty or invalid device name found')
-    _def_issue('device_name', 'E6004', 'conflict_device_name', 'Conflicting device name found')
-    _def_issue('device_name', 'E6005', 'whitespace_device_name', 'Empty or whitespace-only device name')
-    _def_issue('device_name', 'E6006', 'invalid_characters', 'Device name contains invalid characters')
-    _def_issue('device_name', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
+    _def_issue('device_info', 'E6003', 'empty_device_name', 'Empty or invalid device name found')
+    _def_issue('device_info', 'E6004', 'conflict_device_name', 'Conflicting device name found')
+    _def_issue('device_info', 'E6005', 'whitespace_device_name', 'Empty or whitespace-only device name')
+    _def_issue('device_info', 'E6006', 'invalid_characters', 'Device name contains invalid characters')
+    _def_issue('device_info', 'E6007', 'name_too_long', 'Device name exceeds maximum length')
 
     # VLAN Validator Issues (7000-7999)
     _def_issue('vlan', 'E7001', 'missing_dut_devices', 'No DUT devices found in topology')
@@ -380,11 +380,9 @@ def register_all_issues():
     _def_issue('vlan', 'E7003', 'duplicate_vlan', 'VLAN IDs are duplicated on multiple ports')
     _def_issue('vlan', 'E7004', 'vlan_mapping_missing', 'VLAN IDs are not mapped to peer links')
     _def_issue('vlan', 'E7005', 'vlan_mapping_extra', 'VLAN IDs from peer links not configured on device')
-    _def_issue('vlan', 'E7006', 'invalid_vlan_range_format', 'Invalid VLAN range format')
+    _def_issue('vlan', 'E7006', 'invalid_vlan_format', 'Invalid VLAN format')
     _def_issue('vlan', 'E7007', 'invalid_vlan_range_order', 'Invalid VLAN range - start greater than end')
     _def_issue('vlan', 'E7008', 'vlan_out_of_range', 'VLAN ID not in valid range')
-    _def_issue('vlan', 'E7009', 'invalid_vlan_id_format', 'Invalid VLAN ID format')
-    _def_issue('vlan', 'E7010', 'vlan_parse_error', 'Error parsing VLAN string')
     _def_issue('vlan', 'E7011', 'invalid_vlan_list_type', 'VLAN list must be a list')
     _def_issue('vlan', 'E7012', 'invalid_vlan_type', 'VLAN ID must be an integer')
 

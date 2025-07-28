@@ -391,7 +391,7 @@ class VlanValidator(GroupValidator):
                     # Handle range (e.g., "2525-2556")
                     range_match = re.match(r'^(\d+)-(\d+)$', part)
                     if not range_match:
-                        # keyword: invalid_vlan_range_format - Invalid VLAN range format
+                        # keyword: invalid_vlan_format - Invalid VLAN format
                         self.result.add_issue(
                             'E7006',
                             {"device": device_name, "port": port_name, "range": part}
@@ -434,9 +434,9 @@ class VlanValidator(GroupValidator):
                 else:
                     # Handle individual VLAN
                     if not part.isdigit():
-                        # keyword: invalid_vlan_id_format - Invalid VLAN ID format
+                        # keyword: invalid_vlan_format - Invalid VLAN format
                         self.result.add_issue(
-                            'E7009',
+                            'E7006',
                             {"device": device_name, "port": port_name, "vlan": part}
                         )
                         continue
@@ -458,9 +458,9 @@ class VlanValidator(GroupValidator):
                         vlan_set.add(vlan_id)
 
         except ValueError as e:
-            # keyword: vlan_parse_error - Error parsing VLAN string
+            # keyword: invalid_vlan_format - Invalid VLAN format
             self.result.add_issue(
-                'E7010',
+                'E7006',
                 {
                     "device": device_name,
                     "port": port_name,

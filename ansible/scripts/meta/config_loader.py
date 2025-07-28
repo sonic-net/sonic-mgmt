@@ -97,7 +97,7 @@ class ConfigLoader:
                     'config': {}
                 },
                 {
-                    'name': 'device_name',
+                    'name': 'device_info',
                     'enabled': True,
                     'config': {
                         'invalid_chars': [],
@@ -258,7 +258,7 @@ def create_sample_config_file(output_path: Union[str, Path]):
                 'config': {}
             },
             {
-                'name': 'device_name',
+                'name': 'device_info',
                 'enabled': True,
                 'config': {
                     'invalid_chars': [],
