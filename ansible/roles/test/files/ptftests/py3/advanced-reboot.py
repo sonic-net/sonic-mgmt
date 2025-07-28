@@ -1756,12 +1756,13 @@ class ReloadTest(BaseTest):
         LACP_SLOW_PERIOD_SEC = 30
 
         if self.test_params['neighbor_type'] == "eos":
-            if 'ceos_neighbor_lacp_multiplier' in self.test_params and self.test_params['ceos_neighbor_lacp_multiplier']:
+            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
+                and self.test_params['ceos_neighbor_lacp_multiplier']:
                 lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
             else:
                 lacp_multiplier = 3
         elif self.test_params['neighbor_type'] == "sonic":
-            lacp_multiplier = 5 # SONiC negotiates multiplier 5 with SONiC peer
+            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
         else:
             lacp_multiplier = 3
 
