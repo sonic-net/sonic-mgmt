@@ -24,14 +24,14 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
 #######################################
 #####           ARP               #####
 #######################################
-arp/test_arpall.py::test_arp_expect_reply: #similar keyerror
+arp/test_arpall.py::test_arp_expect_reply:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_arpall.py::test_arp_garp_no_update: #similar keyerror 
+arp/test_arpall.py::test_arp_garp_no_update:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -39,29 +39,11 @@ arp/test_arpall.py::test_arp_garp_no_update: #similar keyerror
       - "asic_type in ['vpp']"
 
 arp/test_arpall.py::test_arp_unicast_reply:
-# Get DUT arp table
-#         switch_arptable = asichost.switch_arptable()['ansible_facts']
-# >       pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:00')
-# E       KeyError: '10.10.1.3'
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-
-# arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]: # GOOD #unstable
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
 
 #######################################
 #####         Autorestart         #####
@@ -76,72 +58,16 @@ autorestart/test_container_autorestart.py::test_containers_autorestart:
 #######################################
 #####           BFD               #####
 #######################################
-# bfd/test_bfd.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bfd/test_bfd.py::test_bfd_basic:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bfd/test_bfd.py::test_bfd_echo_mode:
-#   skip:
-#     reason: >
-#             "https://github.com/sonic-net/sonic-mgmt/issues/14087"
-#     conditions:
-#       - "https://github.com/sonic-net/sonic-mgmt/issues/14087"
-
-bfd/test_bfd.py::test_bfd_multihop: #todo: only this still need skip even with pr 1617
+bfd/test_bfd.py::test_bfd_multihop:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-# bfd/test_bfd.py::test_bfd_scale:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bfd/test_bfd_static_route.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bfd/test_bfd_traffic.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 #######################################
 #####           BGP               #####
 #######################################
-# bgp/test_bgp_allow_list.py: #all 4 fail
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath: #dut not found
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload:
   skip:
     reason: >
@@ -149,110 +75,71 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload:
     conditions:
       - "asic_type in ['vpp']"
 
-# bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved: #sometimes session not up. may need run 10vcpu or increase timeout or so
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bgp/test_bgpmon.py::test_bgpmon:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# bgp/test_bgp_port_disable.py: # SKIPPED [4] bgp/test_bgp_port_disable.py: Not supported on master =>legit # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps: # GOOD =>unstable
+# unstable
+bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps: # GOOD =>unstable
+bgp/test_bgp_session.py::test_bgp_session_interface_down:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_session.py::test_bgp_session_interface_down: #4f 2p neighbor 10.0.0.1 state is still established
+# unstable
+bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-# bgp/test_bgp_suppress_fib.py: #Not supported before release 202411. =>legit  # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down: # GOOD #unstable
+# unstable
+bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route: # GOOD #unstable
+# unstable
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-# bgp/test_traffic_shift.py: #traffic shift is unstable was causing i remember vxr topo bad state. this one need extensive verification (on vxr) b4 adding back
-# #t1 still unstable:
-# # =========================== short test summary info ============================
-# # FAILED bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload[vpp-01-default]
-# # FAILED bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away[vpp-01-default]
-# # ============= 2 failed, 3 passed, 3 warnings in 1814.59s (0:30:14) =============
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away: #t1 unstable # BAD
+# unstable
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload: #t1 unstable # BAD
+# unstable
+bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_traffic_shift.py::test_TSB: # BAD
+# unstable
+bgp/test_traffic_shift.py::test_TSB:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
+
+# unstable
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -286,12 +173,13 @@ cacl/test_cacl_function.py::test_cacl_function:
 #######################################
 #####           Configlet         #####
 #######################################
-# configlet/test_add_rack.py::test_add_rack: #good #unstable
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+# unstable
+configlet/test_add_rack.py::test_add_rack:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 configlet/util/run_test_in_switch.py:
   skip:
@@ -299,16 +187,6 @@ configlet/util/run_test_in_switch.py:
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-
-#######################################
-#####       Container Checker     #####
-#######################################
-# container_checker/test_container_checker.py::test_container_checker_telemetry: #good
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
 
 #######################################
 #####           COPP              #####
@@ -348,23 +226,6 @@ dash/test_dash_smartswitch_vnet.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           Decap             ##### #good
-#######################################
-# decap/test_decap.py: 
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# decap/test_subnet_decap.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
 #####       Disk Exhaustion       #####
 #######################################
 disk/test_disk_exhaustion.py::test_disk_exhaustion:
@@ -377,30 +238,25 @@ disk/test_disk_exhaustion.py::test_disk_exhaustion:
 #######################################
 #####           DNS               #####
 #######################################
-# dns/static_dns/test_static_dns.py: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+# unstable
+dns/static_dns/test_static_dns.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# dns/test_dns_resolv_conf.py::test_dns_resolv_conf: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+# unstable
+dns/test_dns_resolv_conf.py::test_dns_resolv_conf:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
 #####           Drop              #####
 #######################################
-# drop_packets/test_configurable_drop_counters.py: #test itself will skip
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 drop_packets/test_drop_counters.py:
   skip:
     reason: >
@@ -442,13 +298,6 @@ dut_console/test_console_baud_rate.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# dut_console/test_console_chassis_conn.py: #
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 dut_console/test_escape_character.py:
   skip:
     reason: >
@@ -481,44 +330,6 @@ everflow:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           FIB               #####
-#######################################
-# fib/test_fib.py::test_ecmp_group_member_flap: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# fib/test_fib.py::test_hash: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# fib/test_fib.py::test_ipinip_hash: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# fib/test_fib.py::test_nvgre_hash: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# fib/test_fib.py::test_vxlan_hash: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
 #####    Generic Config Updater   #####
 ####################################### 
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
@@ -549,13 +360,6 @@ generic_config_updater/test_packet_trimming_config.py::test_packet_trimming_conf
     conditions:
       - "asic_type in ['vpp']"
 
-# generic_config_updater/test_ntp.py::test_ntp_server_tc1_suite:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 generic_config_updater/test_pfcwd_status.py::test_start_pfcwd:
   skip:
     reason: >
@@ -573,103 +377,19 @@ generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
 #######################################
 #####          GNMI               #####
 #######################################
-# gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_countersdb.py::test_gnmi_output: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_invalid_cname:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_revoked_cert:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
 #####     Golden Config Infra     #####
@@ -691,20 +411,6 @@ hash/test_generic_hash.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# hash/test_generic_hash.py::test_lag_member_flap:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# hash/test_generic_hash.py::test_lag_member_remove_add:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 #######################################
 #####           Http              #####
 #######################################
@@ -714,37 +420,6 @@ http/test_http_copy.py:
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-
-#######################################
-#####      Iface Namingmode       ##### #good
-#######################################
-# iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_unicast:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# iface_namingmode/test_iface_namingmode.py::TestShowVlan::test_show_vlan_brief:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
 
 #######################################
 #####           IP                #####
@@ -763,7 +438,8 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_dr
     conditions:
       - "asic_type in ['vpp']"
 
-# ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only: # GOOD =>unstable
+# unstable
+# ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
 #   skip:
 #     reason: >
 #             Failed/Errored: To be included
@@ -822,57 +498,6 @@ lldp/test_lldp_syncd.py::test_lldp_entry_table_after_syncd_orchagent:
       - "asic_type in ['vpp']"
 
 #######################################
-#####         Log Fidelity        #####
-#######################################
-# log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
-#####         Memory Checker      ##### #good
-#######################################
-# memory_checker/test_memory_checker.py::test_memory_checker:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# memory_checker/test_memory_checker.py::test_memory_checker_recover:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# memory_checker/test_memory_checker.py::test_memory_checker_without_container_created:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
-#####        Minigraph            #####
-#######################################
-# minigraph/test_masked_services.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
 #####           MPLS              #####
 #######################################
 mpls/test_mpls.py:
@@ -892,14 +517,7 @@ mvrf/test_mgmtvrf.py::TestMvrfOutbound::test_curl:
     conditions:
       - "asic_type in ['vpp']"
 
-mvrf/test_mgmtvrf.py::TestServices::test_ntp:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
-
-mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
+mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -913,57 +531,20 @@ mvrf/test_mgmtvrf.py::TestReboot::test_reboot:
     conditions:
       - "asic_type in ['vpp']"
 
-mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
+mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-#######################################
-#####           NTP               ##### #good
-#######################################
-# ntp/test_ntp.py::test_ntp:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# ntp/test_ntp.py::test_ntp_long_jump_disabled:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# ntp/test_ntp.py::test_ntp_long_jump_enabled:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
-#####    Override Config Table    #####
-#######################################
-# override_config_table/test_override_config_table.py::test_load_minigraph_with_golden_config: #good
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
-#####          Pfcwd              #####
-#######################################
-pfcwd:
+mvrf/test_mgmtvrf.py::TestServices::test_ntp:
   skip:
     reason: >
-            Unsupported
+            Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-
+      
 #######################################
 #####          PC                 #####
 #######################################
@@ -1078,12 +659,12 @@ platform_tests/cli/test_show_platform.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# platform_tests/counterpoll/test_counterpoll_watermark.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/counterpoll/test_counterpoll_watermark.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 platform_tests/daemon/test_chassisd.py:
   skip:
@@ -1141,12 +722,12 @@ platform_tests/fwutil/test_fwutil.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# platform_tests/link_flap/test_cont_link_flap.py: #SKIPPED [1] common/helpers/assertions.py:16: Didn't find any port that is admin up and present in the connection graph
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/link_flap/test_cont_link_flap.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 platform_tests/mellanox/test_check_sfp_eeprom.py:
   skip:
@@ -1218,19 +799,19 @@ platform_tests/test_idle_driver.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# platform_tests/test_link_down.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_link_down.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# platform_tests/test_memory_exhaustion.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 platform_tests/test_platform_info.py:
   skip:
@@ -1239,12 +820,12 @@ platform_tests/test_platform_info.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# platform_tests/test_port_toggle.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_port_toggle.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 platform_tests/test_power_budget_info.py:
   skip:
@@ -1267,26 +848,26 @@ platform_tests/test_reload_config.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# platform_tests/test_sensors.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_sensors.py:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
 
-# platform_tests/test_sequential_restart.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_sequential_restart.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# platform_tests/test_xcvr_info_in_db.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+platform_tests/test_xcvr_info_in_db.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
 #####      Process Monitoring     #####
@@ -1309,53 +890,8 @@ qos:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           Read MAC          #####
-#######################################
-# read_mac/test_read_mac_metadata.py::ReadMACMetadata: #test itself skip
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-#######################################
 #####           Route             #####
 #######################################
-# route/test_duplicate_route.py::test_duplicate_routes: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# route/test_route_consistency.py::TestRouteConsistency::test_critical_process_crash_and_recover: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# route/test_route_flap.py::test_route_flap: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# route/test_route_flow_counter.py::TestRouteCounter::test_max_match_count: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# route/test_route_flow_counter.py::TestRouteCounter::test_update_route_pattern: # GOOD
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 route/test_route_perf.py:
   skip:
     reason: >
@@ -1364,50 +900,29 @@ route/test_route_perf.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####      Show Techsupport       ##### #unknow
+#####      Show Techsupport       #####
 #######################################
-# show_techsupport/test_techsupport.py::test_techsupport:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+show_techsupport/test_techsupport.py::test_techsupport:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
-#####           SNMP              ##### #unknow
+#####           SNMP              #####
 #######################################
-# snmp/test_snmp_interfaces.py::test_snmp_interfaces_mibs:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# snmp/test_snmp_lldp.py::test_snmp_lldp:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# snmp/test_snmp_memory.py::test_snmp_memory_load:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# snmp/test_snmp_memory.py::test_snmp_swap:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+snmp/test_snmp_default_route.py::test_snmp_default_route:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 snmp/test_snmp_phy_entity.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions:
       - "asic_type in ['vpp']"
 
@@ -1425,24 +940,10 @@ snmp/test_snmp_queue_counters.py:
     conditions:
       - "asic_type in ['vpp']"
 
-# snmp/test_snmp_queue.py::test_snmp_queues:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
 #######################################
 #####          SRV6               #####
 #######################################
 srv6/test_srv6_dataplane.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
-
-srv6/test_srv6_vlan_forwarding.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1456,22 +957,12 @@ srv6/test_srv6_static_config.py:
     conditions:
       - "asic_type in ['vpp']"
 
-#######################################
-#####          SSH                ##### #unknow
-#######################################
-# ssh/test_ssh_ciphers.py::test_ssh_enc_ciphers:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# ssh/test_ssh_ciphers.py::test_ssh_kex:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+srv6/test_srv6_vlan_forwarding.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
 #####          Stress             #####
@@ -1487,6 +978,13 @@ stress:
 #####        Subport Interfaces   #####
 #######################################
 sub_port_interfaces/test_show_subinterface.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1549,50 +1047,12 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_vlan_config_
     conditions:
       - "asic_type in ['vpp']"
 
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
-
 sub_port_interfaces/test_sub_port_l2_forwarding.py:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-
-#######################################
-#####          Syslog             ##### #unknown
-#######################################
-# syslog/test_logrotate.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# syslog/test_syslog.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# syslog/test_syslog_rate_limit.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# syslog/test_syslog_source_ip.py:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
 
 #######################################
 #####      System Health          #####
@@ -1605,45 +1065,38 @@ system_health/test_system_health.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####          Tacacs             ##### #unknown
+#####          Tacacs             #####
 #######################################
-# tacacs/test_ro_disk.py::test_ro_disk:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+tacacs:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
-#####          Telemetry          ##### #unknown
+#####          Telemetry          #####
 #######################################
-# telemetry/test_events.py::test_events:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+telemetry/test_events.py::test_events[vlab-vpp-01-False]:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# telemetry/test_telemetry_cert_rotation.py::test_telemetry_cert_rotate:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt[vlab-vpp-01-False]:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
-# telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
-
-# telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
-#   skip:
-#     reason: >
-#             Failed/Errored: To be included
-#     conditions:
-#       - "asic_type in ['vpp']"
+telemetry/test_telemetry_poll.py::test_poll_mode_default_route[vlab-vpp-01-False]:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions:
+      - "asic_type in ['vpp']"
 
 #######################################
 #####      VS Chasis Setup        #####
@@ -1658,58 +1111,33 @@ test_vs_chassis_setup.py:
 #######################################
 #####          Vxlan              #####
 #######################################
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash: # GOOD #TODO: comment out these three long test which basically passed to save runtime
+vxlan/test_vxlan_bfd_tsa.py:
   skip:
     reason: >
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy: # GOOD
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            To save runtime
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp: #will get 20 passed but 1 file descriptor error # GOOD
-# #vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp::test_underlay_portchannel_shutdown[v6_in_v6] =>unstable
-# # Exception ignored in: <function Pool.__del__ at 0x7f5a38648790>
-# # Traceback (most recent call last):
-# #   File "/usr/lib/python3.multiprocessing/pool.py", line 268, in __del__
-# #     self._change_notifier.put(None)
-# #   File "/usr/lib/python3.8/multiprocessing/queues.py", line 368, in put
-# #     self._writer.send_bytes(obj)
-# #   File "/usr/lib/python3.8/multiprocessing/connection.py", line 200, in send_bytes
-# #     self._send_bytes(m[offset:offset + size])
-# #   File "/usr/lib/python3.8/multiprocessing/connection.py", line 411, in _send_bytes
-# #     self._send(header + buf)
-# #   File "/usr/lib/python3.8/multiprocessing/connection.py", line 368, in _send
-# #     n = write(self._handle, buf)
-# # OSError: [Errno 9] Bad file descriptor
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
   skip:
     reason: >
-            Failed/Errored: To be included
+            To save runtime
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
-            Failed/Errored: To be included
+            To save runtime
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
+
