@@ -112,6 +112,12 @@ def pfcwd_feature_enabled(duthost):
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
+def get_networking_service_timestamp(sonic_host):
+    out = sonic_host.shell('sudo systemctl show --no-pager networking -p ExecMainStartTimestamp --value',
+                           module_ignore_errors=True).get('stdout')
+    return out.strip(' \t\n\r')
+
+
 @support_ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
@@ -138,6 +144,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             return True
         else:
             return False
+
+    last_networking_timestamp = get_networking_service_timestamp(sonic_host)
 
     if config_source not in config_sources:
         raise ValueError('invalid config source passed in "{}", must be {}'.format(
@@ -256,3 +264,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             wait_until(120, 30, 0, sonic_host.yang_validate),
             "Yang validation failed after config_reload"
         )
+
+
+    # Loganalyzer may fail due to TACACS server disconnection.
+    # This happens because config_reload restarts the networking service,
+    # which interrupts the connection to the TACACS server.
+    def networking_service_ready(sonic_host, last_networking_timestamp):
+        current_networking_timestamp = get_networking_service_timestamp(sonic_host)
+        return current_networking_timestamp != last_networking_timestamp
+
+    wait_until(wait + 120, 10, 0, networking_service_ready, sonic_host, last_networking_timestamp)
