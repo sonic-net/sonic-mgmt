@@ -34,7 +34,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
 
     # Use bash -c to run the pipeline properly
     cmd_feature = (
-        'bash -c \'show feature status | awk "$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}"\''
+        'bash -c "show feature status | awk \'$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}\'"'
     )
     logging.debug("show feature status command is: {}".format(cmd_feature))
 
