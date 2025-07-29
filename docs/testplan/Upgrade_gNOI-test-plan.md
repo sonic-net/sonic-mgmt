@@ -11,15 +11,6 @@ The goal of this test is to verify that the Upgrade Service, implemented via gNO
 ## Scope
 This test targets SONiC systems running in three environments: local Linux VM, KVM-based SONiC, and physical SONiC devices. The purpose is to validate the compatibility and correctness of the upgrade service across these platforms, ensuring consistent behavior and reliability.
 
-### Related DUT CLI Commands
-| Command | Comment |
-| ------- | ------- |
-| upgrade-agent download | Initiates image download via gRPC |
-| upgrade-agent apply | Applies upgrade configuration |
-| upgrade-agent status | Queries upgrade session status |
-| grpcurl -plaintext <host>:50051 list | Lists available gNOI services |
-| grpcurl -plaintext <host>:50051 <method> | Invokes specific gNOI RPCs |
-
 ### Related DUT Configuration Files
 upgrade_gNOI.yaml – YAML config file specifying upgrade parameters (image URL, save path, timeouts, etc.)
 
@@ -69,21 +60,11 @@ Ensure upgrade service works reliably on physical SONiC hardware.
 3. Validate system health post-upgrade.
 4. Test watchdog reboot and missing next-hop scenarios.
 
-### Test case #4 - Session ID Tracking
+### Test case #4 - Negative Scenarios
 
 #### Test objective
 
-Verify that session IDs returned by upgrade-agent accurately reflect task progress.
-1. Start a download and capture session ID.
-2. Poll status using upgrade-agent status.
-3. Validate state transitions: downloading → completed.
-4. Use invalid session ID and verify error response.
-
-### Test case #5 - Negative Scenarios
-
-#### Test objective
-
-Test robustness of the upgrade service under failure conditions
+Test robustness of the upgrade service under failure conditions.
 1. Use unreachable URL in download config.
 2. Apply malformed YAML config.
 3. Simulate TLS handshake failure.
