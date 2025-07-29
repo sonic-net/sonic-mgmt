@@ -69,8 +69,7 @@ MIXED_SPEED_PORT_INFO = {
                     {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
                 ],
                 'tx_ports': [
-                    {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
-                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
+                    {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"}
                 ]
             }
         }],
