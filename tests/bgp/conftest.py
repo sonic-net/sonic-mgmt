@@ -802,7 +802,7 @@ def get_function_completeness_level(pytestconfig):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def enable_orch_northbond_route_zmq_feature(duthost, loganalyzer):
+def enable_orch_northbond_route_zmq_feature(duthost):
     # Older version image may not support ZMQ feature flag
     yang = duthost.shell("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")['stdout']
     if "orch_northbond_route_zmq_enabled" not in yang:
@@ -820,8 +820,7 @@ def enable_orch_northbond_route_zmq_feature(duthost, loganalyzer):
     logger.debug('Enable orch_northbond_route_zmq_enabled feature, old status: {}'.format(old_status))
     duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled" "true"')
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True,
-                  check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True, check_intf_up_ports=True)
 
     yield
 
@@ -832,5 +831,4 @@ def enable_orch_northbond_route_zmq_feature(duthost, loganalyzer):
         duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"')
 
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True,
-                  check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True, check_intf_up_ports=True)
