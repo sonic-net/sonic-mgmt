@@ -99,6 +99,17 @@ def parse_arguments():
         metavar='VALIDATOR',
         help='Disable these validators (space-separated list)'
     )
+    parser.add_argument(
+        '--output-format', '-o',
+        choices=['text', 'json', 'yaml'],
+        default='text',
+        help='Output format for results (default: text)'
+    )
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Suppress logging output and only show the report'
+    )
 
     return parser.parse_args()
 
@@ -183,12 +194,16 @@ def main():
     if handle_special_commands(args):
         return
 
-    # Setup logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(log_level)
-
-    logger = logging.getLogger('meta_validator')
-    logger.info("Starting SONiC Mgmt metadata validation")
+    # Setup logging (disable if quiet mode)
+    if not args.quiet:
+        log_level = logging.DEBUG if args.verbose else logging.INFO
+        setup_logging(log_level)
+        logger = logging.getLogger('meta_validator')
+        logger.info("Starting SONiC Mgmt metadata validation")
+    else:
+        # In quiet mode, disable all logging
+        setup_logging(logging.CRITICAL)
+        logger = logging.getLogger('meta_validator')
 
     # Create MetaValidator instance
     validator = MetaValidator(logger)
@@ -219,7 +234,7 @@ def main():
         )
 
         # Print results and exit
-        validator.print_results(results, report_level=args.report_level)
+        validator.print_results(results, report_level=args.report_level, output_format=args.output_format)
         exit_code = 0 if results.overall_success else 1
         sys.exit(exit_code)
 

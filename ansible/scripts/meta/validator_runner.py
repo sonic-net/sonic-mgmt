@@ -7,6 +7,7 @@ across SONiC management infrastructure components.
 
 import os
 import sys
+import json
 import logging
 import yaml
 from typing import Dict, List, Optional, Tuple, Any
@@ -481,14 +482,25 @@ class MetaValidator:
         """Hook: Log when a validator completes (minimal logging)"""
         self.logger.debug(f"Completed validator: {validator.name} - {'PASSED' if result.success else 'FAILED'}")
 
-    def print_results(self, results: ValidationResults, report_level: str = "summary") -> None:
+    def print_results(self, results: ValidationResults, report_level: str = "summary",
+                      output_format: str = "text") -> None:
         """
         Print comprehensive validation summary and detailed report.
 
         Args:
             results: ValidationResults object containing the results to print.
             report_level: The level of detail for the report ('summary', 'errors', 'full').
+            output_format: The format for output ('text', 'json', or 'yaml').
         """
+        if output_format == "json":
+            self._print_json_results(results, report_level)
+        elif output_format == "yaml":
+            self._print_yaml_results(results, report_level)
+        else:
+            self._print_text_results(results, report_level)
+
+    def _print_text_results(self, results: ValidationResults, report_level: str = "summary") -> None:
+        """Print results in text format"""
         print("=" * 60)
         print("VALIDATION REPORT")
         print("=" * 60)
@@ -533,3 +545,76 @@ class MetaValidator:
             print("Overall validation: PASSED")
         else:
             print("Overall validation: FAILED")
+
+    def _issue_to_dict(self, issue) -> Dict[str, Any]:
+        """Convert a ValidationIssue to a structured dictionary"""
+        return {
+            "issue_id": issue.issue_id,
+            "keyword": issue.keyword,
+            "message": issue.message,
+            "severity": issue.severity.name.lower(),
+            "source": issue.source,
+            "group": issue.group_name,
+            "details": issue.details
+        }
+
+    def _create_structured_output(self, results: ValidationResults, report_level: str = "summary") -> Dict[str, Any]:
+        """Create structured output object that can be used for both JSON and YAML formats"""
+        output = {
+            "summary": {
+                "groups_processed": results.groups_processed,
+                "total_validators": results.total_validators,
+                "total_passed": results.total_passed,
+                "total_failed": results.total_failed,
+                "total_errors": results.total_errors,
+                "total_warnings": results.total_warnings,
+                "success_rate": round(results.success_rate, 1),
+                "overall_success": results.overall_success
+            },
+            "groups": {}
+        }
+
+        # Add detailed results by group
+        for group, summary in results.all_summaries:
+            group_data = {
+                "validators": []
+            }
+
+            for result in summary.results:
+                validator_data = {
+                    "name": result.validator_name,
+                    "success": result.success,
+                    "group": result.group_name,
+                    "execution_time": result.execution_time,
+                    "error_count": len(result.errors),
+                    "warning_count": len(result.warnings),
+                    "metadata": result.metadata
+                }
+
+                # Add structured issues based on report level
+                if report_level == 'full':
+                    validator_data["errors"] = [self._issue_to_dict(error) for error in result.errors]
+                    validator_data["warnings"] = [self._issue_to_dict(warning) for warning in result.warnings]
+                elif report_level == 'errors':
+                    validator_data["errors"] = [self._issue_to_dict(error) for error in result.errors]
+                elif report_level == 'summary':
+                    # Only include first 10 errors for summary
+                    validator_data["errors"] = [self._issue_to_dict(error) for error in result.errors[:10]]
+                    if len(result.errors) > 10:
+                        validator_data["truncated_errors"] = len(result.errors) - 10
+
+                group_data["validators"].append(validator_data)
+
+            output["groups"][group] = group_data
+
+        return output
+
+    def _print_json_results(self, results: ValidationResults, report_level: str = "summary") -> None:
+        """Print results in JSON format"""
+        output = self._create_structured_output(results, report_level)
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+
+    def _print_yaml_results(self, results: ValidationResults, report_level: str = "summary") -> None:
+        """Print results in YAML format"""
+        output = self._create_structured_output(results, report_level)
+        print(yaml.dump(output, default_flow_style=False, allow_unicode=True, sort_keys=False))

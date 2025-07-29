@@ -1,3 +1,4 @@
+import logging
 import os
 import inspect
 import yaml
@@ -177,14 +178,14 @@ def get_testbed_facts(testbed_files=None, testbed_names=None):
         }
 
         if validation_errors:
-            print("Testbed validation errors found:")
+            logging.error("Testbed validation errors found:")
             for error in validation_errors:
-                print(f"  - {error}")
+                logging.error(f"  - {error}")
 
         return facts
 
     except Exception as e:
-        print(f"Failed to load testbed facts: {str(e)}")
+        logging.error(f"Failed to load testbed facts: {str(e)}")
         return {
             'testbeds': [],
             'testbed_names': [],
