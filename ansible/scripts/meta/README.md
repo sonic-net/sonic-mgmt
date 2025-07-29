@@ -134,6 +134,12 @@ python3 meta_validator.py --enable-validators ip_address console pdu
 
 # Run all validators except specific ones
 python3 meta_validator.py --disable-validators vlan topology
+
+# Output results in JSON format with quiet mode
+python3 meta_validator.py --output-format json --quiet
+
+# Output results in YAML format with full details (no logging)
+python3 meta_validator.py -o yaml -r full -q
 ```
 
 ### 2.3. Advanced Options
@@ -175,9 +181,11 @@ python3 meta_validator.py \
 - `--config` / `-c`: Path to configuration file
 - `--group` / `-g`: Validate specific groups only (space-separated list)
 - `--verbose` / `-v`: Enable verbose logging
+- `--quiet` / `-q`: Suppress logging output and only show the report
 - `--testbed-config` / `-t`: Path to testbed configuration file
 - `--testbed-nut-config` / `-tn`: Path to NUT testbed configuration file
 - `--report-level` / `-r`: Output level (summary, errors, full)
+- `--output-format` / `-o`: Output format (text, json, yaml)
 - `--enable-validators` / `-e`: Enable only specified validators
 - `--disable-validators` / `-d`: Disable specified validators
 - `--list-validators` / `-l`: List available validators
@@ -185,6 +193,135 @@ python3 meta_validator.py \
 - `--graph-groups` / `-gg`: Path to graph groups file
 - `--fail-fast`: Stop on first validation failure
 - `--warnings-as-errors`: Treat warnings as errors and stop
+
+### 2.4. Output Formats
+
+The validator supports multiple output formats for different use cases:
+
+**Text output (default):**
+```bash
+python3 meta_validator.py --verbose
+```
+
+**JSON output for programmatic processing:**
+```bash
+# JSON with quiet mode (no logging)
+python3 meta_validator.py --output-format json --quiet
+
+# JSON with full error details
+python3 meta_validator.py -o json -r full -q
+```
+
+**YAML output for human-readable structured data:**
+```bash
+# YAML with quiet mode
+python3 meta_validator.py --output-format yaml --quiet
+
+# YAML with only errors
+python3 meta_validator.py -o yaml -r errors -q
+```
+
+**JSON Output Example:**
+```json
+{
+  "summary": {
+    "groups_processed": 2,
+    "total_validators": 5,
+    "total_passed": 3,
+    "total_failed": 2,
+    "total_errors": 3,
+    "total_warnings": 1,
+    "success_rate": 60.0,
+    "overall_success": false
+  },
+  "groups": {
+    "lab": {
+      "validators": [
+        {
+          "name": "ip_address",
+          "success": false,
+          "group": "lab",
+          "execution_time": 0.125,
+          "error_count": 1,
+          "warning_count": 0,
+          "errors": [
+            {
+              "issue_id": "E2004",
+              "keyword": "inconsistent_ip",
+              "description": "Device has inconsistent IP addresses across sources",
+              "message": "Device has different IPv4 addresses",
+              "severity": "error",
+              "source": "ip_address",
+              "group": "lab",
+              "details": {
+                "device": "sonic-s6100-dut",
+                "group": "lab",
+                "ip_type": "ipv4",
+                "connection_graph_ip": "10.1.1.100",
+                "ansible_inventory_ip": "10.1.1.101",
+                "connection_graph_source": "ManagementIp",
+                "ansible_inventory_source": "ansible_host"
+              }
+            }
+          ],
+          "metadata": {
+            "total_ips": 15,
+            "device_ips": 8,
+            "testbed_ips": 7
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**YAML Output Example:**
+```yaml
+summary:
+  groups_processed: 2
+  total_validators: 5
+  total_passed: 3
+  total_failed: 2
+  total_errors: 3
+  total_warnings: 1
+  success_rate: 60.0
+  overall_success: false
+groups:
+  lab:
+    validators:
+    - name: ip_address
+      success: false
+      group: lab
+      execution_time: 0.125
+      error_count: 1
+      warning_count: 0
+      errors:
+      - issue_id: E2004
+        keyword: inconsistent_ip
+        description: Device has inconsistent IP addresses across sources
+        message: Device has different IPv4 addresses
+        severity: error
+        source: ip_address
+        group: lab
+        details:
+          device: sonic-s6100-dut
+          group: lab
+          ip_type: ipv4
+          connection_graph_ip: 10.1.1.100
+          ansible_inventory_ip: 10.1.1.101
+          connection_graph_source: ManagementIp
+          ansible_inventory_source: ansible_host
+      metadata:
+        total_ips: 15
+        device_ips: 8
+        testbed_ips: 7
+```
+
+**Use Cases:**
+- **Text**: Human-readable output for manual validation and debugging
+- **JSON**: Automated processing, CI/CD pipelines, and integration with monitoring tools
+- **YAML**: Configuration files, documentation, and human-readable structured reports
 
 ## 3. Architecture
 
@@ -471,19 +608,6 @@ Global validators run once with access to data from all infrastructure groups. T
 - Verifies power feed redundancy where configured
 - Detects PDU port conflicts across all infrastructure groups
 
-**Validation Approach:**
-
-1. Identify all target devices (DevSonic and Fanout* types) from all connection graphs
-2. For each target device:
-   1. Check if pdu_links entry exists for the device
-   2. For each PSU (Power Supply Unit) on the device:
-      1. Validate PDU connection properties:
-         - `peerdevice`: PDU device name must exist in devices list
-         - `peerport`: PDU port/outlet number
-      2. Verify the PDU device exists and has correct type ("Pdu")
-   3. Validate power redundancy and report warning if only one feed is configured
-3. Check for PDU port conflicts across all groups (multiple devices using same PDU outlet)
-
 **Issues:**
 
 - `E4001`: duplicate_config_groups - Device has PDU configuration in multiple groups (WARNING)
@@ -566,17 +690,6 @@ Group validators run individually for each infrastructure group, operating only 
 - Checks that device names are not empty or invalid
 - Validates that all devices have non-empty HwSku fields
 - Operates on each infrastructure group individually
-
-**Validation Approach:**
-
-Operates on each infrastructure group individually using a single-pass optimization through all devices:
-
-1. Iterate through each device in the connection graph devices section once
-2. For each device, simultaneously:
-   1. Track device names and detect duplicates within the group
-   2. Validate device name format (non-empty, valid characters, length limits)
-   3. Validate HwSku field is present and non-empty
-3. Report all validation issues found during the single pass
 
 **Issues:**
 
