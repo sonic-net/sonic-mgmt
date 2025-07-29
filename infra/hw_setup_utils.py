@@ -111,7 +111,7 @@ MAX_PARTS_IMAGE_NAME = 6
 START_INDEX_IMAGE = 2
 IMAGE_INDEX = 4
 
-streams_list = ["202205", "202305", "202311", "master", "202405c", "202405", "202411"]
+streams_list = ["202205", "202305", "202311", "master", "202405c", "202405", "202411", "202501", "202505"]
 
 BIN_FILE = "sonic-cisco-8000.bin"
 
