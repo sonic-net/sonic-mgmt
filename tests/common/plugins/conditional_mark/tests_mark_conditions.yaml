@@ -3230,7 +3230,7 @@ voq/test_voq_fabric_capacity.py:
     conditions:
       - "('t2' not in topo_name)"
       - "(asic_subtype not in ['broadcom-dnx'])"
-      - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
+      - "(type in ['UpperSpineRouter'])"
       - "(asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_isolation.py:
@@ -3240,7 +3240,7 @@ voq/test_voq_fabric_isolation.py:
     conditions:
       - "('t2' not in topo_name)"
       - "(asic_subtype not in ['broadcom-dnx'])"
-      - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
+      - "(type in ['UpperSpineRouter'])"
       - "(asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_status_all.py:
