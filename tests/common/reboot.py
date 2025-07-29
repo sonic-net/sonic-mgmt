@@ -363,7 +363,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         except Exception as console_err:
             logger.warning(f'Failed to get console thread result: {console_err}')
             dut_console = None
-    
+
     except Exception as err:
         if dut_console:
             dut_console.disconnect()
