@@ -11,7 +11,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from bgp_helpers import update_routes
+from tests.common2.bgp_route_control import update_routes as common_update_routes
 from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
@@ -483,7 +483,7 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
     route = {}
     route["prefix"] = prefix
     route["nexthop"] = nexthop
-    update_routes("announce", ptfhost.mgmt_ip, exabgp_port, route)
+    common_update_routes("announce", ptfhost.mgmt_ip, exabgp_port, route)
 
 
 def test_bgp_dual_asn_v4(

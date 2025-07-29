@@ -25,6 +25,7 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.eos import EosHost
+from tests.common2.bgp_route_control import update_routes as common_update_routes
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-multi-asic'),
@@ -274,17 +275,23 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
 
 def update_routes(action, ptfip, port, route):
-    if action == 'announce':
+    """Custom update_routes for BBR with AS-path support"""
+    if hasattr(route, 'aspath') and route.aspath and action == 'announce':
+        # For BBR routes with AS-path, we need custom handling
         msg = '{} route {} next-hop {} as-path [ {} ]'.format(action, route.prefix, route.nexthop, route.aspath)
-    elif action == 'withdraw':
-        msg = '{} route {} next-hop {}'.format(action, route.prefix, route.nexthop)
+        url = 'http://%s:%d' % (ptfip, port)
+        data = {'commands': msg}
+        r = requests.post(url, data=data, proxies={"http": None, "https": None})
+        assert r.status_code == 200
     else:
-        logger.error('Unsupported route update operation.')
-        return
-    url = 'http://%s:%d' % (ptfip, port)
-    data = {'commands': msg}
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+        # Use common function for standard routes
+        route_dict = {
+            'prefix': route.prefix,
+            'nexthop': route.nexthop
+        }
+        if hasattr(route, 'community') and route.community:
+            route_dict['community'] = route.community
+        common_update_routes(action, ptfip, port, route_dict)
 
 
 @pytest.fixture
