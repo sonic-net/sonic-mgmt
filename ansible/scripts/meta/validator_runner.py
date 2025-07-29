@@ -8,6 +8,7 @@ across SONiC management infrastructure components.
 import os
 import sys
 import logging
+import yaml
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 
@@ -322,14 +323,16 @@ class MetaValidator:
 
     def _load_all_groups_data(self) -> Dict[str, Dict[str, Any]]:
         """
-        Load connection graph data for all groups
+        Load connection graph data and inventory data for all groups
 
         Returns:
-            Dict mapping group names to their data (conn_graph, etc.)
+            Dict mapping group names to their data (conn_graph, inventory_devices, etc.)
         """
         all_groups_data = {}
 
         for group in self.groups:
+            group_data = {}
+
             try:
                 # Load connection graph for this group
                 conn_graph_obj = LabGraph(
@@ -339,24 +342,112 @@ class MetaValidator:
                 conn_graph = conn_graph_obj.graph_facts
 
                 if conn_graph:
-                    all_groups_data[group] = {
-                        'conn_graph': conn_graph
-                    }
+                    group_data['conn_graph'] = conn_graph
                     self.logger.debug(f"Loaded connection graph for group {group}")
                 else:
                     self.logger.warning(f"Failed to load connection graph for group {group}")
-                    all_groups_data[group] = {
-                        'conn_graph': {}
-                    }
+                    group_data['conn_graph'] = {}
 
             except Exception as e:
                 self.logger.error(f"Error loading connection graph for group {group}: {str(e)}")
-                all_groups_data[group] = {
-                    'conn_graph': {}
-                }
+                group_data['conn_graph'] = {}
 
-        self.logger.info(f"Loaded connection graphs for {len(all_groups_data)} groups")
+            # Load inventory data for this group
+            try:
+                inventory_devices = self._load_inventory_file(group)
+                group_data['inventory_devices'] = inventory_devices
+                if inventory_devices:
+                    self.logger.debug(f"Loaded {len(inventory_devices)} inventory devices for group {group}")
+                else:
+                    self.logger.debug(f"No inventory devices found for group {group}")
+            except Exception as e:
+                self.logger.error(f"Error loading inventory for group {group}: {str(e)}")
+                group_data['inventory_devices'] = {}
+
+            all_groups_data[group] = group_data
+
+        self.logger.info(f"Loaded connection graphs and inventory data for {len(all_groups_data)} groups")
         return all_groups_data
+
+    def _load_inventory_file(self, group: str) -> Dict[str, Any]:
+        """
+        Load ansible inventory YAML file for a group
+
+        Args:
+            group: Group name (e.g., 'lab', 'snappi-sonic')
+
+        Returns:
+            Dict containing inventory data with device information
+        """
+        inventory_path = os.path.join(os.path.dirname(__file__), '../../../ansible/', group)
+
+        if not os.path.exists(inventory_path):
+            self.logger.warning(f"Inventory file not found for group {group}: {inventory_path}")
+            return {}
+
+        try:
+            with open(inventory_path, 'r') as f:
+                content = f.read()
+
+            try:
+                inventory_data = yaml.safe_load(content)
+                if inventory_data is not None:
+                    self.logger.debug(f"Loaded YAML inventory for group {group}")
+                    return self._extract_devices_from_yaml_inventory(inventory_data)
+                else:
+                    self.logger.warning(f"Empty or invalid YAML inventory for group {group}")
+                    return {}
+            except yaml.YAMLError as e:
+                self.logger.error(f"Failed to parse inventory file {inventory_path} as YAML: {e}")
+                return {}
+
+        except FileNotFoundError:
+            self.logger.warning(f"Inventory file not found: {inventory_path}")
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error loading inventory file {inventory_path}: {e}")
+            return {}
+
+    def _extract_devices_from_yaml_inventory(self, inventory_data: Dict) -> Dict[str, Any]:
+        """Extract device information from YAML format inventory"""
+        devices = {}
+
+        def extract_hosts_recursive(data, parent_path=""):
+            if isinstance(data, dict):
+                if 'hosts' in data:
+                    # Found a hosts section
+                    for host_name, host_data in data['hosts'].items():
+                        if isinstance(host_data, dict):
+                            # Copy the entire host_data object
+                            device_info = host_data.copy()
+                            # Add metadata about inventory source and location
+                            device_info['inventory_source'] = 'yaml'
+                            device_info['group_path'] = parent_path
+                            devices[host_name] = device_info
+                        else:
+                            # Simple host entry without variables
+                            device_info = {
+                                'inventory_source': 'yaml',
+                                'group_path': parent_path
+                            }
+                            if host_data:
+                                device_info['ansible_host'] = str(host_data)
+                            devices[host_name] = device_info
+
+                # Recursively check children
+                if 'children' in data:
+                    for child_name, child_data in data['children'].items():
+                        new_path = f"{parent_path}/{child_name}" if parent_path else child_name
+                        extract_hosts_recursive(child_data, new_path)
+
+                # Check direct groups in the structure
+                for key, value in data.items():
+                    if key not in ['hosts', 'children', 'vars'] and isinstance(value, dict):
+                        new_path = f"{parent_path}/{key}" if parent_path else key
+                        extract_hosts_recursive(value, new_path)
+
+        extract_hosts_recursive(inventory_data)
+        return devices
 
     def _load_graph_groups(self, graph_groups_file: str) -> List[str]:
         """
