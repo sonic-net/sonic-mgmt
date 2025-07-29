@@ -395,11 +395,6 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
-        if "DEVICE_METADATA" not in golden_config_db:
-            golden_config_db["DEVICE_METADATA"] = {}
-        if "localhost" not in golden_config_db["DEVICE_METADATA"]:
-            golden_config_db["DEVICE_METADATA"]["localhost"] = {}
-
         return json.dumps(golden_config_db, indent=4)
 
     def update_zmq_config(self, config):
@@ -409,15 +404,8 @@ class GenerateGoldenConfigDBModule(object):
         if "localhost" not in ori_config_db["DEVICE_METADATA"]:
             ori_config_db["DEVICE_METADATA"]["localhost"] = {}
 
-        # multiasic test failed because this field is 'None', which break yang validation.
-        if "docker_routing_config_mode" not in ori_config_db["DEVICE_METADATA"]["localhost"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
-
         # Older version image may not support ZMQ feature flag
         rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_dash_zmq_enabled" in out:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_dash_zmq_enabled"] = "true"
-
         if "orch_northbond_route_zmq_enabled" in out:
             ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
 
@@ -464,6 +452,9 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_full_lossy_golden_config_db()
         else:
             config = self.generate_default_golden_config_db()
+
+        # update ZMQ config
+        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
