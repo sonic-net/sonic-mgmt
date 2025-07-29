@@ -109,7 +109,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(1, 65):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
         elif hwsku in ["Arista-7060X6-64DE", "Arista-7060X6-64DE-64x400G",
-                       "Arista-7060X6-64PE", "Arista-7060X6-64PE-64x400G", "Arista-7060X6-64PE-P64"]:
+                       "Arista-7060X6-64PE", "Arista-7060X6-64PE-64x400G",
+                       "Arista-7060X6-64PE-P64", "Arista-7060X6-64PE-B-P64"]:
             for i in range(1, 65):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
             port_alias_to_name_map["etp65"] = "Ethernet512"
@@ -178,6 +179,28 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                         alias = "etp{}{}".format(i, split_alias)
                         eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
                         port_alias_to_name_map[alias] = eth_name
+        elif hwsku in ["Arista-7060X6-16PE-384C-O128S2", "Arista-7060X6-16PE-384C-B-O128S2",
+                       "Arista-7060X6-16PE-384C-B-O128S2-COPPER-LAB", "Arista-7060X6-16PE-384C-B-O128S2-LAB",
+                       "Arista-7060X6-16PE-384C-O128S2-COPPER-LAB", "Arista-7060X6-16PE-384C-O128S2-LAB"]:
+            split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+            split_alias_list_1 = ["a", "b"]
+            split_2_port_indexs = list(range(1, 17))
+            cur_idx = 0
+            for i in range(1, 25):
+                if i in split_2_port_indexs:
+                    for idx, split_alias in enumerate(split_alias_list_1):
+                        alias = "etp{}{}".format(i, split_alias)
+                        eth_name = "Ethernet{}".format(cur_idx)
+                        port_alias_to_name_map[alias] = eth_name
+                        cur_idx += 4
+                else:
+                    for idx, split_alias in enumerate(split_alias_list):
+                        alias = "etp{}{}".format(i, split_alias)
+                        eth_name = "Ethernet{}".format(cur_idx)
+                        port_alias_to_name_map[alias] = eth_name
+                        cur_idx += 4
+            port_alias_to_name_map['etp25a'] = "Ethernet512"
+            port_alias_to_name_map['etp25b'] = "Ethernet513"
         elif hwsku == "Arista-7050QX32S-Q32":
             for i in range(5, 29):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)

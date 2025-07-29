@@ -482,6 +482,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
+  xfail:
+    reason: "7215 has low performance, and can only take low stress (about 5 pps)"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress[discover]:
   xfail:
     reason: "Need to skip for discover test cases on dualtor"
@@ -2156,9 +2162,11 @@ override_config_table/test_override_config_table.py:
 ########################################
 packet_trimming/test_packet_trimming.py:
   skip:
-    reason: "KVM do not support the feature"
+    reason: "Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
 
 #######################################
 #####           pc               #####
