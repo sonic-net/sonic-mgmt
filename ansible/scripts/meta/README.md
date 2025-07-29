@@ -557,12 +557,16 @@ Global validators run once with access to data from all infrastructure groups. T
 - Validates IP address format and type
 - Ensures no reserved and loopback address will be used
 - Skips IP conflict detection for shared infrastructure devices, such as PDU and console servers
+- Validates IP consistency between connection graph and ansible inventory for the same device
+- Validates IPv4/IPv6 address relationships (IPv6 last 4 bytes should match IPv4 address)
 
 **Issues:**
 
 - `E2001`: conflict_ip - IP address conflict detected
 - `E2002`: reserved_ip - Reserved IP address found (WARNING)
 - `E2003`: invalid_ip_format - Invalid IP address format
+- `E2004`: inconsistent_ip - Device has inconsistent IP addresses across sources
+- `E2005`: ipv4_ipv6_mismatch - IPv6 address last 4 bytes do not match IPv4 address (INFO)
 
 #### 5.1.3. Console Validator
 
