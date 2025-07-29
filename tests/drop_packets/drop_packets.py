@@ -120,6 +120,7 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             else:
                 logger.warning(f"Expected ACL file not found for deletion: {acl_json_path}")
 
+
 def generate_acl_rules_from_csv(csv_path, output_json_path):
     """
     Generate ACL rules JSON from the given CSV and write it to the specified file.
@@ -161,6 +162,7 @@ def generate_acl_rules_from_csv(csv_path, output_json_path):
     except Exception as e:
         logger.error(f"Failed to generate ACL rules: {e}", exc_info=True)
 
+
 def drop_counter_config(fanouthost):
     """
     This function injects ACL rules on fanout host by parsing the port info from a CSV file.
@@ -177,10 +179,10 @@ def drop_counter_config(fanouthost):
 
     acl_file = "drop_packets/acl_rules.json"
     csv_path = "../ansible/files/sonic_lab_links.csv"
-    search_str="Trunk"
-    fetch_port="Ethernet"
+    search_str = "Trunk"
+    fetch_port = "Ethernet"
 
-    #Generate ACL rules JSON from the given CSV
+    # Generate ACL rules JSON from the given CSV
     generate_acl_rules_from_csv(csv_path, acl_file)
 
     try:
@@ -213,6 +215,7 @@ def drop_counter_config(fanouthost):
         logger.error(f"[Value Error] {e}")
     except Exception as e:
         logger.error(f"[Unexpected Error] {e}", exc_info=True)
+
 
 @pytest.fixture
 def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname, loganalyzer):
