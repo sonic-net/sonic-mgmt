@@ -317,7 +317,7 @@ def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
     return port_list
 
 
-def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
+def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     """
     Config vrf based configuration
     """
@@ -354,11 +354,11 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
     wait_until(120, 10, 0, check_interface_status, duthost)
 
 
-def setup_vrf(duthost, nbrhosts, tbinfo):
+def setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer):
     """
     Prepare vrf based environment
     """
@@ -366,7 +366,7 @@ def setup_vrf(duthost, nbrhosts, tbinfo):
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     cfg_t1 = get_cfg_facts(duthost)
-    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo)
+    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo, loganalyzer)
 
 
 def install_route_from_exabgp(operation, ptfip, route_list, port):
@@ -715,7 +715,7 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
         )
 
 
-def param_reboot(request, duthost, localhost):
+def param_reboot(request, duthost, localhost, loganalyzer):
     """
     Read reboot_type from option bgp_suppress_fib_reboot_type
     If reboot_type is reload, do config reload
@@ -729,7 +729,7 @@ def param_reboot(request, duthost, localhost):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
         wait_until(120, 10, 0, check_interface_status, duthost)
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
@@ -822,7 +822,7 @@ def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
 def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
-                                 request):
+                                 request, loganalyzer):
     asic_name = duthost.get_asic_name()
     if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
         pytest.xfail("vrf testing not supported on TH5")
@@ -830,7 +830,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
     try:
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Configure user defined vrf"):
-                setup_vrf(duthost, nbrhosts, tbinfo)
+                setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer)
 
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
@@ -852,7 +852,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
                             format(continous_boot_index+1))
 
             with allure.step("Do reload"):
-                param_reboot(request, duthost, localhost)
+                param_reboot(request, duthost, localhost, loganalyzer)
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
@@ -906,7 +906,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost, safe_reload=True)
+                config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
                 wait_until(120, 10, 0, check_interface_status, duthost)
 
 
