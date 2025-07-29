@@ -498,6 +498,12 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+
+    if updated_tbinfo['topo']['name'] in ['t0-d18u8s4', 't0-isolated-d32u32s2'] and \
+            'ip-proto' in hash_keys:
+        # For t0-d18u8s4 and t0-isolated-d32u32s2, use ip-proto as hash key cause traffic unbalance issue.
+        hash_keys.remove('ip-proto')
+
     ptf_runner(
         ptfhost,
         "ptftests",
