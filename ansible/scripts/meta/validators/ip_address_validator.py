@@ -151,17 +151,6 @@ class IpAddressValidator(GlobalValidator):
                         device_name, group_name, "ansible_inventory", ip_type, ip_addr, device_ips
                     )
 
-            # loopback4096_ip (list of IPv4)
-            loopback_ipv4 = device_info.get('loopback4096_ip')
-            if isinstance(loopback_ipv4, list):
-                for idx, ip_entry in enumerate(loopback_ipv4):
-                    ip_addr, ip_type = self._extract_ip_address(str(ip_entry))
-                    if ip_addr:
-                        self._add_ip_address_with_group(
-                            ip_addr, "ansible_inventory", f"{device_name}:loopback4096_ip[{idx}]", ip_type, group_name,
-                            ip_addresses
-                        )
-
             # Collect IPv6 addresses
             # ansible_hostv6 (IPv6)
             ansible_hostv6 = device_info.get('ansible_hostv6')
@@ -176,18 +165,6 @@ class IpAddressValidator(GlobalValidator):
                     self._track_device_ip(
                         device_name, group_name, "ansible_inventory", ip_type, ip_addr, device_ips
                     )
-
-            # loopback4096_ipv6 (list of IPv6)
-            loopback_ipv6 = device_info.get('loopback4096_ipv6')
-            if isinstance(loopback_ipv6, list):
-                for idx, ip_entry in enumerate(loopback_ipv6):
-                    ip_addr, ip_type = self._extract_ip_address(str(ip_entry))
-                    if ip_addr:
-                        self._add_ip_address_with_group(
-                            ip_addr, "ansible_inventory",
-                            f"{device_name}:loopback4096_ipv6[{idx}]", ip_type, group_name,
-                            ip_addresses
-                        )
 
     def _collect_testbed_ips_with_group(self, testbed_info, ip_addresses):
         """Collect testbed PTF IPs with group information"""
