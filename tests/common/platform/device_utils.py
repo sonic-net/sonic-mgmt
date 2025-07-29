@@ -1148,7 +1148,7 @@ def add_platform_api_server_port_nat_for_dpu(
     The NAT rule is added before the test and removed after the test.
     '''
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_dpu():
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         ip_interface_status = duthost.show_and_parse('show ip interface')
         for item in ip_interface_status:
             if item['interface'] == "eth0-midplane":
@@ -1162,7 +1162,7 @@ def add_platform_api_server_port_nat_for_dpu(
 
     yield
 
-    if duthost.is_dpu():
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         npu_host.command(
             f'sudo iptables -t nat -D PREROUTING -i eth0 -p tcp --dport \
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
