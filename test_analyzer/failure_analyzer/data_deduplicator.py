@@ -398,11 +398,20 @@ class DataDeduplicator:
         return pd.DataFrame(representative_rows)
 
     def get_branch_group(self, branch):
-        """Group master and internal branches together, keep others separate"""
+        """
+        Group master and internal branches together, keep others separate.
+        Also group branches with same 6-digit prefix (e.g., 20250510 and 20250505 -> 202505)
+        """
         if branch.lower() in ['master', 'internal']:
             return 'master_internal'
         else:
-            return branch
+            # Check if branch starts with digits (like 20250510, 20250505)
+            if branch.isdigit() and len(branch) >= 6:
+                # Return the first 6 digits as the group identifier
+                return branch[:6]
+            else:
+                # For other branches, return as-is
+                return branch
 
     def is_matched_active_icm(self, case_branch, target_summary, icm_branch, active_icm_df):
         """
@@ -418,11 +427,13 @@ class DataDeduplicator:
         target_branch_group = self.get_branch_group(icm_branch)
 
         # Filter active_icm_df to only include rows with the same branch group as the target_summary
-        # For master/internal, this will match both branches; for others, only exact matches
+        # For master/internal, this will match both branches; for others, use branch group logic
         if target_branch_group == 'master_internal':
             same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
         else:
-            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'] == icm_branch]
+            # For numeric branches, match by branch group (first 6 digits)
+            # For other branches, match exactly
+            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'].apply(self.get_branch_group) == target_branch_group]
 
         if same_branch_df.empty:
             logger.info("{}: No active IcM found for branch group {} (branch: {}) in valid date scope".format(case_branch, target_branch_group, icm_branch))
@@ -594,7 +605,9 @@ class DataDeduplicator:
             if branch_group == 'master_internal':
                 branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
             else:
-                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'] == branch_group]
+                # For numeric branches, match by branch group (first 6 digits)
+                # For other branches, match exactly
+                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'].apply(self.get_branch_group) == branch_group]
 
             if branch_active_icm_df.empty:
                 logger.info(f"No recent active ICMs found for branch group {branch_group}")
