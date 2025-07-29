@@ -28,7 +28,7 @@ Ensure gRPC port is reachable from the agent.
 Prepare a valid upgrade YAML configuration file.
 
 ### Configuration scripts
-build_deploy scrits – build and deploy gnmi docker
+build_deploy script – build and deploy gnmi docker
 upgrade-agent – CLI tool for upgrade operations
 builder - build and deploy gnmi server
 
