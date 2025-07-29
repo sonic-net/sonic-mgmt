@@ -43,6 +43,9 @@ source .venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
+## Test Results Files
+Place JUnit XML test result files in a directory (e.g., `../results`). Subdirectories are supported. All `.xml` files will be automatically processed.
+
 ## Authentication Methods
 
 The report uploader supports multiple authentication methods for connecting to Kusto/Azure Data Explorer:
@@ -58,7 +61,7 @@ The report uploader supports multiple authentication methods for connecting to K
 
 **Usage:**
 ```bash
-python report_uploader.py -a appKey -c "test_result" <files> <database>
+python report_uploader.py -a appKey -c "test_result" ../results <database>
 ```
 
 ### 2. Default Azure Credential (defaultCred) - Recommended for local development
@@ -85,7 +88,7 @@ az login
 
 **Usage:**
 ```bash
-python report_uploader.py -a defaultCred -c "test_result" <files> <database>
+python report_uploader.py -a defaultCred -c "test_result" ../results <database>
 ```
 
 ### 3. Managed Service Identity (managedId)
@@ -96,7 +99,7 @@ For Azure VMs with managed identity enabled.
 
 **Usage:**
 ```bash
-python report_uploader.py -a managedId -c "test_result" <files> <database>
+python report_uploader.py -a managedId -c "test_result" ../results <database>
 ```
 
 ### 4. Interactive Browser (interactive)
@@ -104,7 +107,7 @@ After running the command, a browser window will open automatically where you ne
 
 **Usage:**
 ```bash
-python report_uploader.py -a interactive -c "test_result" <files> <database>
+python report_uploader.py -a interactive -c "test_result" ../results <database>
 ```
 
 ### 5. Azure CLI (azureCli)
@@ -117,7 +120,7 @@ az login
 
 **Usage:**
 ```bash
-python report_uploader.py -a azureCli -c "test_result" <files> <database>
+python report_uploader.py -a azureCli -c "test_result" ../results <database>
 ```
 
 ### 6. Device Code (deviceCode)
@@ -130,7 +133,7 @@ az login --use-device-code
 
 **Usage:**
 ```bash
-python report_uploader.py -a azureCli -c "test_result" <files> <database>
+python report_uploader.py -a azureCli -c "test_result" ../results <database>
 ```
 
 ### 7. User Token (userToken)
@@ -159,7 +162,7 @@ export TEST_REPORT_AAD_USER_TOKEN=$(az account get-access-token --resource https
 
 **Usage:**
 ```bash
-python report_uploader.py -a userToken -c "test_result" <files> <database>
+python report_uploader.py -a userToken -c "test_result" ../results <database>
 ```
 
 ### 8. Application Token (appToken)
@@ -170,7 +173,7 @@ Uses a pre-obtained application access token.
 
 **Usage:**
 ```bash
-python report_uploader.py -a appToken -c "test_result" <files> <database>
+python report_uploader.py -a appToken -c "test_result" ../results <database>
 ```
 
 Check out [this doc from Kusto](https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app) for more details about setting up AAD client applications for accessing Kusto.
@@ -185,19 +188,19 @@ Make sure the table is created and mapping is generated successfully.
 **Using Default Azure Credential (recommended for development):**
 ```bash
 # Windows
-python report_uploader.py -c "test_result" -a defaultCred <path_to_junit_xml_files> <database_name>
+python report_uploader.py -c "test_result" -a defaultCred ../results <database_name>
 
 # Linux
-python3 report_uploader.py -c "test_result" -a defaultCred <path_to_junit_xml_files> <database_name>
+python3 report_uploader.py -c "test_result" -a defaultCred ../results <database_name>
 ```
 
 **Using Application Key:**
 ```bash
 # Windows
-python report_uploader.py -c "test_result" -a appKey <path_to_junit_xml_files> <database_name>
+python report_uploader.py -c "test_result" -a appKey ../results <database_name>
 
 # Linux
-python3 report_uploader.py -c "test_result" -a appKey <path_to_junit_xml_files> <database_name>
+python3 report_uploader.py -c "test_result" -a appKey ../results <database_name>
 ```
 
 ### Examples
