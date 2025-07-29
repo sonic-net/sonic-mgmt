@@ -333,41 +333,36 @@ class MetaValidator:
         for group in self.groups:
             group_data = {}
 
-            try:
-                # Load connection graph for this group
-                conn_graph_obj = LabGraph(
-                    os.path.join(os.path.dirname(__file__), '../../../ansible/files/'),
-                    group
-                )
-                conn_graph = conn_graph_obj.graph_facts
-
-                if conn_graph:
-                    group_data['conn_graph'] = conn_graph
-                    self.logger.debug(f"Loaded connection graph for group {group}")
-                else:
-                    self.logger.warning(f"Failed to load connection graph for group {group}")
-                    group_data['conn_graph'] = {}
-
-            except Exception as e:
-                self.logger.error(f"Error loading connection graph for group {group}: {str(e)}")
-                group_data['conn_graph'] = {}
+            # Load connection graph for this group
+            group_data['conn_graph'] = self.load_conn_graph(group)
 
             # Load inventory data for this group
-            try:
-                inventory_devices = self._load_inventory_file(group)
-                group_data['inventory_devices'] = inventory_devices
-                if inventory_devices:
-                    self.logger.debug(f"Loaded {len(inventory_devices)} inventory devices for group {group}")
-                else:
-                    self.logger.debug(f"No inventory devices found for group {group}")
-            except Exception as e:
-                self.logger.error(f"Error loading inventory for group {group}: {str(e)}")
-                group_data['inventory_devices'] = {}
+            group_data['inventory_devices'] = self._load_inventory_file(group)
 
             all_groups_data[group] = group_data
 
         self.logger.info(f"Loaded connection graphs and inventory data for {len(all_groups_data)} groups")
         return all_groups_data
+
+    def load_conn_graph(self, group: str) -> Dict[str, Any]:
+        try:
+            # Load connection graph for this group
+            conn_graph_obj = LabGraph(
+                    os.path.join(os.path.dirname(__file__), '../../../ansible/files/'),
+                    group
+                )
+            conn_graph = conn_graph_obj.graph_facts
+
+            if conn_graph:
+                self.logger.debug(f"Loaded connection graph for group {group}")
+                return conn_graph
+            else:
+                self.logger.warning(f"Failed to load connection graph for group {group}")
+                return {}
+
+        except Exception as e:
+            self.logger.error(f"Error loading connection graph for group {group}: {str(e)}")
+            return {}
 
     def _load_inventory_file(self, group: str) -> Dict[str, Any]:
         """
@@ -393,7 +388,11 @@ class MetaValidator:
                 inventory_data = yaml.safe_load(content)
                 if inventory_data is not None:
                     self.logger.debug(f"Loaded YAML inventory for group {group}")
-                    return self._extract_devices_from_yaml_inventory(inventory_data)
+
+                    inventory_devices = self._extract_devices_from_yaml_inventory(inventory_data)
+                    self.logger.debug(f"Loaded {len(inventory_devices)} inventory devices for group {group}")
+
+                    return inventory_devices
                 else:
                     self.logger.warning(f"Empty or invalid YAML inventory for group {group}")
                     return {}

@@ -29,21 +29,35 @@ class IpAddressValidator(GlobalValidator):
         testbed_info = context.get_testbeds()
 
         # Collect all IP addresses from all groups
-        ip_addresses = self._collect_all_ip_addresses_globally(context, testbed_info)
+        ip_addresses, device_ips = self._collect_all_ip_addresses_globally(context, testbed_info)
 
         # Validate IP addresses
-        self._validate_collected_ip_addresses(ip_addresses)
+        self._validate_collected_ip_addresses(ip_addresses, device_ips)
 
         # Add metadata (handle both old and new format)
         if ip_addresses and len(list(ip_addresses.values())[0]) == 4:
             # New format with group info: (source_type, source_name, ip_type, group_name)
             self.result.metadata.update({
                 "total_ips": len(ip_addresses),
-                "device_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "device"]),
-                "testbed_ips": len([ip for ip, info in ip_addresses.items() if info[0] == "testbed"]),
-                "ipv4_count": len([ip for ip, info in ip_addresses.items() if info[2] == "ipv4"]),
-                "ipv6_count": len([ip for ip, info in ip_addresses.items() if info[2] == "ipv6"]),
-                "groups_with_devices": len(set([info[3] for ip, info in ip_addresses.items() if info[0] == "device"]))
+                "device_ips": len([
+                    ip for ip, info in ip_addresses.items() if info[0] == "device"
+                ]),
+                "ansible_inventory_ips": len([
+                    ip for ip, info in ip_addresses.items() if info[0] == "ansible_inventory"
+                ]),
+                "testbed_ips": len([
+                    ip for ip, info in ip_addresses.items() if info[0] == "testbed"
+                ]),
+                "ipv4_count": len([
+                    ip for ip, info in ip_addresses.items() if info[2] == "ipv4"
+                ]),
+                "ipv6_count": len([
+                    ip for ip, info in ip_addresses.items() if info[2] == "ipv6"
+                ]),
+                "groups_with_devices": len(set([
+                    info[3] for ip, info in ip_addresses.items()
+                    if info[0] in ["device", "ansible_inventory"]
+                ]))
             })
         else:
             # Old format: (source_type, source_name, ip_type)
@@ -72,18 +86,28 @@ class IpAddressValidator(GlobalValidator):
             dict: Dictionary mapping IP addresses to their source information
         """
         ip_addresses = {}  # ip -> (source_type, source_name, ip_type, group_name)
+        device_ips = {}  # device_name -> {group_name -> {source_type -> {ip_type -> ip_addr}}}
 
         # Collect device management IPs from all connection graphs
         all_conn_graphs = context.get_all_connection_graphs()
         for group_name, conn_graph in all_conn_graphs.items():
-            self._collect_device_ips_with_group(conn_graph, group_name, ip_addresses)
+            self._collect_device_ips_with_group(conn_graph, group_name, ip_addresses, device_ips)
+
+        # Collect ansible inventory IPs from all groups
+        all_groups_data = context.get_all_groups_data()
+        for group_name, group_data in all_groups_data.items():
+            inventory_devices = group_data.get('inventory_devices', {})
+            if inventory_devices:
+                self._collect_inventory_device_ips_with_group(
+                    inventory_devices, group_name, ip_addresses, device_ips
+                )
 
         # Collect testbed PTF IPs (these are shared across groups)
         self._collect_testbed_ips_with_group(testbed_info, ip_addresses)
 
-        return ip_addresses
+        return ip_addresses, device_ips
 
-    def _collect_device_ips_with_group(self, conn_graph, group_name, ip_addresses):
+    def _collect_device_ips_with_group(self, conn_graph, group_name, ip_addresses, device_ips):
         """Collect device management IPs from connection graph with group information"""
         if not conn_graph or 'devices' not in conn_graph:
             return
@@ -100,6 +124,70 @@ class IpAddressValidator(GlobalValidator):
                         ip_addr, "device", device_name, ip_type, group_name,
                         ip_addresses
                     )
+                    # Track device IPs for consistency checking
+                    self._track_device_ip(device_name, group_name, "device", ip_type, ip_addr, device_ips)
+
+    def _collect_inventory_device_ips_with_group(self, inventory_devices, group_name, ip_addresses, device_ips):
+        """Collect device IPs from ansible inventory with group information"""
+        if not inventory_devices:
+            return
+
+        for device_name, device_info in inventory_devices.items():
+            if not isinstance(device_info, dict):
+                continue
+
+            # Collect IPv4 addresses
+            # ansible_host (IPv4)
+            ansible_host = device_info.get('ansible_host')
+            if ansible_host:
+                ip_addr, ip_type = self._extract_ip_address(str(ansible_host))
+                if ip_addr:
+                    self._add_ip_address_with_group(
+                        ip_addr, "ansible_inventory", f"{device_name}:ansible_host", ip_type, group_name,
+                        ip_addresses
+                    )
+                    # Track device IPs for consistency checking
+                    self._track_device_ip(
+                        device_name, group_name, "ansible_inventory", ip_type, ip_addr, device_ips
+                    )
+
+            # loopback4096_ip (list of IPv4)
+            loopback_ipv4 = device_info.get('loopback4096_ip')
+            if isinstance(loopback_ipv4, list):
+                for idx, ip_entry in enumerate(loopback_ipv4):
+                    ip_addr, ip_type = self._extract_ip_address(str(ip_entry))
+                    if ip_addr:
+                        self._add_ip_address_with_group(
+                            ip_addr, "ansible_inventory", f"{device_name}:loopback4096_ip[{idx}]", ip_type, group_name,
+                            ip_addresses
+                        )
+
+            # Collect IPv6 addresses
+            # ansible_hostv6 (IPv6)
+            ansible_hostv6 = device_info.get('ansible_hostv6')
+            if ansible_hostv6:
+                ip_addr, ip_type = self._extract_ip_address(str(ansible_hostv6))
+                if ip_addr:
+                    self._add_ip_address_with_group(
+                        ip_addr, "ansible_inventory", f"{device_name}:ansible_hostv6", ip_type, group_name,
+                        ip_addresses
+                    )
+                    # Track device IPs for consistency checking
+                    self._track_device_ip(
+                        device_name, group_name, "ansible_inventory", ip_type, ip_addr, device_ips
+                    )
+
+            # loopback4096_ipv6 (list of IPv6)
+            loopback_ipv6 = device_info.get('loopback4096_ipv6')
+            if isinstance(loopback_ipv6, list):
+                for idx, ip_entry in enumerate(loopback_ipv6):
+                    ip_addr, ip_type = self._extract_ip_address(str(ip_entry))
+                    if ip_addr:
+                        self._add_ip_address_with_group(
+                            ip_addr, "ansible_inventory",
+                            f"{device_name}:loopback4096_ipv6[{idx}]", ip_type, group_name,
+                            ip_addresses
+                        )
 
     def _collect_testbed_ips_with_group(self, testbed_info, ip_addresses):
         """Collect testbed PTF IPs with group information"""
@@ -136,18 +224,40 @@ class IpAddressValidator(GlobalValidator):
                         ip_addresses
                     )
 
-    def _add_ip_address_with_group(self, ip_addr, source_type, source_name, ip_type, group_name, ip_addresses):
+    def _add_ip_address_with_group(
+        self, ip_addr, source_type, source_name, ip_type, group_name, ip_addresses
+    ):
         """Add IP address to tracking dict with group information and check for conflicts"""
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
-            existing_source_type, existing_source_name, existing_ip_type, existing_group_name = existing_source
+            (existing_source_type, existing_source_name,
+             existing_ip_type, existing_group_name) = existing_source
 
-            # Check if this is the same device appearing in multiple groups (shared device)
+            # Check if this is the same device appearing in multiple sources (shared device)
             if (source_type == "device" and existing_source_type == "device" and
                     source_name == existing_source_name and group_name != existing_group_name):
                 # This is a shared device across groups - not a conflict
                 self.logger.debug(
-                    f"Shared device detected: {source_name} appears in groups {existing_group_name} and {group_name}"
+                    f"Shared device detected: {source_name} appears in groups "
+                    f"{existing_group_name} and {group_name}"
+                )
+                return
+
+            # Check if this is the same device in connection graph vs ansible inventory
+            device_name_from_source = source_name.split(':')[0] if ':' in source_name else source_name
+            device_name_from_existing = (
+                existing_source_name.split(':')[0] if ':' in existing_source_name else existing_source_name
+            )
+
+            if (device_name_from_source == device_name_from_existing and
+                group_name == existing_group_name and
+                ((source_type == "device" and existing_source_type == "ansible_inventory") or
+                 (source_type == "ansible_inventory" and existing_source_type == "device"))):
+                # This is the same device appearing in both connection graph and ansible inventory
+                # The consistency validation will handle checking if IPs are consistent
+                self.logger.debug(
+                    f"Same device in different sources: {device_name_from_source} in "
+                    f"{existing_source_type} and {source_type}"
                 )
                 return
 
@@ -168,28 +278,17 @@ class IpAddressValidator(GlobalValidator):
         else:
             ip_addresses[ip_addr] = (source_type, source_name, ip_type, group_name)
 
-    def _collect_all_ip_addresses(self, conn_graph, testbed_info):
-        """
-        Collect all IP addresses from devices and testbeds
+    def _track_device_ip(self, device_name, group_name, source_type, ip_type, ip_addr, device_ips):
+        """Track device IP addresses for consistency validation"""
+        if device_name not in device_ips:
+            device_ips[device_name] = {}
+        if group_name not in device_ips[device_name]:
+            device_ips[device_name][group_name] = {}
+        if source_type not in device_ips[device_name][group_name]:
+            device_ips[device_name][group_name][source_type] = {}
+        device_ips[device_name][group_name][source_type][ip_type] = ip_addr
 
-        Args:
-            conn_graph: Connection graph data
-            testbed_info: Testbed information
-
-        Returns:
-            dict: Dictionary mapping IP addresses to their source information
-        """
-        ip_addresses = {}  # ip -> (source_type, source_name, ip_type)
-
-        # Collect device management IPs from connection graph
-        self._collect_device_ips(conn_graph, ip_addresses)
-
-        # Collect testbed PTF IPs
-        self._collect_testbed_ips(testbed_info, ip_addresses)
-
-        return ip_addresses
-
-    def _validate_collected_ip_addresses(self, ip_addresses):
+    def _validate_collected_ip_addresses(self, ip_addresses, device_ips):
         """
         Validate properties of collected IP addresses
 
@@ -198,76 +297,8 @@ class IpAddressValidator(GlobalValidator):
         """
         self._validate_ip_addresses(ip_addresses)
 
-    def _collect_device_ips(self, conn_graph, ip_addresses):
-        """Collect device management IPs from connection graph"""
-        if not conn_graph or 'devices' not in conn_graph:
-            return
-
-        for device_name, device_info in conn_graph['devices'].items():
-            if not isinstance(device_info, dict):
-                continue
-
-            mgmt_ip = device_info.get('ManagementIp')
-            if mgmt_ip:
-                ip_addr, ip_type = self._extract_ip_address(mgmt_ip)
-                if ip_addr:
-                    self._add_ip_address(
-                        ip_addr, "device", device_name, ip_type,
-                        ip_addresses
-                    )
-
-    def _collect_testbed_ips(self, testbed_info, ip_addresses):
-        """Collect testbed PTF IPs"""
-        if not testbed_info:
-            return
-
-        for testbed in testbed_info:
-            if not isinstance(testbed, dict):
-                continue
-
-            testbed_name = testbed.get('conf-name', 'unknown')
-
-            if 'ixia' in testbed['topo'] or 'tgen' in testbed['topo'] or 'nut' in testbed['topo']:
-                # Skip testbeds with Ixia/Tgen/NUT as their PTF IPs can be shared
-                continue
-
-            # Check PTF IPv4 address
-            ptf_ip = testbed.get('ptf_ip')
-            if ptf_ip:
-                ip_addr, ip_type = self._extract_ip_address(ptf_ip)
-                if ip_addr:
-                    self._add_ip_address(
-                        ip_addr, "testbed", f"{testbed_name}:ptf_ip", ip_type,
-                        ip_addresses
-                    )
-
-            # Check PTF IPv6 address
-            ptf_ipv6 = testbed.get('ptf_ipv6')
-            if ptf_ipv6:
-                ip_addr, ip_type = self._extract_ip_address(ptf_ipv6)
-                if ip_addr:
-                    self._add_ip_address(
-                        ip_addr, "testbed", f"{testbed_name}:ptf_ipv6", ip_type,
-                        ip_addresses
-                    )
-
-    def _add_ip_address(self, ip_addr, source_type, source_name, ip_type, ip_addresses):
-        """Add IP address to tracking dict and check for conflicts"""
-        if ip_addr in ip_addresses:
-            existing_source = ip_addresses[ip_addr]
-            # conflict_ip: IP address conflict detected
-            self.result.add_issue(
-                'E2001',
-                {
-                    "ip_address": ip_addr,
-                    "source1_type": existing_source[0],
-                    "source1_name": existing_source[1],
-                    "source2_type": source_type,
-                    "source2_name": source_name
-                }
-            )
-        else:
-            ip_addresses[ip_addr] = (source_type, source_name, ip_type)
+        # Validate device IP consistency across sources
+        self._validate_device_ip_consistency(device_ips)
 
     def _validate_ip_addresses(self, ip_addresses):
         """Validate IP address properties"""
@@ -346,3 +377,66 @@ class IpAddressValidator(GlobalValidator):
 
         except (ValueError, AttributeError):
             return None, None
+
+    def _validate_device_ip_consistency(self, device_ips):
+        """Validate that the same device has consistent IP addresses across sources"""
+        for device_name, groups in device_ips.items():
+            for group_name, sources in groups.items():
+                # Check if device appears in both connection graph and ansible inventory
+                if "device" in sources and "ansible_inventory" in sources:
+                    device_source = sources["device"]
+                    inventory_source = sources["ansible_inventory"]
+
+                    # Check IPv4 consistency (ManagementIp vs ansible_host)
+                    if "ipv4" in device_source and "ipv4" in inventory_source:
+                        device_ipv4 = device_source["ipv4"]
+                        inventory_ipv4 = inventory_source["ipv4"]
+
+                        if device_ipv4 != inventory_ipv4:
+                            self.result.add_issue(
+                                'E2004',
+                                {
+                                    "device": device_name,
+                                    "group": group_name,
+                                    "ip_type": "ipv4",
+                                    "connection_graph_ip": device_ipv4,
+                                    "ansible_inventory_ip": inventory_ipv4,
+                                    "connection_graph_source": "ManagementIp",
+                                    "ansible_inventory_source": "ansible_host"
+                                }
+                            )
+
+                # Check IPv4/IPv6 relationship within ansible inventory
+                if "ansible_inventory" in sources:
+                    inventory_source = sources["ansible_inventory"]
+                    if "ipv4" in inventory_source and "ipv6" in inventory_source:
+                        ipv4_addr = inventory_source["ipv4"]
+                        ipv6_addr = inventory_source["ipv6"]
+
+                        if not self._check_ipv4_ipv6_relationship(ipv4_addr, ipv6_addr):
+                            self.result.add_issue(
+                                'E2005',
+                                {
+                                    "device": device_name,
+                                    "group": group_name,
+                                    "ipv4_address": ipv4_addr,
+                                    "ipv6_address": ipv6_addr,
+                                    "ipv4_source": "ansible_inventory",
+                                    "ipv6_source": "ansible_inventory"
+                                }
+                            )
+
+    def _check_ipv4_ipv6_relationship(self, ipv4_addr, ipv6_addr):
+        """Check if IPv6 address's last 4 bytes match the IPv4 address"""
+        try:
+            ipv4_obj = ipaddress.IPv4Address(ipv4_addr)
+            ipv6_obj = ipaddress.IPv6Address(ipv6_addr)
+
+            # Get the last 4 bytes (32 bits) of the IPv6 address
+            ipv6_last_32_bits = int(ipv6_obj) & 0xFFFFFFFF
+            ipv4_32_bits = int(ipv4_obj)
+
+            return ipv6_last_32_bits == ipv4_32_bits
+
+        except (ValueError, AttributeError):
+            return False

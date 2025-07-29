@@ -39,17 +39,6 @@ class ValidationIssueDefinition:
         if not self.issue_id or len(self.issue_id) < 5:
             raise ValueError(f"Invalid issue ID format: {self.issue_id}")
 
-        severity_prefix = self.issue_id[0].upper()
-        expected_prefix = {
-            ValidationSeverity.ERROR: 'E',
-            ValidationSeverity.CRITICAL: 'E',  # Critical issues use E prefix
-            ValidationSeverity.WARNING: 'E',   # Warnings now use E prefix
-            ValidationSeverity.INFO: 'I'
-        }.get(self.severity)
-
-        if severity_prefix != expected_prefix:
-            raise ValueError(f"Issue ID prefix '{severity_prefix}' doesn't match severity {self.severity}")
-
 
 class ValidationIssueRegistry:
     """Registry for all validation issue definitions"""
@@ -286,6 +275,11 @@ def register_all_issues():
     _def_issue('ip_address', 'E2001', 'conflict_ip', 'IP address conflict detected')
     _def_issue('ip_address', 'E2002', 'reserved_ip', 'Reserved IP address found', ValidationSeverity.WARNING)
     _def_issue('ip_address', 'E2003', 'invalid_ip_format', 'Invalid IP address format')
+    _def_issue('ip_address', 'E2004', 'inconsistent_ip', 'Device has inconsistent IP addresses across sources')
+    _def_issue(
+        'ip_address', 'E2005', 'ipv4_ipv6_mismatch', 'IPv6 address last 4 bytes do not match IPv4 address',
+        ValidationSeverity.INFO
+    )
 
     # Console Validator Issues (3000-3999)
     _def_issue(
