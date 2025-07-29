@@ -126,10 +126,7 @@ python report_uploader.py -a azureCli -c "test_result" ../results <database>
 ### 6. Device Code (deviceCode)
 For environments without a web browser (displays a code to enter on another device).
 
-**Setup:**
-```bash
-az login --use-device-code
-```
+The script will prompt user to open an URL on another device, enter the displayed code and authenticate.
 
 **Usage:**
 ```bash

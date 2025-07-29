@@ -204,7 +204,9 @@ class KustoConnector(ReportDBConnector):
             service_key = os.getenv(f"TEST_REPORT_AAD_CLIENT_KEY{env_suffix}")
 
             if not tenant_id or not service_id or not service_key:
-                raise RuntimeError(f"Could not load Kusto AppKey credentials from environment{' (backup)' if backup else ''}")
+                raise RuntimeError(
+                    f"Could not load Kusto AppKey credentials from environment{' (backup)' if backup else ''}"
+                )
 
             return KustoConnectionStringBuilder.with_aad_application_key_authentication(
                 cluster, service_id, service_key, tenant_id)
@@ -215,7 +217,10 @@ class KustoConnector(ReportDBConnector):
                 print(f"Using user-assigned managed identity: {ManagedIdentityClientId}")
             else:
                 print("Using system-assigned managed identity")
-            return KustoConnectionStringBuilder.with_aad_managed_service_identity_authentication(cluster, client_id=ManagedIdentityClientId)
+            return KustoConnectionStringBuilder.with_aad_managed_service_identity_authentication(
+                cluster,
+                client_id=ManagedIdentityClientId
+            )
 
         elif auth_method == "interactive":
             return KustoConnectionStringBuilder.with_interactive_login(cluster)
@@ -240,8 +245,10 @@ class KustoConnector(ReportDBConnector):
 
         elif auth_method == "defaultCred":
             if DefaultAzureCredential is None:
-                raise RuntimeError("azure-identity package is required for defaultCredential authentication method. "
-                                 "Install it with: pip install azure-identity")
+                raise RuntimeError(
+                    "azure-identity package is required for defaultCredential authentication method. "
+                    "Install it with: pip install azure-identity"
+                )
             try:
                 credential = DefaultAzureCredential()
                 # Try the correct method name - it might be with_aad_token_credential_authentication
@@ -426,10 +433,6 @@ class KustoConnector(ReportDBConnector):
             data_format=self.TABLE_FORMAT_LOOKUP[table],
             ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table]
         )
-
-        # Use a different approach for Windows compatibility
-        import tempfile
-        import os
 
         # Create temporary file with delete=False to avoid Windows permission issues
         temp_fd, temp_path = tempfile.mkstemp(suffix='.json', text=True)
