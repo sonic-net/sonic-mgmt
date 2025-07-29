@@ -2,18 +2,20 @@ package testhelper
 
 import (
 	"context"
+        "errors"
 	"fmt"
 	"strings"
+        "sync"
 	"testing"
 	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
+        syspb "github.com/openconfig/gnoi/system"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygot/ygot"
-	"github.com/openconfig/ygot/ytypes"
 	"google.golang.org/grpc"
 )
 
@@ -30,7 +32,7 @@ func buildIgnorePathNotifications(ignorePaths []string) ([]*gpb.Notification, er
 	for _, ignore := range ignorePaths {
 		p, err := ygot.StringToStructuredPath(ignore)
 		if err != nil {
-			return nil, fmt.Errorf("ygot.StringToStructuredPath(%v) failed, cannot convert ignored path to ygot structured path, err : %v", ignore, err)
+			return nil, fmt.Errorf("ygot.StringToStructuredPath(path=%v) failed, cannot convert ignored path to ygot structured path, err : %v", ignore, err)
 		}
 		ignorePathNotifications = append(ignorePathNotifications, &gpb.Notification{
 			Delete: []*gpb.Path{p},
@@ -46,6 +48,7 @@ func buildIgnorePathNotifications(ignorePaths []string) ([]*gpb.Notification, er
 type ConfigRestorer struct {
 	savedConfigs map[string]*oc.Root
 	ignorePaths  []*gpb.Notification
+        mu           sync.Mutex
 }
 
 // NewConfigRestorerWithIgnorePaths
@@ -64,20 +67,36 @@ func NewConfigRestorerWithIgnorePaths(t *testing.T, ignorePaths []string) *Confi
 	// Build ignorePath notifications to easily remove the paths from oc.Root.
 	cr.ignorePaths, err = buildIgnorePathNotifications(ignorePaths)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("buildIgnorePathNotifications failed, err : %v", err)
 	}
 
+        ctx := context.Background()
+	wg := sync.WaitGroup{}
 	devices := ondatra.DUTs(t)
+        errCh := make(chan error, len(devices))
 	for id, device := range devices {
 		if !cr.isRestorableDUTID(id) {
-			log.Infof("Unsupported DUT ID:%v, not saving config for the device(%v)", id, device.Name())
+			log.InfoContextf(ctx, "Unsupported DUT ID: %v, not saving config for the device: %v", id, device.Name())
 			continue
 		}
-		if err := cr.saveConfig(device); err != nil {
-			t.Fatal(err)
-		}
+                wg.Add(1)
+		go func(device *ondatra.DUTDevice) {
+			defer wg.Done()
+			errCh <- cr.saveConfig(ctx, device)
+		}(device)
+	}
+	wg.Wait()
+	close(errCh)
+
+        // collect all the errors and fail the test on error.
+	if err := collectErrors(errCh); err != nil {
+		t.Fatalf("config_restorer creation failed, errors: %v", err)
 	}
 
+        // Register a cleanup to restore the configs on test end.
+	t.Cleanup(func() {
+		cr.RestoreConfigsAndClose(t)
+	})
 	return cr
 }
 
@@ -105,30 +124,11 @@ func (cr *ConfigRestorer) removeFPGABridgeAndEndpointComponents(r *oc.Root) {
 	}
 }
 
-// notificationsToOCRoot converts the notifications to oc.Root.
-func (cr *ConfigRestorer) notificationsToOCRoot(notifications []*gpb.Notification) (*oc.Root, error) {
-	// Append ignorePaths to notifications to remove the paths from oc.Root.
-	notifications = append(notifications, cr.ignorePaths...)
-	s, err := oc.Schema()
-	if err != nil {
-		return nil, fmt.Errorf("oc.Schema() failed with err : %v", err)
-	}
-	// Was unable to unmarshal the notifications without PreferShadowPath options.
-	if err := ytypes.UnmarshalNotifications(s, notifications, &ytypes.IgnoreExtraFields{}, &ytypes.PreferShadowPath{}, &ytypes.BestEffortUnmarshal{}); err != nil {
-		log.Infof("ytypes.UnmarshalNotifications() has err : %v", err)
-	}
-	r, ok := s.Root.(*oc.Root)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert the schema root to oc.Root")
-	}
-	cr.removeFPGABridgeAndEndpointComponents(r)
-	return r, nil
-}
-
-// switchConfig returns the current config of the switch.
+// switchConfigAsOCRoot returns the current config of the switch as a go struct.
 // GNMI GET of config is not same as the default model config
 // as the fetched config contains extra fields.
-func (cr *ConfigRestorer) switchConfig(dut *ondatra.DUTDevice) (*oc.Root, error) {
+// switchConfigAsOCRoot returns the switch config as a go struct.
+func (cr *ConfigRestorer) switchConfigAsOCRoot(ctx context.Context, dut *ondatra.DUTDevice) (*oc.Root, error) {
 	getReq := &gpb.GetRequest{
 		Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
 		Path:     []*gpb.Path{},
@@ -136,7 +136,7 @@ func (cr *ConfigRestorer) switchConfig(dut *ondatra.DUTDevice) (*oc.Root, error)
 		Encoding: gpb.Encoding_JSON_IETF, // Using JSON_IETF to unmarshal the notifications to oc.Root struct.
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	// Fetch raw gNMI client and call Set API to send Get Request.
@@ -150,76 +150,88 @@ func (cr *ConfigRestorer) switchConfig(dut *ondatra.DUTDevice) (*oc.Root, error)
 		return nil, fmt.Errorf("gnmiClient.Get(getReq=%v) failed : %v", getReq, err)
 	}
 
-	return cr.notificationsToOCRoot(getResp.GetNotification())
+	notifications := getResp.GetNotification()
+	// Append ignorePaths to notifications to remove the paths from oc.Root.
+	notifications = append(notifications, cr.ignorePaths...)
+	r, err := UnmarshalConfigNotificationsToOCRoot(notifications)
+	if err != nil {
+		return nil, fmt.Errorf("UnmarshalConfigNotificationsToOCRoot(notifications=%v) failed: %v", notifications, err)
+	}
+	cr.removeFPGABridgeAndEndpointComponents(r)
+	return r, nil
 }
 
-func (cr *ConfigRestorer) saveConfig(device *ondatra.DUTDevice) error {
-	conf, err := cr.switchConfig(device)
+func (cr *ConfigRestorer) saveConfig(ctx context.Context, device *ondatra.DUTDevice) error {
+	conf, err := cr.switchConfigAsOCRoot(ctx, device)
 	if err != nil {
 		return fmt.Errorf("fetching switchConfig(%v) failed with err : %v", device.Name(), err)
 	}
+        // Acquire mutex to write to savedConfigs map.
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
 	cr.savedConfigs[device.Name()] = conf
 	return nil
 }
 
 // configChanged compares the current config of the device with its saved config.
 // returns diff between the configs.
-func (cr *ConfigRestorer) configChanged(t *testing.T, device *ondatra.DUTDevice) (string, error) {
+func (cr *ConfigRestorer) configChanged(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) (bool, error) {
 	deviceName := device.Name()
-	log.Infof("Checking %v for config changes.", deviceName)
-	conf, err := cr.switchConfig(device)
+	log.InfoContextf(ctx, "Checking device: %v for config changes", deviceName)
+	conf, err := cr.switchConfigAsOCRoot(ctx, device)
 	if err != nil {
-		return "", fmt.Errorf("fetching switchConfig(DUTDevice=%v) failed with err : %v", deviceName, err)
+		return true, fmt.Errorf("fetching switchConfig for device: %v failed with err: %v", deviceName, err)
 	}
-	var diff string
-	if diff = cmp.Diff(conf, cr.savedConfigs[deviceName]); diff == "" {
-		log.Infof("no diff in configs found for DUTDevice=%v", deviceName)
-		return "", nil
+	diff := cmp.Diff(conf, cr.savedConfigs[deviceName])
+	if diff == "" {
+		log.InfoContextf(ctx, "no diff in configs found for device: %v", deviceName)
+		return false, nil
 	}
-	log.Infof("diff in configs found for DUTDevice=%v, diff_begin:\n%v\ndiff_end\n", deviceName, diff)
-	return diff, nil
+	log.InfoContextf(ctx, "diff in configs found for device: %v\ndiff_begin:\n%v\ndiff_end\n", deviceName, diff)
+	return true, nil
 }
 
-// restoreConfig tries to restore the config of the device by:
-//
-//	Push the default config to the device.
-//	Check if there is still a difference between the saved config,
-//	if so, return error.
-func (cr *ConfigRestorer) restoreConfig(t *testing.T, device *ondatra.DUTDevice) error {
+func (cr *ConfigRestorer) reboot(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) error {
 	deviceName := device.Name()
-	log.Infof("Trying to restore config for device(%v) by pushing default config\n", deviceName)
-	err := ConfigPush(t, device, nil)
+	log.InfoContextf(ctx, "Trying to restore config for device: %v by rebooting\n", deviceName)
+	waitTime, err := RebootTimeForDevice(t, device)
 	if err != nil {
-		return fmt.Errorf("config push to device(%v) failed due to err : %v", deviceName, err)
+		return fmt.Errorf("RebootTimeForDevice(dut=%v) failed, err: %v", deviceName, err)
 	}
-
-	// Check if ConfigPush is enough to restore the config.
-	diff, err := cr.configChanged(t, device)
-	if err != nil {
-		return fmt.Errorf("restoring config failed with err : %v", err)
+	req := &syspb.RebootRequest{
+		Method:  syspb.RebootMethod_COLD,
+		Message: "rebooting to apply config",
 	}
-	if diff == "" {
-		log.Infof("config restored for device=%v.", deviceName)
-		return nil
+	if err := Reboot(t, device, &RebootParams{
+		request:       req,
+		waitTime:      waitTime,
+		checkInterval: 10 * time.Second,
+	}); err != nil {
+		return fmt.Errorf("Reboot(dut=%v) failed, err: %v", deviceName, err)
 	}
-	log.Infof("Config diff found even after config push for device=%v\ndiff_begin:\n%v\ndiff_end\n", deviceName, diff)
-	return fmt.Errorf("couldn't restore config for device=%v after config push", deviceName)
+	return WaitForSwitchState(ctx, t, device)
 }
 
 // restoreConfigOnDiff checks if there is a diff between
 // the current config and the saved config.
 // If there is a diff, try to restore the config.
-func (cr *ConfigRestorer) restoreConfigOnDiff(t *testing.T, device *ondatra.DUTDevice) error {
-	diff, err := cr.configChanged(t, device)
+func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) error {
+	changed, err := cr.configChanged(ctx, t, device)
 	if err != nil {
-		return fmt.Errorf("err in finding config changes, err : %v", err)
+		return fmt.Errorf("err in finding config changes, err: %v", err)
 	}
-	if diff == "" {
+	if changed == false {
 		return nil
 	}
-	log.Infof("Config diff found for device=%v\ndiff_begin:\n%v\ndiff_end\n", device.Name(), diff)
-	if err = cr.restoreConfig(t, device); err != nil {
-		return fmt.Errorf("restoreConfig(dut=%v) failed with err : %v", device.Name(), err)
+
+	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", device.Name())
+	if err := ConfigPushAndWaitForConvergence(ctx, t, device, nil /*(config)*/); err != nil {
+		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", device.Name(), err)
+		return cr.reboot(ctx, t, device)
+	}
+	if err := WaitForSwitchState(ctx, t, device); err != nil {
+		log.InfoContextf(ctx, "WaitForSwitchState(dut=%v) failed, err: %v", device.Name(), err)
+		return cr.reboot(ctx, t, device)
 	}
 	return nil
 }
@@ -227,28 +239,53 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(t *testing.T, device *ondatra.DUTD
 // restoreReservedDevices tries to restore the config of the reserved devices
 // if the config differs from the saved config.
 func (cr *ConfigRestorer) restoreReservedDevices(t *testing.T) {
+        t.Helper()
+	ctx := context.Background()
 	if cr.savedConfigs == nil {
-		log.Infof("configRestorer.savedConfigs is not initialized.")
+		log.InfoContextf(ctx, "configRestorer.savedConfigs is not initialized.")
 		return
 	}
 
+        wg := sync.WaitGroup{}
 	devices := ondatra.DUTs(t)
+        errCh := make(chan error, len(devices))
 	for id, device := range devices {
 		deviceName := device.Name()
 		if !cr.isRestorableDUTID(id) {
-			log.Infof("Unsupported DUT ID:%v, not restoring config for the device(%v)", id, deviceName)
+			log.InfoContextf(ctx, "Unsupported DUT ID:%v, not restoring config for the device: %v", id, deviceName)
 			continue
 		}
-		if err := cr.restoreConfigOnDiff(t, device); err != nil {
-			t.Error(err)
-		}
+		wg.Add(1)
+		go func(t *testing.T, device *ondatra.DUTDevice) {
+			defer wg.Done()
+			if err := cr.restoreConfigOnDiff(ctx, t, device); err != nil {
+				errCh <- fmt.Errorf("couldn't restore config for device: %v, err: %v", device.Name(), err)
+			}
+		}(t, device)
 	}
+	wg.Wait()
+	close(errCh)
+
+        // Collect all the errors and fail the test on error.
+	if err := collectErrors(errCh); err != nil {
+		t.Fatalf("failed to restore config, errors: %v", err)
+	}
+        log.InfoContextf(ctx, "Config restored for all the reserved devices.")
 }
 
 // RestoreConfigsAndClose restores the config of reserved devices
 // and closes the configRestorer object.
 func (cr *ConfigRestorer) RestoreConfigsAndClose(t *testing.T) {
+        t.Helper()
 	cr.restoreReservedDevices(t)
 	cr.savedConfigs = nil
 	cr.ignorePaths = nil
+}
+
+func collectErrors(errCh chan error) error {
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
