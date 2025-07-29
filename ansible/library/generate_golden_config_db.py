@@ -383,7 +383,7 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_default_golden_config_db(self):
+    def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
@@ -451,7 +451,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
         else:
-            config = self.generate_default_golden_config_db()
+            config = self.generate_default_init_config_db()
 
         # update ZMQ config
         config = self.update_zmq_config(config)
