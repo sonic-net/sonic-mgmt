@@ -14,7 +14,6 @@ Each validator gets a range of 1000 issue IDs:
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from enum import Enum
-import logging
 
 
 class ValidationSeverity(Enum):
@@ -183,6 +182,11 @@ class ValidationResult:
         return [issue for issue in self.issues if issue.severity == ValidationSeverity.WARNING]
 
     @property
+    def infos(self) -> List[ValidationIssue]:
+        """Get all info-level issues"""
+        return [issue for issue in self.issues if issue.severity == ValidationSeverity.INFO]
+
+    @property
     def error_count(self) -> int:
         """Get count of error-level issues"""
         return len(self.errors)
@@ -191,6 +195,11 @@ class ValidationResult:
     def warning_count(self) -> int:
         """Get count of warning-level issues"""
         return len(self.warnings)
+
+    @property
+    def info_count(self) -> int:
+        """Get count of info-level issues"""
+        return len(self.infos)
 
     def add_issue(self, issue_id: str, details: Dict[str, Any] = None):
         """Add a validation issue using issue ID and details"""
@@ -202,19 +211,6 @@ class ValidationResult:
 
         # Handle IGNORE severity - skip entirely
         if severity == ValidationSeverity.IGNORE:
-            return
-
-        # Handle I* issues or INFO severity as logs instead of adding to issues list
-        if issue_id.startswith('I') or severity == ValidationSeverity.INFO:
-            logger = logging.getLogger(f"meta.{self.validator_name}")
-            issue_def = _issue_registry.get_issue(issue_id)
-            if issue_def:
-                message = issue_def.description
-                detail_str = ", ".join([f"{k}={v}" for k, v in details.items()]) if details else ""
-                log_message = f"[{issue_id}] {issue_def.keyword}: {message}"
-                if detail_str:
-                    log_message += f" ({detail_str})"
-                logger.info(log_message)
             return
 
         # Get issue definition to form the message

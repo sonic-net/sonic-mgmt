@@ -44,6 +44,7 @@ class ValidationResults:
     total_failed: int
     total_errors: int
     total_warnings: int
+    total_infos: int
     groups_processed: int
 
     @property
@@ -303,9 +304,10 @@ class MetaValidator:
         total_passed = sum(summary.passed_validators for _, summary in all_summaries)
         total_failed = sum(summary.failed_validators for _, summary in all_summaries)
 
-        # Count all errors and warnings
+        # Count all errors, warnings, and infos
         total_errors = sum(len(result.errors) for _, summary in all_summaries for result in summary.results)
         total_warnings = sum(len(result.warnings) for _, summary in all_summaries for result in summary.results)
+        total_infos = sum(len(result.infos) for _, summary in all_summaries for result in summary.results)
 
         # Create results object
         results = ValidationResults(
@@ -316,6 +318,7 @@ class MetaValidator:
             total_failed=total_failed,
             total_errors=total_errors,
             total_warnings=total_warnings,
+            total_infos=total_infos,
             groups_processed=len([s for s in all_summaries if s[0] != "global"])
         )
 
@@ -509,7 +512,7 @@ class MetaValidator:
         print(f"Groups processed: {results.groups_processed}")
         print(f"Total validator executions: {results.total_validators}")
         print(f"Passed: {results.total_passed}, Failed: {results.total_failed}")
-        print(f"Errors: {results.total_errors}, Warnings: {results.total_warnings}")
+        print(f"Errors: {results.total_errors}, Warnings: {results.total_warnings}, Infos: {results.total_infos}")
         print(f"Success rate: {results.success_rate:.1f}%")
 
         # Detailed report by group/scope
@@ -520,7 +523,7 @@ class MetaValidator:
                 print(f"--- Group: {group} ---")
 
             for result in summary.results:
-                details = f"({len(result.errors)} errors, {len(result.warnings)} warnings)"
+                details = f"({len(result.errors)} errors, {len(result.warnings)} warnings, {len(result.infos)} infos)"
                 if result.success:
                     print(f"  {result.validator_name}: PASSED {details}")
                 else:
@@ -531,6 +534,8 @@ class MetaValidator:
                         print(f"    - ERROR: {error}")
                     for warning in result.warnings:
                         print(f"    - WARNING: {warning}")
+                    for info in result.infos:
+                        print(f"    - INFO: {info}")
                 elif report_level == 'errors' and result.errors:
                     for error in result.errors:
                         print(f"    - ERROR: {error}")
@@ -551,6 +556,7 @@ class MetaValidator:
         return {
             "issue_id": issue.issue_id,
             "keyword": issue.keyword,
+            "description": issue.description,
             "message": issue.message,
             "severity": issue.severity.name.lower(),
             "source": issue.source,
@@ -568,6 +574,7 @@ class MetaValidator:
                 "total_failed": results.total_failed,
                 "total_errors": results.total_errors,
                 "total_warnings": results.total_warnings,
+                "total_infos": results.total_infos,
                 "success_rate": round(results.success_rate, 1),
                 "overall_success": results.overall_success
             },
@@ -588,6 +595,7 @@ class MetaValidator:
                     "execution_time": result.execution_time,
                     "error_count": len(result.errors),
                     "warning_count": len(result.warnings),
+                    "info_count": len(result.infos),
                     "metadata": result.metadata
                 }
 
@@ -595,6 +603,7 @@ class MetaValidator:
                 if report_level == 'full':
                     validator_data["errors"] = [self._issue_to_dict(error) for error in result.errors]
                     validator_data["warnings"] = [self._issue_to_dict(warning) for warning in result.warnings]
+                    validator_data["infos"] = [self._issue_to_dict(info) for info in result.infos]
                 elif report_level == 'errors':
                     validator_data["errors"] = [self._issue_to_dict(error) for error in result.errors]
                 elif report_level == 'summary':
