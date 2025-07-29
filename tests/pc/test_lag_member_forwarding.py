@@ -8,12 +8,12 @@ from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
-from tests.pc.test_lag_2 import config_and_delete_multip_process
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.parametrize("teamd_mode", ["unified", "multi_process"]),
 ]
 
 
@@ -69,12 +69,11 @@ def build_pkt(dest_mac, ip_addr, ttl):
     exp_packet.set_ignore_extra_bytes()
     return pkt, exp_packet
 
-@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
-def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter, testcase):
+
+def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                       tbinfo, ptfadapter, teamd_mode, teamd_mode_config_unconfig):
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if testcase == "multi_process":
-        config_and_delete_multip_process(duthost, True)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     if not len(lag_facts['lags'].keys()):
@@ -207,6 +206,4 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 pytest.fail("BGP is still enable on lag disable member for neighbor {}", ip)
     finally:
         duthost.shell('rm -f {}'.format(lag_member_file_dir))
-        if testcase == "multi_process":
-            config_and_delete_multip_process(duthost, False)
         config_reload(duthost, config_source='config_db')

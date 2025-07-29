@@ -20,21 +20,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.parametrize("teamd_mode", ["unified", "multi_process"]),
 ]
-
-def config_and_delete_multip_process(host, config_mode):
-    if config_mode == True:
-        host.shell('sonic-db-cli CONFIG_DB hset "TEAMD|GLOBAL" "mode" "multi-process"', module_ignore_errors=True)
-    else :
-        host.shell('sonic-db-cli CONFIG_DB hdel "TEAMD|GLOBAL" "mode"', module_ignore_errors=True)
-    try:
-        host.restart_service("swss")
-    except TypeError:
-        host.shell("sudo systemctl restart swss", module_ignore_errors=True)
-    logger.info("Waiting 120 seconds for config reload to take effect...")
-    wait_until(60, 5, 0, host.critical_services_fully_started)
-    wait_until(60, 5, 0, host.critical_processes_running, "teamd")
-    time.sleep(10)
 
 
 @pytest.fixture(scope="module")
@@ -287,19 +274,17 @@ def skip_if_no_lags(duthosts):
     pytest_require(some_dut_has_lags, 'No LAGs found in any DUT')
 
 
-@pytest.mark.parametrize("testcase_mode", ["unified", "multi_process"])
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
-             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request, testcase_mode):     # noqa: F811
+             conn_graph_facts, enum_dut_portchannel_with_completeness_level,    # noqa: F811
+             testcase, request, teamd_mode, teamd_mode_config_unconfig):
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     # We can't run single_lag test on vtestbed since there is no leaffanout
     duthost = get_duthost_with_name(duthosts, dut_name)
     if duthost is None:
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
-    if testcase_mode == "multi_process":
-        config_and_delete_multip_process(duthost, True)
 
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
@@ -358,8 +343,6 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
                         test_instance.run_lag_fallback_test(lag_name, lag_facts)
 
     pytest_assert(some_test_ran, "Didn't run any test.")
-    if testcase_mode == "multi_process":
-        config_and_delete_multip_process(duthost, False)
 
 
 @pytest.fixture(scope='function')
@@ -467,18 +450,14 @@ def check_link_is_down(asichost, po_intf):
     return str(oper_status) == 'down' and str(admin_status) == 'down'
 
 
-@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
 def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
-                       ignore_expected_loganalyzer_exceptions_lag, testcase):
+                       ignore_expected_loganalyzer_exceptions_lag, teamd_mode, teamd_mode_config_unconfig):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
     duthost = get_duthost_with_name(duthosts, dut_name)
     if duthost is None:
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
-
-    if testcase == "multi_process":
-        config_and_delete_multip_process(duthost, True)
 
     test_lags = []
     try:
@@ -544,12 +523,10 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
                     logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
                     asichost.startup_interface(po_intf)
 
-    if testcase == "multi_process":
-        config_and_delete_multip_process(duthost, False)
 
-@pytest.mark.parametrize("testcase", ["unified", "multi_process"])
 def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level,
-                                      ignore_expected_loganalyzer_exceptions_lag, testcase):
+                                      ignore_expected_loganalyzer_exceptions_lag, teamd_mode,
+                                      teamd_mode_config_unconfig):
     """
     test port channel add/deletion and check interface status in state_db
     """
@@ -558,8 +535,6 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
     duthost = get_duthost_with_name(duthosts, dut_name)
     if duthost is None:
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
-    if testcase == "multi_process":
-        config_and_delete_multip_process(duthost, True)
 
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     # Test for each lag
@@ -604,6 +579,3 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
             pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                           "{} member {}'s admin_status or oper_status in state_db is not up."
                           .format(lag_name, po_intf))
-    if testcase == "multi_process":
-        config_and_delete_multip_process(duthost, False)
-
