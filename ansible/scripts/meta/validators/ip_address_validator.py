@@ -243,12 +243,12 @@ class IpAddressValidator(GlobalValidator):
                 )
                 return
 
-            # Check if this is PTF IP conflict between testbed and ansible inventory ptf group
-            if ((source_type == "testbed" and existing_source_type == "ansible_inventory") or
-                    (source_type == "ansible_inventory" and existing_source_type == "testbed")):
-                # PTF IPs from testbeds can overlap with ansible inventory in ptf group - not a conflict
+            # IPs from ansible inventory will conflict with any other source type, like PTF in testbed
+            # or connection graph. This is by design.
+            if ((source_type != "ansible_inventory" and existing_source_type == "ansible_inventory") or
+                    (source_type == "ansible_inventory" and existing_source_type != "ansible_inventory")):
                 self.logger.debug(
-                    f"PTF IP overlap detected between testbed and ansible inventory ptf group: {ip_addr}"
+                    f"IP overlap detected between {source_type} and {existing_source_type}: {ip_addr}"
                 )
                 return
 
