@@ -199,7 +199,10 @@ func poll(ctx context.Context, t *testing.T, interval time.Duration, pf pollFunc
 // returns error if the difference still exists.
 func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
 	if dut == nil {
-		return errors.New("nil DUT passed to VerifyConfigConvergence()")
+		return errors.New("nil DUT passed to WaitForConfigConvergence()")
+	}
+	if config == nil {
+		return errors.New("nil config passed to WaitForConfigConvergence()")
 	}
 	ctx, cancel := context.WithTimeout(ctx, configConvergenceTimeout)
 	defer cancel()
