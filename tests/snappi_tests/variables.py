@@ -60,29 +60,40 @@ MULTIDUT_PORT_INFO = {
 
 # rx port is 400Gbps port receiving traffic in mixed-speed mode.
 # tx port is 100Gbps port sending traffic to IXIA.
-MIXED_SPEED_PORT_INFO = {'vms69-t2-8800-2-ixia': [{
-        'multi-dut-multi-asic-to-short-link': {
-            'rx_ports': [
-                {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
-            ],
-            'tx_ports': [
-                {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
-                {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
-                {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
-            ]
+MIXED_SPEED_PORT_INFO = {
+    'vms69-t2-8800-2-ixia': [
+        {
+            'multi-dut-multi-asic-to-short-link': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
+                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
+                ]
+            }
+        }],
+    'vmsvc5-t2-8800-ixia': []
+}
+
+
+MULTIDUT_PORT_INFO2 = {
+    'vms69-t2-8800-2-ixia': [
+        {
+            'multi-dut-multi-asic-to-short-link': {
+                'rx_ports': [
+                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
+                ],
+                'tx_ports': [
+                    {'port_name': 'Ethernet192', 'hostname': "str3-8800-lc3-1"},
+                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
+                ]
+            }
         }
-    },
-    {
-        'multi-dut-multi-asic-to-longlink': {
-            'rx_ports': [
-                {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"},
-            ],
-            'tx_ports': [
-                {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
-                {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
-            ]
-        }
-    }]
+    ],
+    'vmsvc5-t2-8800-ixia': []
 }
 
 if MULTIDUT_TESTBED not in MULTIDUT_PORT_INFO:
