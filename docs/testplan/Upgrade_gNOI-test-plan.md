@@ -1,6 +1,7 @@
 - [Overview](#overview)
 - [Scope](#scope)
 - [Test structure](#test-structure)
+- [Test scenario](#test-scenario)
 - [Test cases](#test-cases)
 # TestName
 UPgrade Service via gNOI
@@ -15,20 +16,26 @@ This test targets SONiC systems running in three environments: local Linux VM, K
 upgrade_gNOI.yaml – YAML config file specifying upgrade parameters (image URL, save path, timeouts, etc.)
 
 ### Related APIs
-gNOI RPCs: SystemInfo.GetPlatformType, Upgrade.Download, Upgrade.Apply, Upgrade.Status
+gNOI: System.SetPackage (download), File.TransferToRemote (download), File.Remove (clean up)
+gNMI: gNMI.Get (for read operations such as detecting platform types)
+Other custom rpc for Platform/Vendor/Version specific operations.
 
 ## Test structure
 ### Setup Configuration
 Deploy gNOI server on the target environment (Linux VM, KVM SONiC, or physical SONiC).
 Build and install upgrade-agent on the testbed or control host.
-Ensure gRPC port (default: 50051) is reachable from the agent.
+Ensure gRPC port is reachable from the agent.
 Prepare a valid upgrade YAML configuration file.
 
 ### Configuration scripts
-build_deploy.sh – deploys gNOI server container
+build_deploy scrits – build and deploy gnmi docker
 upgrade-agent – CLI tool for upgrade operations
+builder - build and deploy gnmi server
 
-## Test cases
+## Test scenario
+1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests.
+2. Nightly testing(sonic-mgmt): This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across real and virtual SONiC devices during nightly regression.
+## Test fixture
 ### Test case #1 - Local Linux VM Compatibility
 
 #### Test objective
