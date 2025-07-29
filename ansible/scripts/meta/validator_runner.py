@@ -126,7 +126,7 @@ class MetaValidator:
                           testbed_config_path: str = "ansible/testbed.yaml",
                           testbed_nut_config_path: str = "ansible/testbed.nut.yaml",
                           graph_groups_path: str = "ansible/files/graph_groups.yml",
-                          specific_group: Optional[str] = None
+                          specific_groups: Optional[List[str]] = None
                           ) -> Tuple[List[str], List, List[str], Optional[Dict]]:
         """
         Load testbed configurations and graph groups
@@ -135,7 +135,7 @@ class MetaValidator:
             testbed_config_path: Path to main testbed configuration file
             testbed_nut_config_path: Path to NUT testbed configuration file
             graph_groups_path: Path to graph groups file
-            specific_group: Optional specific group to validate (overrides graph groups)
+            specific_groups: Optional list of specific groups to validate (overrides graph groups)
 
         Returns:
             Tuple of (groups, testbeds, testbed_files, testbed_facts)
@@ -143,9 +143,17 @@ class MetaValidator:
         self.logger.info("Loading testbed data and graph groups")
 
         # Load graph groups
-        if specific_group:
-            self.groups = [specific_group]
-            self.logger.info(f"Validating specific group: {specific_group}")
+        if specific_groups:
+            # Load all available groups first to validate specific groups exist
+            available_groups = self._load_graph_groups(graph_groups_path)
+            invalid_groups = [g for g in specific_groups if g not in available_groups]
+            if invalid_groups:
+                self.logger.error(f"Invalid groups specified: {', '.join(invalid_groups)}")
+                self.logger.error(f"Available groups: {', '.join(available_groups)}")
+                sys.exit(1)
+
+            self.groups = specific_groups
+            self.logger.info(f"Validating specific groups: {', '.join(specific_groups)}")
         else:
             self.groups = self._load_graph_groups(graph_groups_path)
             self.logger.info(f"Loaded {len(self.groups)} infrastructure groups")

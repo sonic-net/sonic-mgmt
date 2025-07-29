@@ -77,12 +77,18 @@ python3 meta_validator.py --verbose
 python3 meta_validator.py -v
 ```
 
-**Validate a specific group:**
+**Validate specific groups:**
 
 ```bash
+# Single group
 python3 meta_validator.py --group lab
 # or using short name:
 python3 meta_validator.py -g lab
+
+# Multiple groups
+python3 meta_validator.py --group lab ixia
+# or using short name:
+python3 meta_validator.py -g lab ixia
 ```
 
 **List available validators:**
@@ -143,7 +149,7 @@ python3 meta_validator.py \
     --graph-groups ansible/files/graph_groups.yml \
     --testbed-config ansible/testbed.yaml \
     --testbed-nut-config ansible/testbed.nut.yaml \
-    --group specific-group \
+    --group lab ixia \
     --report-level full \
     --enable-validators testbed ip_address \
     --disable-validators vlan \
@@ -157,7 +163,7 @@ python3 meta_validator.py \
     -gg ansible/files/graph_groups.yml \
     -t ansible/testbed.yaml \
     -tn ansible/testbed.nut.yaml \
-    -g specific-group \
+    -g lab ixia \
     -r full \
     -e testbed ip_address \
     -d vlan \
@@ -167,7 +173,7 @@ python3 meta_validator.py \
 **Available options:**
 
 - `--config` / `-c`: Path to configuration file
-- `--group` / `-g`: Validate specific group only
+- `--group` / `-g`: Validate specific groups only (space-separated list)
 - `--verbose` / `-v`: Enable verbose logging
 - `--testbed-config` / `-t`: Path to testbed configuration file
 - `--testbed-nut-config` / `-tn`: Path to NUT testbed configuration file

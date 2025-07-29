@@ -66,7 +66,9 @@ def parse_arguments():
     )
     parser.add_argument(
         '--group', '-g',
-        help='Validate specific group only'
+        nargs='*',
+        metavar='GROUP',
+        help='Validate specific groups only (space-separated list)'
     )
     parser.add_argument(
         '--create-sample-config', '-s',
@@ -207,7 +209,7 @@ def main():
             testbed_config_path=args.testbed_config,
             testbed_nut_config_path=args.testbed_nut_config,
             graph_groups_path=args.graph_groups,
-            specific_group=args.group
+            specific_groups=args.group
         )
 
         # Run validation
