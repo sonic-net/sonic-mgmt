@@ -1614,6 +1614,7 @@ sonic_cisco_8101_V64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+      reduce_port_speed: true
     bjw2-can-8101c1-2:
       ansible_host: 10.150.23.243
       ansible_hostv6: 2404:f801:10:2200::a96:17f3
@@ -1646,6 +1647,23 @@ sonic_cisco_8101_V64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+      reduce_port_speed: true
+    bjw2-can-8101c1-6:
+      ansible_host: 10.150.22.59
+      ansible_hostv6: 2404:f801:10:2200::a96:163b
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O-C01
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw2-can-8101c1-7:
+      ansible_host: 10.150.22.62
+      ansible_hostv6: 2404:f801:10:2200::a96:163e
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O-C01
+      serial:
+      base_mac:
+      syseeprom_info:
 
 sonic_cisco_8101_C32:
   vars:
@@ -1717,6 +1735,7 @@ sonic_cisco_8101_C32:
           timeout: 300
           wait: 600
 
+
 sonic_cisco_8101_O32:
   vars:
     hwsku: Cisco-8101-O32
@@ -1754,22 +1773,6 @@ sonic_cisco_8101_O32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-    bjw2-can-8101c1-6:
-      ansible_host: 10.150.22.59
-      ansible_hostv6: 2404:f801:10:2200::a96:163b
-      mgmt_subnet_mask_length: 23
-      model: 8101-32FH-O-C01
-      serial:
-      base_mac:
-      syseeprom_info:
-    bjw2-can-8101c1-7:
-      ansible_host: 10.150.22.62
-      ansible_hostv6: 2404:f801:10:2200::a96:163e
-      mgmt_subnet_mask_length: 23
-      model: 8101-32FH-O-C01
-      serial:
-      base_mac:
-      syseeprom_info:
 
 
 sonic_arista_7050_C32:

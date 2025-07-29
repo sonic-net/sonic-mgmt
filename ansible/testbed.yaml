@@ -4347,7 +4347,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.133/17
 
-- conf-name: testbed-bjw2-can-t0-8101c1c1-5
+- conf-name: testbed-bjw2-can-t0-8101c1-5
   group-name: bjw2-2-c
   topo: t0-64
   ptf_image_name: docker-ptf
