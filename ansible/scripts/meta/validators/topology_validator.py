@@ -4,6 +4,7 @@ TopologyValidator - Validates topology files in ansible/vars folder
 
 import yaml
 import ipaddress
+import re
 from pathlib import Path
 from .base_validator import GlobalValidator, ValidatorContext
 from .validator_factory import register_validator
@@ -20,6 +21,14 @@ class TopologyValidator(GlobalValidator):
             category="configuration"
         )
         self.config = config or {}
+        # Configuration options
+        self.includes = self.config.get('includes', [])  # List of regex patterns to include
+        self.excludes = self.config.get('excludes', [])  # List of regex patterns to exclude
+
+        # Compile regex patterns for performance
+        self.include_patterns = [re.compile(pattern) for pattern in self.includes]
+        self.exclude_patterns = [re.compile(pattern) for pattern in self.excludes]
+
         # Base paths relative to the validator script location
         self.base_path = Path(__file__).parent.parent.parent.parent
         self.vars_path = self.base_path / "vars"
@@ -32,11 +41,21 @@ class TopologyValidator(GlobalValidator):
         Args:
             context: ValidatorContext containing validation data
         """
-        # Find all topology files
+        # Log filtering configuration
+        self.logger.info(f"Topology filtering config - includes: {self.includes}, excludes: {self.excludes}")
+        if self.includes or self.excludes:
+            self.logger.info(f"Topology filtering enabled - includes: {self.includes}, excludes: {self.excludes}")
+
+        # Find all topology files (with filtering applied)
         topology_files = self._find_topology_files()
 
         if not topology_files:
-            self.logger.info("Topology validation summary: No topology files found for validation")
+            if self.includes or self.excludes:
+                self.logger.info(
+                    "Topology validation summary: No topology files found after applying includes/excludes filters"
+                )
+            else:
+                self.logger.info("Topology validation summary: No topology files found for validation")
             return
 
         validated_files = 0
@@ -79,10 +98,18 @@ class TopologyValidator(GlobalValidator):
             )
             return topology_files
 
-        # Find all topo_*.yml files
-        for file_path in self.vars_path.glob("topo_*.yml"):
-            topology_files.append(file_path)
+        # Find all topo_*.yml files and apply filtering
+        all_files = list(self.vars_path.glob("topo_*.yml"))
+        self.logger.debug(f"Found {len(all_files)} topology files before filtering")
 
+        for file_path in all_files:
+            topo_name = self._extract_topology_name(file_path.name)
+            should_include = self._should_include_topology(topo_name)
+            self.logger.debug(f"Topology {topo_name}: {'INCLUDE' if should_include else 'EXCLUDE'}")
+            if should_include:
+                topology_files.append(file_path)
+
+        self.logger.debug(f"Selected {len(topology_files)} topology files after filtering")
         return sorted(topology_files)
 
     def _load_topology_file(self, topo_file):
@@ -318,6 +345,30 @@ class TopologyValidator(GlobalValidator):
                                 "error": str(e)
                             }
                         )
+
+    def _should_include_topology(self, topo_name):
+        """
+        Check if topology should be included based on includes/excludes filters
+
+        Args:
+            topo_name: The topology name
+
+        Returns:
+            bool: True if topology should be included
+        """
+        # If includes patterns are specified, topology must match at least one
+        if self.include_patterns:
+            include_match = any(pattern.search(topo_name) for pattern in self.include_patterns)
+            if not include_match:
+                return False
+
+        # If excludes patterns are specified, topology must not match any
+        if self.exclude_patterns:
+            exclude_match = any(pattern.search(topo_name) for pattern in self.exclude_patterns)
+            if exclude_match:
+                return False
+
+        return True
 
     def _validate_bp_interface_subnets(self, topo_name, topology_data):
         """Validate bp_interface subnet consistency"""

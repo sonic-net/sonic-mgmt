@@ -502,7 +502,24 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Purpose**: Validates topology files defined under `ansible/vars` folder to ensure template files exist and configurations are consistent.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `includes`: List of regex patterns to include topologies (default: [] - include all)
+- `excludes`: List of regex patterns to exclude topologies (default: [] - exclude none)
+
+**Example Configuration:**
+
+```yaml
+validators:
+  - name: topology
+    enabled: true
+    config:
+      includes:
+        - "^tgen.*"    # Include topologies starting with "tgen"
+        - ".*ixia.*"   # Include topologies containing "ixia"
+      excludes:
+        - ".*-64.*"    # Exclude topologies containing "-64"
+```
 
 **Validation Rules:**
 
