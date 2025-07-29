@@ -103,22 +103,23 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
 
-    if fanout.facts["asic_type"] == "marvell-teralynx":
-        # Check and clean up existing REDIRECT_VLAN ACL table if present.
-        check_output = fanout.shell("show acl table", module_ignore_errors=True)
-        if "REDIRECT_VLAN" in check_output["stdout"]:
-            # Clean up existing ACL rules
-            fanout.shell("acl-loader delete REDIRECT_VLAN")
-            # Clean up existing ACL table to reset environment
-            fanout.shell("config acl remove table REDIRECT_VLAN")
+    if fanout:
+        if fanout.facts["asic_type"] == "marvell-teralynx":
+            # Check and clean up existing REDIRECT_VLAN ACL table if present.
+            check_output = fanout.shell("show acl table", module_ignore_errors=True)
+            if "REDIRECT_VLAN" in check_output["stdout"]:
+                # Clean up existing ACL rules
+                fanout.shell("acl-loader delete REDIRECT_VLAN")
+                # Clean up existing ACL table to reset environment
+                fanout.shell("config acl remove table REDIRECT_VLAN")
 
-            # Remove generated acl_rules.json file
-            acl_json_path = "drop_packets/acl_rules.json"
-            if os.path.exists(acl_json_path):
-                os.remove(acl_json_path)
-                logger.info(f"Removed generated ACL file: {acl_json_path}")
-            else:
-                logger.warning(f"Expected ACL file not found for deletion: {acl_json_path}")
+                # Remove generated acl_rules.json file
+                acl_json_path = "drop_packets/acl_rules.json"
+                if os.path.exists(acl_json_path):
+                    os.remove(acl_json_path)
+                    logger.info(f"Removed generated ACL file: {acl_json_path}")
+                else:
+                    logger.warning(f"Expected ACL file not found for deletion: {acl_json_path}")
 
 
 def generate_acl_rules_from_csv(csv_path, output_json_path):
