@@ -23,7 +23,7 @@ The recommded topology to use includes:
 
 The DUT should have SRv6 and route configurations as follows:
 - Every Device Under Test(DUT) should be configured with a number of SRv6 SIDs up to the maximum number of parallel links between DUT and the neighbors. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a switch with I as device index in the topo and Q as the number of maximum parallel links can be configured to be fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + Q)::/48.
-- Every Traffic Generator(TG) should also be configured a number of SRv6 SIDs each of which corresponds to a link between the traffic generator and the DUT. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a traffic generator with I as device index in N ports can be as fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + N)::/48.
+- Every Traffic Generator(TG) should also be configured a number of SRv6 SIDs each of which corresponds to a link between the traffic generator and the DUT. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a traffic generator, with I as device index and N ports connected to the switch, can be as fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + N)::/48.
 - The DUT should have a static route entry configured for each SRv6 SID that its neighbors (including both DUTs and TGs) have.
 
 An example configuration for snake topology is shown below:
@@ -135,14 +135,14 @@ An example configuration for snake topology is shown below:
 The traffic generators should be configured to send traffic with SRv6 SIDs in IPv6 header and optionally Segment Routing Header.
 The exact way of configuring the SRv6 SIDs in the header depends on the topology and the traffic path the users want to test.
 
+However, there are three principles to follow:
+1. We should split the ports of the traffic generators into two groups (e.g. first half vs last half) with equal number of ports.
+2. Each port of the traffic generators should mutually exclusively communicate with a single port in the other group in a bidrectional way.
+3. Every pair of ports should communicate using a SRv6 path (by specifying SRv6 SID list in IPv6 header) that does not share any link with any other pair of ports so that the network is congestion free by design.
+
 We give two examples for nut2tiers topology and snake topology here:
 
 #### SRv6 SIDs configuration for `nut-2tiers` Topology
-
-The traffic generators should be configured to send traffic as follows:
-- We should split the ports of the traffic generators into two groups (e.g. first half vs last half) so that two groups have equal bandwidth/capacity.
-- Each port of the traffic generators should mutually exclusively communicate with a single port in the other group.
-- Every pair of ports should communicate using a SRv6 path (by specifying SRv6 SID list in IPv6 header) that does not share any link with any other pair of ports so that the network is congestion free by design.
 
 For a NUT which have M T0 devices with M traffic generators that has N ports, the SRv6 paths used by each traffic generator port can be calculated as follows:
 - The ports of the i-th (0 <= i < M/2) traffic generator (in the first group) can use SRv6 paths:
@@ -157,7 +157,8 @@ For a NUT which have M T0 devices with M traffic generators that has N ports, th
     - fcbb:bbbb:hex(i)10:hex(16M)hex(N):hex(i - M/2)10:hex(i - M/2)hex(2N)::
 
 #### SRv6 SIDs configuration for Snake Topology
-For a port of the traffic generator indexed by i (1 <= i <= N), the packet sent by the traffic generator should have SRv6 SID list in IPv6 header (and potentially Segment Routing Header) as follows:
+Supposedly, there are two groups of traffic generator ports on both sides of the 'Snake'.
+If one group of traffic generator ports consists of N ports, for a port of indexed by i (1 <= i <= N), the packet sent by the traffic generator should have SRv6 SID list in IPv6 header (and potentially Segment Routing Header) as follows:
 - fcbb:bbbb:i00:i:hex(N + i):hex(2N + i)...hex(MN + i):hex(N+i)00::, note: hex(N+i)00 refers to the SRv6 SID of the receiving traffic generator.
 
 To maximize the stress on the DUT, the i-th port of the traffic generators on the other side of the topology should send packets to the DUT with SRv6 SID list as follows:
@@ -166,11 +167,8 @@ To maximize the stress on the DUT, the i-th port of the traffic generators on th
 ### Metrics Monitoring
 
 The test should perform the following metrics monitoring:
-- Collects all metrics listed in [Switch Capability Test](./switch_capacity_test.md) periodically from switches during the test.
+- Collects all metrics listed in [Switch Capability Test](./switch_capacity_test.md), [Switch Packet Drop Threshold Test](./switch-packet-drop-threshold-tests.md) and [Switch latency Tests](./switch-latency-tests.md) periodically from switches during the test.
 - Collects additional metrics listed in [Metrics to Collect](#metrics-to-collect) periodically from switches during the test.
-- Measure the throughput of the traffic on the receiver side.
-- Measure the latency of every packet received and log the data.
-
 
 ## Test Parameters
 
@@ -185,9 +183,9 @@ The test should perform the following metrics monitoring:
 3. Wait until the test to be completed.
 4. Stop the traffic generator.
 
-## Metrics to collect
+##  Additional Metrics to collect
 
-During this test, we are going to collect the following metrics from the SONiC device in the testbed:
+During this test, we are going to collect the following additional metrics from the SONiC device in the testbed:
 
 ### SRv6 MY_SID Metrics
 
