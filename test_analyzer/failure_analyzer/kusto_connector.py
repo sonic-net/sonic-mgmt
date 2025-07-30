@@ -208,10 +208,10 @@ class KustoConnector(object):
         | extend AttemptInt = toint(Attempt);
         let flakySummary = dataClean
         | summarize
-            firstFailure = minif(AttemptInt, Result in (ResultFilterList)),
-            firstSuccess = minif(AttemptInt, Result == "success")
+            hasFailure = countif(Result in (ResultFilterList)) > 0,
+            hasSuccess = countif(Result == "success") > 0
         by BuildId, FullCaseName
-        | where isnotempty(firstSuccess) and isnotempty(firstFailure) and firstFailure != firstSuccess;
+        | where hasFailure and hasSuccess;
         flakySummary
         | join kind=innerunique  (
             dataClean
