@@ -4173,8 +4173,8 @@
   topo: ft2-64
   ptf_image_name: docker-ptf
   ptf: vms73-8
-  ptf_ip: 10.64.247.128/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f77b/64
+  ptf_ip: 10.64.247.129/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f781/64
   server: server_73
   vm_base: VM73300
   dut:
