@@ -1,4 +1,4 @@
-- name: Bind VM {{ vm_name }}
+- name: Bind VM {{ current_vm_name }}
   vm_topology:
     cmd: "bind"
     vm_set_name: "{{ vm_set_name }}"
@@ -33,6 +33,6 @@
   poll: 0
   register: async_bind_topology_result_item
 
-- name: Save job id for {{ vm_name }}
+- name: Save job id for {{ current_vm_name }}
   set_fact:
-    async_bind_job_results: "{{ async_bind_job_results | default({}) | combine({ vm_name: async_bind_topology_result_item.ansible_job_id }) }}"
+    async_bind_job_results: "{{ async_bind_job_results | default({}) | combine({ current_vm_name: async_bind_topology_result_item.ansible_job_id }) }}"

@@ -1,4 +1,4 @@
-- name: Unbind VM {{ vm_name }}
+- name: Unbind VM {{ current_vm_name }}
   vm_topology:
     cmd: "unbind"
     vm_set_name: "{{ vm_set_name }}"
@@ -22,6 +22,6 @@
   register: async_unbind_topology_result_item
   become: yes
 
-- name: Save job id for {{ vm_name }}
+- name: Save job id for {{ current_vm_name }}
   set_fact:
-    async_unbind_job_results: "{{ async_unbind_job_results | default({}) | combine({ vm_name: async_unbind_topology_result_item.ansible_job_id }) }}"
+    async_unbind_job_results: "{{ async_unbind_job_results | default({}) | combine({ current_vm_name: async_unbind_topology_result_item.ansible_job_id }) }}"
