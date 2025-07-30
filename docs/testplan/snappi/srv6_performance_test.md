@@ -85,23 +85,23 @@ An example configuration for snake topology is shown below:
     },
     "SRV6_MY_LOCATORS": {
         "loc1": {
-            "prefix": "fcbb:bbbb:1::/48",
+            "prefix": "fcbb:bbbb:1::",
             "func_len": 0
         },
         "loc2": {
-            "prefix": "fcbb:bbbb:2::/48",
+            "prefix": "fcbb:bbbb:2::",
             "func_len": 0
         },
         "loc3": {
-            "prefix": "fcbb:bbbb:3::/48",
+            "prefix": "fcbb:bbbb:3::",
             "func_len": 0
         },
         "loc4": {
-            "prefix": "fcbb:bbbb:4::/48",
+            "prefix": "fcbb:bbbb:4::",
             "func_len": 0
         },
         "loc5": {
-            "prefix": "fcbb:bbbb:5::/48",
+            "prefix": "fcbb:bbbb:5::",
             "func_len": 0
         }
     },
