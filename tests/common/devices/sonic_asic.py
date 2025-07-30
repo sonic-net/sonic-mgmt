@@ -585,6 +585,24 @@ class SonicAsic(object):
                 return pc["ports"].split()
         return []
 
+    def clear_portchannel_statistics(self, pc_name=None, interface_name=None):
+        """
+        Clear PortChannel statistics:
+        - If both pc_name and interface_name are None: clear all.
+        - If interface_name is None: clear for the given portchannel.
+        - If both provided: clear for specific member of the portchannel.
+        """
+        base_cmd = "sudo sonic-clear {ns} portchannel statistics".format(ns=self.cli_ns_option)
+
+        if pc_name and interface_name:
+            cmd = f"{base_cmd} {pc_name} {interface_name}"
+        elif pc_name:
+            cmd = f"{base_cmd} {pc_name}"
+        else:
+            cmd = base_cmd
+
+        return self.sonichost.shell(cmd)
+
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
         return self.sonichost.switch_arptable(*module_args, **complex_args)
