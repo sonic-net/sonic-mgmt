@@ -35,8 +35,8 @@ builder - build and deploy gnmi server
 ## Test scenario
 1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests.
 2. Nightly testing(sonic-mgmt): This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across real and virtual SONiC devices during nightly regression.
-## Test fixture
-### Test case #1 - Local Linux VM Compatibility
+## Test Fixture
+### Test Fixture #1 - Local Linux VM Compatibility
 
 #### Test objective
 
@@ -47,7 +47,7 @@ Verify that the upgrade service functions correctly in a local Linux VM environm
 4. Use upgrade-agent apply with a dry-run config.
 5. Use upgrade-agent status to track session progress.
 
-### Test case #2 - KVM SONiC Compatibility
+### Test Fixture #2 - KVM SONiC Compatibility
 
 #### Test objective
 
@@ -57,7 +57,7 @@ Validate upgrade service behavior on a KVM-based SONiC device.
 3. Verify session tracking and post-upgrade state.
 4. Simulate failure (e.g., invalid URL) and verify error handling.
 
-### Test case #3 - Physical SONiC Compatibility
+### Test Fixture #3 - Physical SONiC Compatibility
 
 #### Test objective
 
@@ -67,7 +67,7 @@ Ensure upgrade service works reliably on physical SONiC hardware.
 3. Validate system health post-upgrade.
 4. Test watchdog reboot and missing next-hop scenarios.
 
-### Test case #4 - Negative Scenarios
+### Test Fixture #4 - Negative Scenarios
 
 #### Test objective
 
