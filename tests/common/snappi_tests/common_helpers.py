@@ -1197,6 +1197,32 @@ def get_interface_stats(duthost, port):
     return i_stats
 
 
+def get_interface_counters_detailed(duthost, port):
+    """
+    Runs 'show interface counters detailed <interface>' on the device and parses the output.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): interface name, e.g., 'Ethernet0'
+    Returns:
+        counters (dict): key-value pairs of interface counters, where key is the counter name
+                            and value is the counter value as a string.
+    """
+    cmd = f"show interface counters detailed {port}"
+    output = duthost.command(cmd)["stdout"]
+
+    counters = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Split on the last space in the line
+        parts = line.rsplit(' ', 1)
+        if len(parts) == 2:
+            key, value = parts
+            counters[key.strip()] = value.strip()
+    return counters
+
+
 def get_queue_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets and bytes for a given port and all priorities.
