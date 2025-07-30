@@ -3231,14 +3231,22 @@ voq/test_voq_counter.py::test_voq_queue_counter:
 voq/test_voq_fabric_capacity.py:
   skip:
     reason: "Skip test_voq_fabric_capacity on unsupported testbed."
+    conditions_logical_operator: "OR"
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "(type in ['UpperSpineRouter'])"
+      - "(asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_isolation.py:
   skip:
     reason: "Skip test_voq_fabric_isolation on unsupported testbed."
+    conditions_logical_operator: "OR"
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or (asic_type in ['cisco-8000'])"
+      - "('t2' not in topo_name)"
+      - "(asic_subtype not in ['broadcom-dnx'])"
+      - "(type in ['UpperSpineRouter'])"
+      - "(asic_type in ['cisco-8000'])"
 
 voq/test_voq_fabric_status_all.py:
   skip:
