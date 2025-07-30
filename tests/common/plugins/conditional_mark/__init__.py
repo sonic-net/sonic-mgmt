@@ -276,6 +276,10 @@ def load_config_facts(inv_name, dut_name):
                 results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
             else:
                 results['switch_type'] = ""
+            if 'type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['type'] = output_fields['DEVICE_METADATA']['localhost']['type']
+            else:
+                results['type'] = ""
 
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
