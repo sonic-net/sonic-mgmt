@@ -445,7 +445,7 @@
 
 - conf-name: vms-kvm-vpp-t1-lag
   group-name: vms6-2
-  topo: t1-lag
+  topo: t1-lag-vpp
   ptf_image_name: docker-ptf
   ptf: ptf-02
   ptf_ip: 10.250.0.106/24
@@ -460,7 +460,7 @@
 
 - conf-name: vms-kvm-vpp-t1
   group-name: vms6-2
-  topo: t1
+  topo: t1-vpp
   ptf_image_name: docker-ptf
   ptf: ptf-02
   ptf_ip: 10.250.0.106/24

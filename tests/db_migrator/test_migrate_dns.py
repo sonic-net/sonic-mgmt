@@ -1,6 +1,7 @@
 import pytest
 import logging
 import json
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config
@@ -81,22 +82,35 @@ def del_dns_nameserver(duthost, ip_addr):
     return duthost.shell(f"config dns nameserver del {ip_addr}", module_ignore_errors=True)
 
 
-def update_minigraph(duthost, minigraph_file):
+def update_minigraph(duthost, minigraph_file, profile=None):
     """
     Update the minigraph file on the DUT
     :param duthost: DUT host object
+    :param minigraph_file: Path to the minigraph file
+    :param profile: Optional QoS profile to be added to the minigraph
+    :return: None
     """
-    new_device_property = '''
+
+    if not profile:
+        profile = random.choice(["RDMA-CENTRIC", "TCP-CENTRIC", "BALANCED"])
+
+    new_device_property = f'''
     <a:DeviceProperty>
         <a:Name>SonicQosProfile</a:Name>
         <a:Reference i:nil="true"/>
-        <a:Value>Balanced</a:Value>
+        <a:Value>{profile}</a:Value>
     </a:DeviceProperty>
 '''
     # Read the minigraph file
     ret = duthost.command(f"cat {minigraph_file}", module_ignore_errors=True)
     if ret["rc"] != 0:
         pytest.fail("Failed to read minigraph file")
+
+    # Check if the minigraph file already contains "SonicQosProfile" property
+    if "<a:Name>SonicQosProfile</a:Name>" in ret["stdout"]:
+        logger.info("SonicQosProfile property already exists in the minigraph file, exiting update_minigraph.")
+        return
+
     minigraph_data = ret["stdout"]
     # Insert the SonicQosProfile property into the minigraph file
     position = minigraph_data.find('</a:DeviceProperty>')
