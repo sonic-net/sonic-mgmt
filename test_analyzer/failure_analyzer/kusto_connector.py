@@ -53,7 +53,7 @@ class KustoConnector(object):
         # Contains all of the common variables for queries to share, based on configuration
         self.query_head = f'''
             let exact_match_os_list = dynamic(['master', 'internal']);
-            let prefix_match_os_list = dynamic({configuration["branch"]["included_branch"]});
+            let prefix_match_os_list = dynamic({configuration["branch"]["released_branch"]});
             let prod_branch_name_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}$");
             let prod_os_version_prefix_pattern = strcat("^(", strcat_array(prefix_match_os_list, "|"), @")\\d{{2}}\\.\\d{{1,3}}$");
             let ResultFilterList = dynamic(["failure", "error"]);
@@ -241,7 +241,7 @@ class KustoConnector(object):
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.rstrip()
-        logger.info("Query flaky failed cases:\n{}".format(query_str))
+        logger.info("Query flaky failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
     def query_consistent_failure(self):
@@ -307,7 +307,7 @@ class KustoConnector(object):
         | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, PipeStatus, AttemptInt
         | sort by UploadTimestamp desc
         '''.rstrip()
-        logger.info("Query 7 days's legacy failed cases:\n{}".format(query_str))
+        logger.info("Query 7 days's legacy failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
     def query_history_results(self, testcase_name, module_path, is_module_path=False, is_common=False, is_legacy=False, is_consistent=False, is_flaky=False):

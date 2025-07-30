@@ -205,7 +205,7 @@ class DataAnalyzer(BasicAnalyzer):
 
     def run_common_summary_failure(self):
         logger.info(
-            "========== Start searching common summary failures ==============")
+            "========== Start searching common summary failure cases ==============")
         waiting_list = []
         summary_failures_df = self.collect_common_summary_failure()
         summary_cases = {}

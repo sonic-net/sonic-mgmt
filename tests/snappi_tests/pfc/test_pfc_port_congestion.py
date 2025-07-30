@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.variables import MULTIDUT_PORT_INFO2, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
@@ -28,7 +28,7 @@ port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 
 @pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO2[MULTIDUT_TESTBED])
 def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                                  conn_graph_facts,             # noqa: F811
                                  fanout_graph_facts_multidut,  # noqa: F811
@@ -165,7 +165,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
 
 
 @pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO2[MULTIDUT_TESTBED])
 def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                                 conn_graph_facts,             # noqa: F811
                                 fanout_graph_facts_multidut,  # noqa: F811
@@ -301,7 +301,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
 
 
 @pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO2[MULTIDUT_TESTBED])
 def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                                   conn_graph_facts,             # noqa: F811
                                   fanout_graph_facts_multidut,  # noqa: F811
@@ -439,7 +439,7 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
 
 
 @pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO2[MULTIDUT_TESTBED])
 def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                                  conn_graph_facts,             # noqa: F811
                                  fanout_graph_facts_multidut,  # noqa: F811

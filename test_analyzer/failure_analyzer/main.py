@@ -63,7 +63,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     common_summary_new_icm_table, common_summary_duplicated_icm_table = analyzer.run_common_summary_failure()
 
-    log_failure_cases("Common summary failed cases", common_summary_new_icm_table, common_summary_duplicated_icm_table, True, False)
+    log_failure_cases("Common summary failure cases", common_summary_new_icm_table, common_summary_duplicated_icm_table, True, False)
 
     legacy_new_icm_table, legacy_duplicated_icm_table = analyzer.run_legacy_failure()
     log_failure_cases("Legacy failure cases", legacy_new_icm_table, legacy_duplicated_icm_table, True, True)
