@@ -26,6 +26,110 @@ The DUT should have SRv6 and route configurations as follows:
 - Every Traffic Generator(TG) should also be configured a number of SRv6 SIDs each of which corresponds to a link between the traffic generator and the DUT. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a traffic generator with I as device index in N ports can be as fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + N)::/48.
 - The DUT should have a static route entry configured for each SRv6 SID that its neighbors (including both DUTs and TGs) have.
 
+An example configuration for snake topology is shown below:
+```
+{
+    "INTERFACE": {
+        "Ethernet0": {},
+        "Ethernet0|10.0.3.2/30": {},
+        "Ethernet0|fc0a::302/126": {},
+        "Ethernet1": {},
+        "Ethernet1|10.0.4.1/30": {},
+        "Ethernet1|fc0a::401/126": {},
+        "Ethernet2": {},
+        "Ethernet2|10.0.4.2/30": {},
+        "Ethernet2|fc0a::402/126": {},
+        "Ethernet3": {},
+        "Ethernet3|10.0.5.1/30": {},
+        "Ethernet3|fc0a::501/126": {},
+        "Ethernet4": {},
+        "Ethernet4|10.0.5.2/30": {},
+        "Ethernet4|fc0a::502/126": {},
+        "Ethernet5": {},
+        "Ethernet5|10.0.6.1/30": {},
+        "Ethernet5|fc0a::601/126": {},
+        "Ethernet6": {},
+        "Ethernet6|10.0.6.2/30": {},
+        "Ethernet6|fc0a::602/126": {},
+        "Ethernet7": {},
+        "Ethernet7|10.0.7.1/30": {},
+        "Ethernet7|fc0a::701/126": {},
+        "Ethernet8": {},
+        "Ethernet8|10.0.7.2/30": {},
+        "Ethernet8|fc0a::702/126": {},
+        "Ethernet9": {},
+        "Ethernet9|10.0.8.1/30": {},
+        "Ethernet9|fc0a::801/126": {}
+    },
+    "STATIC_ROUTE": {
+        "default|fcbb:bbbb:2::/48": {
+            "nexthop": "fc0a::402",
+            "ifname": "Ethernet1"
+        },
+        "default|fcbb:bbbb:3::/48": {
+            "nexthop": "fc0a::502",
+            "ifname": "Ethernet3"
+        },
+        "default|fcbb:bbbb:4::/48": {
+            "nexthop": "fc0a::602",
+            "ifname": "Ethernet5"
+        },
+        "default|fcbb:bbbb:5::/48": {
+            "nexthop": "fc0a::702",
+            "ifname": "Ethernet7"
+        },
+        "default|fcbb:bbbb:206::/48": {
+            "nexthop": "fc0a::802",
+            "ifname": "Ethernet9"
+        }
+    },
+    "SRV6_MY_LOCATORS": {
+        "loc1": {
+            "prefix": "fcbb:bbbb:1::/48",
+            "func_len": 0
+        },
+        "loc2": {
+            "prefix": "fcbb:bbbb:2::/48",
+            "func_len": 0
+        },
+        "loc3": {
+            "prefix": "fcbb:bbbb:3::/48",
+            "func_len": 0
+        },
+        "loc4": {
+            "prefix": "fcbb:bbbb:4::/48",
+            "func_len": 0
+        },
+        "loc5": {
+            "prefix": "fcbb:bbbb:5::/48",
+            "func_len": 0
+        }
+    },
+    "SRV6_MY_SIDS": {
+        "loc1|fcbb:bbbb:1::/48": {
+            "action": "uN",
+            "decap_dscp_mode": "pipe"
+        },
+        "loc2|fcbb:bbbb:2::/48": {
+            "action": "uN",
+            "decap_dscp_mode": "pipe"
+        },
+        "loc3|fcbb:bbbb:3::/48": {
+            "action": "uN",
+            "decap_dscp_mode": "pipe"
+        },
+        "loc4|fcbb:bbbb:4::/48": {
+            "action": "uN",
+            "decap_dscp_mode": "pipe"
+        },
+        "loc5|fcbb:bbbb:5::/48": {
+            "action": "uN",
+            "decap_dscp_mode": "pipe"
+        }
+    }
+}
+```
+
 ### Traffic Generation Configuration
 
 The traffic generators should be configured to send traffic with SRv6 SIDs in IPv6 header and optionally Segment Routing Header.
