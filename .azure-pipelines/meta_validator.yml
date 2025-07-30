@@ -18,7 +18,17 @@ validators:
       - .*ixia.*
 - name: ip_address
   enabled: true
-  config: {}
+  config:
+    allow_conflict_list:
+      # Remove "-api-serv" suffix from device names for ixia
+      - from: "^(.+)-api-serv$"
+        to: "\\1"
+    exclude_devices:
+      - vlab-c-01.*
+      - vlab-c-02.*
+      - vlab-07.*
+      - .*snappi-sonic.* # vms-snappi-sonic ptf, snappi-sonic-api-serv, etc.
+      - sonic-s6100-dut2
 - name: vlan
   enabled: true
   config:

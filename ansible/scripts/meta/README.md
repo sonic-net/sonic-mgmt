@@ -449,7 +449,13 @@ validators:
     config: {}
   - name: ip_address
     enabled: true
-    config: {}
+    config:
+      allow_conflict_list:
+        - from: "^(.+)-dut$"          # Match devices ending with "-dut"
+          to: "\\1"                   # Remove "-dut" suffix
+      exclude_devices:
+        - "^test-.*"                  # Exclude test devices
+        - ".*-temp$"                  # Exclude temporary devices
   - name: device_info
     enabled: true
     config:
@@ -556,7 +562,60 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Purpose**: Validates that no IP address conflicts exist between devices and testbeds across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `allow_conflict_list`: List of conflict resolution rules to ignore specific IP conflicts (default: [])
+- `exclude_devices`: List of regex patterns to exclude devices from IP validation (default: [])
+
+**Allow Conflict List Configuration:**
+
+The `allow_conflict_list` allows you to ignore IP conflicts between devices when they represent the same logical entity with different naming conventions. Each rule contains:
+
+- `from`: Regex pattern to match device names
+- `to`: Replacement string to normalize device names
+
+If two conflicting devices normalize to the same name after regex replacement, the conflict is ignored.
+
+**Example Configuration:**
+
+```yaml
+validators:
+  - name: ip_address
+    enabled: true
+    config:
+      allow_conflict_list:
+        - from: "^(.+)-dut$"          # Match devices ending with "-dut"
+          to: "\\1"                   # Remove "-dut" suffix
+        - from: "^lab-(.+)-switch$"   # Match lab switches
+          to: "\\1"                   # Keep only the middle part
+```
+
+**Example Behavior:**
+
+- `sonic-s6100-dut` and `sonic-s6100` → Both normalize to `sonic-s6100` → Conflict ignored
+- `lab-spine1-switch` and `spine1` → Both normalize to `spine1` → Conflict ignored
+
+**Exclude Devices Configuration:**
+
+The `exclude_devices` allows you to completely exclude specific devices from IP validation. Devices matching any of the regex patterns will be ignored entirely during validation.
+
+**Example Configuration:**
+
+```yaml
+validators:
+  - name: ip_address
+    enabled: true
+    config:
+      exclude_devices:
+        - "^test-.*"         # Exclude all devices starting with "test-"
+        - ".*-temp$"         # Exclude all devices ending with "-temp"
+        - "mgmt-server-.*"   # Exclude management servers
+```
+
+**Example Behavior:**
+- `test-device-1` → Excluded from all IP validation
+- `switch-temp` → Excluded from all IP validation
+- `mgmt-server-lab1` → Excluded from all IP validation
 
 **Validation Rules:**
 
