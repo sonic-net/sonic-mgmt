@@ -2904,7 +2904,7 @@ snmp/test_snmp_phy_entity.py:
       - "asic_type in ['vs']"
 
 snmp/test_snmp_phy_entity.py::test_transceiver_info:
-  skip:
+  xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/22213"
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/22213"
