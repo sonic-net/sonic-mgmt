@@ -171,7 +171,7 @@
   when: container_type == "IxANVL-CONF-TESTER"
 
 - name: Destroy VMs network in parallel
-  include_tasks: destory_vm_network.yml
+  include_tasks: destroy_vm_network.yml
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
