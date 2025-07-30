@@ -1,4 +1,4 @@
-- name: Create VMs network for {{ vm_name }}
+- name: Create VM network for {{ vm_name }}
   become: yes
   vm_topology:
     cmd:          'create'

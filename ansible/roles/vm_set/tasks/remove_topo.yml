@@ -183,8 +183,8 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  register: async_destroy_vm_poll_results
-  until: async_destroy_vm_poll_results.finished
+  register: async_destroy_vm_network_poll_results
+  until: async_destroy_vm_network_poll_results.finished
   retries: 30
   delay: 60
 
