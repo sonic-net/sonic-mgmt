@@ -149,6 +149,12 @@ bgp/test_bgp_bbr.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
 
+bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
+  xfail:
+    reason: "Testcase skipped due to https://github.com/sonic-net/sonic-buildimage/issues/22855"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/22855
+
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
@@ -2171,6 +2177,12 @@ packet_trimming/test_packet_trimming.py:
 #######################################
 #####           pc               #####
 #######################################
+pc/test_lag_2.py::test_lag:
+  xfail:
+    reason: "Testcase skipped due to https://github.com/sonic-net/sonic-buildimage/issues/22855"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/22855
+
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
     reason: "Only support t1-lag, t1-56-lag, t1-28-lag, t1-64-lag and t2 topology"
