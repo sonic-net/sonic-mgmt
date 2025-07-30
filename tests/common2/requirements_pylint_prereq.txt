@@ -8,6 +8,7 @@
 # Testing framework
 pytest
 pytest-ansible
+pytest-cov
 
 # Network libraries
 requests
