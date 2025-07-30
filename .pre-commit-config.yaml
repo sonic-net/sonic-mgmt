@@ -29,11 +29,13 @@ repos:
 ##
 # The following hooks are specific to the tests/common2 directory
 ##
--   repo: https://github.com/asottile/reorder-python-imports
-    rev: v3.14.0
+-   repo: https://github.com/PyCQA/isort
+    rev: 6.0.1
     hooks:
-    -   id: reorder-python-imports
+    -   id: isort
+        name: isort (python)
         files: ^tests/common2/
+        args: ["--profile", "black"]
 
 -   repo: https://github.com/psf/black-pre-commit-mirror
     rev: 24.8.0
@@ -48,6 +50,7 @@ repos:
     # arguments are specified in pyproject.toml
     -   id: mypy
         files: ^tests/common2/
+        additional_dependencies: ["types-PyYAML", "types-six", "types-paramiko", "types-requests"]
 
 # it is recommended to run pylint locally unlike other hooks
 -   repo: local
