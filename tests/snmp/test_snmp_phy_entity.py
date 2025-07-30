@@ -1320,11 +1320,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
         # wait for psud update the database
         pytest_assert(
             wait_until(900, 20, 5, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts),
-            (
-                "No PSUs turned off within the expected timeframe on DUT {}."
-            ).format(
-                duthost.hostname
-            )
+            "No PSUs turned off within the expected timeframe on DUT"
         )
 
     finally:
