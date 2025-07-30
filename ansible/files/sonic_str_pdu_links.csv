@@ -56,3 +56,5 @@ pdu-97,39,str-msn4700-02,PSU1
 pdu-96,39,str-msn4700-02,PSU2
 pdu-97,38,str-msn4700-fanout-02,PSU1
 pdu-96,38,str-msn4700-fanout-02,PSU2
+Sentry_6224b9,18,str-dcs-7060x6-64pe-b-ehw-f-c09-u27,PSU1
+Sentry_6224b9,43,str-dcs-7060x6-64pe-b-ehw-f-c09-u29,PSU1

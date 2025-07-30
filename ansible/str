@@ -306,6 +306,7 @@ sonic:
     sonic_arista_7060c6:
     sonic_arista_7280dr3_400G:
     sonic_nokia_7250x3b_400G:
+    sonic_arista_7060x6_512:
 
 sonic_mlnx_40:
   hosts:
@@ -735,6 +736,49 @@ sonic_mlnx_4700:
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
+
+sonic_arista_7060x6_512:
+  hosts:
+    str-dcs-7060x6-64pe-b-ehw-f-c09-u27:
+      ansible_host: 10.3.155.74
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b4a
+      mgmt_subnet_mask_length: 26
+      hwsku: Arista-7060X6-64PE-B-P64
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160K1T
+      base_mac: d8:06:f3:38:96:e1
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY089940107"
+        "0x23": "HBG25160K1T"
+        "0x24": "d8:06:f3:38:96:e1"
+        "0x25": "2025/04/23 11:11:23"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe_b"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160K1T"
+    str-dcs-7060x6-64pe-b-ehw-f-c09-u29:
+      ansible_host: 10.3.155.75
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b4b
+      mgmt_subnet_mask_length: 26
+      hwsku: Arista-7060X6-64PE-B-P64
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160K1W
+      base_mac: d8:06:f3:39:27:b9
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY0899401A0"
+        "0x23": "HBG25160K1W"
+        "0x24": "d8:06:f3:39:27:b9"
+        "0x25": "2025/04/23 11:11:38"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe_b"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160K1W"
 
 acs_ixia_dscp:
   hosts:

@@ -4574,3 +4574,33 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.83/17
+
+- conf-name: ptp-7060x6-64-1
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-dcs-7060x6-64pe-b-ehw-f-c09-u27
+  inv_name: str
+  auto_recover: 'True'
+  comment: arizzubair
+
+- conf-name: ptp-7060x6-64-2
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-dcs-7060x6-64pe-b-ehw-f-c09-u29
+  inv_name: str
+  auto_recover: 'True'
+  comment: arizzubair
