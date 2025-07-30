@@ -16,7 +16,7 @@ This test aims to assess the data-plane performance of the SRv6 forwarding funct
 
 The test is designed to be topology-aganostic.
 The recommded topology to use includes:
-1. nut-2tiers
+1. nut-2tiers as defined in [nut-2tiers.yml](../../../ansible/vars/nut_topos/nut-2tiers.yml). The example topology figure is shown in [NUT doc](../../testbed/README.testbed.NUT.md).
 2. Snake topo as shown in ![Snake Topology](./assets/snake_topo.png)
 
 ### Network Configuration
