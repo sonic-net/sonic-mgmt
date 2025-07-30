@@ -14,6 +14,10 @@ acl/custom_acl_table/test_custom_acl_table.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
       - "'dualtor' in topo_name"
+  xfail:
+    reason: "Test case skipped due to issue: https://github.com/sonic-net/sonic-mgmt/issues/18061"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18061 and hwsku in ['Mellanox-SN5640-C512S2']"
 
 #######################################
 #####            acl              #####
