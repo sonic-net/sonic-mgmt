@@ -1556,9 +1556,11 @@ generic_config_updater/test_multiasic_linkcrc.py:
 
 generic_config_updater/test_packet_trimming_config.py:
   skip:
-    reason: "KVM do not support the feature"
+    reason: "KVM and non TH5 platforms do not support the feature"
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['vs']"
+      - "'Arista-7060X6' not in hwsku"
 
 generic_config_updater/test_pfcwd_interval.py:
   skip:
