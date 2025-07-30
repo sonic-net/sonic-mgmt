@@ -352,10 +352,8 @@ def select_test_ports(test_ports):
                 selected_ports[port] = port_info
         # filter out selected ports that also act as rx ports
         selected_ports = {p: pi for p, pi in list(selected_ports.items())
-                          if p not in rx_port}
-    elif len(test_ports) == 2:
-        selected_ports = test_ports
-
+                          if p not in rx_ports}
+    # if only 1 or 2 ports avail, take only one, as they are eachother's rx ports
     if not selected_ports:
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]

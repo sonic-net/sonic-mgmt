@@ -13,10 +13,16 @@ pyenchant>=3.2.0
 # Additional dependencies that may be needed for the hooks
 black>=22.0.0
 mypy>=1.0.0
-reorder-python-imports>=3.9.0
+isort>=6.0.1
 flake8>=5.0.0
 
 # Type stubs for better mypy support
 types-PyYAML
 types-six
 types-paramiko
+types-requests
+
+# package dependencies required by
+# checks by pylint
+pytest
+requests

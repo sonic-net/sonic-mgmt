@@ -87,19 +87,20 @@ def get_dut_psu_line_pattern(dut):
     elif dut.facts["asic_type"] in ["mellanox"]:
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     else:
-        """
-        Changed the pattern to match space (s+) and non-space (S+) only.
-        w+ cannot match following examples properly:
-
-        example 1:
-            psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
-            psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
-        example 2:
-            psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
-            psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
-
-        """
-        psu_line_pattern = re.compile(r"^(\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        # Changed the pattern to match different PSU name formats and status patterns.
+        # Supports various PSU naming conventions:
+        #
+        # example 1:
+        #     psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
+        #     psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
+        # example 2:
+        #     psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
+        #     psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
+        # example 3:
+        #     PSU 9  PSU6.3KW-20A-HV  DTM273501QU      1.00  55.052         11.359         626.386      OK        green
+        #
+        psu_line_pattern = re.compile(
+            r"^(PSU\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 
@@ -1147,7 +1148,7 @@ def add_platform_api_server_port_nat_for_dpu(
     The NAT rule is added before the test and removed after the test.
     '''
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_dpu():
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         ip_interface_status = duthost.show_and_parse('show ip interface')
         for item in ip_interface_status:
             if item['interface'] == "eth0-midplane":
@@ -1161,7 +1162,7 @@ def add_platform_api_server_port_nat_for_dpu(
 
     yield
 
-    if duthost.is_dpu():
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         npu_host.command(
             f'sudo iptables -t nat -D PREROUTING -i eth0 -p tcp --dport \
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')

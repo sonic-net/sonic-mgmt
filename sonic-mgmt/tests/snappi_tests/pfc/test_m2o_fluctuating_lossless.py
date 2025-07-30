@@ -1,5 +1,6 @@
 import pytest
 import logging
+import random
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -65,7 +66,8 @@ def test_m2o_fluctuating_lossless(snappi_api,                   # noqa: F811
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
-    bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
+    bg_prio_list = random.sample([x for x in all_prio_list if x not in pause_prio_list], 4)
+    logger.info('Selected two random lossy background priorities:{}'.format(bg_prio_list))
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
