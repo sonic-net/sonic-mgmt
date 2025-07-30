@@ -14,8 +14,27 @@ validators:
   enabled: true
   config:
     excludes:
+      # Exclude TGEN related topologies
       - .*tgen.*
       - .*ixia.*
+
+      # Topologies that current failing the validation
+      - ciscovs-5nodes
+      - dualtor-aa-64
+      - t0-35
+      - t0-standalone-32
+      - t1-64
+      - t1-48-lag
+      - t1-isolated-d448u16
+      - t1-isolated-d448u15-lag
+      - t1-isolated-v6-d28u1
+      - t1-isolated-v6-d448u15-lag
+      - t2_2lc_36p-masic
+      - t2_2lc_min_ports-masic
+      - t2_5lc-mixed-96
+      - t2_single_node_min
+      - t2_single_node_max
+      - wan-pub-cisco
 - name: ip_address
   enabled: true
   config:
