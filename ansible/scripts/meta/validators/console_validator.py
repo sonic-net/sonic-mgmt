@@ -14,9 +14,9 @@ class ConsoleValidator(GlobalValidator):
         super().__init__(
             name="console",
             description="Validates that all DevSonic and Fanout devices have console connections configured",
-            category="connectivity"
+            category="connectivity",
+            config=config
         )
-        self.config = config or {}
 
     def _validate(self, context: ValidatorContext) -> None:
         """

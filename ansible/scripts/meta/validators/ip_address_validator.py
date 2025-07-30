@@ -15,9 +15,9 @@ class IpAddressValidator(GlobalValidator):
         super().__init__(
             name="ip_address",
             description="Validates that no IP address conflicts exist between devices and testbeds",
-            category="networking"
+            category="networking",
+            config=config
         )
-        self.config = config or {}
 
     def _validate(self, context: ValidatorContext) -> None:
         """

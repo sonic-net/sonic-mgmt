@@ -15,9 +15,9 @@ class TestbedValidator(GlobalValidator):
         super().__init__(
             name="testbed",
             description="Validates testbed configuration, name uniqueness, and topology file existence",
-            category="configuration"
+            category="configuration",
+            config=config
         )
-        self.config = config or {}
 
     def _validate(self, context: ValidatorContext) -> None:
         """

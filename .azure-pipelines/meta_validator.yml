@@ -1,0 +1,36 @@
+logging:
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+validators:
+- name: testbed
+  enabled: true
+  config: {}
+- name: device_info
+  enabled: true
+  config:
+    invalid_chars: []
+    max_length: 255
+- name: topology
+  enabled: true
+  config:
+    excludes:
+      - .*tgen.*
+      - .*ixia.*
+- name: ip_address
+  enabled: true
+  config: {}
+- name: vlan
+  enabled: true
+  config:
+    exclude_groups:
+      - .*ixia.*
+      - .*snappi.*
+    min_vlan_id: 1
+    max_vlan_id: 4096
+- name: console
+  enabled: false
+  config: {}
+- name: pdu
+  enabled: false
+  config: {}
+issue_severities: {}

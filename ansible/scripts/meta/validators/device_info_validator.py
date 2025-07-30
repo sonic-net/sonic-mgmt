@@ -14,9 +14,9 @@ class DeviceInfoValidator(GroupValidator):
         super().__init__(
             name="device_info",
             description="Validates that all device info is correct within each infrastructure group",
-            category="naming"
+            category="naming",
+            config=config
         )
-        self.config = config or {}
 
     def _validate(self, context: ValidatorContext) -> None:
         """
