@@ -581,7 +581,7 @@ spelling-dict=en_US
 spelling-ignore-comment-directives=fmt: on,fmt: off,noqa:,noqa,nosec,isort:skip,mypy:
 
 # List of comma separated words that should not be checked.
-spelling-ignore-words=BGP,Args,HTTP,HTTPS,IP,TCP,UDP,API,VLAN,MAC,CLI,OSPF,ISIS,RIP,NAT,ACL,QoS,LACP,VRF,SNMP,SSH,Telnet,FTP,TFTP,YAML,JSON,XML,IPv4,IPv6
+spelling-ignore-words=
 
 # A path to a file that contains the private dictionary; one word per line.
 spelling-private-dict-file=sonic_dictionary.txt
