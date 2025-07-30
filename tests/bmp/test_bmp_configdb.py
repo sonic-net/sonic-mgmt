@@ -40,7 +40,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_neighbor_table'
     status = check_table_status(output, table_name)
-    assert (status == 'true')
+    assert (status == 'true'), (
+        "Enabling all BMP tables by default failed for bgp_neighbor_table. Actual status: {}."
+    ).format(status)
 
     # disable bgp_neighbor_table
     logger.info('disable bmp neighbor table on dut hosts')
@@ -48,7 +50,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_neighbor_table'
     status = check_table_status(output, table_name)
-    assert (status == 'false')
+    assert (status == 'false'), (
+        "Disabling bgp_neighbor_table failed. Actual status: {}."
+    ).format(status)
 
     # enable bgp_neighbor_table
     logger.info('enable bmp neighbor table on dut hosts')
@@ -56,7 +60,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_neighbor_table'
     status = check_table_status(output, table_name)
-    assert (status == 'true')
+    assert (status == 'true'), (
+        "Enabling bgp_neighbor_table failed. Actual status: {}."
+    ).format(status)
 
     # disable bgp_rib_in_table
     logger.info('disable bmp rib-in table on dut hosts')
@@ -64,7 +70,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_rib_in_table'
     status = check_table_status(output, table_name)
-    assert (status == 'false')
+    assert (status == 'false'), (
+        "Disabling bgp_rib_in_table failed. Actual status: {}."
+    ).format(status)
 
     # enable bgp_rib_in_table
     logger.info('enable bmp rib-in table on dut hosts')
@@ -72,7 +80,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_rib_in_table'
     status = check_table_status(output, table_name)
-    assert (status == 'true')
+    assert (status == 'true'), (
+        "Enabling bgp_rib_in_table failed. Actual status: {}."
+    ).format(status)
 
     # disable bgp_rib_out_table
     logger.info('disable bmp rib-out table on dut hosts')
@@ -80,7 +90,9 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_rib_out_table'
     status = check_table_status(output, table_name)
-    assert (status == 'false')
+    assert (status == 'false'), (
+        "Disabling bgp_rib_out_table failed. Actual status: {}."
+    ).format(status)
 
     # enable bgp_rib_out_table
     logger.info('enable bmp rib-out table on dut hosts')
@@ -88,4 +100,6 @@ def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
     output = show_bmp_tables(duthost)
     table_name = 'bgp_rib_out_table'
     status = check_table_status(output, table_name)
-    assert (status == 'true')
+    assert (status == 'true'), (
+        "Enabling bgp_rib_out_table failed. Actual status: {}."
+    ).format(status)
