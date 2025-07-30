@@ -4,7 +4,7 @@
 - [Test scenario](#test-scenario)
 - [Test cases](#test-cases)
 # TestName
-UPgrade Service via gNOI
+Upgrade Service via gNOI
 
 ## Overview
 The goal of this test is to verify that the Upgrade Service, implemented via gNOI, functions correctly across different deployment environments. This includes validating the gRPC-based upgrade workflow (download → apply → reboot), session tracking, and error handling using both the upgrade-agent and gNOI server.
