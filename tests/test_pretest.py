@@ -409,8 +409,8 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
             pytest.fail("Unable to parse or recognize version format: {}".format(version))
 
     # Apply special codename overrides for specific internal branches
-    if branch_name == "internal-202411":
-        # internal-202411 has saithrift URL hardcoded to bullseye
+    if branch_name == "internal-202411" and asic != "mellanox":
+        # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
         debian_codename = "bullseye"
     elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
         # For internal branches older than 202405, use the original URL without modification
