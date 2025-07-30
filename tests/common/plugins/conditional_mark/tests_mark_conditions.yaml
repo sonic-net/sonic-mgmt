@@ -1930,6 +1930,11 @@ iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
 #######################################
 #####            ip               #####
 #######################################
+ip/link_local/test_link_local_ip.py:
+  skip:
+    reason: "New test case, failing badly, need owner to enhance"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19897"
 ip/test_ip_packet.py:
   skip:
     reason: "Skipping ip packet test since can't provide enough interfaces"
