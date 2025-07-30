@@ -12,7 +12,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
-    get_pfcwd_stats
+    get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
@@ -1096,6 +1096,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
         for dut, port in dutport_list:
             f_stats = update_dict(m, f_stats, flatten_dict(get_interface_stats(dut, port)))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_interface_counters_detailed(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 
