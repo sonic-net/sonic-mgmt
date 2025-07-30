@@ -4,7 +4,7 @@
     vm_set_name: "{{ vm_set_name }}"
     topo: "{{ topology }}"
     vm_names: "{{ VM_targets }}"
-    vm_name: "{{ vm_name }}"
+    current_vm_name: "{{ current_vm_name }}"
     vm_base: "{{ VM_base }}"
     vm_type: "{{ vm_type }}"
     vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"

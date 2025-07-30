@@ -54,15 +54,15 @@
     include_tasks: unbind_vm.yml
     loop: "{{ VM_hosts | flatten(levels=1) }}"
     loop_control:
-      loop_var: vm_name
+      loop_var: current_vm_name
 
   - name: Wait for unbind tasks to complete
     become: yes
     async_status:
-      jid: "{{ async_unbind_job_results[vm_name] }}"
+      jid: "{{ async_unbind_job_results[current_vm_name] }}"
     loop: "{{ VM_hosts | flatten(levels=1) }}"
     loop_control:
-      loop_var: vm_name
+      loop_var: current_vm_name
     register: async_unbind_topology_poll_results
     until: async_unbind_topology_poll_results.finished
     retries: 30
