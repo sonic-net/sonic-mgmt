@@ -293,6 +293,8 @@ r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_n
 r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
+r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
+r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
 
 # Ignore ACL EGRESS feature unavailable error on fabric cards
 r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
