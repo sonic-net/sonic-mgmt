@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True)
-def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def setup_and_cleanup(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     """
     Setup/teardown fixture for SRv6 config
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
     asic_index = enum_frontend_asic_index
@@ -43,11 +43,11 @@ def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         delete_checkpoint(duthost)
 
 
-def test_srv6_config_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_srv6_config_update(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     """
     Test adding SRv6 configuration.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     asic_namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     json_patch = [
         {
@@ -90,11 +90,11 @@ def test_srv6_config_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_srv6_config_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_srv6_config_remove(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     """
     Test removing SRv6 configuration.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     asic_index = enum_frontend_asic_index
     asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
     if duthost.is_multi_asic:

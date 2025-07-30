@@ -236,7 +236,10 @@ def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert expected_state in bfd_state[0]  # If all attempts fail, raise an assertion error
+    assert expected_state in bfd_state[0], (
+        "BFD session state verification failed: expected '{}', got '{}'."
+        .format(expected_state, bfd_state[0] if bfd_state else "No state found")
+    )
 
 
 def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test=False):
@@ -375,6 +378,25 @@ def verify_bfd_queue_counters(duthost, dut_intf):
     logger.debug("Queue counters: {}".format(queue_pkt_count))
     if queue_pkt_count == 0:
         pytest.fail('Queue 7 packet count is zero, no BFD traffic')
+
+
+@pytest.fixture(autouse=True)
+def ignore_syslog_errors(rand_selected_dut, loganalyzer):
+    """Ignore expected error logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(
+            [
+                '.*ERR kernel:.*Failed to bind BFD socket to local_addr.*',
+                '.*ERR kernel:.*Failed to create TX socket for session.*',
+                '.*ERR kernel:.*Parsing BFD command.*failed.*',
+                '.*ERR syncd#SDK:.*BFD.ERR.*ioctl failed, error description: Input.output error',
+                '.*ERR syncd#SDK:.*CORE_API.ERR.*Failed in bfd_offload_set().* error:.*',
+                '.*ERR syncd#SDK:.*SAI_BFD.ERR.*.*mlnx_sai_bfd.c.*mlnx_set_offload_bfd_tx_session.*: Error create TX BFD session.*',  # noqa: E501
+                '.*ERR syncd#SDK: :- sendApiResponse: api SAI_COMMON_API_CREATE failed in syncd mode: SAI_STATUS_FAILURE',  # noqa: E501
+                '.*ERR syncd#SDK: :- processQuadEvent: attr: SAI_BFD_SESSION_ATTR_.*',
+                '.*ERR swss#orchagent: :- create: create status: SAI_STATUS_FAILURE.*'
+            ]
+        )
 
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])

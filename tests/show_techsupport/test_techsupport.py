@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -83,21 +83,13 @@ def setup_acl_rules(duthost, acl_setup):
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
 
 
-def check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Check dut is dpu or not. True when dut is dpu, else False
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    return config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
-
-
 @pytest.fixture(scope='module')
 def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     When dut is dpu, skip the case
     """
-    if check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.get_facts().get('is_dpu'):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
@@ -154,6 +146,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
         with loganalyzer:
             setup_acl_rules(duthost, acl_setup)
+            wait_until(300, 20, 0, check_msg_in_syslog, duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
     except LogAnalyzerError as err:
         # cleanup config DB in case of log analysis error
         teardown_acl(duthost, acl_setup)
@@ -627,7 +620,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     :param duthosts: DUT host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    if not duthost.get_facts().get('is_dpu'):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
     since = str(randint(1, 5)) + " minute ago"

@@ -545,6 +545,16 @@ def is_ipv4_address(ip_address):
         return False
 
 
+def is_ipv6_address(ip_address):
+    """Check if ip address is ipv6."""
+    ip_address = ip_address.encode().decode()
+    try:
+        ipaddress.IPv6Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
 def get_mgmt_ipv6(duthost):
     config_facts = duthost.get_running_config_facts()
     mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
@@ -1221,7 +1231,8 @@ def capture_and_check_packet_on_dut(
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
     pkts_validator_args=[],
     pkts_validator_kwargs={},
-    wait_time=1
+    wait_time=1,
+    tcpdump_buffer_size=102400
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1235,8 +1246,8 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
-        % (interface, pcap_save_path, pkts_filter)
+    cmd_capture_pkts = ("nohup tcpdump --buffer-size=%s --immediate-mode -U -i %s -w %s" +
+                        ">/dev/null 2>&1 %s & echo $!") % (tcpdump_buffer_size, interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
     pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
@@ -1512,6 +1523,26 @@ def get_vlan_from_port(duthost, member_port):
         if vlan_name is not None:
             break
     return vlan_name
+
+
+def configure_packet_aging(duthost, disabled=True):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout.
+        This function can enable or disable packet aging feature.
+
+        Args:
+            duthost: DUT host object
+            disabled: True to disable packet aging, False to enable packet aging
+    """
+    logger.info("Starting configure packet aging")
+    asic = duthost.get_asic_name()
+    if 'spc' in asic:
+        action = "disable" if disabled else "enable"
+        logger.info(f"{action.capitalize()} Mellanox packet aging")
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command(f"docker exec syncd python /packets_aging.py {action}")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def cleanup_prev_images(duthost):
