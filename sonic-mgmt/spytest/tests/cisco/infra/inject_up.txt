@@ -1,0 +1,7 @@
+Ether(dst=PUNT_INJECT_PORT_MAC_ADDR, src=HOST_MAC_ADDR, type=Ethertype.Dot1Q.value) / \
+     Dot1Q(prio=2, id=1, vlan=1, type=Ethertype.Inject.value) / \
+     InjectUp(phb_tc=0, ssp_gid=8) / \
+     Ether(dst='78:9c:9d:c0:9e:00', src='70:61:7b:98:47:00') / \
+     IP(src="32.0.0.1", dst='22.0.0.1') / \
+     UDP() / \
+     Raw(load='a'*300)
