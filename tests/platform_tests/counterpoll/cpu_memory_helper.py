@@ -1,7 +1,7 @@
 import pytest
 
-from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
-from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
+from tests.common.constants import CounterpollConstants
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.utilities import skip_release
 
 
