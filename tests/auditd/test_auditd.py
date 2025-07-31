@@ -1,12 +1,10 @@
 import re
 import json
+import uuid
 import pytest
 import logging
-import uuid
-from tests.common.fixtures.tacacs import tacacs_creds   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import is_container_running
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run  # noqa: F401
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -29,6 +27,7 @@ def is_log_valid(pattern, logs):
         if pattern in log and "ansible-ansible" not in log:
             return True
     return False
+
 
 def extract_audit_timestamp(logs):
     timestamp_regex = r'audit\((\d+\.\d+):\d+\)'
@@ -91,7 +90,8 @@ def test_auditd_watchdog_functionality(duthosts,
                                        check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
+    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
     pytest_assert(output == "200", "Auditd watchdog reports auditd container is unhealthy")
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
@@ -122,7 +122,7 @@ def test_directory_based_keys(localhost,
                               creds,
                               verify_auditd_containers_running,
                               check_auditd,
-                              reset_auditd_rate_limit):            # noqa: F811
+                              reset_auditd_rate_limit):
     """
     Test directory-based rules (triggered by creating files in watched directories)
     """
@@ -143,7 +143,6 @@ def test_directory_based_keys(localhost,
                              "/usr/sbin/"],
         "log_changes": ["/var/log/"],
         "user_group_management": ["/tmp/"],
-        "70726F636573735F617564697401746163706C7573": ["/tmp/"]
     }
 
     for key, paths in key_file_mapping.items():
@@ -151,10 +150,10 @@ def test_directory_based_keys(localhost,
             random_file = f"{path}{random_uuid}"
             # Trigger audit event
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                        f"sudo touch {random_file}")
+                           f"sudo touch {random_file}")
 
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                        f"sudo rm -f  {random_file}")
+                           f"sudo rm -f  {random_file}")
 
             cmd = f"sudo zgrep '{random_file}' /var/log/syslog*"
             logs = duthost.shell(cmd)["stdout_lines"]
@@ -165,7 +164,7 @@ def test_directory_based_keys(localhost,
             cmd = f"""sudo zgrep '{timestamp}' /var/log/syslog* | grep '{key}' """
             logs = duthost.shell(cmd)["stdout_lines"]
             assert is_log_valid("type=SYSCALL", logs), \
-            f"Auditd {key} rule does not contain the SYSCALL logs"
+                f"Auditd {key} rule does not contain the SYSCALL logs"
 
             full_timestamp = extract_audit_timestamp_with_seq(logs)
 
@@ -183,7 +182,7 @@ def test_file_based_keys(localhost,
                          creds,
                          verify_auditd_containers_running,
                          check_auditd,
-                         reset_auditd_rate_limit):            # noqa: F811
+                         reset_auditd_rate_limit):
     """
     Test file-based auditd rules using 'sudo chown root:root <file>'
     """
@@ -220,7 +219,7 @@ def test_file_based_keys(localhost,
 
             full_timestamp = extract_audit_timestamp_with_seq(logs)
 
-            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep /usr/bin/chown | grep '{key}'"
+            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
             logs = duthost.shell(cmd)["stdout_lines"]
 
             assert is_log_valid("type=SYSCALL", logs), \
@@ -233,7 +232,7 @@ def test_docker_config(localhost,
                        creds,
                        verify_auditd_containers_running,
                        check_auditd,
-                       reset_auditd_rate_limit):            # noqa: F811
+                       reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     key_file_mapping = {
@@ -248,13 +247,14 @@ def test_docker_config(localhost,
 
             if "exists" in exists:
                 # File exists, trigger event using chown
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], f"sudo chown root:root {path}")
-                log_filter = "/usr/bin/chown"
+                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                               f"sudo chown root:root {path}")
             elif "missing" in exists:
                 # File doesn't exist, create and delete to trigger event
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], f"sudo touch {path}")
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], f"sudo rm -f {path}")
-                log_filter = "/usr/bin/touch"
+                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                               f"sudo touch {path}")
+                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                               f"sudo rm -f {path}")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -265,7 +265,7 @@ def test_docker_config(localhost,
 
             full_timestamp = extract_audit_timestamp_with_seq(logs)
 
-            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep {log_filter} | grep '{key}'"
+            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
             logs = duthost.shell(cmd)["stdout_lines"]
 
             assert is_log_valid("type=SYSCALL", logs), \
@@ -280,7 +280,8 @@ def test_auditd_host_failure(localhost,
                              reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
+    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "Auditd watchdog reports auditd container is healthy")
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
@@ -312,7 +313,8 @@ def test_32bit_failure(duthosts,
     if "Nokia-7215" not in hwsku and "Nokia-7215-M0" not in hwsku:
         pytest.skip("This test is only for Nokia-7215 and Nokia-7215-M0")
 
-    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD), module_ignore_errors=True)["stdout"]
+    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "Auditd watchdog reports auditd container is healthy")
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
