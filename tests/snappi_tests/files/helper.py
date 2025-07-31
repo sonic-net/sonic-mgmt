@@ -433,12 +433,12 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 
 
 @pytest.fixture(params=['warm', 'cold', 'fast'])
-def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
+def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     '''
     Purpose of the function is to have reboot_duts and disable watchdogs.
     '''
     reboot_type = request.param
-    _, _, snappi_ports = setup_ports_and_dut
+    _, _, snappi_ports = tgen_port_info
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
