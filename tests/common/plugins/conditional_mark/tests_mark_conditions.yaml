@@ -62,8 +62,10 @@ arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-sta
 arp/test_arp_extended.py::test_arp_garp_enabled:
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19904)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19904"
 
 arp/test_arp_extended.py::test_proxy_arp[v4-:
   skip:
@@ -92,8 +94,10 @@ arp/test_unknown_mac.py:
 arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
   xfail:
     reason: "xfail for IPv6-only topologies, with issue failure to handle max number (https://github.com/sonic-net/sonic-mgmt/issues/19906)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19906"
 
 arp/test_wr_arp.py:
   skip:
@@ -204,8 +208,10 @@ bgp/test_bgp_multipath_relax.py:
 bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
   xfail:
     reason: "xfail for IPv6-only topologies, is with it parse everthing as IPv4 (https://github.com/sonic-net/sonic-mgmt/issues/19907)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19907"
 
 bgp/test_bgp_port_disable.py:
   skip:
@@ -226,8 +232,10 @@ bgp/test_bgp_queue.py:
 bgp/test_bgp_route_neigh_learning.py::test_bgp_neighbor_route_learnning:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with it try to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19915)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19915"
 
 bgp/test_bgp_router_id.py:
   skip:
@@ -238,26 +246,34 @@ bgp/test_bgp_router_id.py:
 bgp/test_bgp_router_id.py::test_bgp_router_id_default:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19916)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19916"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19916)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19916"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19916)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19916"
 
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style (https://github.com/sonic-net/sonic-mgmt/issues/19916)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19916"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -284,20 +300,26 @@ bgp/test_bgp_speaker.py:
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes:
   xfail:
     reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry (https://github.com/sonic-net/sonic-mgmt/issues/19917)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19917"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
   xfail:
     reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry (https://github.com/sonic-net/sonic-mgmt/issues/19917)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19917"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
   xfail:
     reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry (https://github.com/sonic-net/sonic-mgmt/issues/19917)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19917"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -310,14 +332,18 @@ bgp/test_bgp_suppress_fib.py:
 bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
   xfail:
     reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check (https://github.com/sonic-net/sonic-mgmt/issues/19918)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19918"
 
 bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
   xfail:
     reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check (https://github.com/sonic-net/sonic-mgmt/issues/19918)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19918"
 
 bgp/test_bgpmon.py:
   skip:
@@ -457,8 +483,10 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
 crm/test_crm.py :
   xfail:
     reason: "xfail for IPv6-only topologies, issue with it try to excute ipv4 command with no output (https://github.com/sonic-net/sonic-mgmt/issues/19640)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19640"
 
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
@@ -755,14 +783,18 @@ drop_packets:
 drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with python max size (https://github.com/sonic-net/sonic-mgmt/issues/19920)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19920"
 
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with valid_ipv4 (https://github.com/sonic-net/sonic-mgmt/issues/19921)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19921"
 
 #######################################
 #####           dualtor           #####
@@ -1482,14 +1514,18 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1514,14 +1550,18 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
@@ -1552,14 +1592,18 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1576,14 +1620,18 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1600,14 +1648,18 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp (https://github.com/sonic-net/sonic-mgmt/issues/19922)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19922"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
@@ -1903,8 +1955,10 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
     reason: "xfail for IPv6-only topologies, still have IPv4 function used (https://github.com/sonic-net/sonic-mgmt/issues/19638)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19638"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -2048,14 +2102,18 @@ generic_config_updater/test_pg_headroom_update.py:
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc1_suite:
   xfail:
     reason: "xfail for IPv6-only topologies, still have IPv4 function used (https://github.com/sonic-net/sonic-mgmt/issues/19638)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19638"
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc2_incremental_change:
   xfail:
     reason: "xfail for IPv6-only topologies, still have IPv4 function used (https://github.com/sonic-net/sonic-mgmt/issues/19638)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19638"
 
 #######################################
 #####           gnmi              #####
@@ -3147,14 +3205,18 @@ qos/test_voq_watchdog.py:
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19924)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19924"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19924)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19924"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
   skip:
@@ -3163,8 +3225,10 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19924)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19924"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
   skip:
@@ -3173,8 +3237,10 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19924)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19924"
 
 #######################################
 #####          read_mac           #####
@@ -3229,14 +3295,18 @@ route/test_default_route.py:
 route/test_default_route.py::test_default_route_set_src:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19925)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19925"
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19925)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19925"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
@@ -3262,8 +3332,10 @@ route/test_route_flow_counter.py:
       - "asic_type in ['vs']"
   xfail:
     reason: "xfail for IPv6-only topologies, didn't use IPv6 when should (https://github.com/sonic-net/sonic-mgmt/issues/19926)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19926"
 
 route/test_route_perf.py:
   skip:
@@ -3407,8 +3479,10 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
 snmp/test_snmp_default_route.py:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19927)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19927"
 
 snmp/test_snmp_default_route.py::test_snmp_default_route:
   skip:
@@ -3714,8 +3788,10 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
 vlan/test_host_vlan.py::test_host_vlan_no_floodling:
   xfail:
     reason: "xfail for IPv6-only topologies, caused by is_ipv4_address (https://github.com/sonic-net/sonic-mgmt/issues/19928)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19928"
 
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
@@ -3732,8 +3808,10 @@ vlan/test_vlan_ping.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only (https://github.com/sonic-net/sonic-mgmt/issues/19929)"
+    conditions_logical_operator: and
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19929"
 
 #######################################
 #####             voq             #####
