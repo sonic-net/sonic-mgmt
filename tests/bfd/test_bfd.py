@@ -370,6 +370,11 @@ def verify_bfd_queue_counters(duthost, dut_intf):
     if queue_pkt_count == 0:
         pytest.fail('Queue 7 packet count is zero, no BFD traffic')
 
+def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
+    for addr in neighbor_addrs:
+        logger.info(f"Warming up IPv6 neighbor {addr}")
+        duthost.shell(f"ping -6 -c 1 -W 1 {addr}", module_ignore_errors=True)
+
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
@@ -387,6 +392,9 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         # neighborship can be resolved on PTF side.
         time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
+
+        if ipv6:
+            warm_up_ipv6_neighbors(duthost, neighbor_addrs)
 
         time.sleep(1)
         for idx, neighbor_addr in enumerate(neighbor_addrs):
