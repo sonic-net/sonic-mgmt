@@ -135,3 +135,17 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
         if vlan_interfaces is not None:
             return vlan_interfaces
     return []
+
+
+@pytest.fixture
+def is_support_warm_fast_reboot(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    support_warm_fast_reboot = True
+    if 'isolated' in duthosts.tbinfo['topo']['name'] or \
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        support_warm_fast_reboot = False
+        logging.info("Skipping warm and fast reboot tests for isolated topology or smartswitch")
+        logging.info("Applying cert config")
+        apply_cert_config(duthost)
+
+    yield support_warm_fast_reboot
