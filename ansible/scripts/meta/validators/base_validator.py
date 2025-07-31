@@ -3,8 +3,9 @@ BaseValidator - Base validator classes and interfaces for SONiC Mgmt metadata va
 """
 
 import logging
+import re
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
 import time
 from functools import wraps
 from .validation_result import ValidationResult
@@ -87,10 +88,12 @@ def measure_execution_time(func):
 class BaseValidator(ABC):
     """Enhanced base validator class with comprehensive result handling"""
 
-    def __init__(self, name: str, description: str = "", category: str = "general"):
+    def __init__(self, name: str, description: str = "", category: str = "general",
+                 config: Optional[Dict[str, Any]] = None):
         self.name = name
         self.description = description
         self.category = category
+        self.config = config or {}
         self.logger = logging.getLogger(f"meta.{name}")
         self.result = None  # Will be initialized in validate()
 
@@ -223,6 +226,44 @@ class BaseValidator(ABC):
 class GroupValidator(BaseValidator):
     """Base class for validators that operate on a single group"""
 
+    def __init__(self, name: str, description: str = "", category: str = "general",
+                 config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, description, category, config)
+        self.exclude_groups = self._compile_exclude_patterns(self.config.get('exclude_groups', []))
+
+    def _compile_exclude_patterns(self, patterns: List[str]) -> List[re.Pattern]:
+        """
+        Compile regex patterns for group exclusion
+
+        Args:
+            patterns: List of regex pattern strings
+
+        Returns:
+            List of compiled regex patterns
+        """
+        compiled_patterns = []
+        for pattern in patterns:
+            try:
+                compiled_patterns.append(re.compile(pattern))
+            except re.error as e:
+                self.logger.warning(f"Invalid regex pattern '{pattern}' in exclude_groups: {e}")
+        return compiled_patterns
+
+    def _should_exclude_group(self, group_name: str) -> bool:
+        """
+        Check if a group should be excluded based on regex patterns
+
+        Args:
+            group_name: Name of the group to check
+
+        Returns:
+            bool: True if group should be excluded, False otherwise
+        """
+        for pattern in self.exclude_groups:
+            if pattern.match(group_name):
+                return True
+        return False
+
     def requires_global_context(self) -> bool:
         """Return False to indicate this validator works with single group context"""
         return False
@@ -259,6 +300,17 @@ class GroupValidator(BaseValidator):
         Returns:
             ValidationResult: Comprehensive validation result
         """
+        # Check if the group should be excluded
+        group_name = context.get_group_name()
+        if self._should_exclude_group(group_name):
+            # Create a successful ValidationResult for excluded groups
+            result = ValidationResult(validator_name=self.name, group_name=group_name, success=True)
+            result.metadata['skipped'] = True
+            result.metadata['skip_reason'] = 'Group excluded by exclude_groups configuration'
+            result.execution_time = 0.0
+            self.logger.info(f"Skipping validation for excluded group: {group_name}")
+            return result
+
         # Assert that we have exactly one group in the context
         if context.is_global_context():
             all_groups = context.get_all_groups_data()
