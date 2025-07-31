@@ -104,3 +104,4 @@ def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, acti
         log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
         for log_file in log_files:
             vmhost.fetch(src=log_file, dest="logs/server", fail_on_missing=False)
+            vmhost.shell("rm -f {}".format(log_file))
