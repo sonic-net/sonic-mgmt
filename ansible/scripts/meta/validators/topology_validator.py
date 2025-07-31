@@ -18,9 +18,9 @@ class TopologyValidator(GlobalValidator):
         super().__init__(
             name="topology",
             description="Validates topology files defined under ansible/vars folder",
-            category="configuration"
+            category="configuration",
+            config=config
         )
-        self.config = config or {}
         # Configuration options
         self.includes = self.config.get('includes', [])  # List of regex patterns to include
         self.excludes = self.config.get('excludes', [])  # List of regex patterns to exclude
@@ -43,8 +43,6 @@ class TopologyValidator(GlobalValidator):
         """
         # Log filtering configuration
         self.logger.info(f"Topology filtering config - includes: {self.includes}, excludes: {self.excludes}")
-        if self.includes or self.excludes:
-            self.logger.info(f"Topology filtering enabled - includes: {self.includes}, excludes: {self.excludes}")
 
         # Find all topology files (with filtering applied)
         topology_files = self._find_topology_files()

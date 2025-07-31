@@ -188,21 +188,12 @@ class ConfigurableValidatorFactory(DefaultValidatorFactory):
             return None
 
         try:
-            # Get constructor parameters
-            params = validator_config.get('params', {})
-            merged_params = {**self.default_config.get('default_params', {}), **params}
-
-            # Create validator with parameters
-            validator = validator_class(**merged_params)
-
             # Set runtime configuration
             runtime_config = validator_config.get('config', {})
             merged_config = {**self.default_config.get('default_config', {}), **runtime_config}
 
-            if hasattr(validator, 'set_config'):
-                validator.set_config(merged_config)
-            elif hasattr(validator, 'config'):
-                validator.config = merged_config
+            # Create validator with parameters
+            validator = validator_class(merged_config)
 
             self.logger.debug(f"Created configured validator: {name}")
             return validator

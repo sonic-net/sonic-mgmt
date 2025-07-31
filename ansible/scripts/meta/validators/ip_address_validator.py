@@ -3,6 +3,7 @@ IpAddressValidator - Validates IP address uniqueness between devices and testbed
 """
 
 import ipaddress
+import re
 from .base_validator import GlobalValidator, ValidatorContext
 from .validator_factory import register_validator
 
@@ -15,9 +16,47 @@ class IpAddressValidator(GlobalValidator):
         super().__init__(
             name="ip_address",
             description="Validates that no IP address conflicts exist between devices and testbeds",
-            category="networking"
+            category="networking",
+            config=config
         )
-        self.config = config or {}
+        # Configuration for allowing specific IP conflicts
+        self.allow_conflict_list = self.config.get('allow_conflict_list', [])
+        # Configuration for excluding devices from validation
+        self.exclude_devices = self.config.get('exclude_devices', [])
+        self._compile_conflict_patterns()
+        self._compile_exclude_patterns()
+
+    def _compile_conflict_patterns(self):
+        """
+        Compile regex patterns for allow_conflict_list
+        """
+        self.compiled_conflict_patterns = []
+        for conflict_rule in self.allow_conflict_list:
+            if not isinstance(conflict_rule, dict) or 'from' not in conflict_rule or 'to' not in conflict_rule:
+                self.logger.warning(f"Invalid allow_conflict_list rule: {conflict_rule}."
+                                    f"Must have 'from' and 'to' fields")
+                continue
+            try:
+                compiled_pattern = re.compile(conflict_rule['from'])
+                self.compiled_conflict_patterns.append({
+                    'pattern': compiled_pattern,
+                    'from': conflict_rule['from'],
+                    'to': conflict_rule['to']
+                })
+            except re.error as e:
+                self.logger.warning(f"Invalid regex pattern '{conflict_rule['from']}' in allow_conflict_list: {e}")
+
+    def _compile_exclude_patterns(self):
+        """
+        Compile regex patterns for exclude_devices
+        """
+        self.compiled_exclude_patterns = []
+        for pattern in self.exclude_devices:
+            try:
+                compiled_pattern = re.compile(pattern)
+                self.compiled_exclude_patterns.append(compiled_pattern)
+            except re.error as e:
+                self.logger.warning(f"Invalid regex pattern '{pattern}' in exclude_devices: {e}")
 
     def _validate(self, context: ValidatorContext) -> None:
         """
@@ -205,6 +244,10 @@ class IpAddressValidator(GlobalValidator):
         self, ip_addr, source_type, source_name, ip_type, group_name, ip_addresses
     ):
         """Add IP address to tracking dict with group information and check for conflicts"""
+        # Skip excluded devices
+        if self._should_exclude_device(source_name):
+            return
+
         if ip_addr in ip_addresses:
             existing_source = ip_addresses[ip_addr]
             (existing_source_type, existing_source_name,
@@ -247,6 +290,18 @@ class IpAddressValidator(GlobalValidator):
                 )
                 return
 
+            # Check if this conflict is allowed by allow_conflict_list
+            device1_name = existing_source_name.split(':')[0] if ':' in existing_source_name else existing_source_name
+            device2_name = source_name.split(':')[0] if ':' in source_name else source_name
+
+            if self._should_allow_conflict(device1_name, device2_name):
+                # Conflict is allowed, skip reporting the error
+                self.logger.debug(
+                    f"Skipping IP conflict error for {ip_addr} between {device1_name} and {device2_name} "
+                    f"due to allow_conflict_list"
+                )
+                return
+
             # This is a real IP conflict
             # conflict_ip: IP address conflict detected
             self.result.add_issue(
@@ -266,6 +321,10 @@ class IpAddressValidator(GlobalValidator):
 
     def _track_device_ip(self, device_name, group_name, source_type, ip_type, ip_addr, device_ips):
         """Track device IP addresses for consistency validation"""
+        # Skip excluded devices
+        if self._should_exclude_device(group_name):
+            return
+
         if device_name not in device_ips:
             device_ips[device_name] = {}
         if group_name not in device_ips[device_name]:
@@ -273,6 +332,61 @@ class IpAddressValidator(GlobalValidator):
         if source_type not in device_ips[device_name][group_name]:
             device_ips[device_name][group_name][source_type] = {}
         device_ips[device_name][group_name][source_type][ip_type] = ip_addr
+
+    def _should_allow_conflict(self, device1_name, device2_name):
+        """
+        Check if an IP conflict should be allowed based on allow_conflict_list
+
+        Args:
+            device1_name: Name of the first conflicting device
+            device2_name: Name of the second conflicting device
+
+        Returns:
+            bool: True if conflict should be allowed, False otherwise
+        """
+        if not self.compiled_conflict_patterns:
+            return False
+
+        for rule in self.compiled_conflict_patterns:
+            pattern = rule['pattern']
+            to_replacement = rule['to']
+
+            # Apply regex replacement to both device names
+            try:
+                normalized_device1 = pattern.sub(to_replacement, device1_name)
+                normalized_device2 = pattern.sub(to_replacement, device2_name)
+
+                # If the normalized names are the same, allow the conflict
+                if normalized_device1 == normalized_device2:
+                    self.logger.debug(
+                        f"Allowing IP conflict between {device1_name} and {device2_name} "
+                        f"(normalized to {normalized_device1})"
+                    )
+                    return True
+            except Exception as e:
+                self.logger.warning(f"Error applying conflict rule {rule['from']} -> {rule['to']}: {e}")
+
+        return False
+
+    def _should_exclude_device(self, device_name):
+        """
+        Check if a device should be excluded from validation
+
+        Args:
+            device_name: Name of the device to check
+
+        Returns:
+            bool: True if device should be excluded, False otherwise
+        """
+        if not self.compiled_exclude_patterns:
+            return False
+
+        for pattern in self.compiled_exclude_patterns:
+            if pattern.search(device_name):
+                self.logger.debug(f"Excluding device {device_name} from IP validation")
+                return True
+
+        return False
 
     def _validate_collected_ip_addresses(self, ip_addresses, device_ips):
         """
@@ -367,6 +481,10 @@ class IpAddressValidator(GlobalValidator):
     def _validate_device_ip_consistency(self, device_ips):
         """Validate that the same device has consistent IP addresses across sources"""
         for device_name, groups in device_ips.items():
+            # Skip excluded devices
+            if self._should_exclude_device(device_name):
+                continue
+
             for group_name, sources in groups.items():
                 # Check if device appears in both connection graph and ansible inventory
                 if "device" in sources and "ansible_inventory" in sources:
