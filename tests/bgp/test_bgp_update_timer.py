@@ -100,8 +100,11 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter":
+            global NEIGHBOR_ASN0, NEIGHBOR_ASN1
+            NEIGHBOR_ASN0 = NEIGHBOR_ASN1 = dut_asn
     else:
         neigh_type = "ToRRouter"
 
