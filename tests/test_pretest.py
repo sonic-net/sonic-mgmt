@@ -11,7 +11,6 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
-from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
