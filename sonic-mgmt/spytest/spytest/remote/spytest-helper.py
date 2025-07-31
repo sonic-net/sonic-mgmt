@@ -97,10 +97,24 @@ def read_port_inifile():
     """
     Platform, HwSKU = get_hw_values()
     int_file = "{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU)
-    cmd = "cat {} | tail -1".format(int_file)
-    output = execute_check_cmd(cmd)
-    port = output.split()[0]
-    return port
+    if os.path.exists(int_file):
+        files = [int_file]
+    else:
+        files = []
+        for i in range(32):
+            int_file = "{}/{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU, i)
+            if os.path.exists(int_file):
+                files.append(int_file)
+            else:
+                break
+
+    ports = []
+    for curr_file in files:
+        cmd = "cat {} | grep -v BP | tail -1".format(curr_file)
+        output = execute_check_cmd(cmd)
+        port = output.split()[0]
+        ports.append(port)
+    return ports
 
 
 def get_port_status(port):
@@ -662,14 +676,15 @@ def wait_for_ports(port_init_wait, poll_for_ports):
         return
 
     # read last port number
-    port_num = read_port_inifile()
+    ports = read_port_inifile()
 
     # Wait for last port to be available
-    for _ in range(0, int(port_init_wait / 5)):
-        port_info = get_port_status(port_num)
-        if port_info and port_num in port_info:
-            break
-        execute_check_cmd("sleep 5", trace_cmd=False)
+    for port_num in ports:
+        for _ in range(0, int(port_init_wait / 5)):
+            port_info = get_port_status(port_num)
+            if port_info and port_num in port_info:
+                break
+            execute_check_cmd("sleep 5", trace_cmd=False)
 
 # check if the MAC address is present in config_db.json
 
@@ -698,7 +713,6 @@ def do_config_reload(method, filename=""):
         if "Error:" in retval:
             show_file_content(filename, "config reload failed")
         print("CONFIG-RELOAD-ISSUED")
-
 
 def set_port_defaults(method, breakout, speed, port_init_wait, poll_for_ports):
     if g_breakout_native:
@@ -789,10 +803,12 @@ def is_integrated_vtysh_config():
 
 
 def vtysh_save():
-    if not is_multi_asic():
+    if is_multi_asic():
+        execute_cmd_retry("vtysh -n 0 -c write file", config_db_operation_retry)
+    else:
         execute_cmd_retry("vtysh -c write file", config_db_operation_retry)
-        execute_check_cmd("ls -ltir {}".format(frr_dir), skip_error=True)
-        print("integrated-vtysh-config = {}".format(is_integrated_vtysh_config()))
+    print("integrated-vtysh-config = {}".format(is_integrated_vtysh_config()))
+    execute_check_cmd("ls -ltir {}".format(frr_dir), skip_error=True)
 
 
 def save_module_config():
@@ -995,8 +1011,11 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, config_type):
         do_config_reload(method, ta_config_file)
         # execute_check_cmd("echo after reload;date")
     if "frr" in changed_files or "bgp" in changed_files or method in ["force-reload"]:
-        execute_cmds(["systemctl restart bgp"])
-        execute_cmds(["sleep 10"])
+        result = subprocess.run(['systemctl', 'is-enabled', 'bgp.service'], \
+                     capture_output=True, text=True)
+        if 'masked' not in result.stdout:
+            execute_cmds(["systemctl restart bgp"])
+            execute_cmds(["sleep 10"])
 
     # Re-Write the base/module frr.conf, this is to allow the hook level code to get saved in frr.conf.
     vtysh_save()

@@ -1,0 +1,31 @@
+version: 2.0
+
+services: {default: "!include sonic_services.yaml"}
+
+params: "!include sonic_params.yaml"
+builds: "!include sonic_builds.yaml"
+speeds: "!include sonic_speeds.yaml"
+errors: "!include sonic_errors.yaml"
+instrument: "!include sonic_instrument.yaml"
+
+configs:
+    default: "!include sonic_configs.yaml"
+    empty: {current: [], restore: []}
+
+devices:
+    LC-01:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.74.25.61, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: none}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+        rpip: 1.74.25.1
+    stc-01:
+        device_type: TGEN
+        properties: {type: stc, version: 5.45, ip: 172.27.147.23, params: def_tg}
+
+topology:
+    LC-01:
+        interfaces:
+            Ethernet104: {EndDevice: stc-01, EndPort: 12/1, params: def_tg_link}
+            Ethernet120: {EndDevice: stc-01, EndPort: 12/9, params: def_tg_link}
+

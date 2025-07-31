@@ -454,7 +454,10 @@ class SonicHooks(object):
 
     def get_hostname(self, dut, **kwargs):
         default_hostname = "sonic"
-        hostname_cmd = "sudo vtysh -c 'show running-config | include hostname'"
+        if self.is_multi_asic(dut):
+            hostname_cmd = "sudo vtysh -n 0 -c 'show running-config | include hostname'"
+        else:
+            hostname_cmd = "sudo vtysh -c 'show running-config | include hostname'"
         for _ in range(20):
             skip_error_check = kwargs.pop("skip_error_check", True)
             output = st.config(dut, hostname_cmd, skip_error_check=skip_error_check, **kwargs)

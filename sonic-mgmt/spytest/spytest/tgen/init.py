@@ -25,7 +25,7 @@ def tg_stc_load(version, logger, logs_path=None):
     # check if STC root folder is found
     stc_root = os.path.join(tgen_path, "stc")
     if not os.path.exists(stc_root):
-        logger.error("STC: not installed.")
+        logger.error("STC: not installed. stc_root", stc_root)
         return None
 
     # build STC version root folder
@@ -35,7 +35,7 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC version root folder is found
     if not os.path.exists(stc_ver_root):
-        logger.error("STC: not installed..")
+        logger.error("STC: not installed..stc_ver_root ", stc_ver_root)
         return None
 
     # build STC app root folder
@@ -46,7 +46,7 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC app root folder is found
     if not os.path.exists(stc_app_root):
-        logger.error("STC: not installed...")
+        logger.error("STC: not installed...  stc_app_root", stc_app_root)
         return None
 
     stc_hl_src = stc_app_root + '/HltAPI/SourceCode'
