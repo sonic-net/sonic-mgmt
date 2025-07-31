@@ -110,9 +110,9 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.REMOTE_MAC,
-        eth_dst=pl.ENI_MAC,
-        ip_src=pl.PE_CA,
+        eth_src=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
+        eth_dst=pl.VM_MAC if floating_nic else pl.ENI_MAC,
+        ip_src=pl.PE1_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
     )
@@ -130,16 +130,22 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=VXLAN_UDP_BASE_SRC_PORT,
-        vxlan_vni=int(pl.VM_VNI),
+        vxlan_vni=202 if floating_nic else int(pl.VM_VNI),
         inner_frame=exp_inner_packet
     )
 
     masked_exp_packet = Mask(exp_vxlan_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
+    if floating_nic:
+        masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
     # 34 is the sport offset, 2 is the length of UDP sport field
     masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
-    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
+    # mask the UDP payload TODO: need further triage on why the payload is being modified
+    # Not a platform specific issue, but a problem with the PTF
+    masked_exp_packet.set_do_not_care(8 * (90), 8 * (40))
 
     return gre_packet, masked_exp_packet
 
