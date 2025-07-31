@@ -1558,12 +1558,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
-generic_config_updater/test_packet_trimming_config.py:
-  skip:
-    reason: "KVM do not support the feature"
-    conditions:
-      - "asic_type in ['vs']"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -2169,9 +2163,9 @@ override_config_table/test_override_config_table.py:
 #######################################
 ######       packet_trimming       #####
 ########################################
-packet_trimming/test_packet_trimming.py:
+packet_trimming:
   skip:
-    reason: "Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
