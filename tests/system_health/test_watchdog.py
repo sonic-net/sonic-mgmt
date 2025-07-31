@@ -81,7 +81,7 @@ def check_process_status(duthost, process, asic_id):
 def make_ut_fail_if_process_not_running(duthost, asic_id):
     result = check_process_status(duthost, "supervisor-proc-exit-listener", asic_id)
     if not result:
-        pytest.fail("Watchfog process is not running.")
+        pytest.fail("Watchdog process is not running.")
 
     # if orchagent not running, alert will never been triggered
     result = check_process_status(duthost, "/usr/bin/orchagent'", asic_id)
