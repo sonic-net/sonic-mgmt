@@ -86,8 +86,8 @@ str2-8102-01,10.3.146.133/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-02,10.3.146.68/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-03,10.3.146.102/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-04,10.3.146.171/24,Cisco-8102-C64,DevSonic,,sonic
-str2-8102-smartswitch-03,10.64.246.173/23,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
-str2-8102-smartswitch-04,10.64.246.175/23,Cisco-8102-28FH-DPU-O-T1,DevSonic,,sonic
+str2-8102-smartswitch-03,10.64.246.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
+str2-8102-smartswitch-04,10.64.246.175/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str2-8111-06,10.3.146.179/24,Cisco-8111-O32,DevSonic,,sonic
 str2-7215-acs-1,10.3.146.59/24,Nokia-M0-7215,DevSonic,,sonic
 str2-7804-sup-1,10.3.146.249/24,Arista-7808R3A-FM,DevSonic,,sonic
