@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-port_map = [[1, 100, 1, 100]]
+port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#01-non-congestion(normal).
