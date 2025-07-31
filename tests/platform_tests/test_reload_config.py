@@ -8,7 +8,7 @@ import logging
 import time
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.transceiver_utils import check_transceiver_basic
@@ -51,7 +51,7 @@ def delayed_services(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
-                              conn_graph_facts, xcvr_skip_list):       # noqa F811
+                              conn_graph_facts, xcvr_skip_list):       # noqa: F811
     """
     @summary: This test case is to reload the configuration and check platform status
     """
@@ -167,7 +167,7 @@ def check_docker_status(duthost):
 
 
 def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
-                                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to test various system checks in config reload
     """
@@ -189,7 +189,17 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
-    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+    # sometimes redis is not up in time (eg. t2 chassis), so retry until it's up
+    for i in range(10):
+        result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+        # Redis is up - can stop looping
+        if result and "RuntimeError: Unable to connect to redis" not in out['stderr']:
+            break
+
+        time.sleep(1)
+
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "

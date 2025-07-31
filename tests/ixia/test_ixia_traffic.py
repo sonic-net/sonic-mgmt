@@ -12,13 +12,13 @@
 import time
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import logger
 
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
     ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, \
-    ixia_api_server_session                                                                 # noqa F401
+    ixia_api_server_session                                                                 # noqa: F401
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, configure_ports,\
     create_topology, create_ipv4_traffic, start_protocols, start_traffic, \
     stop_traffic, stop_protocols, dump_flow_statistics
@@ -32,8 +32,8 @@ pytestmark = [
 ]
 
 
-def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph_facts,     # noqa F811
-                 ixia_api_server_session, fanouthosts):                                     # noqa F811
+def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph_facts,     # noqa: F811
+                 ixia_api_server_session, fanouthosts):                                     # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Connection Graph Facts = %s " % (conn_graph_facts))
@@ -77,7 +77,7 @@ def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph
 
     # Create a traffic item
     logger.info("Configuring traffic.")
-    traffic_item = create_ipv4_traffic(         # noqa F841
+    traffic_item = create_ipv4_traffic(         # noqa: F841
         session=session,
         name="Test Data Traffic",
         source=topo_sender,

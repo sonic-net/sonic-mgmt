@@ -39,7 +39,7 @@ def snappi_api_serv_ip(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
+def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP Port of the Snappi API server.
     Args:
@@ -47,6 +47,9 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     Returns:
         snappi API server port.
     """
+    if "tg_api_server" in tbinfo:
+        return tbinfo['tg_api_server'].split(':')[1]
+
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
@@ -262,7 +265,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             port_config_list.append(port_config)
 
-        if len(port_config_list) != len(snappi_ports):
+        if duthost.get_facts().get("modular_chassis") and len(port_config_list) != len(snappi_ports):
             return False
 
     return True
