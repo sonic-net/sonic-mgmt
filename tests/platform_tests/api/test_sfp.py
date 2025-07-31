@@ -734,10 +734,16 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
             info_dict = port_index_to_info_dict[sfp_port_idx]
 
+            # flap ports if they support LPMODE, or if they’re in the known-skip list (e.g. Cloud Light)
+            skip_entry = any(
+                info_dict.get("manufacturer", "").strip()   == s["manufacturer"] and
+                info_dict.get("host_electrical_interface","").strip() == s["host_electrical_interface"]
+                for s in self.LPMODE_SKIP_LIST
+            )
+
             # If the xcvr supports low-power mode then it needs to be flapped
             # to come out of low-power mode after sfp_reset().
-            #Added cmis_rev check to address issues with pullrequest 16547
-            if "cmis_rev" in info_dict or self.is_xcvr_support_lpmode(info_dict):
+            if self.is_xcvr_support_lpmode(info_dict) or skip_entry:
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
