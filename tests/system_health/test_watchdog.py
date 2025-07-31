@@ -72,14 +72,14 @@ def pause_orchagent(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_as
 
 def check_process_status(duthost, process, asic_id):
     result = duthost.shell(
-                        r"docker exec -i swss{} sh -c 'ps -au | grep {}".format(asic_id, process),
+                        r"docker exec -i swss{} sh -c 'pgrep -f {}".format(asic_id, process),
                         module_ignore_errors=True)['stdout']
-    logger.info('Check supervisor-proc-exit-listener running: {}'.format(result))
+    logger.info('Check the process({}) running inside swss{}: {}'.format(process, asic_id, result))
     return result
 
 
 def make_ut_fail_if_process_not_running(duthost, asic_id):
-    result = check_process_status(duthost, "/usr/bin/supervisor-proc-exit-listener'", asic_id)
+    result = check_process_status(duthost, "supervisor-proc-exit-listener", asic_id)
     if not result:
         pytest.fail("Watchfog process is not running.")
 
