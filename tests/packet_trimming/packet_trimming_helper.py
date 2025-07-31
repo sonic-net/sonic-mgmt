@@ -1873,11 +1873,11 @@ def remove_tc_to_dscp_map(duthost):
     logger.info("TC_TO_DSCP_MAP configuration removed successfully")
 
 
-def verify_asymmetric_dscp_packet_trimming(
+def verify_trimmed_packet(
         duthost, ptfadapter, ingress_port, egress_ports, block_queue, send_pkt_size, send_pkt_dscp, recv_pkt_size,
         recv_pkt_dscp_port1, recv_pkt_dscp_port2, expect_packets=True):
     """
-    Verify packet trimming in asymmetric DSCP mode for one or two egress ports.
+    Verify packet trimming for one or two egress ports.
 
     Args:
         duthost: DUT host object
