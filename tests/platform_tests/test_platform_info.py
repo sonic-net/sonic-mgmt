@@ -160,7 +160,8 @@ def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="function")
 def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus',
+                              request=request)
     loganalyzer.load_common_config()
 
     ignore_list = request.param
