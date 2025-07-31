@@ -145,7 +145,7 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                                                                                           asichost.asic_index))
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=False)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
@@ -309,7 +309,7 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_resources(duthosts, rand_one_dut_hostname):
+def crm_resources(duthosts, rand_one_dut_hostname, set_polling_interval):
     """
     Parse the CRM resource table from the 'crm show resources all' command output,
     retrying if CRM counters are not ready.
