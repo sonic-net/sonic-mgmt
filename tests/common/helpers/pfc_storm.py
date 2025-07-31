@@ -177,7 +177,7 @@ class PFCStorm(object):
                 chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
             elif self.peer_device.os == 'sonic':
                 chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
-            if self.peer_device.os == 'eos' and chip_name:
+            if self.peer_device.os in ('eos', 'sonic') and chip_name:
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_chip_name = chip_name
