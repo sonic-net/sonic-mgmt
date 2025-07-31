@@ -298,6 +298,11 @@ parameters:
   type: boolean
   default: false
 
+- name: ENABLE_CPA
+  type: boolean
+  default: true
+  displayName: "ENABLE_CPA"
+
 stages:
 - stage: SONiCMetadataPreTest
   jobs:
@@ -338,3 +343,4 @@ stages:
     ITERATIONS : ${{ parameters.ITERATIONS }}
     SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
     SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
+    ENABLE_CPA: ${{ parameters.ENABLE_CPA }}

@@ -4,6 +4,10 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   default: warm
+- name: ENABLE_CPA
+  type: boolean
+  default: true
+  displayName: "ENABLE_CPA"
 - name: VM_TYPE
   type: string
   displayName: "VM type of neighbor devices"
@@ -144,6 +148,9 @@ steps:
         if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
             metadata_process_option=--metadata_process
         fi
+        if [[ ${{ parameters.ENABLE_CPA }} == True ]]; then
+            cpa_option=--enable_cpa
+        fi
 
         select_sad_cases="${{ parameters.SELECT_SAD_CASES }}"
 
@@ -221,7 +228,7 @@ steps:
                 echo From URL is $from_url
                 echo To URL is $to_url
 
-                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
+                EXTRA_PARAMS="--showlocals --assert plain -rav $cpa_option --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
 
                 if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                     EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -272,7 +279,7 @@ steps:
             hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
             popd
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
+            EXTRA_PARAMS="--showlocals --assert plain -rav $cpa_option --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
