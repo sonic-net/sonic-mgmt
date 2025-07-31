@@ -29,23 +29,45 @@ def is_log_valid(pattern, logs):
     return False
 
 
-def extract_audit_timestamp(logs):
-    timestamp_regex = r'audit\((\d+\.\d+):\d+\)'
+def extract_audit_timestamp(logs, include_seq=False):
+    """
+    Extracts the audit timestamp from auditd logs.
+
+    Args:
+        logs: A list of log lines
+        include_seq:
+            - If False: extracts only the timestamp portion (e.g., '1688329461.744').
+            - If True: extracts the full timestamp with sequence number (e.g., '1688329461.744:1123').
+
+    Returns:
+        str: The extracted timestamp or full timestamp with sequence, or an empty string if not found.
+
+    Regex explanation:
+        - r'audit\((\d+\.\d+):\d+\)' matches the timestamp only.
+            Example match: audit(1688329461.744:1123) --> group(1) = '1688329461.744'   # noqa: W605
+        - r'audit\((\d+\.\d+:\d+)\)' matches the full timestamp with sequence.
+            Example match: audit(1688329461.744:1123) --> group(1) = '1688329461.744:1123'   # noqa: W605
+
+    Notes:
+        - Lines containing 'ansible-ansible' (produced by Ansible) are skipped
+
+    Example:
+        log1: "type=SYSCALL msg=audit(1688329461.744:1123): arch=c000003e syscall=59 ..."
+        - extract_audit_timestamp([log1], include_seq=False) --> '1688329461.744'
+
+        log2: "type=PATH msg=audit(1688329461.744:1124): item=0 name=\"/usr/bin/docker\" ..."
+        - extract_audit_timestamp([log2], include_seq=True) --> '1688329461.744:1124'
+    """
+
+    # Choose regex based on whether to include the sequence number
+    regex = r'audit\((\d+\.\d+:\d+)\)' if include_seq else r'audit\((\d+\.\d+):\d+\)'
     for log in logs:
+        # Skip logs produced by Ansible
         if "ansible-ansible" not in log:
-            match = re.search(timestamp_regex, log)
+            match = re.search(regex, log)
             if match:
                 return match.group(1)
-    return ''
-
-
-def extract_audit_timestamp_with_seq(logs):
-    full_timestamp_regex = r'audit\((\d+\.\d+:\d+)\)'
-    for log in logs:
-        if "ansible-ansible" not in log:
-            match = re.search(full_timestamp_regex, log)
-            if match:
-                return match.group(1)
+    # No matching timestamp found
     return ''
 
 
@@ -166,7 +188,7 @@ def test_directory_based_keys(localhost,
             assert is_log_valid("type=SYSCALL", logs), \
                 f"Auditd {key} rule does not contain the SYSCALL logs"
 
-            full_timestamp = extract_audit_timestamp_with_seq(logs)
+            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
 
             if key == "user_group_management":
                 continue
@@ -217,7 +239,7 @@ def test_file_based_keys(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs for {path}"
 
-            full_timestamp = extract_audit_timestamp_with_seq(logs)
+            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
 
             cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
             logs = duthost.shell(cmd)["stdout_lines"]
@@ -263,7 +285,7 @@ def test_docker_config(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs for {path}"
 
-            full_timestamp = extract_audit_timestamp_with_seq(logs)
+            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
 
             cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
             logs = duthost.shell(cmd)["stdout_lines"]
