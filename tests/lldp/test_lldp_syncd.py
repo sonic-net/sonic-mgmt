@@ -413,7 +413,8 @@ def test_lldp_entry_table_after_reboot(
 
     # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
     # setup this may take some time to happen.
-    keys_match = wait_until(90, 5, 30, check_lldp_table_keys, duthost, db_instance)
+    MAX_TIME_TO_REBOOT = 360
+    keys_match = wait_until(MAX_TIME_TO_REBOOT, 5, 30, check_lldp_table_keys, duthost, db_instance)
     if not keys_match:
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
