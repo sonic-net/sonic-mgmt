@@ -77,12 +77,14 @@ def check_process_status(duthost, process, asic_id):
     logger.info('Check the process({}) running inside swss{}: {}'.format(process, asic_id, result))
     return result
 
+
 def pgrep_swss_process(duthost, process, asic_id):
     result = duthost.shell(
                         r"docker exec -i swss{} pgrep -f {}".format(asic_id, process),
                         module_ignore_errors=True)['stdout']
     logger.info('Pgrep the process({}) running inside swss{}: {}'.format(process, asic_id, result))
     return result
+
 
 def make_ut_fail_if_process_not_running(duthost, asic_id):
     result = pgrep_swss_process(duthost, "supervisor-proc-exit-listener", asic_id)
