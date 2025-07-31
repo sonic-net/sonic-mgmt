@@ -65,50 +65,48 @@ class TestNeighborMacNoPtf:
 
         return back_plane_port_ips
 
-        def _get_bgp_routes_asic(self, asichost, filter_ip_list=[]):
-            # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
-            localv6_prefixes = ["fc", "fe"]
-            localv6 = sum(self.count_routes(asichost, prefix) for prefix in localv6_prefixes)
-            # For 2 vlans with secondary subnet, the route subnet could be 192.169.0.0, not only 192.168.0.0
-            localv4_prefixes = ["10.", "192."]
-            localv4 = sum(self.count_routes(asichost, prefix) for prefix in localv4_prefixes)
-            # these routes are present only on multi asic device, on single asic platform they will be zero
-            internal_prefixes = ["8.", "2603"]
-            if asichost.sonichost.facts['switch_type'] == 'voq':
-                # voq inband_ip's
-                internal_prefixes.append("3")
-            internal = sum(self.count_routes(asichost, prefix) for prefix in internal_prefixes)
-            # custom filtered ips
-            filter = {
-                ip for ip in set(filter_ip_list)
-                if not any(ip.lower().startswith(prefix)
-                           for prefix in (localv4_prefixes + localv6_prefixes + internal_prefixes))
-            }
-            logger.info("custom filter: {}".format(filter))
-            filtered = sum(self.count_routes(asichost, ip) for ip in set(filter))
+    def _get_bgp_routes_asic(self, asichost, filter_ip_list=[]):
+        # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
+        localv6_prefixes = ["fc", "fe"]
+        localv6 = sum(self.count_routes(asichost, prefix) for prefix in localv6_prefixes)
+        # For 2 vlans with secondary subnet, the route subnet could be 192.169.0.0, not only 192.168.0.0
+        localv4_prefixes = ["10.", "192."]
+        localv4 = sum(self.count_routes(asichost, prefix) for prefix in localv4_prefixes)
+        # these routes are present only on multi asic device, on single asic platform they will be zero
+        internal_prefixes = ["8.", "2603"]
+        if asichost.sonichost.facts['switch_type'] == 'voq':
+            # voq inband_ip's
+            internal_prefixes.append("3")
+        internal = sum(self.count_routes(asichost, prefix) for prefix in internal_prefixes)
+        # custom filtered ips
+        filter = {
+            ip for ip in set(filter_ip_list)
+            if not any(ip.lower().startswith(prefix)
+                       for prefix in (localv4_prefixes + localv6_prefixes + internal_prefixes))
+        }
+        logger.info("custom filter: {}".format(filter))
+        filtered = sum(self.count_routes(asichost, ip) for ip in set(filter))
 
-            allroutes = self.count_routes(asichost, "")
-            logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} filtered {} allroutes {}"
+        allroutes = self.count_routes(asichost, "")
+        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} filtered {} allroutes {}"
+                    .format(asichost.asic_index, localv4, localv6, internal, filtered, allroutes))
+        bgp_routes_asic = allroutes - localv6 - localv4 - internal - filtered - DEFAULT_ROUTE_NUM
 
+        return bgp_routes_asic
 
-                        .format(asichost.asic_index, localv4, localv6, internal, filtered, allroutes))
-            bgp_routes_asic = allroutes - localv6 - localv4 - internal - filtered - DEFAULT_ROUTE_NUM
+    def _check_no_bgp_routes(self, duthost):
+        bgp_routes = 0
 
-            return bgp_routes_asic
+        filter_ip_list = []
+        if duthost.facts["asic_type"] == "cisco-8000":
+            filter_ip_list = self._get_back_plane_port_ips(duthost)
 
-        def _check_no_bgp_routes(self, duthost):
-            bgp_routes = 0
+        # Checks that there are no routes installed by BGP in ASIC_DB
+        # by filtering out all local routes installed on testbed
+        for asic in duthost.asics:
+            bgp_routes += self._get_bgp_routes_asic(asic, filter_ip_list)
 
-            filter_ip_list = []
-            if duthost.facts["asic_type"] == "cisco-8000":
-                filter_ip_list = self._get_back_plane_port_ips(duthost)
-
-            # Checks that there are no routes installed by BGP in ASIC_DB
-            # by filtering out all local routes installed on testbed
-            for asic in duthost.asics:
-                bgp_routes += self._get_bgp_routes_asic(asic, filter_ip_list)
-
-            return bgp_routes == 0
+        return bgp_routes == 0
 
     @pytest.fixture(scope="module", autouse=True)
     def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
