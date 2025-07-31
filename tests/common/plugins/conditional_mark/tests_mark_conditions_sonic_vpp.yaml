@@ -544,7 +544,7 @@ mvrf/test_mgmtvrf.py::TestServices::test_ntp:
             Failed/Errored: To be included
     conditions:
       - "asic_type in ['vpp']"
-      
+
 #######################################
 #####          PC                 #####
 #######################################
@@ -1111,13 +1111,6 @@ test_vs_chassis_setup.py:
 #######################################
 #####          Vxlan              #####
 #######################################
-vxlan/test_vxlan_bfd_tsa.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions:
-      - "asic_type in ['vpp']"
-
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >
