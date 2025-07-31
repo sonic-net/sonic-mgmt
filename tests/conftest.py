@@ -922,7 +922,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     for server in servers:
         vm_base = int(server['vm_base'][2:])
         vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.parse_topology_vms(
+        vms = MultiServersUtils.get_vms_by_dut_interfaces(
                 tbinfo['topo']['properties']['topology']['VMs'],
                 server['dut_interfaces']
             ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
