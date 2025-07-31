@@ -73,3 +73,5 @@ orchagent_docker_volumes_dict:
   "/host/machine.conf:/host/machine.conf":
 
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
+
+sonic_qos_profile: "BALANCED"    # Possible values: DEFAULT, RDMA-CENTRIC, TCP-CENTRIC, BALANCED

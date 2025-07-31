@@ -13,7 +13,8 @@ from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.ip.ip_util import parse_rif_counters, sum_ifaces_counts
+from tests.common.utilities import parse_rif_counters
+from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
     pytest.mark.topology('any')
