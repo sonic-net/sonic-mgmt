@@ -22,6 +22,34 @@ types-six
 types-paramiko
 types-requests
 
-pytest
-pytest-cov
-requests
+# Testing framework
+pytest>=6.0.0
+pytest-cov>=3.0.0
+pytest-ansible
+
+# Network libraries
+requests>=2.25.0
+netaddr
+scapy
+paramiko
+pysnmp
+
+# Data processing and templating
+jinja2
+yaml
+PyYAML
+
+# Text processing and parsing
+tabulate
+six
+natsort
+
+# System management
+pexpect
+ansible
+
+# Reporting
+allure-commons
+
+# Coverage tools
+coverage>=6.0.0
