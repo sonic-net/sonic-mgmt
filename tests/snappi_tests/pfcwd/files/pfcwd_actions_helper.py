@@ -17,6 +17,7 @@ from tests.common.snappi_tests.traffic_generation import verify_pause_flow, \
     run_traffic_and_collect_stats, multi_base_traffic_config, verify_egress_queue_frame_count, \
     generate_test_flows, generate_background_flows, generate_pause_flows
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.files.helper import get_number_of_streams
 
 
 logger = logging.getLogger(__name__)
@@ -248,6 +249,7 @@ def run_pfc_test(api,
                             test_flow_prio_list=test_prio_list,
                             prio_dscp_map=prio_dscp_map,
                             snappi_extra_params=snappi_extra_params,
+                            number_of_streams=get_number_of_streams(ingress_duthost, tx_port, rx_port),
                             flow_index=m)
 
     if (test_def['background_traffic']):
@@ -258,6 +260,7 @@ def run_pfc_test(api,
                                           bg_flow_prio_list=bg_prio_list,
                                           prio_dscp_map=prio_dscp_map,
                                           snappi_extra_params=snappi_extra_params,
+                                          number_of_streams=get_number_of_streams(ingress_duthost, tx_port, rx_port),
                                           flow_index=m)
 
     # Generate pause storm config
