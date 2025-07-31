@@ -934,46 +934,46 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG241704UM"
-    str2-7050cx3-acs-10:
+    str2-7050cx3-32c-f-acs-10:
       ansible_host: 10.3.146.122
       ansible_hostv6: 2a01:111:e210:3000::a03:927a
       mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
-      serial: JPE20437840
-      base_mac: 94:8e:d3:04:eb:28
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG243500F5
+      base_mac: 54:0f:2c:47:a3:f0
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S-SSD"
-        "0x22": "ASY0323106A0"
-        "0x23": "JPE20437840"
-        "0x24": "94:8e:d3:04:eb:28"
-        "0x25": "2020/01/01 00:00:00"
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG243500F5"
+        "0x24": "54:0f:2c:47:a3:f0"
+        "0x25": "2024/09/07 09:28:08"
         "0x26": "01"
         "0x27": "01.00"
-        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x28": "x86_64-arista_7050cx3_32c"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPE20437840"
-    str2-7050cx3-acs-11:
+        "0x2E": "Aboot-norcal11-11.0.6-32762515"
+        "0x2F": "HBG243500F5"
+    str2-7050cx3-32c-f-acs-11:
       ansible_host: 10.3.146.127
       ansible_hostv6: 2a01:111:e210:3000::a03:927f
       mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
-      serial: JPE20432360
-      base_mac: d4:af:f7:cb:c8:ec
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG24350094
+      base_mac: 54:0f:2c:43:9f:44
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S-SSD"
-        "0x22": "ASY0323106A0"
-        "0x23": "JPE20432360"
-        "0x24": "d4:af:f7:cb:c8:ec"
-        "0x25": "2020/10/30 11:27:31"
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG24350094"
+        "0x24": "54:0f:2c:43:9f:44"
+        "0x25": "2024/09/07 08:08:41"
         "0x26": "01"
         "0x27": "01.00"
-        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x28": "x86_64-arista_7050cx3_32c"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPE20432360"
+        "0x2E": "Aboot-norcal11-11.0.6-32762515"
+        "0x2F": "HBG24350094"
     str2-7050cx3-acs-12:
       ansible_host: 10.3.146.13
       ansible_hostv6: 2a01:111:e210:3000::a03:920d

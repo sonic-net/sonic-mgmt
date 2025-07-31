@@ -281,8 +281,8 @@
   server: server_21
   vm_base: VM21028
   dut:
-  - str2-7050cx3-acs-10
-  - str2-7050cx3-acs-11
+  - str2-7050cx3-32c-f-acs-10
+  - str2-7050cx3-32c-f-acs-11
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia

@@ -13,10 +13,10 @@ pdu-120,12,str2-7050cx3-32c-f-acs-08,PSU1
 pdu-119,25,str2-7050cx3-32c-f-acs-08,PSU2
 pdu-119,16,str2-7050cx3-32c-f-acs-09,PSU1
 pdu-119,15,str2-7050cx3-32c-f-acs-09,PSU2
-pdu-120,47,str2-7050cx3-acs-10,PSU1
-pdu-119,47,str2-7050cx3-acs-10,PSU2
-pdu-120,37,str2-7050cx3-acs-11,PSU1
-pdu-119,37,str2-7050cx3-acs-11,PSU2
+pdu-120,47,str2-7050cx3-32c-f-acs-10,PSU1
+pdu-119,47,str2-7050cx3-32c-f-acs-10,PSU2
+pdu-120,37,str2-7050cx3-32c-f-acs-11,PSU1
+pdu-119,37,str2-7050cx3-32c-f-acs-11,PSU2
 pdu-125,40,str2-7050cx3-acs-12,PSU1
 pdu-124,34,str2-7050cx3-acs-12,PSU2
 pdu-117,24,str2-7050cx3-acs-13,PSU1
