@@ -211,6 +211,7 @@ def generate_background_flows(testbed_config,
                               bg_flow_prio_list,
                               prio_dscp_map,
                               snappi_extra_params,
+                              number_of_streams=1,
                               flow_index=None):
     """
     Generate background configurations of flows. Test flows and background flows are also known as data flows.
@@ -244,7 +245,14 @@ def generate_background_flows(testbed_config,
         bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4 = bg_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = bg_flow.packet.ethernet().ipv4().udp()
+        global UDP_PORT_START
+        src_port = UDP_PORT_START
+        UDP_PORT_START += number_of_streams
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = number_of_streams
+
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
         if pfcQueueGroupSize == 8:
@@ -1056,9 +1064,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         while retry > 0 and not stormed:
             for dut, port in dutport_list:
                 for pri in switch_tx_lossless_prios:
-                    if dut == tx_duthost:
-                        stormed = clear_pfc_counter_after_storm(dut, port, pri)
+                    stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
+                        clear_dut_pfc_counters(rx_duthost)
+                        clear_dut_pfc_counters(tx_duthost)
                         logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
                         break  # break inner for
                 if stormed:
