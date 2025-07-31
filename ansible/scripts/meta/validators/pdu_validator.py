@@ -14,9 +14,9 @@ class PDUValidator(GlobalValidator):
         super().__init__(
             name="pdu",
             description="Validates that all DevSonic and Fanout devices have PDU connections configured",
-            category="connectivity"
+            category="connectivity",
+            config=config
         )
-        self.config = config or {}
 
     def _validate(self, context: ValidatorContext) -> None:
         """
