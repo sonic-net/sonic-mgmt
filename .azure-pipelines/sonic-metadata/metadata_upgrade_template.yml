@@ -80,6 +80,10 @@ parameters:
 - name: ENABLE_DATAACL
   type: boolean
   default: true
+- name: ENABLE_CPA
+  type: boolean
+  default: true
+  displayName: "ENABLE_CPA"
 - name: POOL
   type: string
   default: nightly
@@ -237,6 +241,7 @@ stages:
         SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
         TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
         SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+        ENABLE_CPA: ${{ parameters.ENABLE_CPA }}
         POOL: ${{ parameters.POOL }}
         # AZP doesn't support defining runtime variables. Moreoever yaml does not support for loops.
         # Since there is only for-each loop, the list needs to be hardcoded. This is ugly, but does the job.
