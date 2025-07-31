@@ -370,6 +370,7 @@ def verify_bfd_queue_counters(duthost, dut_intf):
     if queue_pkt_count == 0:
         pytest.fail('Queue 7 packet count is zero, no BFD traffic')
 
+
 def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
     for addr in neighbor_addrs:
         logger.info(f"Warming up IPv6 neighbor {addr}")
