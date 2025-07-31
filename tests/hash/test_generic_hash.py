@@ -330,9 +330,17 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
         )
 
 
+def is_bgp_session_established(duthost, neighbor_ip):
+    """
+    Check if the BGP session is established.
+    """
+    bgp_neighbors = duthost.get_bgp_neighbors()
+    return bgp_neighbors.get(neighbor_ip, {}).get('state') == 'established'
+
+
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor):                                      # noqa:F811
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost):                             # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -407,8 +415,11 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(rand_selected_dut, interface)
         flap_interfaces(rand_selected_dut, [interface], times=3)
-        pytest_assert(wait_until(10, 2, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
-                      'The default route is not restored after the flapping.')
+        ip_intfs = duthost.show_and_parse('show ip interface')
+        ip_intf = next((intf for intf in ip_intfs if intf['interface'] == interface), None)
+        neighbor_ip = ip_intf['neighbor ip']
+        pytest_assert(wait_until(60, 2, 0, is_bgp_session_established, duthost, neighbor_ip),
+                      "BGP session is not established on DUT after the flapping")
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
