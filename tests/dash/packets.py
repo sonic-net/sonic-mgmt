@@ -103,7 +103,7 @@ def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp',
         ip_src=pl.PE_PA,
         ip_dst=pl.APPLIANCE_VIP,
         gre_key_present=True,
-        gre_key=int(pl.ENCAP_VNI) << 8 if use_pkt_alt_attrs else int(pl.VNET1_VNI) << 8,
+        gre_key=int(pl.ENCAP_VNI) << 8,
         inner_frame=inner_packet,
     )
 
