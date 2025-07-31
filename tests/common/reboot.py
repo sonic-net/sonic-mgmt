@@ -379,6 +379,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # Update critical service list after rebooting in case critical services changed after rebooting
         pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
+        pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
+
         duthost.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
                       "{}: All critical services should be fully started!".format(hostname))
