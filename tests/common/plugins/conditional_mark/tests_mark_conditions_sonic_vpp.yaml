@@ -1111,6 +1111,47 @@ test_vs_chassis_setup.py:
 #######################################
 #####          Vxlan              #####
 #######################################
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v4]:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v4]:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v4]:
+  skip:
+    reason: >
+            Unsupported
+    conditions:
+      - "asic_type in ['vpp']"
+
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >
