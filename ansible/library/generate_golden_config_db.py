@@ -583,7 +583,7 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_mgfx_golden_config_db()
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"]:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
