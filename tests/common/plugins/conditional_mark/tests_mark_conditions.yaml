@@ -71,6 +71,12 @@ arp/test_unknown_mac.py:
     conditions:
       - "asic_type in ['cisco-8000','marvell-teralynx']"
 
+arp/test_wr_arp.py::test_wr_arp:
+  xfail:
+    reason: "This testcase fails due to known issue 'https://github.com/sonic-net/sonic-buildimage/issues/21844'"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
+
 arp/test_wr_arp.py:
   skip:
     reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412"
