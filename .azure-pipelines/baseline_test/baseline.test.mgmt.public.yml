@@ -21,7 +21,7 @@ stages:
   - name: testbed_file
     value: vtestbed.yaml
   jobs:
-  - template: baseline.test.template.yml
+  - template: ../pr_test_template.yml
 
 - stage: Test_round_2
   dependsOn:
@@ -34,7 +34,7 @@ stages:
   - name: testbed_file
     value: vtestbed.yaml
   jobs:
-  - template: baseline.test.template.yml
+  - template: ../pr_test_template.yml
 
 - stage: Test_round_3
   dependsOn:
@@ -47,7 +47,7 @@ stages:
   - name: testbed_file
     value: vtestbed.yaml
   jobs:
-  - template: baseline.test.template.yml
+  - template: ../pr_test_template.yml
 
 - stage: Test_round_4
   dependsOn:
@@ -60,4 +60,4 @@ stages:
   - name: testbed_file
     value: vtestbed.yaml
   jobs:
-  - template: baseline.test.template.yml
+  - template: ../pr_test_template.yml
