@@ -60,7 +60,7 @@ def apply_profile(duts, ports, profile, policy, replay_window="0", send_sci="1",
         for dut in duts:
             count = 0
             for port in ports[dut]:
-                asic = get_asic_from_port(port) if is_lag is False else 0
+                asic = get_asic_from_port(port)
                 if count == 0:
                     if re.search("\d+", str(profile)).group(0) == '256':
                         primary_cak = "08711D1C5A4D5041455355250808000D156573415442565701010172762D273D30090905000600025C035F267A74203620540A59555B741A1951402435312F2922"
@@ -105,11 +105,15 @@ def run_traffic(request, wait_time=15):
     res2=tg2.tg_interface_config(port_handle=tg_handle_2, mode='config', intf_ip_addr="200.200.200.2", gateway="200.200.200.1", src_mac_addr='00:0a:01:00:11:02', arp_send_req='1')
     st.log("INTFCONF: "+str(res2))
     tg2_interface = res2['handle']
+
+    d1t1_asic = get_asic_from_port(vars.D1T1P1)
+    d2t1_asic = get_asic_from_port(vars.D2T1P1)
+    d1d2_asic = get_asic_from_port(vars.D1D2P1)
     
     #Verify traffic between D1 and T1
     iteration=0 
-    while iteration<5: 
-        result = ipapi.ping(vars.D1, "100.100.100.2", distributed=True)
+    while iteration<5:
+        result = ipapi.ping(vars.D1, "100.100.100.2", distributed=True, asic=d1t1_asic)
         if not result: 
             iteration+=1 
             st.wait(15)
@@ -121,7 +125,7 @@ def run_traffic(request, wait_time=15):
     #Ping verification between D2 and T1
     iteration=0
     while iteration<5:
-        result = ipapi.ping(vars.D2, "200.200.200.2", distributed=True)
+        result = ipapi.ping(vars.D2, "200.200.200.2", distributed=True, asic=d2t1_asic)
         if not result:
             iteration+=1
             st.wait(15)
@@ -133,7 +137,7 @@ def run_traffic(request, wait_time=15):
     #Ping Verification between D1 & D2 - to resolve the ARP between LCs as IXIA doesnt have automatic arp resolution for each traffic stream
     iteration=0
     while iteration<5:
-        result = ipapi.ping(vars.D1, "10.10.{}.2".format(request.config.subnet), distributed=True)
+        result = ipapi.ping(vars.D1, "10.10.{}.2".format(request.config.subnet), distributed=True, asic=d1d2_asic)
         if not result:
             iteration+=1
             st.wait(15)
@@ -183,14 +187,19 @@ def crash_process(dut, container_name, asic, prs_name):
 
 def config_portchannel():
     var_def()
-    for dut in duts: 
-        st.config(dut, "sudo config portchannel -n asic0 add --min-links 2 PortChannel24")
-        st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P1))
-        st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P2))
+    for dut in duts:
+        d1d2_asic_1 = get_asic_from_port(vars.D1D2P1)
+        d1d2_asic_2 = get_asic_from_port(vars.D1D2P2)
+        st.config(dut, "sudo config portchannel -n asic{} add --min-links 2 PortChannel104".format(d1d2_asic_1))
+        st.config(dut, "sudo config portchannel -n asic{} member add PortChannel104 {}".format(d1d2_asic_1, vars.D1D2P1))
+        st.config(dut, "sudo config portchannel -n asic{} member add PortChannel104 {}".format(d1d2_asic_2, vars.D1D2P2))
 
 def deconfig_portchannel():
     var_def()
     for dut in duts:
-        st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P1))
-        st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P2))
-        st.config(dut, "sudo config portchannel -n asic0 del PortChannel24")
+        d1d2_asic_1 = get_asic_from_port(vars.D1D2P1)
+        d1d2_asic_2 = get_asic_from_port(vars.D1D2P2)
+        st.config(dut, "sudo config portchannel -n asic{} member del PortChannel104 {}".format(d1d2_asic_1, vars.D1D2P1))
+        st.config(dut, "sudo config portchannel -n asic{} member del PortChannel104 {}".format(d1d2_asic_2, vars.D1D2P2))
+        st.config(dut, "sudo config portchannel -n asic{} del PortChannel104".format(d1d2_asic_1))
+

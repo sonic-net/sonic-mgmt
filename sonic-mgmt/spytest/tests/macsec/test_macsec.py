@@ -22,11 +22,13 @@ def macsec_module_hooks(request):
     global SESSION_KEYS, INTERFACE_KEYS
     SESSION_KEYS = SpyTestDict()
     INTERFACE_KEYS = SpyTestDict()
-    st.config(vars.D1, "sudo config interface -n asic0 ip add {} 100.100.100.1/24".format(vars.D1T1P1))
-    st.config(vars.D2, "sudo config interface -n asic0 ip add {} 200.200.200.1/24".format(vars.D2T1P1))
+    asic_dut1 = get_asic_from_port(vars.D1T1P1)
+    asic_dut2 = get_asic_from_port(vars.D2T1P1)
+    st.config(vars.D1, "sudo config interface -n asic{} ip add {} 100.100.100.1/24".format(asic_dut1, vars.D1T1P1))
+    st.config(vars.D2, "sudo config interface -n asic{} ip add {} 200.200.200.1/24".format(asic_dut2, vars.D2T1P1))
     yield
-    st.config(vars.D1, "sudo config interface -n asic0 ip remove {} 100.100.100.1/24".format(vars.D1T1P1))
-    st.config(vars.D2, "sudo config interface -n asic0 ip remove {} 200.200.200.1/24".format(vars.D2T1P1)) 
+    st.config(vars.D1, "sudo config interface -n asic{} ip remove {} 100.100.100.1/24".format(asic_dut1, vars.D1T1P1))
+    st.config(vars.D2, "sudo config interface -n asic{} ip remove {} 200.200.200.1/24".format(asic_dut2, vars.D2T1P1))
 
 
 @pytest.fixture(scope='class')
@@ -42,13 +44,21 @@ def macsec_class_hook(request):
 def pc_class_hook(request):
     ports = {vars.D1:[vars.D1D2P1, vars.D1D2P2], vars.D2: [vars.D1D2P1, vars.D1D2P2]}
     request.config.subnet = 2
-    config_portchannel()
-    config_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", request.config.subnet, is_lag = True)
-    yield
-    delete_macsec_config(ports, is_lag = True)
-    delete_macsec_profile("aes_128")
-    deconfig_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", request.config.subnet, is_lag = True)
-    deconfig_portchannel()
+    try:
+        config_portchannel()
+        config_routes(vars.D1, vars.D2, "PortChannel104", "PortChannel104", 
+                     request.config.subnet, is_lag=True)
+        yield  
+    except Exception as e:
+        st.error(f"Setup failed: {str(e)}")
+        raise
+    finally:  
+        delete_macsec_config(ports, is_lag=True)
+        delete_macsec_profile("aes_128")
+        deconfig_routes(vars.D1, vars.D2, "PortChannel104", "PortChannel104",
+                       request.config.subnet, is_lag=True)
+        deconfig_portchannel()
+
    
 @pytest.fixture(scope='class')
 def scale_class_hook(request):
@@ -70,10 +80,16 @@ var = variables()
 MACSEC_PROFILE = var.MACSEC_PROFILE
 MACSEC_REGEX = var.MACSEC_REGEX
 
-
 def delete_macsec_profile(profile):
     for dut in duts:
-        st.config(dut, "sudo config macsec -n asic0 profile del {}".format(profile))
+        if dut == vars.D1:
+            d1_port = vars.D1D2P1
+            asic_dut1 = get_asic_from_port(d1_port)
+            st.config(dut, "sudo config macsec -n asic{} profile del {}".format(asic_dut1, profile))
+        elif dut == vars.D2:
+            d2_port = vars.D2D1P1
+            asic_dut2 = get_asic_from_port(d2_port)
+            st.config(dut, "sudo config macsec -n asic{} profile del {}".format(asic_dut2, profile))
 
 
 def get_handles():
@@ -85,7 +101,7 @@ def get_handles():
 def delete_macsec_config(ports, is_lag = False):
     for dut in duts:
         for port in ports[dut]:
-            asic = get_asic_from_port(port) if is_lag is False else 0
+            asic = get_asic_from_port(port)
             st.config(dut, "sudo sonic-db-cli -n asic{} CONFIG_DB HSET 'PORT|{}' 'macsec' ''".format(asic, port), skip_tmpl=True, skip_error_check=False)  
 
 
@@ -162,7 +178,8 @@ def macsec_session_test(encryption, request, toggle = False, check_syslogs = Tru
 
 
 def session_validation(dut, port, cipher, request, is_lag = False):
-    asic = get_asic_from_port(port) if is_lag is False else 0
+    #asic = get_asic_from_port(port) if is_lag is False else 0
+    asic = get_asic_from_port(port)
     cmd_output = st.config(dut, "show macsec -n asic{} {}".format(asic, port), skip_tmpl=True, skip_error_check=False)
     
     output = cmd_output.split("\n")
@@ -187,6 +204,8 @@ def session_validation(dut, port, cipher, request, is_lag = False):
         cleanup(request)
         st.report_fail("test_case_failed")
     cmd_output = cmd_output.encode('ascii','ignore')
+    cmd_output = cmd_output.decode("utf-8") #SIVA
+
     
     authkey = re.search(r"MACsec Egress SA \(\d\).*?auth_key\s+([A-F0-9]+)", cmd_output, re.DOTALL)
     sak = re.search(r"MACsec Egress SA \(\d\).*?sak\s+([A-F0-9]+)", cmd_output, re.DOTALL)
@@ -213,17 +232,25 @@ def session_validation(dut, port, cipher, request, is_lag = False):
 
 def config_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
     ''' Applies IP on the b2b links and checks bidirectional ping'''
-    d1_asic = get_asic_from_port(d1_link) if is_lag is False else 0
-    d2_asic = get_asic_from_port(d2_link) if is_lag is False else 0
+    for dut in duts:
+        for port in ports[dut]:
+            if dut == vars.D1:
+                d1_asic = get_asic_from_port(port)
+            else:
+                d2_asic = get_asic_from_port(port)
     st.config(dut1, "sudo config interface -n asic{} ip add {} 10.10.{}.1/24".format(d1_asic, d1_link, subnet))
     st.config(dut2, "sudo config interface -n asic{} ip add {} 10.10.{}.2/24".format(d2_asic, d2_link, subnet))                                                      
-    st.config(vars.D1, "sudo ip netns exec asic0 config route add prefix 200.200.200.0/24 nexthop 10.10.{}.2".format(subnet))
+    st.config(vars.D1, "sudo ip netns exec asic{} config route add prefix 200.200.200.0/24 nexthop 10.10.{}.2".format(d1_asic, subnet))
 
 
 def deconfig_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
-    d1_asic = get_asic_from_port(d1_link) if is_lag is False else 0
-    d2_asic = get_asic_from_port(d2_link) if is_lag is False else 0
-    st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24")
+    for dut in duts:
+        for port in ports[dut]:
+            if dut == vars.D1:
+                d1_asic = get_asic_from_port(port)
+            else:
+                d2_asic = get_asic_from_port(port)
+    st.config(vars.D1, "sudo ip netns exec asic{} config route del prefix 200.200.200.0/24".format(d1_asic))
     st.wait(5)
     st.config(dut1, "sudo config interface -n asic{} ip remove {} 10.10.{}.1/24".format(d1_asic, d1_link, subnet))
     st.config(dut2, "sudo config interface -n asic{} ip remove {} 10.10.{}.2/24".format(d2_asic, d2_link, subnet)) 
