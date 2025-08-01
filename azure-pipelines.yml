@@ -97,4 +97,3 @@ stages:
 
   jobs:
   - template: .azure-pipelines/pr_test_template.yml
-    
