@@ -1,8 +1,8 @@
 import pytest
 
 from tests.common.helpers.assertions import pytest_require as py_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa: F401
 
 
 def pytest_configure(config):

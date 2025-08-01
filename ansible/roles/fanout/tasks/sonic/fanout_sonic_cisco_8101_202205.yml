@@ -15,6 +15,8 @@
 
 - name: backup config_db.json
   shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+  become: yes
+  ignore_errors: yes
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
@@ -35,42 +37,57 @@
       block:
         - name: disable feature teamd
           shell: config feature state teamd disabled
-          become: true
+          become: yes
         - name: ensure teamd container is stopped
           docker_container:
             name: teamd
             state: stopped
-          become: true
+          become: yes
           ignore_errors: yes
         - name: remove teamd container
           docker_container:
             name: teamd
             state: absent
-          become: true
+          become: yes
       when: teamd_container.stdout != ""
 
 - name: SONiC update config db
   shell: config reload -y -f
-  become: true
+  become: yes
 
 - name: wait for SONiC update config db finish
   pause:
     seconds: 180
 
-- name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
+- name: shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
   shell: docker exec -i swss supervisorctl stop arp_update
   become: yes
 
-- name: Disable LLDP on Cisco 8101 fanout
+- name: disable LLDP on Cisco 8101 fanout
   shell: |
     config feature autorestart lldp disabled
     config feature state lldp disabled
-    docker exec -i syncd supervisorctl start dshell_client
   become: yes
 
-- name: wait for dshell_client start
-  pause:
-    seconds: 300
+- name: copy Cisco 8101 fanout service file
+  copy:
+    src: "templates/cisco.service"
+    dest: "/lib/systemd/system/cisco.service"
+  become: yes
 
-- name: Clear L2 trap configuration on Cisco 8101 fanout
-  shell: cat /tmp/cisco_8101_commands.txt | docker exec -i syncd sh -c "/usr/bin/dshell_client.py -i"
+- name: copy Cisco 8101 fanout script file
+  copy:
+    src: "templates/cisco_fanout.py"
+    dest: "/usr/bin/cisco_fanout.py"
+  become: yes
+
+- name: add Cisco to swss_dependent
+  shell: cat /etc/sonic/swss_dependent | grep cisco || echo -e "\ncisco" >> /etc/sonic/swss_dependent
+  become: yes
+
+- name: enable Cisco service
+  service:
+    name: cisco.service
+    enabled: true
+    state: started
+  become: yes

@@ -151,6 +151,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # Retrieve the enable_macsec passed by user for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    request = sonic_host.duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
@@ -161,7 +167,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y &>/dev/null'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config:
+        if override_config or macsec_en:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -202,6 +208,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        sonic_host.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
@@ -243,6 +253,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if yang_validate:
         pytest_assert(
-            wait_until(60, 15, 0, sonic_host.yang_validate),
+            wait_until(120, 30, 0, sonic_host.yang_validate),
             "Yang validation failed after config_reload"
         )

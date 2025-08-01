@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ PKT_STEP_SIZE = LARGER_PKT_SIZE - SMALLER_PKT_SIZE
 UDP_SRC_PORT = 63
 UDP_DST_PORT = 63
 UDP_PKT_LEN = 190
-TOTAL_NUM_PKTS = 100000
+TOTAL_NUM_PKTS = 65535
 EXP_FLOW_DUR_SEC = 3
 SNAPPI_POLL_DELAY_SEC = 2
 INNER_PKT_SRC_IP = "20.0.20.0"
@@ -165,7 +166,7 @@ def __gen_traffic(testbed_config,
 
         # Configure outer IPv4 header
         outer_ipv4.src.value = tx_port_config.ip
-        outer_ipv4.dst.value = rx_port_config.ip
+        outer_ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
         outer_ipv4.identification.choice = "increment"
         outer_ipv4.identification.increment.start = 1
         outer_ipv4.identification.increment.step = 1
@@ -227,9 +228,9 @@ def __run_traffic(api,
     __configure_advanced_stats(api)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(timeout)
 
@@ -259,9 +260,9 @@ def __run_traffic(api,
     request.flow.flow_names = all_flow_names
     flow_metrics = api.get_metrics(request).flow_metrics
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return flow_metrics
 

@@ -27,7 +27,7 @@ from tests.common.helpers.voq_helpers import get_ptf_port
 from tests.common.helpers.voq_helpers import get_vm_with_ip
 from tests.common.devices.eos import EosHost
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa: F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -1130,8 +1130,14 @@ class TestNeighborLinkFlap(LinkFlap):
                     fanout, fanport = fanout_switch_port_lookup(fanouthosts, per_host.hostname, lport)
                     self.linkflap_up(fanout, fanport, per_host, lport)
 
+            # Check that all neighbors are repopulated in ARP after ping before checking for neighbor presence
             for neighbor in neighbors:
                 sonic_ping(asic, neighbor)
+
+            pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, neighbors, "REACHABLE"),
+                          "STATE for neighbors {} did not change to reachable".format(neighbors))
+
+            for neighbor in neighbors:
                 check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
 
 

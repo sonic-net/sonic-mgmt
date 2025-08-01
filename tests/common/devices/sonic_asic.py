@@ -159,6 +159,19 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def show_ipv6_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ipv6_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show ipv6 interfaces command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
+
     def run_sonic_db_cli_cmd(self, sonic_db_cmd):
         cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
@@ -199,14 +212,14 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)

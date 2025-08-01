@@ -2,10 +2,10 @@ import pytest
 import logging
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
-from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa F401
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa: F401
+from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa: F401
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
@@ -20,10 +20,10 @@ DEPENDENT_SERVICES = ['teamd', 'snmp', 'dhcp_relay', 'radv']
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio(ixia_api, ixia_testbed_config, conn_graph_facts,          # noqa F811
-                                          fanout_graph_facts, duthosts, rand_one_dut_hostname,      # noqa F811
+def test_pfcwd_basic_single_lossless_prio(ixia_api, ixia_testbed_config, conn_graph_facts,          # noqa: F811
+                                          fanout_graph_facts, duthosts, rand_one_dut_hostname,      # noqa: F811
                                           rand_one_dut_portname_oper_up, enum_dut_lossless_prio,
-                                          prio_dscp_map, trigger_pfcwd):                            # noqa F811
+                                          prio_dscp_map, trigger_pfcwd):                            # noqa: F811
     """
     Run PFC watchdog basic test on a single lossless priority
 
@@ -66,10 +66,10 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api, ixia_testbed_config, conn_gr
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio(ixia_api, ixia_testbed_config, conn_graph_facts,       # noqa F811
-                                         fanout_graph_facts, duthosts, rand_one_dut_hostname,   # noqa F811
-                                         rand_one_dut_portname_oper_up, lossless_prio_list,     # noqa F811
-                                         prio_dscp_map, trigger_pfcwd):                         # noqa F811
+def test_pfcwd_basic_multi_lossless_prio(ixia_api, ixia_testbed_config, conn_graph_facts,       # noqa: F811
+                                         fanout_graph_facts, duthosts, rand_one_dut_hostname,   # noqa: F811
+                                         rand_one_dut_portname_oper_up, lossless_prio_list,     # noqa: F811
+                                         prio_dscp_map, trigger_pfcwd):                         # noqa: F811
     """
     Run PFC watchdog basic test on multiple lossless priorities
 
@@ -112,11 +112,11 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api, ixia_testbed_config, conn_gra
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api, ixia_testbed_config, conn_graph_facts,       # noqa F811
-                                                 fanout_graph_facts, localhost, duthosts,               # noqa F811
+def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api, ixia_testbed_config, conn_graph_facts,       # noqa: F811
+                                                 fanout_graph_facts, localhost, duthosts,               # noqa: F811
                                                  rand_one_dut_hostname, rand_one_dut_portname_oper_up,
                                                  rand_one_dut_lossless_prio,
-                                                 prio_dscp_map, reboot_type, trigger_pfcwd):            # noqa F811
+                                                 prio_dscp_map, reboot_type, trigger_pfcwd):            # noqa: F811
     """
     Verify PFC watchdog basic test works on a single lossless priority after various types of reboot
 
@@ -170,10 +170,10 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api, ixia_testbed_config, 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api, ixia_testbed_config, conn_graph_facts,        # noqa F811
-                                                fanout_graph_facts, localhost, duthosts,                # noqa F811
+def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api, ixia_testbed_config, conn_graph_facts,        # noqa: F811
+                                                fanout_graph_facts, localhost, duthosts,                # noqa: F811
                                                 rand_one_dut_hostname, rand_one_dut_portname_oper_up,
-                                                lossless_prio_list, prio_dscp_map, reboot_type,         # noqa F811
+                                                lossless_prio_list, prio_dscp_map, reboot_type,         # noqa: F811
                                                 trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on multiple lossless priorities after various kinds of reboots
@@ -226,10 +226,10 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api, ixia_testbed_config, c
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api, ixia_testbed_config, conn_graph_facts,      # noqa F811
-                                                          fanout_graph_facts, duthosts,                         # noqa F811
+def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api, ixia_testbed_config, conn_graph_facts,  # noqa: F811
+                                                          fanout_graph_facts, duthosts,                    # noqa: F811
                                                           rand_one_dut_hostname, rand_one_dut_portname_oper_up,
-                                                          rand_one_dut_lossless_prio, prio_dscp_map,            # noqa F811
+                                                          rand_one_dut_lossless_prio, prio_dscp_map,        # noqa: F811
                                                           restart_service, trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on a single lossless priority after various service restarts
@@ -285,10 +285,10 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api, ixia_testbed
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api, ixia_testbed_config, conn_graph_facts,   # noqa F811
-                                                         fanout_graph_facts, duthosts,                      # noqa F811
+def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api, ixia_testbed_config, conn_graph_facts,   # noqa: F811
+                                                         fanout_graph_facts, duthosts,                      # noqa: F811
                                                          rand_one_dut_hostname, rand_one_dut_portname_oper_up,
-                                                         lossless_prio_list, prio_dscp_map,                 # noqa F811
+                                                         lossless_prio_list, prio_dscp_map,                 # noqa: F811
                                                          restart_service, trigger_pfcwd):
     """
     Verify PFC watchdog basic test works on multiple lossless priorities after various service restarts
