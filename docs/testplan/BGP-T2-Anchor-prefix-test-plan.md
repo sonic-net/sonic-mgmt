@@ -19,7 +19,7 @@ Run `prefix_list status` to confirm prefixes are added to CONFIG_DB
 #### verify_prefix_in_table
 
 Based on parameters `table` and `present` to verify whether prefixes in fib / bgp table
-- fib table: use cmd `vtysh -n {asic_index} -c 'show {ip_version} route {prefix}'`
+- fib table: check `ROUTE_TABLE` in APPL_DB
 - bgp table: use cmd `vtysh -n {asic_index} -c 'show bgp {ip_version} {prefix}'`
 
 #### verify_prefix_announce_to_neighbor
@@ -70,3 +70,26 @@ Based on parameters `advertised_neighbor_list` and `no_advertised_neighbor_list`
     - Anchor prefix in bgp table but not in fib table
     - Prefix routes are not advertised to iBGP neighbors but to eBGP neighbors
 - Use `prefix_list remove` cmd to delete Anchor prefix list
+
+#### test_anchor_prefix_specific_route
+
+- Add a Anchor prefix which doesn't have specific routes by `prefix_list add` cmd
+- Invoke verify_prefix_announce_to_neighbor to verify whether the prefix is advertised to neighbor (It's expected not to advertise Anchor prefix to neighbor)
+- Announce a specific route under Anchor prefix from downstream neighbor by function `announce_routes`
+- Invoke verify_prefix_announce_to_neighbor to verify whether the prefix is advertised to neighbor (It's expected to advertise anchor prefix to neighbor)
+- Use `prefix_list remove` cmd to delete Anchor prefix list
+- Withdraw previous specific route by function `announce_routes` with parameter `withdraw`
+
+#### test_anchor_prefix_stress
+
+- Generate a GCU patch with a large number of Anchor prefixes (10k for now)
+- Invoke above common verification functions to verify
+    - All Anchor prefixes in DB
+    - All Anchor prefixes in bgp table but not in fib table
+    - All prefixes routes are advertised to all BGP neighbors
+- Restart bgp container, check whether BGP session can be established and be stable
+- Invoke above common verification functions to verify
+    - All Anchor prefixes in DB
+    - All Anchor prefixes in bgp table but not in fib table
+    - All prefixes routes are advertised to all BGP neighbors
+- Invoke `config reload` to recover
