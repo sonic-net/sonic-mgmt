@@ -232,7 +232,7 @@ def check_all_psu_on(dut, psu_test_results):
                 power_off_psu_list.append(psu_info["index"])
 
     if power_off_psu_list:
-        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
+        logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
 
@@ -252,7 +252,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    if psu_num:
+    if psu_num is not None:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 

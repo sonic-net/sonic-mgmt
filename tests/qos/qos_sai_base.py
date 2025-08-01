@@ -17,6 +17,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa F401
@@ -29,6 +30,10 @@ from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 from tests.common.devices.eos import EosHost
+from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
+from .qos_helpers import dutBufferConfig
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +42,11 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64",
-                          "dualtor-120", "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend",
-                          "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
-                          "t0-standalone-256", "t0-28"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56",
+                          "dualtor-64", "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa",
+                          "dualtor-aa-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
+                          "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2", "th5"]
@@ -565,7 +570,8 @@ class QosSaiBase(QosBase):
         return dutPortIps
 
     @pytest.fixture(scope='module')
-    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host): # noqa F811
+    def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host, # noqa F811
+                                   core_dump_and_config_check): # noqa F811
         """
             Swap syncd on DUT host
 
@@ -576,11 +582,15 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        asic_type = duthosts[0].facts["asic_type"]
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
             dut_list = duthosts.frontend_nodes
         swapSyncd = request.config.getoption("--qos_swap_syncd")
+        if asic_type == "vs":
+            logger.info("Swap syncd is not supported on VS platform")
+            swapSyncd = False
         public_docker_reg = request.config.getoption("--public_docker_registry")
         try:
             if swapSyncd:
@@ -1191,35 +1201,42 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             testPortIps.update(dutPortIps)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-        # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
-        hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
-
-        # Get dst_dut asic type
-        if dst_dut != src_dut:
-            vendor = dst_dut.facts["asic_type"]
-            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
-            dstDutAsic = None
+        qosConfigs = {}
+        if vendor == "vs":
+            with open(r"qos/files/vs/dutConfig.json") as file:
+                dutConfig = json.load(file)
+                qosConfigs = dutConfig["qosConfigs"]
+                dutAsic = "vs"
+                dstDutAsic = "vs"
+        else:
+            with open(r"qos/files/qos.yml") as file:
+                qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+            # Assuming the same chipset for all DUTs so can use src_dut to get asic type
+            hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            dutAsic = None
             for asic in self.SUPPORTED_ASIC_LIST:
                 vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                    dstDutAsic = asic
+                if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dutAsic = asic
                     break
 
-            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
-        else:
-            dstDutAsic = dutAsic
+            pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+            # Get dst_dut asic type
+            if dst_dut != src_dut:
+                vendor = dst_dut.facts["asic_type"]
+                hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+                dstDutAsic = None
+                for asic in self.SUPPORTED_ASIC_LIST:
+                    vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                    if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                        dstDutAsic = asic
+                        break
+
+                pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+            else:
+                dstDutAsic = dutAsic
 
         dutTopo = "topo-"
 
@@ -1343,7 +1360,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
+            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports):  # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1382,20 +1399,24 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        is_dualtor_active_standby = is_dualtor and active_standby_ports
+        """ Stop mux container for dual ToR Active-Standby """
+        if is_dualtor:
+            if is_dualtor_active_standby:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR, retries=3)
-            check_result = wait_until(
-                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-            validate_check_result(check_result, duthosts, get_mux_status)
-
             try:
                 lower_tor_host.shell("ls %s" % file)
                 lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
                 lower_tor_host.shell("sudo rm {}".format(file))
                 lower_tor_host.shell("sudo touch {}".format(file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
@@ -1418,7 +1439,7 @@ class QosSaiBase(QosBase):
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             disable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -1451,7 +1472,7 @@ class QosSaiBase(QosBase):
             dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             try:
                 lower_tor_host.shell("ls %s" % backup_file)
                 lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
@@ -1467,7 +1488,7 @@ class QosSaiBase(QosBase):
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             enable_container_autorestart(
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
@@ -1554,26 +1575,6 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost, dut_asic):
-        bufferConfig = {}
-        try:
-            ns_spec = ""
-            ns = dut_asic.get_asic_namespace()
-            if ns is not None:
-                # multi-asic support
-                ns_spec = " -n " + ns
-            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
-            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
-        except Exception as err:
-            logger.info(err)
-        return bufferConfig
-
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1654,7 +1655,7 @@ class QosSaiBase(QosBase):
                 logger.info("Generator script not implemented for TH5")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+                bufferConfig = dutBufferConfig(duthost, dut_asic)
                 pytest_assert(len(bufferConfig) == 4,
                               "buffer config is incompleted")
                 pytest_assert('BUFFER_POOL' in bufferConfig,
@@ -1688,7 +1689,7 @@ class QosSaiBase(QosBase):
                                                             'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+            bufferConfig = dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
                           'BUFFER_POOL does not exist in bufferConfig')
             pytest_assert('BUFFER_PROFILE' in bufferConfig,
@@ -1723,6 +1724,11 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+        elif dutAsic == 'vs':
+            with open(r"qos/files/vs/dutQosConfig.json") as file:
+                dutQosConfig = json.load(file)
+                qosParams = dutQosConfig["param"]
+                portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1933,6 +1939,26 @@ class QosSaiBase(QosBase):
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
                 )
+
+    @pytest.fixture(scope='module', autouse=True)
+    def dut_disable_pfcwd(self, duthosts):
+        switch_type = duthosts[0].facts.get('switch_type')
+        if switch_type != 'chassis-packet':
+            yield
+            return
+
+        # for packet chassis, the packet may go through backplane
+        # once tx is disabled on egress port, the continuous PFC PAUSE frame will trigger PFCWD on backplane ports
+        # to avoid the impact, we will disable it first before running the test
+        pfcwd_value = {}
+        for duthost in duthosts:
+            pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+            stop_pfcwd(duthost)
+            disable_packet_aging(duthost)
+        yield
+        for duthost in duthosts:
+            reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+            enable_packet_aging(duthost)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(

@@ -5,27 +5,32 @@
 #Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
 drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets"
+    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase."
     conditions_logical_operator: or
     conditions:
       - "'Mellanox' in hwsku"
       - asic_type=='cisco-8000'
       - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
 
 drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
   skip:
-    reason: "This test case requires a T0 topology because it is mocking a server within VLAN."
+    reason: "This test case requires a T0 topology because it is mocking a server within VLAN. / KVM do not support drop reason in testcase."
+    conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
+      - "asic_type in ['vs']"
 
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
   skip:
-    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some MLX platforms does not drop SIP link local packets"
+    reason: "MGFX topos doesn't support drop packets / Cisco 8000 platform and some MLX platforms does not drop SIP link local packets / KVM do not support drop reason in testcase."
     conditions_logical_operator: or
     conditions:
       - asic_type=="cisco-8000"
       - "'Mellanox' in hwsku"
       - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
+
 #######################################
 #####     test_drop_counters.py   #####
 #######################################

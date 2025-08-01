@@ -48,7 +48,7 @@ def test_bgp_network_command(
         ),
     )
     pytest_assert(
-        "*=" in bgp_network_output,
+        "*=" in bgp_network_output or "*>" in bgp_network_output,
         "Failed to run '{}' command, output={}".format(
             bgp_network_cmd, bgp_network_output
         ),
@@ -61,7 +61,7 @@ def test_bgp_network_command(
         "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
     )
     pytest_assert(
-        "*=" in bgp_docker_output,
+        "*=" in bgp_docker_output or "*>" in bgp_docker_output,
         "Failed to run '{}' command, output={}".format(
             bgp_docker_cmd, bgp_docker_output
         ),

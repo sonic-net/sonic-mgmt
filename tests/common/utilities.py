@@ -32,7 +32,8 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 from netaddr import valid_ipv6
 
@@ -47,7 +48,7 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
 
 def check_skip_release(duthost, release_list):
@@ -181,8 +182,14 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res or res.get('failed') is True:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
-                    (str(server_hostname), listening_port, timeout_s))
+        logger.warning(
+            "Failed to establish TCP connection to %s:%d, timeout=%d" % (
+                str(server_hostname),
+                listening_port,
+                timeout_s,
+            )
+        )
+
         return False
     return True
 
@@ -872,6 +879,19 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
+def get_all_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL upstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["ma", "mb"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
 def get_downstream_neigh_type(topo_type, is_upper=True):
     """
     @summary: Get neighbor type by topo type
@@ -884,6 +904,19 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_all_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL downstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["m0", "c0"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
@@ -1029,11 +1062,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1041,10 +1074,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1401,3 +1436,22 @@ def get_iface_ip(mg_facts, ifacename):
         if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
             return loopback['addr']
     return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name

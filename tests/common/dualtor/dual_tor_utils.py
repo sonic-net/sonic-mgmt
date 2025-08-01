@@ -48,6 +48,7 @@ __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_int
            'setup_standby_ports_on_rand_selected_tor',
            'setup_standby_ports_on_rand_unselected_tor',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m',
            'setup_standby_ports_on_rand_unselected_tor_unconditionally',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
            ]
@@ -1400,7 +1401,11 @@ def show_muxcable_status(duthost):
 
     ret = {}
     for port, muxcable in list(output['MUX_CABLE'].items()):
-        ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
+        ret[port] = {
+            'status': muxcable['STATUS'],
+            'health': muxcable['HEALTH'],
+            'hwstatus': muxcable['HWSTATUS']
+        }
 
     return ret
 
@@ -1714,6 +1719,7 @@ def validate_active_active_dualtor_setup(
                 wait_until(90, 10, 0, run_mux_config_command, active_tor, cmd, 
                 expected_output=["OK"], forbidden_output=["this is not a valid port present on mux_cable"]),
                         "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd))
+
     duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
@@ -1930,6 +1936,23 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
         config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
     return
 
+
+
+@pytest.fixture
+def setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m(
+    active_active_ports,                                                   # noqa F811
+    enum_rand_one_per_hwsku_hostname,
+    config_active_active_dualtor_active_standby,
+    validate_active_active_dualtor_setup,
+    upper_tor_host,
+    lower_tor_host,
+    duthosts
+):
+    if active_active_ports:
+        active_tor = duthosts[enum_rand_one_per_hwsku_hostname]
+        standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+        config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
+    return
 
 
 @pytest.fixture

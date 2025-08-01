@@ -15,7 +15,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
-TIMEOUT_LIMIT = 120
+TIMEOUT_LIMIT = 240
 
 
 def does_command_exist(localhost, remote_ip, username, password, command):

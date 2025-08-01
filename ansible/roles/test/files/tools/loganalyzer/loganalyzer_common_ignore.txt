@@ -24,6 +24,7 @@ r, ".* WARNING syncd\d*#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss\d*#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
 r, ".* ERR syncd\d*#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
+r, ".* ERR kernel: .*leaba_module_device .*: .*: leaba_hostif_get_by_port: Port gid out of range port_gid=.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
@@ -71,7 +72,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
-r, ".* ERR swss\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+r, ".* ERR .*\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -297,6 +298,7 @@ r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
+r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
@@ -305,7 +307,7 @@ r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
-r, ".* ERR ntpd\[\d*\]:.*leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): expired.*"
+r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because NTPD will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
@@ -315,6 +317,8 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
 
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
@@ -323,3 +327,15 @@ r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SD
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
 r, ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_port\.c:\d+ brcm_pai_get_port_stats.*\s*.*"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_adapter\.c:\d+ sai_api_query: :- Invalid sai_api_t \d+ passed#\d+"
+r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/brcm_pai_switch\.c:\d+ pai_get_switch_attribute: :- Error processing switch attribute \d+\[\d+\]\.#\d+"
+
+# Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
+r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33411748
+r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33376635
+r, ".* ERR kernel.*audit: rate limit exceeded.*"

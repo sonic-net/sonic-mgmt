@@ -61,7 +61,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa 
                            'redis-cli -p 6379 -h 127.0.0.1 \
                             -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if output_config_db['stdout'] is None:
-            logging.warn("redis cli output for chassis module state is empty")
+            logging.warning("redis cli output for chassis module state is empty")
             break
         if 'down' in output_config_db['stdout']:
             count_admin_down += 1

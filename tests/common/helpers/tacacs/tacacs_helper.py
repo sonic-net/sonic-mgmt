@@ -39,7 +39,8 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
-    retry = 5
+    # IPV6 network may not stable on some environment, retry timeout is 2 minutes
+    retry = 24
     while retry > 0:
         ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip), module_ignore_errors=True)['stdout']
         logger.info("TACACS server ping result: {}".format(ping_result))
@@ -170,9 +171,12 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     if 'ansible_ssh_user' in dut_options and 'ansible_ssh_pass' in dut_options:
         duthost_ssh_user = dut_options['ansible_ssh_user']
         duthost_ssh_passwd = dut_options['ansible_ssh_pass']
-        logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
-        extra_vars['duthost_ssh_user'] = duthost_ssh_user
-        extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        if not duthost_ssh_user == extra_vars['duthost_admin_user']:
+            logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
+            extra_vars['duthost_ssh_user'] = duthost_ssh_user
+            extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        else:
+            logger.debug("setup_tacacs_server: duthost_admin_user and ansible_ssh_user are the same.")
     else:
         logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 

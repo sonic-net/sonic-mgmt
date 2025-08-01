@@ -9,6 +9,7 @@ import six
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import re
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -21,11 +22,13 @@ from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
+from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
+from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +333,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports = defaultdict(list)
+    upstream_service_ports = defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
     upstream_port_id_to_router_mac_map = {}
@@ -345,9 +349,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_types = get_all_upstream_neigh_type(topo)
         downstream_neigh_type = get_downstream_neigh_type(topo)
-        pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
+        pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
@@ -360,10 +364,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                 downstream_ports[neighbor['namespace']].append(interface)
                 downstream_port_ids.append(port_id)
                 downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-            elif upstream_neigh_type in neighbor["name"].upper():
-                upstream_ports[neighbor['namespace']].append(interface)
-                upstream_port_ids.append(port_id)
-                upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+            for neigh_type in upstream_neigh_types:
+                if neigh_type in neighbor["name"].upper():
+                    upstream_ports[neighbor['namespace']].append(interface)
+                    upstream_port_ids.append(port_id)
+                    upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                    if neigh_type == "PT0":
+                        upstream_service_ports[neighbor['namespace']].append(interface)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -390,15 +397,23 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag", "t1-48-lag"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
-
-    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag", "t1-28-lag", "t1-32-lag"):
+    if (
+        len(port_channels)
+        and (
+            topo in ["t0", "m0_vlan", "m0_l3"]
+            or tbinfo["topo"]["name"] in (
+                "t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
+            )
+            or 't1-isolated' in tbinfo["topo"]["name"]
+        )
+    ):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -408,6 +423,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         acl_table_ports = t2_info['acl_table_ports']
     else:
         for namespace, port in list(upstream_ports.items()):
+            acl_table_ports[namespace] += port
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += port
+
+    if re.match(r"t0-.*s\d+", tbinfo["topo"]["name"]):
+        for namespace, port in list(upstream_service_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
@@ -648,7 +670,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
     @abstractmethod
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -742,7 +764,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                self.setup_rules(duthost, acl_table, ip_version)
+                self.setup_rules(duthost, acl_table, ip_version, tbinfo)
                 # Give the dut some time for the ACL rules to be applied and LOG message generated
                 wait_until(300, 20, 0, check_msg_in_syslog,
                            duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
@@ -1264,7 +1286,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 class TestBasicAcl(BaseAclTest):
     """Test Basic functionality of ACL rules (i.e. setup with full update on a running device)."""
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1272,6 +1294,22 @@ class TestBasicAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
@@ -1294,7 +1332,7 @@ class TestIncrementalAcl(BaseAclTest):
     multiple parts.
     """
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1302,6 +1340,21 @@ class TestIncrementalAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         loopback_ip = acl_table["loopback_ip"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})

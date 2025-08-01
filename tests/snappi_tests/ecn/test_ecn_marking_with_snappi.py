@@ -18,6 +18,51 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
+def snappi_port_dut_info(snappi_ports):
+    # Extract duthost and peer_port values for rx_dut and tx_dut configurations
+    rx_dut = snappi_ports[0]['duthost']
+    rx_peer_port = snappi_ports[0]['peer_port']
+    tx_dut_1 = snappi_ports[1]['duthost']
+    tx_peer_port_1 = snappi_ports[1]['peer_port']
+    tx_dut_2 = snappi_ports[2]['duthost']
+    tx_peer_port_2 = snappi_ports[2]['peer_port']
+
+    input_ports_same_asic = False
+    input_ports_same_dut = False
+    single_dut = False
+    egress_port_short_link = True
+
+    # get the ASIC namespace for a given duthost and peer_port
+    def get_asic(duthost, peer_port):
+        return duthost.get_port_asic_instance(peer_port).namespace
+
+    # Retrieve ASIC namespace
+    rx_asic = get_asic(rx_dut, rx_peer_port)
+    tx_asic_1 = get_asic(tx_dut_1, tx_peer_port_1)
+    tx_asic_2 = get_asic(tx_dut_2, tx_peer_port_2)
+
+    if (tx_asic_1 == tx_asic_2):
+        input_ports_same_asic = True
+
+    if (tx_dut_1 == tx_dut_2):
+        input_ports_same_dut = True
+
+    cmd_part = f"-n {rx_asic}"
+    if rx_asic is None:
+        cmd_part = ""
+    cmd = 'sonic-db-cli ' + f'{cmd_part}' + ' CONFIG_DB hget "CABLE_LENGTH|AZURE" ' + rx_peer_port
+
+    len_str = rx_dut.shell(cmd)['stdout_lines']
+    cable_len = int(len_str[0][:-1])
+    # 120000m -> 120000
+    if cable_len < 1000:
+        egress_port_short_link = True
+    else:
+        egress_port_short_link = False
+
+    return input_ports_same_asic, input_ports_same_dut, single_dut, egress_port_short_link
+
+
 def validate_snappi_ports(snappi_ports):
 
     if not is_cisco_device(snappi_ports[0]['duthost']):
@@ -46,6 +91,7 @@ def validate_snappi_ports(snappi_ports):
 
     # Retrieve ASIC namespace
     rx_asic = get_asic(rx_dut, rx_peer_port)
+    # print(rx_asic, rx_peer_port)
     tx_asic_1 = get_asic(tx_dut_1, tx_peer_port_1)
     tx_asic_2 = get_asic(tx_dut_2, tx_peer_port_2)
 
@@ -54,7 +100,10 @@ def validate_snappi_ports(snappi_ports):
         return True
 
     # Check if rx_dut and its ASIC matches either of the tx_dut and their ASIC
-    if (rx_dut == tx_dut_1 and rx_asic == tx_asic_1) or (rx_dut == tx_dut_2 and rx_asic == tx_asic_2):
+    if (tx_asic_1 == tx_asic_2):
+        return True
+
+    if (tx_dut_1 == tx_dut_2) and (rx_dut != tx_dut_1):
         return True
 
     return False
@@ -145,7 +194,8 @@ def test_ecn_marking_lossless_prio(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    pytest_require(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
+    input_port_same_asic, input_port_same_dut, single_dut, egress_port_short_link = snappi_port_dut_info(snappi_ports)
+    pytest_require(egress_port_short_link, "Egress port must be on short link")
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
@@ -159,6 +209,10 @@ def test_ecn_marking_lossless_prio(
                             test_prio_list=lossless_prio_list,
                             prio_dscp_map=prio_dscp_map,
                             test_flow_percent=test_flow_percent,
+                            number_of_streams=10,
+                            input_port_same_asic=input_port_same_asic,
+                            input_port_same_dut=input_port_same_dut,
+                            single_dut=single_dut,
                             snappi_extra_params=snappi_extra_params)
 
 
