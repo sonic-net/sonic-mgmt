@@ -2,11 +2,6 @@ parameters:
 - name: TEST_PLAN_NUM
   type: string
   default: "1"
-- name: BUILD_BRANCH
-  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-    value: $(System.PullRequest.TargetBranch)
-  ${{ else }}:
-    value: $(Build.SourceBranchName)
 
 jobs:
   - job: get_impacted_area
