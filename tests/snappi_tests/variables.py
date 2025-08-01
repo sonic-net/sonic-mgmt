@@ -95,11 +95,12 @@ MULTIDUT_PORT_INFO2 = {
     'vmsvc5-t2-8800-ixia': []
 }
 
-if MULTIDUT_TESTBED not in MULTIDUT_PORT_INFO:
-    if "rdma" in MULTIDUT_TESTBED:
-        MULTIDUT_PORT_INFO[MULTIDUT_TESTBED] = MULTIDUT_PORT_INFO[next(iter(MULTIDUT_PORT_INFO))]
-    else:
-        MULTIDUT_PORT_INFO[MULTIDUT_TESTBED] = {}
+for multidut_port in [MULTIDUT_PORT_INFO, MULTIDUT_PORT_INFO2]:
+    if MULTIDUT_TESTBED not in multidut_port:
+        if "rdma" in MULTIDUT_TESTBED:
+            multidut_port[MULTIDUT_TESTBED] = multidut_port[next(iter(MULTIDUT_PORT_INFO))]
+        else:
+            multidut_port[MULTIDUT_TESTBED] = {}
 
 if MULTIDUT_TESTBED not in MIXED_SPEED_PORT_INFO:
     MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED] = {}
