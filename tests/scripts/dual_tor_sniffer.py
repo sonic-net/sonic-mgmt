@@ -3,11 +3,41 @@ import logging
 import socket
 
 import scapy.all as scapyall
+import scapy.arch.linux as scapyarchlinux
+from scapy.config import conf
+from scapy.data import MTU
+
+
+class L2ListenAllSocket(scapyarchlinux.L2ListenSocket):
+    """Read packets at layer2 using Linux PF_PACKET sockets on all ports."""
+
+    def __init__(self, *args, **kwargs):
+        # HACK: Set the socket bind to NOOP, so the packet sockets created
+        # will not bind to any interface and it will listen on all interfaces
+        # by default.
+        socket.socket.bind = lambda *_: None
+        super(L2ListenAllSocket, self).__init__(*args, **kwargs)
+
+    def recv_raw(self, x=MTU):
+        # NOTE: override the L2ListenSocket.recv_raw to map to correct
+        # packet layer type.
+        pkt, sa_ll, ts = self._recv_raw(self.ins, x)
+        if ts is None:
+            ts = scapyarchlinux.get_last_packet_timestamp(self.ins)
+        if sa_ll[3] in conf.l2types:
+            cls = conf.l2types[sa_ll[3]]
+        elif sa_ll[1] in conf.l3types:
+            cls = conf.l3types[sa_ll[1]]
+        else:
+            cls = conf.default_l2
+            logging.warning("Unable to guess type (interface=%s "
+                            "protocol=%#x family=%i). Using %s" % (
+                                sa_ll[0], sa_ll[1], sa_ll[3], cls.name))
+        return cls, pkt, ts
 
 
 class Sniffer(object):
     def __init__(self, filter=None, timeout=60):
-        self.ifaces = [iface for _, iface in socket.if_nameindex() if iface.startswith("eth")]
         self.filter = filter
         self.timeout = timeout
         self.packets = []
@@ -17,7 +47,7 @@ class Sniffer(object):
         logging.debug("scapy sniffer started: filter={}, timeout={}".format(
             self.filter, self.timeout))
         scapyall.sniff(
-            iface=self.ifaces,
+            L2socket=L2ListenAllSocket,
             filter=self.filter,
             prn=self.process_pkt,
             timeout=self.timeout)

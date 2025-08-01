@@ -9,6 +9,7 @@ import random
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.monit import check_monit_expected_container_logging
 
 logger = logging.getLogger(__name__)
 
@@ -126,5 +127,5 @@ def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_host
 
     pytest_assert(wait_until(180, 60, 0, check_monit_last_output, duthost),
                   "Expected Monit reporting message not found")
-
+    wait_until(180, 60, 0, check_monit_expected_container_logging, duthost)
     logger.info("Checking the format of Monit alerting message was done!")

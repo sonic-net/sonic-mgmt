@@ -136,7 +136,12 @@ def setup_bgp_peers(
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
-    neigh_type = "LeafRouter" if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"] else "ToRRouter"
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
+        neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter":
+        neigh_type = "LowerSpineRouter"
+    else:
+        neigh_type = "ToRRouter"
 
     # Establish peers - 1 route injector, the rest receivers
     connections = setup_interfaces

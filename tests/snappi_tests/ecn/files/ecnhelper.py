@@ -3,14 +3,14 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts # noqa F401
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    traffic_flow_mode, calc_pfc_pause_flow_rate # noqa F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate  # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     run_traffic
 from tests.snappi_tests.files.helper import get_npu_voq_queue_counters
@@ -197,18 +197,20 @@ def run_ecn_test_cisco8000(api,
     config = api.get_config()
     # Collect all port names
     port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
+    # Create a control state object for all ports
+    cs = api.control_state()
+    cs.choice = cs.PORT
+    cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    link_state.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.DOWN
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to DOWN")
     time.sleep(0.2)
     # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.UP
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to UP")
 
     init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])

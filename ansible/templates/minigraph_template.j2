@@ -24,8 +24,13 @@
 {% set lp_ipv6 = 'FC00:1::32/128' %}
 {% set lp_ipv6_addr = 'FC00:1::32' %}
 {% endif %}
+{% if topo == 't1-filterleaf-lag' %}
+{% include 'minigraph_filterleaf_cpg.j2' %}
+{% include 'minigraph_filterleaf_dpg.j2' %}
+{% else %}
 {% include 'minigraph_cpg.j2' %}
 {% include 'minigraph_dpg.j2' %}
+{% endif %}
 {% include 'minigraph_png.j2' %}
 {% include 'minigraph_device.j2' %}
 {% include 'minigraph_meta.j2' %}

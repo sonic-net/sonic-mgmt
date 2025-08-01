@@ -55,6 +55,8 @@ DOCUMENTATION += """
           description: IPv6 address
           vars:
               - name: ansible_hostv6
+      current_password_hash:
+          description: The hash of currently used password
 """.lstrip("\n")
 
 # Sample error messages that host unreachable:
@@ -101,12 +103,28 @@ def _password_retry(func):
             # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
             self.sshpass_pipe = os.pipe()
 
+    def _change_host(self, new_host, *args):
+        # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
+        self.sshpass_pipe = os.pipe()
+        self._play_context.remote_addr = new_host
+        # args sample:
+        # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501
+        # args[0] are the parameters of ssh connection
+        ssh_args = args[0]
+        # Change the IPv4 host in the ssh_args to IPv6
+        for idx in range(len(ssh_args)):
+            if type(ssh_args[idx]) == bytes and ssh_args[idx].decode() == self.host:
+                ssh_args[idx] = new_host
+        self.host = new_host
+        self.set_option("host", new_host)
+
     @wraps(func)
     def wrapped(self, *args, **kwargs):
         try:
             # First, try with original host(generally IPv4) with multi-password
             return _conn_with_multi_pwd(self, *args, **kwargs)
         except AnsibleConnectionFailure as e:
+            orig_host = self._play_context.remote_addr
             # If a non-authentication related exception is raised and IPv6 host is set,
             # Retry with IPv6 host with multi-password
             try:
@@ -117,23 +135,15 @@ def _password_retry(func):
             ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
                                     (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message)
 
-            try_ipv6_addr = (type(e) != AnsibleAuthenticationFailure) and ipv4_addr_unavailable and hostv6
-            if try_ipv6_addr:
-                # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-                self.sshpass_pipe = os.pipe()
-                self._play_context.remote_addr = hostv6
-                # args sample:
-                # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501
-                # args[0] are the parameters of ssh connection
-                ssh_args = args[0]
-                # Change the IPv4 host in the ssh_args to IPv6
-                for idx in range(len(ssh_args)):
-                    if type(ssh_args[idx]) == bytes and ssh_args[idx].decode() == self.host:
-                        ssh_args[idx] = hostv6
-                self.host = hostv6
-                self.set_option("host", hostv6)
+            try_ipv6_addr = orig_host != hostv6 and (type(e) != AnsibleAuthenticationFailure) and \
+                ipv4_addr_unavailable and hostv6
+            if not try_ipv6_addr:
+                raise e
+            _change_host(self, hostv6, *args)
+            try:
                 return _conn_with_multi_pwd(self, *args, **kwargs)
-            else:
+            except AnsibleConnectionFailure as e:
+                _change_host(self, orig_host, *args)
                 raise e
 
     return wrapped
