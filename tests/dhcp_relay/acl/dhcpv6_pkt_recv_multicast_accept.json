@@ -1,0 +1,30 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "DHCPV6_PKT_RECV_TEST": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "9011_ALLOW_DHCPv6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9011
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "ff02::1:2/128",
+                                        "protocol": "17"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

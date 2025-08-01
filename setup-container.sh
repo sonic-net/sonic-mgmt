@@ -5,7 +5,7 @@ declare -r SCRIPT_PATH="$(readlink -f "${0}")"
 declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt"
+declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
 declare -r LOCAL_IMAGE_TAG="master"
 declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"
@@ -34,10 +34,13 @@ declare -r VERBOSE_INFO="4"
 declare -r VERBOSE_MAX="${VERBOSE_INFO}"
 declare -r VERBOSE_MIN="${VERBOSE_ERROR}"
 
+declare EXISTING_CONTAINER_NAME=""
+
 #
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
 
+ENV_VARS=""
 CONTAINER_NAME=""
 IMAGE_ID=""
 LINK_DIR=""
@@ -46,6 +49,11 @@ PUBLISH_PORTS=""
 FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
+
+# Sonic-mgmt remote debug feature
+DEBUG_PORT_START_RANGE=50000
+DEBUG_PORT_END_RANGE=60000
+DEFAULT_LOCK_FOLDER="/tmp/sonic-mgmt-locks/"
 
 #
 # Functions -----------------------------------------------------------------------------------------------------------
@@ -96,6 +104,7 @@ function show_help_and_exit() {
     echo "  -n <container_name>  set the name of the Docker container"
     echo
     echo "Other options:"
+    echo "  -e <VAR=value>      set environment variable inside the container (can be used multiple times)"
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
     echo "                         1. The local image named \"docker-sonic-mgmt\""
@@ -108,6 +117,7 @@ function show_help_and_exit() {
     echo "  -v                   explain what is being done"
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
+    echo "  --enable-debug       enable debug mode"
     echo
     echo "Examples:"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master"
@@ -115,6 +125,7 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master --enable-debug"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
@@ -131,6 +142,16 @@ function show_local_container_login() {
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
     echo "SSH:  ssh -i ~/.ssh/id_rsa_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
+
+    if [[ -n ${SELECTED_DEBUG_PORT} ]]; then
+        echo
+        echo "*********************************[IMPORTANT]*********************************"
+        echo "DEBUG PORT: $SELECTED_DEBUG_PORT"
+        echo "Please use the above debug port in your vscode extensions"
+        echo "When running the test, add --enable-debug to the end of your ./run_tests.sh to use"
+        echo "You can check which port was assigned to you again by running 'docker ps' and search for your container"
+        echo "*********************************[IMPORTANT]*********************************"
+    fi
 }
 
 function pull_sonic_mgmt_docker_image() {
@@ -257,6 +278,10 @@ RUN if ! pip3 list | grep -c pytest >/dev/null && \
 /bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze | grep -vE "distro|PyGObject|python-apt|unattended-upgrades|dbus-python")'; \
 fi
 
+# Remote debug port setup
+{% if SONIC_MGMT_DEBUG_PORT %}
+ENV SONIC_MGMT_DEBUG_PORT={{ SONIC_MGMT_DEBUG_PORT }}
+{% endif %}
 EOF
 
     log_info "prepare an environment file: ${TMP_DIR}/data.env"
@@ -270,6 +295,7 @@ GROUP_NAME=${USER}
 USER_NAME=${USER}
 USER_PASS=${USER_PASS}
 ROOT_PASS=${ROOT_PASS}
+SONIC_MGMT_DEBUG_PORT=${SELECTED_DEBUG_PORT}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
@@ -295,13 +321,54 @@ EOF
     fi
 }
 
-function start_local_container() {
-    log_info "creating a container: ${CONTAINER_NAME} ..."
+function container_exists() {
+    container_id=`docker ps --all --filter name=^$CONTAINER_NAME\$ --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    return $count
+}
 
-    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
-    -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
-    --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
-    exit_failure "failed to start a container: ${CONTAINER_NAME}"
+function get_existing_container() {
+    img_id=${IMAGE_ID}
+    if [ -z ${img_id} ]
+    then
+        img_id=${LOCAL_IMAGE}
+    fi
+    container_id=`docker container ls --all --filter=ancestor=${img_id} --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    case $count in
+        0)
+            EXISTING_CONTAINER_NAME=""
+            ;;
+        1)
+            container_name=`docker inspect $container_id --format '{{.Name}}'`
+            if [[ $container_name == /* ]]
+            then
+                container_name="${container_name:1}"
+            fi
+            EXISTING_CONTAINER_NAME=${container_name}
+            ;;
+        *)
+            echo "Multiple container IDs found: ${container_id}"
+            EXISTING_CONTAINER_NAME=""
+            ;;
+    esac
+}
+
+function start_local_container() {
+
+    container_exists
+    local exists=$?
+    if [ $exists -eq 1 ]
+    then
+        log_info "starting existing container ${CONTAINER_NAME} ..."
+        docker start ${CONTAINER_NAME}
+    else
+        log_info "creating a container: ${CONTAINER_NAME} ..."
+        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
+        -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
+        --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
+        exit_failure "failed to start a container: ${CONTAINER_NAME}"
+    fi
 
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
     bash -c \"service ssh restart\" ${SILENT_HOOK}" || \
@@ -321,8 +388,21 @@ function start_local_container() {
 }
 
 function parse_arguments() {
+
     if [[ -z "${CONTAINER_NAME}" ]]; then
-        exit_failure "container name is not set"
+        get_existing_container
+        if [ -z $EXISTING_CONTAINER_NAME ]
+        then
+            exit_failure "container name is not set."
+        else
+            exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
+        fi
+    else
+        # If container name is over 64 characters, container will not be able to start due to hostname limitation
+        container_name_len=${#CONTAINER_NAME}
+        if [ "$container_name_len" -gt "64" ]; then
+            exit_failure "Length of supplied container name exceeds 64 characters (currently $container_name_len chars)"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then
@@ -331,6 +411,29 @@ function parse_arguments() {
     fi
 }
 
+function find_debug_port() {
+    mkdir -p "$DEFAULT_LOCK_FOLDER"
+    for port in $(seq $DEBUG_PORT_START_RANGE $DEBUG_PORT_END_RANGE); do
+        if ! ss -tuln | grep -q ":$port\b" && mkdir $DEFAULT_LOCK_FOLDER/$port.lock 2>/dev/null; then
+            trap "rm -rf $DEFAULT_LOCK_FOLDER/$port.lock" EXIT # Remove the port.lock file when done
+            SELECTED_DEBUG_PORT=$port
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--enable-debug" ]]; then
+        ENABLE_DEBUG=1
+    else
+        ARGS+=("$arg")
+    fi
+done
+
+set -- "${ARGS[@]}"
 #
 # Script --------------------------------------------------------------------------------------------------------------
 #
@@ -339,10 +442,13 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxh" opt; do
+while getopts "e:n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
+            ;;
+        e )
+            ENV_VARS+=" -e ${OPTARG}"
             ;;
         i )
             IMAGE_ID="${OPTARG}"
@@ -374,6 +480,17 @@ while getopts "n:i:d:m:p:fvxh" opt; do
             ;;
     esac
 done
+
+if [[ "$ENABLE_DEBUG" -eq 1 ]]; then
+    find_debug_port
+    if [[ -n "$SELECTED_DEBUG_PORT" ]]; then
+        PUBLISH_PORTS+=" -p \"$SELECTED_DEBUG_PORT:$SELECTED_DEBUG_PORT\""
+    else
+        echo "FAILURE: Cannot find an eligible debug port within the range [$DEBUG_PORT_START_RANGE, $DEBUG_PORT_END_RANGE]"
+        echo "Please re-run without --enable-debug option."
+        exit 1
+    fi
+fi
 
 parse_arguments
 

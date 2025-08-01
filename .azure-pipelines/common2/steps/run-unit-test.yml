@@ -1,0 +1,17 @@
+steps:
+  - script: |
+      pip install pytest pytest-cov
+
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
+
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping Unit Tests with Coverage Check."
+      else
+        echo "Running Unit Tests with Coverage Check for tests/common2..."
+        # The command below will run tests found in 'tests/common2'
+        # and collect coverage for source files in 'tests/common2'.
+        # It will fail the step if coverage is below 80% due to --cov-fail-under=80.
+        pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
+      fi
+    displayName: 'Run Unit Tests with Coverage Check (conditional)'

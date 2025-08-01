@@ -8,15 +8,15 @@ import json
 from scapy.all import sniff
 from ptf import testutils
 
-from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import skip_release
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx")
+    pytest.mark.topology("t0", "m0", "mx", 't0-2vlans')
 ]
 
 DUT_VLAN_INTF_MAC = "00:00:11:22:33:44"
@@ -123,7 +123,7 @@ def test_host_vlan_no_floodling(
     ptfadapter,
     setup_host_vlan_intf_mac,
     testbed_params,
-    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa: F811
 ):
     """
     Aims to verify that for packets detinated to the host vlan interface, the packets should not be flooding

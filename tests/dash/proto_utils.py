@@ -1,115 +1,232 @@
+import base64
 import re
 import socket
-import ipaddress
 import uuid
-import pytest
+import importlib
+from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.vnet_pb2 import Vnet
-from dash_api.eni_pb2 import Eni, State
-from dash_api.qos_pb2 import Qos
+from dash_api.eni_pb2 import Eni, State  # noqa: F401
+from dash_api.eni_route_pb2 import EniRoute
+from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_rule_pb2 import RouteRule
+from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
 from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
+from dash_api.vnet_pb2 import Vnet
+from dash_api.meter_policy_pb2 import MeterPolicy
+from dash_api.meter_rule_pb2 import MeterRule
 
+from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.json_format import ParseDict
 
 ENABLE_PROTO = True
 
+PB_INT_TYPES = set([
+    FieldDescriptor.TYPE_INT32,
+    FieldDescriptor.TYPE_INT64,
+    FieldDescriptor.TYPE_UINT32,
+    FieldDescriptor.TYPE_UINT64,
+    FieldDescriptor.TYPE_FIXED64,
+    FieldDescriptor.TYPE_FIXED32,
+    FieldDescriptor.TYPE_SFIXED32,
+    FieldDescriptor.TYPE_SFIXED64,
+    FieldDescriptor.TYPE_SINT32,
+    FieldDescriptor.TYPE_SINT64
+])
 
-def appliance_from_json(json_obj):
-    pb = Appliance()
-    pb.sip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["sip"])))
-    pb.vm_vni = int(json_obj["vm_vni"])
-    return pb
-
-
-def vnet_from_json(json_obj):
-    pb = Vnet()
-    pb.vni = int(json_obj["vni"])
-    pb.guid.value = bytes.fromhex(uuid.UUID(json_obj["guid"]).hex)
-    return pb
-
-
-def vnet_mapping_from_json(json_obj):
-    pb = VnetMapping()
-    pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-    pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-    pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-    pb.use_dst_vni = json_obj["use_dst_vni"] == "true"
-    return pb
-
-
-def qos_from_json(json_obj):
-    pb = Qos()
-    pb.qos_id = json_obj["qos_id"]
-    pb.bw = int(json_obj["bw"])
-    pb.cps = int(json_obj["cps"])
-    pb.flows = int(json_obj["flows"])
-    return pb
+PB_CLASS_MAP = {
+    "APPLIANCE": Appliance,
+    "VNET": Vnet,
+    "ENI": Eni,
+    "VNET_MAPPING": VnetMapping,
+    "ROUTE": Route,
+    "ROUTING_TYPE": RouteType,
+    "ROUTE_GROUP": RouteGroup,
+    "ENI_ROUTE": EniRoute,
+    "METER_POLICY": MeterPolicy,
+    "METER_RULE": MeterRule,
+}
 
 
-def eni_from_json(json_obj):
-    pb = Eni()
-    pb.eni_id = json_obj["eni_id"]
-    pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-    pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-    pb.admin_state = State.STATE_ENABLED if json_obj["admin_state"] == "enabled" else State.STATE_DISABLED
-    pb.vnet = json_obj["vnet"]
-    pb.qos = json_obj["qos"]
-    return pb
-
-
-def route_from_json(json_obj):
-    pb = Route()
-    if json_obj["action_type"] == "vnet":
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET
-        pb.vnet = json_obj["vnet"]
-    elif json_obj["action_type"] == "vnet_direct":
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_DIRECT
-        pb.vnet_direct.vnet = json_obj["vnet"]
-        pb.vnet_direct.overlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["overlay_ip"])))
-    elif json_obj["action_type"] == "direct":
-        pb.action_type = RoutingType.ROUTING_TYPE_DIRECT
+def parse_ip_address(ip_str):
+    ip_addr = ip_address(ip_str)
+    if ip_addr.version == 4:
+        encoded_val = socket.htonl(int(ip_addr))
     else:
-        pytest.fail("Unknown action type %s" % json_obj["action_type"])
-    return pb
+        encoded_val = base64.b64encode(ip_addr.packed)
+
+    return {f"ipv{ip_addr.version}": encoded_val}
 
 
-def route_rule_from_json(json_obj):
-    pb = RouteRule()
-    pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-    pb.priority = int(json_obj["priority"])
-    pb.pa_validation = json_obj["pa_validation"] == "true"
-    pb.vnet = json_obj["vnet"]
-    return pb
+def parse_byte_field(orig_val):
+    return base64.b64encode(bytes.fromhex(orig_val.replace(":", "")))
+
+
+def parse_guid(guid_str):
+    return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
+
+
+def parse_dash_proto(key: str, proto_dict: dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format
+    """
+    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+    message = PB_CLASS_MAP[table_name]()
+    field_map = message.DESCRIPTOR.fields_by_name
+    new_dict = {}
+    for key, value in proto_dict.items():
+        if field_map[key].type == field_map[key].TYPE_MESSAGE:
+
+            if field_map[key].message_type.name == "IpAddress":
+                new_dict[key] = parse_ip_address(value)
+            elif field_map[key].message_type.name == "IpPrefix":
+                new_dict[key] = parse_ip_prefix(value)
+            elif field_map[key].message_type.name == "Guid":
+                new_dict[key] = parse_guid(value)
+
+        elif field_map[key].type == field_map[key].TYPE_BYTES:
+            new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type in PB_INT_TYPES:
+            new_dict[key] = int(value)
+
+        if key not in new_dict:
+            new_dict[key] = value
+
+    return ParseDict(new_dict, message)
+
+
+def get_enum_type_from_str(enum_type_str, enum_name_str):
+
+    # 4_to_6 uses small cap so cannot use dynamic naming
+    if enum_name_str == "4_to_6":
+        return ActionType.ACTION_TYPE_4_to_6
+
+    my_enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_type_str)
+    my_enum_type_concatenated = '_'.join(my_enum_type_parts)
+    enum_name = f"{my_enum_type_concatenated.upper()}_{enum_name_str.upper()}"
+    a = globals()[enum_type_str]
+    if a is not None:
+        """Returns the value for the given enum name and raisees ValueError if not found."""
+        return a.Value(enum_name)
+    else:
+        raise Exception(f"Cannot find enum type {enum_type_str}")
 
 
 def routing_type_from_json(json_obj):
     pb = RouteType()
-    pbi = RouteTypeItem()
-    pbi.action_name = json_obj["name"]
-    pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
-    pb.items.append(pbi)
+    if isinstance(json_obj, list):
+        for item in json_obj:
+            pbi = RouteTypeItem()
+            pbi.action_name = item["action_name"]
+            pbi.action_type = get_enum_type_from_str('ActionType', item.get("action_type"))
+            if item.get("encap_type") is not None:
+                pbi.encap_type = get_enum_type_from_str('EncapType', item.get("encap_type"))
+            if item.get("vni") is not None:
+                pbi.vni = int(item["vni"])
+            pb.items.append(pbi)
+    else:
+        pbi = RouteTypeItem()
+        pbi.action_name = json_obj["action_name"]
+        pbi.action_type = get_enum_type_from_str('ActionType', json_obj.get("action_type"))
+        if json_obj.get("encap_type") is not None:
+            pbi.encap_type = get_enum_type_from_str('EncapType', json_obj.get("encap_type"))
+        if json_obj.get("vni") is not None:
+            pbi.vni = int(json_obj["vni"])
+        pb.items.append(pbi)
     return pb
 
 
-handlers_map = {
-    "APPLIANCE": appliance_from_json,
-    "VNET": vnet_from_json,
-    "VNET_MAPPING": vnet_mapping_from_json,
-    "QOS": qos_from_json,
-    "ENI": eni_from_json,
-    "ROUTE": route_from_json,
-    "ROUTE_RULE": route_rule_from_json,
-    "ROUTING_TYPE": routing_type_from_json,
-}
+def get_message_from_table_name(table_name):
+    table_name_lis = table_name.lower().split("_")
+    table_name_lis2 = [item.capitalize() for item in table_name_lis]
+    message_name = ''.join(table_name_lis2)
+    module_name = f'dash_api.{table_name.lower()}_pb2'
+
+    # Import the module dynamically
+    module = importlib.import_module(module_name)
+
+    # Get the class object
+    message_class = getattr(module, message_name)
+
+    return message_class()
 
 
-def json_to_proto(key, json_obj):
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    if table_name in handlers_map:
-        pb = handlers_map[table_name](json_obj)
+def prefix_to_ipv4(prefix_length):
+    if int(prefix_length) > 32:
+        return ""
+    mask = 2**32 - 2**(32-int(prefix_length))
+    s = str(hex(mask))
+    s = s[2:]
+    hex_groups = [s[i:i+2] for i in range(0, len(s), 2)]
+    decimal_groups = []
+    for hex_string in hex_groups:
+        decimal_groups.append(str(int(hex_string, 16)))
+    ipv4_address_str = '.'.join(decimal_groups)
+    return ipv4_address_str
+
+
+def prefix_to_ipv6(prefix_length):
+    if int(prefix_length) > 128:
+        return ""
+    mask = 2**128 - 2**(128-int(prefix_length))
+    s = str(hex(mask))
+    s = s[2:]
+    hex_groups = [s[i:i+4] for i in range(0, len(s), 4)]
+    ipv6_address_str = ':'.join(hex_groups)
+    return ipv6_address_str
+
+
+def parse_ip_prefix(ip_prefix_str):
+    ip_addr_str, mask = ip_prefix_str.split("/")
+    if mask.isdigit():
+        ip_addr = ip_address(ip_addr_str)
+        if ip_addr.version == 4:
+            mask_str = prefix_to_ipv4(mask)
+        else:
+            mask_str = prefix_to_ipv6(mask)
     else:
-        pytest.fail("Unknown table %s" % table_name)
+        mask_str = mask
+    return {"ip": parse_ip_address(ip_addr_str), "mask": parse_ip_address(mask_str)}
+
+
+def json_to_proto(key: str, proto_dict: dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format
+    """
+    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+    if table_name == "ROUTING_TYPE":
+        pb = routing_type_from_json(proto_dict)
+        return pb.SerializeToString()
+
+    message = get_message_from_table_name(table_name)
+    field_map = message.DESCRIPTOR.fields_by_name
+    new_dict = {}
+    for key, value in proto_dict.items():
+        if field_map[key].type == field_map[key].TYPE_MESSAGE:
+
+            if field_map[key].message_type.name == "IpAddress":
+                new_dict[key] = parse_ip_address(value)
+            elif field_map[key].message_type.name == "IpPrefix":
+                new_dict[key] = parse_ip_prefix(value)
+            elif field_map[key].message_type.name == "Guid":
+                new_dict[key] = parse_guid(value)
+
+        elif field_map[key].type == field_map[key].TYPE_ENUM:
+            new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
+        elif field_map[key].type == field_map[key].TYPE_BOOL:
+            new_dict[key] = value == 'true'
+
+        elif field_map[key].type == field_map[key].TYPE_BYTES:
+            new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type in PB_INT_TYPES:
+            new_dict[key] = int(value)
+
+        if key not in new_dict:
+            new_dict[key] = value
+
+    pb = ParseDict(new_dict, message)
     return pb.SerializeToString()

@@ -4,15 +4,17 @@ Test the running status and format of alerting message of Monit service.
 import logging
 
 import pytest
+import random
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.monit import check_monit_expected_container_logging
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -31,33 +33,24 @@ def stop_and_start_lldpmgrd(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    logger.info("Stopping 'lldpmgrd' process in 'lldp' container ...")
-    stop_command_result = duthost.command("docker exec lldp supervisorctl stop lldpmgrd")
-    exit_code = stop_command_result["rc"]
-    pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp' container!")
-    logger.info("'lldpmgrd' process in 'lldp' container is stopped.")
-
     if duthost.is_multi_asic:
-        logger.info("Stopping 'lldpmgrd' process in 'lldp0' container ...")
-        stop_command_result = duthost.command("docker exec lldp0 supervisorctl stop lldpmgrd")
-        exit_code = stop_command_result["rc"]
-        pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp0' container!")
-        logger.info("'lldpmgrd' process in 'lldp0' container is stopped.")
+        process = random.choice(["lldp0", "lldp1"])
+    else:
+        process = "lldp"
+
+    logger.info("Stopping 'lldpmgrd' process in {} container ...".format(process))
+    stop_command_result = duthost.command("docker exec {} supervisorctl stop lldpmgrd".format(process))
+    exit_code = stop_command_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in {} container!".format(process))
+    logger.info("'lldpmgrd' process in {} container is stopped.".format(process))
 
     yield
 
-    logger.info("Starting 'lldpmgrd' process in 'lldp' container ...")
-    start_command_result = duthost.command("docker exec lldp supervisorctl start lldpmgrd")
+    logger.info("Starting 'lldpmgrd' process in {} container ...".format(process))
+    start_command_result = duthost.command("docker exec {} supervisorctl start lldpmgrd".format(process))
     exit_code = start_command_result["rc"]
-    pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp' container!")
-    logger.info("'lldpmgrd' process in 'lldp' container is started.")
-
-    if duthost.is_multi_asic:
-        logger.info("Starting 'lldpmgrd' process in 'lldp0' container ...")
-        start_command_result = duthost.command("docker exec lldp0 supervisorctl start lldpmgrd")
-        exit_code = start_command_result["rc"]
-        pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp0' container!")
-        logger.info("'lldpmgrd' process in 'lldp0' container is started.")
+    pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in {} container!".format(process))
+    logger.info("'lldpmgrd' process in {} container is started.".format(process))
 
 
 def check_monit_last_output(duthost):
@@ -134,5 +127,5 @@ def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_host
 
     pytest_assert(wait_until(180, 60, 0, check_monit_last_output, duthost),
                   "Expected Monit reporting message not found")
-
+    wait_until(180, 60, 0, check_monit_expected_container_logging, duthost)
     logger.info("Checking the format of Monit alerting message was done!")

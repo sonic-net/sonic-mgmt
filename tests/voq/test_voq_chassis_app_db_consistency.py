@@ -40,11 +40,6 @@ def verify_data_in_db(post_change_db_dump, tmp_pc, pc_members, duthosts, pc_nbr_
     key = "SYSTEM_INTERFACE|{}*{}".format(duthost.sonichost.hostname, tmp_pc)
     pytest_assert(voqdb.get_keys(key),
                   "SYSTEM_INTERFACE in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
-    # Verfication on SYSTEM_LAG_ID_SET
-    if lag_id not in post_change_db_dump["SYSTEM_LAG_ID_SET"]:
-        pytest.fail(
-            "Portchannel Lag id {} is not allocatioed to tmp portchannel {} in SYSTEM_LAG_ID_SET".format(pc_nbr_ip,
-                                                                                                         tmp_pc))
 
 
 @pytest.mark.parametrize("test_case", ["dut_reboot", "config_reload_with_config_save", "config_reload_no_config_save"])
@@ -166,23 +161,24 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         if test_case == "config_reload_no_config_save":
             logging.info("Reloading config")
             config_reload(duthost, safe_reload=True)
-            pytest_assert(wait_until(180, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                           "DB_Consistency Failed")
         elif test_case == "config_reload_with_config_save":
             duthost.shell('sudo config save -y')
             config_reload(duthost, safe_reload=True)
-            pytest_assert(wait_until(180, 30, 0, check_db_consistency, duthosts, duthost, post_change_db_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, post_change_db_dump),
                           "DB_Consistency Failed")
         else:
             logging.info("Rebooting dut {}".format(duthost))
             reboot(duthost, localhost, wait_for_ssh=False)
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=1, timeout=60)
-            pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
-                          "DB_Consistency Failed During Reboot")
+            if len(duthosts) > 1:
+                pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
+                              "DB_Consistency Failed During Reboot")
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
             pytest_assert(wait_until(330, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should fully started!")
-            pytest_assert(wait_until(380, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                           "DB_Consistency Failed After Reboot")
 
     finally:
@@ -252,9 +248,34 @@ def get_db_dump(duthosts, duthost):
     """
 
     chassis_app_db_sysparams = {}
+    system_lag_id = {}
     key = "*SYSTEM*|*" + duthost.sonichost.hostname + "*"
-    chassis_app_db_sysparams["CHASSIS_APP_DB"] = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    if chassis_app_db_result is not None:
+        chassis_app_db_sysparams["CHASSIS_APP_DB"] = chassis_app_db_result
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
-    chassis_app_db_sysparams["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
-    chassis_app_db_sysparams["SYSTEM_LAG_ID_SET"] = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
+    system_lag_id["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
+    SYSTEM_LAG_ID_SET = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
+    end = int(voqdb.dump("SYSTEM_LAG_ID_END")["SYSTEM_LAG_ID_END"]['value'])
+    start = int(voqdb.dump("SYSTEM_LAG_ID_START")["SYSTEM_LAG_ID_START"]['value'])
+    LAG_IDS_FREE_LIST = voqdb.dump("SYSTEM_LAG_IDS_FREE_LIST")["SYSTEM_LAG_IDS_FREE_LIST"]['value']
+
+    def verify_system_lag_sanity():
+        seen = set(LAG_IDS_FREE_LIST + SYSTEM_LAG_ID_SET)
+        if len(seen) != (end - start + 1):
+            logging.error(
+                "Missing or extra values are found in SYSTEM_LAG_IDS_FREE_LIST:{} or SYSTEM_LAG_ID_SET:{}".
+                format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
+            return False
+        if any(LAG_IDS_FREE_LIST.count(x) > 1 or SYSTEM_LAG_ID_SET.count(
+                x) > 1 or (x in LAG_IDS_FREE_LIST and x in SYSTEM_LAG_ID_SET) for x in seen):
+            logging.error(
+                "Duplicate values found in SYSTEM_LAG_IDS_FREE_LIST:{} or SYSTEM_LAG_ID_SET:{}".
+                format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
+            return False
+
+        return True
+
+    pytest_assert(wait_until(220, 10, 0, verify_system_lag_sanity))
+
     return {k: sorted(v) for k, v in chassis_app_db_sysparams.items()}

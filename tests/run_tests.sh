@@ -7,11 +7,13 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
+    echo "    -B             : run BSL test suite"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
+    echo "    -H <dpu name>  : specify comma-separated DPU names (default: none)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -27,6 +29,7 @@ function show_help_and_exit()
     echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
+    echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
@@ -71,9 +74,19 @@ function validate_parameters()
         RET=2
     fi
 
-    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} ]]; then
-        echo "Neither TOPOLOGY (-t) nor test case list (-c) is set.."
+    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
+        echo "Neither TOPOLOGY (-t) nor test case list (-c) nor test case list file (-F) is set.."
         RET=3
+    fi
+
+    if [[ ${TEST_CASES} && ${TEST_CASES_FILE} ]]; then
+        echo "Specified both a test case list (-c) and a test case list file (-F).."
+        RET=4
+    fi
+
+    if [[ -z ${DPU_NAME} ]]; then
+        echo "DPU name (-H) is not set.."
+        RET=5
     fi
 
     if [[ ${RET} != 0 ]]; then
@@ -84,6 +97,7 @@ function validate_parameters()
 function setup_environment()
 {
     SCRIPT=$0
+    PYTEST_EXEC="python3 -m pytest"
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
@@ -91,6 +105,7 @@ function setup_environment()
 
     AUTO_RECOVER="True"
     BYPASS_UTIL="False"
+    BSL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
@@ -103,9 +118,12 @@ function setup_environment()
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
     TEST_CASES=""
+    TEST_FILTER=""
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    DPU_NAME="None"
+    NO_CLEAR_CACHE="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -118,8 +136,6 @@ function setup_environment()
     pkill --signal 9 ansible-playbook
     # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
     pkill --signal 9 -f "^ssh.*/\.ansible"
-
-    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()
@@ -131,10 +147,21 @@ function setup_test_options()
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
     ignores=$(python3 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
-    if [[ -z ${TEST_CASES} ]]; then
+    if [[ -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+        ignore_files=("test_pretest.py" "test_posttest.py")
+        for ((i=${#all_scripts[@]}-1; i>=0; i--)); do
+            # Check if the current element is in the sub array
+            if [[ " ${ignore_files[@]} " =~ " ${all_scripts[i]} " ]]; then
+                # Remove the element from the main array
+                unset 'all_scripts[i]'
+            fi
+        done
     else
+        if [[ ${TEST_CASES_FILE} ]]; then
+            TEST_CASES="${TEST_CASES} $(cat ${TEST_CASES_FILE} | tr '\n' ' ')"
+        fi
         # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
         all_scripts=""
         for test_script in ${TEST_CASES}; do
@@ -163,6 +190,7 @@ function setup_test_options()
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
+                      --dpu-pattern ${DPU_NAME} \
                       --testbed ${TESTBED_NAME} \
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
@@ -184,6 +212,10 @@ function setup_test_options()
             PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
         fi
     done
+
+    if [[ ! -z $TEST_FILTER ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} -k ${TEST_FILTER}"
+    fi
 
     if [[ -d ${LOG_PATH} ]]; then
         rm -rf ${LOG_PATH}
@@ -225,6 +257,7 @@ function run_debug_tests()
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
     echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
+    echo "BSL:                   ${BSL}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -237,6 +270,8 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_CASES_FILE:       ${TEST_CASES_FILE}"
+    echo "TEST_FILTER:           ${TEST_FILTER}"
     echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
@@ -246,8 +281,20 @@ function run_debug_tests()
     echo "PRET_LOGGING_OPTIONS:  ${PRET_LOGGING_OPTIONS}"
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
+    echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
+}
+
+function clear_cache()
+{
+    if [[ x"${NO_CLEAR_CACHE}" == x"True" ]]; then
+        echo "=== Skipping cache clear ==="
+        return
+    fi
+
+    echo "=== Clearing pytest cache ==="
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 # Extra parameters for pre/post test stage
@@ -258,28 +305,31 @@ function pre_post_extra_params()
     # It aims to verify common test cases work as expected under macsec links.
     # At pre/post test stage, enabling macsec only wastes time and is not needed.
     params=${params//--enable_macsec/}
+    if [[ x"${BSL}" == x"True" ]]; then
+        params="${params} --ignore=bgp --skip_sanity"
+    fi
     echo $params
 }
 
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    echo Running: python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-    python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
+    echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
 function run_individual_tests()
@@ -337,10 +387,37 @@ function run_individual_tests()
     return ${EXIT_CODE}
 }
 
+function run_bsl_tests()
+{
+    echo "=== Running BSL tests ==="
+    echo Running: python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+}
+
 setup_environment
 
+for arg in "$@"; do
+    if [[ "$arg" == "--enable-debug" ]]; then
+        if [[ -z $SONIC_MGMT_DEBUG_PORT ]]; then
+            echo "*********************************[WARNING]*********************************"
+            echo "This container was not setup with --enable-debug option. Please re-setup this container with --enable-debug option"
+            echo "Please re-run without '--enable-debug' option to continue."
+            echo "*********************************[WARNING]*********************************"
+            exit 1
+        fi
 
-while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+        if [[ "$arg" != "${@: -1}" ]]; then
+            echo "Please put '--enable-debug' as the last option of your './run_tests.sh' command to avoid conflicts with pytest and run_tests options"
+            echo "Example: ./run_tests.sh ... --enable-debug"
+            exit 1
+        fi
+
+        PYTEST_EXEC="python3 -m debugpy --listen 0.0.0.0:$SONIC_MGMT_DEBUG_PORT --wait-for-client -m pytest"
+        set -- "${@/$arg/}" # remove this option so getopts can process the rest
+    fi
+done
+
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -352,11 +429,20 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
+        B )
+	    BSL="True"
+	    ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
+        C )
+            TEST_FILTER="${TEST_FILTER} ${OPTARG}"
+            ;;
         d )
             DUT_NAME=${OPTARG}
+            ;;
+        H )
+            DPU_NAME=${OPTARG}
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
@@ -366,6 +452,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         f )
             TESTBED_FILE=${OPTARG}
+            ;;
+        F )
+            TEST_CASES_FILE="${OPTARG}"
             ;;
         i )
             INVENTORY=${OPTARG}
@@ -412,12 +501,16 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         u )
             BYPASS_UTIL="True"
             ;;
+        w )
+            NO_CLEAR_CACHE="True"
+            ;;
         x )
             set -x
             ;;
     esac
 done
 
+clear_cache
 get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
@@ -440,7 +533,12 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
 fi
 
 RC=0
-run_${TEST_METHOD}_tests || RC=$?
+
+if [[ x"${BSL}" == x"True" ]]; then
+    run_bsl_tests || RC=$?
+else
+    run_${TEST_METHOD}_tests || RC=$?
+fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut

@@ -5,6 +5,7 @@ try:
     from ansible.parsing.dataloader import DataLoader
     from ansible.vars.manager import VariableManager
     from ansible.inventory.manager import InventoryManager
+    from ansible.vars.hostvars import HostVars
     has_ansible = True
 except ImportError:
     # ToDo: Support running without Ansible
@@ -56,6 +57,7 @@ class HostManager():
             loader=self._dataloader, sources=inventory_files)
         self._var_mgr = VariableManager(
             loader=self._dataloader, inventory=self._inv_mgr)
+        HostVars(inventory=self._inv_mgr, variable_manager=self._var_mgr, loader=self._dataloader)
 
     def get_host_vars(self, hostname):
         """
@@ -64,6 +66,8 @@ class HostManager():
         @return: A dict of hostvars
         """
         host = self._inv_mgr.get_host(hostname)
+        if not host:
+            raise Exception("Host not found in inventory files")
         vars = self._var_mgr.get_vars(host=host)
         vars['creds'] = self.get_host_creds(hostname)
         vars.update(host.vars)
@@ -105,7 +109,7 @@ class HostManager():
         """
         res = {}
         host = self._inv_mgr.get_host(hostname)
-        vars = self._var_mgr.get_vars(host=host)
+        vars = self._var_mgr._hostvars[hostname]
         groups = [group.name for group in host.groups]
         k_v = {
             'fanout': {'alias': 'fanout',

@@ -15,7 +15,7 @@ import scapy.layers.l2
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "t0-sonic")
 ]
 
 
@@ -200,7 +200,7 @@ def check_lacpdu_packet_version(duthost):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
+def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers, collect_techsupport_all_nbrs):
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
@@ -215,7 +215,7 @@ def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut):
+def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut, collect_techsupport_all_nbrs):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
         duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
@@ -260,7 +260,7 @@ class TestNeighborRetryCount:
         """
         check_lacpdu_packet_version(duthost)
 
-    def test_kill_teamd_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
+    def test_kill_team_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
         """
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
@@ -291,7 +291,8 @@ class TestNeighborRetryCount:
                 pytest_assert(not status["runner"]["selected"], "lag member is still up")
 
 
-def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer):
+def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer,
+                                   collect_techsupport_all_nbrs):
     """
     Test that peers reset the retry count to 3 when the feature is disabled
     """
@@ -338,7 +339,7 @@ class TestDutRetryCount:
         """
         check_lacpdu_packet_version(duthost)
 
-    def test_kill_teamd_peer_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
+    def test_kill_team_peer_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
         """
         Test that the lag remains up for 150 seconds after killing teamd on the DUT
         """
@@ -364,7 +365,8 @@ class TestDutRetryCount:
                 pytest_assert(not status["runner"]["selected"], "lag member is still up")
 
 
-def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut):
+def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut,
+                                  collect_techsupport_all_nbrs):
     """
     Test that DUT resets the retry count to 3 when the feature is disabled
     """

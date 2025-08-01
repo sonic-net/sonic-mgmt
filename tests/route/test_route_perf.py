@@ -1,9 +1,9 @@
 import pytest
-import json
 import logging
 import time
 import re
 import random
+import json
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -12,11 +12,16 @@ from datetime import datetime
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.generators import generate_ips
+from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_dut, cleanup_dut
+
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 
-pytestmark = [pytest.mark.topology("any"), pytest.mark.device_type("vs")]
+pytestmark = [
+    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.device_type("vs")
+]
 
 logger = logging.getLogger(__name__)
 
@@ -53,18 +58,69 @@ def get_route_scale_per_role(tbinfo, ip_version):
     return set_num_routes
 
 
+def get_l3_alpm_template_from_config_bcm(duthost):
+    """
+    Get l3_alpm_template from config.bcm file
+    :param duthost: DUT host object
+    :return: l3_alpm_template value
+    """
+    ls_command = "docker exec syncd cat /etc/sai.d/sai.profile | grep SAI_INIT_CONFIG_FILE"
+    ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
+    # Check if the file exists
+    if ls_output:
+        file_name = ls_output.split("=")[-1].strip()
+        logging.info("Config bcm file found:{}".format(file_name))
+        # Read the config.bcm file and find the l3_alpm_template variable
+        cat_command = "docker exec syncd cat {} | grep l3_alpm_template".format(file_name)
+        cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
+        if cat_output:
+            # Extract the value of l3_alpm_template
+            l3_alpm_template = cat_output.split(":")[-1].strip()
+            logging.info("l3_alpm_template found:{}".format(l3_alpm_template))
+            return int(l3_alpm_template)
+        else:
+            logging.info("Unable to find l3_alpm_template in config.bcm file")
+            raise RuntimeError(
+                "Unable to find l3_alpm_template in config.bcm file"
+            )
+    # If the file does not exist, raise an error
+    else:
+        logging.info("Unable to find config.bcm file in /etc/sai.d/sai.profile")
+        raise RuntimeError(
+            "Unable to find config.bcm file in /etc/sai.d/sai.profile"
+        )
+    return None
+
+
 @pytest.fixture
-def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
+    platform = duthost.facts["platform"]
+    asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        alpm_enable = duthost.command('bcmcmd "conf show l3_alpm_enable"')["stdout_lines"][2].strip()
-        logger.info("Checking config: {}".format(alpm_enable))
-        pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
+        if "7060x6_64pe" in platform:
+            # For all TH5 family devices, l3_alpm_template is set in config.bcm
+            # * 1 - Combined (By default)
+            # * 2 - Parallel
+            pytest_assert(
+                get_l3_alpm_template_from_config_bcm(duthost) == 1,
+                "l3_alpm_template is not set for route scaling"
+            )
+        else:
+            broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+            alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
+            alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
+            logger.info("Checking config: {}".format(alpm_enable))
+            pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
 
 @pytest.fixture(autouse=True)
@@ -80,20 +136,16 @@ def ignore_expected_loganalyzer_exceptions(
         duthost: DUT fixture
         loganalyzer: Loganalyzer utility fixture
     """
-    ignoreRegex = [".*ERR route_check.py:.*", ".*ERR.* 'routeCheck' status failed.*"]
+    ignoreRegex = [
+        ".*ERR route_check.py:.*",
+        ".*ERR.* 'routeCheck' status failed.*",
+        ".*Process \'orchagent\' is stuck in namespace \'host\'.*"
+        ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
             ignoreRegex
         )
-
-
-@pytest.fixture(params=[4, 6])
-def ip_versions(request):
-    """
-    Parameterized fixture for IP versions.
-    """
-    yield request.param
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -120,103 +172,6 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     time.sleep(wait_time)
 
 
-def prepare_dut(asichost, intf_neighs):
-    for intf_neigh in intf_neighs:
-        # Set up interface
-        asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "add")
-        # Set up neighbor
-        asichost.run_ip_neigh_cmd(
-            "replace "
-            + intf_neigh["neighbor"]
-            + " lladdr "
-            + intf_neigh["mac"]
-            + " dev "
-            + intf_neigh["interface"]
-        )
-
-
-def cleanup_dut(asichost, intf_neighs):
-    for intf_neigh in intf_neighs:
-        # Delete neighbor
-        asichost.run_ip_neigh_cmd(
-            "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
-        )
-        # remove interface
-        asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
-
-
-def generate_intf_neigh(asichost, num_neigh, ip_version):
-    interfaces = asichost.show_interface(command="status")["ansible_facts"][
-        "int_status"
-    ]
-    up_interfaces = []
-    for intf, values in list(interfaces.items()):
-        if values["admin_state"] == "up" and values["oper_state"] == "up":
-            up_interfaces.append(intf)
-    if not up_interfaces:
-        raise Exception("DUT does not have up interfaces")
-
-    # Generate interfaces and neighbors
-    intf_neighs = []
-    str_intf_nexthop = {"ifname": "", "nexthop": ""}
-
-    idx_neigh = 0
-    for itfs_name in up_interfaces:
-        if not itfs_name.startswith("PortChannel") and interfaces[itfs_name][
-            "vlan"
-        ].startswith("PortChannel"):
-            continue
-        if interfaces[itfs_name]["vlan"] == "trunk":
-            continue
-        if ip_version == 4:
-            intf_neigh = {
-                "interface": itfs_name,
-                # change prefix ip starting with 3 to avoid overlap with any bgp ip
-                "ip": "30.%d.0.1/24" % (idx_neigh + 1),
-                "neighbor": "30.%d.0.2" % (idx_neigh + 1),
-                "mac": "54:54:00:ad:48:%0.2x" % idx_neigh,
-            }
-        else:
-            intf_neigh = {
-                "interface": itfs_name,
-                "ip": "%x::1/64" % (0x2000 + idx_neigh),
-                "neighbor": "%x::2" % (0x2000 + idx_neigh),
-                "mac": "54:54:00:ad:48:%0.2x" % idx_neigh,
-            }
-
-        intf_neighs.append(intf_neigh)
-        if idx_neigh == 0:
-            str_intf_nexthop["ifname"] += intf_neigh["interface"]
-            str_intf_nexthop["nexthop"] += intf_neigh["neighbor"]
-        else:
-            str_intf_nexthop["ifname"] += "," + intf_neigh["interface"]
-            str_intf_nexthop["nexthop"] += "," + intf_neigh["neighbor"]
-        idx_neigh += 1
-        if idx_neigh == num_neigh:
-            break
-
-    if not intf_neighs:
-        raise Exception("DUT does not have interfaces available for test")
-
-    return intf_neighs, str_intf_nexthop
-
-
-def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
-    route_data = []
-    for prefix in prefixes:
-        key = "ROUTE_TABLE:" + prefix
-        route = {}
-        route["ifname"] = str_intf_nexthop["ifname"]
-        route["nexthop"] = str_intf_nexthop["nexthop"]
-        route_command = {}
-        route_command[key] = route
-        route_command["OP"] = op
-        route_data.append(route_command)
-
-    # Copy json file to DUT
-    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
-
-
 def exec_routes(
     duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, op
 ):
@@ -233,7 +188,12 @@ def exec_routes(
 
     # Calculate timeout as a function of the number of routes
     # Allow at least 1 second even when there is a limited number of routes
-    route_timeout = max(len(prefixes) / 250, 1)
+    asic_type = duthost.facts["asic_type"]
+    if asic_type == "vs":
+        # In vs, route entries need more time to be installed
+        route_timeout = max(len(prefixes) / 160, 1)
+    else:
+        route_timeout = max(len(prefixes) / 250, 1)
 
     # Calculate expected number of route and record start time
     if op == "SET":
@@ -273,6 +233,9 @@ def exec_routes(
         actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
         if total_delay >= route_timeout:
             break
+
+    logger.info("After pushing route to swssconfig, current {} expected {}".format(
+        actual_num_routes, expected_num_routes))
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
@@ -321,9 +284,11 @@ def test_perf_add_remove_routes(
     check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
+    is_backend_topology
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
@@ -335,9 +300,11 @@ def test_perf_add_remove_routes(
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
-        asichost, NUM_NEIGHS, ip_versions
+        asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
+    crm_facts = duthost.get_crm_facts()
+    logger.info(json.dumps(crm_facts, indent=4))
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = asichost.count_crm_resources(
         "main_resources", route_tag, "used"
@@ -409,9 +376,9 @@ def test_perf_add_remove_routes(
         )
 
         # Traffic verification with 10 random routes
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts["minigraph_ptf_indices"]
-        nexthop_intf = str_intf_nexthop["ifname"].split(",")
+        # split off the vlan id from the interface name separated by the . delimiter
+        nexthop_intf = [nh_intf.split(".")[0] for nh_intf in str_intf_nexthop["ifname"].split(",")]
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
             port_indices[mg_facts["minigraph_portchannels"][src_port]["members"][0]]
@@ -430,11 +397,12 @@ def test_perf_add_remove_routes(
             if ip_versions == 4:
                 ip_dst = generate_ips(1, dst_nw, [])
                 send_and_verify_traffic(
-                    duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
+                    asichost, duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
                 )
             else:
                 ip_dst = dst_nw.split("/")[0] + "1"
                 send_and_verify_traffic(
+                    asichost,
                     duthost,
                     ptfadapter,
                     tbinfo,
@@ -461,12 +429,12 @@ def test_perf_add_remove_routes(
 
 
 def send_and_verify_traffic(
-    duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
+    asichost, duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
 ):
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_dst=asichost.get_router_mac().lower(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -475,8 +443,8 @@ def send_and_verify_traffic(
         )
     else:
         pkt = testutils.simple_tcp_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_dst=asichost.get_router_mac().lower(),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,
             ip_ttl=64,

@@ -49,6 +49,7 @@ import six
 import ipaddress
 import itertools
 import fib
+import time
 
 import ptf
 import ptf.packet as scapy
@@ -57,6 +58,8 @@ from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv
 from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
+
+import macsec  # noqa F401
 
 
 class DecapPacketTest(BaseTest):
@@ -114,7 +117,7 @@ class DecapPacketTest(BaseTest):
         self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
         if self.max_internal_hops:
             self.TTL_RANGE = list(range(self.max_internal_hops + 1, 63))
-        if self.asic_type == "marvell":
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
@@ -440,8 +443,39 @@ class DecapPacketTest(BaseTest):
                              exp_ttl,
                              str(expected_ports)))
 
-        matched, received = verify_packet_any_port(
-            self, masked_exp_pkt, expected_ports)
+        try:
+            matched, received = verify_packet_any_port(
+                self, masked_exp_pkt, expected_ports, timeout=1)
+        except AssertionError:
+            logging.error("Traffic wasn't sent successfully, trying again")
+            for _ in range(5):
+                send_packet(self, src_port, pkt, count=1)
+                time.sleep(0.1)
+
+            expected_ports = list(itertools.chain(*exp_port_lists))
+            logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, (tos|tc)={}, ttl={})/'
+                         'IP(src={}, dst={}, (tos|tc)={}, ttl={}) from interface {}'
+                         .format(pkt.src,
+                                 pkt.dst,
+                                 outer_src_ip,
+                                 outer_dst_ip,
+                                 outer_tos,
+                                 outer_ttl_info,
+                                 inner_src_ip,
+                                 dst_ip,
+                                 inner_tos,
+                                 inner_ttl_info,
+                                 src_port))
+            logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={}, (tos|tc)={}, ttl={}) on interfaces {}'
+                         .format('any',
+                                 'any',
+                                 inner_src_ip,
+                                 dst_ip,
+                                 exp_tos,
+                                 exp_ttl,
+                                 str(expected_ports)))
+            matched, received = verify_packet_any_port(
+                self, masked_exp_pkt, expected_ports, timeout=1)
         logging.info('Received expected packet on interface {}'.format(
             str(expected_ports[matched])))
         return matched, received
@@ -488,10 +522,22 @@ class DecapPacketTest(BaseTest):
 
             next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+            lt2_default_route = False
+            if self.topo == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
+                if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
+                    dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
+                    src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
+                    if src_port_dut_index == 0 and dest_port_dut_index == 0:
+                        ptf_non_upstream_ports = []
+                        for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
+                            if ptf_port_info['target_dut'][0] != 0:
+                                ptf_non_upstream_ports.append(ptf_port)
+                        src_port = int(random.choice(ptf_non_upstream_ports))
                 logging.info('src_port={}, exp_port_lists={}, active_dut_index={}'.format(
                     src_port, exp_port_lists, active_dut_indexes))
                 break

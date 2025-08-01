@@ -25,6 +25,7 @@ def verify_name_server(dut, **kwargs):
     verify_name_server(vars.D1, src_intf='Management0', name_server_list=['10.0.0.2', '10.0.0.3'], vrf='mgmt')
     """
 
+    result = True
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
     cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type
     filter_type = kwargs.get('filter_type', 'ALL')
@@ -42,12 +43,9 @@ def verify_name_server(dut, **kwargs):
                 sys_obj.add_DnsServer(dns_obj)
 
         result = sys_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
-        if not result.ok():
-            st.log('test_step_failed: Verify DNS {}'.format(result.data))
-            return False
-        return True
+        result = result.ok()
+
     elif cli_type == 'klish':
-        result = True
         output = st.show(dut, 'show hosts', type=cli_type)
         if len(output) == 0:
             st.error("Output is Empty")
@@ -73,7 +71,7 @@ def verify_name_server(dut, **kwargs):
                     st.log("{} : {} is not match ".format('name_servers', kwargs['name_server_list']))
                     result = False
 
-        return result
+    return result
 
 
 def config_name_server(dut, **kwargs):
@@ -110,25 +108,16 @@ def config_name_server(dut, **kwargs):
                 if 'vrf' in kwargs:
                     dns_obj.VrfName = kwargs['vrf']
                 sys_obj.add_DnsServer(dns_obj)
-            result = sys_obj.configure(dut, operation=operation, cli_type=cli_type)
-            if not result.ok():
-                st.log('test_step_failed: Configure DNS {}'.format(result.data))
-                return False
+            sys_obj.configure(dut, operation=operation, cli_type=cli_type)
         else:
             if 'src_intf' in kwargs:
                 sys_obj = umf_system.System(DnsSourceInterface=kwargs['src_intf'])
                 target_attr = getattr(sys_obj, 'DnsSourceInterface')
-                result = sys_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
-                if not result.ok():
-                    st.log('test_step_failed: unConfigure DNS {}'.format(result.data))
-                    return False
+                sys_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
             if 'name_servers' in kwargs:
                 dns_obj = umf_system.DnsServer(Address=kwargs['name_servers'])
-                result = dns_obj.unConfigure(dut, cli_type=cli_type)
-                if not result.ok():
-                    st.log('test_step_failed: unConfigure DNS {}'.format(result.data))
-                    return False
-        return True
+                dns_obj.unConfigure(dut, cli_type=cli_type)
+
     elif cli_type == 'klish':
         command = []
         if config == 'yes':

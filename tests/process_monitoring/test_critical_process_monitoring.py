@@ -16,27 +16,28 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
+from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, kill_process_by_pid
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS = 600
 
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -188,8 +189,8 @@ def get_critical_process_from_monit(duthost, container_name):
         container_name: Name of container.
 
     Returns:
-        A list contains command lines of critical processes. Bool varaible indicates
-        whether the operation in this funciton was done successfully or not.
+        A list contains command lines of critical processes. Bool variable indicates
+        whether the operation in this function was done successfully or not.
     """
     critical_process_list = []
     succeeded = True
@@ -370,34 +371,6 @@ def get_containers_namespace_ids(duthost, skip_containers):
     return containers_in_namespaces
 
 
-def kill_process_by_pid(duthost, container_name, program_name, program_pid):
-    """Kills a process in the specified container by its pid.
-
-    Args:
-        duthost: Hostname of DUT.
-        container_name: A string shows container name.
-        program_name: A string shows process name.
-        program_pid: An integer represents the PID of a process.
-
-    Returns:
-        None.
-    """
-    if "20191130" in duthost.os_version:
-        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
-    else:
-        # If we used the command `supervisorctl stop <proc_name>' to stop process,
-        # Supervisord will treat the exit code of process as expected and it will not generate
-        # alerting message.
-        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
-
-    # Get the exit code of 'kill' or 'supervisorctl stop' command
-    exit_code = kill_cmd_result["rc"]
-    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
-
-    logger.info("Program '{}' in container '{}' was stopped successfully"
-                .format(program_name, container_name))
-
-
 def check_and_kill_process(duthost, container_name, program_name, program_status, program_pid):
     """Checks the running status of a critical process. If it is running, kill it. Otherwise,
        fail this test.
@@ -450,7 +423,12 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             container_name_in_namespace = container_name
             if namespace_id != DEFAULT_ASIC_ID:
                 container_name_in_namespace += namespace_id
-
+            if 'lldp' in container_name:
+                # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
+                # move lldpd to the end of the list to avoid this issue
+                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
+                    container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -480,6 +458,10 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
+    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
+        critical_process = "dhcp-relay" + ":" + critical_process
+
     logger.info("Checking whether process '{}' in container '{}' is running..."
                 .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)
@@ -540,7 +522,46 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def get_skip_containers(tbinfo, skip_vendor_specific_container):
+    skip_containers = []
+    skip_containers.append("database")
+    skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
+    skip_containers.append("restapi")
+    # Skip 'radv' container on devices whose role is not T0.
+    if tbinfo["topo"]["type"] != "t0":
+        skip_containers.append("radv")
+    skip_containers = skip_containers + skip_vendor_specific_container
+    return skip_containers
+
+
+@pytest.fixture
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    duthost = duthosts[rand_one_dut_hostname]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    yield
+
+    logger.info("Executing the config reload...")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    logger.info("Executing the config reload was done!")
+
+    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after testing the process monitoring!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_monitoring_critical_processes(
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   tbinfo,
+                                   skip_vendor_specific_container,
+                                   recover_critical_processes):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -559,21 +580,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
-    skip_containers = []
-    skip_containers.append("database")
-    skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
-    # which will not trigger alarm message.
-    skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
-        skip_containers.append("radv")
-    skip_containers = skip_containers + skip_vendor_specific_container
+    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
@@ -600,12 +608,44 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
+
+def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    """Tests orchagent heartbeat after warm-restart
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # t1 lag does not have swss container
+    swss_running = is_container_running(duthost, 'swss')
+    if not swss_running:
+        logger.info("swss container not running.")
+        return
+
+    # initialize LogAnalyzer for check stuck warning message
+    marker_prefix = "test_orchagent_heartbeat_checker"
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
+    loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
+    marker = loganalyzer.init()
+
+    # freeze orchagent for warm-reboot
+    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
+    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
+    else:
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    exit_code = command_output["rc"]
+    logger.warning("command_output: {}".format(command_output))
+    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
+
+    # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
+    time.sleep(120)
+
+    analysis = loganalyzer.analyze(marker, fail=False)
+    logger.warning("latest_stuck: {}".format(analysis['total']['expected_match']))
+
+    # restart orchagent by reload config
     logger.info("Executing the config reload...")
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+    # assert after config reload, make sure orchagent recovered after test
+    pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")

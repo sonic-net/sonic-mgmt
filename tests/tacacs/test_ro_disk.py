@@ -2,15 +2,19 @@ import pytest
 import logging
 import os
 import time
+import re
 
 from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
+from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from .test_ro_user import ssh_remote_run
-from .utils import setup_tacacs_client, change_and_wait_aaa_config_update
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, check_tacacs  # noqa: F401
+from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
+from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -55,6 +59,13 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
+def do_pdu_reboot(duthost, localhost, duthosts, pdu_controller):
+    if not pdu_reboot(pdu_controller):
+        logger.error("Failed to do PDU reboot for {}".format(duthost.hostname))
+        return
+    return post_reboot_healthcheck(duthost, localhost, duthosts, 20)
+
+
 def do_reboot(duthost, localhost, duthosts):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
@@ -74,7 +85,7 @@ def do_reboot(duthost, localhost, duthosts):
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
-        except AnsibleConnectionFailure as e:
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as e:
             logger.error("DUT not reachable, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
         except RunAnsibleModuleFail as e:
@@ -83,11 +94,25 @@ def do_reboot(duthost, localhost, duthosts):
 
         wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
 
-    assert rebooted, "Failed to reboot"
-    localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
+    if not rebooted:
+        logger.error("Failed to reboot DUT after {} retries".format(retries))
+        return False
+
+    return post_reboot_healthcheck(duthost, localhost, duthosts, wait_time)
+
+
+def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
+    timeout = 300
+    if duthost.get_facts().get("modular_chassis"):
+        wait_time = max(wait_time, 600)
+        timeout = max(timeout, 420)
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
+    else:
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
-    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
-        "All critical services should fully started!"
+    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+        logger.error("Not all critical services fully started!")
+        return False
     # If supervisor node is rebooted in chassis, linecards also will reboot.
     # Check if all linecards are back up.
     if duthost.is_supervisor_node():
@@ -95,19 +120,22 @@ def do_reboot(duthost, localhost, duthosts):
             if host != duthost:
                 logger.info("checking if {} critical services are up".format(host.hostname))
                 wait_critical_processes(host)
-                assert wait_until(300, 20, 0, check_interface_status_of_up_ports, host), \
-                    "Not all ports that are admin up on are operationally up"
+                if not wait_until(300, 20, 0, check_interface_status_of_up_ports, host):
+                    logger.error("Not all ports that are admin up on are operationally up")
+                    return False
+    return True
 
 
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
     tacacs_server_ip = ptfhost.mgmt_ip
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
 
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' in ptfhost_vars:
         tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
     logger.info('Upon reboot: complete: setup tacacs_creds')
 
 
@@ -129,8 +157,24 @@ def fetch_into_file(localhost, remote_ip, rwuser, rwpass, src_file, dst_file):
     logger.info("ret={} cmd={}".format(ret, scp_cmd))
 
 
+def log_rotate(duthost):
+    try:
+        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+    except RunAnsibleModuleFail as e:
+        message = str(e)
+        state_failed_pattern = r"error: stat of \S* failed: Bad message"
+        can_not_access_pattern = r"du: cannot access \S*: Bad message"
+        if ("logrotate does not support parallel execution on the same set of logfiles" in message) or \
+                re.match(state_failed_pattern, message) or \
+                re.match(can_not_access_pattern, message) or \
+                ("failed to compress log" in message):
+            logger.warning("logrotate command failed: {}".format(e))
+        else:
+            raise e
+
+
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs):
+                 tacacs_creds, check_tacacs, pdu_controller):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -150,7 +194,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #
         logger.info("PRETEST: reboot {} to restore system state".
                     format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, duthosts)
+        assert do_reboot(duthost, localhost, duthosts), "Failed to reboot"
         assert do_check_clean_state(duthost), "state not good even after reboot"
         do_setup_tacacs(ptfhost, duthost, tacacs_creds)
 
@@ -179,7 +223,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
         # To get file in decent size. Force a rotate
-        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+        log_rotate(duthost)
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
@@ -214,6 +258,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
 
+        # Verify after monit fix login issue ,remote user can run TSA/TSB command.
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSA")
+        logger.debug("TSA res={}".format(res))
+        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"], "Failed to TSA"
+        res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSB")
+        logger.debug("TSB res={}".format(res))
+        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"], "Failed to TSB"
+
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)
 
@@ -228,6 +280,18 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, duthosts)
+        try:
+            if not do_reboot(duthost, localhost, duthosts):
+                logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
+                               format(enum_rand_one_per_hwsku_hostname))
+                do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+        except Exception as e:
+            logger.warning("Failed to reboot {}, got exception {}, try PDU reboot to restore disk RW state".
+                           format(enum_rand_one_per_hwsku_hostname, e))
+            do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
+
+        # log rotate during ro disk may cause syslog file contains garbled content
+        # garbled content will break loganalyzer, rotate again to cleanup syslog file.
+        log_rotate(duthost)

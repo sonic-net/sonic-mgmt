@@ -5,13 +5,14 @@ import re
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import InterruptableThread
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 logger = logging.getLogger(__name__)
 
-TELEMETRY_PORT = 50051
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_POLL = 2
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
@@ -52,30 +53,10 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
-def setup_telemetry_forpyclient(duthost):
-    """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
-        Restart telemetry process
-    """
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-    return client_auth
-
-
-def restore_telemetry_forpyclient(duthost, default_client_auth):
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-    if client_auth != default_client_auth:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" {}'.format(default_client_auth),
-                      module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed telemetry")
-        duthost.service(name="telemetry", state="restarted")
-
-
-def check_gnmi_cli_running(ptfhost):
-    program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
-    return len(program_list) > 0
+def check_gnmi_cli_running(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    return res and res["rc"] == 0
 
 
 def parse_gnmi_output(gnmi_output, match_no, find_data):
@@ -84,39 +65,35 @@ def parse_gnmi_output(gnmi_output, match_no, find_data):
     gnmi_str = gnmi_str.replace(' ', '')
     if find_data != "":
         result = fetch_json_ptf_output(ON_CHANGE_REGEX, gnmi_str, match_no)
-        return find_data in result
+        return find_data in result[match_no]
 
 
 def fetch_json_ptf_output(regex, output, match_no):
     match = re.findall(regex, output)
     assert len(match) > match_no, "Not able to parse json from output"
-    event_str = match[match_no]
-    return event_str
+    return match[:match_no+1]
 
 
-def listen_for_event(ptfhost, cmd, results):
-    ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
-    results[0] = ret["stdout"]
-
-
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
+                      match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
-                              target="EVENTS", filter_event_regex=filter_event_regex)
-    results = [""]
-    event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
-    event_thread.start()
-    event_thread.join(thread_timeout)  # close thread after 30 sec, was not able to find event within reasonable time
-    assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
+                              submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
+                              target="EVENTS", filter_event_regex=filter_event_regex, timeout=timeout)
+    result = ptfhost.shell(cmd)
+    assert result["rc"] == 0, "PTF command failed with non zero return code"
+    output = result["stdout"]
+    assert len(output) != 0, "No output from PTF docker, thread timed out after {} seconds".format(timeout)
     # regex logic and then to write to file
-    result = results[0]
-    event_str = fetch_json_ptf_output(EVENT_REGEX, result, 0)
-    event_str = event_str.replace('\\', '')
-    event_json = json.loads(event_str)
+    event_strs = fetch_json_ptf_output(EVENT_REGEX, output, match_number)
     with open(op_file, "w") as f:
         f.write("[\n")
-        json.dump(event_json, f, indent=4)
+        for i in range(0, len(event_strs)):
+            str = event_strs[i]
+            event_str = str.replace('\\', '')
+            event_json = json.loads(event_str)
+            json.dump(event_json, f, indent=4)
+            if i < match_number:
+                f.write(",")
         f.write("\n]")
         f.close()
 
@@ -131,11 +108,37 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3, create_connections=1, filter_event_regex=""):
+                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
+                        timeout=-1, polling_interval=10, max_sync_count=-1):
     """ Generate the py_gnmicli command line based on the given params.
+    t                      --target: gNMI target; required
+    p                      --port: port of target; required
+    m                      --mode: get/susbcribe; default get
+    x                      --xpath: gnmi path, table name; required
+    xt                     --xpath_target: gnmi path prefix, db name
+    o                      --host_override, targets hostname for certificate CN
+    subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
+    submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
+    interval:              sample interval in milliseconds, default 10000ms
+    polling_interval:      polling interval in seconds, default 10s
+    max_sync_count:        Max number of sync responses to receive, -1 means no limit. default -1
+    update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
+    create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
+    filter_event_regex:    Regex to filter event when querying events path
+    namespace:             namespace for multi-asic
+    timeout:               Subscription duration in seconds; After X seconds, request terminates; default none
     """
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    ns = ""
+    if namespace is not None:
+        ns = "/{}".format(namespace)
+    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
+    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
+
+    if subscribe_mode == SUBSCRIBE_MODE_POLL:
+        poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
+        cmd += poll_cmd.format(subscribe_mode, polling_interval, update_count, max_sync_count, timeout)
+        return cmd
 
     if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
@@ -144,4 +147,66 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 update_count, create_connections)
         if filter_event_regex != "":
             cmd += " --filter_event_regex {}".format(filter_event_regex)
+        if timeout > 0:
+            cmd += " --timeout {}".format(timeout)
     return cmd
+
+
+def unarchive_telemetry_certs(duthost):
+    # Move all files within old_certs directory to parent certs directory
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    cmd = "ls {}".format(archive_dir)
+    filenames = duthost.shell(cmd)['stdout_lines']
+    for filename in filenames:
+        cmd = "mv {}/{} {}".format(archive_dir, filename, path)
+        duthost.shell(cmd)
+    cmd = "rm -rf {}".format(archive_dir)
+
+
+def archive_telemetry_certs(duthost):
+    # Move all files within certs directory to old_certs directory
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    cmd = "mkdir -p {}".format(archive_dir)
+    duthost.shell(cmd)
+    cmd = "ls {}".format(path)
+    filenames = duthost.shell(cmd)['stdout_lines']
+    for filename in filenames:
+        if filename.endswith(".cer") or filename.endswith(".key"):
+            cmd = "mv {} {}".format(path + filename, archive_dir)
+            duthost.shell(cmd)
+
+
+def rotate_telemetry_certs(duthost, localhost):
+    path = "/etc/sonic/telemetry/"
+    # Create new certs to rotate
+    cmd = "openssl req \
+              -x509 \
+              -sha256 \
+              -nodes \
+              -newkey rsa:2048 \
+              -keyout streamingtelemetryserver.key \
+              -subj '/CN=ndastreamingservertest' \
+              -out streamingtelemetryserver.cer"
+    localhost.shell(cmd)
+    cmd = "openssl req \
+              -x509 \
+              -sha256 \
+              -nodes \
+              -newkey rsa:2048 \
+              -keyout dsmsroot.key \
+              -subj '/CN=ndastreamingclienttest' \
+              -out dsmsroot.cer"
+    localhost.shell(cmd)
+
+    # Rotate certs
+    duthost.copy(src="streamingtelemetryserver.cer", dest=path)
+    duthost.copy(src="streamingtelemetryserver.key", dest=path)
+    duthost.copy(src="dsmsroot.cer", dest=path)
+    duthost.copy(src="dsmsroot.key", dest=path)
+
+
+def execute_ptf_gnmi_cli(ptfhost, cmd):
+    rc = ptfhost.shell(cmd)['rc']
+    return rc == 0

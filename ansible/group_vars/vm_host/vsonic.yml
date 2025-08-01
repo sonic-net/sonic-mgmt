@@ -1,0 +1,10 @@
+vsonic_image_filename: sonic-vs.img
+skip_vsonic_image_downloading: false
+
+# Please update url to the actual URL of the image file in your environment. If the image file
+# is not available on test server, the file will be downloaded from the URLs.
+# The url can be a string as single URL or a list of strings as multiple URLs. If it is a list, the code
+# logic will automatically try each URL in the list
+vsonic_image_url:
+  - http://example1.com/sonic-vs.img
+  - http://example2.com/sonic-vs.img

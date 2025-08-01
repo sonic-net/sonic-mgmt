@@ -12,6 +12,9 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
 from dateutil.parser import ParserError
+from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
+    extract_techsupport_tarball_file
 
 try:
     import allure
@@ -288,8 +291,9 @@ class TestAutoTechSupport:
         Force log rotate - because in some cases, when there's no file older than since, there will be
         no syslog file in techsupport dump
         """
-        with allure.step('Rotate logs'):
-            self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
+        with DisableLogrotateCronContext(self.duthost):
+            with allure.step('Rotate logs'):
+                self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
 
         with allure.step('Validate since value: {}'.format(since_value)):
             with allure.step('Set since value to: {}'.format(since_value)):
@@ -356,7 +360,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
@@ -380,7 +384,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
@@ -407,6 +411,12 @@ class TestAutoTechSupport:
 
         with allure.step('Get used space in mount point: {}'.format(validation_folder)):
             total, used, avail, used_percent = get_partition_usage_info(self.duthost, validation_folder)
+
+        with allure.step('Get /tmp Filesystem Type'):
+            tmp_fstype = is_tmp_on_tmpfs(self.duthost)
+
+        if test_mode == 'core' and tmp_fstype == 'tmpfs':
+            pytest.skip('Test skipped due to known sonic-buildimage issues #20950 and #15101')
 
         if used_percent > 50:
             pytest.skip('System uses more than 50% of space. '
@@ -506,7 +516,7 @@ class TestAutoTechSupport:
 
         with allure.step('Check that techsuport generated and expected saidump file exist in techsupport dump'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                            is_sai_dump_expected=True, delay_before_validation=30)
+                                            is_sai_dump_expected=True, delay_before_validation=60)
 
 
 # Methods used by tests
@@ -785,21 +795,6 @@ def get_oldest_syslog_file_name(syslog_files):
     return oldest_syslog_file
 
 
-def extract_techsupport_tarball_file(duthost, tarball_name):
-    """
-    Extract techsupport tar file and return path to data extracted from archive
-    :param duthost: duthost object
-    :param tarball_name: path to tar file, example: /var/dump/sonic_dump_DUT_NAME_20210901_22140.tar.gz
-    :return: path to folder with techsupport data, example: /tmp/sonic_dump_DUT_NAME_20210901_22140
-    """
-    with allure.step('Extracting techsupport file: {}'.format(tarball_name)):
-        dst_folder = '/tmp/'
-        duthost.shell('tar -xf {} -C {}'.format(tarball_name, dst_folder))
-        techsupport_folder = tarball_name.split('.')[0].split('/var/dump/')[1]
-        techsupport_folder_full_path = '{}{}'.format(dst_folder, techsupport_folder)
-    return techsupport_folder_full_path
-
-
 def validate_auto_techsupport_global_config(dut_cli, state=None, rate_limit_interval=None, max_techsupport_limit=None,
                                             max_core_size=None, since=None):
     """
@@ -908,7 +903,8 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
         expected_techsupport_files = False
 
     if expected_techsupport_files:
-        # techsupport file creation may took some time after generate dump process already finished
+        # ensure that creation of tar.gz file is complete by checking if the intermediate tar
+        # file generated is removed
         assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
@@ -952,36 +948,36 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
 
 def is_new_techsupport_file_generated(duthost, available_tech_support_files):
     """
-    Check if new techsupport dump created
+    Check if new techsupport dump is generated and complete by verifying intermediate tar file is removed
     :param duthost: duthost object
     :param available_tech_support_files: list of already available techsupport files
-    :return: True in case when new techsupport file created
+    :return: True in case when new techsupport tar.gz file created and intermediate tar file removed from /var/dump
     """
-    logger.info('Checking that new techsupport file created')
+    logger.info('Checking that new techsupport "*.tar.gz" file created and intermediate "*.tar" file is removed')
     new_techsupport_files_list = get_new_techsupport_files_list(duthost, available_tech_support_files)
+    new_techsupport_tar_files_list = get_new_techsupport_tar_files(duthost)
     new_techsupport_files_num = len(new_techsupport_files_list)
+    new_techsupport_tar_files_num = len(new_techsupport_tar_files_list)
 
-    if new_techsupport_files_num == 1:
+    if new_techsupport_files_num == 1 and new_techsupport_tar_files_num == 0:
         return True
 
     return False
 
 
-def get_new_techsupport_files_list(duthost, available_tech_support_files):
+def get_new_techsupport_tar_files(duthost):
     """
-    Get list of new created techsupport files
+    Get list of tar files generated during techsupport collection
     :param duthost: duthost object
-    :param available_tech_support_files: list of already available techsupport files
-    :return: list of new techsupport files
+    :return: list of new tar files generated by the techsupport
     """
     try:
         duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
-        new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
+        new_available_tech_support_tar_files = duthost.shell('ls /var/dump/*.tar')['stdout_lines']
     except RunAnsibleModuleFail:
-        new_available_tech_support_files = []
-    new_techsupport_files_list = list(set(new_available_tech_support_files) - set(available_tech_support_files))
+        new_available_tech_support_tar_files = []
 
-    return new_techsupport_files_list
+    return new_available_tech_support_tar_files
 
 
 def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
@@ -994,7 +990,7 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
     current_time_str = duthost.shell('date "+%b %d %H:%M"')['stdout']
     current_time = dateutil.parser.parse(current_time_str)
 
-    syslog_file_list = duthost.shell('sudo ls -l /var/log/syslog*')['stdout'].splitlines()
+    syslog_file_list = duthost.shell('sudo ls -lt /var/log/syslog*')['stdout'].splitlines()
 
     syslogs_creation_date_dict = {}
     syslog_file_name_index = 8
@@ -1008,9 +1004,9 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
             syslogs_creation_date_dict[file_timestamp] = [syslog_file_name]
 
     # Sorted from new to old
-    syslogs_sorted = sorted(list(syslogs_creation_date_dict.keys()), reverse=True)
+    syslogs = list(syslogs_creation_date_dict.keys())
     expected_files_in_techsupport_list = []
-    for date in syslogs_sorted:
+    for date in syslogs:
         expected_files_in_techsupport_list.extend(syslogs_creation_date_dict[date])
         if (current_time - date).seconds > since_value_in_seconds and current_time > date:
             break
@@ -1069,6 +1065,11 @@ def trigger_auto_techsupport(duthost, docker):
         core_file_name = create_core_file(duthost, docker)
 
     return core_file_name
+
+
+def is_tmp_on_tmpfs(duthost):
+    out = duthost.command("df -h /tmp --output='fstype'")['stdout_lines']
+    return out[1].strip() if len(out) == 2 else None
 
 
 def get_partition_usage_info(duthost, partition='/'):
@@ -1270,19 +1271,6 @@ def create_core_file_generator_script(duthost):
     """
     duthost.shell('sudo echo \'sleep 10 & kill -6 $!\' > /etc/sonic/core_file_generator.sh')
     duthost.shell('sudo echo \'echo $?\' >> /etc/sonic/core_file_generator.sh')
-
-
-def get_available_tech_support_files(duthost):
-    """
-    Get available techsupport files list
-    :param duthost: duthost object
-    :return: list of available techsupport files
-    """
-    try:
-        available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
-    except RunAnsibleModuleFail:
-        available_tech_support_files = []
-    return available_tech_support_files
 
 
 def get_random_physical_port_non_po_member(minigraph_facts):

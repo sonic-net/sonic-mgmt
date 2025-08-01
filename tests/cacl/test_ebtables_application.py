@@ -13,12 +13,13 @@ def generate_expected_rules(duthost):
     ebtables_rules.append("-d BGA -j DROP")
     ebtables_rules.append("-p ARP -j DROP")
     ebtables_rules.append("-p 802_1Q --vlan-encap ARP -j DROP")
+    ebtables_rules.append("-d Multicast -j DROP")
     return ebtables_rules
 
 
 def test_ebtables_application(duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     """
-    Test case to ensure ebtables rules are applied are corectly on DUT during init
+    Test case to ensure ebtables rules are applied are correctly on DUT during init
 
     This is done by generating our own set of expected ebtables
     rules based on the DuT's configuration and comparing them against the

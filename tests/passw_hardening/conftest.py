@@ -71,9 +71,11 @@ def clean_passw_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     passw_hardening_utils.config_user(duthost=duthost, username=passw_hardening_utils.USERNAME_SIMPLE_0, mode='del')
     passw_hardening_utils.config_user(duthost=duthost, username=passw_hardening_utils.USERNAME_SIMPLE_1, mode='del')
+    passw_hardening_utils.config_user(duthost=duthost, username=passw_hardening_utils.USERNAME_SIMPLE_2, mode='del')
     passw_hardening_utils.config_user(duthost=duthost, username=passw_hardening_utils.USERNAME_STRONG, mode='del')
     duthost.shell('sed -i /^'+passw_hardening_utils.USERNAME_SIMPLE_0+':/d /etc/security/opasswd')
     duthost.shell('sed -i /^'+passw_hardening_utils.USERNAME_SIMPLE_1+':/d /etc/security/opasswd')
+    duthost.shell('sed -i /^'+passw_hardening_utils.USERNAME_SIMPLE_2+':/d /etc/security/opasswd')
     duthost.shell('sed -i /^'+passw_hardening_utils.USERNAME_STRONG+':/d /etc/security/opasswd')
 
 

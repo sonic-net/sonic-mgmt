@@ -32,11 +32,13 @@ class DeviceConnection:
         '''
         self.hostname = hostname
         self.username = username
-        self.password = password
-        self.alt_password = alt_password
+        self.passwords = [password]
+        if alt_password:
+            self.passwords += alt_password
+        self.password_index = 0
 
     @retry(
-        stop_max_attempt_number=2,
+        stop_max_attempt_number=4,
         retry_on_exception=lambda e: isinstance(e, AuthenticationException)
     )
     def execCommand(self, cmd, timeout=DEFAULT_CMD_EXECUTION_TIMEOUT_SEC):
@@ -61,7 +63,7 @@ class DeviceConnection:
         retValue = 1
         try:
             client.connect(self.hostname, username=self.username,
-                           password=self.password, allow_agent=False)
+                           password=self.passwords[self.password_index], allow_agent=False)
             si, so, se = client.exec_command(cmd, timeout=timeout)
             stdOut = so.readlines()
             stdErr = se.readlines()
@@ -69,9 +71,9 @@ class DeviceConnection:
         except AuthenticationException as authenticationException:
             logger.error('SSH Authentication failure with message: %s' %
                          authenticationException)
-            if self.alt_password is not None:
-                # attempt retry with alt_password
-                self.password = self.alt_password
+            if len(self.passwords) > 1:
+                # attempt retry with another password
+                self.password_index = (self.password_index + 1) % len(self.passwords)
                 raise AuthenticationException
         except SSHException as sshException:
             logger.error('SSH Command failed with message: %s' % sshException)

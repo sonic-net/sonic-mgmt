@@ -4,6 +4,8 @@ import pytest
 def pytest_assert(condition, message=None):
     __tracebackhide__ = True
     if not condition:
+        if not isinstance(message, str):
+            message = str(message)
         pytest.fail(message)
 
 
