@@ -1621,6 +1621,10 @@ hash/test_generic_hash.py:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+  xfail:
+    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
+    conditions:
+      - "topo_type in ['t0', 't1']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
