@@ -59,5 +59,7 @@ stages:
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
+  - name: TEST_PLAN_NUM
+    value: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
   jobs:
   - template: ../pr_test_template.yml

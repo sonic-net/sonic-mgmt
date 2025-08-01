@@ -1,3 +1,8 @@
+parameters:
+- name: TEST_PLAN_NUM
+  type: string
+  default: "1"
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -89,7 +94,7 @@ jobs:
           BUILD_REASON: "BaselineTest"
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
-          TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+          TEST_PLAN_NUM: $(parameters.TEST_PLAN_NUM)
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)

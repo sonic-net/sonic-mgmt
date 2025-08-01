@@ -94,6 +94,8 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
+  - name: TEST_PLAN_NUM
+    value: "1"
 
   jobs:
   - template: .azure-pipelines/pr_test_template.yml
