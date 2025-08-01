@@ -2,6 +2,11 @@ parameters:
 - name: TEST_PLAN_NUM
   type: string
   default: "1"
+- name: BUILD_BRANCH
+  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+    value: $(System.PullRequest.TargetBranch)
+  ${{ else }}:
+    value: $(Build.SourceBranchName)
 
 jobs:
   - job: get_impacted_area
@@ -79,7 +84,7 @@ jobs:
       - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
-          BUILD_BRANCH: $(Build.SourceBranchName)
+          BUILD_BRANCH: $(parameters.BUILD_BRANCH)
 
       - template: run-test-elastictest-template.yml
         parameters:

@@ -89,11 +89,6 @@ stages:
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
-  - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      value: $(System.PullRequest.TargetBranch)
-    ${{ else }}:
-      value: $(Build.SourceBranchName)
   - name: TEST_PLAN_NUM
     value: "1"
 
