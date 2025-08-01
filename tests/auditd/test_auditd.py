@@ -78,9 +78,9 @@ def test_auditd_functionality(duthosts,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hwsku = duthost.facts["hwsku"]
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "b52172968230e4098623f7f6c64aa2bfaec4967c"
+        rule_checksum = "ae6bb0ae2b12c422849f0bc5ea64c229518ad4e9"
     else:
-        rule_checksum = "7fd1b946041fc35ed7ccbe28493a02caf0176406"
+        rule_checksum = "13499a4607b27085d30bc3603ef2d53e9868a13d"
 
     cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
     output = duthost.command(cmd)["stdout"]
@@ -286,12 +286,67 @@ def test_docker_config(localhost,
                 f"Auditd {key} rule does not contain the PATH logs for {path}"
 
             full_timestamp = extract_audit_timestamp(logs, include_seq=True)
-
             cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
             logs = duthost.shell(cmd)["stdout_lines"]
 
             assert is_log_valid("type=SYSCALL", logs), \
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
+
+
+def test_docker_commands(localhost,
+                         duthosts,
+                         enum_rand_one_per_hwsku_hostname,
+                         creds,
+                         verify_auditd_containers_running,
+                         check_auditd,
+                         reset_auditd_rate_limit):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], "docker ps")
+
+    # Search SYSCALL & PATH logs
+    cmd = "sudo zgrep docker_commands /var/log/syslog* | grep /usr/bin/docker"
+    logs = duthost.shell(cmd)["stdout_lines"]
+
+    assert is_log_valid("type=SYSCALL", logs), "Auditd docker_commands rule does not contain the SYSCALL logs"
+
+    full_timestamp = extract_audit_timestamp(logs, include_seq=True)
+
+    cmd = f"sudo zgrep {full_timestamp} /var/log/syslog*"
+    logs = duthost.shell(cmd)["stdout_lines"]
+
+    assert is_log_valid("type=PATH", logs), "Auditd docker_commands rule does not contain the PATH logs"
+
+
+def test_modules_changes(localhost,
+                         duthosts,
+                         enum_rand_one_per_hwsku_hostname,
+                         creds,
+                         verify_auditd_containers_running,
+                         check_auditd,
+                         reset_auditd_rate_limit):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                   "sudo rmmod dummy")
+    ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                   "sudo insmod /lib/modules/$(uname -r)/kernel/drivers/net/dummy.ko")
+
+    # Search SYSCALL & PATH logs
+    kernel_version = duthost.shell("uname -r")["stdout"].strip()
+    cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/ /var/log/syslog* | grep type=PATH"
+    logs = duthost.shell(cmd)["stdout_lines"]
+
+    assert is_log_valid("type=PATH", logs), "Auditd modules_changes rule does not contain the PATH logs"
+
+    full_timestamp = extract_audit_timestamp(logs, include_seq=True)
+
+    cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep modules_changes"
+    logs = duthost.shell(cmd)["stdout_lines"]
+
+    assert is_log_valid("type=SYSCALL", logs), "Auditd modules_changes rule does not contain the SYSCALL logs"
 
 
 def test_auditd_host_failure(localhost,
