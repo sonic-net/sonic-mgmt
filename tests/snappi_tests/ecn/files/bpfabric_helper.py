@@ -193,15 +193,16 @@ def adjust_shaper_and_verify(dut, egress_intfs, test_prio_list, api):
             queue_counters[intf] = init_ctr
 
         # Start traffic again
-        ts = api.transmit_state()
-        ts.state = ts.START
-        api.set_transmit_state(ts)
+        cs = api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        api.set_control_state(cs)
 
         time.sleep(DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC)
 
         # Stop traffic
-        ts.state = ts.STOP
-        api.set_transmit_state(ts)
+        cs = api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        api.set_control_state(cs)
 
         for intf in egress_intfs:
             post_ctr = get_npu_voq_queue_counters(dut, intf, test_prio_list[0])

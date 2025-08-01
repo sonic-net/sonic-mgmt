@@ -350,12 +350,14 @@ def run_ecn_test(api,
     config_result = config_wred(host_ans=egress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=rx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
     config_result = config_wred(host_ans=ingress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=tx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     # Enable ECN marking
@@ -364,11 +366,13 @@ def run_ecn_test(api,
     pytest_assert(enable_ecn(host_ans=ingress_duthost, prio=lossless_prio), 'Unable to enable ecn')
 
     config_result = config_ingress_lossless_buffer_alpha(host_ans=egress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=rx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
     config_result = config_ingress_lossless_buffer_alpha(host_ans=ingress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=tx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
 
@@ -465,18 +469,20 @@ def toggle_dut_port_state(api):
     config = api.get_config()
     # Collect all port names
     port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
+    # Create a control state object for all ports
+    cs = api.control_state()
+    cs.choice = cs.PORT
+    cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    link_state.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.DOWN
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to DOWN")
     time.sleep(0.2)
     # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.UP
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to UP")
 
 

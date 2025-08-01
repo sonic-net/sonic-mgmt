@@ -20,8 +20,8 @@
     set_fact: force_restart=no
     when: snmp_data.ansible_facts.ansible_sysname is defined
 
-- include_tasks: ceos_config.yml
 - include_vars: group_vars/vm_host/ceos.yml
+- include_tasks: ceos_config.yml
 
 - name: Create cEOS container
   become: yes

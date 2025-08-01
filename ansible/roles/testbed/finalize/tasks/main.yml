@@ -1,0 +1,14 @@
+---
+- name: finalize testbed configuration
+  when: ((config_duts is not defined or config_duts|bool == true) and
+        device_info[inventory_hostname] is defined and
+        device_info[inventory_hostname].Type != 'FanoutL1Sonic') or
+        ((config_l1s is not defined or config_l1s|bool == true) and
+        device_info[inventory_hostname] is defined and
+        device_info[inventory_hostname].Type == 'FanoutL1Sonic') and
+        (deploy is defined and deploy | bool == true)
+  block:
+  - import_tasks: setup_telemetry_certs.yml
+  - import_tasks: setup_restapi_certs.yml
+  - import_tasks: setup_core_uploader.yml
+  - import_tasks: final_config_reload.yml

@@ -19,6 +19,7 @@ class TestBed(object):
         cls,
         device_inventories: List[DeviceInventory],
         testbed_file: str = "testbed.yaml",
+        testbed_nut_file: str = "testbed.nut.yaml",
         testbed_pattern: Optional[str] = None,
     ) -> Dict[str, "TestBed"]:
         """Load all testbed objects from YAML file.
@@ -39,18 +40,46 @@ class TestBed(object):
         if testbed_pattern:
             testbed_pattern = re.compile(testbed_pattern)
 
+        testbeds = {}
+        cls.load_regular_testbeds(testbeds, device_inventories, testbed_file, testbed_pattern)
+        cls.load_nut_testbeds(testbeds, device_inventories, testbed_nut_file, testbed_pattern)
+        return testbeds
+
+    @classmethod
+    def load_regular_testbeds(
+        cls,
+        testbeds: Dict[str, "TestBed"],
+        device_inventories: List[DeviceInventory],
+        testbed_file: str,
+        testbed_pattern: Optional[str] = None,
+    ):
         # Load testbed file
         with open(testbed_file, "r") as f:
             raw_testbeds = yaml.safe_load(f)
 
         # Loop through each raw testbed object and create TestBed object that matches with testbed_pattern regex
-        testbeds = {}
         for raw_testbed in raw_testbeds:
             if testbed_pattern and not testbed_pattern.match(raw_testbed["conf-name"]):
                 continue
             testbeds[raw_testbed["conf-name"]] = cls(raw_testbed, device_inventories)
 
-        return testbeds
+    @classmethod
+    def load_nut_testbeds(
+        cls,
+        testbeds: Dict[str, "TestBed"],
+        device_inventories: List[DeviceInventory],
+        testbed_file: str,
+        testbed_pattern: Optional[str] = None,
+    ):
+        # Load testbed file
+        with open(testbed_file, "r") as f:
+            raw_testbeds = yaml.safe_load(f)
+
+        # Loop through each raw testbed object and create TestBed object that matches with testbed_pattern regex
+        for raw_testbed in raw_testbeds:
+            if testbed_pattern and not testbed_pattern.match(raw_testbed["name"]):
+                continue
+            testbeds[raw_testbed["name"]] = cls(raw_testbed, device_inventories)
 
     def __init__(self, raw_dict: Any, device_inventories: List[DeviceInventory]):
         """Initialize a testbed object.
@@ -63,14 +92,20 @@ class TestBed(object):
         for key, value in raw_dict.items():
             setattr(self, key.replace("-", "_"), value)
 
+        self.conf_name = raw_dict["name"] if "name" in raw_dict else raw_dict["conf-name"]
+        self.duts = raw_dict.get("duts", raw_dict.get("dut", []))
+
         # Create a PTF node object
-        self.ptf_node = DeviceInfo(
-            hostname=self.ptf,
-            management_ip=self.ptf_ip.split("/")[0],
-            hw_sku="Container",
-            device_type="PTF",
-            protocol="ssh",
-        )
+        if "ptf" in raw_dict:
+            self.ptf_node = DeviceInfo(
+                hostname=self.ptf,
+                management_ip=self.ptf_ip.split("/")[0],
+                hw_sku="Container",
+                device_type="PTF",
+                protocol="ssh",
+            )
+        else:
+            self.ptf_node = None
 
         self.console_nodes = {}
         self.fanout_nodes = {}
@@ -79,7 +114,7 @@ class TestBed(object):
 
         # Loop through each DUT in the testbed and find the device info
         self.dut_nodes = {}
-        for dut in raw_dict["dut"]:
+        for dut in self.duts:
             for inv in device_inventories:
                 device = inv.get_device(dut)
                 if device is not None:

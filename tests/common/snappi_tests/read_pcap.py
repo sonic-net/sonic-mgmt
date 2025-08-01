@@ -158,5 +158,5 @@ def is_ecn_marked(ip_pkt):
     Returns:
         Return if the packet is ECN congestion marked (bool)
     """
-    logger.info("Checking if the packet is ECN congestion marked")
+    logger.debug("Checking if the packet is ECN congestion marked")
     return (ip_pkt.tos & 3) == 3

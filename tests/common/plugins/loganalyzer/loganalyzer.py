@@ -4,12 +4,13 @@ import os
 import re
 import time
 import pprint
+import shutil
 
 from . import system_msg_handler
+from .bug_handler_helper import get_bughandler_instance, BugHandler
 
 from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
-from .bug_handler_helper import log_analyzer_bug_handler, skip_loganalyzer_bug_handler
 
 ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
@@ -74,7 +75,8 @@ class LogAnalyzerError(Exception):
 
 class LogAnalyzer:
     def __init__(self, ansible_host, marker_prefix, request=None, dut_run_dir="/tmp", start_marker=None,
-                 additional_files={}):
+                 additional_files={},
+                 bughandler: BugHandler = get_bughandler_instance({"type": "noop"})):
         self.ansible_host = ansible_host
         ansible_host.loganalyzer = self
         self.dut_run_dir = dut_run_dir
@@ -90,10 +92,18 @@ class LogAnalyzer:
         self.expected_matches_target = 0
         self._markers = []
         self.fail = True
+        self.store_la_logs = False
 
         self.additional_files = list(additional_files.keys())
         self.additional_start_str = list(additional_files.values())
         self.request = request
+        if self.request is not None and getattr(self.request, "config", None) is not None:
+            # override the fail and store_la_logs if they are set in the request config options
+            self.fail = not (self.request.config.getoption("--ignore_la_failure"))
+            self.store_la_logs = self.request.config.getoption("--store_la_logs")
+
+        self._la_logs_dir = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
+        self.bughandler = bughandler
 
     def _add_end_marker(self, marker):
         """
@@ -164,15 +174,21 @@ class LogAnalyzer:
             for error_list in result_log_errors:
                 log_errors += ''.join(error_list)
 
-            tmp_folder = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
-            os.makedirs(tmp_folder, exist_ok=True)
+            os.makedirs(self._la_logs_dir, exist_ok=True)
             cur_time = time.strftime("%d_%m_%Y_%H_%M_%S", time.gmtime())
             cleaned_marker_prefix = re.sub(r'[\\/\'"<>|]', '_', self.marker_prefix)
-            file_path = os.path.join(tmp_folder, "log_error_{}_{}.json".format(cleaned_marker_prefix, cur_time))
-            logging.info("Log errors will be saved in file: {}".format(file_path))
-            data = {'log_errors': log_errors}
-            with open(file_path, "w+") as file:
-                json.dump(data, file)
+            file_path = os.path.join(self._la_logs_dir, "log_error_{}_{}.json".format(cleaned_marker_prefix, cur_time))
+            self.write_errors_to_file(file_path, log_errors)
+
+    @staticmethod
+    def write_errors_to_file(file_path, log_errors):
+        """Write error-lines to a file that can be read by the bug-handler."""
+        logging.info("Log errors will be saved in file: {}".format(file_path))
+        if not isinstance(log_errors, str):  # so log_errors is a list of strings
+            log_errors = '\n'.join(log_errors)
+        data = {"log_errors": log_errors}
+        with open(file_path, "w+") as file:
+            json.dump(data, file)
 
     def _results_repr(self, result):
         """
@@ -321,7 +337,7 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def analyze(self, marker, fail=True, maximum_log_length=None, store_la_logs=False):
+    def analyze(self, marker, fail=None, maximum_log_length=None, store_la_logs=None):
         """
         @summary: Extract syslog logs based on the start/stop markers and compose one file.
                   Download composed file, analyze file based on defined regular expressions.
@@ -334,6 +350,8 @@ class LogAnalyzer:
                  if dictionary can't be parsed - return empty dictionary.
                  If "fail" is True and if found match messages - raise exception.
         """
+        fail = self.fail if fail is None else fail
+        store_la_logs = self.store_la_logs if store_la_logs is None else store_la_logs
         logging.debug("Loganalyzer analyze")
         analyzer_summary = {"total": {"match": 0, "expected_match": 0, "expected_missing_match": 0},
                             "match_files": {},
@@ -419,21 +437,22 @@ class LogAnalyzer:
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
         logging.debug("Analyzer summary: {}".format(pprint.pformat(analyzer_summary)))
+        try:
+            shutil.rmtree(self._la_logs_dir)
+        except FileNotFoundError:
+            pass
         if analyzer_summary["total"]["match"] != 0 and store_la_logs:
             self.save_matching_errors(analyzer_summary["match_messages"].values())
-
         if fail:
             self._verify_log(analyzer_summary)
-        elif store_la_logs:
-            self._post_err_msg_handler(analyzer_summary)
+        hostname = self.ansible_host.hostname
+        if isinstance(self.bughandler, BugHandler):
+            self.bughandler.bug_handler_wrapper(analyzers={hostname: self},
+                                                la_results={hostname: analyzer_summary},
+                                                duthosts=[self.ansible_host])
         else:
-            return analyzer_summary
-
-    def _post_err_msg_handler(self, analyzer_summary):
-        if skip_loganalyzer_bug_handler(self.ansible_host, self.request):
-            self._verify_log(analyzer_summary)
-        else:
-            log_analyzer_bug_handler(self.ansible_host, self.request)
+            logging.warning("Skip bug handler execution because it is not a valid BugHandler")
+        return analyzer_summary
 
     def save_extracted_log(self, dest):
         """

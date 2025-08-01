@@ -28,7 +28,7 @@ class TestKernelPanic:
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
-            if 'Cisco-8800-RP' in duthost.facts.get('hwsku'):
+            if any(hwsku in duthost.facts.get('hwsku') for hwsku in ['Cisco-8800-RP', 'Nokia-IXR7250E']):
                 reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
             else:
                 reboot_type = REBOOT_TYPE_COLD

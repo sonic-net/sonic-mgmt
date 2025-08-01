@@ -171,4 +171,9 @@ class BFD_Responder(BaseTest):
         ethpart.dst = mac_src
         ethpart.payload.src = ip_dst
         ethpart.payload.dst = ip_src
+
+        # recompute UDP checksum
+        ethpart.payload.payload.chksum = None
+        ethpart.show()
+
         return ethpart

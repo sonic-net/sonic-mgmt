@@ -1,6 +1,7 @@
 {
   "HWSKU": {
-    "Arista-7050QX": ["Arista-7050-QX-32S", "Arista-7050-QX32", "Arista-7050QX-32S-S4Q31", "Arista-7050QX32S-Q32"]
+    "Arista-7050QX": ["Arista-7050-QX-32S", "Arista-7050-QX32", "Arista-7050QX-32S-S4Q31", "Arista-7050QX32S-Q32"],
+    "Mellanox-SN4600C": ["Mellanox-SN4600C-C64"]
   },
   "COMMON": [
     {
@@ -17,7 +18,7 @@
         "zebra": {
           "memory_increase_threshold": {
             "type": "value",
-            "value": 64
+            "value": 128
           },
           "memory_high_threshold": null
         }
@@ -40,20 +41,20 @@
     },
     {
       "name": "monit",
-      "cmd": "sudo monit status",
+      "cmd": "sudo monit validate",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 70
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     },
     {
       "name": "docker",
@@ -61,101 +62,101 @@
       "memory_params": {
         "snmp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           }
         },
         "pmon": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 8
           }
         },
         "lldp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           }
         },
         "gnmi": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 6
           }
         },
         "radv": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 3
           }
         },
         "syncd": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 5
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 18
           }
         },
         "bgp": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 4
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 14
           }
         },
         "teamd": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 5
           }
         },
         "swss": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 3
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 8
           }
         },
         "database": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 2
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 6
           }
         }
@@ -169,11 +170,12 @@
         "used": {
           "memory_increase_threshold": [
             {"type": "percentage", "value": "50%"},
-            {"type": "value", "value": 32}
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
           ],
           "memory_high_threshold": {
             "type": "value",
-            "value": 128
+            "value": 256
           }
         }
       },
@@ -186,7 +188,8 @@
         "used": {
           "memory_increase_threshold": [
             {"type": "percentage", "value": "50%"},
-            {"type": "value", "value": 16}
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
           ],
           "memory_high_threshold": {
             "type": "value",
@@ -200,20 +203,56 @@
   "Arista-7050QX": [
     {
       "name": "monit",
-      "cmd": "sudo monit status",
+      "cmd": "sudo monit validate",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 85
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
+    }
+  ],
+  "Mellanox-SN4600C": [
+    {
+      "name": "monit",
+      "cmd": "sudo monit validate",
+      "memory_params": {
+        "memory_usage": {
+          "memory_increase_threshold": {
+            "type": "percentage_points",
+            "value": 10
+          },
+          "memory_high_threshold": {
+            "type": "percentage_points",
+            "value": 75
+          }
+        }
+      },
+      "memory_check": "parse_monit_validate_output"
+    },
+    {
+      "name": "docker",
+      "cmd": "docker stats --no-stream",
+      "memory_params": {
+        "syncd": {
+          "memory_increase_threshold": {
+            "type": "percentage_points",
+            "value": 5
+          },
+          "memory_high_threshold": {
+            "type": "percentage_points",
+            "value": 20
+          }
+        }
+      },
+      "memory_check": "parse_docker_stats_output"
     }
   ]
 }
