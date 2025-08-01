@@ -324,7 +324,7 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
-    def is_in_lpmode_skip_list(self, xcvr_info_dict):
+    def should_skip_lpmode_check(self, xcvr_info_dict):
         return any(
             xcvr_info_dict.get("manufacturer", "").strip() == skip["manufacturer"] and
             xcvr_info_dict.get("host_electrical_interface", "").strip() == skip["host_electrical_interface"]
@@ -338,7 +338,7 @@ class TestSfpApi(PlatformApiTestBase):
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
 
-        if self.is_in_lpmode_skip_list(xcvr_info_dict):
+        if self.should_skip_lpmode_check(xcvr_info_dict):
             logger.info("Temporarily skipping {} due to known issue".format(
                 xcvr_info_dict.get("manufacturer")))
             return False
@@ -739,7 +739,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = port_index_to_info_dict[sfp_port_idx]
             # If the xcvr supports low-power mode then it needs to be flapped
             # to come out of low-power mode after sfp_reset().
-            if self.is_xcvr_support_lpmode(info_dict) or self.is_in_lpmode_skip_list(info_dict):
+            if self.is_xcvr_support_lpmode(info_dict) or self.should_skip_lpmode_check(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
