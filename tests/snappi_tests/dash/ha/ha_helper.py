@@ -30,6 +30,8 @@ def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_l47):
     # Configure SmartSwitch
     dpu_if_ips = duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case)
 
+    linkloss_pattern = r'linkloss\d*'
+
     # Traffic Starts
     if ha_test_case == 'cps':
         api = run_cps_search(api, initial_cps_value)
@@ -37,8 +39,8 @@ def run_ha_test(duthost, tbinfo, ha_test_case, config_snappi_l47):
         api = run_planned_switchover(duthost, api, dpu_if_ips, initial_cps_value)
     elif ha_test_case == 'dpuloss':
         api = run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value)
-    elif ha_test_case == 'linkloss4':
-        api = run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value)
+    elif bool(re.search(linkloss_pattern, ha_test_case)):
+        api = run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value, ha_test_case)
     else:
         return
 
@@ -293,9 +295,11 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
 
     dpu_if_ips = {
         'dpu1': {'loopback_ip': '',
-                 'if_ip': ''},
+                 'if_ip': '',
+                 'if_midplane_ip': ''},
         'dpu2': {'loopback_ip': '',
-                 'if_ip': ''}
+                 'if_ip': '',
+                 'if_midplane_ip': ''}
     }
 
     config_db_stdout = duthost.shell("cat /etc/sonic/config_db.json")["stdout"]
@@ -303,6 +307,7 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
 
     static_ips = []
     if_ip = []
+    if_midplane_ip = []
     lb_ip = []
 
     for key in config_db['STATIC_ROUTE'].keys():
@@ -315,11 +320,23 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
             if_ip.append(ip)
             lb_ip.append(loopback_list)
 
+    dhcp_config = config_db.get('DHCP_SERVER_IPV4_PORT', {})
+    for key in dhcp_config:
+        try:
+            if key.startswith('bridge-midplane|dpu'):
+                ip = dhcp_config[key]['ips'][0]
+                if_midplane_ip.append(ip)
+        except (KeyError, IndexError) as e:
+            logger.warning(f"Could not get IP for DHCP server config {key}: {e}")
+
     # Collecting DPU data for switchover commands
     dpu_if_ips['dpu1']['loopback_ip'] = lb_ip[0][0].split('|')[1].split('/')[0]
     dpu_if_ips['dpu1']['if_ip'] = if_ip[0]
+    dpu_if_ips['dpu1']['if_midplane_ip'] = if_midplane_ip[0]
+
     dpu_if_ips['dpu2']['loopback_ip'] = lb_ip[0][0].split('|')[1].split('/')[0]
     dpu_if_ips['dpu2']['if_ip'] = if_ip[2]
+    dpu_if_ips['dpu2']['if_midplane_ip'] = if_midplane_ip[2]
 
     tmp_mac = ""
     static_macs = []
@@ -790,7 +807,193 @@ def run_dpuloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value):
     return
 
 
-def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value):
+def create_and_apply_acl_rules(duthost, dpu_ip, npu_ip, l4_src_port1, l4_src_port2, dpu_midplane_if="169.254.200.1"):
+    """
+    Creates ACL rules JSON file and apply it to the DPU.
+    """
+
+    acl_rules = {
+        "ACL_RULE": {
+            "ACL_LINK_DROP_TEST|LOCAL_PROBE_DROP1": {
+                "PACKET_ACTION": "DROP",
+                "PRIORITY": "1",
+                "SRC_IP": npu_ip,
+                "DST_IP": dpu_ip,
+                "IP_TYPE": "IP",
+                "L4_SRC_PORT": l4_src_port1
+            },
+            "ACL_LINK_DROP_TEST|LOCAL_PROBE_DROP2": {
+                "PACKET_ACTION": "DROP",
+                "PRIORITY": "1",
+                "SRC_IP": dpu_ip,
+                "DST_IP": npu_ip,
+                "IP_TYPE": "IP",
+                "L4_SRC_PORT": l4_src_port2
+            }
+        }
+    }
+
+    acl_json = json.dumps(acl_rules, indent=4)
+
+    duthost.shell("echo '{}' > /tmp/acl_drop_rule.json".format(acl_json))
+
+    scp_command = f"""sudo python3 -c 'import pexpect
+child = pexpect.spawn("scp /tmp/acl_drop_rule.json admin@{dpu_midplane_if}:/home/admin/")
+child.expect("password:")
+child.sendline("password")
+child.expect(pexpect.EOF)
+child.close()'"""
+
+    duthost.shell(scp_command)
+
+    apply_command = f"""sudo python3 -c 'import pexpect
+child = pexpect.spawn("ssh admin@{dpu_midplane_if}")
+child.expect("password:")
+child.sendline("password")
+child.expect("\\$")
+child.sendline("sudo config load -y /home/admin/acl_drop_rule.json")
+child.expect("\\$")
+child.sendline("exit")
+child.close()'"""
+
+    result = duthost.shell(apply_command)
+    logger.info(f"ACL rules application result: {result}")
+
+    duthost.shell("rm -f /tmp/acl_drop_rule.json")
+
+    return result
+
+
+def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value, ha_test_case):
+
+    if ha_test_case == "linkloss4":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu1']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+
+    collector = ContinuousMetricsCollector(collection_interval=1)
+    clientStat_req = api.metrics_request()
+    serverStat_req = api.metrics_request()
+
+    try:
+        # Configure and start traffic
+        logger.info("Configuring traffic parameters...")
+        activityList_json = {
+            'constraintType': 'ConnectionRateConstraint',
+            'constraintValue': initial_cps_value,
+            'enableConstraint': False,
+        }
+        api.ixload_configure("patch", "ixload/test/activeTest/communityList/0/activityList/0", activityList_json)
+
+        # Start traffic
+        logger.info("Starting traffic...")
+        cs = api.control_state()
+        cs.app.state = 'start'
+        api.set_control_state(cs)
+
+        # Give traffic time to start
+        logger.info("Waiting for traffic to initialize...")
+        time.sleep(10)
+
+        # Start metrics collection
+        logger.info("Starting metrics collection...")
+        collector.start_collection(api, clientStat_req, serverStat_req)
+
+        # Initial collection period
+        logger.info("Collecting initial metrics...")
+        time.sleep(30)
+
+        # First switchover
+        logger.info("Executing first switchover...")
+        collector.set_phase(TestPhase.DURING_FIRST_SWITCH)
+        shutdown_link_npu_dpu(duthost, dpu_if_ips)
+        result = create_and_apply_acl_rules(  # noqa: 841
+            duthost=duthost,
+            dpu_ip=dpu_ip,
+            npu_ip=npu_ip,
+            l4_src_port1="3784",
+            l4_src_port2="3784",
+            dpu_midplane_if=dpu_midplane_ip  # Optional, defaults to 169.254.200.1
+        )
+        time.sleep(1)
+        ha_switchTraffic(duthost, dpu_if_ips, 'dpu2')
+        collector.set_phase(TestPhase.AFTER_FIRST_SWITCH)
+
+        # Stabilization period
+        logger.info("Waiting for stabilization...")
+        time.sleep(60)
+
+        # Final collection period
+        logger.info("Collecting final metrics...")
+        time.sleep(30)
+
+    finally:
+        # Stop collection and cleanup
+        logger.info("Stopping metrics collection...")
+        collector.stop_collection()
+
+        ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
+        startup_link_npu_dpu(duthost, dpu_if_ips)
+        logger.info("Stopping traffic...")
+        cs.app.state = 'stop'
+        api.set_control_state(cs)
+
+    # Get and process metrics
+    all_metrics = collector.get_metrics()
+    logger.info(f"Collected metrics for {len(all_metrics)} phases")
+
+    pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+    stats_client_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_FIRST_SWITCH][0]['client_metrics']),
+                                  re.DOTALL)
+    stats_server_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_FIRST_SWITCH][0]['server_metrics']),
+                                  re.DOTALL)
+
+    stats_client_result = {}
+    for match in stats_client_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_client_result:
+            stats_client_result[name] = {}
+
+        stats_client_result[name]['timestamp_ids'] = timestamp_id
+        stats_client_result[name]['values'] = values
+
+    stats_server_result = {}
+    for match in stats_server_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_server_result:
+            stats_server_result[name] = {}
+
+        stats_server_result[name]['timestamp_ids'] = timestamp_id
+        stats_server_result[name]['values'] = values
+
+    cps_results = analyze_cps_performance(stats_client_result['Connection Rate']['timestamp_ids'],
+                                          stats_client_result['Connection Rate']['values'])
+
+    logger.info("\nPerformance Analysis:")
+    peak_performance = (f"{cps_results['peak_performance']['cps']} CPS @ "
+                        f"{cps_results['peak_performance']['time_ms']}ms").ljust(30)
+
+    # stable_performance = f"Stable Performance: {cps_results['stable_performance']['avg_cps']} CPS"
+    stable_performance = f"{cps_results['stable_performance']['avg_cps']} CPS".ljust(30)
+
+    if cps_results['failure_phase']['detected']:
+        failure_detected = (
+            f"{cps_results['failure_phase']['cps_at_failure']} CPS @ "
+            f"{cps_results['failure_phase']['time_ms']}ms").ljust(30)
+
+    else:
+        failure_detected = "No mid-test failure detected"
+
+    columns = ['Peak Performance', 'Stable Performance', 'Failure Detected']
+    testRun = [[peak_performance, stable_performance, failure_detected]]
+    table = tabulate(testRun, headers=columns, tablefmt='grid')
+    logger.info(table)
 
     return
 
