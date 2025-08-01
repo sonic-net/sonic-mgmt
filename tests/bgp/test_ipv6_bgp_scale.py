@@ -36,7 +36,7 @@ MAX_BGP_SESSIONS_DOWN_COUNT = 0
 MAX_DOWNTIME = 10  # seconds
 MAX_DOWNTIME_ONE_PORT_FLAPPING = 30  # seconds
 MAX_DOWNTIME_UNISOLATION = 300  # seconds
-MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
+MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
 MAX_CONVERGENCE_WAIT_TIME = 300  # seconds
 PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
@@ -172,14 +172,14 @@ def change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change,
 
 def remove_nexthops_in_routes(routes, nexthops):
     ret_routes = deepcopy(routes)
-    prefxies_to_remove = []
+    prefixes_to_remove = []
     for prefix, attr in ret_routes.items():
         _nhs = [nh for nh in attr[0]['nexthops'] if nh['ip'] not in nexthops]
         if len(_nhs) == 0:
-            prefxies_to_remove.append(prefix)
+            prefixes_to_remove.append(prefix)
         else:
             attr[0]['nexthops'] = _nhs
-    for prefix in prefxies_to_remove:
+    for prefix in prefixes_to_remove:
         ret_routes[prefix] = []
     return ret_routes
 
@@ -228,7 +228,7 @@ def compare_routes(running_routes, expected_routes):
     return is_same
 
 
-def caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
+def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
     logger.warning("Waiting %d seconds for mask counters to be updated", MASK_COUNTER_WAIT_TIME)
     time.sleep(MASK_COUNTER_WAIT_TIME)
     rx_total = sum(list(ptf_dp.mask_rx_cnt[masked_exp_pkt].values())[:-1])  # Exclude the backplane
@@ -257,7 +257,7 @@ def caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
 
 
 def validate_rx_tx_counters(ptf_dp, end_time, start_time, masked_exp_pkt, downtime_threshold=MAX_DOWNTIME):
-    downtime = caculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt)
+    downtime = calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt)
     pytest_assert(downtime < downtime_threshold, "Downtime is too long")
 
 
@@ -356,7 +356,7 @@ def test_sessions_flapping(
         Shutdown flapping_port_count random port(s) that establishing bgp sessions.
         Wait for routes are stable, check if all nexthops connecting the shut down ports are disappeared in routes.
         Stop packet sending
-        Estamite data plane down time by check packet count sent, received and duration.
+        Estimate data plane down time by check packet count sent, received and duration.
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
     '''
@@ -433,12 +433,12 @@ def test_nexthop_group_member_scale(
         1. Start and keep sending packets with all routes to the random one open port via ptf.
         2. For all routes, remove one nexthop by withdraw the route from one peer.
         3. Wait for routes are stable.
-        4. Stop sending packets and estamite data plane down time.
+        4. Stop sending packets and estimate data plane down time.
         5. For all routes, announce the route to the peer.
         6. Wait for routes are stable.
-        7. Stop sending packets and estamite data plane down time.
+        7. Stop sending packets and estimate data plane down time.
     Expected result:
-        Dataplane downtime is less than MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE.
+        Dataplane downtime is less than MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE.
     '''
     servers_dut_interfaces = announce_bgp_routes_teardown
     topo_name = tbinfo['topo']['name']
@@ -504,7 +504,7 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
 
@@ -531,7 +531,7 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DONWTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
     if not recovered:
         pytest.fail("BGP routes are not stable in long time")
 
@@ -544,15 +544,15 @@ def test_device_unisolation(
     tbinfo
 ):
     '''
-    This test is for the worst senario that all ports are flapped,
-    verify control/data plane have acceptable conergence time.
+    This test is for the worst scenario that all ports are flapped,
+    verify control/data plane have acceptable convergence time.
     Steps:
-        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
+        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sessions ports on T1 DUT.)
         Wait for routes are stable.
-        Start and keep sending packets with all routes to all portes via ptf.
-        Unshut all ports and wait for routes are stable.
+        Start and keep sending packets with all routes to all ports via ptf.
+        Startup all ports and wait for routes are stable.
         Stop sending packets.
-        Estamite control/data plane convergence time.
+        Estimate control/data plane convergence time.
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
     '''
