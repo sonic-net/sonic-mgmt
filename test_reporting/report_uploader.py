@@ -54,6 +54,13 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     parser.add_argument(
         "--testbed", "-t", type=str, help="Name of testbed."
     )
+    parser.add_argument(
+        "--auth_method", "-a", type=str,
+        choices=["appKey", "managedId", "interactive", "azureCli",
+                 "deviceCode", "userToken", "appToken", "defaultCred"],
+        default="appKey",
+        help="Authentication method for Kusto connection."
+    )
     os_version = parser.add_mutually_exclusive_group(required=False)
     os_version.add_argument(
         "--image_url", "-i", type=str,
@@ -65,7 +72,14 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     )
 
     args = parser.parse_args()
-    kusto_db = KustoConnector(args.db_name)
+
+    try:
+        kusto_db = KustoConnector(args.db_name, args.auth_method)
+    except Exception as e:
+        print(f"Failed to create KustoConnector: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     if args.category == "test_result":
         tracking_id = args.external_id if args.external_id else ""
@@ -91,7 +105,9 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                         test_result_json = parse_test_result(roots)
                     kusto_db.upload_report(test_result_json, tracking_id, report_guid, testbed, version)
             except Exception as e:
-                print("Failed to upload report '{}', exception: {}".format(path_name, repr(e)))
+                print(f"Failed to upload report '{path_name}', exception: {repr(e)}")
+                import traceback
+                traceback.print_exc()
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:
