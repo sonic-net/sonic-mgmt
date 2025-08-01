@@ -3,7 +3,8 @@ import logging
 import os
 import time
 import paramiko
-from tests.snappi_tests.variables import t2_uplink_fanout_info, t1_dut_info, fanout_presence    # noqa: F401
+from tests.snappi_tests.variables import snappi_community_for_t1_drop, t2_uplink_fanout_info, \
+    t1_dut_info, fanout_presence    # noqa: F401
 from tests.snappi_tests.bgp.files.bgp_outbound_helper import get_hw_platform    # noqa: F401
 from tests.common.utilities import wait_until
 from _pytest.runner import TestReport
@@ -97,20 +98,44 @@ def validate_critical_containers(ssh):
 
 def apply_t1_config_on_dut(device_ip, creds,
                            remote_tmp_path="/tmp/config_db.json.tmp",
-                           final_path="/etc/sonic/config_db.json"):
+                           final_path="/etc/sonic/config_db.json", **kwargs):
     """Move the file to /etc/sonic, rename it, reload config, and validate containers."""
     username = creds.get('sonicadmin_user')
     password = creds.get('sonicadmin_password')
 
     ssh = ssh_connect(device_ip, username, password)
+    exist_prefix_deny = False
 
     try:
         logger.info(f"Applying configuration on T1 DUT: {device_ip}...")
         execute_command(
             ssh, f"sudo mv {remote_tmp_path} {final_path}", password)
         logger.info(f"Moved {remote_tmp_path} to {final_path}")
+
         execute_command(ssh, "sudo config reload -y", password)
         logger.info("T1 DUT Config reload command executed")
+
+        time.sleep(10)
+
+        exist_prefix_deny = execute_command(
+            ssh, "vtysh -c 'show run | include bgp' | grep UPSTREAM_PREFIX_DENY")
+
+        kwargs.get("context")["exist-prefix-deny"] = exist_prefix_deny
+
+        if not exist_prefix_deny:
+            logger.info(
+                f"Apply filter for T1 community {snappi_community_for_t1_drop[0]}")
+            execute_command(ssh, "vtysh -c " + " -c ".join(
+                [
+                    "'config t'",
+                    f"'bgp community-list standard UPSTREAM_PREFIX_DENY permit {snappi_community_for_t1_drop[0]}'",
+                    "'route-map FROM_TIER2_V4 deny 10'",
+                    "'match community UPSTREAM_PREFIX_DENY'",
+                    "'exit'",
+                    "'route-map FROM_TIER2_V6 deny 10'",
+                    "'match community UPSTREAM_PREFIX_DENY'"
+                ])
+            )
 
         # Validate containers
         validate_critical_containers(ssh)
@@ -153,7 +178,7 @@ def apply_fanout_config_on_dut(device_ip, creds,
         ssh.close()
 
 
-def configure_dut(hw_platform, creds, role):
+def configure_dut(hw_platform, creds, role, **kwargs):
     """Configure T1 or Fanout DUT based on the given role."""
     config_filename = f"config_db.json.{role}.{hw_platform}"  # Example: "config_db.json.t1.ARISTA"
     config_source_path = os.path.join(BASE_DIR, "configs", config_filename)
@@ -173,7 +198,7 @@ def configure_dut(hw_platform, creds, role):
 
     # Apply configuration based on role
     if role == "t1":
-        apply_t1_config_on_dut(device_ip, creds)
+        apply_t1_config_on_dut(device_ip, creds, **kwargs)
     elif role == "fanout":
         apply_fanout_config_on_dut(device_ip, creds)
 
@@ -208,6 +233,8 @@ def apply_tsb(duthost):
 @pytest.fixture(scope="session", autouse=True)
 def initial_setup(duthosts, creds):
     """Perform initial DUT configurations (T1, Fanout) for convergence tests (runs once per test session)."""
+    context = {'exist-prefix-deny': False}
+
     logger.info("Starting initial DUT setup for T2 Convergence tests")
 
     # Get Hardware platform
@@ -219,7 +246,7 @@ def initial_setup(duthosts, creds):
     logger.info(f"HW Platform: {hw_platform}")
 
     # Configure T1 DUT
-    configure_dut(hw_platform, creds, "t1")
+    configure_dut(hw_platform, creds, "t1", context=context)
 
     # Configure Fanout DUT (if applicable)
     if fanout_presence:
@@ -230,3 +257,20 @@ def initial_setup(duthosts, creds):
         apply_tsb(duthost)
 
     logger.info("T2 Convergence test setup complete")
+
+    yield
+
+    if not context['exist-prefix-deny']:
+        ssh = ssh_connect(t1_dut_info[hw_platform]["dut_ip"],
+                          creds.get('sonicadmin_user'),
+                          creds.get('sonicadmin_password'))
+        logger.info(
+            f"Remove filter for T1 community {snappi_community_for_t1_drop[0]}")
+        execute_command(ssh, "vtysh -c " + " -c ".join(
+            [
+                "'config t'",
+                f"'no bgp community-list standard UPSTREAM_PREFIX_DENY permit {snappi_community_for_t1_drop[0]}'",
+                "'no route-map FROM_TIER2_V4 deny 10'",
+                "'no route-map FROM_TIER2_V6 deny 10'",
+            ])
+        )
