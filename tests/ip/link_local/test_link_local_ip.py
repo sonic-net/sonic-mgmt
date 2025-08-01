@@ -61,7 +61,7 @@ class TestLinkLocalIPacket:
         sai_settings = {}
         sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
         for line in duthost.command("cat %s" % sai_profile)["stdout_lines"]:
-            if (not re.match("^#", line)) and re.search("=", line):
+            if (not re.match("^[ \t]*#", line)) and re.search("=", line):
                 # line should not a comment, and must contain the "=".
                 key, value = line.split("=")
                 sai_settings[key] = value
