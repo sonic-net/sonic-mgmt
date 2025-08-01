@@ -2,8 +2,8 @@ import pytest
 import ptf.testutils as testutils
 import logging
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa: F401
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -13,7 +13,7 @@ STATIC_ROUTE_IPV6 = '2001:db8:1::1/128'
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1')
 ]
 
 

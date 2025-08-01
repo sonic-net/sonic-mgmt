@@ -14,6 +14,9 @@
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
+{% if subtype is defined and subtype == 'SmartSwitch' and index > 27 %}
+          <role>Dpc</role>
+{% endif %}
 {% if port_speed[port_alias[index]] is defined %}
           <Speed>{{ port_speed[port_alias[index]] }}</Speed>
 {% elif (breakout_speed is defined) and (hwsku in breakout_speed) and (port_alias[index] in breakout_speed[hwsku].keys()) %}

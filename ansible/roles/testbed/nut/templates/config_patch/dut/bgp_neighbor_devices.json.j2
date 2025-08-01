@@ -1,0 +1,17 @@
+{ "op": "add", "path": "/DEVICE_NEIGHBOR_METADATA", "value": {} },
+{% for peer_device, peer_config in bgp_neighbor_devices.items() %}
+{
+  "op": "add",
+  "path": "/DEVICE_NEIGHBOR_METADATA/{{ peer_device }}",
+  "value": {
+      "cluster": "SONiCTest",
+      "deployment_id": "1",
+      "type": "{{ peer_config.type }}",
+      "hwsku": "{{ peer_config.hwsku }}",
+      "lo_addr": "{{ peer_config.loopback_v4 | regex_replace('/\d+$', '') }}",
+      "lo_addr_v6": "{{ peer_config.loopback_v6 | regex_replace('/\d+$', '') }}",
+      "mgmt_addr": "{{ peer_config.mgmt_v4 | regex_replace('/\d+$', '') }}",
+      "mgmt_addr_v6": "{{ peer_config.mgmt_v6 | regex_replace('/\d+$', '') }}"
+  }
+},
+{% endfor %}

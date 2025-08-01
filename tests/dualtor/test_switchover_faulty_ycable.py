@@ -7,8 +7,8 @@ import random
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require

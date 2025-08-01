@@ -43,9 +43,20 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
     return num_modules
 
 
+@pytest.fixture(scope='session', autouse=True)
+def skip_for_non_smartswitch(duthost):
+    """
+    Skip test if not running on a smartswitch testbed
+    """
+    if not duthost.facts.get('is_smartswitch'):
+        pytest.skip("Test is supported only on smartswitch testbeds. "
+                    "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):  # noqa F811
+                                    platform_api_conn, num_dpu_modules,  # noqa F811
+                                    skip_for_non_smartswitch):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -56,9 +67,6 @@ def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if "DPUS" not in duthost.facts:
-        pytest.skip("Test is not supported for this testbed")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules) # noqa F811
 
@@ -136,6 +144,33 @@ def check_dpu_ping_status(duthost, ip_address_list):
             logging.error("Ping failed for '{}'".format(ip_address))
 
     return ping_count == len(ip_address_list)
+
+
+def check_dpus_are_not_pingable(duthost, ip_address_list):
+    """
+    Executes ping to all DPUs
+    Args:
+        duthost : Host handle
+        ip_address_list (list): List of all DPU ip addresses
+    Returns:
+        Raise an error if any DPU ping is still working
+    """
+    def _check_dpus_are_not_pingable(duthost, ip_address_list):
+        ping_count = 0
+        for ip_address in ip_address_list:
+            output_ping = duthost.command("ping -c 3 %s" % (ip_address), module_ignore_errors=True)
+            logging.info("Ping output: '{}'".format(output_ping))
+            if "100% packet loss" in output_ping["stdout"]:
+                logging.info("Ping is not working for '{}'".format(ip_address))
+                ping_count += 1
+            else:
+                logging.error("Ping still work for '{}'".format(ip_address))
+        logging.info("Ping count: '{}'".format(ping_count))
+        return ping_count == len(ip_address_list)
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, 0, 0,
+                  _check_dpus_are_not_pingable,
+                  duthost, ip_address_list),
+                  "Not all DPUs are not pingable")
 
 
 def check_dpu_module_status(duthost, power_status, dpu_name):
@@ -417,18 +452,20 @@ def post_test_switch_check(duthost, localhost,
     logging.info("Waiting for ssh connection to switch")
     wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
 
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(duthost)
+
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
                   check_interface_status_of_up_ports, duthost),
                   "Not all ports that are admin up, are operationally UP")
     logging.info("Interfaces are UP")
 
-    logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(duthost)
-
     logging.info("Checking DPU link status and connectivity")
-    check_dpu_link_and_status(duthost, dpu_on_list,
-                              dpu_off_list, ip_address_list)
+    pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
+                  check_dpu_ping_status,
+                  duthost, ip_address_list),
+                  "Not all DPUs are pingable")
 
     return
 

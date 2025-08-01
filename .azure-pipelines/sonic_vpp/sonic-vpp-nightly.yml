@@ -1,0 +1,78 @@
+# This pipeline is run Elastictest nightly test for sonic-vpp image
+# The sonic-vpp image build pipeline is sonic-net.sonic-buildimage.official.vpp (pipelineId=2818)
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+
+schedules:
+  - cron: "0 0 * * *"
+    displayName: "SONiC-VPP Nightly Test"
+    branches:
+      include:
+        - master
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+parameters:
+  - name: TIMEOUT_IN_MINUTES_TEST_JOB
+    type: number
+    default: 480
+
+stages:
+  - stage: Test
+    variables:
+      - group: SONiC-Elastictest
+      - name: inventory
+        value: veos_vtb
+      - name: testbed_file
+        value: vtestbed.yaml
+      - name: BUILD_BRANCH
+        value: $(Build.SourceBranchName)
+
+    jobs:
+      # Based on Impacted Area Test to get the full test scripts set run on t1 topo
+      - job: get_impacted_area
+        displayName: "Get impacted area"
+        timeoutInMinutes: 10
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml@sonic-mgmt
+            parameters:
+              BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - job: impacted_area_t1_lag_vpp_elastictest
+        displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
+        dependsOn:
+          - get_impacted_area
+        condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+        variables:
+          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+        timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
+            parameters:
+              TOPOLOGY: t1
+              BUILD_BRANCH: $(BUILD_BRANCH)
+
+          - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+            parameters:
+              TOPOLOGY: t1-lag-vpp
+              SCRIPTS: $(SCRIPTS)
+              MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+              MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+              KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+              MGMT_BRANCH: $(BUILD_BRANCH)
+              ASIC_TYPE: "vpp"
+              KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+              COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+              STOP_ON_FAILURE: "False"

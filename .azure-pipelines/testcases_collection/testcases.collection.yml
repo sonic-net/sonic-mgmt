@@ -1,0 +1,97 @@
+name: TestCasesCollection_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  # Run at GME+4 everyday
+  - cron: "0 4 * * *"
+    displayName: TestCases Collection
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+stages:
+- stage: TestCasesCollection
+  jobs:
+    - job: TestCasesCollection
+      variables:
+        - group: KUSTO_SECRETS
+        - name: DisableDockerDetector
+          value: true
+
+      steps:
+        - checkout: sonic-mgmt
+          displayName: 'checkout sonic-mgmt repo'
+
+        - checkout: self
+          displayName: 'checkout sonic-mgmt-int repo'
+
+        - script: |
+            sudo apt-get -o DPkg::Lock::Timeout=600 update
+            sudo apt-get -o DPkg::Lock::Timeout=600 install \
+              ca-certificates \
+              curl \
+              gnupg \
+              lsb-release -y
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor \
+              -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+              https://download.docker.com/linux/ubuntu \
+              $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get -o DPkg::Lock::Timeout=600 update
+            sudo apt-get -o DPkg::Lock::Timeout=600 install docker-ce docker-ce-cli containerd.io -y
+          displayName: 'Install Docker'
+
+        - script: |
+            set -x
+
+            sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+            sudo docker rm -f sonic-mgmt-collect || true
+            sudo docker run --rm -dt --name sonic-mgmt-collect \
+              -v $(System.DefaultWorkingDirectory)/sonic-mgmt-int:/var/src/sonic-mgmt-int \
+              -v $(System.DefaultWorkingDirectory)/sonic-mgmt:/var/src/sonic-mgmt \
+              sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
+              /bin/bash
+          displayName: 'Prepare sonic-mgmt docker container'
+
+        - task: AzureCLI@2
+          displayName: Testcases Collection for sonic-mgmt-int
+          inputs:
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              set -x
+
+              accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
+              sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+
+        - task: AzureCLI@2
+          displayName: Testcases Collection for sonic-mgmt
+          inputs:
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              set -x
+
+              accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
+              sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

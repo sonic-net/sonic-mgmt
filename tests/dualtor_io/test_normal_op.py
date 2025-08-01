@@ -4,16 +4,18 @@ from tests.common.config_reload import config_reload
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action, \
                                                   send_soc_to_t1_with_action, send_t1_to_soc_with_action, \
-                                                  send_server_to_server_with_action, select_test_mux_ports  # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
+                                                  send_server_to_server_with_action, select_test_mux_ports  # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
-                                                force_active_tor, force_standby_tor                 # noqa F401
+                                                force_active_tor, force_standby_tor                 # noqa: F401
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
-from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses       # noqa F401
+                                                change_mac_addresses       # noqa: F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC, CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -24,11 +26,16 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def common_setup_teardown(validate_active_active_dualtor_setup):    # noqa: F811
+    return
+
+
 @pytest.mark.enable_active_active
-def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa F811
-                            send_server_to_t1_with_action,              # noqa F811
-                            toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                            cable_type):                                # noqa F811
+def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa: F811
+                            send_server_to_t1_with_action,              # noqa: F811
+                            toggle_all_simulator_ports_to_upper_tor,    # noqa: F811
+                            cable_type):                                # noqa: F811
     """Send upstream traffic and confirm no disruption or switchover occurs"""
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
@@ -45,10 +52,10 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa F
 
 
 @pytest.mark.enable_active_active
-def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,             # noqa F811
-                                        send_t1_to_server_with_action,              # noqa F811
-                                        toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                                        cable_type):                                # noqa F811
+def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,             # noqa: F811
+                                        send_t1_to_server_with_action,              # noqa: F811
+                                        toggle_all_simulator_ports_to_upper_tor,    # noqa: F811
+                                        cable_type):                                # noqa: F811
     """
     Send downstream traffic to the upper ToR and confirm no disruption or
     switchover occurs
@@ -66,10 +73,10 @@ def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,         
 
 
 @pytest.mark.enable_active_active
-def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,             # noqa F811
-                                        send_t1_to_server_with_action,              # noqa F811
-                                        toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                                        cable_type):                                # noqa F811
+def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,             # noqa: F811
+                                        send_t1_to_server_with_action,              # noqa: F811
+                                        toggle_all_simulator_ports_to_upper_tor,    # noqa: F811
+                                        cable_type):                                # noqa: F811
     """
     Send downstream traffic to the lower ToR and confirm no disruption or
     switchover occurs
@@ -87,11 +94,11 @@ def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,         
 
 
 @pytest.mark.enable_active_active
-def test_normal_op_active_server_to_active_server(upper_tor_host, lower_tor_host,               # noqa F811
-                                                  send_server_to_server_with_action,            # noqa F811
-                                                  toggle_all_simulator_ports_to_upper_tor,      # noqa F811
-                                                  cable_type,                                   # noqa F811
-                                                  select_test_mux_ports):                       # noqa F811
+def test_normal_op_active_server_to_active_server(upper_tor_host, lower_tor_host,               # noqa: F811
+                                                  send_server_to_server_with_action,            # noqa: F811
+                                                  toggle_all_simulator_ports_to_upper_tor,      # noqa: F811
+                                                  cable_type,                                   # noqa: F811
+                                                  select_test_mux_ports):                       # noqa: F811
     """
     Send server to server traffic in active-active setup and confirm no disruption or switchover occurs.
     """
@@ -113,11 +120,11 @@ def test_normal_op_active_server_to_active_server(upper_tor_host, lower_tor_host
 
 
 @pytest.mark.enable_active_active
-def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_host,                  # noqa F811
-                                                   send_server_to_server_with_action,               # noqa F811
-                                                   toggle_all_simulator_ports_to_upper_tor,         # noqa F811
-                                                   cable_type, force_standby_tor,                   # noqa F811
-                                                   select_test_mux_ports):                          # noqa F811
+def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_host,                  # noqa: F811
+                                                   send_server_to_server_with_action,               # noqa: F811
+                                                   toggle_all_simulator_ports_to_upper_tor,         # noqa: F811
+                                                   cable_type, force_standby_tor,                   # noqa: F811
+                                                   select_test_mux_ports):                          # noqa: F811
     """
     Send server to server traffic in active-standby setup and confirm no disruption or switchover occurs.
     """
@@ -142,11 +149,11 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
 
 
 @pytest.mark.enable_active_active
-def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
-                                          send_server_to_t1_with_action,                # noqa F811
-                                          toggle_all_simulator_ports_to_upper_tor,      # noqa F811
+def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa: F811
+                                          send_server_to_t1_with_action,                # noqa: F811
+                                          toggle_all_simulator_ports_to_upper_tor,      # noqa: F811
                                           setup_loganalyzer,
-                                          cable_type):                                  # noqa F811
+                                          cable_type):                                  # noqa: F811
     """
     Send upstream traffic and `config reload` the active ToR.
     Confirm switchover occurs and disruption lasted < 1 second for active-standby ports.
@@ -167,11 +174,11 @@ def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
                           cable_type=cable_type)
 
 
-def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
-                                          send_server_to_t1_with_action,                # noqa F811
-                                          toggle_all_simulator_ports_to_upper_tor,      # noqa F811
+def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa: F811
+                                          send_server_to_t1_with_action,                # noqa: F811
+                                          toggle_all_simulator_ports_to_upper_tor,      # noqa: F811
                                           setup_loganalyzer,
-                                          cable_type):                                  # noqa F811
+                                          cable_type):                                  # noqa: F811
     """
     Send upstream traffic and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption.
@@ -185,11 +192,11 @@ def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
 
 
 @pytest.mark.enable_active_active
-def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_host,           # noqa F811
-                                                      send_t1_to_server_with_action,            # noqa F811
-                                                      toggle_all_simulator_ports_to_upper_tor,  # noqa F811
+def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_host,           # noqa: F811
+                                                      send_t1_to_server_with_action,            # noqa: F811
+                                                      toggle_all_simulator_ports_to_upper_tor,  # noqa: F811
                                                       setup_loganalyzer,
-                                                      cable_type):                              # noqa F811
+                                                      cable_type):                              # noqa: F811
     """
     Send downstream traffic to the upper ToR and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption
@@ -209,11 +216,11 @@ def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_
                           cable_type=cable_type)
 
 
-def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_host,           # noqa F811
-                                                      send_t1_to_server_with_action,            # noqa F811
-                                                      toggle_all_simulator_ports_to_upper_tor,  # noqa F811
+def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_host,           # noqa: F811
+                                                      send_t1_to_server_with_action,            # noqa: F811
+                                                      toggle_all_simulator_ports_to_upper_tor,  # noqa: F811
                                                       setup_loganalyzer,
-                                                      cable_type):                              # noqa F811
+                                                      cable_type):                              # noqa: F811
     """
     Send downstream traffic to the lower ToR and `config reload` the upper ToR.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -228,11 +235,11 @@ def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_
 
 
 @pytest.mark.enable_active_active
-def test_tor_switch_upstream(upper_tor_host, lower_tor_host,                # noqa F811
-                             send_server_to_t1_with_action,                 # noqa F811
-                             toggle_all_simulator_ports_to_upper_tor,       # noqa F811
-                             force_active_tor, force_standby_tor,           # noqa F811
-                             cable_type):                                   # noqa F811
+def test_tor_switch_upstream(upper_tor_host, lower_tor_host,                # noqa: F811
+                             send_server_to_t1_with_action,                 # noqa: F811
+                             toggle_all_simulator_ports_to_upper_tor,       # noqa: F811
+                             force_active_tor, force_standby_tor,           # noqa: F811
+                             cable_type):                                   # noqa: F811
     """
     Send upstream traffic and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -254,11 +261,11 @@ def test_tor_switch_upstream(upper_tor_host, lower_tor_host,                # no
 
 
 @pytest.mark.enable_active_active
-def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,               # noqa F811
-                                      send_t1_to_server_with_action,                # noqa F811
-                                      toggle_all_simulator_ports_to_upper_tor,      # noqa F811
-                                      force_active_tor, force_standby_tor,          # noqa F811
-                                      cable_type):                                  # noqa F811
+def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,               # noqa: F811
+                                      send_t1_to_server_with_action,                # noqa: F811
+                                      toggle_all_simulator_ports_to_upper_tor,      # noqa: F811
+                                      force_active_tor, force_standby_tor,          # noqa: F811
+                                      cable_type):                                  # noqa: F811
     """
     Send downstream traffic to the upper ToR and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -280,11 +287,11 @@ def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,           
 
 
 @pytest.mark.enable_active_active
-def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,              # noqa F811
-                                       send_t1_to_server_with_action,               # noqa F811
-                                       toggle_all_simulator_ports_to_upper_tor,     # noqa F811
-                                       force_active_tor, force_standby_tor,         # noqa F811
-                                       cable_type):                                 # noqa F811
+def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,              # noqa: F811
+                                       send_t1_to_server_with_action,               # noqa: F811
+                                       toggle_all_simulator_ports_to_upper_tor,     # noqa: F811
+                                       force_active_tor, force_standby_tor,         # noqa: F811
+                                       cable_type):                                 # noqa: F811
     """
     Send downstream traffic to the lower ToR and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -307,10 +314,10 @@ def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,          
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_tor_host,                 # noqa F811
-                                                        send_server_to_server_with_action,              # noqa F811
-                                                        cable_type, force_standby_tor,                  # noqa F811
-                                                        select_test_mux_ports):                         # noqa F811
+def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_tor_host,                 # noqa: F811
+                                                        send_server_to_server_with_action,              # noqa: F811
+                                                        cable_type, force_standby_tor,                  # noqa: F811
+                                                        select_test_mux_ports):                         # noqa: F811
     """
     Send server to server traffic in active-active setup and config the tx mux port to standby.
     Confirm switchover occurs and no disruption.
@@ -336,11 +343,11 @@ def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_to
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_mux_port_switch_active_server_to_standby_server(upper_tor_host, lower_tor_host,                 # noqa F811
-                                                         send_server_to_server_with_action,              # noqa F811
-                                                         cable_type, force_standby_tor,                  # noqa F811
-                                                         force_active_tor,                              # noqa F811
-                                                         select_test_mux_ports):                         # noqa F811
+def test_mux_port_switch_active_server_to_standby_server(upper_tor_host, lower_tor_host,                 # noqa: F811
+                                                         send_server_to_server_with_action,              # noqa: F811
+                                                         cable_type, force_standby_tor,                  # noqa: F811
+                                                         force_active_tor,                              # noqa: F811
+                                                         select_test_mux_ports):                         # noqa: F811
     """
     Send server to server traffic in active-standby setup and config the tx mux port to auto.
     Confirm switchover occurs and no disruption.
@@ -372,8 +379,8 @@ def test_mux_port_switch_active_server_to_standby_server(upper_tor_host, lower_t
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_normal_op_upstream_soc(upper_tor_host, lower_tor_host,             # noqa F811
-                                send_soc_to_t1_with_action, cable_type):    # noqa F811
+def test_normal_op_upstream_soc(upper_tor_host, lower_tor_host,             # noqa: F811
+                                send_soc_to_t1_with_action, cable_type):    # noqa: F811
     """Send upstream traffic and confirm no disruption or switchover occurs"""
     if cable_type == CableType.active_active:
         send_soc_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
@@ -384,8 +391,8 @@ def test_normal_op_upstream_soc(upper_tor_host, lower_tor_host,             # no
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_normal_op_downstream_upper_tor_soc(upper_tor_host, lower_tor_host,             # noqa F811
-                                            send_t1_to_soc_with_action, cable_type):    # noqa F811
+def test_normal_op_downstream_upper_tor_soc(upper_tor_host, lower_tor_host,             # noqa: F811
+                                            send_t1_to_soc_with_action, cable_type):    # noqa: F811
     """
     Send downstream traffic to the upper ToR and confirm no disruption or
     switchover occurs
@@ -399,8 +406,8 @@ def test_normal_op_downstream_upper_tor_soc(upper_tor_host, lower_tor_host,     
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
-def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,             # noqa F811
-                                            send_t1_to_soc_with_action, cable_type):    # noqa F811
+def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,             # noqa: F811
+                                            send_t1_to_soc_with_action, cable_type):    # noqa: F811
     """
     Send downstream traffic to the lower ToR and confirm no disruption or
     switchover occurs

@@ -1,5 +1,5 @@
 from netaddr import IPNetwork
-from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa F401
+from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa: F401
 import re
 import os
 import json
@@ -202,7 +202,7 @@ def get_vlan_subnet(host_ans, vlan):
     return vlan_subnet
 
 
-def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):      # noqa F811
+def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):      # noqa: F811
     """
     @Summary: Set up the testbed
     @param leaf_fanouts: Leaf fanout switches
