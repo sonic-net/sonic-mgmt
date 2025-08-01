@@ -19,22 +19,23 @@ validators:
       - .*ixia.*
 
       # Topologies that current failing the validation
-      - ciscovs-5nodes
-      - dualtor-aa-64
-      - t0-35
-      - t0-standalone-32
-      - t1-64
-      - t1-48-lag
-      - t1-isolated-d448u16
-      - t1-isolated-d448u15-lag
-      - t1-isolated-v6-d28u1
-      - t1-isolated-v6-d448u15-lag
-      - t2_2lc_36p-masic
-      - t2_2lc_min_ports-masic
-      - t2_5lc-mixed-96
-      - t2_single_node_min
-      - t2_single_node_max
-      - wan-pub-cisco
+      - ciscovs-5nodes              # E5014 missing swrole template files
+      - dualtor-aa-64               # E5014 missing swrole template files
+      - t0-standalone-32            # E5005 duplicate interface errors
+      - t0-35                       # E5014 missing swrole template files
+      - t1-48-lag                   # E5010 IP address conflicts
+      - t1-64                       # E5014 missing swrole template files
+      - t1-isolated-d448u15-lag     # E5014 missing swrole template files
+      - t1-isolated-d448u16         # E5009 multiple subnets
+      - t1-isolated-v6-d28u1        # E5014 missing swrole template files
+      - t1-isolated-v6-d448u15-lag  # E5014 missing swrole template files
+      - t2_2lc_36p-masic            # E5014 missing swrole template files
+      - t2_2lc_min_ports-masic      # E5014 missing swrole template files
+      - t2_5lc-mixed-96             # E5014 missing swrole template files
+      - t2_single_node_max          # E5014 missing swrole template files
+      - t2_single_node_min          # E5014 missing swrole template files
+      - wan                         # E5014 missing swrole template files
+      - wan-pub-cisco               # E5014 missing swrole template files
 - name: ip_address
   enabled: true
   config:
@@ -57,9 +58,15 @@ validators:
     min_vlan_id: 1
     max_vlan_id: 4096
 - name: console
-  enabled: false
-  config: {}
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E3002 Device has no console connection
+      - sonic-s6100-dut2   # E3002 Device has no console connection
 - name: pdu
-  enabled: false
-  config: {}
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E4002 Device has no PDU connection
+      - sonic-s6100-dut2   # E4002 Device has no PDU connection
 issue_severities: {}
