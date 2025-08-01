@@ -105,6 +105,11 @@ class TestOqWatchdog(QosSaiBase):
             "oq_watchdog_enabled": True,
         })
 
+        # Run TrafficSanityTest to verify the system in good state before starting the test
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.TrafficSanityTest",
+            testParams=testParams)
+
         try:
             # Block voq7
             original_pir_voq7 = self.block_queue(dst_dut, dst_port, 7, "voq", dst_asic_index)
