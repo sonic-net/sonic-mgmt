@@ -66,7 +66,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if not is_in_neighbor(neigh_types, neigh_name):
             continue
-        if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
+        if 'T3' in neigh_types and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
             continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
