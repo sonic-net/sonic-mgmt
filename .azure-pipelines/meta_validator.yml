@@ -19,23 +19,22 @@ validators:
       - .*ixia.*
 
       # Topologies that current failing the validation
-      - ciscovs-5nodes              # E5014 missing swrole template files
-      - dualtor-aa-64               # E5014 missing swrole template files
-      - t0-standalone-32            # E5005 duplicate interface errors
-      - t0-35                       # E5014 missing swrole template files
-      - t1-48-lag                   # E5010 IP address conflicts
-      - t1-64                       # E5014 missing swrole template files
-      - t1-isolated-d448u15-lag     # E5014 missing swrole template files
-      - t1-isolated-d448u16         # E5009 multiple subnets
-      - t1-isolated-v6-d28u1        # E5014 missing swrole template files
-      - t1-isolated-v6-d448u15-lag  # E5014 missing swrole template files
-      - t2_2lc_36p-masic            # E5014 missing swrole template files
-      - t2_2lc_min_ports-masic      # E5014 missing swrole template files
-      - t2_5lc-mixed-96             # E5014 missing swrole template files
-      - t2_single_node_max          # E5014 missing swrole template files
-      - t2_single_node_min          # E5014 missing swrole template files
-      - wan                         # E5014 missing swrole template files
-      - wan-pub-cisco               # E5014 missing swrole template files
+      - ciscovs-5nodes              # https://github.com/sonic-net/sonic-mgmt/issues/20007
+      - dualtor-aa-64               # https://github.com/sonic-net/sonic-mgmt/issues/20009
+      - t0-standalone-32            # https://github.com/sonic-net/sonic-mgmt/issues/20011
+      - t0-35                       # https://github.com/sonic-net/sonic-mgmt/issues/20010
+      - t1-48-lag                   # https://github.com/sonic-net/sonic-mgmt/issues/20012
+      - t1-64                       # https://github.com/sonic-net/sonic-mgmt/issues/20013
+      - t1-isolated-d448u15-lag     # https://github.com/sonic-net/sonic-mgmt/issues/20014
+      - t1-isolated-d448u16         # https://github.com/sonic-net/sonic-mgmt/issues/20015
+      - t1-isolated-v6-d28u1        # https://github.com/sonic-net/sonic-mgmt/issues/20016
+      - t1-isolated-v6-d448u15-lag  # https://github.com/sonic-net/sonic-mgmt/issues/20017
+      - t2_2lc_36p-masic            # https://github.com/sonic-net/sonic-mgmt/issues/20018
+      - t2_2lc_min_ports-masic      # https://github.com/sonic-net/sonic-mgmt/issues/20019
+      - t2_5lc-mixed-96             # https://github.com/sonic-net/sonic-mgmt/issues/20020
+      - t2_single_node_max          # https://github.com/sonic-net/sonic-mgmt/issues/20021
+      - t2_single_node_min          # https://github.com/sonic-net/sonic-mgmt/issues/20022
+      - wan-pub-cisco               # https://github.com/sonic-net/sonic-mgmt/issues/20023
 - name: ip_address
   enabled: true
   config:
