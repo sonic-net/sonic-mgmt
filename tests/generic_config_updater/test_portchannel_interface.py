@@ -27,7 +27,7 @@ from tests.common.gu_utils import create_path, check_show_ip_intf
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 'm0', 'm1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -264,7 +264,12 @@ def verify_attr_change(duthost, po_name, attr, value):
             ...
     """
     if attr == "mtu":
-        output = duthost.shell("show interfaces status | grep -w '^{}' | awk '{{print $4}}'".format(po_name))
+        cmd = (
+            "show interfaces status | "
+            "grep -w '^[[:space:]]*{}' | "
+            "awk '{{print $4}}'"
+        ).format(po_name)
+        output = duthost.shell(cmd)
 
         pytest_assert(output['stdout'] == value, "{} attribute {} failed to change to {}".format(po_name, attr, value))
     elif attr == "min_links":

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
 import jinja2
@@ -193,8 +193,14 @@ numprocs=1
 exabgp_supervisord_conf_tmpl_p2_v3 = '''\
 command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
 '''
+exabgp_supervisord_conf_tmpl_p2_v3_debug = '''\
+command=/usr/local/bin/exabgp --debug /etc/exabgp/{{ name }}.conf
+'''
 exabgp_supervisord_conf_tmpl_p2_v4 = '''\
 command=/usr/local/bin/exabgp --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
+'''
+exabgp_supervisord_conf_tmpl_p2_v4_debug = '''\
+command=/usr/local/bin/exabgp --debug --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
 '''
 
 
@@ -305,16 +311,26 @@ def remove_exabgp_conf(name):
         pass
 
 
-def setup_exabgp_supervisord_conf(name):
+def setup_exabgp_supervisord_conf(name, debug=False):
     exabgp_supervisord_conf_tmpl = None
     if six.PY2:
-        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
-            exabgp_supervisord_conf_tmpl_p2_v3 + \
-            exabgp_supervisord_conf_tmpl_p3
+        if debug:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v3_debug + \
+                exabgp_supervisord_conf_tmpl_p3
+        else:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v3 + \
+                exabgp_supervisord_conf_tmpl_p3
     else:
-        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
-            exabgp_supervisord_conf_tmpl_p2_v4 + \
-            exabgp_supervisord_conf_tmpl_p3
+        if debug:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v4_debug + \
+                exabgp_supervisord_conf_tmpl_p3
+        else:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v4 + \
+                exabgp_supervisord_conf_tmpl_p3
     t = jinja2.Template(exabgp_supervisord_conf_tmpl)
     data = t.render(name=name)
     with open("/etc/supervisor/conf.d/exabgp-%s.conf" % name, 'w') as out_file:
@@ -350,7 +366,8 @@ def main():
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
             dump_script=dict(required=False, type='str', default=None),
-            passive=dict(required=False, type='bool', default=False)
+            passive=dict(required=False, type='bool', default=False),
+            debug=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=False)
 
@@ -364,6 +381,7 @@ def main():
     port = module.params['port']
     dump_script = module.params['dump_script']
     passive = module.params['passive']
+    debug = module.params['debug']
 
     setup_exabgp_processor()
     if not six.PY2:
@@ -374,24 +392,24 @@ def main():
         if state == 'started':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             start_exabgp(module, name)
         elif state == 'restarted':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             restart_exabgp(module, name)
         elif state == 'present':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
         elif state == 'configure':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
         elif state == 'stopped':
             stop_exabgp(module, name)
         elif state == 'absent':

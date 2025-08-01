@@ -1,6 +1,7 @@
 import json
 import pytest
 import logging
+import uuid
 from tests.common.fixtures.tacacs import tacacs_creds   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
@@ -12,6 +13,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+RULES_DIR = "/etc/audit/rules.d/"
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net "
 CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:50058"   # noqa: W605
@@ -31,13 +33,12 @@ def test_auditd_functionality(duthosts, enum_rand_one_per_hwsku_hostname, check_
     verify_container_running(duthost, container_name)
     hwsku = duthost.facts["hwsku"]
     if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "bd574779fb4e1116838d18346187bb7f7bd089c9"
+        rule_checksum = "6002dcd7ef2cbeabc7a60925bd603ebe901d58be"
     else:
-        rule_checksum = "c3441d4f777257d8d2c6ac90fd50d49b9a1d616b"
+        rule_checksum = "99bf4b5a80ac2b8d03fa69d1b8e7f7b2a1423ba8"
 
-    cmd = """'{} find /etc/audit/rules.d/ -type f -name "[0-9][0-9]-*.rules" \
-              ! -name "30-audisp-tacplus.rules" -exec cat {{}} + | sort | sha1sum'""".format(NSENTER_CMD)
-    output = duthost.command(DOCKER_EXEC_CMD.format(container_name) + cmd)["stdout"]
+    cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
+    output = duthost.command(cmd)["stdout"]
     pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
 
     cmd = "cat /etc/audit/auditd.conf | sha1sum"
@@ -83,7 +84,7 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
         "auditd_rules",
         "auditd_service",
         "auditd_active",
-        "auditd_reload"
+        "rate_limit"
     ]
 
     # Check if all expected keys exist and have the value "OK"
@@ -95,19 +96,30 @@ def test_auditd_watchdog_functionality(duthosts, enum_rand_one_per_hwsku_hostnam
 def test_auditd_file_deletion(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                               tacacs_creds, check_tacacs, check_auditd):            # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dutip = duthost.mgmt_ip
     container_name = "auditd"
     verify_container_running(duthost, container_name)
 
-    duthost.command("rm -f /tmp/test_file_deletion")
-    ssh_remote_run(localhost,
-                   dutip,
-                   tacacs_creds['tacacs_rw_user'],
-                   tacacs_creds['tacacs_rw_user_passwd'],
-                   "sudo touch /tmp/test_file_deletion && sudo rm -f /tmp/test_file_deletion")
-    cmd = """show logging | grep 'audisp-syslog' | grep 'file_deletion' | grep 'AUID="test_rwuser"' """
+    random_uuid = str(uuid.uuid4())
+    random_file = f"/tmp/test_file_deletion_{random_uuid}"
+    duthost.command(f"touch {random_file}")
+    duthost.command(f"rm -f  {random_file}")
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
     result = duthost.shell(cmd)["stdout_lines"]
-    assert len(result) > 0, "Auditd file_deletion rule does not contain the expected logs"
+    print(result)
+    logger.info(result)
+    assert any(random_uuid in line for line in result if line.strip()), \
+        "Auditd file_deletion rule does not contain the expected logs"
+
+    random_uuid = str(uuid.uuid4())
+    random_file = f"/tmp/test_file_deletion_{random_uuid}"
+    duthost.command(f"touch {random_file}")
+    duthost.command(f"sudo rm -f {random_file}")
+    cmd = f"sudo zgrep '{random_uuid}' /var/log/syslog* | grep 'audisp-syslog'"
+    result = duthost.shell(cmd)["stdout_lines"]
+    print(result)
+    logger.info(result)
+    assert any(random_uuid in line for line in result if line.strip()), \
+        "Auditd file_deletion rule does not contain the expected logs"
 
 
 def test_auditd_process_audit(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
@@ -254,4 +266,46 @@ def test_32bit_failure(duthosts, enum_rand_one_per_hwsku_hostname, check_auditd_
 
     output = duthost.command(DOCKER_EXEC_CMD.format(container_name) +
                              "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
-    pytest_assert('"auditd_reload":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
+    pytest_assert('"auditd_active":"FAIL ' in output, "Auditd watchdog reports auditd container is healthy")
+
+
+def debug_log(duthost):
+    content = duthost.command(r"sudo cat /etc/audit/rules.d/audit.rules", module_ignore_errors=True)["stdout"]
+    logger.warning("Content of /etc/audit/rules.d/audit.rules: {}".format(content))
+
+    running_config = duthost.command(r"sudo auditctl -s", module_ignore_errors=True)["stdout"]
+    logger.warning("Auditd running config: {}".format(running_config))
+
+
+def read_watchdog(duthost):
+    output = duthost.command(DOCKER_EXEC_CMD.format("auditd_watchdog") +
+                             "'{} {}'".format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as e:
+        pytest.fail("Invalid JSON response from auditd watchdog: {} exception: {}".format(output, e))
+
+
+def test_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    verify_container_running(duthost, "auditd_watchdog")
+
+    debug_log(duthost)
+    rate_limit_status = read_watchdog(duthost).get("rate_limit")
+    pytest_assert(rate_limit_status == "OK",
+                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+
+    # watchdog will report FAIL when auditd running config mismatch with config file
+    duthost.command(r"sudo cp /etc/audit/rules.d/audit.rules /etc/audit.rules_backup")
+    duthost.command(r"sudo sed -i -e '$a\'$'\n''-r 1000' /etc/audit/rules.d/audit.rules")
+    duthost.command(r"sudo auditctl -r 2000")
+
+    debug_log(duthost)
+    rate_limit_status = read_watchdog(duthost).get("rate_limit")
+
+    # revert change before check result, so assert failed will not break next test
+    duthost.command(r"sudo cp /etc/audit.rules_backup /etc/audit/rules.d/audit.rules")
+    duthost.command(r"sudo service auditd restart")
+
+    pytest_assert(rate_limit_status.startswith("FAIL (rate_limit: "),
+                  "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))

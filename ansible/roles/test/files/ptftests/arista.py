@@ -401,8 +401,8 @@ class Arista(host_device.HostDevice):
         is_gr_ipv6_enabled = False
         restart_time = None
         for line in output.split('\n'):
-            if '     Restart-time is' in line:
-                restart_time = int(line.replace('       Restart-time is ', ''))
+            if 'Restart-time is' in line:
+                restart_time = int(re.search(r'\d+', line).group())
                 continue
 
             if 'is enabled, Forwarding State is' in line:

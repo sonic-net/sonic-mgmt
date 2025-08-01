@@ -81,7 +81,7 @@ def _update_check_items(old_items, new_items, supported_items):
     return updated_items
 
 
-def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
+def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True):
 
     def print_cmds_output_from_duthost(dut, is_dual_tor, ptf):
         logger.info("Run commands to print logs")
@@ -92,14 +92,15 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
-        # check PTF device reachability
-        if ptf.mgmt_ip:
-            cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
-            cmds.append("traceroute {}".format(ptf.mgmt_ip))
+        if check_ptf_mgmt:
+            # check PTF device reachability
+            if ptf.mgmt_ip:
+                cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
+                cmds.append("traceroute {}".format(ptf.mgmt_ip))
 
-        if ptf.mgmt_ipv6:
-            cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
-            cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
+            if ptf.mgmt_ipv6:
+                cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
+                cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -130,7 +131,10 @@ def filter_check_items(tbinfo, duthosts, check_items):
                 return True
         return False
 
-    if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
+    if 'ft2' in tbinfo['topo']['name'] or \
+        'lt2' in tbinfo['topo']['name'] or \
+            't2' not in tbinfo['topo']['name'] or \
+            _is_voq_chassis(duthosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:

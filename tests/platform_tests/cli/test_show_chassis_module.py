@@ -24,12 +24,21 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
 
 
 def parse_chassis_module(output, expected_headers):
-    assert len(output) > 2
+    assert len(output) > 2, (
+        "The output of the 'show chassis modules' command is too short ({} lines). "
+    ).format(len(output))
     f_ranges = get_field_range(output[1])
     headers = get_fields(output[0], f_ranges)
 
     for header_v in expected_headers:
-        pytest_assert(header_v in headers, "Missing header {}".format(header_v))
+        pytest_assert(
+            header_v in headers,
+            (
+                "header {} is not in headers {}"
+            ).format(
+                header_v, headers
+            )
+        )
 
     result = {}
     for a_line in output[2:]:
@@ -92,11 +101,13 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             pytest_assert(res[mod_idx]['Oper-Status'] == 'Online',
                           "Oper-status for slot {} should be Online but it is {}".format(
                               mod_idx, res[mod_idx]['Oper-Status']))
+
             # If inventory contains physical slot info, perform expected slot number check
             if exp_module_slot_info:
                 pytest_assert(mod_idx in exp_module_slot_info,
                               "Module {} is expected to be present but it is missing".format(
                                   mod_idx))
+
                 pytest_assert(res[mod_idx]['Physical-Slot'] == exp_module_slot_info[mod_idx],
                               "Module {} expected slot {} not matching show output {}".format(
                                   mod_idx, exp_module_slot_info[mod_idx], res[mod_idx]['Physical-Slot']))
@@ -122,9 +133,15 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
     for mod_idx in res_mid_status:
         mod_mid_status = res_mid_status[mod_idx]['Reachability']
         if mod_idx not in skip_mod_list:
-            pytest_assert(mod_mid_status == "True",
-                          "midplane reachability of line card {} expected true but is {}".format(mod_idx,
-                                                                                                 mod_mid_status))
+            pytest_assert(
+                mod_mid_status == "True",
+                (
+                    "Midplane reachability of line card {} expected to be True but is {}."
+                ).format(
+                    mod_idx, mod_mid_status
+                )
+            )
+
         else:
             # There are cases where the chassis is logically divided where some LCs belongs to another chassis
             # and needs to be skipped and for those cases we should not assume if skipped means it must be
@@ -132,8 +149,15 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
             if "LINE-CARD" in mod_idx:
                 logger.info("skip checking midplane status for {} since it is on skip_mod_list".format(mod_idx))
             else:
-                pytest_assert(mod_mid_status == "False",
-                              "reachability of {} expected false but is {}".format(mod_idx, mod_mid_status))
+                pytest_assert(
+                    mod_mid_status == "False",
+                    (
+                        "Reachability of {} expected to be False but is {}. "
+                        "It is not a line card for the current chassis and should be skipped."
+                    ).format(
+                        mod_idx, mod_mid_status
+                    )
+                )
 
 
 def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
@@ -167,7 +191,10 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
     wait_critical_processes(suphost)
     pytest_assert(
         wait_until(330, 20, 0, suphost.critical_services_fully_started),
-        f"All critical services should fully started on the supervisor node - {sup_hostname}",
+        (
+            "All critical services should be fully started on the supervisor node - {}. "
+            "One or more critical services failed to start within the expected timeframe."
+        ).format(sup_hostname)
     )
 
     for linecard in duthosts.frontend_nodes:
@@ -181,7 +208,11 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
                 linecard.check_bgp_session_state_all_asics,
                 linecards_bgp_neighbors[lc_hostname],
                 "established",
-            )
+            ),
+            (
+                "BGP session on linecard {} failed to establish within the expected timeframe. "
+                "Expected BGP session state to be 'established' for all ASICs."
+            ).format(lc_hostname)
         )
 
     logger.info(f"Get chassis module status after docker restart on the supervisor node - {sup_hostname}")
@@ -192,9 +223,9 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
     for mod_idx in list(initial_res.keys()):
         pytest_assert(
             initial_res[mod_idx] == final_res[mod_idx],
-            "Mismatch in module status for slot {}: initial={} final={}".format(
-                mod_idx, initial_res[mod_idx], final_res[mod_idx]
-            ),
+            "Mismatch in module status for slot {}: initial={} final={}."
+        ).format(
+            mod_idx, initial_res[mod_idx], final_res[mod_idx]
         )
 
     logger.info(

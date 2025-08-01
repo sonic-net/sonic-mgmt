@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
@@ -1147,7 +1148,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
             time.sleep(1)
 
         self.log("IO sender and sniffer threads have started, wait until completion")
@@ -1405,9 +1406,9 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
-        # Set LACP timer multiplier to 5 for cEOS peers
-        if self.test_params['neighbor_type'] == "eos":
-            self.ceos_set_lacp_all_neighs(5)
+        # Set LACP timer multiplier for cEOS peers when it is not default (3)
+        if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
+            self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
 
         self.pre_reboot_test_setup()
         try:
@@ -1463,7 +1464,7 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add(traceback_msg)
         finally:
             # Restore cEOS LACP timer multiplier to default (3)
-            if self.test_params['neighbor_type'] == "eos":
+            if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
                 self.ceos_set_lacp_all_neighs(3)
 
             self.handle_post_reboot_test_reports()
@@ -2061,7 +2062,7 @@ class ReloadTest(BaseTest):
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     if sent_payload in sent_packets:
                         flooded_pkts.append(sent_payload)
-                    sent_packets[sent_payload] = packet.time
+                    sent_packets[sent_payload] = float(packet.time)
                     sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:

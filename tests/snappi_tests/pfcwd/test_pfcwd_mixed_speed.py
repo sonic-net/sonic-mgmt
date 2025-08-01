@@ -12,6 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 import logging
 logger = logging.getLogger(__name__)
@@ -270,6 +271,8 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
 
     for dut in duthosts:
         clear_fabric_counters(dut)
+        if dut.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(dut, False)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -291,3 +294,6 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
 
     finally:
         cleanup_config(dut_list, snappi_ports)
+        for dut in duthosts:
+            if dut.facts['asic_type'] == "cisco-8000":
+                modify_voq_watchdog_cisco_8000(dut, True)

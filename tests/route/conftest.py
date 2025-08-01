@@ -8,9 +8,6 @@ def pytest_addoption(parser):
 
     route_group = parser.getgroup("Route test suite options")
 
-    route_group.addoption("--num_routes", action="store", default=None, type=int,
-                          help="Number of routes for add/delete")
-
     route_group.addoption("--max_scale", action="store_true",
                           help="Test with maximum possible route scale")
 

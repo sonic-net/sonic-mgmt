@@ -16,6 +16,8 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
@@ -40,6 +42,8 @@ STABILITY_BUFFER = 0.05     # 50msec
 
 OUTER_HEADER_SIZE = len(packet.Ether()) + len(packet.IP()) + len(packet.GRE())
 OUTER_HEADER_SIZE_V6 = len(packet.Ether()) + len(packet.IPv6()) + len(packet.GRE())
+
+LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 
 # This IP is hardcoded into ACL rule
 TARGET_SERVER_IP = "192.168.0.2"
@@ -94,11 +98,16 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
                 upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
-
-            elif DOWNSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
-                downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
-                downstream_ports_namespace.add(neigh['namespace'])
-                downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
+            else:
+                for item in DOWNSTREAM_NEIGHBOR_MAP[topo_type].replace(" ", "").split(','):
+                    if item in neigh["name"].lower():
+                        downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
+                        downstream_ports_namespace.add(neigh['namespace'])
+                        downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
+    # For FT2, we just copy the upstream ports to downstream ports
+    if "ft2" in topo:
+        downstream_ports_namespace = upstream_ports_namespace.copy()
+        downstream_ports_namespace_map = upstream_ports_namespace_map.copy()
 
     for ns, neigh_set in list(upstream_neigh_namespace_map.items()):
         if len(neigh_set) < 2:
@@ -339,6 +348,44 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_queue_counters(duthost, asic_ns):
+    """
+    @summary: Clear the queue counters for the host
+    """
+    if asic_ns is not None and duthost.sonichost.is_multi_asic:
+        asic_id = duthost.get_asic_id_from_namespace(asic_ns)
+        asichost = duthost.asic_instance(asic_id)
+        asichost.command("sonic-clear queuecounters")
+    else:
+        duthost.command("sonic-clear queuecounters")
+
+
+def check_queue_counters(dut, asic_ns, port, queue, pkt_count):
+    """
+    @summary: Determine whether queue counter value increased or not
+    """
+    output = get_queue_counters(dut, asic_ns, port, queue)
+    return output == pkt_count
+
+
+def get_queue_counters(dut, asic_ns, port, queue):
+    """
+    @summary: Return the counter for a given queue in given port
+    """
+    if dut.sonichost.is_multi_asic and asic_ns is not None:
+        cmd = "show queue counters -n {} {}".format(asic_ns, port)
+    else:
+        cmd = "show queue counters {}".format(port)
+
+    output = dut.command(cmd)['stdout_lines']
+    txq = "UC{}".format(queue)
+    for line in output:
+        fields = line.split()
+        if fields[1] == txq:
+            return int(fields[2].replace(',', ''))
+    return -1
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
@@ -355,8 +402,11 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     duthost = None
     topo = tbinfo['topo']['name']
     if 't2' in topo:
-        pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
-        downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+        if len(duthosts) == 1:
+            downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
+        else:
+            pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
+            downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
     else:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
@@ -365,7 +415,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
 
-    if 't2' in topo:
+    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -378,7 +428,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     yield setup_information
 
     # Enable BGP again
-    if 't2' in topo:
+    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp startup all")
             dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
@@ -386,6 +436,15 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
     time.sleep(60)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
+    """
+    Skip IPv6 Everflow tests if the DUT is a virtual switch.
+    """
+    if erspan_ip_ver == 6 and setup_info[UP_STREAM]["everflow_dut"].facts["asic_type"] == "vs":
+        pytest.skip("Skipping IPv6 Everflow tests to speed up PR test execution.")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -493,6 +552,60 @@ def load_acl_rules_config(table_name, rules_file):
     rules_config = {"acl_table_name": table_name, "rules": acl_rules}
 
     return rules_config
+
+
+def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
+                                           tx_ports, direction, queue, asic_ns, recircle_port,
+                                           expect_recv=True, valid_across_namespace=True):
+    tx_port_ids = self._get_tx_port_id_list(tx_ports)
+    default_ip = self.DEFAULT_DST_IP
+    router_mac = setup[direction]["ingress_router_mac"]
+    pkt = self._base_tcp_packet(ptfadapter, setup, router_mac, src_ip="20.0.0.10", dst_ip=default_ip)
+    # Number of packets to send
+    packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
+    for iteration, count in list(packet_count.items()):
+        clear_queue_counters(duthost, asic_ns)
+        for i in range(1, count + 1):
+            logging.info("Sending packet {} to DUT for {}".format(i, iteration))
+            self.send_and_check_mirror_packets(
+                setup,
+                mirror_session,
+                ptfadapter,
+                duthost,
+                pkt,
+                direction,
+                src_port=rx_port,
+                dest_ports=tx_port_ids,
+                expect_recv=expect_recv,
+                valid_across_namespace=valid_across_namespace,
+            )
+
+        # Assert the specific asic recircle port's queue
+        # Make sure mirrored packets are sent via specific queue configured
+        for q in range(1, 8):
+            if str(q) == queue:
+                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, count), \
+                    "Recircle port {} queue{} counter value is not same as packets sent".format(recircle_port, q)
+            else:
+                assert (get_queue_counters(duthost, asic_ns, recircle_port, q) == 0)
+
+
+def check_rule_creation_on_dut(duthost, command):
+    if duthost.is_supervisor_node():
+        return
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl-rule")
+    loganalyzer.load_common_config()
+    try:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        # Ignore any other errors to reduce noise
+        loganalyzer.ignore_regex = [r".*"]
+        with loganalyzer:
+            duthost.command(command)
+            wait_until(60, 5, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
+    except LogAnalyzerError as err:
+        logging.error("ACL Rule creation on {} failed.".format(duthost))
+        raise err
 
 
 class BaseEverflowTest(object):
@@ -784,7 +897,7 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if 't2' in setup['topo']:
+        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)

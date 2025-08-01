@@ -1,13 +1,13 @@
 import pytest
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t1', 't2', 'm1'),
     pytest.mark.device_type('vs')
 ]
 

@@ -231,13 +231,16 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
     duthost = duthosts[rand_one_dut_hostname]
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    orch_cpu_timeout = 120 if is_chassis else 60
+    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
         v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
         v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        v4_routes_count = v4ebgps[duthost.hostname]
+        v6_routes_count = v6ebgps[duthost.hostname]
+        if v4_routes_count > 10000 or v6_routes_count > 10000:
+            orch_cpu_timeout = 120
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.

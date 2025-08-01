@@ -42,7 +42,10 @@ class DualTorParser:
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
         neighbor['ip'] = self.host_vars[neighbor['hostname']]['ansible_host']
-        neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
+        if 'hwsku' in self.host_vars[neighbor['hostname']]:
+            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
+        else:
+            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['sonic_hwsku']
 
         self.dual_tor_facts['neighbor'] = neighbor
 
