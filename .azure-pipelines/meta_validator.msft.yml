@@ -1,0 +1,363 @@
+logging:
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+validators:
+- name: testbed
+  enabled: true
+  config: {}
+- name: device_info
+  enabled: true
+  config:
+    invalid_chars: []
+    max_length: 255
+- name: topology
+  enabled: true
+  config:
+    excludes:
+      # Exclude TGEN related topologies
+      - .*tgen.*
+      - .*ixia.*
+
+      # Topologies that current failing the validation - explicit topology names
+      - ciscovs-5nodes              # E5014 missing template files
+      - dualtor-aa-64               # E5014 missing template files
+      - t0-standalone-32            # E5005 duplicate interface errors
+      - t1-48-lag                   # E5010 IP address conflicts
+      - t1-64                       # E5014 missing template files
+      - t1-isolated-d448u15-lag     # E5014 missing template files
+      - t1-isolated-d448u16         # E5009 multiple subnets
+      - t1-isolated-v6-d28u1        # E5014 missing template files
+      - t1-isolated-v6-d448u15-lag  # E5014 missing template files
+      - t2_2lc_36p-masic            # E5014 missing template files
+      - t2_2lc_min_ports-masic      # E5014 missing template files
+      - t2_5lc-mixed-96             # E5014 missing template files
+      - t2_single_node_max          # E5014 missing template files
+      - t2_single_node_min          # E5014 missing template files
+      - wan                         # E5014 missing template files
+      - wan-pub-cisco               # E5014 missing template files
+- name: ip_address
+  enabled: true
+  config:
+    allow_conflict_list:
+      # Remove "-api-serv" suffix from device names for ixia
+      - from: "^(.+)-api-serv$"
+        to: "\\1"
+    exclude_devices:
+      # Devices that current causing IP conflicts
+      - vlab-c-01.*
+      - vlab-c-02.*
+      - vlab-07.*
+      - .*snappi-sonic.* # vms-snappi-sonic ptf, snappi-sonic-api-serv, etc.
+      - sonic-s6100-dut2
+      # E2001 IP conflicts - exclude one device from each conflicting pair
+      - str2-msn4700-fanout-05    # conflicts with str2-7804-lc6-1
+      - str2-8800-sup-3           # conflicts with str2-8800-sup-2
+      - console-184               # conflicts with console-213 (multiple groups)
+      - str2-7263CX3-azd-01       # conflicts with str3-7260cx3-acs-fan-03
+      - str3-8800-sup-2           # conflicts with str3-8800-sup-1
+      - str2-msn4700-06           # conflicts with str3-7800-lc8-1
+      - str3-t2-aresone-ixia      # conflicts with str2-ixia-1 and t2-aresone-ixia
+      - str3-7060x6-64pe-fan-2    # conflicts with str4-7060x6-64pe-2
+      - str4-7060x6-64pe-fan-5    # conflicts with str4-7060x6-64pe-fan-4
+      - svcstr2-e1031-acs-2       # conflicts with console-6
+      - bjw2-pdu-127-166          # conflicts with bjw-pdu-127-166
+      - str4-sn5640-[45]          # conflicts with str-acs-serv-102/103
+      - str2-ixia-1               # conflicts with multiple ixia devices
+      - vms6-[56]                 # VM conflicts in str group
+      - vms64-[34]                # VM conflicts with str group
+      - v12-4                     # conflicts with vms64-4
+      - vms12-2                   # conflicts with smartswitch devices
+      - str2-8101-fanout-20       # conflicts with str3-7808-sup-2
+      - vms66-6                   # conflicts with str-msn4700-fanout-02
+      - str-msn2700a1-03          # conflicts with ptf1-2
+      - str3-t0-8102-smartswitch-02  # conflicts with str3-t0-8102-smartswitch-01
+      - str3-7060x6-64pe-3        # conflicts with vms3-3
+      - str3-acs-serv-62          # conflicts with ptf1-1
+      - str3-acs-serv-65          # conflicts with ptf1-3
+      - vms73-2                   # conflicts with str-msn4700-02
+      - str4-7060x6-64pe-2        # conflicts with ptf1-4 (different from earlier)
+      - str4-acs-serv-13          # conflicts with str-acs-serv-13
+      - str4-acs-serv-65          # conflicts with ptf1-3
+      - str5-acs-serv-65          # conflicts with ptf1-3
+      # E2004 inconsistent IP devices
+      - str2-8800-lc2-2           # inconsistent IPs between sources
+      - str2-8800-lc1-3           # inconsistent IPs between sources
+      - str2-8800-lc2-3           # inconsistent IPs between sources
+      - str2-8800-lc3-3           # inconsistent IPs between sources
+      - str4-acs-serv-74          # inconsistent IPs between sources
+      # E2005 IPv4/IPv6 mismatch devices - explicit device names
+      - ptf10-0                   # IPv4/IPv6 mismatch
+      - ptf3-0                    # IPv4/IPv6 mismatch
+      - ptf3-1                    # IPv4/IPv6 mismatch
+      - ptf3-2                    # IPv4/IPv6 mismatch
+      - ptf3-3                    # IPv4/IPv6 mismatch
+      - ptf3-4                    # IPv4/IPv6 mismatch
+      - ptf3-5                    # IPv4/IPv6 mismatch
+      - ptf3-6                    # IPv4/IPv6 mismatch
+      - ptf3-7                    # IPv4/IPv6 mismatch
+      - ptf3-8                    # IPv4/IPv6 mismatch
+      - ptf3-9                    # IPv4/IPv6 mismatch
+      - ptf4-0                    # IPv4/IPv6 mismatch
+      - ptf4-1                    # IPv4/IPv6 mismatch
+      - ptf4-2                    # IPv4/IPv6 mismatch
+      - ptf4-3                    # IPv4/IPv6 mismatch
+      - ptf4-4                    # IPv4/IPv6 mismatch
+      - ptf4-5                    # IPv4/IPv6 mismatch
+      - ptf4-6                    # IPv4/IPv6 mismatch
+      - ptf4-7                    # IPv4/IPv6 mismatch
+      - ptf4-8                    # IPv4/IPv6 mismatch
+      - ptf4-9                    # IPv4/IPv6 mismatch
+      - ptf5-0                    # IPv4/IPv6 mismatch
+      - ptf5-1                    # IPv4/IPv6 mismatch
+      - ptf5-2                    # IPv4/IPv6 mismatch
+      - ptf5-3                    # IPv4/IPv6 mismatch
+      - ptf5-4                    # IPv4/IPv6 mismatch
+      - ptf5-5                    # IPv4/IPv6 mismatch
+      - ptf5-6                    # IPv4/IPv6 mismatch
+      - ptf5-7                    # IPv4/IPv6 mismatch
+      - ptf5-8                    # IPv4/IPv6 mismatch
+      - ptf5-9                    # IPv4/IPv6 mismatch
+      - ptf6-0                    # IPv4/IPv6 mismatch
+      - ptf6-1                    # IPv4/IPv6 mismatch
+      - ptf6-2                    # IPv4/IPv6 mismatch
+      - ptf6-3                    # IPv4/IPv6 mismatch
+      - ptf6-4                    # IPv4/IPv6 mismatch
+      - ptf6-5                    # IPv4/IPv6 mismatch
+      - ptf6-6                    # IPv4/IPv6 mismatch
+      - ptf6-7                    # IPv4/IPv6 mismatch
+      - ptf6-8                    # IPv4/IPv6 mismatch
+      - ptf6-9                    # IPv4/IPv6 mismatch
+      - ptf7-0                    # IPv4/IPv6 mismatch
+      - ptf7-1                    # IPv4/IPv6 mismatch
+      - ptf7-2                    # IPv4/IPv6 mismatch
+      - ptf7-3                    # IPv4/IPv6 mismatch
+      - ptf7-4                    # IPv4/IPv6 mismatch
+      - ptf7-5                    # IPv4/IPv6 mismatch
+      - ptf8-0                    # IPv4/IPv6 mismatch
+      - ptf9-0                    # IPv4/IPv6 mismatch
+      - str2-7260cx3-d21-u22      # IPv4/IPv6 mismatch
+      - str3-7060x6-64pe-1        # IPv4/IPv6 mismatch
+      - str3-7800-lc3-2           # IPv4/IPv6 mismatch
+      - str3-7800-lc4-2           # IPv4/IPv6 mismatch
+      - str3-7800-lc5-2           # IPv4/IPv6 mismatch
+      - str3-7800-lc6-2           # IPv4/IPv6 mismatch
+      - str3-7808-sup-2           # IPv4/IPv6 mismatch
+      - str3-acs-serv-76          # IPv4/IPv6 mismatch
+      - str3-t0-8102-smartswitch-01  # IPv4/IPv6 mismatch
+      - str-7250x3b-1             # IPv4/IPv6 mismatch
+      - str-7250x3b-2             # IPv4/IPv6 mismatch
+      - str-7280dr3-1             # IPv4/IPv6 mismatch
+      - str-7280dr3-2             # IPv4/IPv6 mismatch
+      - str-7280dr3-3             # IPv4/IPv6 mismatch
+      - str-7280dr3-4             # IPv4/IPv6 mismatch
+      - str-msn4700-02            # IPv4/IPv6 mismatch
+      - strtk5-4600c-07           # IPv4/IPv6 mismatch
+      - strtk5-4600c-08           # IPv4/IPv6 mismatch
+      - strtk5-7050-02            # IPv4/IPv6 mismatch
+      - strtk5-7050cx3-01         # IPv4/IPv6 mismatch
+      - strtk5-7050cx3-02         # IPv4/IPv6 mismatch
+      - strtk5-7060cx-fanout-01   # IPv4/IPv6 mismatch
+      - strtk5-7060cx-fanout-02   # IPv4/IPv6 mismatch
+      - strtk5-7060cx-fanout-03   # IPv4/IPv6 mismatch
+      - strtk5-7170-azd-01        # IPv4/IPv6 mismatch
+      - strtk5-720dt-01           # IPv4/IPv6 mismatch
+      - strtk5-7215-05            # IPv4/IPv6 mismatch
+      - strtk5-7250-lc1-1         # IPv4/IPv6 mismatch
+      - strtk5-7250-lc2-1         # IPv4/IPv6 mismatch
+      - strtk5-7250-lc3-1         # IPv4/IPv6 mismatch
+      - strtk5-7250-lc4-1         # IPv4/IPv6 mismatch
+      - strtk5-7250-lc5-1         # IPv4/IPv6 mismatch
+      - strtk5-7250-sup-1         # IPv4/IPv6 mismatch
+      - strtk5-7260-01            # IPv4/IPv6 mismatch
+      - strtk5-7260-7             # IPv4/IPv6 mismatch
+      - strtk5-7260cx3-02         # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-02     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-03     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-04     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-05     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-06     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-07     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-08     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-09     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-10     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-11     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-12     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-13     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-14     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-15     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-16     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-17     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-18     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-19     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-20     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-21     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-23     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-24     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-25     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-26     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-27     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-28     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-29     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-30     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-31     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-32     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-33     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-34     # IPv4/IPv6 mismatch
+      - strtk5-7260-fanout-37     # IPv4/IPv6 mismatch
+      - strtk5-7260-root-01       # IPv4/IPv6 mismatch
+      - strtk5-7280cr3-02         # IPv4/IPv6 mismatch
+      - strtk5-7800-lc3-1         # IPv4/IPv6 mismatch
+      - strtk5-7800-lc4-1         # IPv4/IPv6 mismatch
+      - strtk5-7800-lc5-1         # IPv4/IPv6 mismatch
+      - strtk5-7808-sup-1         # IPv4/IPv6 mismatch
+      - strtk5-8101-02            # IPv4/IPv6 mismatch
+      - strtk5-8101-fanout-02     # IPv4/IPv6 mismatch
+      - strtk5-8800-lc1-1         # IPv4/IPv6 mismatch
+      - strtk5-8800-lc2-1         # IPv4/IPv6 mismatch
+      - strtk5-8800-lc3-1         # IPv4/IPv6 mismatch
+      - strtk5-8800-sup-1         # IPv4/IPv6 mismatch
+      - strtk5-a7170-acs-1        # IPv4/IPv6 mismatch
+      - strtk5-dx010-06           # IPv4/IPv6 mismatch
+      - strtk5-dx010-07           # IPv4/IPv6 mismatch
+      - strtk5-dx010-acs-4        # IPv4/IPv6 mismatch
+      - strtk5-dx010-acs-5        # IPv4/IPv6 mismatch
+      - strtk5-e1031-01           # IPv4/IPv6 mismatch
+      - strtk5-e1031-acs-3        # IPv4/IPv6 mismatch
+      - strtk5-e1031-fan-4        # IPv4/IPv6 mismatch
+      - strtk5-e1031-fanout-01    # IPv4/IPv6 mismatch
+      - strtk5-msn2700-01         # IPv4/IPv6 mismatch
+      - strtk5-msn2700-02         # IPv4/IPv6 mismatch
+      - strtk5-msn2700-03         # IPv4/IPv6 mismatch
+      - strtk5-msn2700-04         # IPv4/IPv6 mismatch
+      - strtk5-msn2700-06         # IPv4/IPv6 mismatch
+      - strtk5-msn4600c-acs-02    # IPv4/IPv6 mismatch
+      - strtk5-n3132-acs-1        # IPv4/IPv6 mismatch
+      - strtk5-n3132-acs-2        # IPv4/IPv6 mismatch
+      - strtk5-n3132-acs-3        # IPv4/IPv6 mismatch
+      - strtk5-n3164-01           # IPv4/IPv6 mismatch
+      - strtk5-n3164-03           # IPv4/IPv6 mismatch
+      - strtk5-n3164-04           # IPv4/IPv6 mismatch
+      - strtk5-n3164-acs-2        # IPv4/IPv6 mismatch
+      - strtk5-s6000-02           # IPv4/IPv6 mismatch
+      - strtk5-s6000-06           # IPv4/IPv6 mismatch
+      - strtk5-s6000-07           # IPv4/IPv6 mismatch
+      - strtk5-s6000-08           # IPv4/IPv6 mismatch
+      - strtk5-s6000-09           # IPv4/IPv6 mismatch
+      - strtk5-s6000-12           # IPv4/IPv6 mismatch
+      - strtk5-s6000-14           # IPv4/IPv6 mismatch
+      - strtk5-s6100-acs-2        # IPv4/IPv6 mismatch
+      - strtk5-s6100-acs-4        # IPv4/IPv6 mismatch
+      - strtk5-s6100-acs-5        # IPv4/IPv6 mismatch
+      - strtk5-serv-01            # IPv4/IPv6 mismatch
+      - strtk5-serv-02            # IPv4/IPv6 mismatch
+      - strtk5-serv-03            # IPv4/IPv6 mismatch
+      - strtk5-serv-04            # IPv4/IPv6 mismatch
+      - strtk5-serv-05            # IPv4/IPv6 mismatch
+      - strtk5-serv-06            # IPv4/IPv6 mismatch
+      - strtk5-serv-07            # IPv4/IPv6 mismatch
+      - strtk5-serv-08            # IPv4/IPv6 mismatch
+      - strtk5-serv-09            # IPv4/IPv6 mismatch
+      - strtk5-serv-10            # IPv4/IPv6 mismatch
+      - strtk5-sn3800-01          # IPv4/IPv6 mismatch
+      - strtk5-z9332f-01          # IPv4/IPv6 mismatch
+      - strtk5-z9332f-04          # IPv4/IPv6 mismatch
+      - svc1-5                    # IPv4/IPv6 mismatch
+      - svc1-6                    # IPv4/IPv6 mismatch
+      - svc1-8                    # IPv4/IPv6 mismatch
+      - svc1-9                    # IPv4/IPv6 mismatch
+      - svcstr-7250x3b-1          # IPv4/IPv6 mismatch
+      - svcstr-7250x3b-2          # IPv4/IPv6 mismatch
+      - svcstr-7280dr3-1          # IPv4/IPv6 mismatch
+      - svcstr-7280dr3-2          # IPv4/IPv6 mismatch
+      - svcstr-z9332f-01          # IPv4/IPv6 mismatch
+      - svcstr-z9332f-02          # IPv4/IPv6 mismatch
+      - vms12-3                   # IPv4/IPv6 mismatch
+      - vms12-4                   # IPv4/IPv6 mismatch
+      - vms18-4                   # IPv4/IPv6 mismatch
+      - vms66-8                   # IPv4/IPv6 mismatch
+      - vms76-2                   # IPv4/IPv6 mismatch
+- name: vlan
+  enabled: true
+  config:
+    exclude_groups:
+      # Exclude TGEN related groups, because they have special VLAN settings
+      - .*ixia.*
+      - .*snappi.*
+      # E7003/E7007 VLAN issues - exclude groups with problematic devices
+      - str2         # str2-7260cx3-acs-root02 has VLAN duplicate issues
+      - str3         # str3-7260cx3-acs-root03 has multiple VLAN duplicate issues
+      - str4         # str4-7060x6-pe64-root has VLAN duplicate issues  
+      - str5         # str5-7260cx3-acs-root has multiple VLAN duplicate issues
+      - strsvc2      # svcstr2-7260cx3-acs-1 has VLAN duplicate issues
+      - bjw2         # bjw2-can-7260-* devices have invalid VLAN ranges and duplicates
+    min_vlan_id: 1
+    max_vlan_id: 4096
+- name: console
+  enabled: true
+  config:
+    exclude_devices:
+      # E3005 console port conflicts - exclude one device from each conflicting pair
+      - str2-8800-sup-3           # conflicts with str2-8800-sup-2 on console-194:27
+      - str3-8101-fanout-04       # conflicts with str3-7260cx3-acs-fan-04 on console-197:38
+      - str3-8800-sup-2           # conflicts with str3-8800-sup-1 on console-212:29
+      - str3-8102-07              # conflicts with str2-7260cx3-acs-12 on console-197:34
+      - str4-7060x6-pe64-root     # conflicts with str3-8101-fanout-25 on console-179:24
+      - str4-7060x6-64pe-2        # conflicts with str3-7060x6-64pe-fan-2 on console-196:32
+      - str4-7060x6-64pe-fan-11   # conflicts with str2-7050qx-32s-acs-02 on console-199:32
+      - str4-7060x6-512-8         # conflicts with str4-7060x6-64pe-fan-4 on console-212:39
+      - str5-sn5640-fan-1         # conflicts with str2-8800-sup-2 on console-194:27
+      - str3-7808-sup-2           # duplicate device conflicts on console-179:29
+      - str-sn5640-stress-t0-3    # conflicts with str2-7050cx3-acs-14 on console-194:13
+      - str2-7804-sup-1           # duplicate device conflicts on console-199:49
+      # E3007 invalid console server devices - all strtk5 devices pointing to non-existent servers
+      - strtk5-.*                 # all strtk5 devices have invalid console servers
+- name: pdu
+  enabled: true
+  config:
+    exclude_devices:
+      # Exclude moby switches because they are using power bus not PDU
+      - .*moby.*
+      # E4007 PDU port conflicts - exclude one device from each conflicting pair
+      - str2-msn4700-fanout-05    # conflicts with str2-msn4700-06 on pdu-105:33
+      - str2-8102-02              # conflicts with str2-7260cx3-acs-fan-22 on pdu-122:15
+      - str3-8800-sup-2           # conflicts with str3-8800-sup-1 on pdu-121:31
+      - str2-8800-sup-3           # conflicts with str2-8800-sup-2 on pdu-121:31
+      - str4-7060x6-64pe-fan-5    # conflicts with str4-7060x6-64pe-fan-4 on pdu-121:35
+      - str2-bluefield-host-01    # conflicts with str2-bluefield-01 on pdu-119:5
+      - str3-8101-fanout-04       # conflicts with str3-7260cx3-acs-fan-04 on pdu-119:3
+      - str4-7060x6-64pe-2        # conflicts with str3-7060x6-64pe-fan-2 on pdu-119:3
+      - str3-8101-fanout-25       # conflicts with str4-7060x6-pe64-root on pdu-121:33
+      - str2-7050qx-32s-acs-02    # conflicts with str4-7060x6-64pe-fan-11 on pdu-119:5
+      - str4-7060x6-512-8         # conflicts with str4-7060x6-64pe-fan-4 on pdu-121:35
+      - str5-msn4700-08           # conflicts with str4-7060x6-64pe-11 on pdu-119:5
+      - str2-7804-sup-1           # device with internal PSU conflicts
+      - str2-7250-sup-1           # device with internal PSU conflicts
+      - str-sn5640-stress-t0-1    # conflicts with str2-z9332f-02 on pdu-110:25
+      - strtk5-7260-fanout-07     # conflicts with str-sn5600-I11-U02 on pdu-229:24
+      - strtk5-7260-fanout-08     # conflicts with str-sn5600-I11-U13 on pdu-228:16
+      - strtk5-msn2700-06         # conflicts with str-sn5600-I11-U13 on pdu-229:16
+      - strtk5-n3132-acs-3        # conflicts with str-sn5600-I11-U04 on pdu-230:24
+      - strtk5-s6000-08           # conflicts with str-sn5600-I11-U04 on pdu-228:24
+      - strtk5-a7170-acs-1        # conflicts with str-sn5600-I11-U02 on pdu-231:24
+      - strtk5-7050cx3-02         # conflicts with strtk5-7260-fanout-21 on pdu-231:19
+      - str2-bluefield-host-02    # conflicts with str2-bluefield-02
+      - str3-8101-fanout-28       # conflicts with str3-7260cx3-acs-fan-03
+      - str3-7260cx3-acs-1        # conflicts with str3-msn4600c-acs-06
+      - str3-7060x6-64pe-6        # conflicts with str-7260-24
+      - str3-8122-fanout-01       # conflicts with str3-7060x6-64pe-3
+      - str4-7060x6-64pe-fan-2    # conflicts with str-7260-24
+      - str4-7060x6-64pe-fan-13   # conflicts with str2-7050cx3-acs-07
+      - str4-7060x6-64pe-10       # conflicts with str2-7260cx3-64-19
+      - str4-7060x6-512-2         # conflicts with str4-7060x6-64pe-11
+      - svcstr-7260cx3-acs-11     # conflicts with str2-7260cx3-acs-fan-07 and str2-7060cx-32s-29
+      - svcstr-z9332f-01          # conflicts with svcstr-7260cx3-acs-5
+      - svcstr-n3164-acs-2        # conflicts with str2-7050cx3-acs-12
+      - svcstr-7250x3b-2          # conflicts with str3-msn4700-11
+      - svcstr2-8800-sup-1        # conflicts with str3-8800-sup-1
+      - str2-7250-sup-2           # device with internal PSU conflicts
+      - str3-7808-sup-2           # device with internal PSU conflicts (different from earlier)
+      - str2-7260cx3-d10-u21      # device with internal PSU conflicts
+issue_severities:
+  E2005: error   # Enable IPv4 IPv6 conflict issue
+  E3002: info    # Ignore missing console issue
+  E4002: info    # Ignore missing PDU issue
