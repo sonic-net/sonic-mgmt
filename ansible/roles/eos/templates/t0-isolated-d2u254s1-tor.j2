@@ -1,9 +1,9 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
-{% set mgmt_if_index = 0 %}
+    {% set mgmt_if_index = 0 %}
 {% else %}
-{% set mgmt_if_index = 1 %}
+    {% set mgmt_if_index = 1 %}
 {% endif %}
 no schedule tech-support
 !
@@ -99,17 +99,17 @@ router bgp {{ host['bgp']['asn'] }}
  graceful-restart
  !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
-{% for remote_ip in remote_ips %}
+    {% for remote_ip in remote_ips %}
  router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
  neighbor {{ remote_ip }} next-hop-self
-{% if remote_ip | ipv6 %}
+        {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
  exit
-{% endif %}
-{% endfor %}
+        {% endif %}
+    {% endfor %}
 {% endfor %}
 {% if props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
@@ -124,12 +124,12 @@ router bgp {{ host['bgp']['asn'] }}
 {% endif %}
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
-{% if iface['ipv4'] is defined %}
+    {% if iface['ipv4'] is defined %}
  network {{ iface['ipv4'] }}
-{% endif %}
-{% if iface['ipv6'] is defined %}
+    {% endif %}
+    {% if iface['ipv6'] is defined %}
  network {{ iface['ipv6'] }}
-{% endif %}
+    {% endif %}
 {% endfor %}
 !
 management api http-commands
