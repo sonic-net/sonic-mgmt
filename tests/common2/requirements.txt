@@ -14,7 +14,7 @@ pyenchant>=3.2.0
 black>=22.0.0
 mypy>=1.0.0
 isort>=6.0.1
-flake8>=5.0.0
+flake8==6.0.0
 
 # Type stubs for better mypy support
 types-PyYAML
@@ -36,7 +36,6 @@ pysnmp
 
 # Data processing and templating
 jinja2
-yaml
 PyYAML
 
 # Text processing and parsing
@@ -48,8 +47,8 @@ natsort
 pexpect
 ansible
 
-# Reporting
-allure-commons
+# Reporting (allure-pytest includes allure-commons)
+allure-pytest
 
 # Coverage tools
 coverage>=6.0.0

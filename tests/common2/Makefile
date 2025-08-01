@@ -3,7 +3,7 @@
 # Configuration
 PYTHON := python3
 MIN_COVERAGE := 80
-COVERAGE_SOURCES := $(filter-out check_coverage.py,$(wildcard *.py))
+COVERAGE_SOURCES := $(filter-out check_coverage.py test_%.py,$(wildcard *.py))
 COVERAGE_TARGETS := $(patsubst %.py,%,$(COVERAGE_SOURCES))
 
 .PHONY: help test test-verbose test-coverage test-coverage-enforced coverage-report coverage-check coverage-enforce clean list-modules set-min-coverage test-bgp

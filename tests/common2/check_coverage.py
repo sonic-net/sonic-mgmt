@@ -48,7 +48,12 @@ def get_all_modules() -> List[str]:
     excluded_files = {"check_coverage.py", "setup.py", "conftest.py"}
 
     for file in os.listdir("."):
-        if file.endswith(".py") and not file.startswith("_") and file not in excluded_files:
+        if (
+            file.endswith(".py")
+            and not file.startswith("_")
+            and not file.startswith("test_")
+            and file not in excluded_files
+        ):
             modules.append(file[:-3])  # Remove Python extension
     return modules
 
@@ -81,7 +86,7 @@ def check_coverage(modules: List[str], min_coverage: float) -> bool:
 
     for module, coverage_pct, passed in results:
         status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"{module:<25} {coverage_pct:>6.1f}%  {status}")
+        print(f"{module:<25} {coverage_pct:>6.1f}% {status}")
 
     print("=" * 50)
 
