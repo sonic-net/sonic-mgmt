@@ -688,3 +688,19 @@ def verify_queue_and_priority_grp_counters(node, port, watermark_type, param_lis
         result = False
         st.log("No queue counter entry found for port {} for {} type {}".format(port, priority_group, watermark_type))
     return result
+
+def show_cmd_to_dict(dut, cmd):
+    """
+    Helper to run a show command and parse its JSON output.
+    Returns parsed dictionary or None if output is malformed.
+    """
+    out_str = st.show(dut, 'show ' + cmd + ' -j', skip_tmpl=True)
+    idx = out_str.rfind('}')
+    if idx == -1:
+        st.error("show cmd {} returned malformed string {}".format(cmd, out_str))
+        return None
+
+    # This is to handle cli inconsistency. 'config scheduler' expects 
+    # meter-type but 'show schedule -j' returns meter_type
+    out_str = out_str[:idx + 1].replace('meter_type', 'meter-type')
+    return json.loads(out_str)
