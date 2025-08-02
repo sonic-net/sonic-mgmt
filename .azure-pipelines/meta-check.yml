@@ -1,6 +1,6 @@
 steps:
 - script: |
-    pip3 install natsort
+    pip3 install ipaddr natsort
 
     python3 ./ansible/scripts/meta/meta_validator.py -r errors -c .azure-pipelines/meta_validator.yml
     if [[ $? -ne 0 ]]; then
