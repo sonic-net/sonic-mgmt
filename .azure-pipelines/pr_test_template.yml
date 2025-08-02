@@ -1,4 +1,12 @@
 parameters:
+- name: BUILD_REASON
+  type: string
+  default: "PullRequest"
+
+- name: TIMEOUT_IN_MINUTES_PR_TEST
+  type: number
+  default: 480
+
 - name: TEST_PLAN_NUM
   type: string
   default: "1"
@@ -72,7 +80,7 @@ jobs:
       COMMON_EXTRA_PARAMS: "--disable_sai_validation "
       DEPLOY_MG_EXTRA_PARAMS: ""
       SPECIFIC_PARAM: "[]"
-    timeoutInMinutes: 300
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -91,10 +99,10 @@ jobs:
           COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-          BUILD_REASON: "BaselineTest"
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: "0"
           STOP_ON_FAILURE: "False"
-          TEST_PLAN_NUM: $(parameters.TEST_PLAN_NUM)
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)

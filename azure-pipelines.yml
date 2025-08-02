@@ -37,10 +37,6 @@ resources:
       ref: master
       endpoint: sonic-net
 
-parameters:
-- name: TIMEOUT_IN_MINUTES_PR_TEST
-  type: number
-  default: 480
 
 stages:
 - template: /.azure-pipelines/common2/stages/analyze-code.yml
@@ -94,8 +90,6 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
-  - name: TEST_PLAN_NUM
-    value: "1"
 
   jobs:
   - template: .azure-pipelines/pr_test_template.yml

@@ -11,10 +11,15 @@ schedules:
         - master
     always: true
 
-stages:
+parameters:
+  - name: BUILD_REASON
+    type: string
+    default: "BaselineTest"
+  - name: TEST_PLAN_NUM
+    type: string
+    default: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
-- stage: Test_round_1
-  variables:
+variables:
   - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
@@ -25,8 +30,10 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
-  - name: TEST_PLAN_NUM
-    value: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+stages:
+
+- stage: Test_round_1
   jobs:
   - template: ../pr_test_template.yml
 
@@ -34,19 +41,6 @@ stages:
   dependsOn:
   - Test_round_1
   condition: succeededOrFailed('Test_round_1')
-  variables:
-  - group: SONiC-Elastictest
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
-  - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      value: $(System.PullRequest.TargetBranch)
-    ${{ else }}:
-      value: $(Build.SourceBranchName)
-  - name: TEST_PLAN_NUM
-    value: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
   jobs:
   - template: ../pr_test_template.yml
 
@@ -54,19 +48,6 @@ stages:
   dependsOn:
   - Test_round_2
   condition: succeededOrFailed('Test_round_2')
-  variables:
-  - group: SONiC-Elastictest
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
-  - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      value: $(System.PullRequest.TargetBranch)
-    ${{ else }}:
-      value: $(Build.SourceBranchName)
-  - name: TEST_PLAN_NUM
-    value: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
   jobs:
   - template: ../pr_test_template.yml
 
@@ -74,18 +55,5 @@ stages:
   dependsOn:
   - Test_round_3
   condition: succeededOrFailed('Test_round_3')
-  variables:
-  - group: SONiC-Elastictest
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
-  - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      value: $(System.PullRequest.TargetBranch)
-    ${{ else }}:
-      value: $(Build.SourceBranchName)
-  - name: TEST_PLAN_NUM
-    value: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
   jobs:
   - template: ../pr_test_template.yml
