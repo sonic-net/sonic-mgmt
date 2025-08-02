@@ -479,6 +479,90 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
 
+
+    @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
+    def testQosSaiPfcXoffLimitRefactor(
+        self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer
+    ):
+        # NOTE: this test will be skipped for t2 cisco 8800 if it's not xoff_1 or xoff_2
+        """
+            Test QoS SAI XOFF limits
+
+            Args:
+                xoffProfile (pytest parameter): XOFF profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+                egressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+                set_static_route (Fixture): Setup the static route if the src
+                                            and dst ASICs are different.
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        normal_profile = ["xoff_1", "xoff_2"]
+        if not dutConfig["dualTor"] and xoffProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({
+            "dscp": qosConfig[xoffProfile]["dscp"],
+            "ecn": qosConfig[xoffProfile]["ecn"],
+            "pg": qosConfig[xoffProfile]["pg"],
+            "buffer_max_size": ingressLosslessProfile["size"],
+            "queue_max_size": egressLosslessProfile["static_th"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+            "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
+            "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
+            "hwsku": dutTestParams['hwsku'],
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_margin" in list(qosConfig[xoffProfile].keys()):
+            testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
+
+        if "packet_size" in list(qosConfig[xoffProfile].keys()):
+            testParams["packet_size"] = qosConfig[xoffProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[xoffProfile].keys()):
+            testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
+
+        self.runPtfTest(
+            ptfhost, testCase="testcase_qos_pfctest.PFCtest", testParams=testParams, test_subdir='refactor'
+        )
+
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,              # noqa: F811
