@@ -27,30 +27,30 @@ jobs:
     dependsOn: get_impacted_area
     strategy:
       matrix:
-        impacted-area-kvmtest-t0:
+        impacted-area-kvmtest-t0_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0
           CHECKER: t0_checker
           TOPOLOGY: t0
-        impacted-area-kvmtest-t0-2vlans:
+        impacted-area-kvmtest-t0-2vlans_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
           TOPOLOGY: t0
-        impacted-area-kvmtest-t1-lag:
+        impacted-area-kvmtest-t1-lag_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-lag
-        impacted-area-kvmtest-dualtor:
+        impacted-area-kvmtest-dualtor_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dualtor
           CHECKER: dualtor_checker
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
           TOPOLOGY: dualtor
-        impacted-area-kvmtest-multi-asic-t1:
+        impacted-area-kvmtest-multi-asic-t1_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
           CHECKER: t1-multi-asic_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
-        impacted-area-kvmtest-t0-sonic:
+        impacted-area-kvmtest-t0-sonic_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
@@ -60,14 +60,14 @@ jobs:
             {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
             {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
-        impacted-area-kvmtest-dpu:
+        impacted-area-kvmtest-dpu_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dpu
           CHECKER: dpu_checker
           TOPOLOGY: dpu
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-        impacted-area-kvmtest-t2:
+        impacted-area-kvmtest-t2_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t2
           CHECKER: t2_checker
           TOPOLOGY: t2
