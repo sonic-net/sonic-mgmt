@@ -96,7 +96,7 @@ class TestBed(object):
         self.duts = raw_dict.get("duts", raw_dict.get("dut", []))
 
         # Create a PTF node object
-        if "ptf" in raw_dict:
+        if "ptf" in raw_dict and raw_dict["ptf"]:
             self.ptf_node = DeviceInfo(
                 hostname=self.ptf,
                 management_ip=self.ptf_ip.split("/")[0],
