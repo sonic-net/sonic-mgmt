@@ -137,15 +137,14 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
     masked_exp_packet = Mask(exp_vxlan_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
-    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     if floating_nic:
+        # As destination IP is not fixed in case of return path ECMP,
+        # we need to mask the checksum and destination IP
+        masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
         masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
     # 34 is the sport offset, 2 is the length of UDP sport field
     masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
-    # mask the UDP payload TODO: need further triage on why the payload is being modified
-    # Not a platform specific issue, but a problem with the PTF
-    masked_exp_packet.set_do_not_care(8 * (90), 8 * (40))
 
     return gre_packet, masked_exp_packet
 
