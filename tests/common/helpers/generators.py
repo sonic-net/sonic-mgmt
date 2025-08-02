@@ -1,5 +1,6 @@
 from netaddr import IPNetwork
 import json
+from tests.common.utilities import is_ipv4_address
 
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
@@ -31,7 +32,8 @@ def route_through_default_routes(host, ip_addr):
     @param ip_addr: The ip address to check
     @return: True if the given up goes to default route, False otherwise
     """
-    output = host.shell("show ip route {} json".format(ip_addr))['stdout']
+    ip_ver = "ip" if is_ipv4_address(ip_addr) else "ipv6"
+    output = host.shell("show {} route {} json".format(ip_ver, ip_addr))['stdout']
     routes_info = json.loads(output)
     ret = True
 
