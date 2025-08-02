@@ -15,6 +15,7 @@ parameters:
   - name: BUILD_REASON
     type: string
     default: "BaselineTest"
+
   - name: TEST_PLAN_NUM
     type: string
     default: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -30,6 +31,8 @@ variables:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
+  - name: TEST_PLAN_STOP_ON_FAILURE
+    value: "False"
 
 stages:
 
