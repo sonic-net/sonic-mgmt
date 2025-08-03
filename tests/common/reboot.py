@@ -670,8 +670,6 @@ def collect_console_log(duthost, localhost, timeout):
     if dut_console:
         if dut_console:
             logger.info("start: collect console log")
-            logger.info(f"sleep {timeout} to collect console log....")
-            time.sleep(timeout)
             return dut_console
     else:
         logger.warning("dut console is not ready, we cannot get log by console")
