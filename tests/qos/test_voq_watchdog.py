@@ -86,6 +86,7 @@ class TestVoqWatchdog(QosSaiBase):
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
                 "dscp": 8,
+                "queue_idx": 0,
                 "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
                 "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
                 "src_port_id": dutConfig["testPorts"]["src_port_id"],
@@ -94,6 +95,8 @@ class TestVoqWatchdog(QosSaiBase):
                 "packet_size": 1350,
                 "pkts_num": PKTS_NUM,
                 "voq_watchdog_enabled": voq_watchdog_enabled,
+                "dutInterfaces": dutConfig["dutInterfaces"],
+                "testPorts": dutConfig["testPorts"],
             })
 
             self.runPtfTest(
