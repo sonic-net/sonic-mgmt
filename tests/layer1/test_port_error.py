@@ -5,7 +5,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos, get_available_optical_interfaces
 from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 from tests.common.utilities import wait_until
 
@@ -58,7 +58,7 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, collected_ports_num):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         sfp_presence = dut.command(cmd_sfp_presence)
@@ -67,26 +67,13 @@ class TestMACFault(object):
         eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
-        available_optical_interfaces = []
-        for port_name, eeprom_info in eeprom_infos.items():
-            if parsed_presence.get(port_name) == "Present" and \
-                    "SFP EEPROM detected" in eeprom_info[port_name] \
-                    and "COPPER" not in eeprom_info.get("Media Interface Technology", "COPPER").upper():
-                try:
-                    is_cmis_supported = float(eeprom_info.get("CMIS Revision", "0")) >= 5.0
-                except ValueError:
-                    is_cmis_supported = False
-
-                if not is_cmis_supported:
-                    logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
-                    continue
-                available_optical_interfaces.append(port_name)
+        available_optical_interfaces = get_available_optical_interfaces(eeprom_infos, parsed_presence)
 
         pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
         logging.info("Available Optical interfaces for tests: {}".format(available_optical_interfaces))
 
         # Select 5 random interfaces (or fewer if not enough available)
-        selected_interfaces = random.sample(available_optical_interfaces, min(5, len(available_optical_interfaces)))
+        selected_interfaces = random.sample(available_optical_interfaces, min(collected_ports_num, len(available_optical_interfaces)))
         logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
 
         return dut, selected_interfaces
@@ -100,8 +87,8 @@ class TestMACFault(object):
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
                      "Interface {} did not come up after startup".format(interface))
 
-    def test_mac_local_fault_increment(self, select_random_interfaces):
-        dut, interfaces = select_random_interfaces
+    def test_mac_local_fault_increment(self, select_random_interfaces, collected_ports_num=5):
+        dut, interfaces = select_random_interfaces(collected_ports_num=collected_ports_num)
 
         for interface in interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
@@ -131,8 +118,8 @@ class TestMACFault(object):
             pytest_assert(local_fault_after > local_fault_before,
                           "MAC local fault count did not increment after disabling/enabling rx-output on the device")
 
-    def test_mac_remote_fault_increment(self, select_random_interfaces):
-        dut, interfaces = select_random_interfaces
+    def test_mac_remote_fault_increment(self, select_random_interfaces, collected_ports_num=5):
+        dut, interfaces = select_random_interfaces(collected_ports_num=collected_ports_num)
 
         for interface in interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
