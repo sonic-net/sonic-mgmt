@@ -35,7 +35,7 @@ def collected_ports_num(request):
     """
     Fixture to get the number of ports to collect from command line argument
     """
-    return request.config.getoption("--collected-ports-num")
+    return request.config.getoption("collected_ports_num", default=DEFAULT_COLLECTED_PORTS_NUM)
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
