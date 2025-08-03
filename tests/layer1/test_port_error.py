@@ -86,7 +86,7 @@ class TestMACFault(object):
         eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
-        available_optical_interfaces = get_available_optical_interfaces(eeprom_infos, parsed_presence)
+        available_optical_interfaces = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence)
 
         pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
         logging.info("Available Optical interfaces for tests: {}".format(available_optical_interfaces))
