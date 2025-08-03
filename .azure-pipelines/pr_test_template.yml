@@ -7,6 +7,10 @@ parameters:
   type: number
   default: 480
 
+- name: MAX_RUN_TEST_MINUTES
+  type: number
+  default: 240
+
 - name: TEST_PLAN_NUM
   type: string
   default: "1"
@@ -14,6 +18,10 @@ parameters:
 - name: TEST_PLAN_STOP_ON_FAILURE
   type: string
   default: "True"
+
+- name: RETRY_TIMES
+  type: string
+  default: "2"
 
 jobs:
   - job: get_impacted_area
@@ -112,10 +120,10 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: "0"
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: $(STOP_ON_FAILURE)
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)
-          MAX_RUN_TEST_MINUTES: 240
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
