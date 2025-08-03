@@ -9,9 +9,11 @@ import copy
 import logging
 import json
 import re
+import os
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -222,6 +224,34 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(gold_config_db, indent=4)
 
+    def apply_hwsku_config_to_golden_db(self, hwsku, ori_config_db, hwsku_config, smartswitch_hwsku_config):
+        """
+        Apply the HWSKU specific configuration to the golden config DB.
+
+        Args:
+            hwsku (str): Hardware SKU name
+            ori_config_db (dict): Original config DB to modify
+            hwsku_config (dict): Per-HWSKU configuration data
+            smartswitch_hwsku_config (dict): Full HWSKU configuration mapping
+        """
+        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+            if "interface_key" in hwsku_config:
+                interface_key = hwsku_config["interface_key"].format(hwsku_config["base"] + i * hwsku_config["step"], i)
+
+            if port_key in ori_config_db["PORT"]:
+                ori_config_db["PORT"][port_key]["admin_status"] = "down"
+                ori_config_db["PORT"][port_key]["role"] = "Dpc"
+                if "interface_key" in hwsku_config:
+                    ori_config_db["INTERFACE"][port_key] = {}
+                    ori_config_db["INTERFACE"][interface_key] = {}
+
+            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "down"}
+        return ori_config_db
+
     def generate_smartswitch_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -231,18 +261,48 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db = json.loads(out)
         if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
             return "{}"
-
         ori_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "SmartSwitch"
+        hwsku = ori_config_db["DEVICE_METADATA"]["localhost"].get("hwsku", None)
+        platform = ori_config_db["DEVICE_METADATA"]["localhost"].get("platform", None)
+
+        if "FEATURE" not in ori_config_db \
+                or "dhcp_relay" not in ori_config_db["FEATURE"]:
+            return "{}"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "disabled"
+
+        # Generate INTERFACE table for backplane interfaces
+        if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
+            return "{}"
+
+        if hwsku not in smartswitch_hwsku_config:
+            return "{}"
+
+        if "CHASSIS_MODULE" not in ori_config_db:
+            ori_config_db["CHASSIS_MODULE"] = {}
+            skudir = "/usr/share/sonic/device/{}/{}/".format(platform, hwsku)
+            config_file_path = os.path.join(skudir, "config_db.json")
+            if os.path.exists(config_file_path):
+                with open(config_file_path, "r") as f:
+                    config_data = json.load(f)
+                if "CHASSIS_MODULE" in config_data:
+                    ori_config_db["CHASSIS_MODULE"].update(config_data["CHASSIS_MODULE"])
+        hwsku_config = smartswitch_hwsku_config[hwsku]
+        dpu_num = len(ori_config_db["CHASSIS_MODULE"].keys())
+        smartswitch_hwsku_config[hwsku]['dpu_num'] = int(format(dpu_num))
+        ori_config_db = self.apply_hwsku_config_to_golden_db(
+                                                            hwsku,
+                                                            ori_config_db,
+                                                            hwsku_config,
+                                                            smartswitch_hwsku_config)
+
         gold_config_db = {
-            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"])
+            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
+            "PORT": copy.deepcopy(ori_config_db["PORT"]),
+            "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
         }
 
-        # Generate dhcp_server related configuration
-        rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        if rc != 0:
-            self.module.fail_json(msg="Failed to get smartswitch config: {}".format(err))
-        smartswitch_config_obj = json.loads(out)
-        gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
     def generate(self):
@@ -251,7 +311,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
             module_msg = module_msg + " for mgfx"
-        elif self.topo_name == "t1-28-lag":
+        elif self.topo_name in ["t1-28-lag", "t1-48-lag", "t0-28"]:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
         elif self.hwsku and is_full_lossy_hwsku(self.hwsku):

@@ -29,6 +29,7 @@ r, ".* WARNING syncd\d*#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss\d*#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
 r, ".* ERR syncd\d*#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
+r, ".* ERR kernel: .*leaba_module_device .*: .*: leaba_hostif_get_by_port: Port gid out of range port_gid=.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
@@ -342,6 +343,8 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 
 # Ignore auditd error
 r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Interrupted system call"
+r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport endpoint is not connected"
 
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
