@@ -16,7 +16,26 @@ pytestmark = [
 
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
+DEFAULT_COLLECTED_PORTS_NUM = 5
 
+def pytest_addoption(parser):
+    """
+    Add command line options for pytest
+    """
+    parser.addoption(
+        "--collected-ports-num",
+        action="store",
+        default=DEFAULT_COLLECTED_PORTS_NUM,
+        type=int,
+        help="Number of ports to collect for testing (default: {})".format(DEFAULT_COLLECTED_PORTS_NUM)
+    )
+
+@pytest.fixture(scope="session")
+def collected_ports_num(request):
+    """
+    Fixture to get the number of ports to collect from command line argument
+    """
+    return request.config.getoption("--collected-ports-num")
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
@@ -87,8 +106,8 @@ class TestMACFault(object):
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
                      "Interface {} did not come up after startup".format(interface))
 
-    def test_mac_local_fault_increment(self, select_random_interfaces, collected_ports_num=5):
-        dut, interfaces = select_random_interfaces(collected_ports_num=collected_ports_num)
+    def test_mac_local_fault_increment(self, select_random_interfaces):
+        dut, interfaces = select_random_interfaces
 
         for interface in interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
@@ -118,8 +137,8 @@ class TestMACFault(object):
             pytest_assert(local_fault_after > local_fault_before,
                           "MAC local fault count did not increment after disabling/enabling rx-output on the device")
 
-    def test_mac_remote_fault_increment(self, select_random_interfaces, collected_ports_num=5):
-        dut, interfaces = select_random_interfaces(collected_ports_num=collected_ports_num)
+    def test_mac_remote_fault_increment(self, select_random_interfaces):
+        dut, interfaces = select_random_interfaces
 
         for interface in interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
