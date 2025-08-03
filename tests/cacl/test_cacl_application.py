@@ -580,11 +580,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         rules_to_expect_for_dualtor = [
                                        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
                                        "-A DHCP -j RETURN",
-                                       "-I INPUT 1 -d 10.1.0.34 -p tcp --dport 179 -j DROP",
-                                       " ip6tables -I INPUT 1 -d fc00:1:0:34:: -p tcp --dport 179 -j DROP",
+                                       "-A INPUT -d 10.1.0.34/32 -p tcp -m tcp --dport 179 -j DROP",
                                        "-N DHCP"
                                       ]
         iptables_rules.extend(rules_to_expect_for_dualtor)
+        ip6tables_rules.append("-A INPUT -d fc00:1:0:34::/128 -p tcp -m tcp --dport 179 -j DROP")
 
     # On standby tor, it has expected dhcp mark iptables rules.
     if expected_dhcp_rules_for_standby:
@@ -594,8 +594,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
-    iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
+    iptables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
 
     extra_rule_branches = ['201911', '202012', '202111']
     if any(branch in duthost.os_version for branch in extra_rule_branches):

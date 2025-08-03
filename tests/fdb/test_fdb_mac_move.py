@@ -125,14 +125,20 @@ def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, 
     for loop_time in range(0, loop_times):
         port_index_start = (0 + loop_time) % len(port_list)
 
-        for (port, dummy_mac_set) in zip(list(range(len(port_list))), dummy_mac_list):
-            port_index = (port_index_start + port) % len(port_list)
+        # Use actual port numbers from port_list instead of calculating indices
+        for i in range(len(port_list)):
+            port_index = port_list[(port_index_start + i) % len(port_list)]
+            dummy_mac_set = dummy_mac_list[(port_index_start + i) % len(port_list)]
             for dummy_mac in dummy_mac_set:
                 send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
 
         time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) > vlan_member_count),
-                      "FDB Table Add failed")
+        pytest_assert(
+            wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) > vlan_member_count),
+            (
+                "FDB Table Add failed. Expected FDB dynamic MAC count to be greater than {}."
+            ).format(vlan_member_count)
+        )
         # Flush dataplane
         ptfadapter.dataplane.flush()
         time.sleep(10)
