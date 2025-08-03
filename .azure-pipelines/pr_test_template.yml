@@ -63,7 +63,7 @@ jobs:
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
         impacted-area-kvmtest-multi-asic-t1_by_Elastictest_optional:
-          TESTBED_PREP_TOPOLOGY: t1-multi-asic
+          TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
@@ -85,7 +85,7 @@ jobs:
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-        impacted-area-kvmtest-t2_by_Elastictest:
+        impacted-area-kvmtest-t2_by_Elastictest_optional:
           TESTBED_PREP_TOPOLOGY: t2
           CHECKER: t2_checker
           TOPOLOGY: t2
