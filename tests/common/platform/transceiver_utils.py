@@ -494,7 +494,7 @@ def is_cmis_version_supported(cmis_version, min_required_version=5.0):
         return False
 
 
-def get_available_optical_interfaces(eeprom_infos, parsed_presence, min_cmis_version=5.0):
+def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence, min_cmis_version=5.0):
     """
     Filter available optical interfaces based on presence, EEPROM detection, media type, and CMIS version support
     @param: eeprom_infos: Dictionary containing EEPROM information for each port
