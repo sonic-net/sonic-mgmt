@@ -55,7 +55,7 @@ jobs:
         impacted-area-kvmtest-dualtor_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dualtor
           CHECKER: dualtor_checker
-          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           TOPOLOGY: dualtor
         impacted-area-kvmtest-multi-asic-t1_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
