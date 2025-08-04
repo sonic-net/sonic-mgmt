@@ -12,6 +12,7 @@ from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
+from .everflow_test_utilities import CONFIG_MODE_CLI, CONFIG_MODE_GCU
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
@@ -143,6 +144,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo,
                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
@@ -251,6 +253,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
             setup_info[dest_port_type]["remote_namespace"]))
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
                                           dest_port_type, ptfadapter, tbinfo,
                                           toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
@@ -327,6 +330,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             erspan_ip_ver=erspan_ip_ver
         )
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
                                                   dest_port_type, ptfadapter, tbinfo,
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
@@ -426,6 +430,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             erspan_ip_ver=erspan_ip_ver
         )
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
                                                 dest_port_type, ptfadapter, tbinfo,
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
@@ -540,6 +545,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             erspan_ip_ver=erspan_ip_ver
         )
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_dscp_with_policer(
             self,
             setup_info,                                         # noqa F811
@@ -667,6 +673,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_utils.remove_route(everflow_dut, self.DEFAULT_DST_IP + "/32", default_traffic_peer_ip,
                                         setup_info[default_tarffic_port_type]["remote_namespace"])
 
+    @pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
     def test_everflow_frwd_with_bkg_trf(self,
                                         setup_info,  # noqa F811
                                         setup_mirror_session,

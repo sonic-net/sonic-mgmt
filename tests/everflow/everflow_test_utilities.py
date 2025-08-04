@@ -20,12 +20,15 @@ from tests.common.utilities import wait_until, check_msg_in_syslog
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 import json
 
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
 CONFIG_MODE_CONFIGLET = "configlet"
+CONFIG_MODE_GCU = "gcu"
 
 TEMPLATE_DIR = "everflow/templates"
 EVERFLOW_RULE_CREATE_TEMPLATE = "acl-erspan.json.j2"
@@ -54,6 +57,37 @@ DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
+HOST_NAME = "localhost"
+ASIC_PREFIX = "asic"
+
+
+def gcu_apply_patch(duthost, table, operation, patch_value=None):
+    json_patch = []
+    value_template = {
+        "op": operation,
+        "path": "/{}".format(table),
+    }
+
+    if operation in ["add", "replace", "test"]:
+        value_template["value"] = patch_value
+
+    if duthost.is_multi_asic:
+        value_template["path"] = "/{}/{}".format(HOST_NAME, table)
+        json_patch.append(value_template.copy())
+        for asic_index in range(0, duthost.facts.get('num_asic')):
+            asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
+            value_template["path"] = "/{}/{}".format(asic_ns, table)
+            json_patch.append(value_template.copy())
+    else:
+        json_patch.append(value_template.copy())
+
+    tmpfile = generate_tmpfile(duthost)
+    logging.info("tmpfile {}".format(tmpfile))
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 
 def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
@@ -615,7 +649,7 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
+    @pytest.fixture(scope="class")
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
 
@@ -709,43 +743,89 @@ class BaseEverflowTest(object):
                             'ttl' '{session_info['session_ttl']}'"
                 if policer:
                     command += f" 'policer' {policer}"
+            command = "config mirror_session add {} {} {} {} {} {}" \
+                        .format(session_info["session_name"],
+                                session_info["session_src_ip"],
+                                session_info["session_dst_ip"],
+                                session_info["session_dscp"],
+                                session_info["session_ttl"],
+                                session_info["session_gre"])
 
+            if policer:
+                command += " --policer {}".format(policer)
+            duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            session_value = {
+                "src_ip": session_info["session_src_ip"],
+                "dst_ip": session_info["session_dst_ip"],
+                "dscp": session_info["session_dscp"],
+                "ttl": session_info["session_ttl"],
+                "gre": session_info["session_gre"],
+            }
+
+            if policer is not None:
+                session_value["policer"] = policer
+
+            gcu_apply_patch(duthost=duthost,
+                            table="MIRROR_SESSION",
+                            operation="add",
+                            patch_value={
+                                session_info["session_name"]: session_value
+                            })
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
+        logging.info("remove_mirror_config, config method: {}".format(config_method))
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session remove {}".format(session_name)
+            duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            gcu_apply_patch(duthost=duthost,
+                            table="MIRROR_SESSION",
+                            operation="remove")
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        duthost.command(command)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
         if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
             rate_limit = rate_limit * 1.25
-        for namespace in duthost.get_frontend_asic_namespace_list():
-            if config_method == CONFIG_MODE_CLI:
+        if config_method == CONFIG_MODE_CLI:
+            for namespace in duthost.get_frontend_asic_namespace_list():            
                 sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
                 command = ("{} CONFIG_DB hmset \"POLICER|{}\" "
                            "meter_type packets mode sr_tcm cir {} cbs {} "
                            "red_packet_action drop").format(sonic_db_cmd, policer_name, rate_limit, rate_limit)
-            elif config_method == CONFIG_MODE_CONFIGLET:
-                pass
-            duthost.command(command)
+                duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            gcu_apply_patch(duthost=duthost,
+                            table="POLICER",
+                            operation="add",
+                            patch_value={
+                                policer_name: {
+                                    "meter_type": "packets",
+                                    "mode": "sr_tcm",
+                                    "cir": rate_limit,
+                                    "cbs": rate_limit,
+                                    "red_packet_action": "drop",
+                                    }
+                                })
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
 
     def remove_policer_config(self, duthost, policer_name, config_method):
-        for namespace in duthost.get_frontend_asic_namespace_list():
-            if config_method == CONFIG_MODE_CLI:
+        if config_method == CONFIG_MODE_CLI:
+            for namespace in duthost.get_frontend_asic_namespace_list():
                 sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
                 command = "{} CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
-            elif config_method == CONFIG_MODE_CONFIGLET:
-                pass
-
-            duthost.command(command)
+                duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            gcu_apply_patch(duthost=duthost,
+                            table="POLICER",
+                            operation="remove")
+        elif config_method == CONFIG_MODE_CONFIGLET:
+            pass
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_acl_table(self, setup_info, setup_mirror_session, config_method):
@@ -801,18 +881,34 @@ class BaseEverflowTest(object):
                 if filtered_ports:
                     command += " -p {}".format(",".join(filtered_ports))
 
+                command += " -p {}".format(",".join(bind_ports_list))
+            duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            acl_value = {
+                table_name: {
+                    "type": table_type,
+                    "stage": "ingress" if self.acl_stage() == "ingress" else "egress",
+                    "policy_desc": table_name,
+                }
+            }
+            gcu_apply_patch(duthost=duthost,
+                            table="ACL_TABLE",
+                            operation="add",
+                            patch_value=acl_value)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
     def remove_acl_table_config(self, duthost, table_name, config_method, bind_namespace=None):
         if config_method == CONFIG_MODE_CLI:
             command = "config acl remove table {}".format(table_name)
+
+            duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            gcu_apply_patch(duthost=duthost,
+                            table="ACL_TABLE",
+                            operation="remove")
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
     def apply_acl_rule_config(
             self,
@@ -838,11 +934,20 @@ class BaseEverflowTest(object):
             # on egress mirroring to preserve backwards compatibility.
             if self.mirror_type() == "egress":
                 command += " --mirror_stage {}".format(self.mirror_type())
-
+            duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            acl_value = {
+                "EVERFLOWSTATICV4|RULE1": {
+                    "PRIORITY": "9999",
+                    "MIRROR_INGRESS_ACTION": "everflowStaticV4_session"
+                }
+            }
+            gcu_apply_patch(duthost=duthost,
+                            table="ACL_RULE",
+                            operation="add",
+                            patch_value=acl_value)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        duthost.command(command)
         time.sleep(2)
 
     @staticmethod
@@ -852,6 +957,12 @@ class BaseEverflowTest(object):
                          dest=DUT_RUN_DIR)
             command = "acl-loader update full {} --table_name {}" \
                 .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE), table_name)
+
+            duthost.command(command)
+        elif config_method == CONFIG_MODE_GCU:
+            gcu_apply_patch(duthost=duthost,
+                            table="ACL_RULE",
+                            operation="remove")
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 

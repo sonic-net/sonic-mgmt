@@ -12,7 +12,8 @@ from . import everflow_test_utilities as everflow_utils
 
 from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver, skip_ipv6_everflow_tests  # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
-    DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
+                                    DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
+from .everflow_test_utilities import CONFIG_MODE_CLI, CONFIG_MODE_GCU
 from tests.common.helpers.assertions import pytest_require
 
 from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES, STABILITY_BUFFER  # noqa: F401
@@ -209,8 +210,10 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,  # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver, erspan_ip_ver):  # noqa F811
+@pytest.mark.parametrize("config_method", [CONFIG_MODE_CLI, CONFIG_MODE_GCU], indirect=True)
+def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo,                 # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor, ip_ver,        # noqa F811
+                                skip_traffic_test):                                             # noqa F811
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
