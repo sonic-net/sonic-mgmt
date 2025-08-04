@@ -79,6 +79,13 @@ stages:
     steps:
       - template: .azure-pipelines/markers-check.yml
 
+  - job: meta_check
+    displayName: "Meta check"
+    timeoutInMinutes: 10
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/meta-check.yml
+
 
 - stage: Test
   dependsOn: Pre_test
