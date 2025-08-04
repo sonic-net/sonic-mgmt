@@ -13,7 +13,10 @@ pytestmark = [
 
 @pytest.fixture(scope="function")
 def cleanup_mux_simulator(restart_mux_simulator):
-    """Fixture to restart mux_simulator **after** test completes."""
+    """
+    Fixture to restart mux_simulator **after** test completes.
+    Ensures environment cleanup regardless of test outcome.
+    """
     yield
     logging.info("Restarting mux simulator in teardown...")
     restart_mux_simulator()
@@ -37,25 +40,26 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
         logging.info(f"[{stage}] Listen queue metrics logging is not implemented without netstat/ss parser.")
 
     def flood_toggle_all_timeouts():
-        toggle_all_url = url(action="toggle_all", toggle_action="drop")
+        toggle_all_url = url(action="toggle_all")
         for _ in range(2000):
             try:
                 requests.post(
                     toggle_all_url,
-                    json={"action": "toggle", "out_sides": ["upper_tor", "lower_tor", "nic"]},
+                    json={"action": "toggle", "toggle_action": "drop", "out_sides": ["upper_tor", "lower_tor", "nic"]},
                     timeout=0.1,
                 )
             except requests.exceptions.Timeout:
+                # Expected timeout, ignore
                 pass
             except requests.exceptions.RequestException as e:
                 logging.warning(f"Toggle all request exception: {e}")
 
     def send_timeout_request():
         try:
-            toggle_all_url = url(action="toggle_all", toggle_action="drop")
+            toggle_all_url = url(action="toggle_all")
             response = requests.post(
                 toggle_all_url,
-                json={"action": "toggle", "out_sides": ["upper_tor", "lower_tor", "nic"]},
+                json={"action": "toggle", "toggle_action": "drop", "out_sides": ["upper_tor", "lower_tor", "nic"]},
                 timeout=0.1,
             )
             return response
@@ -112,7 +116,7 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
         "New request not accepted after queue consumption"
     )
 
-    # Log after flooding (placeholder)
+    # Log listen queue metrics after flooding & consumption (placeholder)
     log_listen_queue_metrics("After Toggle All Flood & Queue Consumption")
 
     # Validate per-port mux status for stale requests
