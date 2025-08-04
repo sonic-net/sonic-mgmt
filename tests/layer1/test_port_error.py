@@ -103,11 +103,11 @@ class TestMACFault(object):
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "down"),
-                     "Interface {} did not go down after shutdown".format(interface))
-
+                      "Interface {} did not go down after shutdown".format(interface))
+        
         dut.command("sudo config interface startup {}".format(interface))
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
-                     "Interface {} did not come up after startup".format(interface))
+                      "Interface {} did not come up after startup".format(interface))
 
     def test_mac_local_fault_increment(self, select_random_interfaces):
         dut, interfaces = select_random_interfaces
