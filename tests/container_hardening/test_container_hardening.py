@@ -19,6 +19,7 @@ PRIVILEGED_CONTAINERS = [
     "pmon",
     "syncd",
     "gbsyncd",
+    "gnmi",
     "swss",
 ]
 
