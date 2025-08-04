@@ -3,6 +3,7 @@ import time
 import requests
 import logging
 import threading
+import random
 from typing import List
 from tests.common.helpers.assertions import pytest_assert
 
@@ -32,24 +33,47 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
 ):
     """
     Test mux_simulator handling of accept queue overflow using toggle all API timeout flood,
-    without dependency on netstat.
+    with toggling to random sides for each request.
     """
 
     def log_listen_queue_metrics(stage: str):
-        # Placeholder: If you want to log metrics, parse output of 'ss -s', or just log the test stage.
-        logging.info(f"[{stage}] Listen queue metrics logging is not implemented without netstat/ss parser.")
+        # Placeholder for listen queue metrics logging
+        try:
+            output = localhost.shell("ss -lt")["stdout"]
+            logging.info(f"[{stage}] Listen queue metrics from 'ss -lt':\n{output}")
+        except Exception as e:
+            logging.warning(f"Failed to get listen queue metrics: {e}")
+
+    def check_accept_queue_overflow():
+        threshold = 5  # Adjust threshold based on environment
+        try:
+            output = localhost.shell("ss -lt")["stdout"]
+            logging.info(f"Checking accept queue overflow with 'ss -lt' output:\n{output}")
+            lines = output.splitlines()
+            for line in lines[1:]:  # Skip header
+                parts = line.split()
+                if len(parts) >= 5 and parts[0].upper() == "LISTEN":
+                    recv_q = int(parts[1])
+                    if recv_q > threshold:
+                        logging.warning(f"Accept queue overflow detected: {line.strip()}, Recv-Q={recv_q}")
+                        return True
+            return False
+        except Exception as e:
+            logging.warning(f"Could not check accept queue overflow: {e}")
+            return False
 
     def flood_toggle_all_timeouts():
         toggle_all_url = url(action="toggle_all")
+        sides = ["upper_tor", "lower_tor", "nic"]
         for _ in range(2000):
             try:
+                random_side = random.choice(sides)
                 requests.post(
                     toggle_all_url,
-                    json={"action": "toggle", "toggle_action": "drop", "out_sides": ["upper_tor", "lower_tor", "nic"]},
+                    json={"action": "toggle", "toggle_action": "drop", "out_sides": [random_side]},
                     timeout=0.1,
                 )
             except requests.exceptions.Timeout:
-                # Expected timeout, ignore
                 pass
             except requests.exceptions.RequestException as e:
                 logging.warning(f"Toggle all request exception: {e}")
@@ -57,9 +81,10 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
     def send_timeout_request():
         try:
             toggle_all_url = url(action="toggle_all")
+            random_side = random.choice(["upper_tor", "lower_tor", "nic"])
             response = requests.post(
                 toggle_all_url,
-                json={"action": "toggle", "toggle_action": "drop", "out_sides": ["upper_tor", "lower_tor", "nic"]},
+                json={"action": "toggle", "toggle_action": "drop", "out_sides": [random_side]},
                 timeout=0.1,
             )
             return response
@@ -68,11 +93,6 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
         except requests.exceptions.RequestException as e:
             logging.warning(f"Request exception: {e}")
             return None
-
-    def check_accept_queue_overflow():
-        # Placeholder: Implement your overflow check here if you have a sim API/log, else return True/False as needed
-        logging.info("Checking accept queue overflow (logic skipped, no netstat/ss)")
-        return True  # For demonstration, assume overflow occurs
 
     def wait_until_queue_consumed(timeout=10):
         logging.info("Waiting for accept queue to be consumed...")
@@ -86,18 +106,15 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
             time.sleep(delay)
         return None
 
-    # Log listen queue metrics before flooding (placeholder)
+    # Log metrics before flood
     log_listen_queue_metrics("Before Toggle All Flood")
 
-    # Flood toggle all timeout requests in separate thread
     toggle_thread = threading.Thread(target=flood_toggle_all_timeouts)
     toggle_thread.start()
-    time.sleep(1)  # Let queue potentially overflow
+    time.sleep(1)  # Allow queue to possibly overflow
 
-    # Step 1: Check accept queue overflow (simulated)
     pytest_assert(check_accept_queue_overflow(), "Accept queue did not overflow as expected")
 
-    # Step 2: Attempt sending a new request during overflow
     new_response = send_timeout_request()
     pytest_assert(
         new_response is None or (new_response.status_code != 200),
@@ -106,28 +123,24 @@ def test_mux_simulator_toggle_all_accept_queue_overflow(
 
     toggle_thread.join()
 
-    # Step 3: Wait for accept queue to be consumed
     wait_until_queue_consumed()
 
-    # Step 4: Send new request after consumption, expect acceptance
     post_response = send_timeout_request()
     pytest_assert(
         post_response is not None and post_response.status_code == 200,
         "New request not accepted after queue consumption"
     )
 
-    # Log listen queue metrics after flooding & consumption (placeholder)
     log_listen_queue_metrics("After Toggle All Flood & Queue Consumption")
 
-    # Validate per-port mux status for stale requests
     test_ports = active_standby_ports[:3] if len(active_standby_ports) >= 3 else active_standby_ports
+
     for iface in test_ports:
         status = retry_get_mux_status(iface)
         pytest_assert(status is not None, f"Could not retrieve mux status for interface {iface}")
-        pytest_assert("active_side" in status, f"Expected 'active_side' key missing in mux status for {iface}")
+        pytest_assert("active_side" in status, f"'active_side' key missing in mux status for {iface}")
         pytest_assert(not status.get("stale_request", False), f"Stale request detected for {iface}")
 
-    # Final check: mux simulator accepts a new normal toggle all request
     toggle_all_url = url(action="toggle_all")
     response = requests.post(
         toggle_all_url,
