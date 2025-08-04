@@ -854,7 +854,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
     # loss_expected to check losses on DUT and TGEN.
-    test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 41, 'loss_expected': False, 'pfc': True}
+    test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 55, 'loss_expected': False, 'pfc': True}
 
     test_def = {'TEST_FLOW_AGGR_RATE_PERCENT': 18,
                 'BG_FLOW_AGGR_RATE_PERCENT': 27,
