@@ -166,14 +166,17 @@ class GenerateGoldenConfigDBModule(object):
         rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
-
-        return out
+        config = json.loads(out)
+        # From the running configure, only keep the key "FEATURE"
+        for namespace, ns_data in config.items():
+            config[namespace] = {k: ns_data[k] for k in ns_data if k == "FEATURE"}
+        return config
 
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
         full_config = json.loads(config)
         if config == "{}" or "FEATURE" not in config["localhost"]:
             # need dump running config FEATURE + selected feature
-            gold_config_db = json.loads(self.get_multiasic_feature_config())
+            gold_config_db = self.get_multiasic_feature_config()
         else:
             # need existing config + selected feature
             gold_config_db = full_config
