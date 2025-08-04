@@ -5,7 +5,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos, get_available_optical_interfaces
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos, get_supported_available_optical_interfaces
 from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 from tests.common.utilities import wait_until
 
@@ -17,6 +17,7 @@ pytestmark = [
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
 DEFAULT_COLLECTED_PORTS_NUM = 5
+
 
 def pytest_addoption(parser):
     """
@@ -30,12 +31,14 @@ def pytest_addoption(parser):
         help="Number of ports to collect for testing (default: {})".format(DEFAULT_COLLECTED_PORTS_NUM)
     )
 
+
 @pytest.fixture(scope="session")
 def collected_ports_num(request):
     """
     Fixture to get the number of ports to collect from command line argument
     """
     return request.config.getoption("collected_ports_num", default=DEFAULT_COLLECTED_PORTS_NUM)
+
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
@@ -50,7 +53,6 @@ class TestMACFault(object):
 
         if 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost):
             pytest.skip("SW control feature is not enabled on platform")
-
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
@@ -92,7 +94,8 @@ class TestMACFault(object):
         logging.info("Available Optical interfaces for tests: {}".format(available_optical_interfaces))
 
         # Select 5 random interfaces (or fewer if not enough available)
-        selected_interfaces = random.sample(available_optical_interfaces, min(collected_ports_num, len(available_optical_interfaces)))
+        selected_interfaces = random.sample(available_optical_interfaces,
+                                            min(collected_ports_num, len(available_optical_interfaces)))
         logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
 
         return dut, selected_interfaces
