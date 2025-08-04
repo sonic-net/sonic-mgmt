@@ -17,6 +17,7 @@ steps:
     set -x
     sudo pip install pre-commit
     pre-commit install-hooks
+    sudo pip install pylint
   displayName: 'Prepare pre-commit check'
 
 - script: |
