@@ -160,7 +160,7 @@
   server: server_20
   vm_base: VM20080
   dut:
-  - str2-7050cx3-acs-01
+  - str2-7050cx3-32c-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -175,7 +175,7 @@
   server: server_20
   vm_base: VM20084
   dut:
-  - str2-7050cx3-acs-02
+  - str2-7050cx3-32c-acs-02
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
