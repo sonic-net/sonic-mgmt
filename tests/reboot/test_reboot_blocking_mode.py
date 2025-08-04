@@ -1,131 +1,187 @@
-import binascii
 import logging
 import pytest
-import time
-import ipaddress
 import re
-from socket import inet_aton
-from scapy.all import Ether, UDP, Raw
+import json
 from tests.common.helpers.assertions import pytest_assert
-import ptf.testutils as testutils
-from ptf.dataplane import match_exp_pkt
+from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology('mx', 'm0'),
+    pytest.mark.topology('any'),
 ]
 
-COMMAND_TIMEOUT = 600 # seconds
+COMMAND_TIMEOUT = 90  # seconds
+
 
 def check_if_platform_reboot_enabled(duthost) -> bool:
-    platform = get_command_result_ignore_error(duthost, "sonic-cfggen -H -v DEVICE_METADATA.localhost.platform")
-    return check_if_dut_file_exist("/usr/share/sonic/device/{}/platform_reboot".format(platform))
+    platform = get_command_result(duthost, "sonic-cfggen -H -v DEVICE_METADATA.localhost.platform")
+    return check_if_dut_file_exist(duthost, "/usr/share/sonic/device/{}/platform_reboot".format(platform))
+
 
 def mock_systemctl_reboot(duthost):
-    execute_command("sudo mv /sbin/reboot /sbin/reboot.bak")
-    execute_command("sudo echo \"\" > /sbin/reboot")
-    execute_command("sudo chmod +x /sbin/reboot")
+    if not check_if_dut_file_exist(duthost, "/sbin/reboot.bak"):
+        # Check exist to avoid override original reboot file.
+        execute_command(duthost, "sudo mv /sbin/reboot /sbin/reboot.bak")
+    execute_command(duthost, "sudo echo \"\" > /sbin/reboot")
+    execute_command(duthost, "sudo chmod +x /sbin/reboot")
+    execute_command_ignore_error(duthost, "sudo /usr/local/bin/watchdogutil disarm")
+
+    # Disable watch dog to avoid reboot too early.
+    execute_command(duthost, "sudo sed -i 's#/usr/local/bin/watchdogutil#/usr/local/bin/disabled_watchdogutil#g' /usr/local/bin/reboot")
+
 
 def restore_systemctl_reboot_and_reboot(duthost):
     if not check_if_dut_file_exist(duthost, "/sbin/reboot.bak"):
         return
-    execute_command("sudo rm /sbin/reboot")
-    execute_command("sudo mv /sbin/reboot.bak /sbin/reboot")
+    execute_command(duthost, "sudo rm /sbin/reboot")
+    execute_command(duthost, "sudo mv /sbin/reboot.bak /sbin/reboot")
+    execute_command(duthost, "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
+    execute_command(duthost, "sudo reboot")
+    wait_critical_processes(duthost)
+
 
 def mock_reboot_config_file(duthost):
-    if check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf"):
-        execute_command("sudo mv /etc/sonic/reboot.conf /etc/sonic/reboot.conf.bak")
-    execute_command("echo -e \"blocking_mode=true\\nshow_timer=true\" > /etc/sonic/reboot.conf")
+    if (
+        check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf")
+        and not check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf.bak")
+    ):
+        execute_command(duthost, "sudo mv /etc/sonic/reboot.conf /etc/sonic/reboot.conf.bak")
+    execute_command(
+        duthost,
+        "echo -e \"blocking_mode=true\\nshow_timer=true\" > /etc/sonic/reboot.conf")
+
+
+def mock_reboot_config_file_with_0_timeout(duthost):
+    if (
+        check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf")
+        and not check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf.bak")
+    ):
+        execute_command(duthost, "sudo mv /etc/sonic/reboot.conf /etc/sonic/reboot.conf.bak")
+    execute_command(
+        duthost,
+        "echo -e \"blocking_mode=true\\nblocking_mode_timeout=0\\nshow_timer=true\" > /etc/sonic/reboot.conf")
+
 
 def restore_reboot_config_file(duthost):
-    execute_command("sudo rm /etc/sonic/reboot.conf")
+    execute_command(duthost, "sudo rm /etc/sonic/reboot.conf")
     if check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf.bak"):
-        execute_command("sudo mv /etc/sonic/reboot.conf.bak /etc/sonic/reboot.conf")
+        execute_command(duthost, "sudo mv /etc/sonic/reboot.conf.bak /etc/sonic/reboot.conf")
+
 
 def execute_command(duthost, cmd):
-    result = duthost.shell(cmd, timeout=COMMAND_TIMEOUT)
+    result = duthost.shell(cmd)
+    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
+    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
     pytest_assert(result["rc"] == 0, "Unexpected rc: {}".format(result["rc"]))
+
+
+def execute_command_ignore_error(duthost, cmd):
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
+    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
+
 
 def get_command_result(duthost, cmd):
-    result = duthost.shell(cmd, timeout=COMMAND_TIMEOUT)
-    pytest_assert(result["rc"] == 0, "Unexpected rc: {}".format(result["rc"]))
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
+    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
     return result["stdout"]
 
-def get_command_result_ignore_error(duthost, cmd):
-    result = duthost.shell(cmd, module_ignore_errors=True, timeout=COMMAND_TIMEOUT)
-    return result["stdout"]
 
 def check_if_dut_file_exist(duthost, filepath) -> bool:
-    result = duthost.shell("test -f {} && echo true || echo false".format(filepath), module_ignore_errors=True)
+    result = duthost.shell(f"test -f {filepath} && echo true || echo false", module_ignore_errors=True)
     return "true" in result["stdout"]
 
+
 class TestRebootBlockingModeCLI:
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_teardown(
+        self,
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
+    ):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if check_if_platform_reboot_enabled(duthost):
+            pytest.skip("Skip test because platform reboot is enabled.")
+
+        mock_systemctl_reboot(duthost)
+        yield
+        restore_systemctl_reboot_and_reboot(duthost)
+
     def test_non_blocking_mode(
         self,
-        duthost,
-        ptfadapter,
-        random_intf_pair
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
     ):
-        if check_if_platform_reboot_enabled(duthost):
-            return
-        
-        mock_systemctl_reboot(duthost)
-
-        result = get_command_result(duthost, "sudo reboot; echo \"ExpectedFinished\"")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")
-
-        restore_systemctl_reboot_and_reboot(duthost)
 
     def test_blocking_mode(
         self,
-        duthost,
-        ptfadapter,
-        random_intf_pair
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
     ):
-        if check_if_platform_reboot_enabled(duthost):
-            return
-        
-        mock_systemctl_reboot(duthost)
-
-        result = get_command_result_ignore_error(duthost, "sudo reboot -b; echo \"UnexpectedFinished\"")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot -b; echo \"UnexpectedFinished\"'")
         pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
 
-        restore_systemctl_reboot_and_reboot(duthost)
-    
     def test_blocking_mode_with_running_config(
         self,
-        duthost,
-        ptfadapter,
-        random_intf_pair
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
     ):
-        if check_if_platform_reboot_enabled(duthost):
-            return
-        
-        mock_systemctl_reboot(duthost)
-
-        result = get_command_result_ignore_error(duthost, "sudo reboot -b -v; echo \"UnexpectedFinished\"")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot -b -v; echo \"UnexpectedFinished\"'")
         pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
-        pattern = r"Issuing OS-level reboot\s*\n[.]+"
+        pattern = r".*\n[.]+$"
         pytest_assert(re.search(pattern, result), "Cannot find dots as expected in output: {}".format(result))
 
-        restore_systemctl_reboot_and_reboot(duthost)
 
 class TestRebootBlockingModeConfigFile:
-    def test_blocking_mode_with_running_config_using_config_file(
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_teardown(
         self,
-        duthost,
-        ptfadapter,
-        random_intf_pair
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
     ):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if check_if_platform_reboot_enabled(duthost):
-            return
-        
-        mock_systemctl_reboot(duthost)
-        mock_reboot_config_file(duthost)
+            pytest.skip("Skip test because platform reboot is enabled.")
 
-        result = get_command_result_ignore_error(duthost, "sudo reboot; echo \"UnexpectedFinished\"")
-        pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
-        pattern = r"Issuing OS-level reboot\s*\n[.]+"
-        pytest_assert(re.search(pattern, result), "Cannot find dots as expected in output: {}".format(result))
+        mock_systemctl_reboot(duthost)
+        yield
 
         restore_reboot_config_file(duthost)
         restore_systemctl_reboot_and_reboot(duthost)
+
+    def test_blocking_mode_with_running_config_using_config_file(
+        self,
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
+    ):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        mock_reboot_config_file(duthost)
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"UnexpectedFinished\"'")
+        pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
+        pattern = r".*\n[.]+$"
+        pytest_assert(re.search(pattern, result), "Cannot find dots as expected in output: {}".format(result))
+
+    def test_timeout_for_blocking_mode_using_config_file(
+        self,
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
+    ):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        mock_reboot_config_file_with_0_timeout(duthost)
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
+        pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")

@@ -50,5 +50,17 @@ Because in non-blocking mode, the CLI output is unpredictable. So we need to moc
 1. Check if there are extra dots after `Issuing OS-level reboot ...` output.
 1. Restore the config file `/etc/sonic/reboot.conf`
 
+#### Test case #2 - Verify timeout config for blocking mode with config file
+1. Backup the config file `/etc/sonic/reboot.conf` if exists. Update the following configs to the config file:
+   ```
+   blocking_mode=true
+   blocking_mode_timeout=0
+   show_timer=true
+   ```
+1. Run command `reboot; echo "UnexpectedFinished"`. The command needs to have a timeout with 10mins.
+1. Check if the command output not contains `ExpectedFinished` as expected.
+1. Check if the command output contains `ExpectedFinished` as expected.
+1. Restore the config file `/etc/sonic/reboot.conf`
+
 ## 4 Cleanup
 Since the reboot script already killed the SONiC modules, we need to do another reboot after restore `/sbin/reboot`.
