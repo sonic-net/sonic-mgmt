@@ -10,7 +10,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
@@ -46,7 +46,7 @@ def set_max_time_for_interfaces(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
-                    localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                    localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
 
@@ -180,7 +180,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
 
 
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
@@ -190,7 +190,7 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform soft reboot and check platform status
     """
@@ -211,7 +211,7 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform fast reboot and check platform status
     """
@@ -221,15 +221,12 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    if duthost.is_smartswitch():
-        pytest.skip("Smart Switch devices does not support fast reboot")
-
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST, duthosts=duthosts)
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -238,9 +235,6 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting warm reboot")
-
-    if duthost.is_smartswitch():
-        pytest.skip("Smart Switch devices does not support warm reboot")
 
     asic_type = duthost.facts["asic_type"]
 
@@ -255,7 +249,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                         localhost, conn_graph_facts, xcvr_skip_list, tbinfo):      # noqa F811
+                         localhost, conn_graph_facts, xcvr_skip_list, tbinfo):      # noqa: F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -289,7 +283,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
+                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa: F811
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """

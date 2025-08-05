@@ -28,10 +28,13 @@ all:
           - t1-isolated-v6-d128
           - t1-isolated-v6-d224u8
           - t1-isolated-v6-d28u1
-          - t1-isolated-d448u16
+          - t1-isolated-d448u15-lag
           - t1-isolated-d56u2
-          - t1-isolated-v6-d448u16
+          - t1-isolated-v6-d448u15-lag
           - t1-isolated-v6-d56u2
+          - t1-isolated-d56u1-lag
+          - t1-isolated-v6-d56u1-lag
+          - t1-isolated-d510u2
           - t0
           - t0-d18u8s4
           - t0-16
@@ -65,6 +68,7 @@ all:
           - t0-isolated-d32u32s2
           - t0-isolated-v6-d256u256s2
           - t0-isolated-v6-d32u32s2
+          - t0-isolated-d96u32s2
           - dualtor
           - dualtor-56
           - cable-test
@@ -81,6 +85,9 @@ all:
           - mc0
           - mx
           - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dpu-1
           - ft2-64
           - lt2-p32o64

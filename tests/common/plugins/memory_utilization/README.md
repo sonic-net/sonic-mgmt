@@ -12,7 +12,7 @@
   - [Enabling and Disabling](#enabling-and-disabling)
   - [Configuration Examples](#configuration-examples)
 - [Supported Memory Monitors](#supported-memory-monitors)
-  - [Monit Status Monitor](#monit-status-monitor)
+  - [Monit Validate Monitor](#monit-validate-monitor)
   - [Free Memory Monitor](#free-memory-monitor)
   - [Docker Stats Monitor](#docker-stats-monitor)
   - [Top Monitor](#top-monitor)
@@ -34,6 +34,30 @@ During testing, memory usage on the Device Under Test (DUT) can vary due to diff
 The memory utilization plugin automatically monitors memory resources and generates test failures when thresholds are exceeded.
 
 ## Plugin Design
+
+### Memory Utilization Plugin Summary
+
+The memory utilization plugin for SONiC testing automatically monitors memory usage on the Device Under Test (DUT) before and after each test. Its main goals are to ensure that memory usage does not exceed configured thresholds and to detect memory leaks or abnormal increases during test execution.
+
+**Key Features:**
+- **Automatic Monitoring:** Runs for all tests unless explicitly disabled.
+- **Configurable Thresholds:** Uses JSON files to define memory checks, commands, and thresholds (absolute values or percentages).
+- **Multiple Monitors:** Supports system memory, process memory, docker containers, and FRR daemons.
+- **Flexible Scope:** Allows global, HWSKU-specific, and test-specific configuration.
+- **Failure Reporting:** Fails tests with detailed messages if thresholds are exceeded.
+
+**How It Works:**
+1. **Pre-test:** Collects baseline memory usage using configured commands and parsers.
+2. **Post-test:** Collects memory usage again and compares with baseline.
+3. **Validation:** Checks if usage exceeds high thresholds or if increase is above allowed limits.
+4. **Reporting:** Fails the test if any check fails, with clear diagnostics.
+
+**Configuration:**
+- Thresholds can be absolute values, percentages, or both (the strictest applies).
+- Can be disabled globally or per-test.
+- Easily extendable for new memory monitors or custom thresholds.
+
+This plugin helps maintain system stability and quickly identifies memory-related issues during SONiC test runs.
 
 ### Configuration Files
 
@@ -67,7 +91,7 @@ Each `memory_params` entry can define:
 
 Memory thresholds must be defined using the following structured formats:
 
-1. **Absolute value threshold**:
+1. **Absolute value threshold** (for MB-based measurements):
    ```json
    "memory_high_threshold": {
      "type": "value",
@@ -75,7 +99,7 @@ Memory thresholds must be defined using the following structured formats:
    }
    ```
 
-2. **Percentage threshold**:
+2. **Relative percentage threshold** (calculates percentage of baseline):
    ```json
    "memory_increase_threshold": {
      "type": "percentage",
@@ -83,38 +107,87 @@ Memory thresholds must be defined using the following structured formats:
    }
    ```
 
-3. **Combined thresholds** (when you want both types):
+3. **Absolute percentage points threshold** (for percentage-based measurements):
+   ```json
+   "memory_high_threshold": {
+     "type": "percentage_points",
+     "value": 75
+   }
+   ```
+
+4. **Combined thresholds** (when you want both types):
    ```json
    "memory_high_threshold": [
      {"type": "value", "value": 128},
-     {"type": "percentage", "value": "75%"}
+     {"type": "percentage", "value": "75%"},
+     {"type": "comparison", "value": "min"}
    ]
    ```
 
-4. **Disabled threshold**:
+5. **Disabled threshold**:
    ```json
    "memory_high_threshold": null
    ```
    This explicitly disables high threshold checking for this item.
 
+#### Threshold Type Semantics
+
+Each threshold type has specific behavior:
+
+- **`"type": "value"`**: Absolute values in MB
+  - Example: `{"type": "value", "value": 128}` means 128 MB
+  - For example: top, free, frr_memory commands that return memory in megabytes
+
+- **`"type": "percentage"`**: Relative percentage of baseline value
+  - Example: `{"type": "percentage", "value": "10%"}` means 10% of current memory usage
+  - Calculation: If baseline is 100 MB, threshold becomes 10 MB
+  - For example: Dynamic thresholds that scale with current usage
+
+- **`"type": "percentage_points"`**: Absolute percentage values
+  - Example: `{"type": "percentage_points", "value": 75}` means 75%
+  - For example: monit, docker stats commands that return percentage data
+  - For increases: `{"type": "percentage_points", "value": 10}` means 10 percentage points (e.g., from 70% to 80%)
+
+### Choosing the Right Threshold Type
+
+- **Use `percentage_points`** for:
+  - Commands that return percentage values (for example: monit, docker stats)
+  - When you want absolute percentage thresholds (e.g., "never exceed 75%")
+
+- **Use `value`** for:
+  - Commands that return memory in MB (for example: top, free, frr_memory)
+  - When you want absolute memory limits (e.g., "never exceed 256 MB")
+
+- **Use `percentage`** for:
+  - Dynamic thresholds that scale with current usage
+  - When you want relative increases (e.g., "don't increase by more than 10% of current usage")
+
 ### Behavior for Combined Thresholds
 
-When thresholds include both **value** and **percentage** types, the plugin calculates both thresholds and applies the most restrictive one (i.e., the smallest value).
+When thresholds include multiple types, the plugin calculates all thresholds and applies the most restrictive one (smallest value by default, or as specified by comparison type).
 
 For example:
 - If `memory_increase_threshold` includes:
   ```json
   [
     {"type": "value", "value": 128},
-    {"type": "percentage", "value": "10%"}
+    {"type": "percentage", "value": "10%"},
+    {"type": "comparison", "value": "min"}
   ]
   ```
-  and the baseline memory usage is `1000`, the plugin will calculate:
-  - Absolute value threshold: `128`
-  - Percentage threshold: `10% of 1000 = 100`
-  - The plugin will use `100` as the threshold since it is the smaller value.
+  and the baseline memory usage is `1000` MB, the plugin will calculate:
+  - Absolute value threshold: `128` MB
+  - Percentage threshold: `10% of 1000 = 100` MB
+  - The plugin will use `100` MB as the threshold since it is the smaller value (min comparison).
 
-This ensures that the plugin enforces the strictest memory usage limits.
+You can also specify `"max"` comparison to use the largest threshold:
+```json
+[
+  {"type": "value", "value": 64},
+  {"type": "percentage", "value": "50%"},
+  {"type": "comparison", "value": "max"}
+]
+```
 
 ### Workflow
 
@@ -152,33 +225,34 @@ Memory utilization checking is enabled by default for all tests. To disable it:
 
 ## Supported Memory Monitors and Configuration Examples
 
-### Monit Status Monitor
+### Monit Validate Monitor
 
 Monitors system memory usage via Monit.
 
-- **Command**: `sudo monit status`
-- **Parser Function**: `parse_monit_status_output`
+- **Command**: `sudo monit validate`
+- **Parser Function**: `parse_monit_validate_output`
 - **Monitored Parameters**:
   - `memory_usage`: System memory utilization percentage
+- **Threshold Type**: Use `percentage_points` for percentage-based thresholds
 
 Example configuration:
 ```json
 {
   "name": "monit",
-  "cmd": "sudo monit status",
+  "cmd": "sudo monit validate",
   "memory_params": {
     "memory_usage": {
       "memory_increase_threshold": {
-        "type": "value",
-        "value": 5
+        "type": "percentage_points",
+        "value": 10
       },
       "memory_high_threshold": {
-        "type": "value",
+        "type": "percentage_points",
         "value": 75
       }
     }
   },
-  "memory_check": "parse_monit_status_output"
+  "memory_check": "parse_monit_validate_output"
 }
 ```
 
@@ -190,6 +264,7 @@ Monitors available system memory.
 - **Parser Function**: `parse_free_output`
 - **Monitored Parameters**:
   - `used`: Used memory in MB
+- **Threshold Type**: Use `value` for MB-based thresholds or `percentage` for relative thresholds
 
 Example configuration:
 ```json
@@ -200,7 +275,7 @@ Example configuration:
     "used": {
       "memory_increase_threshold": {
         "type": "percentage",
-        "value": "10%"
+        "value": "20%"
       },
       "memory_high_threshold": null
     }
@@ -218,6 +293,7 @@ Monitors memory usage of Docker containers.
 - **Monitored Parameters**:
   - Multiple container names (snmp, pmon, lldp, etc.)
   - Each container's memory usage as a percentage
+- **Threshold Type**: Use `percentage_points` for percentage-based thresholds
 
 Example configuration:
 ```json
@@ -227,21 +303,21 @@ Example configuration:
   "memory_params": {
     "snmp": {
       "memory_increase_threshold": {
-        "type": "value",
+        "type": "percentage_points",
         "value": 2
       },
       "memory_high_threshold": {
-        "type": "value",
+        "type": "percentage_points",
         "value": 4
       }
     },
     "swss": {
       "memory_increase_threshold": {
-        "type": "value",
-        "value": 2
+        "type": "percentage_points",
+        "value": 3
       },
       "memory_high_threshold": {
-        "type": "value",
+        "type": "percentage_points",
         "value": 8
       }
     }
@@ -259,6 +335,7 @@ Monitors memory usage of specific processes.
 - **Monitored Parameters**:
   - Process names (bgpd, zebra, etc.)
   - Each process's memory usage in MB (from RES column)
+- **Threshold Type**: Use `value` for MB-based thresholds
 
 Example configuration:
 ```json
@@ -276,7 +353,7 @@ Example configuration:
     "zebra": {
       "memory_increase_threshold": {
         "type": "value",
-        "value": 64
+        "value": 128
       },
       "memory_high_threshold": null
     }
@@ -295,6 +372,7 @@ Monitors memory usage of FRR routing daemons.
 - **Parser Function**: `parse_frr_memory_output`
 - **Monitored Parameters**:
   - `used`: Memory usage in MB
+- **Threshold Type**: Use `value` for MB-based thresholds or combine with `percentage`
 
 Example configuration:
 ```json
@@ -304,12 +382,13 @@ Example configuration:
   "memory_params": {
     "used": {
       "memory_increase_threshold": [
-        {"type": "percentage", "value": "10%"},
-        {"type": "value", "value": 5}
+        {"type": "percentage", "value": "50%"},
+        {"type": "value", "value": 64},
+        {"type": "comparison", "value": "max"}
       ],
       "memory_high_threshold": {
         "type": "value",
-        "value": 128
+        "value": 256
       }
     }
   },
@@ -335,26 +414,26 @@ Example:
   "Arista-7050QX": [
     {
       "name": "monit",
-      "cmd": "sudo monit status",
+      "cmd": "sudo monit validate",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
-            "type": "value",
-            "value": 5
+            "type": "percentage_points",
+            "value": 10
           },
           "memory_high_threshold": {
-            "type": "value",
+            "type": "percentage_points",
             "value": 85
           }
         }
       },
-      "memory_check": "parse_monit_status_output"
+      "memory_check": "parse_monit_validate_output"
     }
   ]
 }
 ```
 
-In this example, specific Arista SKUs will use a higher memory_high_threshold (85 instead of 75).
+In this example, specific Arista SKUs will use a higher memory_high_threshold (85% instead of 70%).
 
 ### Test-Specific Memory Items
 
@@ -383,7 +462,9 @@ When a memory threshold is exceeded, the plugin will fail the test with a detail
 - The current value compared to the threshold value
 - Additional contextual information about memory usage
 
-Example failure message:
+Example failure messages:
+
+For percentage-based measurements:
 ```
 [ALARM]: frr_bgp:used memory usage increased by 15.5, exceeds increase threshold 5%
 ```

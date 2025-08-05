@@ -2,9 +2,9 @@ import pytest
 import json
 import ipaddress
 import time
+import logging
 import natsort
 import random
-import re
 import six
 from collections import defaultdict
 
@@ -135,35 +135,39 @@ def wait_all_bgp_up(duthost):
 
 def check_route_redistribution(duthost, prefix, ipv6, removed=False):
     if ipv6:
-        bgp_neighbor_addr_regex = re.compile(r"^([0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)")
         SHOW_BGP_SUMMARY_CMD = "show ipv6 bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ipv6 bgp neighbor {} advertised-routes"
     else:
-        bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
         SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD, module_ignore_errors=True)["stdout"].split("\n")
+    bgp_summary = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
 
-    bgp_neighbors = []
+    # Collect neighbors, excluding those with 'PT0' in the neighbor name
+    bgp_neighbors = [
+        entry["neighbhor"]
+        for entry in bgp_summary
+        if "PT0" not in entry.get("neighborname", "")
+    ]
 
-    for line in bgp_summary:
-        matched = bgp_neighbor_addr_regex.match(line)
-        if matched:
-            bgp_neighbors.append(str(matched.group(0)))
+    if not bgp_neighbors:
+        pytest.fail("No valid BGP neighbors found (excluding PT0).")
 
     def _check_routes():
         for neighbor in bgp_neighbors:
             adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
             if removed and prefix in adv_routes:
+                logging.info(f"Route {prefix} is still advertised by {neighbor} (expected removed).")
                 return False
             if not removed and prefix not in adv_routes:
+                logging.info(f"Route {prefix} is NOT advertised by {neighbor} (expected present).")
                 return False
         return True
 
-    assert wait_until(60, 15, 0, _check_routes), (
-        "Failed to verify route redistribution: prefix '{}' not found in advertised routes of all BGP neighbors."
-    ).format(prefix)
+    pytest_assert(
+        wait_until(60, 15, 0, _check_routes),
+        f"Route {prefix} advertisement state does not match expected 'removed={removed}' on all neighbors"
+    )
 
 
 # output example of ip [-6] route show

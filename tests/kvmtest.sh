@@ -177,6 +177,7 @@ test_t0() {
       gnmi/test_gnmi_configdb.py \
       gnmi/test_gnmi_appldb.py \
       gnmi/test_gnmi_countersdb.py \
+      gnmi_e2e/test_gnmi_auth.py \
       override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
