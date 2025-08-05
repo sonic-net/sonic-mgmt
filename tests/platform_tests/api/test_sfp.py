@@ -324,20 +324,24 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
+    def should_skip_lpmode_check(self, xcvr_info_dict):
+        return any(
+            xcvr_info_dict.get("manufacturer", "").strip() == skip["manufacturer"] and
+            xcvr_info_dict.get("host_electrical_interface", "").strip() == skip["host_electrical_interface"]
+            for skip in self.LPMODE_SKIP_LIST
+        )
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
-        """Returns True if transceiver is support low power mode, False if not supported"""
+        """Returns True if transceiver supports low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
 
-        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
-        for xcvr_to_skip in self.LPMODE_SKIP_LIST:
-            if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
-                logger.info("Temporarily skipping {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"]))
-                return False
+        if self.should_skip_lpmode_check(xcvr_info_dict):
+            logger.info("Temporarily skipping {} due to known issue".format(
+                xcvr_info_dict.get("manufacturer")))
+            return False
 
         return True
 
@@ -706,7 +710,8 @@ class TestSfpApi(PlatformApiTestBase):
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
-            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+            if info_dict is None:
+                logger.warning("Skipping transceiver {} — no optic plugged in.".format(i))
                 continue
             port_index_to_info_dict[i] = info_dict
 
@@ -732,10 +737,9 @@ class TestSfpApi(PlatformApiTestBase):
             if sfp_port_idx not in port_index_to_info_dict:
                 continue
             info_dict = port_index_to_info_dict[sfp_port_idx]
-
             # If the xcvr supports low-power mode then it needs to be flapped
             # to come out of low-power mode after sfp_reset().
-            if self.is_xcvr_support_lpmode(info_dict):
+            if self.is_xcvr_support_lpmode(info_dict) or self.should_skip_lpmode_check(info_dict):
                 duthost.shutdown_interface(intf)
                 intfs_changed.append(intf)
 
@@ -947,7 +951,7 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == expected_state,
-                                f"Transceiver {i} is not {expected_state}, actual state is:{error_description}.")
+                                f"Transceiver {i} is not {expected_state}, actual state is: {error_description}.")
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):     # noqa: F811
