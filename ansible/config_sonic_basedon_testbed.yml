@@ -624,7 +624,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -815,7 +815,7 @@
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
@@ -824,7 +824,7 @@
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Configure TACACS
         become: true
