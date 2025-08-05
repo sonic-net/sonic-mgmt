@@ -354,6 +354,12 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
 #######################################
 #####            crm              #####
 #######################################
+crm/test_crm.py:
+  xfail:
+    reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/21243 on dualtor aa setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21243 and 'dualtor-aa' in topo_name"
+
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
