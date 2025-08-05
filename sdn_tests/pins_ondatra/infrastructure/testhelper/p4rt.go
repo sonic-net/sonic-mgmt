@@ -77,7 +77,7 @@ type P4RTClient struct {
 
 // P4RTClientOptions contains the fields for creation of P4RTClient.
 type P4RTClientOptions struct {
-	p4info *p4infopb.P4Info
+	P4Info *p4infopb.P4Info
 }
 
 func generateElectionID() *p4pb.Uint128 {
@@ -195,16 +195,13 @@ func (p *P4RTClient) PushP4Info() error {
 	return nil
 }
 
-// FetchP4RTClient method fetches P4RTClient associated with a device. If the
-// client does not exist, then it creates one and caches it for future use.
-// During client creation, it performs master arbitration and P4Info push.
-func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
+func createP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
 	p4Client := &P4RTClient{
 		client: p,
 		dut:    d,
 	}
 	if options != nil {
-		p4Client.p4Info = options.p4info
+		p4Client.p4Info = options.P4Info
 	}
 	var err error
 	p4Client.deviceID, err = testhelperDeviceIDGet(t, d)
@@ -217,22 +214,37 @@ func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient,
 	if streamErr != nil {
 		return nil, errors.Wrap(streamErr, "failed to create stream for master arbitration")
 	}
-
+        return p4Client, nil
+}
+func setMastershipAndPushP4Info(t *testing.T, p4Client *P4RTClient) error {
 	// Configure P4RT client as master.
 	p4Client.electionID = generateElectionID()
 	if err := p4Client.SetMastership(); err != nil {
-		return nil, errors.Wrap(err, "failed to configure P4RT client as master")
+		return errors.Wrap(err, "failed to configure P4RT client as master")
 	}
 
 	// Push P4Info only if it isn't present in the switch.
 	p4Info, err := p4Client.FetchP4Info()
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchP4Info() failed")
+		return errors.Wrap(err, "FetchP4Info() failed")
 	}
 	if p4Info == nil {
 		if err := p4Client.PushP4Info(); err != nil {
-			return nil, errors.Wrap(err, "P4Info push failed")
+			return errors.Wrap(err, "P4Info push failed")
 		}
+	}
+        return nil
+}
+// FetchP4RTClient method fetches P4RTClient associated with a device. If the
+// client does not exist, then it creates one and caches it for future use.
+// During client creation, it performs master arbitration and P4Info push.
+func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
+	p4Client, err := createP4RTClient(t, d, p, options)
+	if err != nil {
+		return nil, err
+	}
+	if err = setMastershipAndPushP4Info(t, p4Client); err != nil {
+		return nil, err
 	}
 
 	return p4Client, nil
@@ -302,4 +314,15 @@ func (p *P4RTClient) SendPacketOut(t *testing.T, packetOut *PacketOut) error {
 
 	log.Infof("Packet-out operation completed")
 	return nil
+}
+
+// P4RTAble checks if the P4RT server is up and running.
+func P4RTAble(t *testing.T, d *ondatra.DUTDevice) error {
+	p4rtClient, err := createP4RTClient(t, d, d.RawAPIs().P4RT(t), nil)
+	if err != nil {
+		return err
+	}
+	var req p4pb.WriteRequest
+	_, err = p4rtClient.client.Write(context.Background(), &req)
+	return err
 }

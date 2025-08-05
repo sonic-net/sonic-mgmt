@@ -15,6 +15,8 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
      run_traffic                                               # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -100,9 +102,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    no_of_test_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_test_streams = 10
+    no_of_test_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -162,7 +162,10 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
 
-    pytest_assert(abs(drop_percentage - 10) < 1, 'FAIL: Drop packets must be around 10 percent')
+    target_drop_percentage = 10
+    if duthost.facts.get("platform_asic") == "broadcom-dnx":
+        target_drop_percentage = 9
+    pytest_assert(abs(drop_percentage - target_drop_percentage) < 1, 'FAIL: Drop packets must be around 10 percent')
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossy_result(flow_stats,
@@ -353,11 +356,9 @@ def __gen_data_flow(testbed_config,
         elif 'Background Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = flow_prio[1]
     else:
-        if 'Test Flow' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[1]
-        elif 'Background Flow 1 -> 0' in flow.name:
+        if 'Flow 1 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
-        elif 'Background Flow 2 -> 0' in flow.name:
+        elif 'Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     global UDP_PORT_START
@@ -368,7 +369,7 @@ def __gen_data_flow(testbed_config,
     udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     flow.duration.fixed_seconds.delay.nanoseconds = 0
     if 'Background Flow 1 -> 0' in flow.name:
@@ -381,19 +382,11 @@ def __gen_data_flow(testbed_config,
             ipv4.priority.dscp.phb.AF11,
         ]
         ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
+    # Adding flow_prio[0] for ingress#1 and flow_prio[1] for ingress#2.
     elif 'Test Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
-        ]
-        ipv4.priority.dscp.phb.values = [
-            60, 61, 62, 63, 24, 25, 26, 27, 21, 23, 28, 29,
-            0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
-            56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     elif 'Test Flow' in flow.name:
         flow.duration.fixed_seconds.delay.nanoseconds = 5
     else:
