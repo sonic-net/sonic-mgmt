@@ -307,6 +307,28 @@ sonic:
     sonic_arista_7280dr3_400G:
     sonic_nokia_7250x3b_400G:
     sonic_arista_7060x6_512:
+    sonic_cisco_8101:
+
+sonic_cisco_8101:
+  hosts:
+    str-8101-D04-U36:
+      ansible_host: 10.64.246.197
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6c5
+      hwsku: Cisco-8101-O32
+      model: 8101-32FH-O
+      serial: FLM28230CH8
+      base_mac: 9c:09:8b:b7:04:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM28230CH8"
+        "0x24": "9c:09:8b:b7:04:00"
+        "0x26": "12"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2D": "Cisco"
+        "0xFE": "0x4F48A22C"
+  vars:
+    iface_speed: 400000
 
 sonic_mlnx_40:
   hosts:
