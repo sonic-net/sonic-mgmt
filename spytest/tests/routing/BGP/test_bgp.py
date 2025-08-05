@@ -1034,6 +1034,58 @@ class TestBGPRif(TestBGPCommon):
 
         st.report_result(err_list)
 
+    @pytest.mark.bgp_ft
+    @pytest.mark.community
+    @pytest.mark.inventory(feature='Regression', release='Arlo+')
+    def test_bgp_route_weight_attribute(self):
+        """
+        Verify that 'weight' is present and correct on BGP-learned routes.
+        """
+        # 1. Build topology
+        info = bgplib.get_tg_topology_leafspine_bgp(
+            dut_type='spine-leaf', max_tg_links='0', nodes='2'
+        )
+        spine = info['D1']
+        leaf = info['D2']
+        test_prefix = "150.1.1.0/24"
+        expected_weight = 200
+
+        # 2. Configure weight on the leaf and advertise the test prefix
+        bgpapi.config_bgp(
+            dut=leaf,
+            local_as=info['D2_as'],
+            neighbor=info['T1D2P1_ipv4'],
+            config_type_list=["set"],
+            set_type="weight",
+            set_val=str(expected_weight),
+            cli_type=bgp_cli_type
+        )
+        tg_handle = topo[f"T1{info['T2']}P1_ipv4_tg_bh"]
+        tg_ob = topo[f"T1{info['T2']}P1_tg_obj"]
+        tg_ob.tg_emulation_bgp_route_config(
+            handle=tg_handle['handle'],
+            mode='add',
+            num_routes='1',
+            prefix=test_prefix,
+            as_path='as_seq:1'
+        )
+        tg_ob.tg_emulation_bgp_control(handle=tg_handle['handle'], mode='start')
+        st.wait(5)
+
+        # 3. Fetch and verify the weight in the ROUTE_TABLE on the spine
+        routes = ipapi.fetch_ip_route(
+            spine,
+            match={'prefix': test_prefix},
+            select=['prefix', 'weight']
+        )
+        assert routes, f"{test_prefix} not learned on {spine}"
+        actual_weight = int(routes[0]['weight'])
+        assert actual_weight == expected_weight, (
+            f"Route {test_prefix} weight is {actual_weight} (expected {expected_weight})"
+        )
+
+        st.report_pass("test_case_passed")
+
 
 """
 BGP Neighbor over regular router interface fixture, class and test cases  - END
