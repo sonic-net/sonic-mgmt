@@ -45,7 +45,7 @@ stages:
 - stage: Test_round_1
   jobs:
   - template: ../pr_test_template.yml
-  - parameters:
+    parameters:
       BUILD_REASON: ${{ parameters.BUILD_REASON }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
@@ -57,7 +57,7 @@ stages:
   condition: succeededOrFailed('Test_round_1')
   jobs:
   - template: ../pr_test_template.yml
-  - parameters:
+    parameters:
       BUILD_REASON: ${{ parameters.BUILD_REASON }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
@@ -69,7 +69,7 @@ stages:
   condition: succeededOrFailed('Test_round_2')
   jobs:
   - template: ../pr_test_template.yml
-  - parameters:
+    parameters:
       BUILD_REASON: ${{ parameters.BUILD_REASON }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
@@ -81,7 +81,7 @@ stages:
   condition: succeededOrFailed('Test_round_3')
   jobs:
   - template: ../pr_test_template.yml
-  - parameters:
+    parameters:
       BUILD_REASON: ${{ parameters.BUILD_REASON }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
