@@ -2703,6 +2703,18 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi.py::test_create_interface:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
+restapi/test_restapi.py::test_create_interface_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
 restapi/test_restapi.py::test_create_vrf:
   skip:
     reason: "Only supported on Mellanox T1"
@@ -2710,6 +2722,12 @@ restapi/test_restapi.py::test_create_vrf:
     conditions:
       - "'t1' not in topo_type"
       - "asic_type not in ['mellanox']"
+
+restapi/test_restapi.py::test_data_path_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
