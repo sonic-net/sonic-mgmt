@@ -481,8 +481,8 @@ sonic:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
-    sonic_cisco_8101_tornado:
-    sonic_cisco_8101_tornado_O32:
+    sonic_cisco_8101_tornado_V64:
+    sonic_cisco_8101_tornado_C32:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -2448,7 +2448,7 @@ sonic_cisco_8101:
           timeout: 600
           wait: 600
 
-sonic_cisco_8101_tornado:
+sonic_cisco_8101_tornado_V64:
   vars:
     hwsku: Cisco-8101-V64
     iface_speed: 100000
@@ -2520,9 +2520,9 @@ sonic_cisco_8101_tornado:
           wait: 600
       reduce_port_speed: true
 
-sonic_cisco_8101_tornado_O32:
+sonic_cisco_8101_tornado_C32:
   vars:
-    hwsku: Cisco-8101-O32
+    hwsku: Cisco-8101C01-C32
     iface_speed: 100000
   hosts:
     str2-8101c1-03:
