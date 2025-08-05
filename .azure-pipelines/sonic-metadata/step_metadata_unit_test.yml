@@ -1,5 +1,14 @@
 steps:
 - script: |
+    # Install bats from source (avoiding apt-get network issues)
+    curl -L https://github.com/bats-core/bats-core/archive/v1.12.0.tar.gz -o bats.tar.gz
+    tar -xzf bats.tar.gz
+    cd bats-core-1.12.0
+    sudo ./install.sh /usr/local
+    bats --version
+  displayName: 'Install Bats'
+
+- script: |
     # Check for any .bats files and run them if found
     cd sonic-metadata
     cd scripts/tests
