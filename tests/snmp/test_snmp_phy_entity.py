@@ -252,8 +252,7 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
         assert expect_oid in snmp_physical_entity_info, (
             "Expected OID for fabric card not found in SNMP physical entity MIB.\n"
             "Expected OID: {}\n"
-            "SNMP physical entity info: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+        ).format(expect_oid)
 
         drawer_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert drawer_snmp_fact['entPhysDescr'] == name, (
@@ -371,8 +370,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         assert expect_oid in snmp_physical_entity_info, (
             "Expected OID for fabric card not found in SNMP physical entity MIB.\n"
             "Expected OID: {}\n"
-            "SNMP physical entity info: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+        ).format(expect_oid)
 
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert fan_snmp_fact['entPhysDescr'] == name, (
