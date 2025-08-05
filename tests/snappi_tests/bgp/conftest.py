@@ -1,3 +1,6 @@
+import csv
+import shutil
+from unittest.mock import Mock
 import pytest
 import logging
 import os
@@ -230,9 +233,40 @@ def apply_tsb(duthost):
         pytest.fail(error_msg)
 
 
+def patch_conn_graph_facts(duthosts, tbinfo):
+    """
+    Perform patching _links.csv so that only included duts exisiting in the file.
+    """
+    base_path = os.path.dirname(os.path.realpath(__file__))
+    lab_conn_graph_path = os.path.join(base_path, "../../../ansible/files/")
+    link_file = os.path.join(lab_conn_graph_path, f"sonic_{tbinfo['inv_name']}_links.csv")
+
+    def patch():
+        shutil.copyfile(link_file, link_file + ".bak")
+        with open(link_file, "w"):
+            # Get all DUT hostnames
+            dut_hostnames = set(duthost.hostname for duthost in duthosts)
+            with open(link_file + ".bak", "r") as infile, open(link_file, "w", newline="") as outfile:
+                reader = csv.reader(infile)
+                writer = csv.writer(outfile)
+                header = next(reader)
+                writer.writerow(header)
+                for row in reader:
+                    if any(host in row for host in dut_hostnames):
+                        writer.writerow(row)
+
+    def undo():
+        shutil.move(link_file + ".bak", link_file)
+
+    return Mock(undo=undo, patch=patch)
+
+
 @pytest.fixture(scope="session", autouse=True)
-def initial_setup(duthosts, creds):
+def initial_setup(duthosts, creds, tbinfo):
     """Perform initial DUT configurations (T1, Fanout) for convergence tests (runs once per test session)."""
+    patch_facts = patch_conn_graph_facts(duthosts, tbinfo)
+    patch_facts.patch()
+
     context = {'exist-prefix-deny': False}
 
     logger.info("Starting initial DUT setup for T2 Convergence tests")
@@ -274,3 +308,5 @@ def initial_setup(duthosts, creds):
                 "'no route-map FROM_TIER2_V6 deny 10'",
             ])
         )
+
+    patch_facts.undo()
