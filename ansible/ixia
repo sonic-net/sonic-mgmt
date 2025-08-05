@@ -13,7 +13,7 @@ all:
     ptf:
       hosts:
         msr-ixia-api-serv-1:
-          ansible_host: 10.64.246.150
+          ansible_host: 10.64.246.189
           version: ixnetworkweb_9.30
         ixia-apiserver3:
           ansible_host: 10.64.246.190
@@ -47,7 +47,8 @@ sonic:
     sonic_str2_nokia_7250_2_sup:
     sonic_str3_arista_7808_lc:
     sonic_str3_arista_7808_sup:
-    sonic_str3_cisco_8800:
+    sonic_str3_cisco_8800_lc:
+    sonic_str3_cisco_8800_sup:
     sonic_str2_7260cx3:
     sonic_str2_arista_7808:
     sonic_nvidia_sn5600_stress:
@@ -260,7 +261,7 @@ sonic_str2_7260cx3:
     str2-7260cx3-d10-u21:
       ansible_host: 10.3.146.9
   vars:
-    hwsku: Arista-7260CX3
+    hwsku: Arista-7260CX3-C64
 
 sonic_str3_arista_7808_lc:
   vars:
@@ -424,18 +425,132 @@ sonic_str3_arista_7808_sup:
         - psu7
         - psu8
 
-
-sonic_str3_cisco_8800:
+sonic_str3_cisco_8800_lc:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 3
+    frontend_asics: [0, 1, 2]
   hosts:
     str3-8800-lc2-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.146.109
+      ansible_hostv6: 2a01:111:e210:3000::a03:926d
+      mgmt_subnet_mask_length: 24
+      serial: FOC2648N1J8
+      base_mac: 5C:B1:2E:DE:95:58
+      model: '88-LC0-36FH'
+      console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2648N1J8"
+        "0x24": "5C:B1:2E:DE:95:58"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x645A152C"
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
     str3-8800-lc3-1:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot5
+      loopback4096_ip: [3.3.3.12/32, 3.3.3.13/32, 3.3.3.14/32]
+      loopback4096_ipv6: [2603:10e2:400::c/128, 2603:10e2:400::d/128, 2603:10e2:400::e/128]
       ansible_host: 10.3.146.105
+      ansible_hostv6: 2a01:111:e210:3000::a03:9269
+      mgmt_subnet_mask_length: 24
+      serial: FOC2624KGTQ
+
+sonic_str3_cisco_8800_sup:
+  vars:
+    HwSku: Cisco-8800-RP
+    sonic_hwsku: Cisco-8800-RP
+    sonic_hw_platform: x86_64-8800_rp-r0
+    slot_num: slot0
+    card_type: supervisor
+    switch_type: chassis-packet
+  hosts:
     str3-8800-sup-2:
       ansible_host: 10.3.146.97
-  vars:
-    hwsku: Cisco-88-LC0-36FH-O36
-    iface_speed: 100000
+      ansible_hostv6: 2a01:111:e210:3000::a03:9261
+      mgmt_subnet_mask_length: 24
+      hwsku: Cisco-8800-RP
+      model: '8800-RP'
+      num_asics: 16
+      asic_name: Q200
+      serial: FOC2826N2HL
+      base_mac: D4:7F:35:AC:0B:10
+      console_baudrate: 115200
+      chassis_id: str3-8800-chassis-1
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1B4827"
+        "0x23": "FOC2826N2HL"
+        "0x24": "D4:7F:35:AC:0B:10"
+        "0x26": "3"
+        "0x28": "x86_64-8800_rp-r0"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x297F619B"
+      skip_logical_modules:
+        'line-cards':
+        - LINE-CARD0
+        'supervisor':
+        - SUPERVISOR1
+      skip_modules:
+        'line-cards':
+        - LINE-CARD0
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'fabric-cards':
+        - FABRIC-CARD1
+        - FABRIC-CARD3
+        - FABRIC-CARD7
+        'supervisor':
+        - SUPERVISOR1
+        'psus':
+        - psu2.0
+        - psu2.1
+        - psu2.2
+        - psu3.0
+        - psu3.1
+        - psu3.2
+        - psu4.0
+        - psu4.1
+        - psu4.2
+        - psu5.0
+        - psu5.1
+        - psu5.2
+        - psutray2.psu0
+        - psutray2.psu1
+        - psutray2.psu2
+      asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
+      plt_reboot_dict:
+        cold:
+          timeout: 420
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 900
 
 sonic_nvidia_sn5600_stress:
   hosts:

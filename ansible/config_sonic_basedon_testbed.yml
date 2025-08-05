@@ -846,7 +846,7 @@
          and 'lt2' not in topo
          and 'ft2' not in topo
          and testbed_facts['duts_map'][inventory_hostname] == 0
-         and not is_ixia_testbed
+         and (not is_ixia_testbed or 'route_conv' in topo)
 
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json

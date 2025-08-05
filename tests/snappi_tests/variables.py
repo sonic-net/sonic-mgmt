@@ -342,22 +342,78 @@ t1_ports = {
 }
 
 t1_dut_info = {
-    'HW_PLATFORM1': {
+    'NOKIA': {
         'dut_ip': '10.64.246.10',
     },
-    'HW_PLATFORM2': {
+    'ARISTA': {
+        'dut_ip': '10.64.246.10',
+    },
+    'CISCO': {
         'dut_ip': '10.64.246.10',
     }
 }
 
 t1_snappi_ports = {
-    'HW_PLATFORM1': [
-        {'ip': '10.1.1.1', 'port_id': '11.3', 'peer_port': 'Ethernet24', 'peer_device': 'sonic-t1',
-         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.3', 'api_server_ip': '10.2.2.2'},
-        {'ip': '10.1.1.1', 'port_id': '11.4', 'peer_port': 'Ethernet28', 'peer_device': 'sonic-t1',
-         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.4', 'api_server_ip': '10.2.2.2'},
+    "NOKIA": [
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.3",
+            "peer_port": "Ethernet24",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.3",
+            "api_server_ip": "10.64.246.188",
+        },
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.4",
+            "peer_port": "Ethernet28",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.4",
+            "api_server_ip": "10.64.246.188",
+        },
     ],
-    'HW_PLATFORM2': []
+    "ARISTA": [
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.3",
+            "peer_port": "Ethernet24",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.3",
+            "api_server_ip": "10.64.246.188",
+        },
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.4",
+            "peer_port": "Ethernet28",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.4",
+            "api_server_ip": "10.64.246.188",
+        },
+    ],
+    "CISCO": [
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.3",
+            "peer_port": "Ethernet24",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.3",
+            "api_server_ip": "10.64.246.189",
+        },
+        {
+            "ip": "10.3.145.74",
+            "port_id": "11.4",
+            "peer_port": "Ethernet28",
+            "peer_device": "str2-7260cx3-d10-u42",
+            "speed": "speed_100_gbps",
+            "location": "10.3.145.74/11.4",
+            "api_server_ip": "10.64.246.189",
+        },
+    ],
 }
 
 # asic_value is None if it's non-chassis based or single line card

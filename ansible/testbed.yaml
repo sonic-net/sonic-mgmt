@@ -786,24 +786,22 @@
   comment: v-saidia
 
 - conf-name: vms69-t2-route-conv-8800
-  group-name: vms20-ixia-12
-  topo: t2_2lc_min_ports-masic
+  group-name: vms69-ixia-2
+  topo: tgen_t2_2lc_masic_route_conv2
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-12
-  ptf_ip: 10.64.246.150/23
+  ptf_imagetag: 10.25.2405.106
+  ptf: vms69-ixia-2
+  ptf_ip: 10.64.246.189/23
   ptf_ipv6:
-  server: server_20
+  server: server_69
   vm_base:
   dut:
     - str3-8800-lc3-1
     - str3-8800-lc2-1
     - str3-8800-sup-2
-    - str2-7260cx3-d10-u42
   inv_name: ixia
   auto_recover: 'False'
   comment: abdosi
-
-
 
 - conf-name: vms69-t2-8800-2-ixia
   group-name: vms69-ixia-2
@@ -4182,7 +4180,6 @@
   inv_name: str4
   auto_recover: 'True'
   comment: MattSoulsby
-
 - conf-name: ptp-sn5640-1
   group-name:
   topo: ptp-512
