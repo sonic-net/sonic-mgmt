@@ -793,21 +793,21 @@ sonic_arista:
       ansible_hostv6: 2a01:111:e210:3000::a03:92bb
       mgmt_subnet_mask_length: 24
       hwsku: Arista-7050CX3-32C-C32
-      model: DCS-7050CX3-32S
-      serial: JPE21041573
-      base_mac: 94:8e:d3:99:57:b8
+      model: DCS-7050CX3-32C
+      serial: HBG241704UB
+      base_mac: b4:92:fe:29:60:c4
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S"
-        "0x22": "ASY0288205A0"
-        "0x23": "JPE21041573"
-        "0x24": "94:8e:d3:99:57:b8"
-        "0x25": "2020/01/01 00:00:00"
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402B0"
+        "0x23": "HBG241704UB"
+        "0x24": "b4:92:fe:29:60:c4"
+        "0x25": "2024/05/04 05:36:20"
         "0x26": "01"
         "0x27": "01.00"
-        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x28": "x86_64-arista_7050cx3_32c"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.10-14653765"
-        "0x2F": "JPE21041573"
+        "0x2E": "Aboot-norcal11-11.0.6-32762515"
+        "0x2F": "HBG241704UB"
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       ansible_hostv6: 2a01:111:e210:3000::a03:92b9
