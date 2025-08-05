@@ -2787,6 +2787,7 @@ Totals               6450                 6449
         counter_type_cli_map = {
             'QUEUE_STAT': 'queue',
             'PORT_STAT': 'port',
+            'SWITCH_STAT': 'switch',
             'PORT_BUFFER_DROP': 'port-buffer-drop',
             'RIF_STAT': 'rif',
             'QUEUE_WATERMARK_STAT': 'watermark',
