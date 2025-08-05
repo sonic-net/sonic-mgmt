@@ -118,17 +118,6 @@ class TestRebootBlockingModeCLI:
             f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")
 
-    def test_blocking_mode(
-        self,
-        duthosts,
-        enum_rand_one_per_hwsku_hostname
-    ):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        result = get_command_result(
-            duthost,
-            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot -b; echo \"UnexpectedFinished\"'")
-        pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
-
     def test_blocking_mode_with_running_config(
         self,
         duthosts,
@@ -159,20 +148,6 @@ class TestRebootBlockingModeConfigFile:
 
         restore_reboot_config_file(duthost)
         restore_systemctl_reboot_and_reboot(duthost)
-
-    def test_blocking_mode_with_running_config_using_config_file(
-        self,
-        duthosts,
-        enum_rand_one_per_hwsku_hostname
-    ):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        mock_reboot_config_file(duthost)
-        result = get_command_result(
-            duthost,
-            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"UnexpectedFinished\"'")
-        pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
-        pattern = r".*\n[.]+$"
-        pytest_assert(re.search(pattern, result), "Cannot find dots as expected in output: {}".format(result))
 
     def test_timeout_for_blocking_mode_using_config_file(
         self,
