@@ -23,6 +23,10 @@ parameters:
   type: string
   default: "2"
 
+- name: ASIC_TYPE
+  type: string
+  default: "vs"
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -127,3 +131,4 @@ jobs:
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
