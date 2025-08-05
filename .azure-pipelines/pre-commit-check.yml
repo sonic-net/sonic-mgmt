@@ -15,19 +15,7 @@ steps:
 
 - script: |
     set -x
-    timeout 180s sudo apt-get update -y || {
-      echo "apt-get update failed or timed out"
-      exit 1
-    }
-    # Install aspell and aspell-en non-interactively
-    timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en libenchant-2-2 libenchant-2-dev || {
-      echo "Failed to install aspell or aspell-en or libenchant-2-2 or libenchant-2-dev"
-      exit 1
-    }
-    sudo pip install pyenchant
-    sudo pip install pylint # required as pylint is run in local mode
-    sudo pip install -r tests/common2/requirements.txt
-
+    sudo pip install pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
 
