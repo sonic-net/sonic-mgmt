@@ -291,3 +291,8 @@ class QosParamMellanox(object):
                             update_dict_value(sub_qos_config_value, qos_params_dict[sub_qos_config_key])
                     else:
                         qos_params_dict[sub_qos_config_key] = sub_qos_config_value
+
+        if int(self.asic_type.split('spc')[1]) >= 4:
+            margin_ratio = 0.02
+            self.qos_params_mlnx['lossy_queue_1']['pkts_num_margin'] = int(
+                self.qos_params_mlnx['lossy_queue_1']['pkts_num_trig_egr_drp'] * margin_ratio)
