@@ -12,11 +12,11 @@ import random
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
-                                             DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT,
+                                             DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, TRIM_QUEUE, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
@@ -484,6 +484,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     for interface in interfaces:
         logger.info(f"Queue counters before filling for {interface}:")
         duthost.shell(f"show queue counters {interface}")
+        duthost.shell(f"show queue counters {interface} --json")
 
     # Create a large packet to efficiently fill the buffer
     fill_packet_size = 1500  # Standard Ethernet MTU
@@ -569,6 +570,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     for interface in interfaces:
         logger.info(f"Queue counters after filling for {interface}:")
         duthost.shell(f"show queue counters {interface}")
+        duthost.shell(f"show queue counters {interface} --json")
 
     return total_sent_packets
 
@@ -613,7 +615,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
             # Fill the buffer first if requested
             if fill_buffer:
                 # Get buffer configuration and size to calculate how many packets to send
-                buffer_size = calculate_buffer_size_for_queue(
+                buffer_size = compute_buffer_threshold(
                     duthost,
                     egress_port['name'],
                     block_queue
@@ -736,7 +738,7 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
             # Fill the buffer first if requested
             if fill_buffer:
                 # Get buffer configuration and size to calculate how many packets to send
-                buffer_size = calculate_buffer_size_for_queue(
+                buffer_size = compute_buffer_threshold(
                     duthost,
                     egress_port['name'],
                     block_queue
@@ -762,9 +764,9 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         raise
 
 
-def calculate_buffer_size_for_queue(duthost, interface, queue_id):
+def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
-    Calculate the approximate buffer size for a specific queue on an interface.
+    Get buffer profile information for a specific queue on an interface.
 
     Args:
         duthost: DUT host object
@@ -772,13 +774,19 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
         queue_id (str): Queue ID
 
     Returns:
-        int: Approximate buffer size in bytes
+        dict: Buffer profile attributes including pool, size, dynamic_th, etc.
+              Returns None if profile not found or error occurs
     """
     try:
-        # Get buffer profile for the queue
+        # Get buffer profile name for the queue
         cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
         result = duthost.shell(cmd)
         profile_name = result["stdout"].strip()
+
+        if not profile_name:
+            logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
+            return None
+
         logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_name}")
 
         # Get buffer profile details
@@ -792,6 +800,132 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
             if i + 1 < len(lines):
                 profile_details[lines[i]] = lines[i + 1]
 
+        if not profile_details:
+            logger.warning(f"No buffer profile details found for {profile_name}")
+            return None
+
+        logger.info(f"Buffer profile details for {profile_name}: {profile_details}")
+        return profile_details
+
+    except Exception as e:
+        logger.error(f"Error getting buffer profile for queue {queue_id} on {interface}: {str(e)}")
+        return None
+
+
+def get_buffer_pool_size(duthost, pool_name):
+    """
+    Get buffer pool size from database.
+
+    Args:
+        duthost: DUT host object
+        pool_name (str): Buffer pool name
+
+    Returns:
+        int: Buffer pool size in bytes, or 0 if not found
+    """
+    try:
+        cmd = f"redis-cli -n 4 HGET 'BUFFER_POOL|{pool_name}' size"
+        result = duthost.shell(cmd)
+        pool_size = int(result["stdout"].strip())
+        logger.info(f"Buffer pool '{pool_name}' size: {pool_size}")
+        return pool_size
+
+    except Exception as e:
+        logger.error(f"Error getting buffer pool size for '{pool_name}': {str(e)}")
+        return 0
+
+
+def compute_buffer_threshold(duthost, interface, queue_id):
+    """
+    Automatically select and call the appropriate buffer threshold computation function
+    based on SAI profile configuration.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        int: Computed buffer threshold in bytes
+    """
+    cmd = "docker exec syncd cat /usr/share/sonic/hwsku/sai.profile"
+    if duthost.facts["asic_type"] == "mellanox" and "SAI_KEY_DISABLE_PORT_ALPHA=1" not in duthost.shell(cmd)['stdout']:
+        logger.info("Compute buffer threshold algorithm for nvidia device disable hba")
+        return compute_buffer_threshold_for_nvidia_device_disable_hba(duthost, interface, queue_id)
+    else:
+        logger.info("Compute buffer threshold algorithm for common device")
+        return compute_buffer_threshold_for_common_device(duthost, interface, queue_id)
+
+
+def compute_buffer_threshold_for_common_device(duthost, interface, queue_id):
+    """
+    Compute buffer threshold for dynamic threshold profiles.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        int: Computed buffer threshold in bytes
+
+    Raises:
+        pytest.fail: If buffer profile is not found or computation fails
+    """
+    try:
+        # Get buffer profile for the queue
+        buffer_profile = get_buffer_profile_for_queue(duthost, interface, queue_id)
+        if not buffer_profile:
+            error_msg = f"No buffer profile found for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
+
+        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {buffer_profile}")
+
+        # Get buffer pool size
+        pool_size = get_buffer_pool_size(duthost, buffer_profile["pool"])
+
+        # Calculate buffer scale
+        buffer_scale = 2 ** float(buffer_profile["dynamic_th"])
+        buffer_scale = buffer_scale / (buffer_scale + 1)
+
+        # Calculate static threshold: profile_size + (buffer_scale * pool_size)
+        static_threshold = int(buffer_profile["size"]) + int(buffer_scale * pool_size * STATIC_THRESHOLD_MULTIPLIER)
+
+        logger.info(f"Computed buffer threshold for queue {queue_id} on {interface}: {static_threshold}")
+        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "
+                    f"Buffer size: {static_threshold}")
+
+        return static_threshold
+
+    except Exception as e:
+        logger.error(f"Error computing buffer threshold for queue {queue_id} on {interface}: {str(e)}")
+        # Fail the test case if computation fails
+        pytest.fail(f"Failed to compute buffer threshold for queue {queue_id} on {interface}: {str(e)}")
+
+
+def compute_buffer_threshold_for_nvidia_device_disable_hba(duthost, interface, queue_id):
+    """
+    Calculate the approximate buffer size for a specific queue on an interface.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        int: Approximate buffer size in bytes
+    """
+    try:
+        # Get buffer profile for the queue using the unified function
+        profile_details = get_buffer_profile_for_queue(duthost, interface, queue_id)
+        if not profile_details:
+            error_msg = f"No buffer profile found for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
+
+        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_details}")
+
         # Get buffer size from profile
         buffer_size = 0
         if "size" in profile_details:
@@ -800,9 +934,7 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
         # Get pool name and its size
         if "pool" in profile_details:
             pool_name = profile_details["pool"]
-            cmd = f"redis-cli -n 4 HGET 'BUFFER_POOL|{pool_name}' size"
-            result = duthost.shell(cmd)
-            pool_size = int(result["stdout"].strip())
+            pool_size = get_buffer_pool_size(duthost, pool_name)
 
             # If the profile has dynamic threshold, calculate maximum size
             if "dynamic_th" in profile_details:
@@ -824,16 +956,19 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
             if buffer_size == 0 and pool_size > 0:
                 buffer_size = pool_size // 4  # Use 25% of pool as an estimate
 
-        # If we still have no buffer size, use a default
+        # If we still have no buffer size, fail the test
         if buffer_size == 0:
-            buffer_size = 1000000  # Default 1MB
+            error_msg = f"Unable to determine buffer size for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
 
-        logger.info(f"Estimated buffer size for queue {queue_id} on {interface}: {buffer_size} bytes")
+        logger.info(f"Estimated buffer size for queue {queue_id} on {interface}, buffer_size: {buffer_size} bytes")
         return buffer_size
 
     except Exception as e:
-        logger.warning(f"Error calculating buffer size: {str(e)}")
-        return 1000000  # Default 1MB on error
+        logger.error(f"Error calculating buffer size: {str(e)}")
+        # Fail the test case if calculation fails
+        pytest.fail(f"Failed to calculate buffer size for queue {queue_id} on {interface}: {str(e)}")
 
 
 class ConfigTrimming:
@@ -1990,3 +2125,273 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
 
     return True
+
+
+def get_queue_id_by_dscp(dscp, ingress_port_name, dut_qos_maps_module):
+    """
+    Calculate the queue ID based on the DSCP value and ingress port name
+    """
+    # Get port QoS map for the downlink port
+    port_qos_map = dut_qos_maps_module['port_qos_map']
+    logger.info(f"Retrieving QoS maps for port: {ingress_port_name}")
+
+    # Extract the DSCP to TC map name from the port QoS configuration
+    dscp_to_tc_map_name = port_qos_map[ingress_port_name]['dscp_to_tc_map'].split('|')[-1].strip(']')
+    logger.info(f"DSCP to TC map name: {dscp_to_tc_map_name}")
+
+    # Extract the TC to Queue map name from the port QoS configuration
+    tc_to_queue_map_name = port_qos_map[ingress_port_name]['tc_to_queue_map'].split('|')[-1].strip(']')
+    logger.info(f"TC to Queue map name: {tc_to_queue_map_name}")
+
+    # Get the actual DSCP to TC mapping from the QoS maps
+    dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
+    logger.debug(f"DSCP to TC mapping details: {dscp_to_tc_map}")
+
+    # Get the actual TC to Queue mapping from the QoS maps
+    tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
+    logger.debug(f"TC to Queue mapping details: {tc_to_queue_map}")
+
+    # Calculate the queue ID, this queue will be blocked during testing
+    queue_id = get_dscp_to_queue_value(dscp, dscp_to_tc_map, tc_to_queue_map)
+
+    return queue_id
+
+
+def convert_counter_value(val):
+    if val == 'N/A':
+        return val
+    return int(val.replace(',', ''))
+
+
+def get_switch_trim_counters(duthost):
+    """
+    Get switch level trim counter.
+
+    Args:
+        duthost: DUT host object
+
+    Example:
+        root@sonic:/home/admin# show switch counters all
+          TrimSent/pkts    TrimDrop/pkts
+        ---------------  ---------------
+                    200              100
+
+    Return:
+        {'trim_sent_pkts': 200, 'trim_drop_pkts': 100}
+    """
+    result = duthost.show_and_parse("show switch counters all")
+    logger.info(f"Switch trim counters: {result}")
+    trim_sent_pkts = convert_counter_value(result[0]['trimsent/pkts'])
+    trim_drop_pkts = convert_counter_value(result[0]['trimdrop/pkts'])
+
+    counters = {
+        'trim_sent_pkts': trim_sent_pkts,
+        'trim_drop_pkts': trim_drop_pkts
+    }
+    logger.info(f"Switch trim counters: {counters}")
+    return counters
+
+
+def get_switch_trim_counters_json(duthost):
+    """
+    Get switch level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+
+    Example:
+        admin@r-bison-04:~$ show switch counters all --json
+        {
+            "trim_drop": "N/A",
+            "trim_sent": "N/A"
+        }
+
+    Return:
+        {"trim_drop": "N/A", "trim_sent": "N/A"}
+    """
+    result = duthost.shell("show switch counters all --json")
+    json_data = json.loads(result['stdout'])
+
+    # Convert counter values from string to int for numeric fields
+    for field in ['trim_drop', 'trim_sent']:
+        if field in json_data:
+            json_data[field] = convert_counter_value(json_data[field])
+
+    logger.info(f"Switch trim counters (JSON): {json_data}")
+    return json_data
+
+
+def get_port_trim_counters(duthost, port):
+    """
+    Get specified port trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        root@sonic:/home/admin# show interfaces counters trim Ethernet0
+        Last cached time was 2025-07-28T04:48:58.633175
+             IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+        ----------  -------  -----------  --------------  ---------------
+        Ethernet96        U      667,765             N/A              N/A
+
+    Return:
+        {'trim_pkts': 667765, 'trim_tx_pkts': 'N/A', 'trim_drp_pkts': 'N/A'}
+    """
+    result = duthost.show_and_parse(f"show interfaces counters trim {port}", start_line_index=1)
+    logger.info(f"Trim counters for port {port}: {result}")
+
+    trim_pkts = convert_counter_value(result[0]['trim_pkts'])
+    trim_tx_pkts = convert_counter_value(result[0]['trim_tx_pkts'])
+    trim_drp_pkts = convert_counter_value(result[0]['trim_drp_pkts'])
+
+    counters = {
+        'trim_pkts': trim_pkts,
+        'trim_tx_pkts': trim_tx_pkts,
+        'trim_drp_pkts': trim_drp_pkts
+    }
+    logger.info(f"Trim counters for port {port}: {counters}")
+    return counters
+
+
+def get_port_trim_counters_json(duthost, port):
+    """
+    Get specified port trim counters using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show interfaces counters trim Ethernet0 --json
+        {
+            "Ethernet0": {
+                "STATE": "U",
+                "TRIM_DRP_PKTS": "N/A",
+                "TRIM_PKTS": "0",
+                "TRIM_TX_PKTS": "N/A"
+            }
+        }
+
+    Return:
+        {'STATE': 'U', 'TRIM_DRP_PKTS': '0', 'TRIM_PKTS': '100', 'TRIM_TX_PKTS': '100'}
+    """
+    result = duthost.shell(f"show interfaces counters trim {port} --json")
+
+    # Extract JSON part from output (skip timestamp line if present)
+    stdout = result['stdout']
+    lines = stdout.strip().split('\n')
+
+    # If first line starts with "Last cached time", skip it
+    if lines and lines[0].startswith('Last cached time'):
+        json_str = '\n'.join(lines[1:])
+    else:
+        json_str = stdout
+
+    json_data = json.loads(json_str)
+    port_data = json_data.get(port, {})
+
+    # Convert counter values from string to int for numeric fields
+    for field in ['TRIM_PKTS', 'TRIM_TX_PKTS', 'TRIM_DRP_PKTS']:
+        if field in port_data:
+            port_data[field] = convert_counter_value(port_data[field])
+
+    logger.info(f"Trim counters for port {port} (JSON): {port_data}")
+    return port_data
+
+
+def get_queue_trim_counters(duthost, port):
+    """
+    Get specified port queue level trim counter.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        root@sonic:/home/admin# show queue counters Ethernet0 --all
+        Last cached time was 2025-07-28T04:48:59.744005
+        Ethernet0 Last cached time was 2025-07-28T04:48:59.744005
+            Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts
+        ---------  -----  --------------  ---------------  -----------  ------------  -----------
+        Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC1             N/A              N/A          100          6400          100
+        Ethernet0    UC2             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC3             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC6             100             6400          N/A           N/A          N/A
+        Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A
+
+    Return:
+        {'UC0': 'N/A', 'UC1': 100, 'UC2': 'N/A', 'UC3': 'N/A', 'UC4': 'N/A', 'UC5': 'N/A', 'UC6': 100, 'UC7': 'N/A'}
+    """
+    result = duthost.show_and_parse(f"show queue counters {port} --all", start_line_index=1)
+    logger.info(f"Queue trim counters for port {port}: {result}")
+
+    queue_trim = {}
+    for entry in result:
+        txq = entry['txq']
+        trim_pkts = convert_counter_value(entry['trim/pkts'])
+        queue_trim[txq] = trim_pkts
+    logger.info(f"Queue trim counters dict for port {port}: {queue_trim}")
+    return queue_trim
+
+
+def get_queue_trim_counters_json(duthost, port):
+    """
+    Get specified port queue level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show queue counters Ethernet0 --all --json
+        {
+          "Ethernet0": {
+            "UC0": {
+              "dropbytes": "N/A",
+              "droppacket": "0",
+              "totalbytes": "0",
+              "totalpacket": "0",
+              "trimdroppacket": "N/A",
+              "trimpacket": "0",
+              "trimsentpacket": "N/A"
+            },
+            ...
+          }
+        }
+
+    Return:
+        {
+            "UC0": {
+                "dropbytes": "N/A",
+                "droppacket": "0",
+                "totalbytes": "0",
+                "totalpacket": "0",
+                "trimdroppacket": "N/A",
+                "trimpacket": "0",
+                "trimsentpacket": "N/A"
+            },
+            ...
+        }
+    """
+    result = duthost.shell(f"show queue counters {port} --all --json")
+
+    json_data = json.loads(result['stdout'])
+    port_data = json_data.get(port, {})
+
+    # Convert counter values from string to int for numeric fields
+    for queue_id, queue_data in port_data.items():
+        if queue_id == "time":  # Skip the time field
+            continue
+
+        # Convert numeric counter values
+        for field in ['droppacket', 'totalbytes', 'totalpacket', 'trimpacket']:
+            if field in queue_data:
+                queue_data[field] = convert_counter_value(queue_data[field])
+
+    logger.info(f"Queue trim counters for port {port} (JSON): {port_data}")
+    return port_data
