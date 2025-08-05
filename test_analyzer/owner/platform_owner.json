@@ -814,5 +814,13 @@
         "email": "bingwang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32C-C32",
+        "topo": "dualtor",
+        "owner": "Longxiang Lyu",
+        "email": "longxianglyu@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
