@@ -8,6 +8,9 @@ import threading
 import ptf.testutils as testutils
 from ptf.mask import Mask
 import ptf.packet as packet
+
+from tests.common.utilities import wait_until
+from common.helpers.assertions import pytest_assert
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
@@ -19,6 +22,9 @@ from .everflow_test_utilities import setup_info, setup_arp_responder, erspan_ip_
 from .everflow_test_utilities import skip_ipv6_everflow_tests                                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
+from tests.common.helpers.ptf_tests_helper import find_links
+from ipaddress import ip_address, IPv4Address
+from tests.common.fixtures.duthost_utils import is_multi_binding_acl_enabled  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
@@ -142,6 +148,123 @@ class EverflowIPv4Tests(BaseEverflowTest):
         yield
 
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
+
+    @pytest.fixture()
+    def restore_bgp(self, rand_selected_dut):
+        """
+        Restore the BGP configuration to the original state.
+        """
+        rand_selected_dut.command("sudo config bgp startup all")
+
+        yield
+
+        rand_selected_dut.command("sudo config bgp shutdown all")
+
+    @pytest.fixture()
+    def restore_setup_info(self, setup_info, rand_unselected_dut):      # noqa F811
+        """
+        In everflow test cases, the bgp session would be shutdown at active tor
+        It would affects the basic function of dualtor muxcable
+        In multi binding acl case, it should startup the bgp sessions in order to make
+        Dual tor function works fine.
+        """
+        original_router_mac = setup_info[DOWN_STREAM]["ingress_router_mac"]
+        # router mac address of unselected DUT is needed in multi-binding acl test
+        setup_info[DOWN_STREAM]["ingress_router_mac"] = rand_unselected_dut.facts['router_mac']
+
+        yield
+
+        setup_info[DOWN_STREAM]["ingress_router_mac"] = original_router_mac
+
+    @pytest.fixture(scope="module")
+    def upstream_links_for_unselected_dut(self, rand_unselected_dut, tbinfo, nbrhosts):
+        """
+        Returns a dictionary of all the links that are upstream from the unselected DUT.
+
+        Args:
+            rand_unselected_dut: DUT fixture
+            tbinfo: testbed information fixture
+            nbrhosts: neighbor host fixture
+        Returns:
+            links: Dictionary of links upstream from the unselected DUT
+        """
+        links = dict()
+        duthost = rand_unselected_dut
+
+        if "dualtor" not in tbinfo["topo"]["name"]:
+            pytest.skip("Multi-binding ACL is not supported for non-dualtor testbed")
+
+        def filter(interface, neighbor, mg_facts, tbinfo):
+            if ((tbinfo["topo"]["type"] == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"]))
+                    or (tbinfo["topo"]["type"] == "t1" and "T2" in neighbor["name"])):
+                local_ipv4_addr = None
+                peer_ipv4_addr = None
+                for item in mg_facts["minigraph_bgp"]:
+                    if item["name"] == neighbor["name"]:
+                        if isinstance(ip_address(item["addr"]), IPv4Address):
+                            # The address of neighbor device
+                            local_ipv4_addr = item["addr"]
+                            # The address of DUT
+                            peer_ipv4_addr = item["peer_addr"]
+                            break
+                port = mg_facts["minigraph_neighbors"][interface]["port"]
+                links[interface] = {
+                    "name": neighbor["name"],
+                    "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
+                    "local_ipv4_addr": local_ipv4_addr,
+                    "peer_ipv4_addr": peer_ipv4_addr,
+                    "upstream_port": port,
+                    "host": nbrhosts[neighbor["name"]]["host"]
+                }
+
+        find_links(duthost, tbinfo, filter)
+        return links
+
+    def test_everflow_multi_binding_acl(self, setup_info, setup_mirror_session,              # noqa F811
+                                        dest_port_type, ptfadapter, tbinfo,
+                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                        erspan_ip_ver, upstream_links_for_unselected_dut,            # noqa F811
+                                        is_multi_binding_acl_enabled, restore_setup_info, restore_bgp, duthosts):  # noqa F811
+        """
+        Verify multi-binding ACL scenarios for the Everflow feature.
+        """
+        if self.acl_stage() == "egress":
+            pytest.skip("Multi-binding ACL is not supported for egress ACL")
+
+        if dest_port_type == UP_STREAM:
+            pytest.skip("Multi-binding ACL is not supported for up stream direction")
+
+        everflow_dut = setup_info[dest_port_type]['everflow_dut']
+        remote_dut = setup_info[dest_port_type]['remote_dut']
+
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
+        session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+            else setup_mirror_session["session_prefixes_ipv6"]
+        everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip,
+                                 setup_info[dest_port_type]["remote_namespace"])
+
+        pytest_assert(wait_until(30, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]))
+        pytest_assert(wait_until(30, 10, 0, everflow_utils.validate_mirror_session_up,
+                                 remote_dut, setup_mirror_session["session_name"]))
+
+        # Verify that mirrored traffic is sent along the route we installed
+        random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
+        rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        self._run_everflow_test_scenarios(
+            ptfadapter,
+            setup_info,
+            setup_mirror_session,
+            everflow_dut,
+            rx_port_ptf_id,
+            [tx_port_ptf_id],
+            dest_port_type,
+            erspan_ip_ver=erspan_ip_ver,
+            multi_binding_acl=True
+        )
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo,
@@ -959,7 +1082,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
-                                     erspan_ip_ver=4):  # noqa F811
+                                     erspan_ip_ver=4, multi_binding_acl=False):  # noqa F811
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests
         # as comma-separated strings of LAG member port IDs (e.g. portchannel0001 -> "2,3").
         # Because the DSCP test is still using ptf_runner we will preserve this for now,
@@ -998,7 +1121,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 dest_ports=tx_port_ids,
                 expect_recv=expect_recv,
                 valid_across_namespace=valid_across_namespace,
-                erspan_ip_ver=erspan_ip_ver
+                erspan_ip_ver=erspan_ip_ver,
+                multi_binding_acl=multi_binding_acl
             )
 
     def _base_tcp_packet(
