@@ -223,39 +223,6 @@ class DHCPTest(DataplaneBaseTest):
 
         return discover_packet
 
-    def create_dhcp_decline_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
-        ether = scapy.Ether(src=self.client_mac, dst=dst_mac, type=self.DHCP_ETHER_TYPE_IP)
-        if dst_mac != self.BROADCAST_MAC:
-            ip_dst = self.switch_loopback_ip
-            ip_src = self.client_ip
-        else:
-            ip_dst = self.BROADCAST_IP
-            ip_src = self.DEFAULT_ROUTE_IP
-        ip = scapy.IP(src=ip_src, dst=ip_dst)
-        udp = scapy.UDP(sport=src_port, dport=self.DHCP_SERVER_PORT)
-        bootp = scapy.BOOTP(op=1,
-                            htype=self.DHCP_BOOTP_HTYPE_ETHERNET,
-                            hlen=self.DHCP_BOOTP_HLEN_ETHERNET,
-                            hops=1,
-                            xid=0,
-                            secs=0,
-                            flags=0x8000,
-                            ciaddr=self.DEFAULT_ROUTE_IP,
-                            yiaddr=self.DEFAULT_ROUTE_IP,
-                            siaddr=self.DEFAULT_ROUTE_IP,
-                            giaddr=self.DEFAULT_ROUTE_IP,
-                            chaddr=binascii.unhexlify(self.client_mac.replace(':', '')) + b'\x00\x00\x00\x00\x00\x00')
-        bootp /= scapy.DHCP(options=[('message-type', 'decline'),
-                                     ('end')])
-
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
-
     def create_dhcp_discover_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
         my_chaddr += b'\x00\x00\x00\x00\x00\x00'
@@ -367,7 +334,7 @@ class DHCPTest(DataplaneBaseTest):
         bootp = scapy.BOOTP(op=1,
                             htype=1,
                             hlen=6,
-                            hops=2,
+                            hops=1,
                             xid=0,
                             secs=0,
                             flags=0x8000,
@@ -1080,7 +1047,7 @@ class DHCPTest(DataplaneBaseTest):
         testutils.send_packet(self, self.client_port_index, dhcp_unknown)
 
     def verify_relayed_unknown_from_server(self):
-        # Create a packet resembling a relayed DCHPDISCOVER packet
+        # Create a packet resembling a relayed unknown packet
         dhcp_unknown_relayed = self.create_dhcp_unknown_relayed_packet_from_client()
 
         # Mask off fields we don't care about matching
@@ -1148,16 +1115,16 @@ class DHCPTest(DataplaneBaseTest):
 
         logger.info("Expect receiving relayed unknown packet from port {}".format(self.client_port_index))
         log_dhcp_packet_info(dhcp_offer)
-        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
 
     def client_send_decline(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
-        dhcp_decline = self.create_dhcp_decline_packet(dst_mac, src_port)
+        dhcp_decline = self.create_dhcp_request_packet(dst_mac, src_port)
+        dhcp_decline[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'decline'), ('end')])
         log_dhcp_packet_info(dhcp_decline)
         testutils.send_packet(self, self.client_port_index, dhcp_decline)
 
     def verify_relayed_decline(self):
-        # Create a packet resembling a relayed DCHPDISCOVER packet
+        # Create a packet resembling a relayed DHCPDECLINE packet
         dhcp_decline_relayed = self.create_dhcp_decline_relayed_packet()
 
         # Mask off fields we don't care about matching
@@ -1226,7 +1193,6 @@ class DHCPTest(DataplaneBaseTest):
 
         logger.info("Expect receiving relayed ack packets from port {}".format(self.client_port_index))
         log_dhcp_packet_info(dhcp_nak)
-        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
 
     def client_send_release(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
