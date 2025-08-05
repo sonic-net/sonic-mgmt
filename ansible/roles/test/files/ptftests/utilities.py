@@ -92,7 +92,7 @@ def __retry_internal(f, exceptions=Exception, tries=3, delay=2, logger=logging_l
             time.sleep(delay)
 
 
-def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=3, delay=0, logger=logging_logger):
+def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=3, delay=2, logger=logging_logger):
     """
     @summary: Call function with retry mechanism
     @param f: Target function
