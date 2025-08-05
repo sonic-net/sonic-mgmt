@@ -1667,7 +1667,7 @@ sonic_cisco_8101_V64:
 
 sonic_cisco_8101_C32:
   vars:
-    hwsku: Cisco-8101-C32-C01
+    hwsku: Cisco-8101C01-C32
     iface_speed: 100000
   hosts:
     bjw2-can-8101c1-3:

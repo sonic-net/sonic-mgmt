@@ -481,8 +481,8 @@ sonic:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
-    sonic_cisco_8101_tornado:
-    sonic_cisco_8101_tornado_O32:
+    sonic_cisco_8101_tornado_V64:
+    sonic_cisco_8101_tornado_C32:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -764,50 +764,50 @@ sonic_arista:
     iface_speed: 100000
     msft_an_enabled: True
   hosts:
-    str2-7050cx3-acs-01:
+    str2-7050cx3-32c-acs-01:
       ansible_host: 10.3.146.85
       ansible_hostv6: 2a01:111:e210:3000::a03:9255
       mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
-      serial: JPE20440285
-      base_mac: 94:8e:d3:05:1b:1c
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG241704XY
+      base_mac: b4:92:fe:21:b5:44
       syseeprom_info:
-        '0x21': 'DCS-7050CX3-32S-SSD'
-        '0x22': 'ASY0323106A0'
-        '0x23': 'JPE20440285'
-        '0x24': '94:8e:d3:05:1b:1c'
-        '0x25': '2020/01/01 00:00:00'
+        '0x21': 'DCS-7050CX3-32C'
+        '0x22': 'ASY0746402B0'
+        '0x23': 'HBG241704XY'
+        '0x24': 'b4:92:fe:21:b5:44'
+        '0x25': '2024/05/04 09:08:34'
         '0x26': '01'
         '0x27': '01.00'
-        '0x28': 'x86_64-arista_7050cx3_32s'
+        '0x28': 'x86_64-arista_7050cx3_32c'
         '0x2a': '0xffff'
         '0x2b': 'Arista Networks'
         '0x2c': 'US'
         '0x2d': 'Arista Networks'
-        '0x2e': 'Aboot-norcal6-6.1.11-18938843'
-        '0x2f': 'JPE20440285'
+        '0x2e': 'Aboot-norcal11-11.0.6-32762515'
+        '0x2f': 'HBG241704XY'
         '0xfe': '0xdeadbeef'
-    str2-7050cx3-acs-02:
+    str2-7050cx3-32c-acs-02:
       ansible_host: 10.3.146.187
       ansible_hostv6: 2a01:111:e210:3000::a03:92bb
       mgmt_subnet_mask_length: 24
-      hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S
-      serial: JPE21041573
-      base_mac: 94:8e:d3:99:57:b8
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG241704UB
+      base_mac: b4:92:fe:29:60:c4
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S"
-        "0x22": "ASY0288205A0"
-        "0x23": "JPE21041573"
-        "0x24": "94:8e:d3:99:57:b8"
-        "0x25": "2020/01/01 00:00:00"
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402B0"
+        "0x23": "HBG241704UB"
+        "0x24": "b4:92:fe:29:60:c4"
+        "0x25": "2024/05/04 05:36:20"
         "0x26": "01"
         "0x27": "01.00"
-        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x28": "x86_64-arista_7050cx3_32c"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.10-14653765"
-        "0x2F": "JPE21041573"
+        "0x2E": "Aboot-norcal11-11.0.6-32762515"
+        "0x2F": "HBG241704UB"
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       ansible_hostv6: 2a01:111:e210:3000::a03:92b9
@@ -2448,7 +2448,7 @@ sonic_cisco_8101:
           timeout: 600
           wait: 600
 
-sonic_cisco_8101_tornado:
+sonic_cisco_8101_tornado_V64:
   vars:
     hwsku: Cisco-8101-V64
     iface_speed: 100000
@@ -2520,9 +2520,9 @@ sonic_cisco_8101_tornado:
           wait: 600
       reduce_port_speed: true
 
-sonic_cisco_8101_tornado_O32:
+sonic_cisco_8101_tornado_C32:
   vars:
-    hwsku: Cisco-8101-O32
+    hwsku: Cisco-8101C01-C32
     iface_speed: 100000
   hosts:
     str2-8101c1-03:
