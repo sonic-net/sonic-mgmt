@@ -1,19 +1,19 @@
 import logging
 import pytest
+import copy
 
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.utilities import get_dscp_to_queue_value, configure_packet_aging
+from tests.common.utilities import configure_packet_aging
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, peer_links    # noqa F401
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.srv6_helper import create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid
-from tests.packet_trimming.constants import (SERVICE_PORT, COUNTERPOLL_INTERVAL, DEFAULT_DSCP,
-                                             SRV6_TUNNEL_MODE, SRV6_MY_LOCATOR_LIST, SRV6_MY_SID_LIST)
-from tests.packet_trimming.packet_trimming_helper import (delete_blocking_scheduler, check_trimming_capability,
-                                                          prepare_service_port, get_test_ports,
-                                                          get_interface_peer_addresses, configure_tc_to_dscp_map,
-                                                          set_buffer_profiles_for_block_and_trim_queues,
-                                                          create_blocking_scheduler, configure_trimming_action,
-                                                          cleanup_trimming_acl)
+from tests.packet_trimming.constants import (
+    SERVICE_PORT, DEFAULT_DSCP, SRV6_TUNNEL_MODE, SRV6_MY_LOCATOR_LIST, SRV6_MY_SID_LIST,
+    COUNTER_DSCP, COUNTER_TYPE)
+from tests.packet_trimming.packet_trimming_helper import (
+    delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
+    configure_tc_to_dscp_map, set_buffer_profiles_for_block_and_trim_queues, create_blocking_scheduler,
+    configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp, get_test_ports)
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,10 @@ def skip_if_packet_trimming_not_supported(duthost):
         'stdout'].strip()
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")
+
+    # For Nvidia SPC1/2/3 platforms, skip the test
+    elif any(platform_id in platform.lower() for platform_id in ["sn2", "sn3", "sn4"]):
+        pytest.skip(f"Packet trimming is not supported on {platform}")
 
     # For Nvidia SPC4 platforms, check if the "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT" exists in sai.profile
     elif "sn5600" in platform:
@@ -65,7 +69,7 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
     logger.info("Preparing test parameters for packet trimming tests")
 
     with allure.step("Get trimming test ports"):
-        ports = get_test_ports(upstream_links, downstream_links, peer_links)
+        ports = get_test_ports(upstream_links, downstream_links, peer_links, mg_facts)
         logger.info(f"The test ports: {ports}")
 
         ingress_port = ports["ingress_port"]
@@ -83,47 +87,33 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
                     f"egress_port_2_ipv4: {egress_port_2_ipv4}, egress_port_2_ipv6: {egress_port_2_ipv6}")
 
     with allure.step(f"Get queue id for packet with dscp value {DEFAULT_DSCP}"):
-        # Get port QoS map for the downlink port
-        port_qos_map = dut_qos_maps_module['port_qos_map']
-        logger.info(f"Retrieving QoS maps for port: {ingress_port_name}")
-
-        # Extract the DSCP to TC map name from the port QoS configuration
-        dscp_to_tc_map_name = port_qos_map[ingress_port_name]['dscp_to_tc_map'].split('|')[-1].strip(']')
-        logger.info(f"DSCP to TC map name: {dscp_to_tc_map_name}")
-
-        # Extract the TC to Queue map name from the port QoS configuration
-        tc_to_queue_map_name = port_qos_map[ingress_port_name]['tc_to_queue_map'].split('|')[-1].strip(']')
-        logger.info(f"TC to Queue map name: {tc_to_queue_map_name}")
-
-        # Get the actual DSCP to TC mapping from the QoS maps
-        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
-        logger.debug(f"DSCP to TC mapping details: {dscp_to_tc_map}")
-
-        # Get the actual TC to Queue mapping from the QoS maps
-        tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
-        logger.debug(f"TC to Queue mapping details: {tc_to_queue_map}")
-
         # Calculate the queue ID, this queue will be blocked during testing
-        block_queue = get_dscp_to_queue_value(DEFAULT_DSCP, dscp_to_tc_map, tc_to_queue_map)
+        block_queue = get_queue_id_by_dscp(DEFAULT_DSCP, ingress_port_name, dut_qos_maps_module)
         logger.info(f"The tested queue: {block_queue}")
 
-    egress_ports = [
-        {
-            'name': egress_port_1_name,
-            'ptf_id': egress_port_1[egress_port_1_name]['ptf_port_id'],
-            'ipv4': egress_port_1_ipv4,
-            'ipv6': egress_port_1_ipv6,
-        }
-    ]
+    # Build egress_port_1 dictionary
+    egress_port_1_dict = {
+        'name': egress_port_1_name,
+        'ptf_id': egress_port_1[egress_port_1_name]['ptf_port_id'],
+        'ipv4': egress_port_1_ipv4,
+        'ipv6': egress_port_1_ipv6,
+        'dut_members': egress_port_1[egress_port_1_name]['dut_members'],
+    }
+
+    egress_ports = [egress_port_1_dict]
     # The egress_port_2 is a downlink interface.
     # For t0 topology, downlink interfaces do not have IP address, so do not add it to test_param.
     if tbinfo["topo"]["type"] != "t0":
-        egress_ports.append({
+        # Build egress_port_2 dictionary
+        egress_port_2_dict = {
             'name': egress_port_2_name,
             'ptf_id': egress_port_2[egress_port_2_name]['ptf_port_id'],
             'ipv4': egress_port_2_ipv4,
             'ipv6': egress_port_2_ipv6,
-        })
+            'dut_members': egress_port_2[egress_port_2_name]['dut_members'],
+        }
+
+        egress_ports.append(egress_port_2_dict)
 
     test_param = {
         'block_queue': block_queue,
@@ -141,6 +131,20 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
     logger.info(f"The test parameters: {test_param}")
 
     return test_param
+
+
+@pytest.fixture(scope="module")
+def trim_counter_params(duthost, test_params, dut_qos_maps_module):
+    counter_queue = get_queue_id_by_dscp(COUNTER_DSCP, test_params['ingress_port']['name'], dut_qos_maps_module)
+    counter_param = copy.deepcopy(test_params)
+    counter_param['block_queue'] = counter_queue
+    counter_param['trim_buffer_profiles'] = {
+        'uplink': f"queue{counter_queue}_uplink_lossy_profile",
+        'downlink': f"queue{counter_queue}_downlink_lossy_profile",
+    }
+    logger.info(f"The counter parameters: {counter_param}")
+
+    return counter_param
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -176,13 +180,17 @@ def setup_trimming(duthost, test_params):
     with allure.step("Configure buffer profile for blocked queue and trimmed queue"):
         # The first interface is uplink interface, use uplink buffer profile
         uplink_port = test_params['egress_ports'][0]
-        set_buffer_profiles_for_block_and_trim_queues(duthost, uplink_port['name'], test_params['block_queue'],
+        block_interface = uplink_port['dut_members']
+        logger.info(f"Apply uplink buffer profile to interfaces: {block_interface}")
+        set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
                                                       test_params['trim_buffer_profiles']['uplink'])
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
         if len(test_params['egress_ports']) > 1:
             downlink_port = test_params['egress_ports'][1]
-            set_buffer_profiles_for_block_and_trim_queues(duthost, downlink_port['name'], test_params['block_queue'],
+            block_interface = downlink_port['dut_members']
+            logger.info(f"Apply downlink buffer profile to interfaces: {block_interface}")
+            set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
                                                           test_params['trim_buffer_profiles']['downlink'])
 
     with allure.step("Create scheduler used for blocking egress queues"):
@@ -192,11 +200,12 @@ def setup_trimming(duthost, test_params):
         configure_tc_to_dscp_map(duthost, test_params['egress_ports'])
 
     with allure.step("Configure counterpoll interval"):
-        duthost.command(f"counterpoll queue interval {COUNTERPOLL_INTERVAL}")
+        for counter_level, stat_type, interval in COUNTER_TYPE:
+            duthost.shell(f"counterpoll {counter_level} enable")
+            duthost.set_counter_poll_interval(stat_type, interval)
 
-    with allure.step("Clear ports and queue counters"):
-        duthost.command("sonic-clear queuecounters")
-        duthost.command("sonic-clear counters")
+        status = duthost.get_counter_poll_status()
+        logger.info(f"Counter poll status: {status}")
 
     yield
 
@@ -238,9 +247,10 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
     # If there are multiple uplink interfaces, they are in ECMP relationship, and SRv6 packets would
     # be sent out through a randomly selected interface. For trimming with SRv6 test, we use the first
     # uplink interface as the test interface and shutdown all other interfaces to ensure packet forwarding.
-    egress_port_1_name = test_params['egress_ports'][0]['name']
+    egress_port_1 = test_params['egress_ports'][0]
+    exclude_ports = egress_port_1['dut_members']
     all_ports = set(upstream_links.keys()) | set(peer_links.keys())
-    shutdown_ports = [k for k in all_ports if k != egress_port_1_name]
+    shutdown_ports = [k for k in all_ports if k not in exclude_ports]
     logger.info(f"Shutting down ports: {shutdown_ports}")
 
     # Shut down all collected ports
@@ -289,3 +299,15 @@ def pytest_addoption(parser):
         required=False,
         help="reboot type such as reload, cold"
     )
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_counters(duthost):
+    """
+    Clear all counters on the DUT.
+    """
+    duthost.shell("sonic-clear counters")
+    duthost.shell("sonic-clear queuecounters")
+    duthost.shell("sonic-clear switchcounters")
+
+    logger.info("Successfully cleared all counters on the DUT")
