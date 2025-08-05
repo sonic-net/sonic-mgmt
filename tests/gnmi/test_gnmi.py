@@ -21,6 +21,7 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     Verify GNMI capabilities
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
     ret, msg = gnmi_capabilities(duthost, localhost)
     assert ret == 0, (
         "GNMI capabilities command failed (non-zero return code).\n"
@@ -43,6 +44,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     Verify GNMI capabilities with different roles
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
 
     with allure.step("Verify GNMI capabilities with noaccess role"):
         role = "gnmi_noaccess"
@@ -116,6 +118,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
 @pytest.fixture(scope="function")
 def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     add_gnmi_client_common_name(duthost, "invalid.cname")
 
@@ -157,6 +160,7 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
     msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost)
 
     assert "Unauthenticated" in msg, (
@@ -200,6 +204,7 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
 
     retry = 3
     msg = ""
