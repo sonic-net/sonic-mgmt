@@ -135,7 +135,7 @@ parameters:
 
   - name: MGMT_COMMIT_HASH
     type: string
-    default: ""
+    default: "52a93cd5531f43c844a03d4ca49b632692343c0e"
 
   - name: MGMT_URL
     type: string
