@@ -2,7 +2,7 @@ import logging
 import pytest
 import json
 import re
-
+from tests.common.utilities import wait_until
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
@@ -179,6 +179,7 @@ def archive_telemetry_certs(duthost):
 
 
 def rotate_telemetry_certs(duthost, localhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     path = "/etc/sonic/telemetry/"
     # Create new certs to rotate
     cmd = "openssl req \
@@ -206,6 +207,10 @@ def rotate_telemetry_certs(duthost, localhost):
     duthost.copy(src="dsmsroot.cer", dest=path)
     duthost.copy(src="dsmsroot.key", dest=path)
 
+    # Restart service and wait for it to be ready
+    duthost.shell("sudo systemctl restart gnmi")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+            "%s not started." % (env.gnmi_container))
 
 def execute_ptf_gnmi_cli(ptfhost, cmd):
     rc = ptfhost.shell(cmd)['rc']
