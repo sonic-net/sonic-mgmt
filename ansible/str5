@@ -373,61 +373,61 @@ sonic_arista_7060x6_512:
       ansible_hostv6: 2a01:111:e210:b000::a40:f79a
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
-      model: DCS-7060X6-16PE-B
-      serial: HBG25160FHW
-      base_mac: d8:06:f3:3b:ff:f7
+      model: DCS-7060X6-16PE-384C-B
+      serial: SSN25202317
+      base_mac: b8:a1:b8:a2:31:41
       syseeprom_info:
-        "0x21": "DCS-7060X6-64PE-B"
-        "0x22": "ASY089940107"
-        "0x23": "HBG25160FHW"
-        "0x24": "d8:06:f3:3b:ff:f7"
-        "0x25": "2025/03/08 09:42:12"
+        "0x21": "DCS-7060X6-16PE-384C-B"
+        "0x22": "ASY088971103"
+        "0x23": "SSN25202317"
+        "0x24": "b8:a1:b8:a2:31:41"
+        "0x25": "2025/06/13 23:08:57"
         "0x26": "01"
-        "0x27": "02.00"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_7060x6_16pe_384c_b"
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
-        "0x2F": "HBG25160FHW"
+        "0x2F": "SSN25202317"
     str5-7060x6-moby-512-2:
       ansible_host: 10.64.247.158
       ansible_hostv6: 2a01:111:e210:b000::a40:f79e
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
-      model: DCS-7060X6-16PE-B
-      serial: HBG25160FHW
-      base_mac: d8:06:f3:3b:ff:f7
+      model: DCS-7060X6-16PE-384C
+      serial: SSN25202343
+      base_mac: b8:a1:b8:a2:67:e3
       syseeprom_info:
-        "0x21": "DCS-7060X6-64PE-B"
-        "0x22": "ASY089940107"
-        "0x23": "HBG25160FHW"
-        "0x24": "d8:06:f3:3b:ff:f7"
-        "0x25": "2025/03/08 09:42:12"
+        "0x21": "DCS-7060X6-16PE-384C-B"
+        "0x22": "ASY088971103"
+        "0x23": "SSN25202343"
+        "0x24": "b8:a1:b8:a2:67:e3"
+        "0x25": "2025/06/24 01:06:47"
         "0x26": "01"
-        "0x27": "02.00"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_7060x6_16pe_384c_b"
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
-        "0x2F": "HBG25160FHW"
+        "0x2F": "SSN25202343"
     str5-7060x6-moby-512-3:
       ansible_host: 10.64.247.162
       ansible_hostv6: 2a01:111:e210:b000::a40:f7a2
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
-      model: DCS-7060X6-16PE-B
-      serial: HBG25160FHW
-      base_mac: d8:06:f3:3b:ff:f7
+      model: DCS-7060X6-16PE-384C
+      serial: SSN25202376
+      base_mac: b8:a1:b8:a2:be:e5
       syseeprom_info:
-        "0x21": "DCS-7060X6-64PE-B"
-        "0x22": "ASY089940107"
-        "0x23": "HBG25160FHW"
-        "0x24": "d8:06:f3:3b:ff:f7"
-        "0x25": "2025/03/08 09:42:12"
+        "0x21": "DCS-7060X6-16PE-384C-B"
+        "0x22": "ASY088971103"
+        "0x23": "SSN25202376"
+        "0x24": "b8:a1:b8:a2:be:e5"
+        "0x25": "2025/07/10 00:28:16"
         "0x26": "01"
-        "0x27": "02.00"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_7060x6_16pe_384c_b"
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
-        "0x2F": "HBG25160FHW"
+        "0x2F": "SSN25202376"
     str5-7060x6-moby-512-4:
       ansible_host: 10.64.247.201
       ansible_hostv6: 2a01:111:e210:b000::a40:f7c9
