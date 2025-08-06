@@ -4,12 +4,6 @@
 
 This test plan outlines a comprehensive framework for testing the firmware upgrade/downgrade of CMIS compliant transceivers being onboarded to SONiC. The goal is to automate all tests listed in this document.
 
-<!-- - **Link Behavior**: Test link behavior after firmware related operations.
-- **Firmware**: Check firmware version readability and compliance with vendor-suggested values, using regex for version pattern matching.
-- **Flags and Alerts**: Confirm no unexpected flags (e.g., Loss of Signal (LOS), Loss of Lock (LOL), DOM warnings) are set.
-- **Firmware Management**: Test firmware upgrade under various scenarios. -->
-
-
 **Optics Scope**:
 The test plan includes various optics types, such as:
 
