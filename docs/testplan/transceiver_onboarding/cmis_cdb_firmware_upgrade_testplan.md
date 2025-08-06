@@ -318,3 +318,157 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
+
+#### CLI commands
+
+**Note**
+
+1. `<port>` in the below commands should be replaced with the logical port number i.e. EthernetXX
+
+2. `<namespace>` in the below commands should be replaced with the asic of the port.
+
+Issuing shutdown command for a port
+```
+sudo config interface -n '<namespace>' shutdown <port>
+```
+
+Issuing startup command for a port
+```
+sudo config interface -n '<namespace>' startup <port>
+```
+
+Check link status of a port
+```
+show interface status <port>
+```
+
+Enable/disable DOM monitoring for a port
+
+**Note:** For breakout cables, always issue this command for the first subport within the breakout port group, irrespective of the specific subport currently in use.
+```
+config interface -n '<namespace>' transceiver dom <port> enable/disable
+
+Verification
+sonic-db-cli -n '<namespace>' CONFIG_DB hget "PORT|<port>" "dom_polling"
+
+Expected o/p
+For enable: "dom_polling" = "enabled" or "(nil)"
+For disable: "dom_polling" = "disabled"
+```
+
+Restart `xcvrd`
+
+```
+docker exec pmon supervisorctl restart xcvrd
+```
+
+Get uptime of `xcvrd`
+
+```
+docker exec pmon supervisorctl status xcvrd | awk '{print $NF}'
+```
+
+Start/Stop `thermalctld` (if applicable)
+
+```
+docker exec pmon supervisorctl start thermalctld
+OR
+docker exec pmon supervisorctl stop thermalctld
+```
+
+CLI to get link flap count from redis-db
+
+```
+sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "flap_count"
+```
+
+CLI to get link uptime/downtime from redis-db
+
+```
+sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "last_up_time"
+sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "last_down_time"
+```
+
+Restart `pmon`
+
+```
+sudo systemctl restart pmon
+```
+
+Restart `swss`
+
+```
+sudo systemctl restart swss
+```
+
+Restart `syncd`
+
+```
+sudo systemctl restart syncd
+```
+
+sfputil reset
+
+```
+sudo sfputil reset <port>
+```
+
+Check if transceiver is present
+
+```
+sudo sfputil show presence -p <port>
+```
+
+Dump EEPROM of the transceiver
+
+```
+sudo sfputil show eeprom -p <port>
+```
+
+Check transceiver specific information through CLI relying on redis-db
+
+```
+show int transceiver info <port>
+```
+
+Check transceiver error-status through CLI relying on redis-db
+
+```
+show int transceiver error-status <port>
+```
+
+Check transceiver error-status through CLI relying on transceiver HW
+
+```
+show int transceiver error-status -hw <port>
+```
+
+Check FW version of the transceiver
+
+```
+sudo sfputil show fwversion <port>
+```
+
+Download firmware
+
+```
+sudo sfputil download <port> <fwfile>
+```
+
+Run firmware
+
+```
+sudo sfputil firmware run <port>
+```
+
+Commit firmware
+
+```
+sudo sfputil firmware commit <port>
+```
+
+Finding I2C errors from dmesg
+
+```
+dmesg -T -L -lerr
+```

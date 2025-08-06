@@ -519,30 +519,6 @@ Check FW version of the transceiver
 sudo sfputil show fwversion <port>
 ```
 
-Download firmware
-
-```
-sudo sfputil download <port> <fwfile>
-```
-
-Run firmware
-
-```
-sudo sfputil firmware run <port>
-```
-
-Commit firmware
-
-```
-sudo sfputil firmware commit <port>
-```
-
-Finding I2C errors from dmesg
-
-```
-dmesg -T -L -lerr
-```
-
 Get supported min and max frequency from CONFIG_DB
 
 ```
