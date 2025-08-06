@@ -922,7 +922,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     for server in servers:
         vm_base = int(server['vm_base'][2:])
         vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.parse_topology_vms(
+        vms = MultiServersUtils.get_vms_by_dut_interfaces(
                 tbinfo['topo']['properties']['topology']['VMs'],
                 server['dut_interfaces']
             ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
@@ -3473,6 +3473,12 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
         except KeyError:
             continue
     logging.debug("dualtor mux port setup config: %s", dualtor_setup_config)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SKIP_SETUP_MUX_PORTS:
+        logging.info("skip setup dualtor mux cables")
+        yield False
+        return
+
     is_test_func_parametrized = hasattr(request.node, "callspec")
     is_enum = is_test_func_parametrized and \
         any(param.startswith("enum_") for param in request.node.callspec.params.keys())
