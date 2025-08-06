@@ -5,9 +5,8 @@ import logging
 
 from tests.common import reboot
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use, run_ntp  # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.devices.ptf import PTFHost
 
@@ -32,79 +31,54 @@ def _ignore_mux_errlogs(rand_one_dut_hostname, loganalyzer):
     return
 
 
-def restore_config_db(duthost):
-    # Restore the original config_db to override the config_db with mgmt vrf config
-    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-
-    # Reload to restore configuration
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-
-
-@pytest.fixture(scope="module")
-def check_ntp_sync(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    ntp_stat = duthost.command('ntpstat', module_ignore_errors=True)['rc']
-    return ntp_stat
-
-
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
+def setup_mvrf(request, duthosts, rand_one_dut_hostname, localhost):
     """
     Setup Management vrf configs before the start of testsuite
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # Backup the original config_db without mgmt vrf config
-    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
-    try:
-        logger.info("Configure mgmt vrf")
-        duthost.command("sudo config vrf add mgmt", module_async=True)
-        time.sleep(5)
-        verify_show_command(duthost, mvrf=True)
-    except Exception as e:
-        logger.error("Exception raised in setup, exception: {}".format(repr(e)))
-        restore_config_db(duthost)
-        pytest.fail("Configure mgmt vrf failed, no test case will be executed. "
-                    "Code after 'yield' will not be executed either.")
+    # Backup the original config_db without mgmt vrf config
+    duthost.command("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+
+    # Restore the original config_db without mgmt vrf config
+    # With mvrf on, config reload does not do some of the necessary operations
+    # after loading config into running config, so a reboot is a must
+    def restore_config_db():
+        duthost.command("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
+        reboot(duthost, localhost, check_intf_up_ports=True, wait_for_bgp=True)
+    # We will undo the changes with cli, and we expect no error
+    # but a config reload will be performed at the end, to make sure no leftover
+    request.addfinalizer(restore_config_db)
+
+    logger.info("Configure mgmt vrf")
+    duthost.command("sudo config vrf add mgmt", module_async=True)
+    time.sleep(5)
+    verify_show_command(duthost, mvrf=True)
+
+    duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
 
     yield
 
-    try:
-        logger.info("Unconfigure  mgmt vrf")
-        duthost.shell("sudo config vrf del mgmt", module_async=True)
-        time.sleep(5)
+    logger.info("Unconfigure mgmt vrf")
+    duthost.shell("sudo config vrf del mgmt", module_async=True)
+    time.sleep(5)
+    localhost.wait_for(host=duthost.mgmt_ip,
+                       port=SONIC_SSH_PORT,
+                       state="started",
+                       search_regex=SONIC_SSH_REGEX,
+                       timeout=90)
+    verify_show_command(duthost, mvrf=False)
 
-        localhost.wait_for(host=duthost.mgmt_ip,
-                           port=SONIC_SSH_PORT,
-                           state="started",
-                           search_regex=SONIC_SSH_REGEX,
-                           timeout=90)
-
-        verify_show_command(duthost, mvrf=False)
-
-    finally:    # Always restore and reload the original config_db.
-        restore_config_db(duthost)
+    duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def ntp_servers(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    ntp_servers = config_facts.get('NTP_SERVER', {})
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    ntp_servers = config_facts.get("NTP_SERVER", {})
     return ntp_servers
-
-
-@pytest.fixture()
-def ntp_teardown(ptfhost, duthosts, rand_one_dut_hostname, ntp_servers):
-    yield
-
-    duthost = duthosts[rand_one_dut_hostname]
-    # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
-    # reset ntp client configuration
-    duthost.command("config ntp del %s" % ptfhost.mgmt_ip, module_ignore_errors=True)
-    for ntp_server in ntp_servers:
-        duthost.command("config ntp add %s" % ntp_server, module_ignore_errors=True)
 
 
 @pytest.fixture()
@@ -112,7 +86,7 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     backup = duthost.critical_services
     services = duthost.DEFAULT_ASIC_SERVICES
-    duthost.reset_critical_services_tracking_list(services + ['pmon'])
+    duthost.reset_critical_services_tracking_list(services + ["pmon"])
     yield
     duthost.reset_critical_services_tracking_list(backup)
 
@@ -126,7 +100,7 @@ def check_ntp_status(host, ntp_daemon_in_use):  # noqa: F811
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
         res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
-    return res['rc'] == 0
+    return res["rc"] == 0
 
 
 def verify_show_command(duthost, mvrf=True):
@@ -156,18 +130,58 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     return result
 
 
-def setup_ntp(ptfhost, duthost, ntp_servers):
-    """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
-    # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
-                  "NTP server was not started in PTF container {}; NTP service start result {}"
-                  .format(ptfhost.hostname, ntp_en_res))
-    # setup ntp on dut to sync with ntp server
-    for ntp_server in ntp_servers:
-        duthost.command("config ntp del %s" % ntp_server)
-    duthost.command("config ntp add %s" % ptfhost.mgmt_ip)
+@pytest.fixture
+def setup_ntp_server(duthosts, rand_one_dut_hostname, ptfhost, ntp_daemon_in_use, ntp_servers):  # noqa: F811
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
+    # It should normally be set to lab ntp server
+    ntp_in_sync = check_ntp_status(duthost, ntp_daemon_in_use)
+    logger.info("ntp is in sync: {}".format(ntp_in_sync))
+
+    # If lab ntp server is not working, use ptf to setup ntp server
+    if ntp_in_sync is False:
+        """setup ntp client and server"""
+        ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
+        # restart ntp server
+        ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+        pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
+                      "NTP server was not started in PTF container {}; NTP service start result {}"
+                      .format(ptfhost.hostname, ntp_en_res))
+        # setup ntp on dut to sync with ntp server
+        for ntp_server in ntp_servers:
+            duthost.command("config ntp del {}".format(ntp_server))
+        duthost.command("config ntp add {}".format(ptfhost.mgmt_ip))
+
+    yield
+
+    if ntp_in_sync is False:
+        # stop ntp server
+        ptfhost.service(name="ntp", state="stopped")
+        # reset ntp client configuration
+        duthost.command("config ntp del {}".format(ptfhost.mgmt_ip), module_ignore_errors=True)
+        for ntp_server in ntp_servers:
+            duthost.command("config ntp add {}".format(ntp_server), module_ignore_errors=True)
+
+
+@pytest.fixture
+def setup_ntp_mgmt_vrf(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    ntp_vrf_cmd = "sonic-cfggen -d -v 'NTP[\"global\"][\"vrf\"]'"
+    ntp_vrf = duthost.command(ntp_vrf_cmd, module_ignore_errors=True)["stdout"]
+
+    if ntp_vrf == "default":
+        duthost.command("redis-cli -n 4 hset \"NTP|global\" \"vrf\" \"mgmt\"")
+        pytest_assert(duthost.command("sonic-cfggen -d -v 'NTP[\"global\"][\"vrf\"]'")["stdout"] == "mgmt",
+                      "Failed to set ntp global vrf to mgmt")
+
+    yield
+
+    if ntp_vrf == "default":
+        duthost.command("redis-cli -n 4 hset \"NTP|global\" \"vrf\" \"default\"")
+        pytest_assert(duthost.command("sonic-cfggen -d -v 'NTP[\"global\"][\"vrf\"]'")["stdout"] == "default",
+                      "Failed to reset ntp global vrf to default")
 
 
 class TestMvrfInbound():
@@ -175,14 +189,14 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        get_snmp_facts(duthost, localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(duthost, localhost, host=duthost.mgmt_ip, version="v2c", community=creds["snmp_rocommunity"])
 
 
 class TestMvrfOutbound():
 
     def get_free_port(self, ptfhost):
         res = ptfhost.shell('netstat -lntu | grep -Eo "^tcp +[0-9]+ +[0-9]+ +[^:]+:([0-9]+)" | cut -d: -f2')
-        used_ports = set(res['stdout_lines'])
+        used_ports = set(res["stdout_lines"])
         for p in range(8000, 9000):
             if str(p) not in used_ports:
                 return p
@@ -221,28 +235,10 @@ class TestMvrfOutbound():
 
 
 class TestServices():
-    @pytest.mark.usefixtures("ntp_teardown")
-    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync,
-                 ntp_servers, ntp_daemon_in_use):  # noqa: F811
+    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, setup_ntp_server,
+                 setup_ntp_mgmt_vrf, ntp_daemon_in_use):  # noqa: F811
         duthost = duthosts[rand_one_dut_hostname]
-        # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
-        if check_ntp_sync:
-            setup_ntp(ptfhost, duthost, ntp_servers)
-
-        # There is no entry ntp in `/etc/passwd` on kvm testbed.
-        cmd = "getent passwd ntp"
-        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
-        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
-            return
-        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
-        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
-
-        force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
-        duthost.service(name="ntp", state="stopped")
-        logger.info("Ntp restart in mgmt vrf")
-        execute_dut_command(duthost, force_ntp)
-        duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
+        run_ntp(duthost, ntp_daemon_in_use, mvrf=True)
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]
@@ -268,6 +264,7 @@ class TestServices():
         duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
 
+@pytest.mark.disable_loganalyzer
 class TestReboot():
     def basic_check_after_reboot(self, duthost, localhost, ptfhost, creds):
         verify_show_command(duthost)
@@ -277,10 +274,8 @@ class TestReboot():
         inbound_test.test_ping(duthost=duthost)
         inbound_test.test_snmp_fact(localhost=localhost, duthost=duthost, creds=creds)
 
-    @pytest.mark.disable_loganalyzer
     def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds, change_critical_services):
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
@@ -289,33 +284,27 @@ class TestReboot():
         # In some images, we have gnmi container only
         # In some images, we have telemetry container only
         # And in some images, we have both gnmi and telemetry container
-        critical_services = ['snmp', 'mgmt-framework']
-        cmd = "docker ps | grep -w gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            critical_services.append('gnmi')
-
-        cmd = "docker ps | grep -w telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            critical_services.append('telemetry')
+        critical_services = ["snmp"]
+        tentative_critical_services = ["mgmt-framework", "gnmi", "telemetry"]
+        for service in tentative_critical_services:
+            cmd = "docker ps | grep -w {}".format(service)
+            if duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0:
+                critical_services.append(service)
         duthost.reset_critical_services_tracking_list(critical_services)
 
         pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
                       "Not all services which start with bootOn timer are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
-    @pytest.mark.disable_loganalyzer
     def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
-    @pytest.mark.disable_loganalyzer
     def test_fastboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
