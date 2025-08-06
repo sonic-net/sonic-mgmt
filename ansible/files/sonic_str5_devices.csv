@@ -22,10 +22,10 @@ str5-7060x6-512-8,10.64.247.172/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str5-7060x6-512-fan-8,10.64.247.173/23,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
 str5-7060x6-moby-512-1,10.64.247.154/23,Arista-7060X6-16PE-384C-O128S2,DevSonic,,sonic
 str5-7060x6-moby-512-fan-1,10.64.247.155/23,Arista-7060X6-16PE-384C-O128S2-FANOUT,FanoutLeafSonic,,sonic
-str5-7060x6-moby-512-2,10.64.247.158/23,Arista-7060X6-16PE-384C-O128S2,DevSonic,,sonic
-str5-7060x6-moby-512-fan-2,10.64.247.159/23,Arista-7060X6-16PE-384C-O128S2-FANOUT,FanoutLeafSonic,,sonic
-str5-7060x6-moby-512-3,10.64.247.162/23,Arista-7060X6-16PE-384C-O128S2,DevSonic,,sonic
-str5-7060x6-moby-512-fan-3,10.64.247.166/23,Arista-7060X6-16PE-384C-O128S2-FANOUT,FanoutLeafSonic,,sonic
+str5-7060x6-moby-512-2,10.64.247.158/23,Arista-7060X6-16PE-384C-B-O128S2,DevSonic,,sonic
+str5-7060x6-moby-512-fan-2,10.64.247.159/23,Arista-7060X6-16PE-384C-B-O128S2-FANOUT,FanoutLeafSonic,,sonic
+str5-7060x6-moby-512-3,10.64.247.162/23,Arista-7060X6-16PE-384C-B-O128S2,DevSonic,,sonic
+str5-7060x6-moby-512-fan-3,10.64.247.166/23,Arista-7060X6-16PE-384C-B-O128S2-FANOUT,FanoutLeafSonic,,sonic
 str5-sn5640-1,10.64.247.137/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-1,10.64.247.138/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-sn5640-2,10.64.246.74/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
@@ -86,4 +86,5 @@ console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 console-176,10.3.145.176,Cisco,ConsoleServer,ssh,
+console-188,10.3.145.188,Cisco,ConsoleServer,ssh,
 console-189,10.3.145.189,Cisco,ConsoleServer,ssh,
