@@ -2255,7 +2255,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
 
-pfcwd/test_pfcwd_timer_accuracy:
+pfcwd/test_pfcwd_timer_accuracy.py:
   skip:
     reason: "PFC gen script not enough stop traffic from fanout"
     conditions:
@@ -2299,11 +2299,11 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
 #######################################
 #####     platform_tests          #####
 #######################################
-platform_tests/test_reload_config.py::test_reload_configuration_checks:
+platform_tests/broadcom/test_ser.py:
   skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 platform_tests/test_advanced_reboot.py:
   skip:
@@ -2323,11 +2323,11 @@ platform_tests/test_reboot.py::test_fast_reboot:
     conditions:
       - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
-platform_tests/broadcom/test_ser.py:
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
-    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
     conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####     process_monitoring      #####
@@ -3286,13 +3286,13 @@ vrf/test_vrf_attr.py:
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
 
-vrf/test_vrf_attr.py::TestVrfAttrIpState:
+vrf/test_vrf_attr.py::TestVrfAttrIpAction:
   skip:
     reason: "Broadcom SAI does not support the attributes settings"
     conditions:
       - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
-vrf/test_vrf_attr.py::TestVrfAttrIpAction:
+vrf/test_vrf_attr.py::TestVrfAttrIpState:
   skip:
     reason: "Broadcom SAI does not support the attributes settings"
     conditions:
