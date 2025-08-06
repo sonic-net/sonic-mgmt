@@ -369,3 +369,8 @@ r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_stats_capability:\d+ stats c
 
 # Ignore all audisp-tacplus Accounting logs
 r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/19347
+r, ".* ERR auditd.*: queue to plugins is full - dropping event"
+r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
+r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
