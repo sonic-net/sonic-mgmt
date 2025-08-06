@@ -4503,14 +4503,14 @@
     - 172.16.188.139/17
 
 - conf-name: testbed-bjw2-can-7215-5
-  group-name: bjw2-6-1
+  group-name: bjw2-11-1
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-6-1
+  ptf: bjw2-11-1
   ptf_ip: 10.150.23.90/23
   ptf_ipv6: 2404:f801:10:2200::a96:175a/52
-  server: server_bjw2_6
-  vm_base: VM86011
+  server: server_bjw2_11
+  vm_base: VM33011
   dut:
     - bjw2-can-7215-5
   inv_name: bjw2
@@ -4520,14 +4520,14 @@
     - 172.16.188.90/17
 
 - conf-name: testbed-bjw2-can-7215-6
-  group-name: bjw2-7-1
+  group-name: bjw2-11-2
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-7-1
+  ptf: bjw2-11-2
   ptf_ip: 10.150.23.91/23
   ptf_ipv6: 2404:f801:10:2200::a96:175b/52
-  server: server_bjw2_7
-  vm_base: VM87011
+  server: server_bjw2_11
+  vm_base: VM33017
   dut:
     - bjw2-can-7215-6
   inv_name: bjw2
@@ -4537,14 +4537,14 @@
     - 172.16.188.91/17
 
 - conf-name: testbed-bjw2-can-7215-7
-  group-name: bjw2-8-1
+  group-name: bjw2-11-3
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-8-1
+  ptf: bjw2-11-3
   ptf_ip: 10.150.23.92/23
   ptf_ipv6: 2404:f801:10:2200::a96:175c/52
-  server: server_bjw2_8
-  vm_base: VM88011
+  server: server_bjw2_11
+  vm_base: VM33023
   dut:
     - bjw2-can-7215-7
   inv_name: bjw2
@@ -4554,14 +4554,14 @@
     - 172.16.188.92/17
 
 - conf-name: testbed-bjw2-can-7215-8
-  group-name: bjw2-10-1
+  group-name: bjw2-11-4
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-10-1
+  ptf: bjw2-11-4
   ptf_ip: 10.150.23.93/23
   ptf_ipv6: 2404:f801:10:2200::a96:175d/52
-  server: server_bjw2_10
-  vm_base: VM90011
+  server: server_bjw2_11
+  vm_base: VM33029
   dut:
     - bjw2-can-7215-8
   inv_name: bjw2
@@ -4571,14 +4571,14 @@
     - 172.16.188.93/17
 
 - conf-name: testbed-bjw2-can-7215a1-1
-  group-name: bjw2-5-c
+  group-name: bjw2-11-5
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-5-c
+  ptf: bjw2-11-5
   ptf_ip: 10.150.23.113/23
   ptf_ipv6: 2404:f801:10:2200::a96:1771/52
-  server: server_bjw2_5
-  vm_base: VM85143
+  server: server_bjw2_11
+  vm_base: VM33035
   dut:
     - bjw2-can-7215a1-1
   inv_name: bjw2
@@ -4588,14 +4588,14 @@
     - 172.16.188.113/17
 
 - conf-name: testbed-bjw2-can-7215a1-2
-  group-name: bjw2-2-d
+  group-name: bjw2-11-6
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-2-d
+  ptf: bjw2-11-6
   ptf_ip: 10.150.23.114/23
   ptf_ipv6: 2404:f801:10:2200::a96:1772/52
-  server: server_bjw2_2
-  vm_base: VM82159
+  server: server_bjw2_11
+  vm_base: VM33041
   dut:
     - bjw2-can-7215a1-2
   inv_name: bjw2
@@ -4605,14 +4605,14 @@
     - 172.16.188.114/17
 
 - conf-name: testbed-bjw2-can-7215a1-3
-  group-name: bjw2-2-e
+  group-name: bjw2-11-7
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-2-e
+  ptf: bjw2-11-7
   ptf_ip: 10.150.23.122/23
   ptf_ipv6: 2404:f801:10:2200::a96:177a/52
-  server: server_bjw2_2
-  vm_base: VM82165
+  server: server_bjw2_11
+  vm_base: VM33047
   dut:
     - bjw2-can-7215a1-3
   inv_name: bjw2
@@ -4622,14 +4622,14 @@
     - 172.16.188.122/17
 
 - conf-name: testbed-bjw2-can-7215a1-4
-  group-name: bjw2-2-f
+  group-name: bjw2-11-8
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw2-2-f
+  ptf: bjw2-11-8
   ptf_ip: 10.150.23.123/23
   ptf_ipv6: 2404:f801:10:2200::a96:177b/52
-  server: server_bjw2_2
-  vm_base: VM82171
+  server: server_bjw2_11
+  vm_base: VM33053
   dut:
     - bjw2-can-7215a1-4
   inv_name: bjw2
@@ -4639,14 +4639,14 @@
     - 172.16.188.123/17
 
 - conf-name: testbed-bjw2-can-t1-7260-11
-  group-name: bjw2-4-2
+  group-name: bjw2-11-9
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-2
+  ptf: bjw2-11-9
   ptf_ip: 10.150.23.120/23
   ptf_ipv6: 2404:f801:10:2200::a96:1778/52
-  server: server_bjw2_4
-  vm_base: VM84015
+  server: server_bjw2_11
+  vm_base: VM33059
   dut:
     - bjw2-can-7260-11
   inv_name: bjw2
@@ -4656,14 +4656,14 @@
     - 172.16.188.120/17
 
 - conf-name: testbed-bjw2-can-t1-7260-12
-  group-name: bjw2-4-3
+  group-name: bjw2-11-a
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-3
+  ptf: bjw2-11-a
   ptf_ip: 10.150.23.121/23
   ptf_ipv6: 2404:f801:10:2200::a96:1779/52
-  server: server_bjw2_4
-  vm_base: VM84039
+  server: server_bjw2_11
+  vm_base: VM33083
   dut:
     - bjw2-can-7260-12
   inv_name: bjw2
