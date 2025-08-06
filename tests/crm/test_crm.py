@@ -319,7 +319,7 @@ def generate_neighbors(amount, ip_ver):
     return ip_addr_list
 
 
-def configure_nexthop_groups(amount, interface, asichost, test_name):
+def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size):
     """ Configure bunch of nexthop groups on DUT. Bash template is used to speedup configuration """
     # Template used to speedup execution many similar commands on DUT
     del_template = """
@@ -346,15 +346,26 @@ def configure_nexthop_groups(amount, interface, asichost, test_name):
     add_template = Template(add_template)
 
     ip_addr_list = generate_neighbors(amount + 1, "4")
-    ip_addr_list = " ".join([str(item) for item in ip_addr_list[1:]])
-    # Store CLI command to delete all created neighbors if test case will fail
-    RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
-                                                       neigh_ip_list=ip_addr_list,
-                                                       namespace=asichost.namespace))
-    logger.info("Configuring {} nexthop groups".format(amount))
-    asichost.shell(add_template.render(iface=interface,
-                                       neigh_ip_list=ip_addr_list,
-                                       namespace=asichost.namespace))
+
+    # Split up the neighbors into chunks of size chunk_size to buffer kernel neighbor messages
+    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size]
+                             for i in range(0, len(ip_addr_list), chunk_size)]
+
+    logger.info("Configuring {} total nexthop groups".format(amount))
+    for ip_batch in batched_ip_addr_lists:
+        ip_addr_list_batch = " ".join([str(item) for item in ip_batch[1:]])
+        # Store CLI command to delete all created neighbors if test case will fail
+        RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
+                                                           neigh_ip_list=ip_addr_list_batch,
+                                                           namespace=asichost.namespace))
+
+        logger.info("Configuring {} nexthop groups".format(len(ip_batch)))
+
+        asichost.shell(add_template.render(iface=interface,
+                                           neigh_ip_list=ip_addr_list_batch,
+                                           namespace=asichost.namespace))
+
+        time.sleep(1)
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
@@ -907,9 +918,17 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
+        # Configure neighbors in batches of size chunk_size
+        # on sn4700 devices, kernel neighbor messages were being dropped due to volume.
+        if "msn4700" in asic_type:
+            chunk_size = 200
+        else:
+            chunk_size = nexthop_group_num
+
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
-                                 asichost=asichost, test_name="test_crm_nexthop_group")
+                                 asichost=asichost, test_name="test_crm_nexthop_group",
+                                 chunk_size=chunk_size)
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
