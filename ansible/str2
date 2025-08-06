@@ -911,9 +911,13 @@ sonic_arista:
         "0x26": "01"
         "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG241704WH"
+        "0xFE": "0xdeadbeef"
     str2-7050cx3-32c-f-acs-09:
       ansible_host: 10.3.146.6
       ansible_hostv6: 2a01:111:e210:3000::a03:9206
@@ -923,7 +927,7 @@ sonic_arista:
       serial: HBG241704UM
       base_mac: b4:92:fe:29:a7:ec
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S"
+        "0x21": "DCS-7050CX3-32C"
         "0x22": "ASY0746402B0"
         "0x23": "HBG241704UM"
         "0x24": "b4:92:fe:29:a7:ec"
@@ -931,9 +935,13 @@ sonic_arista:
         "0x26": "01"
         "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG241704UM"
+        "0xFE": "0xdeadbeef"
     str2-7050cx3-32c-f-acs-10:
       ansible_host: 10.3.146.122
       ansible_hostv6: 2a01:111:e210:3000::a03:927a
