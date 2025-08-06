@@ -389,15 +389,19 @@ dash/test_dash_disable_enable_eni.py:
 
 dash/test_dash_privatelink.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
 
 dash/test_dash_smartswitch_vnet.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -1554,12 +1558,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
-generic_config_updater/test_packet_trimming_config.py:
-  skip:
-    reason: "KVM do not support the feature"
-    conditions:
-      - "asic_type in ['vs']"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -1623,6 +1621,10 @@ hash/test_generic_hash.py:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+  xfail:
+    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
+    conditions:
+      - "topo_type in ['t0', 't1']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
@@ -2034,7 +2036,7 @@ kubesonic/test_k8s_join_disjoin.py:
     reason: "kubesonic feature is not supported in slim image"
     conditions_logical_operator: or
     conditions:
-      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
+      - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
       - "branch in ['master']"
 
 #######################################
@@ -2165,9 +2167,9 @@ override_config_table/test_override_config_table.py:
 #######################################
 ######       packet_trimming       #####
 ########################################
-packet_trimming/test_packet_trimming.py:
+packet_trimming:
   skip:
-    reason: "Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
@@ -2701,6 +2703,18 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi.py::test_create_interface:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
+restapi/test_restapi.py::test_create_interface_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
 restapi/test_restapi.py::test_create_vrf:
   skip:
     reason: "Only supported on Mellanox T1"
@@ -2708,6 +2722,12 @@ restapi/test_restapi.py::test_create_vrf:
     conditions:
       - "'t1' not in topo_type"
       - "asic_type not in ['mellanox']"
+
+restapi/test_restapi.py::test_data_path_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
@@ -2907,6 +2927,12 @@ snmp/test_snmp_phy_entity.py:
     reason: "Only supports physical testbed."
     conditions:
       - "asic_type in ['vs']"
+
+snmp/test_snmp_phy_entity.py::test_transceiver_info:
+  xfail:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/22213"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22213"
 
 snmp/test_snmp_queue.py:
   skip:
@@ -3342,7 +3368,12 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
+  xfail:
+    reason: "Skipped due to github issue https://github.com/sonic-net/sonic-buildimage/issues/22615"
+    conditions_logical_operator: OR
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn2' in platform"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn4280' in platform"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
   skip:
@@ -3351,7 +3382,12 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
+  xfail:
+    reason: "Skipped due to github issue https://github.com/sonic-net/sonic-buildimage/issues/22615"
+    conditions_logical_operator: OR
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn2' in platform"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn4280' in platform"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
   skip:
@@ -3360,7 +3396,12 @@ vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
       - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/15728"
+  xfail:
+    reason: "Skipped due to github issue https://github.com/sonic-net/sonic-buildimage/issues/22615"
+    conditions_logical_operator: OR
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn2' in platform"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22615 and 'sn4280' in platform"
 
 vxlan/test_vxlan_crm.py:
   skip:
