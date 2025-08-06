@@ -12,7 +12,7 @@ import random
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
@@ -1990,3 +1990,140 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
 
     return True
+
+
+def get_queue_id_by_dscp(dscp, ingress_port_name, dut_qos_maps_module):
+    """
+    Calculate the queue ID based on the DSCP value and ingress port name
+    """
+    # Get port QoS map for the downlink port
+    port_qos_map = dut_qos_maps_module['port_qos_map']
+    logger.info(f"Retrieving QoS maps for port: {ingress_port_name}")
+
+    # Extract the DSCP to TC map name from the port QoS configuration
+    dscp_to_tc_map_name = port_qos_map[ingress_port_name]['dscp_to_tc_map'].split('|')[-1].strip(']')
+    logger.info(f"DSCP to TC map name: {dscp_to_tc_map_name}")
+
+    # Extract the TC to Queue map name from the port QoS configuration
+    tc_to_queue_map_name = port_qos_map[ingress_port_name]['tc_to_queue_map'].split('|')[-1].strip(']')
+    logger.info(f"TC to Queue map name: {tc_to_queue_map_name}")
+
+    # Get the actual DSCP to TC mapping from the QoS maps
+    dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
+    logger.debug(f"DSCP to TC mapping details: {dscp_to_tc_map}")
+
+    # Get the actual TC to Queue mapping from the QoS maps
+    tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
+    logger.debug(f"TC to Queue mapping details: {tc_to_queue_map}")
+
+    # Calculate the queue ID, this queue will be blocked during testing
+    queue_id = get_dscp_to_queue_value(dscp, dscp_to_tc_map, tc_to_queue_map)
+
+    return queue_id
+
+
+def convert_counter_value(val):
+    if val == 'N/A':
+        return val
+    return int(val.replace(',', ''))
+
+
+def get_switch_trim_counters(duthost):
+    """
+    Get switch level trim counter.
+
+    Args:
+        duthost: DUT host object
+
+    Example:
+        root@sonic:/home/admin# show switch counters all
+          TrimSent/pkts    TrimDrop/pkts
+        ---------------  ---------------
+                    200              100
+
+    Return:
+        {'trim_sent_pkts': 200, 'trim_drop_pkts': 100}
+    """
+    result = duthost.show_and_parse("show switch counters all")
+    logger.info(f"Switch trim counters: {result}")
+    trim_sent_pkts = convert_counter_value(result[0]['trimsent/pkts'])
+    trim_drop_pkts = convert_counter_value(result[0]['trimdrop/pkts'])
+
+    counters = {
+        'trim_sent_pkts': trim_sent_pkts,
+        'trim_drop_pkts': trim_drop_pkts
+    }
+    logger.info(f"Switch trim counters: {counters}")
+    return counters
+
+
+def get_port_trim_counters(duthost, port):
+    """
+    Get specified port trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        root@sonic:/home/admin# show interfaces counters trim Ethernet0
+        Last cached time was 2025-07-28T04:48:58.633175
+             IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+        ----------  -------  -----------  --------------  ---------------
+        Ethernet96        U      667,765             N/A              N/A
+
+    Return:
+        {'trim_pkts': 667765, 'trim_tx_pkts': 'N/A', 'trim_drp_pkts': 'N/A'}
+    """
+    result = duthost.show_and_parse(f"show interfaces counters trim {port}", start_line_index=1)
+    logger.info(f"Trim counters for port {port}: {result}")
+
+    trim_pkts = convert_counter_value(result[0]['trim_pkts'])
+    trim_tx_pkts = convert_counter_value(result[0]['trim_tx_pkts'])
+    trim_drp_pkts = convert_counter_value(result[0]['trim_drp_pkts'])
+
+    counters = {
+        'trim_pkts': trim_pkts,
+        'trim_tx_pkts': trim_tx_pkts,
+        'trim_drp_pkts': trim_drp_pkts
+    }
+    logger.info(f"Trim counters for port {port}: {counters}")
+    return counters
+
+
+def get_queue_trim_counters(duthost, port):
+    """
+    Get specified port queue level trim counter.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        root@sonic:/home/admin# show queue counters Ethernet0 --all
+        Last cached time was 2025-07-28T04:48:59.744005
+        Ethernet0 Last cached time was 2025-07-28T04:48:59.744005
+            Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts
+        ---------  -----  --------------  ---------------  -----------  ------------  -----------
+        Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC1             N/A              N/A          100          6400          100
+        Ethernet0    UC2             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC3             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A
+        Ethernet0    UC6             100             6400          N/A           N/A          N/A
+        Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A
+
+    Return:
+        {'UC0': 'N/A', 'UC1': 100, 'UC2': 'N/A', 'UC3': 'N/A', 'UC4': 'N/A', 'UC5': 'N/A', 'UC6': 100, 'UC7': 'N/A'}
+    """
+    result = duthost.show_and_parse(f"show queue counters {port} --all", start_line_index=1)
+    logger.info(f"Queue trim counters for port {port}: {result}")
+
+    queue_trim = {}
+    for entry in result:
+        txq = entry['txq']
+        trim_pkts = convert_counter_value(entry['trim/pkts'])
+        queue_trim[txq] = trim_pkts
+    logger.info(f"Queue trim counters dict for port {port}: {queue_trim}")
+    return queue_trim
