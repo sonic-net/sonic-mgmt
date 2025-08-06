@@ -17,18 +17,6 @@ all:
         # 10.150.23.<1~40>/23 reserved for server BMC (iDRAC)
         # 10.150.23.<41~49>/23 can be used for miscellanious purposes
         # Please order the followng ptf hosts by IP address
-        bjw2-1-d:
-          ansible_host: 10.150.23.90
-          ansible_hostv6: 2404:f801:10:2200::a96:175a
-        bjw2-1-e:
-          ansible_host: 10.150.23.91
-          ansible_hostv6: 2404:f801:10:2200::a96:175b
-        bjw2-1-f:
-          ansible_host: 10.150.23.92
-          ansible_hostv6: 2404:f801:10:2200::a96:175c
-        bjw2-1-g:
-          ansible_host: 10.150.23.93
-          ansible_hostv6: 2404:f801:10:2200::a96:175d
         bjw2-2-1:
           ansible_host: 10.150.23.94
           ansible_hostv6: 2404:f801:10:2200::a96:175e
@@ -89,27 +77,9 @@ all:
         bjw2-5-6:
           ansible_host: 10.150.23.112
           ansible_hostv6: 2404:f801:10:2200::a96:1770
-        bjw2-1-h:
-          ansible_host: 10.150.23.113
-          ansible_hostv6: 2404:f801:10:2200::a96:1771
-        bjw2-1-i:
-          ansible_host: 10.150.23.114
-          ansible_hostv6: 2404:f801:10:2200::a96:1772
         bjw2-5-7:
           ansible_host: 10.150.23.115
           ansible_hostv6: 2404:f801:10:2200::a96:1773
-        bjw2-1-n:
-          ansible_host: 10.150.23.120
-          ansible_hostv6: 2404:f801:10:2200::a96:1778
-        bjw2-1-o:
-          ansible_host: 10.150.23.121
-          ansible_hostv6: 2404:f801:10:2200::a96:1779
-        bjw2-1-p:
-          ansible_host: 10.150.23.122
-          ansible_hostv6: 2404:f801:10:2200::a96:177a
-        bjw2-1-q:
-          ansible_host: 10.150.23.123
-          ansible_hostv6: 2404:f801:10:2200::a96:177b
         bjw2-2-a:
           ansible_host: 10.150.23.126
           ansible_hostv6: 2404:f801:10:2200::a96:177e
@@ -186,6 +156,36 @@ all:
         bjw2-5-b:
           ansible_host: 10.150.23.83
           ansible_hostv6: 2404:f801:10:2200::a96:1753
+        bjw2-6-1:
+          ansible_host: 10.150.23.90
+          ansible_hostv6: 2404:f801:10:2200::a96:175a
+        bjw2-7-1:
+          ansible_host: 10.150.23.91
+          ansible_hostv6: 2404:f801:10:2200::a96:175b
+        bjw2-8-1:
+          ansible_host: 10.150.23.92
+          ansible_hostv6: 2404:f801:10:2200::a96:175c
+        bjw2-10-1:
+          ansible_host: 10.150.23.93
+          ansible_hostv6: 2404:f801:10:2200::a96:175d
+        bjw2-5-c:
+          ansible_host: 10.150.23.113
+          ansible_hostv6: 2404:f801:10:2200::a96:1771
+        bjw2-2-d:
+          ansible_host: 10.150.23.114
+          ansible_hostv6: 2404:f801:10:2200::a96:1772
+        bjw2-2-e:
+          ansible_host: 10.150.23.122
+          ansible_hostv6: 2404:f801:10:2200::a96:177a
+        bjw2-2-f:
+          ansible_host: 10.150.23.123
+          ansible_hostv6: 2404:f801:10:2200::a96:177b
+        bjw2-4-2:
+          ansible_host: 10.150.23.120
+          ansible_hostv6: 2404:f801:10:2200::a96:1778
+        bjw2-4-3:
+          ansible_host: 10.150.23.121
+          ansible_hostv6: 2404:f801:10:2200::a96:1779
 
     pdu:
       hosts:
