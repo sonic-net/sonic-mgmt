@@ -24,12 +24,12 @@
     {% endif %}
     {% if port_name in device_conn[inventory_hostname] %}
         {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
-                {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg']%}
+                {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg'] %}
                     "autoneg": "on",
                     {% if msft_an_enabled is defined %}
                         "fec": "none",
                     {% endif %}
-                {% else %}
+                {% elif 'off' in device_conn[inventory_hostname][port_name]['autoneg'] %}
                     "autoneg": "off",
                 {% endif %}
         {% endif %}
