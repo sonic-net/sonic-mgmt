@@ -100,7 +100,6 @@ bfd/test_bfd.py::test_bfd_basic:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
@@ -118,7 +117,6 @@ bfd/test_bfd.py::test_bfd_scale:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 bfd/test_bfd_static_route.py:
   skip:
@@ -2095,12 +2093,6 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
-mvrf/test_mgmtvrf.py::TestReboot::test_reboot:
-  skip:
-    reason: "Skip for nokia-ixr7220 platform"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
-
 #######################################
 #####           nat               #####
 #######################################
@@ -2237,6 +2229,12 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
+pfcwd/test_pfcwd_cli.py:
+  skip:
+    reason: "PFC gen script not enough stop traffic from fanout"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 pfcwd/test_pfcwd_function.py:
   skip:
     reason: "PFC gen script not enough stop traffic from fanout"
@@ -2256,6 +2254,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
      conditions:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
+
+pfcwd/test_pfcwd_timer_accuracy:
+  skip:
+    reason: "PFC gen script not enough stop traffic from fanout"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -2291,18 +2295,6 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - "topo_type in ['m0', 'mx', 'm1']"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
-
-pfcwd/test_pfcwd_cli.py:
-  skip:
-    reason: "PFC gen script not enough stop traffic from fanout"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
-
-pfcwd/test_pfcwd_timer_accuracy:
-  skip:
-    reason: "PFC gen script not enough stop traffic from fanout"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 #######################################
 #####     platform_tests          #####
@@ -3294,6 +3286,18 @@ vrf/test_vrf_attr.py:
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
 
+vrf/test_vrf_attr.py::TestVrfAttrIpState:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrIpAction:
+  skip:
+    reason: "Broadcom SAI does not support the attributes settings"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
     reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing/ Src mac is not derived from VRF on D4, https://github.com/sonic-net/sonic-swss/issues/1833"
@@ -3307,18 +3311,6 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_new_router_mac:
     reason: "Src mac is not derived from VRF on D4, https://github.com/sonic-net/sonic-swss/issues/1833"
     conditions:
       - "https://github.com/sonic-net/sonic-swss/issues/1833 and platform in ['x86_64-nokia_ixr7220_d4-r0']"
-
-vrf/test_vrf_attr.py::TestVrfAttrIpState:
-  skip:
-    reason: "Broadcom SAI does not support the attributes settings"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
-
-vrf/test_vrf_attr.py::TestVrfAttrIpAction:
-  skip:
-    reason: "Broadcom SAI does not support the attributes settings"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
 
 vrf/test_vrf_attr.py::TestVrfAttrTTL:
   skip:
