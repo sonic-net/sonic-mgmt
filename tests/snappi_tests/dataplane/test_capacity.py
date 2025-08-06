@@ -39,7 +39,7 @@ pytestmark = [pytest.mark.topology("tgen")]
 
 
 @pytest.mark.parametrize("subnet_type", ["IPv6"])
-def test_capacity_ipv4(
+def test_capacity(
     duthosts,
     snappi_api,
     set_primary_chassis,  # noqa: F811
@@ -49,7 +49,7 @@ def test_capacity_ipv4(
     fanout_graph_facts_multidut,
 ):
     """
-    Demo Test Riff
+    This test aims to assess the true capacities of SONiC switches
 
     Args:
         duthosts (pytest fixture): list of DUTs
