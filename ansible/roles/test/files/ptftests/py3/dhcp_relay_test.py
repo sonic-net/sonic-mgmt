@@ -269,13 +269,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_unknown_relayed_packet_from_client(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -308,13 +302,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_decline_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -347,13 +335,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def dhcp_offer_packet(self,
                           eth_server="00:01:02:03:04:05",
@@ -479,13 +461,7 @@ class DHCPTest(DataplaneBaseTest):
                                       "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_request_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         request_packet = testutils.dhcp_request_packet(
@@ -544,13 +520,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_inform_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -590,13 +560,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_release_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -629,13 +593,7 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_ack_packet(self):
         return testutils.dhcp_ack_packet(
@@ -1024,6 +982,15 @@ class DHCPTest(DataplaneBaseTest):
 
         mask.set_do_not_care_scapy(scapy.BOOTP, "sname")
         mask.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+    def merge_layers_to_packet(self, ether, ip, udp, bootp):
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        # If our bootp layer is too small, pad it
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
+        return pkt
 
     def runTest(self):
         # Start sniffer process for each server port to capture DHCP packet
