@@ -171,13 +171,13 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     Test query again and add default route and ensure data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    upstream_lc =   duthosts[enum_upstream_dut_hostname]
+    upstream_lc = duthosts[enum_upstream_dut_hostname]
 
     if duthost.is_supervisor_node():
         pytest.skip("Skipping for supervisor node since there is no default route")
 
     if upstream_lc != duthost:
-         pytest.skip("Skipping for {}. This is not valid for downstream node".format(duthost))
+        pytest.skip("Skipping for {}. This is not valid for downstream node".format(duthost))
 
     namespace = ""
     if duthost.is_multi_asic:
