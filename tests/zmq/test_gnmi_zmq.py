@@ -57,14 +57,6 @@ def enable_zmq(duthost):
     logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
 
-    yield
-
-    # revert change
-    command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
-    result = duthost.shell(command, module_ignore_errors=True)
-    logger.debug("revert subtype subtype: {}".format(result))
-    save_reload_config(duthost)
-
     pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
                     "Not all critical services are fully started")
 
@@ -74,6 +66,14 @@ def enable_zmq(duthost):
         wait_until(360, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)
     )
+
+    yield
+
+    # revert change
+    command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
+    result = duthost.shell(command, module_ignore_errors=True)
+    logger.debug("revert subtype subtype: {}".format(result))
+    save_reload_config(duthost)
 
 
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
