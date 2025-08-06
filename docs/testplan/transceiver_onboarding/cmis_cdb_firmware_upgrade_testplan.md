@@ -318,6 +318,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
+|8 | Firmware download and activation stress test | 1. Perform steps in TC #1 and TC #2 `n` number of times where `n` is specified by `--txvr-upgrade-count` arg to pytest. | 1. All the expectations of TC #1 and #2 must be met |
 
 #### CLI commands
 
