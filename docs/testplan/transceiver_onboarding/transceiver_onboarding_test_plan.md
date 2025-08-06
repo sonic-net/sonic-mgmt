@@ -9,7 +9,6 @@ This test plan outlines a comprehensive framework for ensuring feature parity fo
 - **Firmware**: Check firmware version readability and compliance with vendor-suggested values, using regex for version pattern matching.
 - **DOM Data**: Ensure Digital Optical Monitoring (DOM) data is correctly read and within acceptable ranges.
 - **Flags and Alerts**: Confirm no unexpected flags (e.g., Loss of Signal (LOS), Loss of Lock (LOL), DOM warnings) are set.
-- **Firmware Management**: Test firmware upgrade under various scenarios.
 - **Remote Reseat**: Verify support for remote reseat functionality.
 
 **Transceiver Specific Capabilities** (if available):
