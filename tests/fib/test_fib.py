@@ -10,7 +10,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # no
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
-from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map          # noqa: F401
 
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa: F401
@@ -161,7 +161,7 @@ def filter_ports(all_port_indices, tbinfo):
     # Note: this filteration is useful for multilinecard DUTs to make sure incoming traffic is
     # landing on a different linecard; NA for pizza boxes
 
-    if tbinfo['topo']['type'] != 't2':
+    if tbinfo['topo']['type'] != 't2' or 't2_single_node' in tbinfo['topo']['name']:
         return []
 
     # Collect all port indices (keys) from all_port_indices
@@ -498,6 +498,11 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+
+    if re.match(r"t0-.*s\d+", updated_tbinfo["topo"]["name"]) and 'ip-proto' in hash_keys:
+        # For t0 topology type with service ports, use ip-proto as hash key cause traffic unbalance issue.
+        hash_keys.remove('ip-proto')
+
     ptf_runner(
         ptfhost,
         "ptftests",
@@ -531,10 +536,12 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
 # used as hash keys
 
 
-def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa: F811
-                     hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa: F811
-                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa: F811
-                     duts_minigraph_facts, request):                                # noqa: F811
+def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,                                   # noqa: F811
+                     hash_keys, ptfhost, ipver, tbinfo, mux_server_url,                             # noqa: F811
+                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,                    # noqa: F811
+                     duts_minigraph_facts, toggle_all_simulator_ports_to_rand_selected_tor_m,       # noqa: F811
+                     mux_status_from_nic_simulator, setup_standby_ports_on_rand_unselected_tor,     # noqa: F811
+                     request):                                                                      # noqa: F811
     # Only run this test on T1 or T0 (including dualtor) topologies
     pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
     logging.info(f"Topology type: {tbinfo['topo']['type']}")
@@ -558,8 +565,9 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,  # noqa: F811
                "hash_test.IPinIPHashTest",
                platform_dir="ptftests",
                params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts),
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                           ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts,
+                           duts_minigraph_facts, mux_status_from_nic_simulator()),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),

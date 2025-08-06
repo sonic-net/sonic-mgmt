@@ -457,8 +457,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
             "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
-        # os_version is in format "20220531.04", version_required is in format "20220500"
-        return os_version[0:8] >= version_required[0:8]
+        # os_version can be in any of 202411.1, 20241100.1 formats and version_required is in format "20220500"
+        return os_version.split('.')[0].ljust(8, '0') >= version_required[0:8]
     except KeyError:
         return False
     except IndexError:

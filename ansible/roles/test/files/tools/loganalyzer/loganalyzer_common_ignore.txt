@@ -24,6 +24,7 @@ r, ".* WARNING syncd\d*#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss\d*#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
 r, ".* ERR syncd\d*#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
+r, ".* ERR kernel: .*leaba_module_device .*: .*: leaba_hostif_get_by_port: Port gid out of range port_gid=.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
@@ -292,6 +293,8 @@ r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_n
 r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
+r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
+r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
 
 # Ignore ACL EGRESS feature unavailable error on fabric cards
 r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
@@ -341,6 +344,10 @@ r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
 
+# Ignore SRV6 error
+r, ".* ERR syncd#syncd: .* SAI_API_SRV6:_brcm_sai_srv6_config_get:\d+ SRV6 unsupported or not enabled on this device"
+r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_object_type_get_availability:\d+ availablity my_sid failed with error -2."
+
 # https://github.com/sonic-net/sonic-buildimage/issues/22346
 r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 
@@ -356,3 +363,9 @@ r, ".* ERR kernel.*audit: rate limit exceeded.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/33479668
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
 r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/19790
+r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_stats_capability:\d+ stats capablity not supported for object.*"
+
+# Ignore all audisp-tacplus Accounting logs
+r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"

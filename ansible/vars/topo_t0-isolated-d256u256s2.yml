@@ -1340,7 +1340,7 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: 65100
+    dut_asn: 4200000000
     dut_type: ToRRouter
     swrole: leaf
     nhipv4: 10.10.246.254
@@ -1360,9 +1360,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.128
           - fc00::101
     interfaces:
@@ -1379,9 +1379,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.130
           - fc00::105
     interfaces:
@@ -1398,9 +1398,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.132
           - fc00::109
     interfaces:
@@ -1417,9 +1417,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.134
           - fc00::10d
     interfaces:
@@ -1436,9 +1436,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.136
           - fc00::111
     interfaces:
@@ -1455,9 +1455,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.138
           - fc00::115
     interfaces:
@@ -1474,9 +1474,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.140
           - fc00::119
     interfaces:
@@ -1493,9 +1493,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.142
           - fc00::11d
     interfaces:
@@ -1512,9 +1512,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.144
           - fc00::121
     interfaces:
@@ -1531,9 +1531,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.146
           - fc00::125
     interfaces:
@@ -1550,9 +1550,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.148
           - fc00::129
     interfaces:
@@ -1569,9 +1569,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.150
           - fc00::12d
     interfaces:
@@ -1588,9 +1588,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.152
           - fc00::131
     interfaces:
@@ -1607,9 +1607,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.154
           - fc00::135
     interfaces:
@@ -1626,9 +1626,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.156
           - fc00::139
     interfaces:
@@ -1645,9 +1645,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.158
           - fc00::13d
     interfaces:
@@ -1664,9 +1664,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.160
           - fc00::141
     interfaces:
@@ -1683,9 +1683,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.162
           - fc00::145
     interfaces:
@@ -1702,9 +1702,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.164
           - fc00::149
     interfaces:
@@ -1721,9 +1721,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.166
           - fc00::14d
     interfaces:
@@ -1740,9 +1740,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.168
           - fc00::151
     interfaces:
@@ -1759,9 +1759,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.170
           - fc00::155
     interfaces:
@@ -1778,9 +1778,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.172
           - fc00::159
     interfaces:
@@ -1797,9 +1797,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.174
           - fc00::15d
     interfaces:
@@ -1816,9 +1816,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.176
           - fc00::161
     interfaces:
@@ -1835,9 +1835,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.178
           - fc00::165
     interfaces:
@@ -1854,9 +1854,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.180
           - fc00::169
     interfaces:
@@ -1873,9 +1873,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.182
           - fc00::16d
     interfaces:
@@ -1892,9 +1892,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.184
           - fc00::171
     interfaces:
@@ -1911,9 +1911,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.186
           - fc00::175
     interfaces:
@@ -1930,9 +1930,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.188
           - fc00::179
     interfaces:
@@ -1949,9 +1949,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.190
           - fc00::17d
     interfaces:
@@ -1968,9 +1968,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.192
           - fc00::181
     interfaces:
@@ -1987,9 +1987,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.194
           - fc00::185
     interfaces:
@@ -2006,9 +2006,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.196
           - fc00::189
     interfaces:
@@ -2025,9 +2025,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.198
           - fc00::18d
     interfaces:
@@ -2044,9 +2044,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.200
           - fc00::191
     interfaces:
@@ -2063,9 +2063,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.202
           - fc00::195
     interfaces:
@@ -2082,9 +2082,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.204
           - fc00::199
     interfaces:
@@ -2101,9 +2101,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.206
           - fc00::19d
     interfaces:
@@ -2120,9 +2120,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.208
           - fc00::1a1
     interfaces:
@@ -2139,9 +2139,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.210
           - fc00::1a5
     interfaces:
@@ -2158,9 +2158,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.212
           - fc00::1a9
     interfaces:
@@ -2177,9 +2177,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.214
           - fc00::1ad
     interfaces:
@@ -2196,9 +2196,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.216
           - fc00::1b1
     interfaces:
@@ -2215,9 +2215,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.218
           - fc00::1b5
     interfaces:
@@ -2234,9 +2234,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.220
           - fc00::1b9
     interfaces:
@@ -2253,9 +2253,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.222
           - fc00::1bd
     interfaces:
@@ -2272,9 +2272,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.224
           - fc00::1c1
     interfaces:
@@ -2291,9 +2291,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.226
           - fc00::1c5
     interfaces:
@@ -2310,9 +2310,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.228
           - fc00::1c9
     interfaces:
@@ -2329,9 +2329,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.230
           - fc00::1cd
     interfaces:
@@ -2348,9 +2348,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.232
           - fc00::1d1
     interfaces:
@@ -2367,9 +2367,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.234
           - fc00::1d5
     interfaces:
@@ -2386,9 +2386,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.236
           - fc00::1d9
     interfaces:
@@ -2405,9 +2405,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.238
           - fc00::1dd
     interfaces:
@@ -2424,9 +2424,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.240
           - fc00::1e1
     interfaces:
@@ -2443,9 +2443,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.242
           - fc00::1e5
     interfaces:
@@ -2462,9 +2462,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.244
           - fc00::1e9
     interfaces:
@@ -2481,9 +2481,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.246
           - fc00::1ed
     interfaces:
@@ -2500,9 +2500,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.248
           - fc00::1f1
     interfaces:
@@ -2519,9 +2519,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.250
           - fc00::1f5
     interfaces:
@@ -2538,9 +2538,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.252
           - fc00::1f9
     interfaces:
@@ -2557,9 +2557,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.0.254
           - fc00::1fd
     interfaces:
@@ -2576,9 +2576,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.0
           - fc00::201
     interfaces:
@@ -2595,9 +2595,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.2
           - fc00::205
     interfaces:
@@ -2614,9 +2614,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.4
           - fc00::209
     interfaces:
@@ -2633,9 +2633,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.6
           - fc00::20d
     interfaces:
@@ -2652,9 +2652,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.8
           - fc00::211
     interfaces:
@@ -2671,9 +2671,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.10
           - fc00::215
     interfaces:
@@ -2690,9 +2690,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.12
           - fc00::219
     interfaces:
@@ -2709,9 +2709,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.14
           - fc00::21d
     interfaces:
@@ -2728,9 +2728,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.16
           - fc00::221
     interfaces:
@@ -2747,9 +2747,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.18
           - fc00::225
     interfaces:
@@ -2766,9 +2766,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.20
           - fc00::229
     interfaces:
@@ -2785,9 +2785,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.22
           - fc00::22d
     interfaces:
@@ -2804,9 +2804,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.24
           - fc00::231
     interfaces:
@@ -2823,9 +2823,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.26
           - fc00::235
     interfaces:
@@ -2842,9 +2842,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.28
           - fc00::239
     interfaces:
@@ -2861,9 +2861,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.30
           - fc00::23d
     interfaces:
@@ -2880,9 +2880,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.32
           - fc00::241
     interfaces:
@@ -2899,9 +2899,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.34
           - fc00::245
     interfaces:
@@ -2918,9 +2918,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.36
           - fc00::249
     interfaces:
@@ -2937,9 +2937,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.38
           - fc00::24d
     interfaces:
@@ -2956,9 +2956,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.40
           - fc00::251
     interfaces:
@@ -2975,9 +2975,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.42
           - fc00::255
     interfaces:
@@ -2994,9 +2994,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.44
           - fc00::259
     interfaces:
@@ -3013,9 +3013,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.46
           - fc00::25d
     interfaces:
@@ -3032,9 +3032,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.48
           - fc00::261
     interfaces:
@@ -3051,9 +3051,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.50
           - fc00::265
     interfaces:
@@ -3070,9 +3070,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.52
           - fc00::269
     interfaces:
@@ -3089,9 +3089,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.54
           - fc00::26d
     interfaces:
@@ -3108,9 +3108,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.56
           - fc00::271
     interfaces:
@@ -3127,9 +3127,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.58
           - fc00::275
     interfaces:
@@ -3146,9 +3146,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.60
           - fc00::279
     interfaces:
@@ -3165,9 +3165,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.62
           - fc00::27d
     interfaces:
@@ -3184,9 +3184,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.64
           - fc00::281
     interfaces:
@@ -3203,9 +3203,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.66
           - fc00::285
     interfaces:
@@ -3222,9 +3222,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.68
           - fc00::289
     interfaces:
@@ -3241,9 +3241,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.70
           - fc00::28d
     interfaces:
@@ -3260,9 +3260,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.72
           - fc00::291
     interfaces:
@@ -3279,9 +3279,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.74
           - fc00::295
     interfaces:
@@ -3298,9 +3298,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.76
           - fc00::299
     interfaces:
@@ -3317,9 +3317,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.78
           - fc00::29d
     interfaces:
@@ -3336,9 +3336,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.80
           - fc00::2a1
     interfaces:
@@ -3355,9 +3355,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.82
           - fc00::2a5
     interfaces:
@@ -3374,9 +3374,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.84
           - fc00::2a9
     interfaces:
@@ -3393,9 +3393,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.86
           - fc00::2ad
     interfaces:
@@ -3412,9 +3412,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.88
           - fc00::2b1
     interfaces:
@@ -3431,9 +3431,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.90
           - fc00::2b5
     interfaces:
@@ -3450,9 +3450,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.92
           - fc00::2b9
     interfaces:
@@ -3469,9 +3469,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.94
           - fc00::2bd
     interfaces:
@@ -3488,9 +3488,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.96
           - fc00::2c1
     interfaces:
@@ -3507,9 +3507,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.98
           - fc00::2c5
     interfaces:
@@ -3526,9 +3526,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.100
           - fc00::2c9
     interfaces:
@@ -3545,9 +3545,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.102
           - fc00::2cd
     interfaces:
@@ -3564,9 +3564,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.104
           - fc00::2d1
     interfaces:
@@ -3583,9 +3583,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.106
           - fc00::2d5
     interfaces:
@@ -3602,9 +3602,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.108
           - fc00::2d9
     interfaces:
@@ -3621,9 +3621,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.110
           - fc00::2dd
     interfaces:
@@ -3640,9 +3640,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.112
           - fc00::2e1
     interfaces:
@@ -3659,9 +3659,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.114
           - fc00::2e5
     interfaces:
@@ -3678,9 +3678,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.116
           - fc00::2e9
     interfaces:
@@ -3697,9 +3697,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.118
           - fc00::2ed
     interfaces:
@@ -3716,9 +3716,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.120
           - fc00::2f1
     interfaces:
@@ -3735,9 +3735,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.122
           - fc00::2f5
     interfaces:
@@ -3754,9 +3754,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.124
           - fc00::2f9
     interfaces:
@@ -3773,9 +3773,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.1.126
           - fc00::2fd
     interfaces:
@@ -3792,9 +3792,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.128
           - fc00::501
     interfaces:
@@ -3811,9 +3811,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.130
           - fc00::505
     interfaces:
@@ -3830,9 +3830,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.132
           - fc00::509
     interfaces:
@@ -3849,9 +3849,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.134
           - fc00::50d
     interfaces:
@@ -3868,9 +3868,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.136
           - fc00::511
     interfaces:
@@ -3887,9 +3887,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.138
           - fc00::515
     interfaces:
@@ -3906,9 +3906,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.140
           - fc00::519
     interfaces:
@@ -3925,9 +3925,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.142
           - fc00::51d
     interfaces:
@@ -3944,9 +3944,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.144
           - fc00::521
     interfaces:
@@ -3963,9 +3963,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.146
           - fc00::525
     interfaces:
@@ -3982,9 +3982,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.148
           - fc00::529
     interfaces:
@@ -4001,9 +4001,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.150
           - fc00::52d
     interfaces:
@@ -4020,9 +4020,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.152
           - fc00::531
     interfaces:
@@ -4039,9 +4039,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.154
           - fc00::535
     interfaces:
@@ -4058,9 +4058,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.156
           - fc00::539
     interfaces:
@@ -4077,9 +4077,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.158
           - fc00::53d
     interfaces:
@@ -4096,9 +4096,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.160
           - fc00::541
     interfaces:
@@ -4115,9 +4115,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.162
           - fc00::545
     interfaces:
@@ -4134,9 +4134,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.164
           - fc00::549
     interfaces:
@@ -4153,9 +4153,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.166
           - fc00::54d
     interfaces:
@@ -4172,9 +4172,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.168
           - fc00::551
     interfaces:
@@ -4191,9 +4191,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.170
           - fc00::555
     interfaces:
@@ -4210,9 +4210,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.172
           - fc00::559
     interfaces:
@@ -4229,9 +4229,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.174
           - fc00::55d
     interfaces:
@@ -4248,9 +4248,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.176
           - fc00::561
     interfaces:
@@ -4267,9 +4267,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.178
           - fc00::565
     interfaces:
@@ -4286,9 +4286,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.180
           - fc00::569
     interfaces:
@@ -4305,9 +4305,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.182
           - fc00::56d
     interfaces:
@@ -4324,9 +4324,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.184
           - fc00::571
     interfaces:
@@ -4343,9 +4343,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.186
           - fc00::575
     interfaces:
@@ -4362,9 +4362,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.188
           - fc00::579
     interfaces:
@@ -4381,9 +4381,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.190
           - fc00::57d
     interfaces:
@@ -4400,9 +4400,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.192
           - fc00::581
     interfaces:
@@ -4419,9 +4419,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.194
           - fc00::585
     interfaces:
@@ -4438,9 +4438,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.196
           - fc00::589
     interfaces:
@@ -4457,9 +4457,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.198
           - fc00::58d
     interfaces:
@@ -4476,9 +4476,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.200
           - fc00::591
     interfaces:
@@ -4495,9 +4495,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.202
           - fc00::595
     interfaces:
@@ -4514,9 +4514,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.204
           - fc00::599
     interfaces:
@@ -4533,9 +4533,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.206
           - fc00::59d
     interfaces:
@@ -4552,9 +4552,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.208
           - fc00::5a1
     interfaces:
@@ -4571,9 +4571,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.210
           - fc00::5a5
     interfaces:
@@ -4590,9 +4590,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.212
           - fc00::5a9
     interfaces:
@@ -4609,9 +4609,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.214
           - fc00::5ad
     interfaces:
@@ -4628,9 +4628,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.216
           - fc00::5b1
     interfaces:
@@ -4647,9 +4647,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.218
           - fc00::5b5
     interfaces:
@@ -4666,9 +4666,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.220
           - fc00::5b9
     interfaces:
@@ -4685,9 +4685,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.222
           - fc00::5bd
     interfaces:
@@ -4704,9 +4704,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.224
           - fc00::5c1
     interfaces:
@@ -4723,9 +4723,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.226
           - fc00::5c5
     interfaces:
@@ -4742,9 +4742,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.228
           - fc00::5c9
     interfaces:
@@ -4761,9 +4761,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.230
           - fc00::5cd
     interfaces:
@@ -4780,9 +4780,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.232
           - fc00::5d1
     interfaces:
@@ -4799,9 +4799,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.234
           - fc00::5d5
     interfaces:
@@ -4818,9 +4818,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.236
           - fc00::5d9
     interfaces:
@@ -4837,9 +4837,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.238
           - fc00::5dd
     interfaces:
@@ -4856,9 +4856,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.240
           - fc00::5e1
     interfaces:
@@ -4875,9 +4875,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.242
           - fc00::5e5
     interfaces:
@@ -4894,9 +4894,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.244
           - fc00::5e9
     interfaces:
@@ -4913,9 +4913,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.246
           - fc00::5ed
     interfaces:
@@ -4932,9 +4932,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.248
           - fc00::5f1
     interfaces:
@@ -4951,9 +4951,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.250
           - fc00::5f5
     interfaces:
@@ -4970,9 +4970,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.252
           - fc00::5f9
     interfaces:
@@ -4989,9 +4989,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.2.254
           - fc00::5fd
     interfaces:
@@ -5008,9 +5008,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.0
           - fc00::601
     interfaces:
@@ -5027,9 +5027,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.2
           - fc00::605
     interfaces:
@@ -5046,9 +5046,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.4
           - fc00::609
     interfaces:
@@ -5065,9 +5065,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.6
           - fc00::60d
     interfaces:
@@ -5084,9 +5084,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.8
           - fc00::611
     interfaces:
@@ -5103,9 +5103,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.10
           - fc00::615
     interfaces:
@@ -5122,9 +5122,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.12
           - fc00::619
     interfaces:
@@ -5141,9 +5141,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.14
           - fc00::61d
     interfaces:
@@ -5160,9 +5160,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.16
           - fc00::621
     interfaces:
@@ -5179,9 +5179,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.18
           - fc00::625
     interfaces:
@@ -5198,9 +5198,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.20
           - fc00::629
     interfaces:
@@ -5217,9 +5217,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.22
           - fc00::62d
     interfaces:
@@ -5236,9 +5236,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.24
           - fc00::631
     interfaces:
@@ -5255,9 +5255,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.26
           - fc00::635
     interfaces:
@@ -5274,9 +5274,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.28
           - fc00::639
     interfaces:
@@ -5293,9 +5293,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.30
           - fc00::63d
     interfaces:
@@ -5312,9 +5312,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.32
           - fc00::641
     interfaces:
@@ -5331,9 +5331,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.34
           - fc00::645
     interfaces:
@@ -5350,9 +5350,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.36
           - fc00::649
     interfaces:
@@ -5369,9 +5369,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.38
           - fc00::64d
     interfaces:
@@ -5388,9 +5388,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.40
           - fc00::651
     interfaces:
@@ -5407,9 +5407,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.42
           - fc00::655
     interfaces:
@@ -5426,9 +5426,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.44
           - fc00::659
     interfaces:
@@ -5445,9 +5445,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.46
           - fc00::65d
     interfaces:
@@ -5464,9 +5464,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.48
           - fc00::661
     interfaces:
@@ -5483,9 +5483,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.50
           - fc00::665
     interfaces:
@@ -5502,9 +5502,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.52
           - fc00::669
     interfaces:
@@ -5521,9 +5521,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.54
           - fc00::66d
     interfaces:
@@ -5540,9 +5540,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.56
           - fc00::671
     interfaces:
@@ -5559,9 +5559,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.58
           - fc00::675
     interfaces:
@@ -5578,9 +5578,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.60
           - fc00::679
     interfaces:
@@ -5597,9 +5597,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.62
           - fc00::67d
     interfaces:
@@ -5616,9 +5616,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.64
           - fc00::681
     interfaces:
@@ -5635,9 +5635,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.66
           - fc00::685
     interfaces:
@@ -5654,9 +5654,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.68
           - fc00::689
     interfaces:
@@ -5673,9 +5673,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.70
           - fc00::68d
     interfaces:
@@ -5692,9 +5692,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.72
           - fc00::691
     interfaces:
@@ -5711,9 +5711,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.74
           - fc00::695
     interfaces:
@@ -5730,9 +5730,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.76
           - fc00::699
     interfaces:
@@ -5749,9 +5749,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.78
           - fc00::69d
     interfaces:
@@ -5768,9 +5768,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.80
           - fc00::6a1
     interfaces:
@@ -5787,9 +5787,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.82
           - fc00::6a5
     interfaces:
@@ -5806,9 +5806,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.84
           - fc00::6a9
     interfaces:
@@ -5825,9 +5825,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.86
           - fc00::6ad
     interfaces:
@@ -5844,9 +5844,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.88
           - fc00::6b1
     interfaces:
@@ -5863,9 +5863,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.90
           - fc00::6b5
     interfaces:
@@ -5882,9 +5882,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.92
           - fc00::6b9
     interfaces:
@@ -5901,9 +5901,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.94
           - fc00::6bd
     interfaces:
@@ -5920,9 +5920,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.96
           - fc00::6c1
     interfaces:
@@ -5939,9 +5939,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.98
           - fc00::6c5
     interfaces:
@@ -5958,9 +5958,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.100
           - fc00::6c9
     interfaces:
@@ -5977,9 +5977,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.102
           - fc00::6cd
     interfaces:
@@ -5996,9 +5996,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.104
           - fc00::6d1
     interfaces:
@@ -6015,9 +6015,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.106
           - fc00::6d5
     interfaces:
@@ -6034,9 +6034,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.108
           - fc00::6d9
     interfaces:
@@ -6053,9 +6053,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.110
           - fc00::6dd
     interfaces:
@@ -6072,9 +6072,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.112
           - fc00::6e1
     interfaces:
@@ -6091,9 +6091,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.114
           - fc00::6e5
     interfaces:
@@ -6110,9 +6110,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.116
           - fc00::6e9
     interfaces:
@@ -6129,9 +6129,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.118
           - fc00::6ed
     interfaces:
@@ -6148,9 +6148,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.120
           - fc00::6f1
     interfaces:
@@ -6167,9 +6167,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.122
           - fc00::6f5
     interfaces:
@@ -6186,9 +6186,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.124
           - fc00::6f9
     interfaces:
@@ -6205,9 +6205,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 64600
+      asn: 4200100000
       peers:
-        65100:
+        4200000000:
           - 10.0.3.126
           - fc00::6fd
     interfaces:
@@ -6224,9 +6224,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65101
+      asn: 64621
       peers:
-        65100:
+        4200000000:
           - 10.0.4.0
           - fc00::801
     interfaces:
@@ -6243,9 +6243,9 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 65102
+      asn: 64622
       peers:
-        65100:
+        4200000000:
           - 10.0.4.2
           - fc00::805
     interfaces:
