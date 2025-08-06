@@ -906,6 +906,12 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
     conditions:
       - "'t2_single_node' in topo_name"
 
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status_after_docker_restart:
+  skip:
+    reason: "Restarting all dockers on supervisor leaves the system in unstable state"
+    conditions:
+      - "('voq' in switch_type)"
+
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
@@ -947,12 +953,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
-
-platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status_after_docker_restart:
-  skip:
-    reason: "Restarting all dockers on supervisor leaves the system in unstable state"
-    conditions:
-      - "('voq' in switch_type)"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
