@@ -62,7 +62,7 @@ pdu-95,20,str4-7060x6-512-fan-2,PSU1
 pdu-94,20,str4-7060x6-512-fan-2,PSU2
 pdu-120,46,str4-7060x6-512-8,PSU1
 pdu-119,46,str4-7060x6-512-8,PSU2
-pdu-242,45,str4-7060x6-512-4,PSU1
+pdu-242,40,str4-7060x6-512-4,PSU1
 pdu-98,44,str4-7060x6-512-4,PSU2
 pdu-98,45,str4-7060x6-64pe-fan-5,PSU1
 pdu-99,48,str4-7060x6-64pe-fan-5,PSU2

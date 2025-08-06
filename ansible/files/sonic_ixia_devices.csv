@@ -1,8 +1,8 @@
 Hostname,ManagementIp,HwSku,Type,Protocol
 str-acs-serv-100,10.64.246.200/23,TestServ,Server,,
 str-acs-serv-101,10.64.246.201/23,TestServ,Server,,
-str-acs-serv-102,10.64.246.202/23,TestServ,Server,,
-str-acs-serv-103,10.64.246.203/23,TestServ,Server,,
+str-acs-serv-102,10.64.246.209/23,TestServ,Server,,
+str-acs-serv-103,10.64.246.210/23,TestServ,Server,,
 msr-ixia-4,10.3.145.39/32,IXIA-tester,DevIxiaChassis,
 msr-ixia-5,10.3.145.38/32,IXIA-tester,DevIxiaChassis,
 STR-8102-C19-U24,10.3.146.252/24,Cisco-8102-C64,DevSonic,
@@ -14,7 +14,7 @@ str2-7250-lc2-2,10.3.146.136/24,Nokia-IXR7250E-36x100G,DevSonic,sonic
 str3-7808-sup-2,10.64.246.61/23,Arista-7808R3A-FM,DevSonic,sonic
 str3-7800-lc5-2,10.64.246.72/23,Arista-7800R3-48CQ2-C48,DevSonic,sonic
 str3-7800-lc6-2,10.64.246.73/23,Arista-7800R3-48CQ2-C48,DevSonic,sonic
-str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3,FanoutLeaf,sonic
+str2-7260cx3-d10-u42,10.64.246.10/23,Arista-7260CX3-C64,FanoutLeaf,sonic
 str2-7260cx3-d10-u21,10.3.146.9/24,Arista-7260CX3,FanoutLeaf,sonic
 t2-aresone-ixia,10.3.145.74/32,IXIA-tester,DevIxiaChassis,
 t2-aresone-ixia-2,10.3.155.73/26,IXIA-tester,DevIxiaChassis,
@@ -58,10 +58,10 @@ str-7060x6-512-snake-1,10.64.246.116/23,Arista-7060X6-64PE-B-C512S2,DevSonic,
 str-ocs-dlx64-acs-01,10.64.246.178/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-02,10.64.246.132/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-03,10.64.246.135/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
-str-ocs-dlx64-acs-04,10.64.246.195/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
-str-ocs-dlx64-acs-05,10.64.246.196/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
-str-ocs-dlx64-acs-06,10.64.246.197/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
-str-ocs-dlx64-acs-07,10.64.246.198/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
+str-ocs-dlx64-acs-04,10.64.246.136/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
+str-ocs-dlx64-acs-05,10.64.246.183/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
+str-ocs-dlx64-acs-06,10.64.246.211/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
+str-ocs-dlx64-acs-07,10.64.246.212/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-10,10.64.246.185/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-11,10.64.246.186/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-12,10.64.246.53/23,DLXA64B64HNLA1MS,FanoutL1Sonic,
