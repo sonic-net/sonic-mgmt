@@ -88,8 +88,8 @@ A minimum of 1 port of a device with the onboarding transceiver should be connec
 
     For each firmware binary, the following metadata should be included:
 
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#111-cmis-cdb-firmware-binary-management) section.
+    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#111-cmis-cdb-firmware-binary-management) section.
     - `fw_version`: The version of the firmware.
     - `fw_binary_name`: The filename of the firmware binary.
     - `md5sum`: The MD5 checksum of the firmware binary.
