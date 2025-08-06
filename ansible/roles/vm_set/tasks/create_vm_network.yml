@@ -1,0 +1,15 @@
+- name: Create VM network for {{ vm_name }}
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ vm_name }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+    topo: "{{ topology }}"
+  async: 3600
+  poll: 0
+  register: async_create_vm_network_result_item
+
+- name: Save job id for {{ vm_name }}
+  set_fact:
+    async_create_vm_network_results: "{{ async_create_vm_network_results | default({}) | combine({ vm_name: async_create_vm_network_result_item.ansible_job_id }) }}"

@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any'),
     pytest.mark.device_type('physical')
 ]
@@ -137,7 +138,8 @@ class TestWatchdogApi(PlatformApiTestBase):
             self.expect(remaining_time is -1,
                         "Watchdog remaining_time {} seconds is wrong for disarmed state".format(remaining_time))
 
-        ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if duthost.is_dpu() else 22
+        is_dpu = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+        ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if is_dpu else 22
         res = localhost.wait_for(host=duthost.mgmt_ip, port=ansible_ssh_port, state="stopped", delay=5,
                                  timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
