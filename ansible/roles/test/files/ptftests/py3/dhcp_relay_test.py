@@ -213,9 +213,7 @@ class DHCPTest(DataplaneBaseTest):
     """
 
     def create_dhcp_discover_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
-        discover_packet = testutils.dhcp_discover_packet(
-            eth_client=self.client_mac, set_broadcast_bit=True)
-
+        discover_packet = testutils.dhcp_discover_packet(eth_client=self.client_mac, set_broadcast_bit=True)
         discover_packet[scapy.Ether].dst = dst_mac
         discover_packet[scapy.IP].sport = src_port
 
@@ -271,13 +269,73 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
-        pkt = ether / ip / udp / bootp
-        return pkt
+    def create_dhcp_unknown_relayed_packet_from_client(self):
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
+
+        ether = scapy.Ether(dst=self.BROADCAST_MAC,
+                            src=self.uplink_mac, type=0x0800)
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+
+        ip = scapy.IP(src=source_ip,
+                      dst=self.BROADCAST_IP, len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
+                        dport=self.DHCP_SERVER_PORT, len=308)
+        bootp = scapy.BOOTP(op=1,
+                            htype=1,
+                            hlen=6,
+                            hops=1,
+                            xid=0,
+                            secs=0,
+                            flags=0x8000,
+                            ciaddr=self.DEFAULT_ROUTE_IP,
+                            yiaddr=self.DEFAULT_ROUTE_IP,
+                            siaddr=self.DEFAULT_ROUTE_IP,
+                            giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
+                            chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', 10),
+                                     (82, self.option82),
+                                     ('end')])
+
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
+
+    def create_dhcp_decline_relayed_packet(self):
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
+
+        ether = scapy.Ether(dst=self.BROADCAST_MAC,
+                            src=self.uplink_mac, type=0x0800)
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+
+        ip = scapy.IP(src=source_ip,
+                      dst=self.BROADCAST_IP, len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
+                        dport=self.DHCP_SERVER_PORT)
+        bootp = scapy.BOOTP(op=1,
+                            htype=1,
+                            hlen=6,
+                            hops=1,
+                            xid=0,
+                            secs=0,
+                            flags=0x8000,
+                            ciaddr=self.DEFAULT_ROUTE_IP,
+                            yiaddr=self.DEFAULT_ROUTE_IP,
+                            siaddr=self.DEFAULT_ROUTE_IP,
+                            giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
+                            chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', "decline"),
+                                     (82, self.option82),
+                                     ('end')])
+
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def dhcp_offer_packet(self,
                           eth_server="00:01:02:03:04:05",
@@ -379,7 +437,7 @@ class DHCPTest(DataplaneBaseTest):
         #  4.) Replaces the destination IP with broadcast (255.255.255.255)
         #  5.) Replaces the destination port with the DHCP client port (68)
         ether = scapy.Ether(dst=self.BROADCAST_MAC,
-                            src=self.relay_iface_mac, type=0x0800)
+                            src=self.relay_iface_mac, type=self.DHCP_ETHER_TYPE_IP)
         ip = scapy.IP(src=self.relay_iface_ip, dst=self.BROADCAST_IP, ttl=64)
         udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
                         dport=self.DHCP_CLIENT_PORT)
@@ -403,13 +461,7 @@ class DHCPTest(DataplaneBaseTest):
                                       "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
-
-        pkt = ether / ip / udp / bootp
-        return pkt
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_request_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         request_packet = testutils.dhcp_request_packet(
@@ -468,13 +520,80 @@ class DHCPTest(DataplaneBaseTest):
                                      (82, self.option82),
                                      ('end')])
 
-        # If our bootp layer is too small, pad it
-        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-        if pad_bytes > 0:
-            bootp /= scapy.PADDING('\x00' * pad_bytes)
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
-        pkt = ether / ip / udp / bootp
-        return pkt
+    def create_dhcp_inform_relayed_packet(self):
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
+
+        # Here, the actual destination MAC should be the MAC of the leaf the relay
+        # forwards through and the destination IP should be the IP of the DHCP server
+        # the relay is forwarding to. We don't need to confirm these, so we'll
+        # just mask them off later
+        #
+        # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
+        #       which it received the broadcast DHCPREQUEST from client. This appears to
+        #       be loopback. We could pull from minigraph and check here.
+        ether = scapy.Ether(dst=self.BROADCAST_MAC,
+                            src=self.uplink_mac, type=0x0800)
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+        ip = scapy.IP(src=source_ip,
+                      dst=self.BROADCAST_IP, len=336, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
+                        dport=self.DHCP_SERVER_PORT, len=316)
+        bootp = scapy.BOOTP(op=1,
+                            htype=1,
+                            hlen=6,
+                            hops=1,
+                            xid=0,
+                            secs=0,
+                            flags=0x8000,
+                            ciaddr=self.DEFAULT_ROUTE_IP,
+                            yiaddr=self.DEFAULT_ROUTE_IP,
+                            siaddr=self.DEFAULT_ROUTE_IP,
+                            giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
+                            chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', 'inform'),
+                                     (82, self.option82),
+                                     ('end')])
+
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
+
+    def create_dhcp_release_relayed_packet(self):
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
+
+        ether = scapy.Ether(dst=self.BROADCAST_MAC,
+                            src=self.uplink_mac, type=self.DHCP_ETHER_TYPE_IP)
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+        ip = scapy.IP(src=source_ip,
+                      dst=self.server_ip[0], len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
+                        dport=self.DHCP_SERVER_PORT, len=308)
+        bootp = scapy.BOOTP(op=1,
+                            htype=1,
+                            hlen=6,
+                            hops=1,
+                            xid=0,
+                            secs=0,
+                            flags=0x0000,
+                            ciaddr=self.client_ip,
+                            yiaddr=self.DEFAULT_ROUTE_IP,
+                            siaddr=self.DEFAULT_ROUTE_IP,
+                            giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
+                            chaddr=my_chaddr)
+        bootp /= scapy.DHCP(options=[('message-type', 'release'),
+                                     ('server_id', self.server_ip[0]),
+                                     (82, self.option82),
+                                     ('end')])
+
+        return self.merge_layers_to_packet(ether, ip, udp, bootp)
 
     def create_dhcp_ack_packet(self):
         return testutils.dhcp_ack_packet(
@@ -580,33 +699,9 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover = Mask(dhcp_discover_relayed)
         masked_discover.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        masked_discover.set_do_not_care_scapy(scapy.IP, "version")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "len")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "id")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "dst")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "options")
-
-        masked_discover.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_discover.set_do_not_care_scapy(scapy.UDP, "len")
-
-        masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
-
+        self.set_common_ignored_mask_fields(masked_discover)
         # Count the number of these packets received on the ports connected to our leaves
-        num_expected_packets = self.num_dhcp_servers
-        logger.info("Expect receiving relayed discover packet from Ports [{}]".format(self.server_port_indices))
-        log_dhcp_packet_info(dhcp_discover_relayed)
-        discover_count = testutils.count_matched_packets_all_ports(
-            self, masked_discover, self.server_port_indices)
-        self.assertTrue(discover_count == num_expected_packets,
-                        "Failed: Discover count of %d != %d" % (discover_count, num_expected_packets))
+        self.check_relayed_pkts_on_server_side(masked_discover, dhcp_discover_relayed, "discover")
 
     # Simulate a DHCP server sending a DHCPOFFER message to client.
     # We do this by injecting a DHCPOFFER message on the link connected to one
@@ -623,28 +718,9 @@ class DHCPTest(DataplaneBaseTest):
 
         masked_offer = Mask(dhcp_offer)
 
-        masked_offer.set_do_not_care_scapy(scapy.IP, "version")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "len")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "id")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_offer.set_do_not_care_scapy(scapy.IP, "options")
+        self.set_common_ignored_mask_fields(masked_offer)
 
-        masked_offer.set_do_not_care_scapy(scapy.UDP, "len")
-        masked_offer.set_do_not_care_scapy(scapy.UDP, "chksum")
-
-        masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        logger.info("Expect receiving relayed offer packet from port {}".format(self.client_port_index))
-        log_dhcp_packet_info(dhcp_offer)
-        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
-        testutils.verify_packet(self, masked_offer, self.client_port_index)
+        self.check_pkt_on_client_side(masked_offer, dhcp_offer, "Offer")
 
     # Simulate our client sending a DHCPREQUEST message
     def client_send_request(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
@@ -664,33 +740,9 @@ class DHCPTest(DataplaneBaseTest):
         masked_request = Mask(dhcp_request_relayed)
         masked_request.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        masked_request.set_do_not_care_scapy(scapy.IP, "version")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_request.set_do_not_care_scapy(scapy.IP, "len")
-        masked_request.set_do_not_care_scapy(scapy.IP, "id")
-        masked_request.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_request.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.IP, "dst")
-        masked_request.set_do_not_care_scapy(scapy.IP, "options")
-
-        masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
-
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
-
+        self.set_common_ignored_mask_fields(masked_request)
         # Count the number of these packets received on the ports connected to our leaves
-        num_expected_packets = self.num_dhcp_servers
-        logger.info("Expect receiving relayed request packets from port [{}]".format(self.server_port_indices))
-        log_dhcp_packet_info(dhcp_request_relayed)
-        request_count = testutils.count_matched_packets_all_ports(
-            self, masked_request, self.server_port_indices)
-        self.assertTrue(request_count == num_expected_packets,
-                        "Failed: Request count of %d != %d" % (request_count, num_expected_packets))
+        self.check_relayed_pkts_on_server_side(masked_request, dhcp_request_relayed, "Request")
 
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
     def server_send_ack(self):
@@ -702,31 +754,9 @@ class DHCPTest(DataplaneBaseTest):
     # Verify that the DHCPACK would be received by our simulated client
     def verify_ack_received(self):
         dhcp_ack = self.create_dhcp_ack_relayed_packet()
-
         masked_ack = Mask(dhcp_ack)
-
-        masked_ack.set_do_not_care_scapy(scapy.IP, "version")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "len")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "id")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_ack.set_do_not_care_scapy(scapy.IP, "options")
-
-        masked_ack.set_do_not_care_scapy(scapy.UDP, "len")
-        masked_ack.set_do_not_care_scapy(scapy.UDP, "chksum")
-
-        masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        logger.info("Expect receiving relayed ack packets from port {}".format(self.client_port_index))
-        log_dhcp_packet_info(dhcp_ack)
-        # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
-        testutils.verify_packet(self, masked_ack, self.client_port_index)
+        self.set_common_ignored_mask_fields(masked_ack)
+        self.check_pkt_on_client_side(masked_ack, dhcp_ack, "Ack")
 
     def verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self, dst_mac=BROADCAST_MAC,
                                                                    src_port=DHCP_CLIENT_PORT):
@@ -738,31 +768,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_request = Mask(dhcp_request)
         masked_request.set_do_not_care_scapy(scapy.Ether, "src")
 
-        masked_request.set_do_not_care_scapy(scapy.IP, "version")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_request.set_do_not_care_scapy(scapy.IP, "len")
-        masked_request.set_do_not_care_scapy(scapy.IP, "id")
-        masked_request.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_request.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.IP, "src")
-        masked_request.set_do_not_care_scapy(scapy.IP, "dst")
-        masked_request.set_do_not_care_scapy(scapy.IP, "options")
-
-        masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
-        masked_request.set_do_not_care_scapy(scapy.DHCP, "options")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "yiaddr")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "ciaddr")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "siaddr")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "chaddr")
+        self.set_common_ignored_mask_fields(masked_request)
 
         try:
             testutils.verify_packets_any(
@@ -786,25 +792,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_request = Mask(dhcp_request_relayed)
         masked_request.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        masked_request.set_do_not_care_scapy(scapy.IP, "version")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_request.set_do_not_care_scapy(scapy.IP, "len")
-        masked_request.set_do_not_care_scapy(scapy.IP, "id")
-        masked_request.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_request.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_request.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.IP, "src")
-        masked_request.set_do_not_care_scapy(scapy.IP, "dst")
-        masked_request.set_do_not_care_scapy(scapy.IP, "options")
-
-        masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
-
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
+        self.set_common_ignored_mask_fields(masked_request)
 
         try:
             logger.info("Expect receiving request packets from port [{}]".format(self.server_port_indices))
@@ -849,34 +837,160 @@ class DHCPTest(DataplaneBaseTest):
         masked_bootp = Mask(bootp_packet)
         masked_bootp.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "version")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "ihl")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "tos")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "len")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "id")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "flags")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "frag")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "proto")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "dst")
-        masked_bootp.set_do_not_care_scapy(scapy.IP, "options")
+        self.set_common_ignored_mask_fields(masked_bootp)
 
-        masked_bootp.set_do_not_care_scapy(scapy.UDP, "chksum")
-        masked_bootp.set_do_not_care_scapy(scapy.UDP, "len")
-
-        masked_bootp.set_do_not_care_scapy(scapy.BOOTP, "hops")
-        masked_bootp.set_do_not_care_scapy(scapy.BOOTP, "sname")
-        masked_bootp.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        logger.info("Expect receiving bootp packets from port [{}]".format(self.server_port_indices))
-        log_dhcp_packet_info(bootp_packet)
         # Count the number of these packets received on the ports connected to upstream
+        self.check_relayed_pkts_on_server_side(masked_bootp, bootp_packet, "Bootp")
+
+    def client_send_unknown(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        dhcp_unknown = self.create_dhcp_discover_packet(dst_mac, src_port)
+        logger.info("Client send unknown packet")
+        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        log_dhcp_packet_info(dhcp_unknown)
+        testutils.send_packet(self, self.client_port_index, dhcp_unknown)
+
+    def verify_relayed_unknown_on_server_side(self):
+        # Create a packet resembling a relayed unknown packet
+        dhcp_unknown_relayed = self.create_dhcp_unknown_relayed_packet_from_client()
+
+        # Mask off fields we don't care about matching
+        masked_unknown = Mask(dhcp_unknown_relayed)
+        self.set_common_ignored_mask_fields(masked_unknown)
+        masked_unknown.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        # Count the number of these packets received on the ports connected to our leaves
+        self.check_relayed_pkts_on_server_side(masked_unknown, dhcp_unknown_relayed, "Unknown")
+
+    def server_send_unknown(self):
+        dhcp_unknown = self.create_dhcp_offer_packet()
+        logger.info("Server send unknown packet")
+        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        log_dhcp_packet_info(dhcp_unknown)
+        testutils.send_packet(self, self.server_port_indices[0], dhcp_unknown)
+
+    def verify_relayed_unknown_on_client_side(self):
+        dhcp_offer = self.create_dhcp_offer_relayed_packet()
+        dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        masked_offer = Mask(dhcp_offer)
+        self.set_common_ignored_mask_fields(masked_offer)
+
+        self.check_pkt_on_client_side(masked_offer, dhcp_offer, "Unknown")
+
+    def client_send_decline(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        dhcp_decline = self.create_dhcp_request_packet(dst_mac, src_port)
+        dhcp_decline[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'decline'), ('end')])
+        log_dhcp_packet_info(dhcp_decline)
+        testutils.send_packet(self, self.client_port_index, dhcp_decline)
+
+    def verify_relayed_decline(self):
+        # Create a packet resembling a relayed DHCPDECLINE packet
+        dhcp_decline_relayed = self.create_dhcp_decline_relayed_packet()
+
+        # Mask off fields we don't care about matching
+        masked_decline = Mask(dhcp_decline_relayed)
+        masked_decline.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        self.set_common_ignored_mask_fields(masked_decline)
+
+        # Count the number of these packets received on the ports connected to our leaves
+        self.check_relayed_pkts_on_server_side(masked_decline, dhcp_decline_relayed, "Decline")
+
+    def server_send_nak(self):
+        # Build the DHCP NAK packet
+        packet = self.create_dhcp_ack_packet()
+        packet[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
+        log_dhcp_packet_info(packet)
+        testutils.send_packet(self, self.server_port_indices[0], packet)
+
+    def verify_relayed_nak(self):
+        dhcp_nak = self.create_dhcp_ack_relayed_packet()
+        dhcp_nak[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
+        masked_ack = Mask(dhcp_nak)
+        self.set_common_ignored_mask_fields(masked_ack)
+        self.check_pkt_on_client_side(masked_ack, dhcp_nak, "Nak")
+
+    def client_send_release(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        dhcp_release = testutils.dhcp_release_packet(self.client_mac, self.client_ip, self.server_ip[0])
+        dhcp_release[scapy.Ether].dst = dst_mac
+        dhcp_release[scapy.IP].sport = src_port
+
+        if dst_mac != self.BROADCAST_MAC:
+            dhcp_release[scapy.IP].dst = self.switch_loopback_ip
+            dhcp_release[scapy.IP].src = self.client_ip
+        logger.info("Client send release packet")
+        log_dhcp_packet_info(dhcp_release)
+        testutils.send_packet(self, self.client_port_index, dhcp_release)
+
+    def verify_relayed_release(self):
+        dhcp_release = self.create_dhcp_release_relayed_packet()
+
+        masked_release = Mask(dhcp_release)
+        masked_release.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.set_common_ignored_mask_fields(masked_release)
+
+        self.check_relayed_pkts_on_server_side(masked_release, dhcp_release, "Release")
+
+    def client_send_inform(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        dhcp_inform = self.create_dhcp_discover_packet(dst_mac, src_port)
+        logger.info("Client send unknown packet")
+        dhcp_inform[scapy.DHCP] = scapy.DHCP(options=[('message-type', "inform"), ('end')])
+        log_dhcp_packet_info(dhcp_inform)
+        testutils.send_packet(self, self.client_port_index, dhcp_inform)
+
+    def verify_relayed_inform(self):
+        dhcp_request_relayed = self.create_dhcp_inform_relayed_packet()
+
+        # Mask off fields we don't care about matching
+        masked_request = Mask(dhcp_request_relayed)
+        masked_request.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.set_common_ignored_mask_fields(masked_request)
+
+        # Count the number of these packets received on the ports connected to our leaves
+        self.check_relayed_pkts_on_server_side(masked_request, dhcp_request_relayed, "Inform")
+
+    def check_relayed_pkts_on_server_side(self, mask, pkt, packet_type):
+        logger.info("Expect receiving {} packets from port [{}]".format(packet_type, self.server_port_indices))
+        log_dhcp_packet_info(pkt)
         num_expected_packets = self.num_dhcp_servers
-        bootp_count = testutils.count_matched_packets_all_ports(
-            self, masked_bootp, self.server_port_indices)
-        self.assertTrue(bootp_count == num_expected_packets,
-                        "Failed: Bootp count of %d != %d" % (bootp_count, num_expected_packets))
+        captured_count = testutils.count_matched_packets_all_ports(
+            self, mask, self.server_port_indices)
+        self.assertTrue(captured_count == num_expected_packets,
+                        "Failed: %s packet counts are not equal %d != %d"
+                        % (packet_type, captured_count, num_expected_packets))
+
+    def check_pkt_on_client_side(self, mask, pkt, packet_type):
+        logger.info("Expect receiving relayed {} packet from port {}".format(packet_type, self.client_port_index))
+        log_dhcp_packet_info(pkt)
+        testutils.verify_packet(self, mask, self.client_port_index)
+
+    def set_common_ignored_mask_fields(self, mask):
+        mask.set_do_not_care_scapy(scapy.IP, "version")
+        mask.set_do_not_care_scapy(scapy.IP, "ihl")
+        mask.set_do_not_care_scapy(scapy.IP, "tos")
+        mask.set_do_not_care_scapy(scapy.IP, "len")
+        mask.set_do_not_care_scapy(scapy.IP, "id")
+        mask.set_do_not_care_scapy(scapy.IP, "flags")
+        mask.set_do_not_care_scapy(scapy.IP, "frag")
+        mask.set_do_not_care_scapy(scapy.IP, "ttl")
+        mask.set_do_not_care_scapy(scapy.IP, "proto")
+        mask.set_do_not_care_scapy(scapy.IP, "chksum")
+        mask.set_do_not_care_scapy(scapy.IP, "dst")
+        mask.set_do_not_care_scapy(scapy.IP, "options")
+
+        mask.set_do_not_care_scapy(scapy.UDP, "chksum")
+        mask.set_do_not_care_scapy(scapy.UDP, "len")
+
+        mask.set_do_not_care_scapy(scapy.BOOTP, "sname")
+        mask.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+    def merge_layers_to_packet(self, ether, ip, udp, bootp):
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+        # If our bootp layer is too small, pad it
+        if pad_bytes > 0:
+            bootp /= scapy.PADDING('\x00' * pad_bytes)
+
+        pkt = ether / ip / udp / bootp
+        return pkt
 
     def runTest(self):
         # Start sniffer process for each server port to capture DHCP packet
@@ -898,6 +1012,18 @@ class DHCPTest(DataplaneBaseTest):
         self.verify_ack_received()
         self.client_send_bootp()
         self.verify_relayed_bootp()
+        self.client_send_unknown(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_unknown_on_server_side()
+        self.server_send_unknown()
+        self.verify_relayed_unknown_on_client_side()
+        self.client_send_decline(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_decline()
+        self.server_send_nak()
+        self.verify_relayed_nak()
+        self.client_send_release(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_release()
+        self.client_send_inform(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_inform()
         self.assertTrue(self.verified_option82, "Failed: Verifying option 82")
 
         # Below verification will be done only when client port is set in ptf_runner
