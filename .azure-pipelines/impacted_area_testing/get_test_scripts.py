@@ -12,8 +12,11 @@ import re
 import logging
 import json
 import argparse
+import csv
 from natsort import natsorted
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
+
+STABLE_TEST_SET_CSV = os.path.join(os.path.dirname(__file__), "../pr_test_stable_scripts.csv")
 
 
 def topo_name_to_topo_checker(topo_name):
@@ -55,13 +58,14 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
                 test_scripts_per_topology_checker[topology_checker].append(script_name)
 
 
-def collect_scripts_by_topology_type(features: str, location: str) -> dict:
+def collect_scripts_by_topology_type(features: str, location: str, test_set: str) -> dict:
     """
     This function collects all test scripts under the impacted area and category them by topology type.
 
     Args:
         Features: The impacted area defined by features
         Location: The location of test scripts
+        Test_set: The set of test scripts
 
     Returns:
         Dict: A dict of test scripts categorized by topology type.
@@ -76,6 +80,13 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
             for s in script:
                 if s.startswith("test_") and s.endswith(".py"):
                     scripts.append(os.path.join(root, s))
+    if test_set == "stable":
+        stable_scripts = []
+        with open(STABLE_TEST_SET_CSV, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                stable_scripts.append(row['FilePath'])
+        scripts = [s for s in stable_scripts if s in scripts]
     scripts = natsorted(scripts)
 
     # Open each file and search for regex pattern
@@ -106,8 +117,8 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
 
-def main(features, location):
-    scripts_list = collect_scripts_by_topology_type(features, location)
+def main(features, location, test_set):
+    scripts_list = collect_scripts_by_topology_type(features, location, test_set)
     print(json.dumps(scripts_list))
 
 
@@ -115,8 +126,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--features", help="Impacted area", nargs='?', const="", type=str, default="")
     parser.add_argument("--location", help="The location of folder `tests`", type=str, default="")
+    parser.add_argument("--test-set", help="The set of test scripts", type=str, default="")
     args = parser.parse_args()
 
     features = args.features
     location = args.location
-    main(features, location)
+    test_set = args.test_set
+    main(features, location, test_set)
