@@ -1,3 +1,10 @@
+- name: Pull original cEOS docker image from remote registry
+  docker_image:
+    name: "{{ ceos_image_orig }}"
+    source: pull
+  become: yes
+  when: "'/' in ceos_image_orig"
+
 - name: Check if cEOS docker image exists or not
   docker_image_info:
     name:
