@@ -3380,6 +3380,10 @@
   vm_base: VM12152
   dut:
     - str3-msn4280-02
+    - str3-msn4280-02-dpu-0
+    - str3-msn4280-02-dpu-1
+    - str3-msn4280-02-dpu-2
+    - str3-msn4280-02-dpu-3
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
