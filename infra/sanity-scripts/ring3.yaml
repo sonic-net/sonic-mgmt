@@ -77,6 +77,7 @@ FWD:
   t0-64:
     mth64:
       sim:
+        - fib/test_fib.py
         - ipfwd/test_dip_sip.py
         - drop_packets/test_drop_counters.py::test_acl_drop
         - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
@@ -89,7 +90,6 @@ FWD:
         - hash/test_generic_hash.py::test_backend_error_messages
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
         - acl/test_acl.py::TestAclWithPortToggle
-        - fib/test_fib.py
       hw:
         - crm/test_crm.py::test_crm_neighbor
         - crm/test_crm_available.py
