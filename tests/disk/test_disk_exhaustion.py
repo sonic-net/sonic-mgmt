@@ -170,10 +170,10 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     # Create a shell script to do the operations like fallocate and remove file,
     # because when space is full, duthost.command() is not work
 
-    # Get available space in /tmp mounted partition, the output of "df /tmp" was like below:
+    # Get available space in /host mounted partition, the output of "df /host" was like below:
     #   Filesystem     1K-blocks    Used Available Use% Mounted on
     #   root-overlay    14874056 6429908   8427764  44% /
-    df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+    df_rst = duthost.shell("df /host")["stdout_lines"][1].split()
     available_kb = int(df_rst[3])
     allocate_kb = int(available_kb * 0.95)
     used_before_test = int(df_rst[4].rstrip('%'))
@@ -181,11 +181,11 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
 
     # Setup test.sh and execute
     duthost.shell_cmds(cmds=[
-        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file' > /tmp/test.sh",
-        "echo 'sleep 60' >> /tmp/test.sh",
-        "echo 'sudo rm -f /tmp/huge_dummy_file' >> /tmp/test.sh",
-        "chmod u+x /tmp/test.sh",
-        "nohup /tmp/test.sh >/dev/null 2>&1 &"
+        f"echo 'fallocate -l {allocate_kb}K /host/huge_dummy_file' > /host/test.sh",
+        "echo 'sleep 60' >> /host/test.sh",
+        "echo 'sudo rm -f /host/huge_dummy_file' >> /host/test.sh",
+        "chmod u+x /host/test.sh",
+        "nohup /host/test.sh >/dev/null 2>&1 &"
     ], continue_on_fail=False, module_ignore_errors=True)
 
     try:
@@ -212,9 +212,9 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
         time.sleep(60)
 
         # Delete test.sh
-        duthost.shell("sudo rm -f /tmp/test.sh")
+        duthost.shell("sudo rm -f /host/test.sh")
         # Confirm disk space was released
-        df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+        df_rst = duthost.shell("df /host")["stdout_lines"][1].split()
         used_after_test = int(df_rst[4].rstrip('%'))
         logger.info("Use% before test is {}%, Use% after test is {}%".format(used_before_test, used_after_test))
         pytest_assert(used_after_test < 100 and used_after_test <= used_before_test / 0.8,
