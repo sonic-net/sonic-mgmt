@@ -311,7 +311,7 @@ class BJW(InvSpecific):
 
     def pop_reserved_ip(self):
         return filter(lambda ip: ip not in map(lambda testbed : testbed["netns_mgmt_ip"],
-                                               filter(lambda testbed :"netns_mgmt_ip" in testbed,
+                                               filter(lambda testbed : "netns_mgmt_ip" in testbed,
                                                       self.filter_testbeds_in_network())),
                       self.RESERVED_IPS).__next__()
 

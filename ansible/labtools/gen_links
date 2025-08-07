@@ -336,8 +336,8 @@ def get_port_breakout_map_generic(hwsku):
         return dict(special_hwsku_to_port_breakout_map[hwsku])
     ports_physical = get_port_alias_to_name_map_wrapper(hwsku, convert=True)
     ports_logical = get_port_alias_to_name_map_wrapper(hwsku, convert=False)
-    return build_port_breakout_map(sorted(list(ports_physical.keys()), key=lambda port: port_cmp_key(port)), \
-           sorted(list(ports_logical.keys()), key=lambda port: port_cmp_key(port)))
+    return build_port_breakout_map(sorted(list(ports_physical.keys()), key=lambda port : port_cmp_key(port)), \
+           sorted(list(ports_logical.keys()), key=lambda port : port_cmp_key(port)))
 
 
 # to make request of NUM physical ports with certain speed, we have to 
@@ -408,7 +408,7 @@ def combine_trunk_vlan(trunk_vlans):
         trunk_vlan = trunk_vlan.strip("\"")
         if trunk_vlan:
             intervals.extend(trunk_vlan.split(","))
-    intervals = sorted(intervals, key=lambda interval: int(interval.split("-")[0]))
+    intervals = sorted(intervals, key=lambda interval : int(interval.split("-")[0]))
     start_vlan = -1
     curr_vlan = -1
     combined_intervals = []
@@ -721,7 +721,7 @@ def get_breakout_ports(hwsku=None):
 
 def get_physical_ports_from_generator(generator, speed, num):
     speed_physical, _, port_breakout_map = generator(speed, num)
-    return speed_physical, sorted(port_breakout_map.keys(), key=lambda port: port_cmp_key(port))
+    return speed_physical, sorted(port_breakout_map.keys(), key=lambda port : port_cmp_key(port))
 
 
 def get_logical_ports_from_generator(generator, speed, num):
@@ -729,7 +729,7 @@ def get_logical_ports_from_generator(generator, speed, num):
     list_sum = []
     for ports_logical in port_breakout_map.values():
         list_sum.extend(ports_logical)
-    return speed_logical, sorted(list_sum, key=lambda port: port_cmp_key(port))
+    return speed_logical, sorted(list_sum, key=lambda port : port_cmp_key(port))
 
 
 """
@@ -853,7 +853,7 @@ class GenLink:
     def __match_logical_shared_fanout_speed(self, dut, dut_port_physical):
         if dut.hwsku in special_hwsku_to_shared_fanout_speed:
             required_speed_by_shared_fanout = special_hwsku_to_shared_fanout_speed[dut.hwsku]
-            qualified_ports_logical = filter(lambda item: item[0] == required_speed_by_shared_fanout, dut.ports_logical).__next__()[1]
+            qualified_ports_logical = filter(lambda item : item[0] == required_speed_by_shared_fanout, dut.ports_logical).__next__()[1]
             return all(map(lambda port_logical : port_logical in qualified_ports_logical, dut.port_breakout_map[dut_port_physical]))
         else:
             return True
@@ -875,7 +875,7 @@ class GenLink:
         for port_physical, ports_logical in shared_fanout_port_breakout_map.items():
             shared_fanout_port_list_physical.append(port_physical)
         return shared_fanout_speed_physical, sorted(shared_fanout_port_list_physical,
-                                                    key=lambda port: port_cmp_key(port))
+                                                    key=lambda port : port_cmp_key(port))
 
     def __gen_physical_link_no_fanout(self, dut, root_fanout_name, root_fanout_port_generator,
                                       shared_fanout_name, shared_fanout_port_generator):
@@ -1347,7 +1347,7 @@ class GenLinks:
                 csv_file = csv.DictReader(f)
                 for line in csv_file:
                     access_lines = filter(lambda line : line["VlanMode"] == "Access", csv_file)
-                    all_vlans = list(map(lambda line: int(line["VlanID"]), access_lines))
+                    all_vlans = list(map(lambda line : int(line["VlanID"]), access_lines))
             if all_vlans:
                 starting_vlan = max(all_vlans) + 1
             else:
