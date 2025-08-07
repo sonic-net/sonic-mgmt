@@ -3190,6 +3190,14 @@
   vm_base: VM66124
   dut:
   - str3-8102-07
+  - str3-8102-07-dpu-0
+  - str3-8102-07-dpu-1
+  - str3-8102-07-dpu-2
+  - str3-8102-07-dpu-3
+  - str3-8102-07-dpu-4
+  - str3-8102-07-dpu-5
+  - str3-8102-07-dpu-6
+  - str3-8102-07-dpu-7
   inv_name: str3
   auto_recover: 'True'
 

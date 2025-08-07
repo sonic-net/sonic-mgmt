@@ -442,6 +442,7 @@ sonic:
   children:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
+    sonic_pensando_elba_smartswitch_dpu:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8101_O8V48:
     sonic_cisco_8101_tornado:
@@ -592,6 +593,164 @@ sonic_cisco_8102_smartswitch:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_pensando_elba_smartswitch_dpu:
+  vars:
+    hwsku: Pensando-elba
+    iface_speed: 200000
+  hosts:
+    str3-8102-07-dpu-0:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D70
+      base_mac: 38:AA:09:53:AB:A0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D70"
+        "0x24": "38:AA:09:53:AB:A0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0x502DF079"
+    str3-8102-07-dpu-1:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D70
+      base_mac: 38:AA:09:53:AB:B0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D70"
+        "0x24": "38:AA:09:53:AB:B0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0xCA58BB2A"
+    str3-8102-07-dpu-2:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D6U
+      base_mac: 38:AA:09:53:AB:C0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D6U"
+        "0x24": "38:AA:09:53:AB:C0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0xBDF0F86B"
+    str3-8102-07-dpu-3:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D6U
+      base_mac: 38:AA:09:53:AB:D0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D6U"
+        "0x24": "38:AA:09:53:AB:D0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0x2785B338"
+    str3-8102-07-dpu-4:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D7X
+      base_mac: 38:AA:09:53:AB:E0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D7X"
+        "0x24": "38:AA:09:53:AB:E0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0x80555CFB"
+    str3-8102-07-dpu-5:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D7X
+      base_mac: 38:AA:09:53:AB:F0
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D7X"
+        "0x24": "38:AA:09:53:AB:F0"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0x1A2017A8"
+    str3-8102-07-dpu-6:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D7M
+      base_mac: 38:AA:09:53:AC:00
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D7M"
+        "0x24": "38:AA:09:53:AC:00"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0xD7403F4E"
+    str3-8102-07-dpu-7:
+      ansible_host: 10.3.146.173
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      mgmt_subnet_mask_length: 24
+      model: DSS-MTFUJI
+      serial: FLM29100D7M
+      base_mac: 38:AA:09:53:AC:10
+      syseeprom_info:
+        "0x21": "MTFUJI"
+        "0x22": "DSS-MTFUJI"
+        "0x23": "FLM29100D7M"
+        "0x24": "38:AA:09:53:AC:10"
+        "0x25": "1750204800"
+        "0x26": "1"
+        "0x29": "master-03250614-V001-dirty"
+        "0x2A": "16"
+        "0x2B": "CISCO"
+        "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
+        "0xFE": "0x4D35741D"
 
 sonic_cisco_8102_t0_smartswitch:
   vars:
