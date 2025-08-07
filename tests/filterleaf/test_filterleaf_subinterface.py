@@ -5,7 +5,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import constants
 
-
 pytestmark = [
     pytest.mark.topology("t1-filterleaf-lag")
 ]
