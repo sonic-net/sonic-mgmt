@@ -40,7 +40,7 @@ upgrade-agent – CLI tool for upgrade operations
 
 #### Test objective
 
-Verify that the upgrade service functions correctly in a local Linux VM environment.
+Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
 1. Deploy gNOI server locally using build_deploy.sh.
 2. Run grpcurl to list services and verify connectivity.
 3. Use upgrade-agent download with a test file URL.
@@ -51,7 +51,7 @@ Verify that the upgrade service functions correctly in a local Linux VM environm
 #### Test objective
 
 Validate upgrade service behavior on a KVM-based SONiC device.
-1. Deploy gNOI server and agent on PTF server.
+1. Deploy gNOI server on DUT and agent on PTF server.
 2. Run full upgrade flow: download → apply → reboot.
 3. Verify session tracking and post-upgrade state.
 4. Simulate failure (e.g., invalid URL) and verify error handling.
