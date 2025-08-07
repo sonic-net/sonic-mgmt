@@ -7,6 +7,7 @@ import yaml
 import re
 import ipaddress
 import io
+import statistics
 
 
 ANSIBLE = "../"
@@ -41,12 +42,14 @@ def merge_dict_recursive(self, other):
             self[key] = value
 
 
-def del_dict_recursive(self, other):
+def del_dict_recursive(self, other, ignore=None):
     for key, value in other.items():
+        if ignore and key == ignore:
+            continue
         if key not in self:
             raise Exception("Dict {} cannot be deleted from {}".format(other, self))
         if type(value) == dict:
-            del_dict_recursive(self[key], value)
+            del_dict_recursive(self[key], value, ignore=ignore)
             if len(self[key]) == 0:
                 del self[key]
         else:
@@ -143,11 +146,9 @@ class InvSpecific(ABC):
         self.veos_config = veos_config
         self.inv_file = inv_file
 
-    def __inv_in_network(self, inv):
-        return inv.startswith(self.inv.rstrip("1234567890"))
-
+    @abstractmethod
     def filter_testbeds_in_network(self):
-        return filter(lambda testbed : "inv_name" in testbed and self.__inv_in_network(testbed["inv_name"]), self.testbeds)
+        pass
 
     def filter_testbeds_in_inv(self):
         return filter(lambda testbed : "inv_name" in testbed and testbed["inv_name"] == self.inv, self.testbeds)
@@ -161,8 +162,9 @@ class InvSpecific(ABC):
     def testbed_in_server(self, testbed_name, server):
         return any(map(lambda testbed : testbed["conf-name"] == testbed_name, self.filter_testbeds_in_server(server)))
 
-    def allocate_server(self, vm_required):
-        for server, server_config in self.filter_servers_in_inv():
+    def allocate_server(self, vm_required, limit=None):
+        server_stats = {}
+        for server, server_config in self.filter_servers_in_inv(limit):
             for child in server_config["children"].keys():
                 if "host" in child:
                     continue
@@ -172,32 +174,46 @@ class InvSpecific(ABC):
                     continue
                 if num_vm == 0:
                     raise Exception("Please put in base VM for server {}".format(server))
-                elif num_vm == 1:
-                    vm_base = vm_hosts.keys().__iter__().__next__()
-                    vm_base_ip = vm_hosts[vm_base]["ansible_host"]
-                else:
-                    vm_base = "VM{}".format(max(map(lambda vm_name : int(vm_name[2:]), vm_hosts.keys())) + 1)
-                    vm_base_ip = str(max(map(lambda val : ipaddress.ip_address(val["ansible_host"]), vm_hosts.values())) + 1)
-                vm_base_index = int(re.search("\d+$", vm_base)[0])
-                vm_base_ip_address = ipaddress.ip_address(vm_base_ip)
-                new_vm_hosts = {
-                        child: {
-                            "hosts": {
-                                "VM{}".format(vm_base_index + offset): {
-                                    "ansible_host": str(vm_base_ip_address + offset),
-                                    } for offset in range(vm_required)
-                                }
-                            }
+                server_stats[server] = {"vm_hosts_label": child, "num_vm": num_vm, "vm_hosts": vm_hosts,
+                                        "num_testbeds": len(list(self.filter_testbeds_in_server(server)))}
+        if not server_stats:
+            raise Exception("No available servers")
+        for server, server_stat in server_stats.items():
+            if len(server_stats) == 1:
+                server_stat["prospective_stdev"] = 0
+                continue
+            avg_vm_per_tb = map(lambda item : (item[1]["num_vm"] + vm_required) / (item[1]["num_testbeds"] + 1) \
+                                              if item[0] == server \
+                                              else item[1]["num_vm"] / item[1]["num_testbeds"] if item[1]["num_testbeds"] else 0,
+                                server_stats.items())
+            server_stat["prospective_stdev"] = statistics.stdev(avg_vm_per_tb)
+        server, server_stat = min(server_stats.items(), key=lambda item : item[1]["prospective_stdev"])
+        num_vm, vm_hosts = server_stat["num_vm"], server_stat["vm_hosts"]
+        if num_vm == 1:
+            vm_base = vm_hosts.keys().__iter__().__next__()
+            vm_base_ip = vm_hosts[vm_base]["ansible_host"]
+        else:
+            vm_base = "VM{}".format(max(map(lambda vm_name : int(vm_name[2:]), vm_hosts.keys())) + 1)
+            vm_base_ip = str(max(map(lambda val : ipaddress.ip_address(val["ansible_host"]), vm_hosts.values())) + 1)
+        vm_base_index = int(re.search("\d+$", vm_base)[0])
+        vm_base_ip_address = ipaddress.ip_address(vm_base_ip)
+        new_vm_hosts = {
+                server_stat["vm_hosts_label"]: {
+                    "hosts": {
+                        "VM{}".format(vm_base_index + offset): {
+                            "ansible_host": str(vm_base_ip_address + offset),
+                            } for offset in range(vm_required)
                         }
-                return server, child, vm_base, new_vm_hosts
-        raise Exception("No available server")
+                    }
+                }
+        return server, child, vm_base, new_vm_hosts
 
     @abstractmethod
     def gen_testbed_name(self, topo, duts):
         pass
 
     @abstractmethod
-    def filter_servers_in_inv(self):
+    def filter_servers_in_inv(self, limit=None):
         pass
 
     @abstractmethod
@@ -223,19 +239,11 @@ class InvSpecific(ABC):
 
 class BJW(InvSpecific):
     BJW_MAX_VM = 100
-    BJW2_MAX_VM = 200
+    BJW2_MAX_VM = 140
+    RESERVED_IPS = ["10.150.23.{}/23".format(i) for i in range(41, 50)]
 
     def __init__(self, inv):
         self.inv = inv
-        self.__calculate_max_vm()
-
-    def __calculate_max_vm(self):
-        if self.inv == "bjw":
-            self.__max_vm = BJW.BJW_MAX_VM
-        elif self.inv == "bjw2":
-            self.__max_vm = BJW.BJW2_MAX_VM
-        else:
-            raise Exception("Unrecognized inv {}".format(self.inv))
 
     def gen_testbed_name(self, topo, duts):
         items = ["testbed"] + duts[0].split("-")
@@ -251,11 +259,28 @@ class BJW(InvSpecific):
                 start = start + 1
         return testbed_name
 
-    def filter_servers_in_inv(self):
-        return filter(lambda item : "server_{}_".format(self.inv) in item[0], self.veos_config.items())
+    def filter_servers_in_inv(self, limit=None):
+        return filter(lambda item : "server_{}_".format(self.inv) in item[0] and
+                                    (limit is None or item[0] in limit),
+                      self.veos_config.items())
+
+    def __inv_in_network(self, inv):
+        return inv == "bjw" or inv == "bjw2"
+
+    def filter_testbeds_in_network(self):
+        return filter(lambda testbed : "inv_name" in testbed and self.__inv_in_network(testbed["inv_name"]), self.testbeds)
+
+    # filter testbeds in entire beijing west lab
+    def filter_testbeds_in_bjw(self):
+        return filter(lambda testbed : "inv_name" in testbed and testbed["inv_name"].startswith("bjw"), self.testbeds)
 
     def get_max_vm_for_server(self, server):
-        return self.__max_vm
+        if self.inv == "bjw":
+            return BJW.BJW_MAX_VM
+        elif self.inv == "bjw2":
+            return BJW.BJW2_MAX_VM
+        else:
+            raise Exception("Unrecognized inv {}".format(self.inv))
 
     def __increment_group(self, group):
         if group[-1] == "9":
@@ -278,20 +303,44 @@ class BJW(InvSpecific):
         return group
 
     def get_extra_vars(self, **kwargs):
-        ptf_extra_mgmt_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_extra_mgmt_ip"][0]), self.filter_testbeds_in_inv())) + 1)
+        # ptf_extra_mgmt_ip is generally required in bjw but there are exceptions
+        ptf_extra_mgmt_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_extra_mgmt_ip"][0]),
+                                        filter(lambda testbed : "ptf_extra_mgmt_ip" in testbed,
+                                               self.filter_testbeds_in_bjw()))) + 1)
         return {"ptf_extra_mgmt_ip": [ptf_extra_mgmt_ip]}
 
     def pop_reserved_ip(self):
-        ips = ["10.150.23.{}/23".format(i) for i in range(41, 50)]
-        return filter(lambda ip: ip not in map(lambda testbed : testbed["netns_mgmt_ip"], self.filter_testbeds_in_network()), ips).__next__()
+        return filter(lambda ip: ip not in map(lambda testbed : testbed["netns_mgmt_ip"],
+                                               filter(lambda testbed :"netns_mgmt_ip" in testbed,
+                                                      self.filter_testbeds_in_network())),
+                      self.RESERVED_IPS).__next__()
 
     def comment(self):
         return "Beijing Lab"
 
 
+class BJW3(BJW):
+    SERVER_RAM = {
+            "server_bjw3_1": 251,
+            "server_bjw3_2": 251,
+            "server_bjw3_3": 251,
+            "server_bjw3_4": 251,
+            "server_bjw3_5": 251,
+            }
+    RESERVED_IPS = list(map(lambda ip : str(ip) + "/23", ipaddress.ip_network("10.150.238.32/27")))
+
+    def get_max_vm_for_server(self, server):
+        return int(BJW3.SERVER_RAM[server] / 1.8)
+
+    def filter_testbeds_in_network(self):
+        return filter(lambda testbed : "inv_name" in testbed and testbed["inv_name"] == "bjw3", self.testbeds)
+
+
 def get_inv_specific(inv):
-    if "bjw" in inv:
+    if inv == "bjw" or inv == "bjw2":
         return BJW(inv)
+    elif inv == "bjw3":
+        return BJW3(inv)
     else:
         raise NotImplementedError
 
@@ -375,10 +424,11 @@ class GenTestbeds:
 
     # we already have a prefilled testbed
     # we keep the name, topo, ptf ip and some others
-    def __gen_testbed_info_from_testbed(self, testbed):
+    def __gen_testbed_info_from_testbed(self, testbed, limit=None):
         conf_name = testbed["conf-name"]
         topo = testbed["topo"]
-        server, server_child, vm_base, new_vm_hosts = self.__inv_specific.allocate_server(self.__get_vm_required(topo))
+        server, server_child, vm_base, new_vm_hosts = self.__inv_specific.allocate_server(self.__get_vm_required(topo),
+                                                                                          limit)
         group = self.__inv_specific.allocate_group(server)
         new_testbed = dict(testbed)
         new_testbed["group-name"] = group
@@ -402,7 +452,7 @@ class GenTestbeds:
         topo_specific_extra_vars = self.__get_topo_specific_extra_vars(topo, server, conf_name)
         return new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars
 
-    def __gen_testbed_info(self, topo, duts):
+    def __gen_testbed_info(self, topo, duts, limit=None):
         conf_name = self.__inv_specific.gen_testbed_name(topo, duts)
         ptf_ip = str(max(map(lambda testbed : ipaddress.ip_interface(testbed["ptf_ip"]),
                              self.__inv_specific.filter_testbeds_in_network())) + 1)
@@ -424,7 +474,7 @@ class GenTestbeds:
             }
         new_testbed.update(inv_specific_extra_vars)
         new_testbed.update(topo_specific_extra_testbed_vars)
-        return self.__gen_testbed_info_from_testbed(new_testbed)
+        return self.__gen_testbed_info_from_testbed(new_testbed, limit)
 
     def __add_all_testbed_info(self, new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars):
         self.__testbeds.append(new_testbed)
@@ -448,28 +498,38 @@ class GenTestbeds:
         self.__add_all_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
         self.__add_incremental_testbed_info(new_testbed, new_vm_hosts, new_ptf_host, topo_specific_extra_vars)
 
-    def __add_testbed(self, topo, duts):
-        new_testbed_info = self.__gen_testbed_info(topo, duts)
+    def __add_testbed(self, topo, duts, limit=None):
+        new_testbed_info = self.__gen_testbed_info(topo, duts, limit)
         self.__add_testbed_info(*new_testbed_info)
 
-    def add_testbeds(self, topos, duts):
+    def __calculate_limit(self, no_servers=None, specify_servers=None):
+        if specify_servers is None:
+            limit = list(map(lambda item: item[0], self.__inv_specific.filter_servers_in_inv()))
+        else:
+            limit = specify_servers.split(",")
+        if no_servers is not None:
+            limit = list(filter(lambda item : item not in no_servers.split(","), limit))
+        return limit
+
+    def add_testbeds(self, topos, duts, no_servers=None, specify_servers=None):
+        limit = self.__calculate_limit(no_servers, specify_servers)
         topos = topos.split(",")
         duts = duts.split(",")
         for topo in topos:
             if "dual" in topo:
-                self.__add_testbed(topo, duts[:2])
+                self.__add_testbed(topo, duts[:2], limit)
                 duts = duts[2:]
             else:
-                self.__add_testbed(topo, duts[:1])
+                self.__add_testbed(topo, duts[:1], limit)
                 duts = duts[1:]
         yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
         yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
         yaml.dump(self.__new_inv_file, sys.stdout, sort_keys=False)
         yaml.dump(self.__new_extra_vars, sys.stdout, sort_keys=False)
 
-    def __add_testbeds_from_testbeds(self, testbeds):
+    def __add_testbeds_from_testbeds(self, testbeds, limit=None):
         for testbed in testbeds:
-            new_testbed_info = self.__gen_testbed_info_from_testbed(testbed)
+            new_testbed_info = self.__gen_testbed_info_from_testbed(testbed, limit)
             self.__add_testbed_info(*new_testbed_info)
         yaml.dump(self.__new_testbeds, sys.stdout, sort_keys=False)
         yaml.dump(self.__new_veos_config, sys.stdout, sort_keys=False)
@@ -537,8 +597,13 @@ class GenTestbeds:
 
     def __del_testbed_info(self, testbed, vm_hosts, ptf_host, extra_vars):
         testbed_name = testbed["conf-name"]
-        self.__testbeds = list(filter(lambda testbed : testbed["conf-name"] == testbed_name, self.__testbeds))
-        del_dict_recursive(self.__veos_config, vm_hosts)
+        self.__testbeds = list(filter(lambda testbed : testbed["conf-name"] != testbed_name, self.__testbeds))
+        for child in vm_hosts.keys():
+            # if no tb on server after deletion, leave one entry
+            if len(vm_hosts[child]["hosts"]) >= len(self.__veos_config[child]["hosts"]):
+                del_dict_recursive(self.__veos_config, vm_hosts, ignore=min(vm_hosts[child]["hosts"].keys(), key=lambda vm : int(vm[2:])))
+            else:
+                del_dict_recursive(self.__veos_config, vm_hosts)
         del_dict_recursive(self.__inv_file, ptf_host)
         for file_name, content in extra_vars.items():
             if file_name == MUX_SIMULATOR_HTTP_PORT_MAP:
@@ -562,9 +627,10 @@ class GenTestbeds:
         yaml.dump(self.__old_inv_file, sys.stdout, sort_keys=False)
         yaml.dump(self.__old_extra_vars, sys.stdout, sort_keys=False)
 
-    def adjust_testbeds(self, testbed_names):
+    def adjust_testbeds(self, testbed_names, no_servers=None, specify_servers=None):
         self.del_testbeds(testbed_names)
-        self.__add_testbeds_from_testbeds(self.__old_testbeds)
+        limit = self.__calculate_limit(no_servers, specify_servers)
+        self.__add_testbeds_from_testbeds(self.__old_testbeds, limit)
 
     def update_to_file(self):
         if self.__old_testbeds:
@@ -606,7 +672,7 @@ class GenTestbeds:
                 while end_index < len(lines) and lines[end_index] != "\n":
                     end_index = end_index + 1
                 lines = lines[:start_index] + \
-                        list(filter(lambda line : line not in old_lines, lines[start_index:end_index])) + \
+                        list(filter(lambda line : (line.split("#")[0].rstrip() + "\n") not in old_lines, lines[start_index:end_index])) + \
                         lines[end_index:]
             with open("../veos", "w") as f:
                 f.writelines(lines)
@@ -621,7 +687,7 @@ class GenTestbeds:
                 # if we are adding vm for the first time as override the starting
                 # place holder vm
                 if lines[key_index + 2] == new_lines[0]:
-                    lines = lines[:key_index + 2] + new_lines + lines[key_index + 3:]
+                    lines = lines[:key_index + 2] + new_lines + lines[key_index + 4:]
                 else:
                     next_empty_index = lines[key_index:].index("\n")
                     lines = lines[:key_index + next_empty_index] + new_lines + lines[key_index + next_empty_index:]
@@ -645,8 +711,13 @@ class GenTestbeds:
             new_lines = yaml_dump_lines(self.__new_inv_file)[2:]
             ptf_index = lines.index(new_lines[0])
             ptf_hosts_index = ptf_index + lines[ptf_index:].index(new_lines[1])
-            ptf_hosts_end_index = ptf_hosts_index + lines[ptf_hosts_index:].index("\n")
-            lines = lines[:ptf_hosts_end_index] + new_lines[2:3] + sort_yaml_lines(new_lines[3:]) + \
+            ptf_leading_spaces = (len(new_lines[2]) - len(new_lines[2].lstrip(" "))) * " "
+            ptf_hosts_end_index = ptf_hosts_index + 1 + filter(lambda item : not item[1].startswith(ptf_leading_spaces), enumerate(lines[ptf_hosts_index + 1:])).__next__()[0]
+            if len(new_lines[2:]) % 3:
+                raise Exception("Content of new inv file addition is unexpected: {}".format(new_lines))
+            chunks = [new_lines[i:i+3] for i in range(2, len(new_lines), 3)]
+            sorted_chunks= map(lambda chunk : chunk[0:1] + sort_yaml_lines(chunk[1:3]), chunks)
+            lines = lines[:ptf_hosts_end_index] + sum(sorted_chunks, []) + \
                     lines[ptf_hosts_end_index:]
             with open("../{}".format(self.inv), "w") as f:
                 f.writelines(lines)
@@ -711,6 +782,8 @@ if __name__ == "__main__":
     Examples:
         ./gen_testbed -i lab add -t t0,t1 -d DUT1,DUT2 # generate info for 2 testbeds with {t0, DUT1} and {t1, DUT2}
         ./gen_testbed -i lab -u add -t t0,t1 -d DUT1,DUT2 # update the generated info to files
+        ./gen_testbed -i lab add -t t0,t1 -d DUT1,DUT2 -s server-10,server-11 # allocate testbed on server-10, server-11
+        ./gen_testbed -i lab add -t t0,t1 -d DUT1,DUT2 -n server-10,server-11 # allocate no testbed on server-10, server-11
         ./gen_testbed -i lab del -t TESTBED # remove testbed named TESTBED
         ./gen_testbed -i lab adjust -t TESTBED # remove testbed named TESTBED
         ./gen_testbed -i lab show # show stats on servers in inventory
@@ -723,6 +796,8 @@ if __name__ == "__main__":
     add = subcommand.add_parser("add", help="add new testbeds")
     add.add_argument("--topo", "-t", required=True, help="list of topo separated by comma")
     add.add_argument("--dut", "-d", required=True, help="list of duts separated by comma")
+    add.add_argument("--no-servers", "-n", required=False, default=None, help="list of servers to skip")
+    add.add_argument("--specify-servers", "-s", required=False, default=None, help="alloc testbed on these servers")
 
     del_command = subcommand.add_parser("del", help="del old testbeds")
     del_command.add_argument("--testbed", "-t", required=True, help="list of testbeds separated by comma")
@@ -731,12 +806,14 @@ if __name__ == "__main__":
 
     adjust = subcommand.add_parser("adjust", help="adjust testbeds to better locations")
     adjust.add_argument("--testbed", "-t", required=True, help="list of testbeds separated by comma")
+    adjust.add_argument("--no-servers", "-n", required=False, default=None, help="list of servers to skip")
+    adjust.add_argument("--specify-servers", "-s", required=False, default=None, help="alloc testbed on these servers")
 
     args = parser.parse_args()
     gen_testbeds = GenTestbeds(args.inv)
 
     if args.subcommand == "add":
-        gen_testbeds.add_testbeds(args.topo, args.dut)
+        gen_testbeds.add_testbeds(args.topo, args.dut, args.no_servers, args.specify_servers)
 
     if args.subcommand == "show":
         gen_testbeds.show_testbeds()
@@ -745,7 +822,7 @@ if __name__ == "__main__":
         gen_testbeds.del_testbeds(args.testbed.split(","))
 
     if args.subcommand == "adjust":
-        gen_testbeds.adjust_testbeds(args.testbed.split(","))
+        gen_testbeds.adjust_testbeds(args.testbed.split(","), args.no_servers, args.specify_servers)
 
     if args.update_to_file:
         gen_testbeds.update_to_file()
