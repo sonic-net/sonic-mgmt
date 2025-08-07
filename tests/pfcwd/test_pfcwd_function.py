@@ -958,7 +958,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
             actions = ['dontcare', 'drop', 'forward']
             # A temporary workaround for TH5 platform as forward action is not working
-            if duthost.sonichost._facts['asic_type'] == "cisco-8000" or "7060X6" in duthost.facts['hwsku']:
+            if duthost.sonichost._facts['asic_type'] == "cisco-8000" or "7060X6" in duthost.facts['hwsku'].upper():
                 actions = ['dontcare', 'drop']
             for action in actions:
                 try:
