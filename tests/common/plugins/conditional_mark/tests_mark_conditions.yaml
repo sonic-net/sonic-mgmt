@@ -79,6 +79,7 @@ arp/test_wr_arp.py:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "release in ['202412']"
+      - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
 
 #######################################
 #####            bfd              #####
@@ -2387,6 +2388,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
 
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+  skip:
+    reason: "ipv6 mgmt ip is not supported, see check_timer_accuracy_test.yml#43"
+    conditions:
+    - "is_mgmt_ipv6_only==True"
+
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
      reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform."
@@ -2449,6 +2456,8 @@ qos:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "macsec_en==True"
+      # ipv6 mgmt ip is not supported, see fixture dut_disable_ipv6 in qos_sai_base.py
+      - "is_mgmt_ipv6_only==True"
 
 qos/test_buffer.py:
   skip:
@@ -3006,6 +3015,12 @@ snmp/test_snmp_link_local.py:
     condition:
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15081"
+
+snmp/test_snmp_lldp.py::test_snmp_lldp:
+  skip:
+    reason: "ipv6 mgmt ip is not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
