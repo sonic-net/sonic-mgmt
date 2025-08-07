@@ -504,6 +504,7 @@ sonic:
     sonic_cisco_8101_V64:
     sonic_cisco_8101_O32:
     sonic_cisco_8101_C32:
+    sonic_cisco_8101C01_C28S4:
     sonic_cisco_8101_O8C48:
     sonic_arista_7050_C32:
     sonic_arista_7050_S128:
@@ -1577,10 +1578,10 @@ sonic_cisco_8101_O8C48:
   hosts:
 
 
-sonic_cisco_8101_V64:
+sonic_cisco_8101C01_C28S4:
   vars:
-    hwsku: Cisco-8101-V64
-    iface_speed: 200000
+    hwsku: Cisco-8101C01-C28S4
+    iface_speed: 100000
   hosts:
     bjw2-can-8101c1-1:
       ansible_host: 10.150.23.241
@@ -1648,6 +1649,12 @@ sonic_cisco_8101_V64:
           timeout: 300
           wait: 600
       reduce_port_speed: true
+
+sonic_cisco_8101_V64:
+  vars:
+    hwsku: Cisco-8101-V64
+    iface_speed: 200000
+  hosts:
     bjw2-can-8101c1-6:
       ansible_host: 10.150.22.59
       ansible_hostv6: 2404:f801:10:2200::a96:163b
