@@ -18,12 +18,12 @@
     append: yes
     shell: /bin/bash
 
+- name: Grant NOPASSWD to sudo group
+  shell: sed -i "/^%sudo\s*ALL=(ALL:ALL)\s*ALL$/ c\%sudo ALL=(ALL:ALL) NOPASSWD:ALL" /etc/sudoers
+
 - name: Rotate the password
   shell: "echo {{ server_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
   ignore_errors: true
-
-- name: Grant NOPASSWD to sudo group
-  shell: sed -i "/^%sudo\s*ALL=(ALL:ALL)\s*ALL$/ c\%sudo ALL=(ALL:ALL) NOPASSWD:ALL" /etc/sudoers
 
 - name: Switch to user azure
   set_fact:
