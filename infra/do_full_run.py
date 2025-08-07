@@ -239,7 +239,6 @@ def run_test(args):
         rc = getTechSupport(target_client, local_log_dir)
         if rc!=0:
             log.error(f"Tech support failure")
-            return rc
         target_client.close()
         bastion_client.close()
 
